@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Generated content
+generated_stories/
+generated_sigils/
+session_logs/
+
+# Audio files
+*.wav
+*.mp3
+*.ogg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Personal
+notes.txt
+TODO.md
+
+# Model files (if using local LLMs)
+models/
+*.gguf
+*.bin
+*.safetensors
+
+# Stable Diffusion
+stable-diffusion/
+outputs/

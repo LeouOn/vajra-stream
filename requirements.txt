@@ -1,0 +1,28 @@
+# Core dependencies
+numpy>=1.24.0
+scipy>=1.10.0
+sounddevice>=0.4.6
+
+# Astrological calculations
+pyswisseph>=2.10.3.2
+
+# TTS (Text-to-Speech)
+pyttsx3>=2.90
+
+# Image generation (optional - for Stable Diffusion)
+# diffusers>=0.21.0
+# torch>=2.0.0
+# transformers>=4.30.0
+
+# LLM inference (optional - for local models)
+# ollama>=0.1.0
+
+# Database
+# Uses built-in sqlite3, no additional package needed
+
+# Scheduling
+apscheduler>=3.10.0
+
+# Utilities
+python-dateutil>=2.8.2
+pytz>=2023.3

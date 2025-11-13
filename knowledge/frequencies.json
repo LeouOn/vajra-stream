@@ -1,0 +1,132 @@
+{
+  "solfeggio": {
+    "396": {
+      "name": "Liberation from Fear",
+      "purpose": "Releasing guilt and fear",
+      "chakra": "root"
+    },
+    "417": {
+      "name": "Undoing Situations",
+      "purpose": "Facilitating change",
+      "chakra": "sacral"
+    },
+    "528": {
+      "name": "Transformation and Miracles",
+      "purpose": "DNA repair, love",
+      "chakra": "solar_plexus"
+    },
+    "639": {
+      "name": "Connecting Relationships",
+      "purpose": "Relationships, connection",
+      "chakra": "heart"
+    },
+    "741": {
+      "name": "Awakening Intuition",
+      "purpose": "Expression, solutions",
+      "chakra": "throat"
+    },
+    "852": {
+      "name": "Returning to Spiritual Order",
+      "purpose": "Awakening intuition",
+      "chakra": "third_eye"
+    },
+    "963": {
+      "name": "Divine Connection",
+      "purpose": "Oneness, unity",
+      "chakra": "crown"
+    }
+  },
+  "planetary": {
+    "136.1": {
+      "name": "OM / Earth Year",
+      "planet": "Earth",
+      "calculation": "Frequency of Earth's revolution around Sun",
+      "note": "C#",
+      "purpose": "Grounding, earth connection"
+    },
+    "194.18": {
+      "name": "Earth Day",
+      "planet": "Earth",
+      "calculation": "Frequency of Earth's rotation (24 hours)",
+      "note": "G",
+      "purpose": "Daily rhythm, vitality"
+    },
+    "126.22": {
+      "name": "Sun",
+      "planet": "Sun",
+      "purpose": "Life force, vitality, power"
+    },
+    "210.42": {
+      "name": "Moon",
+      "planet": "Moon",
+      "purpose": "Emotions, intuition, feminine"
+    },
+    "144.72": {
+      "name": "Mars",
+      "planet": "Mars",
+      "purpose": "Action, courage, warrior energy"
+    },
+    "141.27": {
+      "name": "Mercury",
+      "planet": "Mercury",
+      "purpose": "Communication, intellect"
+    },
+    "183.58": {
+      "name": "Jupiter",
+      "planet": "Jupiter",
+      "purpose": "Expansion, wisdom, abundance"
+    },
+    "147.85": {
+      "name": "Saturn",
+      "planet": "Saturn",
+      "purpose": "Structure, discipline, karma"
+    },
+    "221.23": {
+      "name": "Venus",
+      "planet": "Venus",
+      "purpose": "Love, beauty, harmony"
+    }
+  },
+  "schumann": {
+    "7.83": {
+      "name": "Schumann Fundamental",
+      "purpose": "Earth resonance, grounding",
+      "description": "Earth's electromagnetic frequency"
+    },
+    "14.3": {
+      "name": "Schumann 2nd Harmonic",
+      "purpose": "Enhanced earth connection"
+    },
+    "20.8": {
+      "name": "Schumann 3rd Harmonic",
+      "purpose": "Beta brainwave resonance"
+    }
+  },
+  "brainwave": {
+    "0.5-4": {
+      "name": "Delta",
+      "state": "Deep sleep",
+      "purpose": "Healing, regeneration"
+    },
+    "4-8": {
+      "name": "Theta",
+      "state": "Deep meditation, dreams",
+      "purpose": "Intuition, creativity, deep relaxation"
+    },
+    "8-12": {
+      "name": "Alpha",
+      "state": "Relaxed awareness",
+      "purpose": "Calm, learning, light meditation"
+    },
+    "12-30": {
+      "name": "Beta",
+      "state": "Active thinking",
+      "purpose": "Focus, concentration"
+    },
+    "30-100": {
+      "name": "Gamma",
+      "state": "Peak awareness",
+      "purpose": "Insight, higher consciousness"
+    }
+  }
+}
