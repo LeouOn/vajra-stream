@@ -1,0 +1,185 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-gray-900 text-white font-sans antialiased;
+    overflow-x: hidden;
+  }
+  
+  * {
+    @apply border-gray-700;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  .vajra-button {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-vajra-cyan focus:ring-opacity-50;
+  }
+  
+  .vajra-button-primary {
+    @apply bg-vajra-cyan hover:bg-cyan-600 text-white;
+  }
+  
+  .vajra-button-secondary {
+    @apply bg-gray-700 hover:bg-gray-600 text-white;
+  }
+  
+  .vajra-button-success {
+    @apply bg-green-600 hover:bg-green-700 text-white;
+  }
+  
+  .vajra-button-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white;
+  }
+  
+  .vajra-input {
+    @apply w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-vajra-cyan focus:border-transparent transition-colors;
+  }
+  
+  .vajra-card {
+    @apply bg-gray-800 rounded-lg p-4 border border-gray-700;
+  }
+  
+  .vajra-panel {
+    @apply bg-gray-800 rounded-lg p-6 border border-gray-700;
+  }
+}
+
+/* Custom utility styles */
+@layer utilities {
+  .text-shadow-glow {
+    text-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
+  }
+  
+  .bg-gradient-vajra {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+  
+  .bg-gradient-sacred {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 188, 212, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 188, 212, 0.6);
+  }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply animate-spin rounded-full border-2 border-gray-600 border-t-vajra-cyan;
+}
+
+/* Connection status indicator */
+.connection-status {
+  @apply inline-flex items-center space-x-2 px-3 py-1 rounded-full text-sm font-medium;
+}
+
+.connection-status.connected {
+  @apply bg-green-900 text-green-300;
+}
+
+.connection-status.disconnected {
+  @apply bg-red-900 text-red-300;
+}
+
+/* Visualization container */
+.visualization-container {
+  @apply relative w-full h-full bg-gray-900 rounded-lg overflow-hidden;
+}
+
+/* Audio spectrum bars */
+.spectrum-bar {
+  @apply bg-gradient-to-t from-vajra-cyan to-vajra-purple rounded-t-sm transition-all duration-100;
+}
+
+/* Sacred geometry animation */
+.sacred-geometry-ring {
+  @apply absolute rounded-full border-2;
+  animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Session card */
+.session-card {
+  @apply bg-gray-800 rounded-lg p-4 border border-gray-700 transition-all duration-200 hover:border-vajra-cyan hover:shadow-lg;
+}
+
+.session-card.active {
+  @apply border-vajra-cyan shadow-lg shadow-cyan-500/20;
+}
+
+/* Frequency display */
+.frequency-display {
+  @apply font-mono text-lg text-vajra-cyan font-bold;
+}
+
+/* Status indicator */
+.status-indicator {
+  @apply inline-flex items-center space-x-2;
+}
+
+.status-indicator::before {
+  content: '';
+  @apply w-2 h-2 rounded-full;
+}
+
+.status-indicator.active::before {
+  @apply bg-green-500 animate-pulse;
+}
+
+.status-indicator.inactive::before {
+  @apply bg-gray-500;
+}
+
+/* Responsive design adjustments */
+@media (max-width: 768px) {
+  .vajra-panel {
+    @apply p-4;
+  }
+  
+  .vajra-card {
+    @apply p-3;
+  }
+}
