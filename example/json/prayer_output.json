@@ -1,0 +1,49 @@
+{
+  "prayer": {
+    "title": "Celestial Equilibrium",
+    "intention": "To harmonize the energy of the universe and all its inhabitants",
+    "perfections": {
+      "perfect_teacher": {
+        "type": "Cosmic Principle",
+        "content": "The interplay of light and dark, form and formlessness"
+      },
+      "perfect_intention": {
+        "type": "Unity",
+        "content": "To dissolve the illusion of separation between self and cosmos"
+      },
+      "retinue": {
+        "type": "Celestial Forces",
+        "content": ["Stars", "Black Holes", "Quantum Fields"]
+      },
+      "time": {
+        "type": "Present Moment",
+        "content": "Now, unbound by past or future",
+        "timestamp": "2023-11-15T14:30:00Z"  // ISO 8601 format
+      },
+      "location": {
+        "type": "Earth",  // Options: "Earth", "Mars", "Star", "Nebula", "Other"
+        "content": "The surface of Earth at the intersection of 40.7128° N, 74.0060° W",
+        "coordinates": {
+          "longitude": -74.0060,
+          "latitude": 40.7128
+        },
+        "fallback_location": "New York City, Earth"  // Fallback text for non-Earth locations
+      }
+    },
+    "radionics": {
+      "frequencies": [432, 741, 108],
+      "mantras": [
+        "Om Namo Bhagavate Vasudevaya",
+        "AUM AH HUM",
+        "Om Shanti Shanti Shanti"
+      ],
+      "color_scheme": ["#000000", "#FFFFFF", "#007BFF"],
+      "image": {
+        "type": "Cosmic",
+        "description": "A spiral galaxy with a central black hole",
+        "url": "https://example.com/galaxy.png"
+      },
+      "instructions": "Activate the radionics machine with the frequencies above. Align with the coordinates for Earth, or use the fallback location for other celestial bodies."
+    }
+  }
+}

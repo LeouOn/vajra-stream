@@ -1,0 +1,18 @@
+{
+  "plant": {
+    "common_name": "Ginseng",
+    "scientific_name": "Panax ginseng",
+    "chinese_name": "人参",
+    "parts_used": ["roots"],
+    "colors": ["yellow", "white"],
+    "medicinal_uses": ["energy booster", "stress reduction", "immune support"],
+    "traditional_uses": {
+      "Eastern medicine": "Enhances vitality",
+      "Western herbalism": "Adaptogen for fatigue"
+    },
+    "active_compounds": ["ginsenosides", "polysaccharides"],
+    "habitat": "Mountainous regions of China, Korea, and Russia",
+    "preparation_methods": ["steeped in tea", "powdered", "extracted"],
+    "cautions": "May interact with blood thinners; consult a healthcare provider"
+  }
+}
