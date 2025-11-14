@@ -2,6 +2,7 @@
 numpy>=1.24.0
 scipy>=1.10.0
 sounddevice>=0.4.6
+pydub>=0.25.0
 
 # Astrological calculations
 pyswisseph>=2.10.3.2

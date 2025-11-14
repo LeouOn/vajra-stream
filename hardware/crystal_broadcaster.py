@@ -14,8 +14,8 @@ import os
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from core.audio_generator import ScalarWaveGenerator, INTENTION_TO_FREQUENCY
+from core.enhanced_audio_generator import EnhancedAudioGenerator
 
 
 class Level2CrystalBroadcaster:
@@ -29,6 +29,7 @@ class Level2CrystalBroadcaster:
         self.sample_rate = 44100
         self.channels = 2  # Stereo for left/right speakers
         self.audio_gen = ScalarWaveGenerator(self.sample_rate)
+        self.enhanced_gen = EnhancedAudioGenerator(self.sample_rate)
         self.pure_sine = pure_sine  # Flag for original sine wave mode
         
     def generate_5_channel_blessing(self, intention, duration=300):
@@ -72,8 +73,8 @@ class Level2CrystalBroadcaster:
                 wave += np.sin(2 * np.pi * freq * t)
             else:
                 # Prayer bowl synthesis for each frequency
-                bowl_tone = self.audio_gen.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
-                wave += bowl_tone
+                prayer_bowl = self.enhanced_gen.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
+                wave += prayer_bowl
         
         # Normalize
         wave = wave / len(frequencies)
@@ -131,9 +132,9 @@ class Level2CrystalBroadcaster:
             wave = wave / 1.3
         else:
             # Prayer bowl synthesis
-            wave = self.audio_gen.generate_prayer_bowl_tone(base_freq, duration, pure_sine=False)
-            schumann = self.audio_gen.generate_prayer_bowl_tone(7.83, duration, pure_sine=False)
-            wave = wave + 0.3 * schumann
+            prayer_bowl = self.enhanced_gen.generate_prayer_bowl_tone(base_freq, duration, pure_sine=False)
+            schumann = self.enhanced_gen.generate_prayer_bowl_tone(7.83, duration, pure_sine=False)
+            wave = prayer_bowl + 0.3 * schumann
             wave = wave / np.max(np.abs(wave))
         
         # Stereo
@@ -208,9 +209,11 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
         for name, freq in frequencies.items():
             print(f"  {name.title()}: {freq} Hz")
         
+        # Generate time array
+        t = np.linspace(0, duration, int(self.sample_rate * duration))
+        
         if self.pure_sine:
             # Original approach
-            t = np.linspace(0, duration, int(self.sample_rate * duration))
             wave = np.zeros_like(t)
             
             # Weight lower frequencies more for shaker
@@ -231,11 +234,11 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
             
             for name, freq in frequencies.items():
                 # Generate prayer bowl tone for each frequency
-                bowl_tone = self.audio_gen.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
+                prayer_bowl = self.enhanced_gen.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
                 
                 # Weight lower frequencies more for shaker
                 weight = 2.0 if freq < 100 else 1.0
-                wave += weight * bowl_tone
+                wave += weight * prayer_bowl
             
             # Normalize with headroom for amplifier
             wave = wave / np.max(np.abs(wave)) * 0.7
@@ -296,8 +299,8 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
                 if step_end > step_start:
                     freq = start_freq + (end_freq - start_freq) * (i / len(t))
                     step_t = np.linspace(0, step_duration, step_end - step_start)
-                    step_wave = self.audio_gen.generate_prayer_bowl_tone(freq, step_duration, pure_sine=False)
-                    wave[step_start:step_end] = step_wave[:step_end-step_start]
+                    step_wave = self.enhanced_gen.generate_prayer_bowl_tone(freq, step_duration, pure_sine=False)
+                    wave[step_start:step_end] = step_wave
             
             wave = wave * 0.5  # Medium volume
         
@@ -331,9 +334,10 @@ if __name__ == "__main__":
     
     try:
         audio_mode = int(input("\nAudio mode (1 or 2, default 1): ") or "1")
-        pure_sine = (audio_mode == 2)
     except (ValueError, KeyboardInterrupt):
-        pure_sine = False
+        audio_mode = 1
+    
+    pure_sine = (audio_mode == 2)
     
     if level == 3:
         broadcaster = Level3AmplifiedBroadcaster(pure_sine=pure_sine)
