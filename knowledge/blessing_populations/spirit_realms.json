@@ -1,0 +1,122 @@
+{
+  "description": "Beings in non-physical suffering - hungry ghosts, spirits, land spirits (Buddhist cosmology)",
+  "note": "These categories honor Buddhist cosmology and indigenous spiritual traditions",
+  "targets": [
+    {
+      "name": "Hungry Ghosts - Preta Realm",
+      "category": "hungry_ghost",
+      "description": "Beings in the hungry ghost realm experiencing insatiable craving and deprivation (Buddhist cosmology)",
+      "priority": 9,
+      "intention": "May all hungry ghosts be liberated from craving, may they receive spiritual nourishment and favorable rebirth",
+      "additional_data": {
+        "realm": "preta loka",
+        "primary_suffering": "insatiable hunger, thirst, craving",
+        "causes": "extreme greed, stinginess, attachment in previous lives"
+      }
+    },
+    {
+      "name": "Spirits at Sites of Mass Suffering",
+      "category": "hungry_ghost",
+      "description": "Beings lingering at sites of genocide, war, disasters, unable to move on",
+      "priority": 9,
+      "intention": "May all spirits at suffering sites find peace, liberation, and transition to favorable states",
+      "locations": [
+        "Hiroshima/Nagasaki",
+        "Auschwitz and Holocaust sites",
+        "Rwandan genocide sites",
+        "Cambodian killing fields",
+        "Battlefields worldwide",
+        "Disaster sites",
+        "Massacre locations"
+      ],
+      "additional_data": {
+        "practice": "Phowa (consciousness transference), prayers for the dead"
+      }
+    },
+    {
+      "name": "Land Spirits at Destroyed Sacred Sites",
+      "category": "land_spirit",
+      "description": "Indigenous land spirits at sacred sites that have been desecrated or destroyed",
+      "priority": 7,
+      "intention": "May all displaced land spirits find peace, may sacred sites be honored and restored",
+      "additional_data": {
+        "examples": [
+          "Sites of colonial destruction",
+          "Deforested sacred groves",
+          "Mined mountains",
+          "Dammed rivers",
+          "Paved burial grounds"
+        ]
+      }
+    },
+    {
+      "name": "Spirits of Animals Killed in Large Numbers",
+      "category": "hungry_ghost",
+      "description": "Spirits of animals killed in factory farms, labs, hunting, etc.",
+      "priority": 8,
+      "intention": "May the spirits of all animals killed by humans find peace, liberation, and favorable rebirth",
+      "additional_data": {
+        "scale": "billions annually",
+        "practice": "Animal liberation prayers, vegetarian dedication"
+      }
+    },
+    {
+      "name": "Ghosts of the Forgotten Dead",
+      "category": "hungry_ghost",
+      "description": "Unidentified remains, mass graves, unmarked graves - those with no one to pray for them",
+      "priority": 9,
+      "intention": "May all forgotten dead be remembered, honored, and liberated",
+      "additional_data": {
+        "includes": [
+          "Unknown soldiers",
+          "Plague victims in mass graves",
+          "Pauper burials",
+          "Unidentified disaster victims",
+          "Unclaimed remains"
+        ]
+      }
+    },
+    {
+      "name": "Beings in the Hell Realms",
+      "category": "suffering_unknown",
+      "description": "Beings experiencing extreme suffering in hell states (Buddhist cosmology)",
+      "priority": 10,
+      "intention": "May all hell beings be freed from torment through the power of compassion, may their suffering be swift and karmic debts be cleared",
+      "additional_data": {
+        "realm": "naraka",
+        "primary_suffering": "extreme physical and mental torment",
+        "causes": "extreme anger, violence, cruelty in previous lives",
+        "liberation_practices": ["Medicine Buddha", "Chenrezig", "Amitabha purification"]
+      }
+    },
+    {
+      "name": "Beings in the Bardo (Intermediate State)",
+      "category": "deceased",
+      "description": "All beings currently between death and rebirth (up to 49 days after death)",
+      "priority": 9,
+      "intention": "May all beings in the bardo recognize the clear light, attain liberation or favorable rebirth",
+      "additional_data": {
+        "state": "antarabhava (intermediate existence)",
+        "duration": "up to 49 days traditionally",
+        "practices": ["Tibetan Book of the Dead readings", "Phowa", "dedication of merit"]
+      }
+    },
+    {
+      "name": "Spirits Bound to Places of Trauma",
+      "category": "hungry_ghost",
+      "description": "Ghosts unable to move on due to traumatic death (murder victims, accident victims, suicide)",
+      "priority": 8,
+      "intention": "May all trauma-bound spirits be freed, may they find peace and healing",
+      "additional_data": {
+        "locations": [
+          "Murder sites",
+          "Accident locations",
+          "Hospitals",
+          "Prisons",
+          "Haunted locations"
+        ],
+        "practice": "House clearing prayers, spirit release ceremonies"
+      }
+    }
+  ]
+}

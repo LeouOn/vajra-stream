@@ -1,0 +1,116 @@
+{
+  "description": "Marginalized and suffering human populations",
+  "note": "These are general categories - add specific individuals as they become known",
+  "targets": [
+    {
+      "name": "Missing Children (Worldwide)",
+      "category": "missing_person",
+      "description": "All children currently reported missing worldwide (approx 460,000+ in US alone)",
+      "priority": 10,
+      "intention": "May all missing children be found safe, returned to loving homes, and healed from trauma",
+      "additional_data": {
+        "estimated_count": "millions globally",
+        "data_sources": ["NCMEC", "ICMEC", "Interpol"]
+      }
+    },
+    {
+      "name": "Missing Adults (Worldwide)",
+      "category": "missing_person",
+      "description": "All adults currently reported missing worldwide",
+      "priority": 9,
+      "intention": "May all missing adults be found, and may their families find peace",
+      "additional_data": {
+        "estimated_count": "millions globally",
+        "data_sources": ["NamUs", "local law enforcement databases"]
+      }
+    },
+    {
+      "name": "Unidentified Human Remains (US)",
+      "category": "unidentified_remains",
+      "description": "Approximately 4,400 unidentified persons in NamUs database (US only)",
+      "priority": 9,
+      "intention": "May these souls be identified, may their families find closure, may they rest in peace",
+      "additional_data": {
+        "estimated_count": 4400,
+        "data_sources": ["NamUs", "Doe Network", "DNA Doe Project"]
+      }
+    },
+    {
+      "name": "Homeless Individuals (Worldwide)",
+      "category": "homeless",
+      "description": "Estimated 150+ million homeless people worldwide, 580,000+ in US",
+      "priority": 8,
+      "intention": "May all homeless beings find shelter, safety, food, and a path to stability",
+      "additional_data": {
+        "estimated_count": "150+ million globally, 580,000+ US",
+        "data_sources": ["UN Habitat", "HUD Point-in-Time Count"]
+      }
+    },
+    {
+      "name": "Refugees and Displaced Persons",
+      "category": "refugee",
+      "description": "110+ million forcibly displaced people worldwide (UNHCR 2023)",
+      "priority": 9,
+      "intention": "May all refugees and displaced persons find safety, peace, and welcoming homes",
+      "additional_data": {
+        "estimated_count": "110+ million",
+        "data_sources": ["UNHCR"]
+      }
+    },
+    {
+      "name": "Incarcerated Individuals (US)",
+      "category": "incarcerated",
+      "description": "Approximately 1.9 million incarcerated in US prisons and jails",
+      "priority": 7,
+      "intention": "May all incarcerated beings find healing, transformation, rehabilitation, and freedom from suffering",
+      "additional_data": {
+        "estimated_count": "1.9 million US, 11+ million globally",
+        "data_sources": ["Bureau of Justice Statistics", "World Prison Brief"]
+      }
+    },
+    {
+      "name": "Victims of Human Trafficking",
+      "category": "suffering_unknown",
+      "description": "Estimated 27+ million people in modern slavery/trafficking globally",
+      "priority": 10,
+      "intention": "May all victims of trafficking be freed, healed, and protected; may traffickers face justice and transformation",
+      "additional_data": {
+        "estimated_count": "27+ million",
+        "data_sources": ["ILO", "Walk Free Foundation"]
+      }
+    },
+    {
+      "name": "Child Soldiers",
+      "category": "suffering_unknown",
+      "description": "Estimated 250,000+ child soldiers worldwide",
+      "priority": 10,
+      "intention": "May all child soldiers be freed from violence, healed from trauma, and given peaceful childhoods",
+      "additional_data": {
+        "estimated_count": "250,000+",
+        "data_sources": ["UN", "Child Soldiers International"]
+      }
+    },
+    {
+      "name": "Those Suffering from Famine",
+      "category": "suffering_unknown",
+      "description": "828 million people facing chronic hunger (FAO 2021), millions in acute famine conditions",
+      "priority": 9,
+      "intention": "May all hungry beings be nourished, may food systems be just and abundant",
+      "additional_data": {
+        "estimated_count": "828 million chronic hunger, millions in famine",
+        "data_sources": ["FAO", "World Food Programme"]
+      }
+    },
+    {
+      "name": "Terminally Ill Without Palliative Care",
+      "category": "suffering_unknown",
+      "description": "Millions dying in pain without access to palliative care globally",
+      "priority": 8,
+      "intention": "May all terminally ill beings have comfort, dignity, pain relief, and peaceful transitions",
+      "additional_data": {
+        "estimated_count": "millions annually",
+        "data_sources": ["WHO", "Lancet Commission on Palliative Care"]
+      }
+    }
+  ]
+}
