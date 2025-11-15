@@ -1,0 +1,164 @@
+# OpenAI TTS Configuration
+openai_tts:
+  api_key: "${OPENAI_API_KEY}"
+  model: "tts-1-hd"
+  default_speed: 1.0
+  output_format: "mp3"
+  
+  voices:
+    compassionate_male:
+      voice_id: "onyx"
+      language: "en"
+      gender: "male"
+      age: "adult"
+      style: "compassionate"
+    compassionate_female:
+      voice_id: "nova"
+      language: "en"
+      gender: "female"
+      age: "adult"
+      style: "compassionate"
+    meditation_guide:
+      voice_id: "shimmer"
+      language: "en"
+      gender: "female"
+      age: "young"
+      style: "gentle"
+
+# ElevenLabs Configuration
+elevenlabs:
+  api_key: "${ELEVENLABS_API_KEY}"
+  model: "eleven_multilingual_v2"
+  output_format: "mp3"
+  default_emotional_range: 0.7
+  
+  voices:
+    rachel:
+      voice_id: "rachel"
+      language: "en"
+      gender: "female"
+      age: "adult"
+      style: "compassionate"
+      emotional_range: 0.8
+    domi:
+      voice_id: "domi"
+      language: "en"
+      gender: "male"
+      age: "adult"
+      style: "authoritative"
+      emotional_range: 0.6
+    adam:
+      voice_id: "adam"
+      language: "en"
+      gender: "male"
+      age: "adult"
+      style: "gentle"
+      emotional_range: 0.7
+    # Sacred language voices
+    sanskrit_chant:
+      voice_id: "bella"
+      language: "sa"
+      gender: "female"
+      age: "adult"
+      style: "meditation"
+      emotional_range: 0.5
+    tibetan_monk:
+      voice_id: "drew"
+      language: "bo"
+      gender: "male"
+      age: "elderly"
+      style: "meditation"
+      emotional_range: 0.3
+
+# Coqui TTS Configuration (Local Models)
+coqui_tts:
+  models_directory: "./models/tts"
+  default_sample_rate: 22050
+  
+  models:
+    # English models
+    tacotron2_en:
+      language: "en"
+      gender: "female"
+      age: "adult"
+      style: "compassionate"
+      sample_rate: 22050
+    # Sacred language models
+    sanskrit_tts:
+      language: "sa"
+      gender: "male"
+      age: "elderly"
+      style: "meditation"
+      sample_rate: 16000
+    # Tibetan models
+    tibetan_chant:
+      language: "bo"
+      gender: "male"
+      age: "elderly"
+      style: "meditation"
+      sample_rate: 16000
+    # Pali models
+    pali_sutra:
+      language: "pi"
+      gender: "male"
+      age: "adult"
+      style: "teaching"
+      sample_rate: 22050
+
+# pyttsx3 Fallback Configuration
+pyttsx3:
+  enabled: true
+  rate: 150  # Words per minute
+  volume: 0.9
+  voice_index: 0
+
+# Audio Processing Settings
+audio_processing:
+  sample_rate: 22050
+  bit_depth: 16
+  channels: 1
+  format: "wav"
+  
+  # Frequency optimization
+  frequency_optimization:
+    enabled: true
+    target_frequencies:
+      - 432  # Sacred frequency
+      - 528  # Love frequency
+      - 741  # Awakening frequency
+      - 963  # Pineal gland frequency
+    optimization_strength: 0.05  # Subtle enhancement
+
+# Caching Settings
+cache:
+  enabled: true
+  ttl_seconds: 86400  # 24 hours
+  max_size: 500  # Maximum cached audio files
+  storage_path: "./cache/tts"
+
+# Quality Settings
+quality:
+  default_emotional_tone: "compassionate"
+  default_speed: 1.0
+  default_pitch: 1.0
+  
+  # Language-specific settings
+  language_settings:
+    en:
+      preferred_provider: "elevenlabs"
+      emotional_range: 0.7
+    sa:
+      preferred_provider: "coqui_tts"
+      emotional_range: 0.3  # More subdued for Sanskrit
+    bo:
+      preferred_provider: "coqui_tts"
+      emotional_range: 0.2  # Very subdued for Tibetan
+    pi:
+      preferred_provider: "coqui_tts"
+      emotional_range: 0.4
+    zh:
+      preferred_provider: "elevenlabs"
+      emotional_range: 0.6
+    ja:
+      preferred_provider: "elevenlabs"
+      emotional_range: 0.5
