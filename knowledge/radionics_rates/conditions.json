@@ -1,0 +1,111 @@
+{
+  "rates": [
+    {
+      "values": [15, 43, 72],
+      "name": "Headache",
+      "description": "General headache relief",
+      "category": "symptom",
+      "potency": 0.82
+    },
+    {
+      "values": [17, 45, 74],
+      "name": "Migraine",
+      "description": "Severe headache with aura",
+      "category": "symptom",
+      "potency": 0.78
+    },
+    {
+      "values": [12, 40, 69],
+      "name": "Anxiety",
+      "description": "Nervousness, worry, fear",
+      "category": "emotional",
+      "potency": 0.84
+    },
+    {
+      "values": [14, 42, 71],
+      "name": "Depression",
+      "description": "Low mood, sadness",
+      "category": "emotional",
+      "potency": 0.80
+    },
+    {
+      "values": [16, 44, 73],
+      "name": "Insomnia",
+      "description": "Sleep difficulty, restlessness",
+      "category": "sleep",
+      "potency": 0.86
+    },
+    {
+      "values": [18, 46, 75],
+      "name": "Fatigue",
+      "description": "Low energy, exhaustion",
+      "category": "energy",
+      "potency": 0.83
+    },
+    {
+      "values": [20, 48, 77],
+      "name": "Inflammation",
+      "description": "General inflammation",
+      "category": "physical",
+      "potency": 0.85
+    },
+    {
+      "values": [22, 50, 79],
+      "name": "Pain - General",
+      "description": "Non-specific pain",
+      "category": "physical",
+      "potency": 0.81
+    },
+    {
+      "values": [24, 52, 81],
+      "name": "Joint Pain",
+      "description": "Arthritis, joint inflammation",
+      "category": "physical",
+      "potency": 0.79
+    },
+    {
+      "values": [26, 54, 83],
+      "name": "Muscle Tension",
+      "description": "Tight muscles, cramping",
+      "category": "physical",
+      "potency": 0.80
+    },
+    {
+      "values": [28, 56, 85],
+      "name": "Digestive Issues",
+      "description": "Upset stomach, bloating",
+      "category": "digestive",
+      "potency": 0.77
+    },
+    {
+      "values": [30, 58, 87],
+      "name": "Allergies",
+      "description": "Allergic reactions, sensitivities",
+      "category": "immune",
+      "potency": 0.76
+    },
+    {
+      "values": [32, 60, 89],
+      "name": "Stress",
+      "description": "General stress response",
+      "category": "emotional",
+      "potency": 0.88
+    },
+    {
+      "values": [34, 62, 91],
+      "name": "Trauma",
+      "description": "Emotional or physical trauma",
+      "category": "emotional",
+      "potency": 0.85
+    },
+    {
+      "values": [36, 64, 93],
+      "name": "Grief",
+      "description": "Loss, bereavement",
+      "category": "emotional",
+      "potency": 0.83
+    }
+  ],
+  "saved_at": "2025-01-15T00:00:00",
+  "count": 15
+}

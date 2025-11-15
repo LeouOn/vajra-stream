@@ -34,6 +34,18 @@ try:
 except:
     HAS_VISUAL = False
 
+# Enhanced radionics capabilities
+try:
+    from core.radionics_engine import (
+        RadionicsAnalyzer,
+        RateDatabase,
+        RadionicsRate,
+        GeneralVitalityMeter
+    )
+    HAS_RADIONICS_ENGINE = True
+except:
+    HAS_RADIONICS_ENGINE = False
+
 
 class RadionicsOperation:
     """
@@ -95,6 +107,28 @@ class RadionicsOperation:
             tts_engine=self.tts
         )
 
+        # Enhanced radionics capabilities
+        self.radionics_analyzer = None
+        self.gv_meter = None
+        if HAS_RADIONICS_ENGINE:
+            try:
+                self.radionics_analyzer = RadionicsAnalyzer()
+                self.gv_meter = GeneralVitalityMeter()
+
+                # Load rate databases
+                from pathlib import Path
+                rate_dir = Path(__file__).parent.parent / "knowledge" / "radionics_rates"
+                if rate_dir.exists():
+                    for db_file in rate_dir.glob("*.json"):
+                        db = RateDatabase(str(db_file))
+                        for rate in db.rates:
+                            self.radionics_analyzer.rate_database.add_rate(rate)
+
+                total_rates = len(self.radionics_analyzer.rate_database.rates)
+                print(f"✓ Radionics Analysis Engine ready ({total_rates} rates loaded)")
+            except Exception as e:
+                print(f"ℹ Radionics analysis not available: {e}")
+
         # Database
         self.db_path = db_path
         self.session_id = None
@@ -112,7 +146,9 @@ class RadionicsOperation:
                           with_audio: bool = True,
                           with_visuals: bool = True,
                           with_voice: bool = False,
-                          continuous: bool = False):
+                          continuous: bool = False,
+                          with_analysis: bool = False,
+                          with_gv_measurement: bool = False):
         """
         MAIN RADIONICS OPERATION
         Broadcast healing intention through crystal grid
@@ -127,6 +163,8 @@ class RadionicsOperation:
             with_visuals: Generate meditation visuals
             with_voice: Speak the intention
             continuous: Run continuously (ignores duration)
+            with_analysis: Perform radionics rate analysis
+            with_gv_measurement: Measure General Vitality before/after
         """
         print("\n" + "🌟"*35)
         print("🔮 RADIONICS BROADCASTING OPERATION INITIATED 🔮")
@@ -156,6 +194,41 @@ class RadionicsOperation:
             # Default frequency set
             frequencies = [7.83, 136.1, 528, 639, 741]
             print(f"Using default frequencies: {frequencies}\n")
+
+        # Step 1.5: Radionics Analysis (if requested)
+        baseline_gv = None
+        analysis_result = None
+        if (with_analysis or with_gv_measurement) and self.radionics_analyzer:
+            step_num = 2 if with_astrology else 1
+            print(f"🔬 STEP {step_num}: RADIONICS ANALYSIS")
+            print("-" * 70)
+
+            # Measure baseline General Vitality
+            if with_gv_measurement and self.gv_meter:
+                print("📊 Measuring baseline General Vitality...")
+                gv_stats = self.gv_meter.measure_multiple(count=10, subject=intention)
+                baseline_gv = gv_stats['mean']
+                interpretation = self.gv_meter.interpret_gv(baseline_gv)
+                print(f"   GV: {baseline_gv:.1f}")
+                print(f"   Status: {interpretation}\n")
+
+            # Perform rate analysis
+            if with_analysis:
+                print("🔮 Performing rate analysis...")
+                context = {}
+                if with_astrology:
+                    context = {
+                        'moon_phase': energetics.get('moon_phase', ''),
+                        'hour': datetime.now().hour,
+                        'intention_length': len(intention)
+                    }
+
+                analysis_result = self.radionics_analyzer.analyze_subject(
+                    intention,
+                    num_rates=5,
+                    context=context
+                )
+                print("✓ Analysis complete\n")
 
         # Step 2: Prayer Generation
         prayer_text = None
@@ -223,6 +296,31 @@ class RadionicsOperation:
                     time.sleep(duration)
             except KeyboardInterrupt:
                 pass
+
+        # Final GV measurement (if requested)
+        if with_gv_measurement and self.gv_meter and baseline_gv is not None:
+            print("\n" + "="*70)
+            print("📊 FINAL GENERAL VITALITY MEASUREMENT")
+            print("="*70)
+
+            final_gv_stats = self.gv_meter.measure_multiple(count=10, subject=intention)
+            final_gv = final_gv_stats['mean']
+            gv_change = final_gv - baseline_gv
+
+            print(f"\nBaseline GV: {baseline_gv:.1f}")
+            print(f"Final GV:    {final_gv:.1f}")
+            print(f"Change:      {gv_change:+.1f}")
+
+            if gv_change > 20:
+                trend = "✓ IMPROVING - Vitality increased significantly"
+            elif gv_change < -20:
+                trend = "⚠ DECLINING - Consider additional support"
+            else:
+                trend = "→ STABLE - Maintaining current state"
+
+            print(f"Trend:       {trend}")
+            print(f"\nFinal Status: {self.gv_meter.interpret_gv(final_gv)}")
+            print("="*70 + "\n")
 
         # End session
         self._end_session()
@@ -468,6 +566,10 @@ def main():
                        help='Disable visual generation')
     parser.add_argument('--with-voice', action='store_true',
                        help='Speak intentions aloud (requires TTS)')
+    parser.add_argument('--with-analysis', action='store_true',
+                       help='Perform radionics rate analysis before broadcasting')
+    parser.add_argument('--with-gv', action='store_true',
+                       help='Measure General Vitality before and after broadcasting')
     parser.add_argument('--list-presets', action='store_true',
                        help='List available presets and exit')
 
@@ -522,7 +624,9 @@ def main():
         with_audio=not args.no_audio,
         with_visuals=not args.no_visuals,
         with_voice=args.with_voice,
-        continuous=args.continuous
+        continuous=args.continuous,
+        with_analysis=args.with_analysis,
+        with_gv_measurement=args.with_gv
     )
 
 

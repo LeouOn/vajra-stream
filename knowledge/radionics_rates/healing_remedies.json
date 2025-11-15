@@ -1,0 +1,111 @@
+{
+  "rates": [
+    {
+      "values": [45, 72, 88],
+      "name": "Arnica Montana",
+      "description": "For trauma, bruising, shock",
+      "category": "homeopathic",
+      "potency": 0.85
+    },
+    {
+      "values": [32, 64, 91],
+      "name": "Calendula",
+      "description": "Wound healing, skin repair",
+      "category": "homeopathic",
+      "potency": 0.78
+    },
+    {
+      "values": [28, 55, 77],
+      "name": "Chamomilla",
+      "description": "Calming, pain relief, inflammation",
+      "category": "homeopathic",
+      "potency": 0.82
+    },
+    {
+      "values": [41, 69, 84],
+      "name": "Hypericum",
+      "description": "Nerve pain, nerve damage",
+      "category": "homeopathic",
+      "potency": 0.80
+    },
+    {
+      "values": [36, 58, 92],
+      "name": "Rescue Remedy",
+      "description": "Emergency stress, trauma, shock",
+      "category": "flower_essence",
+      "potency": 0.88
+    },
+    {
+      "values": [52, 71, 89],
+      "name": "White Chestnut",
+      "description": "Mental clarity, quieting mind",
+      "category": "flower_essence",
+      "potency": 0.75
+    },
+    {
+      "values": [44, 66, 81],
+      "name": "Walnut",
+      "description": "Transition, change, protection",
+      "category": "flower_essence",
+      "potency": 0.77
+    },
+    {
+      "values": [39, 62, 85],
+      "name": "Star of Bethlehem",
+      "description": "Trauma recovery, grief",
+      "category": "flower_essence",
+      "potency": 0.83
+    },
+    {
+      "values": [48, 74, 93],
+      "name": "Vitamin C",
+      "description": "Immune support, antioxidant",
+      "category": "supplement",
+      "potency": 0.79
+    },
+    {
+      "values": [35, 60, 78],
+      "name": "Magnesium",
+      "description": "Relaxation, muscle tension, sleep",
+      "category": "supplement",
+      "potency": 0.81
+    },
+    {
+      "values": [42, 67, 86],
+      "name": "Omega-3",
+      "description": "Brain health, inflammation",
+      "category": "supplement",
+      "potency": 0.76
+    },
+    {
+      "values": [50, 75, 90],
+      "name": "Turmeric",
+      "description": "Anti-inflammatory, joint health",
+      "category": "herbal",
+      "potency": 0.84
+    },
+    {
+      "values": [38, 61, 82],
+      "name": "Ashwagandha",
+      "description": "Adaptogen, stress relief, energy",
+      "category": "herbal",
+      "potency": 0.80
+    },
+    {
+      "values": [46, 70, 87],
+      "name": "Holy Basil (Tulsi)",
+      "description": "Adaptogen, immune support, clarity",
+      "category": "herbal",
+      "potency": 0.82
+    },
+    {
+      "values": [33, 56, 79],
+      "name": "Lavender",
+      "description": "Calming, sleep, anxiety relief",
+      "category": "herbal",
+      "potency": 0.78
+    }
+  ],
+  "saved_at": "2025-01-15T00:00:00",
+  "count": 15
+}
