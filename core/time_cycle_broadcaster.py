@@ -26,7 +26,8 @@ try:
         BlessingDatabase,
         BlessingTarget,
         BlessingCategory,
-        BlessingCoordinate
+        BlessingCoordinate,
+        GeoCoordinate
     )
     HAS_BLESSINGS = True
 except ImportError:
@@ -172,9 +173,12 @@ class TimeCycleBroadcaster:
                 category=BlessingCategory.DECEASED,
                 description=f"Victims at {location['name']} during {event['name']}",
                 coordinates=BlessingCoordinate(
-                    latitude=location['lat'],
-                    longitude=location['lon'],
-                    location_name=location['name']
+                    julian_day=datetime.now().toordinal() + 1721425.5,  # Convert to Julian day
+                    location=GeoCoordinate(
+                        latitude=location['lat'],
+                        longitude=location['lon'],
+                        location_name=location['name']
+                    )
                 ),
                 intention=f"May all who suffered at {location['name']} find peace",
                 priority=10
@@ -255,9 +259,10 @@ class TimeCycleBroadcaster:
             session_id = self.blessing_db.record_session(
                 mantra_type="Om Mani Padme Hum",
                 total_mantras=108,
-                duration_seconds=duration_seconds,
-                practice_type=f"Time Cycle Healing: {event['name']}",
-                location=f"Broadcasting to {date.strftime('%Y-%m-%d')}"
+                total_rotations=1,
+                targets_blessed=len(target_ids),
+                allocation_method="Equal distribution",
+                notes=f"Time Cycle Healing for {event['name']} on {date.strftime('%Y-%m-%d')}. Duration: {duration_seconds}s"
             )
 
             # Dedicate to all targets
@@ -265,8 +270,9 @@ class TimeCycleBroadcaster:
                 self.blessing_db.record_dedication(
                     target_identifier=target_id,
                     session_id=session_id,
-                    mantras_dedicated=108,
-                    intention=f"Healing for {date.strftime('%B %d, %Y')}"
+                    mantra_type="Om Mani Padme Hum",
+                    mantras_count=108,
+                    notes=f"Healing for {date.strftime('%B %d, %Y')}"
                 )
 
             print(f"   ✓ Dedicated 108 mantras to {len(target_ids)} targets")
