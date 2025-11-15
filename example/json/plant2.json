@@ -1,0 +1,27 @@
+{
+  "plant": {
+    "plant_id": "P-001",
+    "common_name": "Ginseng",
+    "scientific_name": "Panax ginseng",
+    "chinese_name": "人参",
+    "botanical_family": "Araliaceae",
+    "habitat_region": "East Asia",
+    "cultivation_requirements": {
+      "soil_type": "Well-drained loam",
+      "climate": "Temperate",
+      "water_needs": "Moderate"
+    },
+    "medicinal_uses": ["energy booster", "stress reduction"],
+    "active_ingredients": [
+      {"ingredient_id": "AI-001", "name": "Ginsenosides", "source": "Roots"}
+    ],
+    "preparation_methods": [
+      {"method_id": "PM-001", "method_name": "Tea", "instructions": "Steep 1 tsp in 200ml boiling water"}
+    ],
+    "related_plants": [
+      {"plant_id": "P-002", "relationship_type": "Synergistic", "notes": "Enhances efficacy with Turmeric"}
+    ],
+    "conservation_status": "Least Concern",
+    "references": ["PubMed:12345", "Ethnobotanical Studies"]
+  }
+}

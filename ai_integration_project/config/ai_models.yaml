@@ -1,0 +1,70 @@
+# Z AI GLM 4.6 Configuration (Primary Cloud Model)
+z_ai_glm:
+  model_name: "glm-4.6"
+  api_endpoint: "https://api.z-ai.com/v1/chat/completions"
+  api_key: "${Z_AI_API_KEY}"
+  max_tokens: 4096
+  temperature: 0.7
+  system_prompt: |
+    You are a wise dharma teacher versed in Buddhist philosophy, meditation practices, 
+    and contemplative traditions. You speak with clarity, compassion, and depth. 
+    Your teachings are rooted in the Buddhadharma but accessible to all beings.
+    You draw from Theravada, Mahayana, and Vajrayana traditions as appropriate.
+
+# LM Studio Configuration (Primary Local Models)
+lm_studio:
+  base_url: "http://127.0.0.1:1234"
+  timeout: 30
+  max_retries: 3
+  max_tokens: 4096
+  temperature: 0.7
+  
+  preferred_models:
+    - "openai_gpt-oss-120b-neo-imatrix"
+    - "aquif-3.5-max-42b-a3b-i1"
+    - "nvidia_qwen3-nemotron-32b-rlbff"
+
+# Fallback Cloud Models
+fallback_models:
+  - provider: "openai"
+    model: "gpt-4o-mini"
+    api_key: "${OPENAI_API_KEY}"
+    max_tokens: 4096
+    temperature: 0.7
+  - provider: "anthropic"
+    model: "claude-3-5-haiku-20241022"
+    api_key: "${ANTHROPIC_API_KEY}"
+    max_tokens: 4096
+    temperature: 0.7
+
+# Model Selection Strategy
+model_selection:
+  strategy: "prefer_local"
+  request_priorities:
+    prayer_generation: ["lm_studio", "z_ai_glm", "openai", "anthropic"]
+    teaching_generation: ["z_ai_glm", "lm_studio", "anthropic", "openai"]
+    meditation_guidance: ["lm_studio", "z_ai_glm", "anthropic", "openai"]
+    quick_responses: ["lm_studio", "openai", "z_ai_glm", "anthropic"]
+    complex_analysis: ["z_ai_glm", "anthropic", "lm_studio", "openai"]
+
+# Performance Settings
+performance:
+  cache_enabled: true
+  cache_ttl_seconds: 3600
+  max_cache_size: 1000
+  request_timeout: 30
+  max_concurrent_requests: 5
+
+# Cost Optimization
+cost_optimization:
+  prefer_local_models: true
+  local_model_cost_per_token: 0.0
+  cloud_model_costs:
+    z_ai_glm: 0.001  # per 1K tokens (example)
+    openai: 0.002
+    anthropic: 0.003
+  
+  # Budget management
+  daily_budget_limit: 10.0  # USD
+  cost_tracking: true
+  budget_alert_threshold: 0.8

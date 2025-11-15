@@ -14,6 +14,7 @@ From the Cittamatra perspective, all phenomena arise from mind - the silicon cir
 
 - **Continuous Blessing Engine**: 24/7 generation of merit and positive intention
 - **Crystal Grid Broadcasting**: Physical amplification through sacred geometry
+- **Prayer Bowl Audio Synthesis**: Rich harmonic tones with natural envelopes (NEW)
 - **Personal Healing Module**: Chakra/meridian focused energy work
 - **Kalachakra Time-Space Purification**: Astrological timing and location-based practices
 - **Dharma Tales Generator**: AI-powered teaching stories and parables
@@ -59,7 +60,7 @@ python scripts/setup_database.py
 ### Basic Usage
 
 ```bash
-# Run a simple blessing (Level 2)
+# Run a simple blessing with prayer bowl synthesis (default)
 python scripts/run_blessing.py --intention "May all beings be happy" --duration 300
 
 # With healing focus
@@ -67,6 +68,9 @@ python scripts/run_blessing.py --mode healing --chakra heart --duration 600
 
 # Continuous background blessing
 python scripts/run_blessing.py --continuous
+
+# Test prayer bowl audio vs original sine waves
+python scripts/test_prayer_bowl_audio.py
 ```
 
 ### Hardware Setup
@@ -106,6 +110,10 @@ Edit `config/settings.py`:
 # Audio settings
 SAMPLE_RATE = 44100
 AUDIO_DEVICE = 'default'
+
+# Prayer Bowl Audio Settings (NEW)
+PRAYER_BOWL_MODE = True  # Default to prayer bowl synthesis
+PURE_SINE_MODE = False  # Set to True for original sine waves
 
 # Hardware
 HARDWARE_LEVEL = 2  # 2 = passive, 3 = amplified

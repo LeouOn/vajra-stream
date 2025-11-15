@@ -6,6 +6,12 @@ Scalar wave and frequency generation for blessing/healing broadcasts
 import numpy as np
 import sounddevice as sd
 from scipy import signal
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.settings import PRAYER_BOWL_CONFIG
 
 
 class ScalarWaveGenerator:
@@ -105,16 +111,129 @@ class ScalarWaveGenerator:
         
         return wave
     
-    def layer_frequencies(self, frequency_list, duration=60):
+    def layer_frequencies(self, frequency_list, duration=60, pure_sine=False):
         """
         Layer multiple frequencies together
         frequency_list: [(freq, amplitude), ...]
+        pure_sine: If True, use simple sine waves instead of prayer bowl synthesis
+        """
+        if pure_sine:
+            # Original implementation for backward compatibility
+            t = np.linspace(0, duration, int(self.sample_rate * duration))
+            wave = np.zeros_like(t)
+            
+            for freq, amplitude in frequency_list:
+                wave += amplitude * np.sin(2 * np.pi * freq * t)
+            
+            # Normalize
+            wave = wave / np.max(np.abs(wave))
+            
+            return wave
+        else:
+            # Prayer bowl synthesis for each frequency
+            wave = np.zeros(int(self.sample_rate * duration))
+            
+            for freq, amplitude in frequency_list:
+                tone = self.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
+                wave += amplitude * tone
+            
+            # Normalize
+            wave = wave / np.max(np.abs(wave))
+            
+            return wave
+    
+    def generate_prayer_bowl_tone(self, frequency, duration=60, pure_sine=False):
+        """
+        Generate prayer bowl synthesis with rich harmonics or pure sine wave
+        
+        Args:
+            frequency: Base frequency in Hz
+            duration: Duration in seconds
+            pure_sine: If True, generate simple sine wave instead of prayer bowl
+            
+        Returns:
+            numpy array: Generated audio waveform
         """
         t = np.linspace(0, duration, int(self.sample_rate * duration))
+        
+        if pure_sine:
+            # Simple sine wave for backward compatibility
+            return np.sin(2 * np.pi * frequency * t)
+        
+        # Prayer bowl synthesis with harmonics
         wave = np.zeros_like(t)
         
-        for freq, amplitude in frequency_list:
-            wave += amplitude * np.sin(2 * np.pi * freq * t)
+        # Add harmonic overtones based on real bowl measurements
+        for i, ratio in enumerate(PRAYER_BOWL_CONFIG['harmonic_ratios']):
+            harmonic_freq = frequency * ratio
+            # Decrease amplitude for higher harmonics
+            amplitude = 1.0 / (i + 1)
+            wave += amplitude * np.sin(2 * np.pi * harmonic_freq * t)
+        
+        # Add inharmonic metallic partials
+        for i, ratio in enumerate(PRAYER_BOWL_CONFIG['inharmonic_partials']):
+            inharmonic_freq = frequency * ratio
+            # Lower amplitude for metallic character
+            amplitude = 0.3 / (i + 1)
+            wave += amplitude * np.sin(2 * np.pi * inharmonic_freq * t)
+        
+        # Apply ADSR envelope for natural bowl sound
+        attack_time = 1.5  # seconds
+        decay_time = 0.8
+        sustain_level = 0.6
+        release_time = 2.0
+        
+        attack_samples = int(attack_time * self.sample_rate)
+        decay_samples = int(decay_time * self.sample_rate)
+        release_samples = int(release_time * self.sample_rate)
+        
+        envelope = np.ones_like(t)
+        
+        # Attack - exponential rise
+        attack_indices = np.arange(min(attack_samples, len(t)))
+        envelope[attack_indices] = 1 - np.exp(-3 * attack_indices / attack_samples)
+        
+        # Decay - exponential fall to sustain level
+        decay_start = attack_samples
+        decay_end = min(decay_start + decay_samples, len(t))
+        if decay_end > decay_start:
+            decay_indices = np.arange(decay_end - decay_start)
+            envelope[decay_start:decay_end] = 1 - (1 - sustain_level) * (1 - np.exp(-3 * decay_indices / decay_samples))
+        
+        # Release - exponential fade at end
+        release_start = max(len(t) - release_samples, decay_end)
+        if release_start < len(t):
+            release_indices = np.arange(len(t) - release_start)
+            envelope[release_start:] = sustain_level * np.exp(-3 * release_indices / release_samples)
+        
+        # Apply envelope
+        wave = wave * envelope
+        
+        # Add subtle tremolo (amplitude modulation)
+        tremolo_rate = PRAYER_BOWL_CONFIG['tremolo_rate']
+        tremolo_depth = PRAYER_BOWL_CONFIG['tremolo_depth']
+        tremolo = 1 - tremolo_depth/2 + tremolo_depth/2 * np.sin(2 * np.pi * tremolo_rate * t)
+        wave = wave * tremolo
+        
+        # Add subtle vibrato (pitch modulation)
+        vibrato_rate = PRAYER_BOWL_CONFIG['vibrato_rate']
+        vibrato_depth = PRAYER_BOWL_CONFIG['vibrato_depth']
+        vibrato_phase = 2 * np.pi * vibrato_depth * np.sin(2 * np.pi * vibrato_rate * t)
+        
+        # Apply vibrato by phase modulation
+        wave_with_vibrato = np.zeros_like(wave)
+        for i, ratio in enumerate(PRAYER_BOWL_CONFIG['harmonic_ratios']):
+            harmonic_freq = frequency * ratio
+            amplitude = 1.0 / (i + 1)
+            wave_with_vibrato += amplitude * np.sin(2 * np.pi * harmonic_freq * t + vibrato_phase)
+        
+        for i, ratio in enumerate(PRAYER_BOWL_CONFIG['inharmonic_partials']):
+            inharmonic_freq = frequency * ratio
+            amplitude = 0.3 / (i + 1)
+            wave_with_vibrato += amplitude * np.sin(2 * np.pi * inharmonic_freq * t + vibrato_phase)
+        
+        # Mix vibrato signal with original
+        wave = 0.7 * wave + 0.3 * wave_with_vibrato
         
         # Normalize
         wave = wave / np.max(np.abs(wave))
