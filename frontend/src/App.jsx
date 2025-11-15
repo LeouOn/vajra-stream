@@ -4,6 +4,8 @@ import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAudioStore } from './stores/audioStore';
 import SacredGeometry from './components/3D/SacredGeometry';
+import CrystalGrid from './components/3D/CrystalGrid';
+import SacredMandala from './components/3D/SacredMandala';
 import AudioSpectrum from './components/2D/AudioSpectrum';
 import ControlPanel from './components/UI/ControlPanel';
 import SessionManager from './components/UI/SessionManager';
@@ -136,27 +138,27 @@ function App() {
         {/* Center - Visualization */}
         <div className="flex-1 relative visualization-container">
           {visualizationType === 'sacred-geometry' ? (
-            <Canvas 
+            <Canvas
               camera={{ position: [0, 0, 20], fov: 60 }}
               className="w-full h-full"
             >
               <ambientLight intensity={0.5} />
               <pointLight position={[10, 10, 10]} intensity={1} />
-              <Stars 
-                radius={100} 
-                depth={50} 
-                count={5000} 
-                factor={4} 
-                saturation={0} 
-                fade 
+              <Stars
+                radius={100}
+                depth={50}
+                count={5000}
+                factor={4}
+                saturation={0}
+                fade
                 speed={1}
               />
-              <SacredGeometry 
+              <SacredGeometry
                 audioSpectrum={audioSpectrum}
                 isPlaying={isPlaying}
                 frequency={frequency}
               />
-              <OrbitControls 
+              <OrbitControls
                 enableZoom={true}
                 enablePan={false}
                 enableRotate={true}
@@ -165,23 +167,90 @@ function App() {
               />
               <Environment preset="sunset" />
             </Canvas>
+          ) : visualizationType === 'crystal-grid' ? (
+            <Canvas
+              camera={{ position: [0, -8, 12], fov: 60 }}
+              className="w-full h-full"
+            >
+              <ambientLight intensity={0.4} />
+              <pointLight position={[10, 10, 10]} intensity={1} />
+              <Stars
+                radius={150}
+                depth={60}
+                count={3000}
+                factor={3}
+                saturation={0}
+                fade
+                speed={0.5}
+              />
+              <CrystalGrid
+                audioSpectrum={audioSpectrum}
+                isPlaying={isPlaying}
+                frequency={frequency}
+                gridType="double-hexagon"
+                crystalType="quartz"
+                showEnergyField={true}
+                intention="May all beings be happy"
+              />
+              <OrbitControls
+                enableZoom={true}
+                enablePan={true}
+                enableRotate={true}
+                autoRotate={true}
+                autoRotateSpeed={0.3}
+              />
+              <Environment preset="night" />
+            </Canvas>
+          ) : visualizationType === 'sacred-mandala' ? (
+            <Canvas
+              camera={{ position: [0, 0, 15], fov: 60 }}
+              className="w-full h-full"
+            >
+              <ambientLight intensity={0.5} />
+              <pointLight position={[10, 10, 10]} intensity={1} />
+              <Stars
+                radius={120}
+                depth={50}
+                count={4000}
+                factor={3}
+                saturation={0.1}
+                fade
+                speed={0.8}
+              />
+              <SacredMandala
+                audioSpectrum={audioSpectrum}
+                isPlaying={isPlaying}
+                frequency={frequency}
+                pattern="sri-yantra"
+                chakra="heart"
+                complexity="medium"
+              />
+              <OrbitControls
+                enableZoom={true}
+                enablePan={false}
+                enableRotate={true}
+                autoRotate={true}
+                autoRotateSpeed={0.4}
+              />
+              <Environment preset="sunset" />
+            </Canvas>
           ) : visualizationType === 'audio-spectrum' ? (
             <div className="w-full h-full flex items-center justify-center p-8">
-              <AudioSpectrum 
+              <AudioSpectrum
                 spectrum={audioSpectrum}
                 isPlaying={isPlaying}
                 frequency={frequency}
               />
             </div>
           ) : visualizationType === 'planetary-system' ? (
-            <Canvas 
+            <Canvas
               camera={{ position: [0, 0, 30], fov: 60 }}
               className="w-full h-full"
             >
               <ambientLight intensity={0.3} />
               <pointLight position={[10, 10, 10]} intensity={2} />
               <Stars radius={200} depth={100} count={10000} factor={4} saturation={0.2} fade />
-              {/* Planetary system component would go here */}
+              {/* Planetary system component - coming soon */}
               <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} />
             </Canvas>
           ) : (

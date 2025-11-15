@@ -1,13 +1,25 @@
 import React from 'react';
-import { Eye, Layers, BarChart3, Globe } from 'lucide-react';
+import { Eye, Layers, BarChart3, Globe, Gem, Hexagon } from 'lucide-react';
 
 const VisualizationSelector = ({ currentType, onChange }) => {
   const visualizations = [
     {
       id: 'sacred-geometry',
-      name: 'Sacred Geometry',
+      name: 'Flower of Life',
       icon: <Layers className="w-4 h-4" />,
-      description: 'Flower of Life pattern with audio reactivity'
+      description: 'Sacred geometry pattern with audio reactivity'
+    },
+    {
+      id: 'crystal-grid',
+      name: 'Crystal Grid',
+      icon: <Gem className="w-4 h-4" />,
+      description: 'Interactive crystal grid visualization for radionics'
+    },
+    {
+      id: 'sacred-mandala',
+      name: 'Sacred Mandala',
+      icon: <Hexagon className="w-4 h-4" />,
+      description: 'Advanced sacred geometry (Sri Yantra, Metatron\'s Cube)'
     },
     {
       id: 'audio-spectrum',
@@ -19,13 +31,7 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       id: 'planetary-system',
       name: 'Planetary System',
       icon: <Globe className="w-4 h-4" />,
-      description: 'Astrological visualization with planetary positions'
-    },
-    {
-      id: 'coming-soon',
-      name: 'Coming Soon',
-      icon: <Eye className="w-4 h-4" />,
-      description: 'More visualizations in development'
+      description: 'Astrological visualization (coming soon)'
     }
   ];
 

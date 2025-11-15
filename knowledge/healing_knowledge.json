@@ -1,0 +1,300 @@
+{
+  "_comment": "Comprehensive healing knowledge base - TO BE FILLED OFFLINE",
+  "_instructions": "This file contains structured data for healing systems. Fill in the null values and expand arrays based on traditional texts and clinical experience.",
+
+  "chakras": {
+    "muladhara": {
+      "deities": ["Ganesha", "Brahma", "Dakini"],
+      "animals": ["Elephant", "Bull"],
+      "yantra": "Square with 4 petals",
+      "gemstones": ["Ruby", "Garnet", "Red Jasper", "Bloodstone"],
+      "essential_oils": ["Patchouli", "Cedarwood", "Sandalwood"],
+      "foods": ["Root vegetables", "Proteins", "Red foods"],
+      "affirmations": [
+        "I am grounded and secure",
+        "I am connected to my physical body",
+        "I trust in the abundance of life"
+      ],
+      "yoga_asanas": ["Mountain pose", "Warrior I", "Chair pose", "Bridge"],
+      "mudra": "Prithvi mudra",
+      "medical_conditions": {
+        "physical": [],
+        "emotional": [],
+        "spiritual": []
+      }
+    },
+    "svadhisthana": {
+      "deities": ["Vishnu", "Rakini"],
+      "animals": ["Crocodile"],
+      "yantra": null,
+      "gemstones": ["Carnelian", "Orange Calcite", "Citrine"],
+      "essential_oils": ["Sweet orange", "Ylang ylang", "Sandalwood"],
+      "foods": null,
+      "affirmations": null,
+      "yoga_asanas": null,
+      "mudra": "Varuna mudra",
+      "medical_conditions": null
+    },
+    "manipura": {
+      "deities": null,
+      "animals": ["Ram"],
+      "yantra": null,
+      "gemstones": ["Citrine", "Yellow Topaz", "Tiger's Eye"],
+      "essential_oils": null,
+      "foods": null,
+      "affirmations": null,
+      "yoga_asanas": null,
+      "mudra": "Rudra mudra",
+      "medical_conditions": null
+    },
+    "anahata": {
+      "deities": null,
+      "animals": ["Deer", "Antelope"],
+      "yantra": null,
+      "gemstones": ["Rose Quartz", "Green Aventurine", "Jade", "Emerald"],
+      "essential_oils": null,
+      "foods": null,
+      "affirmations": null,
+      "yoga_asanas": null,
+      "mudra": "Padma mudra",
+      "medical_conditions": null
+    },
+    "vishuddha": {
+      "deities": null,
+      "animals": ["White elephant"],
+      "yantra": null,
+      "gemstones": ["Blue Lace Agate", "Aquamarine", "Turquoise"],
+      "essential_oils": null,
+      "foods": null,
+      "affirmations": null,
+      "yoga_asanas": null,
+      "mudra": "Granthita mudra",
+      "medical_conditions": null
+    },
+    "ajna": {
+      "deities": null,
+      "animals": null,
+      "yantra": null,
+      "gemstones": ["Amethyst", "Lapis Lazuli", "Purple Fluorite"],
+      "essential_oils": null,
+      "foods": null,
+      "affirmations": null,
+      "yoga_asanas": null,
+      "mudra": "Kalesvara mudra",
+      "medical_conditions": null
+    },
+    "sahasrara": {
+      "deities": null,
+      "animals": null,
+      "yantra": null,
+      "gemstones": ["Clear Quartz", "Diamond", "Selenite", "Amethyst"],
+      "essential_oils": null,
+      "foods": null,
+      "affirmations": null,
+      "yoga_asanas": null,
+      "mudra": "Mahasirs mudra",
+      "medical_conditions": null
+    }
+  },
+
+  "meridian_points": {
+    "_comment": "Major acupoints - TO BE FILLED with locations and functions",
+    "lung": {
+      "LU1": {"name": "Zhongfu", "location": null, "functions": null},
+      "LU7": {"name": "Lieque", "location": null, "functions": null},
+      "LU9": {"name": "Taiyuan", "location": null, "functions": null}
+    },
+    "large_intestine": {
+      "LI4": {"name": "Hegu", "location": "Between thumb and index finger", "functions": ["Pain relief", "Immune boost", "Headache"]},
+      "LI11": {"name": "Quchi", "location": null, "functions": null},
+      "LI20": {"name": "Yingxiang", "location": null, "functions": null}
+    },
+    "stomach": {
+      "ST36": {"name": "Zusanli", "location": "Below knee", "functions": ["Energy", "Digestion", "Longevity"]},
+      "ST40": {"name": null, "location": null, "functions": null}
+    },
+    "_todo": "Add all 361+ classical acupoints across all meridians"
+  },
+
+  "condition_protocols": {
+    "_comment": "Comprehensive protocols - TO BE FILLED based on clinical experience",
+    "headache": {
+      "types": {
+        "tension": {
+          "meridians": ["Gallbladder", "Bladder"],
+          "chakras": ["ajna", "anahata"],
+          "key_points": ["GB20", "LI4", "LV3"],
+          "frequencies": [852, 7.83],
+          "practices": null,
+          "dietary": null,
+          "timing": "Avoid during Gallbladder time (11pm-1am)"
+        },
+        "migraine": null,
+        "sinus": null,
+        "cluster": null
+      }
+    },
+    "digestive_issues": {
+      "types": {
+        "constipation": null,
+        "diarrhea": null,
+        "bloating": null,
+        "ibs": null,
+        "acid_reflux": null
+      }
+    },
+    "respiratory": {
+      "asthma": null,
+      "bronchitis": null,
+      "allergies": null
+    },
+    "pain": {
+      "back_pain": {
+        "lower": null,
+        "upper": null,
+        "sciatica": null
+      },
+      "joint_pain": null,
+      "arthritis": null
+    },
+    "emotional": {
+      "anxiety": {
+        "meridians": ["Heart", "Kidney"],
+        "chakras": ["muladhara", "anahata"],
+        "key_points": ["HT7", "PC6", "KD1"],
+        "frequencies": [396, 528, 639],
+        "practices": ["Grounding meditation", "Heart coherence breathing"],
+        "dietary": null
+      },
+      "depression": null,
+      "grief": null,
+      "anger": null,
+      "fear": null
+    },
+    "_todo": "Add 100+ conditions with detailed protocols"
+  },
+
+  "tibetan_practices": {
+    "_comment": "Tibetan Buddhist healing practices - TO BE FILLED from authentic lineages",
+    "tummo": {
+      "name": "Inner Fire",
+      "description": "Generation of inner heat through visualization and breath",
+      "prerequisites": null,
+      "steps": null,
+      "benefits": null,
+      "cautions": null
+    },
+    "tsa_lung": {
+      "name": "Channel and Wind Practices",
+      "description": null,
+      "exercises": null
+    },
+    "five_elements": {
+      "earth": {"qualities": null, "practices": null},
+      "water": null,
+      "fire": null,
+      "wind": null,
+      "space": null
+    },
+    "_todo": "Add authentic practices from qualified teachers only"
+  },
+
+  "ayurvedic_integration": {
+    "_comment": "Ayurvedic constitution and healing - TO BE FILLED",
+    "doshas": {
+      "vata": {
+        "elements": ["Air", "Ether"],
+        "qualities": ["Dry", "Light", "Cold", "Rough", "Subtle", "Mobile"],
+        "chakras_affected": null,
+        "meridians_affected": null,
+        "imbalance_signs": null,
+        "balancing_practices": null,
+        "foods": null
+      },
+      "pitta": {
+        "elements": ["Fire", "Water"],
+        "qualities": ["Hot", "Sharp", "Light", "Liquid", "Spreading", "Oily"],
+        "chakras_affected": null,
+        "meridians_affected": null,
+        "imbalance_signs": null,
+        "balancing_practices": null,
+        "foods": null
+      },
+      "kapha": {
+        "elements": ["Earth", "Water"],
+        "qualities": ["Heavy", "Slow", "Cool", "Oily", "Smooth", "Dense"],
+        "chakras_affected": null,
+        "meridians_affected": null,
+        "imbalance_signs": null,
+        "balancing_practices": null,
+        "foods": null
+      }
+    },
+    "marma_points": {
+      "_comment": "Ayurvedic vital points - 107 major marmas",
+      "_todo": "Add location and function for all marma points"
+    }
+  },
+
+  "frequency_healing": {
+    "_comment": "Extended frequency protocols",
+    "rife_frequencies": {
+      "_comment": "Royal Rife frequencies - research-based",
+      "_todo": "Add validated frequencies for various conditions"
+    },
+    "planetary_frequencies": {
+      "sun": 126.22,
+      "moon": 210.42,
+      "mercury": 141.27,
+      "venus": 221.23,
+      "mars": 144.72,
+      "jupiter": 183.58,
+      "saturn": 147.85,
+      "uranus": 207.36,
+      "neptune": 211.44,
+      "pluto": 140.25
+    },
+    "organ_frequencies": {
+      "_comment": "Each organ has resonant frequency",
+      "_todo": "Research and add organ-specific frequencies"
+    }
+  },
+
+  "seasonal_healing": {
+    "spring": {
+      "element": "Wood",
+      "organs": ["Liver", "Gallbladder"],
+      "practices": null,
+      "foods": null,
+      "chakras": null
+    },
+    "summer": {
+      "element": "Fire",
+      "organs": ["Heart", "Small Intestine"],
+      "practices": null,
+      "foods": null,
+      "chakras": null
+    },
+    "late_summer": {
+      "element": "Earth",
+      "organs": ["Spleen", "Stomach"],
+      "practices": null,
+      "foods": null,
+      "chakras": null
+    },
+    "autumn": {
+      "element": "Metal",
+      "organs": ["Lung", "Large Intestine"],
+      "practices": null,
+      "foods": null,
+      "chakras": null
+    },
+    "winter": {
+      "element": "Water",
+      "organs": ["Kidney", "Bladder"],
+      "practices": null,
+      "foods": null,
+      "chakras": null
+    }
+  }
+}
