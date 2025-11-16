@@ -58,7 +58,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     print("WebSocket endpoint: ws://localhost:8001/ws")
     print("API Documentation: http://localhost:8001/docs")
     print("Visualization Gallery: http://localhost:8001/visualizations")
-    print("Frontend should be available at: http://localhost:3000")
+    print("Next.js frontend (if used): http://localhost:3001")
 
     uvicorn.run(
         app,
