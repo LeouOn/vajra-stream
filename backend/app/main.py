@@ -13,7 +13,15 @@ import os
 # Add parent directory to path to import existing Vajra.Stream modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../'))
 
-from app.api.v1.endpoints import audio as audio_endpoint, sessions as sessions_endpoint, astrology as astrology_endpoint
+from app.api.v1.endpoints import (
+    audio as audio_endpoint,
+    sessions as sessions_endpoint,
+    astrology as astrology_endpoint,
+    scalar_waves as scalar_endpoint,
+    radionics as radionics_endpoint,
+    anatomy as anatomy_endpoint,
+    blessings as blessings_endpoint
+)
 from websocket.connection_manager import ConnectionManager
 from core.services.vajra_service import vajra_service
 
@@ -73,6 +81,12 @@ async def health_check():
 app.include_router(audio_endpoint.router, prefix="/api/v1/audio", tags=["audio"])
 app.include_router(sessions_endpoint.router, prefix="/api/v1/sessions", tags=["sessions"])
 app.include_router(astrology_endpoint.router, prefix="/api/v1/astrology", tags=["astrology"])
+
+# Terra MOPS and Healing System routers
+app.include_router(scalar_endpoint.router, prefix="/api/v1/scalar", tags=["scalar-waves"])
+app.include_router(radionics_endpoint.router, prefix="/api/v1/radionics", tags=["radionics"])
+app.include_router(anatomy_endpoint.router, prefix="/api/v1/anatomy", tags=["anatomy"])
+app.include_router(blessings_endpoint.router, prefix="/api/v1/blessings", tags=["blessings"])
 
 # WebSocket endpoint
 @app.websocket("/ws")
