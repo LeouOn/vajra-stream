@@ -45,6 +45,13 @@ class Container:
         self._anatomy = None
         self._blessings = None
         self._astrology = None
+        self._audio = None
+        self._visualization = None
+        self._time_cycles = None
+        self._prayer_wheel = None
+        self._composer = None
+        self._healing = None
+        self._llm = None
 
         # Setup event handlers
         self._setup_event_handlers()
@@ -100,6 +107,69 @@ class Container:
                 self._astrology = None
         return self._astrology
 
+    @property
+    def audio(self):
+        """Get audio service"""
+        if self._audio is None:
+            logger.info("Initializing Audio Service...")
+            from modules.audio import AudioService
+            self._audio = AudioService(event_bus=self.event_bus)
+        return self._audio
+
+    @property
+    def visualization(self):
+        """Get visualization service"""
+        if self._visualization is None:
+            logger.info("Initializing Visualization Service...")
+            from modules.visualization import VisualizationService
+            self._visualization = VisualizationService(event_bus=self.event_bus)
+        return self._visualization
+
+    @property
+    def time_cycles(self):
+        """Get time cycles service"""
+        if self._time_cycles is None:
+            logger.info("Initializing Time Cycles Service...")
+            from modules.time_cycles import TimeCyclesService
+            self._time_cycles = TimeCyclesService(event_bus=self.event_bus)
+        return self._time_cycles
+
+    @property
+    def prayer_wheel(self):
+        """Get prayer wheel service"""
+        if self._prayer_wheel is None:
+            logger.info("Initializing Prayer Wheel Service...")
+            from modules.prayer_wheel import PrayerWheelService
+            self._prayer_wheel = PrayerWheelService(event_bus=self.event_bus)
+        return self._prayer_wheel
+
+    @property
+    def composer(self):
+        """Get composer service"""
+        if self._composer is None:
+            logger.info("Initializing Composer Service...")
+            from modules.composer import ComposerService
+            self._composer = ComposerService(event_bus=self.event_bus)
+        return self._composer
+
+    @property
+    def healing(self):
+        """Get healing service"""
+        if self._healing is None:
+            logger.info("Initializing Healing Service...")
+            from modules.healing import HealingService
+            self._healing = HealingService(event_bus=self.event_bus)
+        return self._healing
+
+    @property
+    def llm(self):
+        """Get LLM service"""
+        if self._llm is None:
+            logger.info("Initializing LLM Service...")
+            from modules.llm import LLMService
+            self._llm = LLMService(event_bus=self.event_bus)
+        return self._llm
+
     def _setup_event_handlers(self):
         """Wire up event handlers between modules"""
         from modules.interfaces import HealingSessionStarted, ScalarWavesGenerated, BlessingGenerated
@@ -128,6 +198,13 @@ class Container:
         self._anatomy = None
         self._blessings = None
         self._astrology = None
+        self._audio = None
+        self._visualization = None
+        self._time_cycles = None
+        self._prayer_wheel = None
+        self._composer = None
+        self._healing = None
+        self._llm = None
         self.event_bus.clear()
         logger.info("Container reset")
 
