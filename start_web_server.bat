@@ -4,9 +4,9 @@ echo   Vajra Stream Web Server
 echo ============================================================
 echo.
 echo Starting web server...
-echo   - API Documentation: http://localhost:8000/docs
-echo   - Visualization Gallery: http://localhost:8000/visualizations
-echo   - WebSocket: ws://localhost:8000/ws
+echo   - API Documentation: http://localhost:8001/docs
+echo   - Visualization Gallery: http://localhost:8001/visualizations
+echo   - WebSocket: ws://localhost:8001/ws
 echo ============================================================
 echo.
 

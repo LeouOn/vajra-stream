@@ -30,7 +30,7 @@ from backend.websocket.connection_manager import ConnectionManager
 from backend.core.services.vajra_service import vajra_service
 
 # Setup templates
-template_dir = Path(__file__).parent.parent.parent.parent / "templates"
+template_dir = Path(__file__).parent.parent.parent / "templates"
 templates = Jinja2Templates(directory=str(template_dir))
 
 @asynccontextmanager
