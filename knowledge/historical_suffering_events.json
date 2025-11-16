@@ -1,0 +1,292 @@
+{
+  "historical_suffering_periods": [
+    {
+      "id": "holocaust",
+      "name": "Holocaust",
+      "description": "Systematic genocide of six million Jews and millions of others by Nazi Germany",
+      "start_date": "1941-06-22",
+      "end_date": "1945-05-08",
+      "primary_locations": [
+        {"name": "Auschwitz-Birkenau", "lat": 50.0347, "lon": 19.1784, "country": "Poland"},
+        {"name": "Treblinka", "lat": 52.6314, "lon": 22.0450, "country": "Poland"},
+        {"name": "Majdanek", "lat": 51.2206, "lon": 22.6028, "country": "Poland"},
+        {"name": "Sobibor", "lat": 51.4472, "lon": 23.5958, "country": "Poland"},
+        {"name": "Belzec", "lat": 50.3711, "lon": 23.4575, "country": "Poland"},
+        {"name": "Chelmno", "lat": 52.1506, "lon": 18.7197, "country": "Poland"},
+        {"name": "Bergen-Belsen", "lat": 52.7575, "lon": 9.9072, "country": "Germany"},
+        {"name": "Dachau", "lat": 48.2697, "lon": 11.4683, "country": "Germany"},
+        {"name": "Buchenwald", "lat": 51.0214, "lon": 11.2497, "country": "Germany"},
+        {"name": "Ravensbrück", "lat": 53.1903, "lon": 13.1589, "country": "Germany"}
+      ],
+      "estimated_deaths": 11000000,
+      "population_affected": "Jews, Roma, disabled persons, political prisoners, LGBTQ+ individuals, Slavs",
+      "blessing_focus": "All victims of Nazi persecution, survivors and their descendants, healing of collective trauma",
+      "special_dates": [
+        {"date": "1941-09-29", "name": "Babi Yar massacre", "deaths": 33771, "location": "Kyiv, Ukraine"},
+        {"date": "1942-07-22", "name": "Treblinka extermination begins", "deaths": 900000},
+        {"date": "1944-05-15", "name": "Hungarian Jews deportation begins", "deaths": 437000},
+        {"date": "1945-01-27", "name": "Auschwitz liberation", "survivors": 7000},
+        {"date": "1945-04-15", "name": "Bergen-Belsen liberation", "survivors": 60000}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle from June 22, 1941 to May 8, 1945 (1416 days)",
+      "mantras": ["Om Mani Padme Hum", "Kaddish", "El Malei Rachamim"],
+      "visualization_themes": ["Liberation from darkness", "Light overcoming hatred", "Collective healing"]
+    },
+    {
+      "id": "cambodian_genocide",
+      "name": "Cambodian Genocide (Khmer Rouge)",
+      "description": "Genocide carried out by Khmer Rouge regime under Pol Pot",
+      "start_date": "1975-04-17",
+      "end_date": "1979-01-07",
+      "primary_locations": [
+        {"name": "Tuol Sleng (S-21)", "lat": 11.5493, "lon": 104.9174, "country": "Cambodia"},
+        {"name": "Choeung Ek Killing Fields", "lat": 11.4684, "lon": 104.9022, "country": "Cambodia"},
+        {"name": "Phnom Penh", "lat": 11.5564, "lon": 104.9282, "country": "Cambodia"},
+        {"name": "Battambang Province", "lat": 13.0957, "lon": 103.2022, "country": "Cambodia"},
+        {"name": "Siem Reap Province", "lat": 13.3671, "lon": 103.8448, "country": "Cambodia"}
+      ],
+      "estimated_deaths": 2000000,
+      "population_affected": "Cambodian civilians, intellectuals, religious groups, ethnic minorities",
+      "blessing_focus": "Victims of Khmer Rouge, survivors bearing trauma, healing of Cambodian people",
+      "special_dates": [
+        {"date": "1975-04-17", "name": "Phnom Penh evacuation begins"},
+        {"date": "1976-04-06", "name": "Mass executions intensify"},
+        {"date": "1978-12-25", "name": "Vietnamese invasion begins"},
+        {"date": "1979-01-07", "name": "Phnom Penh liberated"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle from April 17, 1975 to January 7, 1979 (1361 days)",
+      "mantras": ["Om Mani Padme Hum", "Namo Buddhaya", "May all beings be free from suffering"],
+      "visualization_themes": ["Fields of death becoming fields of life", "Skulls transforming into lotus flowers", "Collective trauma healing"]
+    },
+    {
+      "id": "wwi",
+      "name": "World War I",
+      "description": "The Great War - global conflict with unprecedented casualties",
+      "start_date": "1914-07-28",
+      "end_date": "1918-11-11",
+      "primary_locations": [
+        {"name": "Verdun", "lat": 49.1600, "lon": 5.3850, "country": "France"},
+        {"name": "Somme", "lat": 50.0300, "lon": 2.6978, "country": "France"},
+        {"name": "Passchendaele", "lat": 50.9036, "lon": 3.0156, "country": "Belgium"},
+        {"name": "Gallipoli", "lat": 40.2317, "lon": 26.3711, "country": "Turkey"},
+        {"name": "Tannenberg", "lat": 53.4333, "lon": 20.1833, "country": "Poland"},
+        {"name": "Isonzo River", "lat": 45.8833, "lon": 13.6333, "country": "Italy"},
+        {"name": "Eastern Front", "lat": 55.0, "lon": 30.0, "country": "Russia/Poland"}
+      ],
+      "estimated_deaths": 17000000,
+      "population_affected": "Soldiers from all nations, civilians in war zones, Spanish flu victims",
+      "blessing_focus": "All who died in trenches, victims of gas attacks, shell shock survivors, bereaved families",
+      "special_dates": [
+        {"date": "1914-08-04", "name": "Britain enters war"},
+        {"date": "1916-07-01", "name": "Battle of Somme begins", "deaths": 1000000},
+        {"date": "1917-04-06", "name": "USA enters war"},
+        {"date": "1918-11-11", "name": "Armistice Day", "time": "11:00"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle from July 28, 1914 to November 11, 1918 (1567 days)",
+      "mantras": ["May all warriors find peace", "Om Shanti Shanti Shanti", "Eternal rest grant unto them"],
+      "visualization_themes": ["Trenches filling with flowers", "No man's land becoming sacred ground", "Warriors laying down arms"]
+    },
+    {
+      "id": "bengal_famine_1943",
+      "name": "Bengal Famine of 1943",
+      "description": "Devastating famine in British-ruled Bengal during WWII",
+      "start_date": "1943-01-01",
+      "end_date": "1943-12-31",
+      "primary_locations": [
+        {"name": "Kolkata (Calcutta)", "lat": 22.5726, "lon": 88.3639, "country": "India"},
+        {"name": "Dhaka", "lat": 23.8103, "lon": 90.4125, "country": "Bangladesh"},
+        {"name": "Rural Bengal", "lat": 24.0, "lon": 89.0, "country": "India/Bangladesh"}
+      ],
+      "estimated_deaths": 3000000,
+      "population_affected": "Bengali people, primarily rural poor",
+      "blessing_focus": "Those who starved, mothers who couldn't feed children, abandoned elderly, collective trauma of famine",
+      "special_dates": [
+        {"date": "1943-03-01", "name": "Famine intensifies"},
+        {"date": "1943-10-01", "name": "Peak death period begins"},
+        {"date": "1943-12-01", "name": "Relief efforts begin"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle through all of 1943 (365 days)",
+      "mantras": ["Om Annapurnayai Namaha (Goddess of Nourishment)", "May all beings be nourished", "Om Shanti"],
+      "visualization_themes": ["Hungry ghosts being fed", "Empty bowls filling", "Mothers and children reunited"]
+    },
+    {
+      "id": "holodomor",
+      "name": "Holodomor (Ukrainian Famine)",
+      "description": "Stalin's man-made famine in Ukraine",
+      "start_date": "1932-01-01",
+      "end_date": "1933-12-31",
+      "primary_locations": [
+        {"name": "Kyiv Oblast", "lat": 50.4501, "lon": 30.5234, "country": "Ukraine"},
+        {"name": "Kharkiv Oblast", "lat": 49.9935, "lon": 36.2304, "country": "Ukraine"},
+        {"name": "Dnipro Region", "lat": 48.4647, "lon": 35.0462, "country": "Ukraine"},
+        {"name": "Rural Ukraine", "lat": 49.0, "lon": 32.0, "country": "Ukraine"}
+      ],
+      "estimated_deaths": 4000000,
+      "population_affected": "Ukrainian peasants, kulaks, rural populations",
+      "blessing_focus": "Victims of forced starvation, those who watched loved ones die, collective Ukrainian trauma",
+      "special_dates": [
+        {"date": "1932-08-07", "name": "Law of the Five Stalks of Grain"},
+        {"date": "1932-12-01", "name": "Peak starvation begins"},
+        {"date": "1933-06-01", "name": "Highest death rates"},
+        {"date": "1933-11-01", "name": "Worst period ends"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle from January 1932 to December 1933 (730 days)",
+      "mantras": ["Vichnaya Pamyat (Eternal Memory)", "Om Mani Padme Hum", "May Ukraine heal"],
+      "visualization_themes": ["Fields of wheat appearing", "Granaries opening", "Families reunited"]
+    },
+    {
+      "id": "armenian_genocide",
+      "name": "Armenian Genocide",
+      "description": "Systematic extermination of Armenians by Ottoman Empire",
+      "start_date": "1915-04-24",
+      "end_date": "1917-12-31",
+      "primary_locations": [
+        {"name": "Constantinople/Istanbul", "lat": 41.0082, "lon": 28.9784, "country": "Turkey"},
+        {"name": "Van", "lat": 38.5012, "lon": 43.3800, "country": "Turkey"},
+        {"name": "Diyarbakir", "lat": 37.9144, "lon": 40.2306, "country": "Turkey"},
+        {"name": "Syrian Desert", "lat": 35.0, "lon": 40.0, "country": "Syria"}
+      ],
+      "estimated_deaths": 1500000,
+      "population_affected": "Armenian population of Ottoman Empire",
+      "blessing_focus": "Victims of death marches, those who died in desert, survivors' descendants, acknowledgment of suffering",
+      "special_dates": [
+        {"date": "1915-04-24", "name": "Armenian intellectuals arrested", "deaths": 250},
+        {"date": "1915-05-27", "name": "Tehcir Law (deportation)"},
+        {"date": "1916-01-01", "name": "Death marches intensify"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle from April 24, 1915 to December 31, 1917 (982 days)",
+      "mantras": ["Der Voghormia (Lord Have Mercy)", "Hayr Mer (Our Father)", "Om Mani Padme Hum"],
+      "visualization_themes": ["Desert blooming", "Water appearing for the thirsty", "Souls finding rest"]
+    },
+    {
+      "id": "rwandan_genocide",
+      "name": "Rwandan Genocide",
+      "description": "Genocide against Tutsi population in Rwanda",
+      "start_date": "1994-04-07",
+      "end_date": "1994-07-15",
+      "primary_locations": [
+        {"name": "Kigali", "lat": -1.9441, "lon": 30.0619, "country": "Rwanda"},
+        {"name": "Butare", "lat": -2.5967, "lon": 29.7397, "country": "Rwanda"},
+        {"name": "Kibuye", "lat": -2.0600, "lon": 29.3478, "country": "Rwanda"},
+        {"name": "Nyamata Church", "lat": -2.1500, "lon": 30.0833, "country": "Rwanda"},
+        {"name": "Ntarama Church", "lat": -2.1667, "lon": 30.1167, "country": "Rwanda"}
+      ],
+      "estimated_deaths": 800000,
+      "population_affected": "Tutsi population, moderate Hutus",
+      "blessing_focus": "Victims of machete attacks, those killed in churches, orphaned children, rape survivors",
+      "special_dates": [
+        {"date": "1994-04-06", "name": "President's plane shot down"},
+        {"date": "1994-04-07", "name": "Genocide begins"},
+        {"date": "1994-05-01", "name": "Peak killing period"},
+        {"date": "1994-07-15", "name": "RPF victory, genocide ends"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle from April 7 to July 15, 1994 (100 days)",
+      "mantras": ["May all beings be free from violence", "Om Mani Padme Hum", "Healing for Rwanda"],
+      "visualization_themes": ["Church sanctuaries becoming truly safe", "Machetes becoming plowshares", "Reconciliation and healing"]
+    },
+    {
+      "id": "great_chinese_famine",
+      "name": "Great Chinese Famine",
+      "description": "Massive famine during Great Leap Forward",
+      "start_date": "1959-01-01",
+      "end_date": "1961-12-31",
+      "primary_locations": [
+        {"name": "Anhui Province", "lat": 31.8612, "lon": 117.2840, "country": "China"},
+        {"name": "Henan Province", "lat": 34.7466, "lon": 113.6253, "country": "China"},
+        {"name": "Sichuan Province", "lat": 30.5728, "lon": 104.0668, "country": "China"},
+        {"name": "Gansu Province", "lat": 36.0611, "lon": 103.8343, "country": "China"}
+      ],
+      "estimated_deaths": 30000000,
+      "population_affected": "Rural Chinese population, entire villages",
+      "blessing_focus": "Those who starved, parents who watched children die, mass graves, collective trauma",
+      "special_dates": [
+        {"date": "1959-01-01", "name": "Famine begins"},
+        {"date": "1960-01-01", "name": "Worst year begins"},
+        {"date": "1961-01-01", "name": "Death rates peak"},
+        {"date": "1961-12-31", "name": "Famine officially ends"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle from 1959-1961 (1096 days)",
+      "mantras": ["Namo Amitabha", "Om Mani Padme Hum", "May all hungry ghosts be fed"],
+      "visualization_themes": ["Empty fields filling with rice", "Hungry ghosts receiving offerings", "Ancestors at peace"]
+    },
+    {
+      "id": "hiroshima_nagasaki",
+      "name": "Atomic Bombings of Japan",
+      "description": "Nuclear attacks on Hiroshima and Nagasaki",
+      "start_date": "1945-08-06",
+      "end_date": "1945-08-09",
+      "primary_locations": [
+        {"name": "Hiroshima", "lat": 34.3853, "lon": 132.4553, "country": "Japan"},
+        {"name": "Nagasaki", "lat": 32.7503, "lon": 129.8779, "country": "Japan"}
+      ],
+      "estimated_deaths": 200000,
+      "population_affected": "Japanese civilians, hibakusha (survivors), future generations",
+      "blessing_focus": "Those vaporized instantly, those who died slowly from radiation, hibakusha, anti-nuclear peace",
+      "special_dates": [
+        {"date": "1945-08-06", "name": "Hiroshima bombing", "time": "08:15", "deaths": 140000},
+        {"date": "1945-08-09", "name": "Nagasaki bombing", "time": "11:02", "deaths": 70000}
+      ],
+      "daily_cycle_suggestion": "Annual cycle on Aug 6-9, hourly on exact times",
+      "mantras": ["Namu Amida Butsu", "May nuclear weapons never be used again", "Peace for all beings"],
+      "visualization_themes": ["Mushroom cloud becoming lotus", "Radiation becoming healing light", "Never again"]
+    },
+    {
+      "id": "transatlantic_slave_trade",
+      "name": "Transatlantic Slave Trade",
+      "description": "Centuries of enslaving and transporting Africans",
+      "start_date": "1525-01-01",
+      "end_date": "1866-12-31",
+      "primary_locations": [
+        {"name": "West African Coast", "lat": 6.0, "lon": 0.0, "country": "Various"},
+        {"name": "Middle Passage", "lat": 15.0, "lon": -40.0, "ocean": "Atlantic"},
+        {"name": "Caribbean Islands", "lat": 18.0, "lon": -75.0, "country": "Various"},
+        {"name": "American South", "lat": 33.0, "lon": -85.0, "country": "USA"},
+        {"name": "Brazil", "lat": -10.0, "lon": -55.0, "country": "Brazil"}
+      ],
+      "estimated_deaths": 12000000,
+      "population_affected": "Enslaved Africans and their descendants across diaspora",
+      "blessing_focus": "Those who died in Middle Passage, those enslaved, intergenerational trauma, ancestors",
+      "special_dates": [
+        {"date": "1619-08-01", "name": "First enslaved Africans in Virginia"},
+        {"date": "1791-08-22", "name": "Haitian Revolution begins"},
+        {"date": "1863-01-01", "name": "Emancipation Proclamation"},
+        {"date": "1865-12-06", "name": "13th Amendment abolishes slavery"}
+      ],
+      "daily_cycle_suggestion": "Sample key periods, honor ancestors regularly",
+      "mantras": ["Ancestors, we honor you", "Freedom for all beings", "Healing across generations"],
+      "visualization_themes": ["Chains breaking", "Ships becoming free passage", "Ancestors rising in dignity"]
+    },
+    {
+      "id": "irish_potato_famine",
+      "name": "Irish Potato Famine (Great Hunger)",
+      "description": "Mass starvation in Ireland under British rule",
+      "start_date": "1845-09-01",
+      "end_date": "1852-12-31",
+      "primary_locations": [
+        {"name": "County Cork", "lat": 51.8969, "lon": -8.4863, "country": "Ireland"},
+        {"name": "County Mayo", "lat": 53.8333, "lon": -9.2833, "country": "Ireland"},
+        {"name": "County Galway", "lat": 53.2707, "lon": -9.0568, "country": "Ireland"},
+        {"name": "Skibbereen", "lat": 51.5500, "lon": -9.2667, "country": "Ireland"}
+      ],
+      "estimated_deaths": 1000000,
+      "population_affected": "Irish people, emigrant diaspora",
+      "blessing_focus": "Famine victims, those who died on coffin ships, diaspora, collective Irish trauma",
+      "special_dates": [
+        {"date": "1845-09-01", "name": "Blight appears"},
+        {"date": "1847-01-01", "name": "Black '47 begins"},
+        {"date": "1849-01-01", "name": "Cholera epidemic"}
+      ],
+      "daily_cycle_suggestion": "Run blessing cycle 1845-1852 (sample periods)",
+      "mantras": ["May the hungry be fed", "Healing for Ireland", "Peace to departed souls"],
+      "visualization_themes": ["Potatoes growing healthy", "Ships reaching safe harbor", "Families reunited"]
+    }
+  ],
+  "metadata": {
+    "created": "2025-11-15",
+    "purpose": "Database of historical suffering periods for compassionate blessing and healing work",
+    "usage": "These dates and locations can be used with radionics broadcasting, astrocartography, blessing dedications, and time-cycle visualizations",
+    "important_note": "This work honors all who suffered. We approach these tragedies with deepest respect, humility, and genuine compassion. May all beings be free from suffering.",
+    "sources": "Historical records, memorial sites, academic research, survivor testimonies",
+    "blessing_approach": "Non-denominational, inclusive, honoring all traditions and perspectives"
+  }
+}

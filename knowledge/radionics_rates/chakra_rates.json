@@ -1,0 +1,76 @@
+{
+  "rates": [
+    {
+      "values": [9, 49, 84],
+      "name": "Root Chakra (Muladhara)",
+      "description": "Grounding, survival, security - 396 Hz",
+      "category": "chakra",
+      "potency": 0.90
+    },
+    {
+      "values": [14, 52, 87],
+      "name": "Sacral Chakra (Svadhisthana)",
+      "description": "Creativity, emotions, sexuality - 417 Hz",
+      "category": "chakra",
+      "potency": 0.88
+    },
+    {
+      "values": [19, 55, 90],
+      "name": "Solar Plexus (Manipura)",
+      "description": "Personal power, will, confidence - 528 Hz",
+      "category": "chakra",
+      "potency": 0.92
+    },
+    {
+      "values": [24, 58, 93],
+      "name": "Heart Chakra (Anahata)",
+      "description": "Love, compassion, connection - 639 Hz",
+      "category": "chakra",
+      "potency": 0.94
+    },
+    {
+      "values": [29, 61, 96],
+      "name": "Throat Chakra (Vishuddha)",
+      "description": "Communication, truth, expression - 741 Hz",
+      "category": "chakra",
+      "potency": 0.89
+    },
+    {
+      "values": [34, 64, 99],
+      "name": "Third Eye (Ajna)",
+      "description": "Intuition, insight, vision - 852 Hz",
+      "category": "chakra",
+      "potency": 0.91
+    },
+    {
+      "values": [39, 67, 102],
+      "name": "Crown Chakra (Sahasrara)",
+      "description": "Spiritual connection, consciousness - 963 Hz",
+      "category": "chakra",
+      "potency": 0.93
+    },
+    {
+      "values": [44, 70, 95],
+      "name": "Earth Star Chakra",
+      "description": "Connection to Earth, grounding below feet",
+      "category": "chakra_extended",
+      "potency": 0.85
+    },
+    {
+      "values": [49, 73, 98],
+      "name": "Soul Star Chakra",
+      "description": "Higher self connection, above crown",
+      "category": "chakra_extended",
+      "potency": 0.87
+    },
+    {
+      "values": [22, 59, 88],
+      "name": "Chakra Balance - All Seven",
+      "description": "Overall chakra system alignment",
+      "category": "chakra_general",
+      "potency": 0.90
+    }
+  ],
+  "saved_at": "2025-01-15T00:00:00",
+  "count": 10
+}

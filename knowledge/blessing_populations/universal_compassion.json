@@ -1,0 +1,33 @@
+{
+  "description": "Universal compassion blessing targets - all sentient beings",
+  "targets": [
+    {
+      "name": "All Sentient Beings",
+      "category": "all_sentient_beings",
+      "description": "Universal compassion for all beings in all realms of existence",
+      "priority": 10,
+      "intention": "May all sentient beings have happiness and its causes. May all sentient beings be free from suffering and its causes. May all sentient beings never be separated from joy. May all sentient beings rest in equanimity, free from attachment and aversion."
+    },
+    {
+      "name": "Beings in the Six Realms",
+      "category": "all_sentient_beings",
+      "description": "All beings in the six realms of samsara - gods, jealous gods, humans, animals, hungry ghosts, hell beings",
+      "priority": 10,
+      "intention": "May all beings in all six realms be liberated from suffering and attain enlightenment"
+    },
+    {
+      "name": "Those Currently Dying",
+      "category": "deceased",
+      "description": "All beings in the process of dying at this moment worldwide",
+      "priority": 9,
+      "intention": "May all beings passing through the bardo find peaceful liberation and favorable rebirth"
+    },
+    {
+      "name": "Recently Deceased",
+      "category": "deceased",
+      "description": "Those who have died in the past 49 days (intermediate state period)",
+      "priority": 9,
+      "intention": "May all recently deceased beings navigate the bardo successfully and attain liberation or favorable rebirth"
+    }
+  ]
+}

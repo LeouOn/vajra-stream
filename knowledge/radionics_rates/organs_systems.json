@@ -1,0 +1,111 @@
+{
+  "rates": [
+    {
+      "values": [22, 54, 88],
+      "name": "Heart",
+      "description": "Cardiovascular system, circulation",
+      "category": "organ",
+      "potency": 0.90
+    },
+    {
+      "values": [18, 49, 76],
+      "name": "Lungs",
+      "description": "Respiratory system, breathing",
+      "category": "organ",
+      "potency": 0.87
+    },
+    {
+      "values": [25, 58, 82],
+      "name": "Liver",
+      "description": "Detoxification, metabolism",
+      "category": "organ",
+      "potency": 0.88
+    },
+    {
+      "values": [20, 51, 79],
+      "name": "Kidneys",
+      "description": "Filtration, fluid balance",
+      "category": "organ",
+      "potency": 0.86
+    },
+    {
+      "values": [28, 62, 85],
+      "name": "Stomach",
+      "description": "Digestion, assimilation",
+      "category": "organ",
+      "potency": 0.83
+    },
+    {
+      "values": [24, 55, 81],
+      "name": "Spleen",
+      "description": "Immune function, blood filtering",
+      "category": "organ",
+      "potency": 0.80
+    },
+    {
+      "values": [30, 64, 90],
+      "name": "Brain",
+      "description": "Nervous system, cognition",
+      "category": "organ",
+      "potency": 0.92
+    },
+    {
+      "values": [26, 59, 84],
+      "name": "Thyroid",
+      "description": "Metabolism, energy regulation",
+      "category": "gland",
+      "potency": 0.84
+    },
+    {
+      "values": [23, 56, 83],
+      "name": "Adrenals",
+      "description": "Stress response, energy",
+      "category": "gland",
+      "potency": 0.85
+    },
+    {
+      "values": [27, 60, 86],
+      "name": "Pituitary",
+      "description": "Master gland, hormone regulation",
+      "category": "gland",
+      "potency": 0.87
+    },
+    {
+      "values": [21, 52, 78],
+      "name": "Pineal",
+      "description": "Circadian rhythm, melatonin",
+      "category": "gland",
+      "potency": 0.86
+    },
+    {
+      "values": [19, 50, 77],
+      "name": "Thymus",
+      "description": "Immune system, T-cells",
+      "category": "gland",
+      "potency": 0.81
+    },
+    {
+      "values": [31, 65, 89],
+      "name": "Immune System",
+      "description": "Overall immune function",
+      "category": "system",
+      "potency": 0.89
+    },
+    {
+      "values": [29, 63, 87],
+      "name": "Nervous System",
+      "description": "Nerve conduction, signaling",
+      "category": "system",
+      "potency": 0.88
+    },
+    {
+      "values": [32, 66, 91],
+      "name": "Lymphatic System",
+      "description": "Drainage, detoxification",
+      "category": "system",
+      "potency": 0.85
+    }
+  ],
+  "saved_at": "2025-01-15T00:00:00",
+  "count": 15
+}

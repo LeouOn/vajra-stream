@@ -1,0 +1,111 @@
+{
+  "rates": [
+    {
+      "values": [50, 50, 50],
+      "name": "Perfect Balance",
+      "description": "Universal balancing rate - centered equilibrium",
+      "category": "universal",
+      "potency": 0.95
+    },
+    {
+      "values": [33, 66, 99],
+      "name": "Harmonic Triad",
+      "description": "3-6-9 Tesla harmonics for balance",
+      "category": "universal",
+      "potency": 0.92
+    },
+    {
+      "values": [7, 83, 100],
+      "name": "Schumann Balance",
+      "description": "Earth resonance alignment - 7.83 Hz",
+      "category": "earth",
+      "potency": 0.90
+    },
+    {
+      "values": [13, 61, 86],
+      "name": "OM Resonance",
+      "description": "Cosmic balance - 136.1 Hz Earth Year",
+      "category": "cosmic",
+      "potency": 0.91
+    },
+    {
+      "values": [52, 80, 100],
+      "name": "Love Frequency",
+      "description": "528 Hz miracle tone - DNA repair",
+      "category": "solfeggio",
+      "potency": 0.93
+    },
+    {
+      "values": [63, 90, 100],
+      "name": "Heart Connection",
+      "description": "639 Hz relationships and connection",
+      "category": "solfeggio",
+      "potency": 0.89
+    },
+    {
+      "values": [21, 42, 63],
+      "name": "Moon Balance",
+      "description": "Lunar cycle harmonization - 210.42 Hz",
+      "category": "planetary",
+      "potency": 0.87
+    },
+    {
+      "values": [12, 62, 100],
+      "name": "Sun Vitality",
+      "description": "Solar energy - 126.22 Hz",
+      "category": "planetary",
+      "potency": 0.88
+    },
+    {
+      "values": [40, 60, 80],
+      "name": "Golden Ratio",
+      "description": "Phi proportion balance - divine proportion",
+      "category": "sacred_geometry",
+      "potency": 0.90
+    },
+    {
+      "values": [72, 72, 72],
+      "name": "Sacred 72",
+      "description": "72 names of God, platonic solid angles",
+      "category": "sacred_geometry",
+      "potency": 0.86
+    },
+    {
+      "values": [10, 20, 30],
+      "name": "Decade Progression",
+      "description": "Linear growth and development",
+      "category": "progression",
+      "potency": 0.75
+    },
+    {
+      "values": [1, 1, 2],
+      "name": "Fibonacci Start",
+      "description": "Natural growth pattern beginning",
+      "category": "sacred_geometry",
+      "potency": 0.82
+    },
+    {
+      "values": [3, 5, 8],
+      "name": "Fibonacci Growth",
+      "description": "Natural expansion and development",
+      "category": "sacred_geometry",
+      "potency": 0.84
+    },
+    {
+      "values": [11, 22, 33],
+      "name": "Master Numbers",
+      "description": "Numerological power numbers",
+      "category": "numerology",
+      "potency": 0.88
+    },
+    {
+      "values": [0, 100, 0],
+      "name": "Reset and Renewal",
+      "description": "Clearing and fresh start",
+      "category": "clearing",
+      "potency": 0.85
+    }
+  ],
+  "saved_at": "2025-01-15T00:00:00",
+  "count": 15
+}

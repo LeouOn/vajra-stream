@@ -1,0 +1,115 @@
+{
+  "description": "Non-human beings in suffering - animals, wildlife, endangered species",
+  "targets": [
+    {
+      "name": "Shelter Animals Awaiting Adoption (US)",
+      "category": "shelter_animal",
+      "description": "Approximately 6.3 million companion animals enter US shelters annually",
+      "priority": 8,
+      "intention": "May all shelter animals find loving forever homes, may no animal be euthanized for lack of space",
+      "additional_data": {
+        "estimated_count": "6.3 million annually in US shelters",
+        "euthanized_annually": "920,000",
+        "data_sources": ["ASPCA", "Best Friends Animal Society"]
+      }
+    },
+    {
+      "name": "Factory Farm Animals",
+      "category": "shelter_animal",
+      "description": "Approximately 10 billion land animals and 50+ billion aquatic animals slaughtered annually in US alone for food",
+      "priority": 9,
+      "intention": "May all factory farmed beings be free from suffering, may humanity evolve toward compassion",
+      "additional_data": {
+        "estimated_count": "10 billion land animals US, 80+ billion globally",
+        "data_sources": ["USDA", "FAO"]
+      }
+    },
+    {
+      "name": "Animals in Research Laboratories",
+      "category": "shelter_animal",
+      "description": "Estimated 100+ million animals used in experiments globally each year",
+      "priority": 8,
+      "intention": "May all laboratory animals be treated with compassion, may alternative methods replace animal testing",
+      "additional_data": {
+        "estimated_count": "100+ million annually",
+        "data_sources": ["Humane Society International", "EU statistics"]
+      }
+    },
+    {
+      "name": "Endangered Species - Mammals",
+      "category": "endangered_species",
+      "description": "Over 1,300 mammal species critically endangered or endangered (IUCN Red List)",
+      "priority": 9,
+      "intention": "May all endangered species populations recover, may their habitats be protected",
+      "additional_data": {
+        "species_count": "1,300+ mammals",
+        "includes": ["vaquita", "amur leopard", "javan rhino", "mountain gorilla"],
+        "data_sources": ["IUCN Red List"]
+      }
+    },
+    {
+      "name": "Endangered Species - Birds",
+      "category": "endangered_species",
+      "description": "Over 1,400 bird species critically endangered or endangered",
+      "priority": 8,
+      "intention": "May all endangered bird species thrive, may their ecosystems be restored",
+      "additional_data": {
+        "species_count": "1,400+ birds",
+        "data_sources": ["IUCN Red List", "BirdLife International"]
+      }
+    },
+    {
+      "name": "Endangered Species - Marine Life",
+      "category": "endangered_species",
+      "description": "Thousands of marine species threatened with extinction",
+      "priority": 8,
+      "intention": "May all endangered marine life recover, may oceans be healed",
+      "additional_data": {
+        "includes": ["vaquita", "right whales", "sea turtles", "sharks", "coral species"],
+        "data_sources": ["IUCN", "NOAA"]
+      }
+    },
+    {
+      "name": "Wildlife in Conflict Zones",
+      "category": "shelter_animal",
+      "description": "Animals suffering in war zones, landmine areas, areas of armed conflict",
+      "priority": 7,
+      "intention": "May all animals in war zones be protected, may they find peace and safety",
+      "additional_data": {
+        "affected_regions": ["Middle East", "Africa", "Eastern Europe"]
+      }
+    },
+    {
+      "name": "Animals Displaced by Climate Change",
+      "category": "shelter_animal",
+      "description": "Millions of animals losing habitats due to climate change, fires, floods, droughts",
+      "priority": 8,
+      "intention": "May all climate-displaced animals adapt and survive, may humanity address climate change with urgency",
+      "additional_data": {
+        "threats": ["habitat loss", "temperature changes", "sea level rise", "extreme weather"]
+      }
+    },
+    {
+      "name": "Stray and Feral Animals (Worldwide)",
+      "category": "shelter_animal",
+      "description": "Hundreds of millions of stray dogs and cats worldwide living in harsh conditions",
+      "priority": 7,
+      "intention": "May all stray animals find food, shelter, and compassionate human care",
+      "additional_data": {
+        "estimated_count": "200+ million stray dogs, 600+ million stray cats globally",
+        "data_sources": ["WHO", "various NGOs"]
+      }
+    },
+    {
+      "name": "Wildlife Victims of Poaching",
+      "category": "endangered_species",
+      "description": "Thousands of animals killed annually by poachers (elephants, rhinos, pangolins, etc.)",
+      "priority": 9,
+      "intention": "May poaching cease, may all animals be protected, may poachers find other livelihoods",
+      "additional_data": {
+        "estimated_losses": "20,000+ elephants, 1,000+ rhinos annually",
+        "data_sources": ["CITES", "WWF", "Traffic"]
+      }
+    }
+  ]
+}
