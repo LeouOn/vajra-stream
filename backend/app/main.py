@@ -5,10 +5,13 @@ FastAPI Application for Vajra.Stream Web Interface
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import asyncio
 import sys
 import os
+from pathlib import Path
 
 # Add parent directory to path to import existing Vajra.Stream modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../'))
@@ -20,10 +23,15 @@ from app.api.v1.endpoints import (
     scalar_waves as scalar_endpoint,
     radionics as radionics_endpoint,
     anatomy as anatomy_endpoint,
-    blessings as blessings_endpoint
+    blessings as blessings_endpoint,
+    visualization as visualization_endpoint
 )
 from websocket.connection_manager import ConnectionManager
 from core.services.vajra_service import vajra_service
+
+# Setup templates
+template_dir = Path(__file__).parent.parent.parent.parent / "templates"
+templates = Jinja2Templates(directory=str(template_dir))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -87,6 +95,7 @@ app.include_router(scalar_endpoint.router, prefix="/api/v1/scalar", tags=["scala
 app.include_router(radionics_endpoint.router, prefix="/api/v1/radionics", tags=["radionics"])
 app.include_router(anatomy_endpoint.router, prefix="/api/v1/anatomy", tags=["anatomy"])
 app.include_router(blessings_endpoint.router, prefix="/api/v1/blessings", tags=["blessings"])
+app.include_router(visualization_endpoint.router, prefix="/api/v1/visualization", tags=["visualization"])
 
 # WebSocket endpoint
 @app.websocket("/ws")
@@ -100,6 +109,25 @@ async def websocket_endpoint(websocket):
         print(f"WebSocket error: {e}")
     finally:
         connection_manager.disconnect(websocket)
+
+
+# Visualization Gallery
+@app.get("/visualizations", response_class=HTMLResponse)
+@app.get("/gallery", response_class=HTMLResponse)
+async def visualization_gallery():
+    """
+    Sacred Visualization Gallery - Beautiful web interface for all visualizations
+    """
+    template_path = template_dir / "visualization.html"
+    if template_path.exists():
+        with open(template_path, 'r') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(
+            content="<h1>Visualization template not found</h1>",
+            status_code=404
+        )
+
 
 # Static file serving for frontend (optional)
 @app.get("/frontend", response_class=HTMLResponse)
@@ -118,13 +146,15 @@ async def get_frontend():
             .endpoint { background: #2a2a2a; padding: 20px; margin: 10px 0; border-radius: 5px; }
             .method { color: #4CAF50; font-weight: bold; }
             .path { color: #2196F3; }
+            a { color: #FFD700; text-decoration: none; }
+            a:hover { text-decoration: underline; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>Vajra.Stream API</h1>
+            <h1>🔱 Vajra.Stream API</h1>
             <p>Sacred Technology Web Interface</p>
-            
+
             <div class="endpoint">
                 <span class="method">GET</span> <span class="path">/</span> - API Root
             </div>
@@ -135,12 +165,16 @@ async def get_frontend():
                 <span class="method">GET</span> <span class="path">/docs</span> - API Documentation
             </div>
             <div class="endpoint">
+                <span class="method">GET</span> <span class="path"><a href="/visualizations">/visualizations</a></span> - 🎨 Sacred Visualization Gallery
+            </div>
+            <div class="endpoint">
                 <span class="method">WS</span> <span class="path">/ws</span> - WebSocket Connection
             </div>
-            
-            <h2>📚 API Documentation</h2>
+
+            <h2>📚 Resources</h2>
             <p>Visit <a href="/docs" style="color: #2196F3;">/docs</a> for interactive API documentation.</p>
             <p>Visit <a href="/redoc" style="color: #2196F3;">/redoc</a> for ReDoc documentation.</p>
+            <p>Visit <a href="/visualizations" style="color: #FFD700;">🎨 Visualization Gallery</a> for sacred art and healing visualizations.</p>
         </div>
     </body>
     </html>
@@ -151,11 +185,12 @@ if __name__ == "__main__":
     print("Starting Vajra.Stream API Server...")
     print("WebSocket endpoint: ws://localhost:8000/ws")
     print("API Documentation: http://localhost:8000/docs")
+    print("Visualization Gallery: http://localhost:8000/visualizations")
     print("Frontend should be available at: http://localhost:3000")
-    
+
     uvicorn.run(
-        app, 
-        host="0.0.0.0", 
+        app,
+        host="0.0.0.0",
         port=8000,
         reload=True,
         log_level="info"

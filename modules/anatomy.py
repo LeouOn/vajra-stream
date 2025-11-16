@@ -11,9 +11,22 @@ import base64
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.meridian_visualization import MeridianVisualizer, BodyPosition
-from core.energetic_anatomy import EnergeticAnatomyDatabase, Tradition
 from modules.interfaces import AnatomyVisualizer, EventBus
+
+# Try to import visualization - will fail if PIL not available
+try:
+    from core.meridian_visualization import MeridianVisualizer, BodyPosition
+    HAS_VISUALIZATION = True
+except (ImportError, RuntimeError) as e:
+    HAS_VISUALIZATION = False
+    print(f"⚠️  Visualization disabled: {e}")
+
+# Database should always be available
+try:
+    from core.energetic_anatomy import EnergeticAnatomyDatabase, Tradition
+    HAS_DATABASE = True
+except ImportError:
+    HAS_DATABASE = False
 
 
 class AnatomyService(AnatomyVisualizer):
@@ -21,8 +34,17 @@ class AnatomyService(AnatomyVisualizer):
 
     def __init__(self, event_bus: EventBus = None):
         self.event_bus = event_bus
-        self.visualizer = MeridianVisualizer()
-        self.database = EnergeticAnatomyDatabase()
+        self.has_visualization = HAS_VISUALIZATION
+        self.has_database = HAS_DATABASE
+
+    def _check_visualization(self):
+        """Check if visualization is available"""
+        if not self.has_visualization:
+            raise RuntimeError(
+                "Visualization not available - PIL/Pillow not installed.\n"
+                "Install with: pip install pillow\n"
+                "Or install all dependencies: pip install -r requirements.txt"
+            )
 
     def visualize_chakras(
         self,
@@ -31,6 +53,7 @@ class AnatomyService(AnatomyVisualizer):
         output_path: Optional[str] = None
     ) -> str:
         """Generate chakra diagram"""
+        self._check_visualization()
 
         if output_path is None:
             output_path = "/tmp/vajra_chakras.png"
@@ -48,6 +71,7 @@ class AnatomyService(AnatomyVisualizer):
         output_path: Optional[str] = None
     ) -> str:
         """Generate meridian map"""
+        self._check_visualization()
 
         if output_path is None:
             output_path = "/tmp/vajra_meridians.png"
@@ -65,6 +89,7 @@ class AnatomyService(AnatomyVisualizer):
         output_path: Optional[str] = None
     ) -> str:
         """Generate central channel diagram"""
+        self._check_visualization()
 
         if output_path is None:
             output_path = "/tmp/vajra_central_channel.png"

@@ -76,7 +76,11 @@ class AudioService:
     ) -> Dict[str, Any]:
         """Generate a pure tone at specified frequency"""
         if self.audio_generator is None:
-            return {'error': 'Audio generator not available'}
+            return {
+                'error': 'Audio generator not available - numpy/scipy not installed.\n'
+                         'Install with: pip install numpy scipy sounddevice\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             audio_data = self.audio_generator.generate_tone(
@@ -101,7 +105,11 @@ class AudioService:
     ) -> Dict[str, Any]:
         """Generate binaural beats"""
         if self.audio_generator is None:
-            return {'error': 'Audio generator not available'}
+            return {
+                'error': 'Audio generator not available - numpy/scipy not installed.\n'
+                         'Install with: pip install numpy scipy sounddevice\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             audio_data = self.audio_generator.generate_binaural(
@@ -129,7 +137,11 @@ class AudioService:
         tts_engine = self.enhanced_tts or self.tts
 
         if tts_engine is None:
-            return {'error': 'TTS not available'}
+            return {
+                'error': 'TTS not available - pyttsx3 not installed.\n'
+                         'Install with: pip install pyttsx3\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             audio_data = tts_engine.synthesize(

@@ -39,7 +39,11 @@ class ComposerService:
     ) -> Dict[str, Any]:
         """Compose healing music"""
         if self.composer is None:
-            return {'error': 'Composer not available'}
+            return {
+                'error': 'Composer not available - audio dependencies not installed.\n'
+                         'Install with: pip install numpy scipy sounddevice\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             composition = self.composer.compose(
@@ -65,7 +69,11 @@ class ComposerService:
     ) -> Dict[str, Any]:
         """Generate a sequence of healing frequencies"""
         if self.composer is None:
-            return {'error': 'Composer not available'}
+            return {
+                'error': 'Composer not available - audio dependencies not installed.\n'
+                         'Install with: pip install numpy scipy sounddevice\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             sequence = self.composer.create_sequence(
@@ -101,7 +109,11 @@ class ComposerService:
     ) -> Dict[str, Any]:
         """Create a meditation soundscape"""
         if self.composer is None:
-            return {'error': 'Composer not available'}
+            return {
+                'error': 'Composer not available - audio dependencies not installed.\n'
+                         'Install with: pip install numpy scipy sounddevice\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         # Map meditation types to frequencies
         frequency_map = {

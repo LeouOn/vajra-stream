@@ -63,7 +63,11 @@ class VisualizationService:
     ) -> str:
         """Generate Rothko-style abstract art"""
         if self.rothko is None:
-            raise ValueError("Rothko generator not available")
+            raise RuntimeError(
+                "Rothko generator not available - PIL/Pillow not installed.\n"
+                "Install with: pip install pillow\n"
+                "Or install all dependencies: pip install -r requirements.txt"
+            )
 
         if output_path is None:
             output_path = "/tmp/vajra_rothko.png"

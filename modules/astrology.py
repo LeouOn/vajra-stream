@@ -52,7 +52,11 @@ class AstrologyService:
     ) -> Dict[str, Any]:
         """Calculate natal chart"""
         if self.astrology is None:
-            return {'error': 'Astrology engine not available'}
+            return {
+                'error': 'Astrology engine not available - astropy not installed.\n'
+                         'Install with: pip install astropy astroquery\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             chart = self.astrology.calculate_chart(
@@ -76,7 +80,11 @@ class AstrologyService:
     ) -> Dict[str, Any]:
         """Get current planetary transits"""
         if self.astrology is None:
-            return {'error': 'Astrology engine not available'}
+            return {
+                'error': 'Astrology engine not available - astropy not installed.\n'
+                         'Install with: pip install astropy astroquery\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             transits = self.astrology.get_transits(
@@ -99,7 +107,11 @@ class AstrologyService:
     ) -> Dict[str, Any]:
         """Analyze energetic influence of a location (astrocartography)"""
         if self.astrocartography is None:
-            return {'error': 'Astrocartography not available'}
+            return {
+                'error': 'Astrocartography not available - astropy not installed.\n'
+                         'Install with: pip install astropy astroquery\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             analysis = self.astrocartography.analyze_location(
@@ -125,7 +137,11 @@ class AstrologyService:
     ) -> Dict[str, Any]:
         """Find energetically favorable locations"""
         if self.astrocartography is None:
-            return {'error': 'Astrocartography not available'}
+            return {
+                'error': 'Astrocartography not available - astropy not installed.\n'
+                         'Install with: pip install astropy astroquery\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         try:
             places = self.astrocartography.find_power_places(
@@ -146,7 +162,11 @@ class AstrologyService:
     ) -> Dict[str, Any]:
         """Get current planetary positions"""
         if self.astrology is None:
-            return {'error': 'Astrology engine not available'}
+            return {
+                'error': 'Astrology engine not available - astropy not installed.\n'
+                         'Install with: pip install astropy astroquery\n'
+                         'Or install all dependencies: pip install -r requirements.txt'
+            }
 
         if date is None:
             date = datetime.now()
