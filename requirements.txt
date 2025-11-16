@@ -1,5 +1,5 @@
 # Vajra.Stream Core Requirements
-Essential dependencies for sacred technology system
+# Essential dependencies for sacred technology system
 
 # Core Audio Processing
 numpy>=1.24.0
