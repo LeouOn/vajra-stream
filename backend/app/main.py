@@ -120,7 +120,7 @@ async def visualization_gallery():
     """
     template_path = template_dir / "visualization.html"
     if template_path.exists():
-        with open(template_path, 'r') as f:
+        with open(template_path, 'r', encoding='utf-8') as f:
             return HTMLResponse(content=f.read())
     else:
         return HTMLResponse(
