@@ -53,6 +53,10 @@ class CentralChannelRequest(BaseModel):
     show_chakras: bool = Field(default=True, description="Show chakras at intersections")
     format: str = Field(default="png", description="Output format (png, jpg)")
 
+class ImbalanceAnalysisRequest(BaseModel):
+    symptoms: List[str] = Field(..., description="List of symptoms")
+    tradition: str = Field(default="taoist", description="Tradition to use for analysis")
+
 # Response Models
 class VisualizationResponse(BaseModel):
     status: str
@@ -295,32 +299,29 @@ async def list_meridians():
 
 
 @router.post("/analyze-imbalance")
-async def analyze_energetic_imbalance(
-    symptoms: List[str] = Field(..., description="List of symptoms"),
-    tradition: str = Field(default="taoist", description="Tradition to use for analysis")
-):
+async def analyze_energetic_imbalance(request: ImbalanceAnalysisRequest):
     """Analyze energetic imbalances based on symptoms"""
     try:
-        logger.info(f"🔍 Analyzing imbalance: {len(symptoms)} symptoms")
+        logger.info(f"🔍 Analyzing imbalance: {len(request.symptoms)} symptoms")
 
         # Simple pattern matching (in real implementation, would use more sophisticated analysis)
         recommendations = []
 
-        if "tired" in str(symptoms).lower() or "fatigue" in str(symptoms).lower():
+        if "tired" in str(request.symptoms).lower() or "fatigue" in str(request.symptoms).lower():
             recommendations.append({
                 "meridian": "Kidney",
                 "element": "Water",
                 "suggestion": "Tonify Kidney meridian, rest 5-7 PM, practice grounding"
             })
 
-        if "anxious" in str(symptoms).lower() or "worry" in str(symptoms).lower():
+        if "anxious" in str(request.symptoms).lower() or "worry" in str(request.symptoms).lower():
             recommendations.append({
                 "chakra": "Manipura (Solar Plexus)",
                 "frequency": 528,
                 "suggestion": "Balance solar plexus, use 528 Hz, practice breathwork"
             })
 
-        if "throat" in str(symptoms).lower() or "communication" in str(symptoms).lower():
+        if "throat" in str(request.symptoms).lower() or "communication" in str(request.symptoms).lower():
             recommendations.append({
                 "chakra": "Vishuddha (Throat)",
                 "frequency": 741,
@@ -329,8 +330,8 @@ async def analyze_energetic_imbalance(
 
         return {
             "status": "success",
-            "symptoms": symptoms,
-            "tradition": tradition,
+            "symptoms": request.symptoms,
+            "tradition": request.tradition,
             "recommendations": recommendations,
             "general_advice": "Consult with a qualified practitioner for personalized guidance"
         }
