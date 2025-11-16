@@ -183,15 +183,15 @@ async def get_frontend():
 if __name__ == "__main__":
     import uvicorn
     print("Starting Vajra.Stream API Server...")
-    print("WebSocket endpoint: ws://localhost:8000/ws")
-    print("API Documentation: http://localhost:8000/docs")
-    print("Visualization Gallery: http://localhost:8000/visualizations")
+    print("WebSocket endpoint: ws://localhost:8001/ws")
+    print("API Documentation: http://localhost:8001/docs")
+    print("Visualization Gallery: http://localhost:8001/visualizations")
     print("Frontend should be available at: http://localhost:3000")
 
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=True,
         log_level="info"
     )

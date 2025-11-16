@@ -22,9 +22,9 @@ if __name__ == "__main__":
     print(f"📁 Project Root: {project_root}")
     print()
     print("Starting server...")
-    print("  • API Documentation: http://localhost:8000/docs")
-    print("  • Visualization Gallery: http://localhost:8000/visualizations")
-    print("  • WebSocket: ws://localhost:8000/ws")
+    print("  • API Documentation: http://localhost:8001/docs")
+    print("  • Visualization Gallery: http://localhost:8001/visualizations")
+    print("  • WebSocket: ws://localhost:8001/ws")
     print("=" * 60)
     print()
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=False,  # Disable reload to avoid path issues
         log_level="info"
     )

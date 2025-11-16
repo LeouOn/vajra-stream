@@ -365,7 +365,7 @@ def main():
     parser.add_argument('--interactive', '-i', action='store_true', help="Run interactive menu")
     parser.add_argument('--benchmark', '-b', action='store_true', help="Run scalar wave benchmark")
     parser.add_argument('--serve', '-s', action='store_true', help="Start API server")
-    parser.add_argument('--port', type=int, default=8000, help="API server port")
+    parser.add_argument('--port', type=int, default=8001, help="API server port")
     parser.add_argument('--status', action='store_true', help="Show system status")
 
     args = parser.parse_args()
