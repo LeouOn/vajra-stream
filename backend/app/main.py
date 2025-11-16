@@ -16,7 +16,7 @@ from pathlib import Path
 # Add parent directory to path to import existing Vajra.Stream modules
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../'))
 
-from app.api.v1.endpoints import (
+from backend.app.api.v1.endpoints import (
     audio as audio_endpoint,
     sessions as sessions_endpoint,
     astrology as astrology_endpoint,
@@ -26,8 +26,8 @@ from app.api.v1.endpoints import (
     blessings as blessings_endpoint,
     visualization as visualization_endpoint
 )
-from websocket.connection_manager import ConnectionManager
-from core.services.vajra_service import vajra_service
+from backend.websocket.connection_manager import ConnectionManager
+from backend.core.services.vajra_service import vajra_service
 
 # Setup templates
 template_dir = Path(__file__).parent.parent.parent.parent / "templates"

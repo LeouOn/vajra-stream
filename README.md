@@ -39,6 +39,10 @@ From the Cittamatra perspective, all phenomena arise from mind - the silicon cir
 
 ## Quick Start
 
+### Requirements
+- **Python**: 3.10 - 3.13 recommended (some optional packages don't support 3.14+ yet)
+- **OS**: Windows, Linux, or macOS
+
 ### Installation
 
 ```bash
@@ -50,7 +54,10 @@ cd vajra-stream
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
+# Install minimal dependencies (core features)
+pip install -r requirements-minimal.txt
+
+# OR install all dependencies (full features - some may fail on Python 3.14+)
 pip install -r requirements.txt
 
 # Set up database
@@ -59,8 +66,36 @@ python scripts/setup_database.py
 
 ### Basic Usage
 
+#### 🎨 Web Visualization Interface (NEW!)
+
+The easiest way to get started - beautiful browser-based interface:
+
 ```bash
-# Run a simple blessing with prayer bowl synthesis (default)
+# Start the web server
+python start_web_server.py
+# Or on Windows: start_web_server.bat
+
+# Then open in your browser:
+# http://localhost:8000/visualizations
+```
+
+Generate and view sacred visualizations directly in your browser:
+- Chakra system diagrams
+- Meridian maps
+- Rothko abstract art
+- Sacred geometry (Flower of Life, Metatron's Cube, Sri Yantra)
+- Healing mandalas
+- Energy field visualizations
+
+See [WEB_VISUALIZATION_GUIDE.md](WEB_VISUALIZATION_GUIDE.md) for details.
+
+#### Terminal Interface
+
+```bash
+# Interactive menu
+python vajra_stream_v2.py --interactive
+
+# Run a simple blessing with prayer bowl synthesis
 python scripts/run_blessing.py --intention "May all beings be happy" --duration 300
 
 # With healing focus
@@ -71,6 +106,23 @@ python scripts/run_blessing.py --continuous
 
 # Test prayer bowl audio vs original sine waves
 python scripts/test_prayer_bowl_audio.py
+```
+
+#### Python API
+
+```python
+from vajra_stream_v2 import VajraStream
+
+vs = VajraStream()
+
+# Generate scalar waves
+vs.generate_scalar_waves('hybrid', duration_seconds=10)
+
+# Broadcast healing
+vs.broadcast_healing("John Doe", duration_minutes=10)
+
+# Visualize chakras
+chakra_path = vs.visualize_chakras()
 ```
 
 ### Hardware Setup
