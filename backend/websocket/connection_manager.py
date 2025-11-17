@@ -101,8 +101,8 @@ class ConnectionManager:
             while self.streaming_active:
                 try:
                     # Import here to avoid circular imports
-                    from core.services.vajra_service import vajra_service
-                    
+                    from backend.core.services.vajra_service import vajra_service
+
                     # Get current data
                     spectrum = vajra_service.get_audio_spectrum()
                     sessions = vajra_service.get_all_sessions()
