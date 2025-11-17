@@ -13,6 +13,8 @@ import StatusIndicator from './components/UI/StatusIndicator';
 import VisualizationSelector from './components/UI/VisualizationSelector';
 import RNGAttunement from './components/UI/RNGAttunement';
 import BlessingSlideshow from './components/UI/BlessingSlideshow';
+import PopulationManager from './components/UI/PopulationManager';
+import AutomationControl from './components/UI/AutomationControl';
 
 function App() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
@@ -138,6 +140,10 @@ function App() {
             <RNGAttunement className="mt-6" />
 
             <BlessingSlideshow className="mt-6" />
+
+            <PopulationManager className="mt-6" />
+
+            <AutomationControl className="mt-6" />
           </div>
         </div>
 

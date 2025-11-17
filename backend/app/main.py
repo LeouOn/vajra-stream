@@ -26,7 +26,9 @@ from backend.app.api.v1.endpoints import (
     blessings as blessings_endpoint,
     visualization as visualization_endpoint,
     rng_attunement as rng_endpoint,
-    blessing_slideshow as slideshow_endpoint
+    blessing_slideshow as slideshow_endpoint,
+    populations as populations_endpoint,
+    automation as automation_endpoint
 )
 from backend.websocket.connection_manager import ConnectionManager
 from backend.core.services.vajra_service import vajra_service
@@ -100,6 +102,8 @@ app.include_router(blessings_endpoint.router, prefix="/api/v1/blessings", tags=[
 app.include_router(visualization_endpoint.router, prefix="/api/v1/visualization", tags=["visualization"])
 app.include_router(rng_endpoint.router, prefix="/api/v1", tags=["rng-attunement"])
 app.include_router(slideshow_endpoint.router, prefix="/api/v1", tags=["blessing-slideshow"])
+app.include_router(populations_endpoint.router, prefix="/api/v1", tags=["populations"])
+app.include_router(automation_endpoint.router, prefix="/api/v1", tags=["automation"])
 
 # WebSocket endpoint
 @app.websocket("/ws")
