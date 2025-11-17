@@ -12,6 +12,7 @@ import SessionManager from './components/UI/SessionManager';
 import StatusIndicator from './components/UI/StatusIndicator';
 import VisualizationSelector from './components/UI/VisualizationSelector';
 import RNGAttunement from './components/UI/RNGAttunement';
+import BlessingSlideshow from './components/UI/BlessingSlideshow';
 
 function App() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
@@ -135,6 +136,8 @@ function App() {
             />
 
             <RNGAttunement className="mt-6" />
+
+            <BlessingSlideshow className="mt-6" />
           </div>
         </div>
 
