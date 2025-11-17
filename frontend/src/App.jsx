@@ -11,6 +11,7 @@ import ControlPanel from './components/UI/ControlPanel';
 import SessionManager from './components/UI/SessionManager';
 import StatusIndicator from './components/UI/StatusIndicator';
 import VisualizationSelector from './components/UI/VisualizationSelector';
+import RNGAttunement from './components/UI/RNGAttunement';
 
 function App() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
@@ -132,6 +133,8 @@ function App() {
               onStopSession={stopSession}
               isConnected={isConnected}
             />
+
+            <RNGAttunement className="mt-6" />
           </div>
         </div>
 
