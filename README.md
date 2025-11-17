@@ -125,6 +125,45 @@ vs.broadcast_healing("John Doe", duration_minutes=10)
 chakra_path = vs.visualize_chakras()
 ```
 
+## 🔮 Radionics System
+
+Vajra.Stream includes a complete **radionics broadcasting system** for intention amplification and healing broadcasts.
+
+### Complete Radionics Documentation
+
+📚 **[RADIONICS_MASTER_GUIDE.md](RADIONICS_MASTER_GUIDE.md)** - Start here! Complete navigation and overview
+
+The radionics system is documented in three comprehensive guides:
+
+1. **[RADIONICS_GUIDE.md](RADIONICS_GUIDE.md)** - Software operation, commands, presets
+2. **[PHYSICAL_RADIONICS_SETUP.md](PHYSICAL_RADIONICS_SETUP.md)** - Hardware construction, crystals, consciousness practices
+3. **[RADIONICS_ANALYSIS_GUIDE.md](RADIONICS_ANALYSIS_GUIDE.md)** - Rate analysis, GV measurement, tracking
+
+### Quick Radionics Start
+
+```bash
+# World peace broadcast (2 hours)
+python scripts/radionics_operation.py --preset world_peace
+
+# Heart healing (1 hour)
+python scripts/radionics_operation.py --preset heart_healing
+
+# Custom intention
+python scripts/radionics_operation.py --intention "May all beings be healthy" --duration 3600
+
+# With full analysis and measurement
+python scripts/radionics_operation.py \
+  --intention "Planetary healing" \
+  --with-astrology \
+  --with-analysis \
+  --with-gv \
+  --duration 7200
+```
+
+See the [RADIONICS_MASTER_GUIDE.md](RADIONICS_MASTER_GUIDE.md) for complete documentation.
+
+---
+
 ### Hardware Setup
 
 #### Level 2: Crystal Grid
