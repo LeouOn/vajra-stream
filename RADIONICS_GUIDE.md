@@ -4,6 +4,12 @@
 
 Radionics is the broadcasting of healing intentions through physical mediums (crystals) and subtle energies (frequencies). This system uses your crystal grid as a radionic antenna to amplify and broadcast healing intentions.
 
+**This guide covers SOFTWARE OPERATION.** For detailed physical device construction, crystal attunement, and esoteric practices, see:
+- **[PHYSICAL_RADIONICS_SETUP.md](PHYSICAL_RADIONICS_SETUP.md)** - Complete hardware construction guide
+- **[RADIONICS_ANALYSIS_GUIDE.md](RADIONICS_ANALYSIS_GUIDE.md)** - Rate analysis and measurement systems
+
+---
+
 ## Quick Start - Run Your First Operation NOW
 
 ### 1. Set Up Your Crystal Grid (5 minutes)
@@ -246,6 +252,8 @@ python scripts/vajra_orchestrator.py astrology --latitude YOUR_LAT --longitude Y
 - Sacred geometry amplification
 - Multiple written intentions
 
+📖 **For complete crystal grid construction and attunement instructions, see [PHYSICAL_RADIONICS_SETUP.md](PHYSICAL_RADIONICS_SETUP.md)**
+
 ---
 
 ## Example Workflows
@@ -371,6 +379,28 @@ This system:
 - Uses traditional timing (astrology)
 - Amplifies through physical means (crystals)
 - Maintains practice while you do other things
+
+### Consciousness Practices for Enhanced Broadcasting
+
+Your mental and energetic state directly affects broadcast power. Consider integrating:
+
+**Before Broadcasting:**
+- **Crown Chakra Meditation** (10-15 min) - Opens divine connection channel
+- **Mudras** (hand positions) - Shakti mudra for manifestation, Gyan mudra for wisdom
+- **Mantra Recitation** - Om Mani Padme Hum (compassion), Om Namah Shivaya (transformation)
+- **Intention Crystallization** - Feel the outcome as already complete
+
+**During Broadcasting:**
+- **Visualization** - See light flowing through your device to recipients
+- **Emotional Engagement** - Feel genuine compassion and beneficial intent
+- **Detachment** - Release attachment to specific outcomes
+
+**After Broadcasting:**
+- **Merit Dedication** - "May all beings benefit from this work"
+- **Gratitude** - Thank the crystals, technology, and subtle forces
+- **Grounding** - Touch earth, release excess energy
+
+📖 **For detailed consciousness protocols, attunement practices, and esoteric techniques, see [PHYSICAL_RADIONICS_SETUP.md](PHYSICAL_RADIONICS_SETUP.md) - "Consciousness Activation Protocol" section**
 
 ### Radionics as Prayer
 
