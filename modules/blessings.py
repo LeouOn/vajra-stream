@@ -5,7 +5,7 @@ Adapter for blessing generation
 
 import sys
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import uuid
 from datetime import datetime
 
@@ -17,7 +17,7 @@ from modules.interfaces import BlessingGenerator, BlessingGenerated, EventBus
 class BlessingService(BlessingGenerator):
     """Blessing generation service"""
 
-    def __init__(self, event_bus: EventBus = None):
+    def __init__(self, event_bus: Optional[EventBus] = None):
         self.event_bus = event_bus
 
     def generate_blessing(

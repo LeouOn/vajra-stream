@@ -5,7 +5,7 @@ Adapter wrapping core.advanced_scalar_waves
 
 import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import time
 import uuid
 from datetime import datetime
@@ -27,7 +27,7 @@ from modules.interfaces import ScalarWaveGenerator, ScalarWavesGenerated, EventB
 class ScalarWaveService(ScalarWaveGenerator):
     """Scalar wave generation service - adapts core module to interface"""
 
-    def __init__(self, event_bus: EventBus = None):
+    def __init__(self, event_bus: Optional[EventBus] = None):
         self.event_bus = event_bus
         self.hybrid_generator = HybridScalarWaveGenerator()
         self.thermal_monitor = ThermalMonitor()
