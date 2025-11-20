@@ -160,7 +160,13 @@ class VajraStreamService:
         """Broadcast audio using existing crystal broadcasters"""
         try:
             # Import sounddevice for direct audio playback
-            import sounddevice as sd
+            try:
+                import sounddevice as sd
+                SOUNDDEVICE_AVAILABLE = True
+            except (ImportError, OSError) as e:
+                print(f"Warning: sounddevice not available: {e}")
+                sd = None
+                SOUNDDEVICE_AVAILABLE = False
             import threading
             
             if ENHANCED_MODE:

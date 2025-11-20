@@ -134,19 +134,35 @@ export const useAudioStore = create((set, get) => ({
   
   stopAudio: async () => {
     try {
-      // Note: This would need a stop endpoint on the backend
-      // For now, we'll just update the state
-      set({ 
-        isPlaying: false,
-        audioStatus: 'stopped'
+      console.log('DEBUG: Making request to /api/v1/audio/stop');
+      const response = await fetch('/api/v1/audio/stop', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
-      console.log('Audio playback stopped');
-      return true;
+
+      console.log('DEBUG: Stop response status:', response.status);
+      const result = await response.json();
+      console.log('DEBUG: Stop response data:', result);
+
+      if (result.status === 'success') {
+        set({
+          isPlaying: false,
+          audioStatus: 'stopped',
+          errorMessage: null
+        });
+        console.log('Audio playback stopped successfully');
+        return true;
+      } else {
+        throw new Error(result.detail || 'Failed to stop audio');
+      }
     } catch (error) {
       console.error('Error stopping audio:', error);
-      set({ 
-        audioStatus: 'error', 
-        errorMessage: error.message || 'Failed to stop audio'
+      set({
+        audioStatus: 'error',
+        errorMessage: error.message || 'Failed to stop audio',
+        isPlaying: false
       });
       return false;
     }

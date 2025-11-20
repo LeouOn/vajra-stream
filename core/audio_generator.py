@@ -4,7 +4,13 @@ Scalar wave and frequency generation for blessing/healing broadcasts
 """
 
 import numpy as np
-import sounddevice as sd
+try:
+    import sounddevice as sd
+    SOUNDDEVICE_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"Warning: sounddevice not available: {e}")
+    sd = None
+    SOUNDDEVICE_AVAILABLE = False
 import time
 import logging
 import sys

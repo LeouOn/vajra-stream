@@ -4,7 +4,13 @@ Creates beautiful, natural prayer bowl sounds with LFO modulation
 """
 
 import numpy as np
-import sounddevice as sd
+try:
+    import sounddevice as sd
+    SOUNDDEVICE_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"Warning: sounddevice not available in enhanced_audio_generator: {e}")
+    sd = None
+    SOUNDDEVICE_AVAILABLE = False
 from scipy import signal
 import sys
 import os

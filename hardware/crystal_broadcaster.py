@@ -6,7 +6,13 @@ Enhanced with prayer bowl synthesis as default
 """
 
 import numpy as np
-import sounddevice as sd
+try:
+    import sounddevice as sd
+    SOUNDDEVICE_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"Warning: sounddevice not available in crystal_broadcaster: {e}")
+    sd = None
+    SOUNDDEVICE_AVAILABLE = False
 import time
 from datetime import datetime
 import sys
