@@ -11,10 +11,27 @@ import ControlPanel from './components/UI/ControlPanel';
 import SessionManager from './components/UI/SessionManager';
 import StatusIndicator from './components/UI/StatusIndicator';
 import VisualizationSelector from './components/UI/VisualizationSelector';
+import CrystalGridControls from './components/UI/CrystalGridControls';
+import MandalaControls from './components/UI/MandalaControls';
 
 function App() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Crystal Grid settings
+  const [crystalGridSettings, setCrystalGridSettings] = useState({
+    gridType: 'double-hexagon',
+    crystalType: 'quartz',
+    showEnergyField: true,
+    intention: 'May all beings be happy'
+  });
+
+  // Sacred Mandala settings
+  const [mandalaSettings, setMandalaSettings] = useState({
+    pattern: 'sri-yantra',
+    chakra: 'heart',
+    complexity: 'medium'
+  });
   
   const { 
     audioSpectrum, 
@@ -132,6 +149,26 @@ function App() {
               onStopSession={stopSession}
               isConnected={isConnected}
             />
+
+            {/* Visualization-specific controls */}
+            {visualizationType === 'crystal-grid' && (
+              <CrystalGridControls
+                gridType={crystalGridSettings.gridType}
+                crystalType={crystalGridSettings.crystalType}
+                showEnergyField={crystalGridSettings.showEnergyField}
+                intention={crystalGridSettings.intention}
+                onSettingsChange={setCrystalGridSettings}
+              />
+            )}
+
+            {visualizationType === 'sacred-mandala' && (
+              <MandalaControls
+                pattern={mandalaSettings.pattern}
+                chakra={mandalaSettings.chakra}
+                complexity={mandalaSettings.complexity}
+                onSettingsChange={setMandalaSettings}
+              />
+            )}
           </div>
         </div>
 
@@ -187,10 +224,10 @@ function App() {
                 audioSpectrum={audioSpectrum}
                 isPlaying={isPlaying}
                 frequency={frequency}
-                gridType="double-hexagon"
-                crystalType="quartz"
-                showEnergyField={true}
-                intention="May all beings be happy"
+                gridType={crystalGridSettings.gridType}
+                crystalType={crystalGridSettings.crystalType}
+                showEnergyField={crystalGridSettings.showEnergyField}
+                intention={crystalGridSettings.intention}
               />
               <OrbitControls
                 enableZoom={true}
@@ -221,9 +258,9 @@ function App() {
                 audioSpectrum={audioSpectrum}
                 isPlaying={isPlaying}
                 frequency={frequency}
-                pattern="sri-yantra"
-                chakra="heart"
-                complexity="medium"
+                pattern={mandalaSettings.pattern}
+                chakra={mandalaSettings.chakra}
+                complexity={mandalaSettings.complexity}
               />
               <OrbitControls
                 enableZoom={true}

@@ -28,6 +28,13 @@ from core.tts_engine import TTSEngine
 from core.rothko_generator import RothkoGenerator
 from core.intelligent_composer import IntelligentComposer
 
+# Try to import enhanced TTS, fallback to basic
+try:
+    from core.enhanced_tts import EnhancedTTSEngine
+    HAS_ENHANCED_TTS = True
+except:
+    HAS_ENHANCED_TTS = False
+
 try:
     from core.visual_renderer_simple import SimpleVisualRenderer
     HAS_VISUAL = True
@@ -69,11 +76,29 @@ class RadionicsOperation:
         except Exception as e:
             print(f"ℹ LLM not available: {e}")
 
-        try:
-            self.tts = TTSEngine()
-            print("✓ TTS system ready (will speak intentions)")
-        except:
-            print("ℹ TTS not available (silent mode)")
+        # Initialize TTS (prefer enhanced version)
+        if HAS_ENHANCED_TTS:
+            try:
+                self.tts = EnhancedTTSEngine(prefer_local=False)
+                print(f"✓ Enhanced TTS ready (provider: {self.tts.get_current_provider()})")
+                self.enhanced_tts = True
+            except Exception as e:
+                print(f"⚠ Enhanced TTS failed, falling back to basic: {e}")
+                try:
+                    self.tts = TTSEngine()
+                    print("✓ Basic TTS system ready")
+                    self.enhanced_tts = False
+                except:
+                    print("ℹ TTS not available (silent mode)")
+                    self.enhanced_tts = False
+        else:
+            try:
+                self.tts = TTSEngine()
+                print("✓ Basic TTS system ready")
+                self.enhanced_tts = False
+            except:
+                print("ℹ TTS not available (silent mode)")
+                self.enhanced_tts = False
 
         try:
             self.visual_gen = RothkoGenerator()
@@ -178,7 +203,12 @@ class RadionicsOperation:
             # Speak it if TTS available and requested
             if with_voice and self.tts and prayer_text:
                 print("🗣️ Speaking prayer...")
-                self.tts.speak_prayer_slowly(prayer_text, pause_per_line=2.0)
+                if self.enhanced_tts:
+                    # Use enhanced TTS with contemplative pacing
+                    self.tts.speak_slowly(prayer_text, pause_duration=2.0)
+                else:
+                    # Fallback to basic TTS
+                    self.tts.speak_prayer_slowly(prayer_text, pause_per_line=2.0)
                 print()
 
         # Step 3: Visual Generation
