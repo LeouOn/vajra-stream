@@ -7,6 +7,7 @@ import SacredGeometry from './components/3D/SacredGeometry';
 import CrystalGrid from './components/3D/CrystalGrid';
 import SacredMandala from './components/3D/SacredMandala';
 import RadionicsVisualization from './components/3D/RadionicsVisualization';
+import Astrocartography from './components/3D/Astrocartography';
 import AudioSpectrum from './components/2D/AudioSpectrum';
 import ControlPanel from './components/UI/ControlPanel';
 import SessionManager from './components/UI/SessionManager';
@@ -117,47 +118,10 @@ function App() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Controls */}
-        <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-gray-800 border-r border-gray-700 transition-all duration-300 overflow-hidden flex flex-col glassmorphism`}>
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            <ControlPanel
-              isPlaying={isPlaying}
-              frequency={frequency}
-              volume={volume}
-              prayerBowlMode={prayerBowlMode}
-              harmonicStrength={harmonicStrength}
-              modulationDepth={modulationDepth}
-              duration={duration}
-              onSettingsChange={updateSettings}
-              onGenerateAudio={handleGenerateAudio}
-              onPlayAudio={handlePlayAudio}
-              onStopAudio={handleStopAudio}
-              audioStatus={audioStatus}
-              onStartSession={startSession}
-              attunedRate={scalarStatus?.rate}
-            />
-            
-            <SessionManager
-              sessions={sessions}
-              onStartSession={startSession}
-              onStopSession={stopSession}
-              isConnected={isConnected}
-            />
-
-            <RNGAttunement className="mt-6" />
-
-            <BlessingSlideshow className="mt-6" />
-
-            <PopulationManager className="mt-6" />
-
-            <AutomationControl className="mt-6" />
-          </div>
-        </div>
-
-        {/* Center - Visualization */}
-        <div className="flex-1 relative visualization-container">
+      {/* Main Content - Reorganized: Visualization Top, Controls Bottom */}
+      <main className="flex flex-col flex-1 overflow-hidden">
+        {/* Top Section - Visualization (takes most space) */}
+        <div className="flex-1 relative visualization-container min-h-[60vh]">
           {visualizationType === 'sacred-geometry' ? (
             <Canvas
               camera={{ position: [0, 0, 20], fov: 60 }}
@@ -187,6 +151,41 @@ function App() {
                 autoRotateSpeed={0.5}
               />
               <Environment preset="sunset" />
+            </Canvas>
+          ) : visualizationType === 'astrocartography' ? (
+            <Canvas
+              camera={{ position: [0, 0, 15], fov: 60 }}
+              className="w-full h-full"
+            >
+              <ambientLight intensity={0.3} />
+              <pointLight position={[20, 20, 20]} intensity={1.5} />
+              <pointLight position={[-20, -20, -20]} intensity={0.5} color="#4488ff" />
+              <Stars
+                radius={200}
+                depth={100}
+                count={8000}
+                factor={5}
+                saturation={0.3}
+                fade
+                speed={0.5}
+              />
+              <Astrocartography
+                audioSpectrum={audioSpectrum}
+                isPlaying={isPlaying}
+                frequency={frequency}
+                birthLocation={{ lat: 37.7749, lon: -122.4194, name: "San Francisco" }}
+                showPowerSpots={true}
+                autoRotate={true}
+              />
+              <OrbitControls
+                enableZoom={true}
+                enablePan={true}
+                enableRotate={true}
+                autoRotate={false}
+                minDistance={8}
+                maxDistance={30}
+              />
+              <Environment preset="night" />
             </Canvas>
           ) : visualizationType === 'radionics' ? (
             <RadionicsVisualization
@@ -309,6 +308,59 @@ function App() {
             ) : (
               <p className="text-sm text-purple-400">No active sessions</p>
             )}
+          </div>
+        </div>
+
+        {/* Bottom Section - Controls (collapsible) */}
+        <div className={`${sidebarOpen ? 'max-h-96' : 'max-h-0'} bg-gray-800 border-t border-gray-700 transition-all duration-300 overflow-hidden glassmorphism`}>
+          <div className="overflow-y-auto p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {/* Control Panel */}
+              <div className="lg:col-span-1">
+                <ControlPanel
+                  isPlaying={isPlaying}
+                  frequency={frequency}
+                  volume={volume}
+                  prayerBowlMode={prayerBowlMode}
+                  harmonicStrength={harmonicStrength}
+                  modulationDepth={modulationDepth}
+                  duration={duration}
+                  onSettingsChange={updateSettings}
+                  onGenerateAudio={handleGenerateAudio}
+                  onPlayAudio={handlePlayAudio}
+                  onStopAudio={handleStopAudio}
+                  audioStatus={audioStatus}
+                  onStartSession={startSession}
+                  attunedRate={scalarStatus?.rate}
+                />
+              </div>
+
+              {/* Session Manager */}
+              <div className="lg:col-span-1">
+                <SessionManager
+                  sessions={sessions}
+                  onStartSession={startSession}
+                  onStopSession={stopSession}
+                  isConnected={isConnected}
+                />
+              </div>
+
+              {/* RNG Attunement */}
+              <div className="lg:col-span-1">
+                <RNGAttunement />
+              </div>
+
+              {/* Blessing Slideshow */}
+              <div className="lg:col-span-1">
+                <BlessingSlideshow />
+              </div>
+
+              {/* Population Manager & Automation Control */}
+              <div className="lg:col-span-1 space-y-4">
+                <PopulationManager />
+                <AutomationControl />
+              </div>
+            </div>
           </div>
         </div>
       </main>

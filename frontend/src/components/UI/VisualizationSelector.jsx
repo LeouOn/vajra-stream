@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Layers, BarChart3, Globe, Gem, Hexagon, Radio } from 'lucide-react';
+import { Eye, Layers, BarChart3, Globe, Gem, Hexagon, Radio, Map } from 'lucide-react';
 
 const VisualizationSelector = ({ currentType, onChange }) => {
   const visualizations = [
@@ -8,6 +8,12 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       name: 'Flower of Life',
       icon: <Layers className="w-4 h-4" />,
       description: 'Sacred geometry pattern with audio reactivity'
+    },
+    {
+      id: 'astrocartography',
+      name: 'Astrocartography',
+      icon: <Map className="w-4 h-4" />,
+      description: '3D Earth globe with planetary line mapping'
     },
     {
       id: 'radionics',
@@ -37,7 +43,7 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       id: 'planetary-system',
       name: 'Planetary System',
       icon: <Globe className="w-4 h-4" />,
-      description: 'Astrological visualization (coming soon)'
+      description: 'Orbital mechanics visualization (coming soon)'
     }
   ];
 
