@@ -185,6 +185,11 @@ See the [RADIONICS_MASTER_GUIDE.md](RADIONICS_MASTER_GUIDE.md) for complete docu
 
 ```
 vajra-stream/
+├── backend/           # FastAPI web backend
+│   └── app/
+│       ├── main.py    # Main FastAPI application (canonical version)
+│       ├── archived/  # Archived main_*.py variants for reference
+│       └── api/       # API endpoints
 ├── core/              # Core audio, visual, database systems
 ├── modules/           # Blessing, healing, purification, stories
 ├── hardware/          # Physical device interfaces
@@ -192,6 +197,14 @@ vajra-stream/
 ├── scripts/           # Command-line utilities
 └── config/            # Configuration settings
 ```
+
+### Backend Cleanup (November 2024)
+
+The backend has been consolidated for clarity:
+- **backend/app/main.py** is now the single, canonical FastAPI application
+- All previous main_*.py variants have been moved to **backend/app/archived/**
+- The new main.py is based on main_fixed5_stable.py (the most stable version)
+- All startup scripts (start_web_server.py, start_full_system.py) now use this unified backend
 
 ## Configuration
 

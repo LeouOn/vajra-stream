@@ -32,8 +32,11 @@ async def generate_audio(config: AudioConfig, background_tasks: BackgroundTasks)
         logger.info(f"🎵 Audio generation request: {config.frequency}Hz, {config.duration}s")
         
         # Import service here to avoid circular imports
-        from core.services.vajra_service import vajra_service
-        from core.services.vajra_service import AudioConfig as ServiceAudioConfig
+        from backend.core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import AudioConfig as ServiceAudioConfig
+        
+        # Check current audio data state
+        logger.info(f"🔍 Current audio data state: {vajra_service.current_audio_data is not None}")
         
         # Convert Pydantic model to service config
         service_config = ServiceAudioConfig(
@@ -45,19 +48,19 @@ async def generate_audio(config: AudioConfig, background_tasks: BackgroundTasks)
             modulation_depth=config.modulation_depth
         )
         
-        # Generate audio in background
-        async def generate_background():
-            try:
-                await vajra_service.generate_prayer_bowl_audio(service_config)
-                logger.info("✅ Audio generation completed")
-            except Exception as e:
-                logger.error(f"❌ Background audio generation failed: {e}")
-        
-        background_tasks.add_task(generate_background)
+        # Generate audio synchronously to ensure it completes before returning
+        logger.info("🔄 Starting audio generation...")
+        try:
+            audio_data = await vajra_service.generate_prayer_bowl_audio(service_config)
+            logger.info(f"✅ Audio generation completed successfully: {len(audio_data) if audio_data is not None else 0} samples")
+            logger.info(f"🔍 Audio data state after generation: {vajra_service.current_audio_data is not None}")
+        except Exception as e:
+            logger.error(f"❌ Audio generation failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Audio generation failed: {str(e)}")
         
         return {
             "status": "success",
-            "message": "Audio generation started",
+            "message": "Audio generation completed",
             "config": {
                 "frequency": config.frequency,
                 "duration": config.duration,
@@ -65,7 +68,9 @@ async def generate_audio(config: AudioConfig, background_tasks: BackgroundTasks)
                 "prayer_bowl_mode": config.prayer_bowl_mode,
                 "harmonic_strength": config.harmonic_strength,
                 "modulation_depth": config.modulation_depth
-            }
+            },
+            "audio_generated": True,
+            "samples": len(vajra_service.current_audio_data) if vajra_service.current_audio_data is not None else 0
         }
         
     except Exception as e:
@@ -78,16 +83,24 @@ async def play_audio(request: PlayRequest, background_tasks: BackgroundTasks):
     try:
         logger.info(f"🔊 Audio playback request: hardware level {request.hardware_level}")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
-        if vajra_service.current_audio_data is None:
+        # Check audio data state
+        audio_data_exists = vajra_service.current_audio_data is not None
+        logger.info(f"🔍 Audio data check - exists: {audio_data_exists}")
+        
+        if not audio_data_exists:
+            logger.error("❌ No audio data available for playback")
             raise HTTPException(status_code=400, detail="No audio data available. Please generate audio first.")
+        
+        audio_length = len(vajra_service.current_audio_data) if vajra_service.current_audio_data is not None else 0
+        logger.info(f"🔍 Audio data length: {audio_length} samples")
         
         # Play audio in background
         async def play_background():
             try:
                 success = await vajra_service.broadcast_audio(
-                    vajra_service.current_audio_data, 
+                    vajra_service.current_audio_data,
                     request.hardware_level
                 )
                 if success:
@@ -103,7 +116,8 @@ async def play_audio(request: PlayRequest, background_tasks: BackgroundTasks):
             "status": "success",
             "message": "Audio playback started",
             "hardware_level": request.hardware_level,
-            "audio_duration": len(vajra_service.current_audio_data) / 44100 if vajra_service.current_audio_data is not None else 0
+            "audio_duration": audio_length / 44100,
+            "audio_samples": audio_length
         }
             
     except HTTPException:
@@ -118,7 +132,7 @@ async def stop_audio():
     try:
         logger.info("🛑 Audio stop request")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         # Note: This would need to be implemented in the actual hardware interface
         # For now, we'll just log the request
@@ -137,7 +151,7 @@ async def stop_audio():
 async def get_audio_spectrum():
     """Get current audio spectrum"""
     try:
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         spectrum = vajra_service.get_audio_spectrum()
         
@@ -155,7 +169,7 @@ async def get_audio_spectrum():
 async def get_audio_status():
     """Get current audio status"""
     try:
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         has_audio = vajra_service.current_audio_data is not None
         audio_length = len(vajra_service.current_audio_data) / 44100 if has_audio else 0

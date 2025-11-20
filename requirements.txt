@@ -16,6 +16,7 @@ opencv-python>=4.8.0
 # Astrology
 astropy>=5.3.0
 astroquery>=0.4.6
+pyswisseph>=2.10.3.2  # Missing dependency - needed for astrology calculations
 
 # LLM Integration
 openai>=1.3.0
@@ -42,6 +43,7 @@ websockets>=12.0
 
 # HTTP Client
 httpx>=0.25.0
+requests>=2.31.0  # Missing dependency - needed for HTTP requests
 
 # Image Processing
 pillow>=10.0.0
@@ -74,12 +76,15 @@ aiofiles>=0.8.0
 # Testing
 pytest-asyncio>=0.21.0
 coverage>=7.0.0
+pytest-cov>=4.1.0  # Missing dependency - needed for coverage testing
 
 # Hardware Interface
 pyserial>=3.5
 
 # Security
 cryptography>=3.4.0
+python-jose[cryptography]>=3.3.0  # Missing dependency - needed for JWT handling
+passlib[bcrypt]>=1.7.4  # Missing dependency - needed for password hashing
 
 # Rich Terminal Output
 rich>=13.0.0
@@ -100,9 +105,6 @@ sphinx-rtd-theme>=1.2.0
 
 # Type Hints
 typing-extensions>=4.0.0
-
-# Environment Variables
-python-dotenv>=1.0.0
 
 # WebSocket Client
 websocket-client>=1.6.0
@@ -141,8 +143,20 @@ nltk>=3.0.0
 textblob>=0.17.0
 
 # Audio Processing (advanced)
-librosa>=0.9.0
+# librosa requires numba which doesn't support Python 3.14 yet
+# librosa>=0.9.0  # Uncomment when numba supports Python 3.14
 soundfile>=0.12.0
 
 # Scientific Computing (optional)
 sympy>=1.0.0
+
+# File Upload Support
+python-multipart>=0.0.6  # Missing dependency - needed for file uploads
+
+# Time Zone Support
+pytz>=2023.3  # Missing dependency - needed for timezone handling
+
+# Note: Built-in modules like statistics, uuid, threading, secrets, hashlib, base64,
+# io, tempfile, glob, argparse, sqlite3, json, re, colorsys, enum, dataclasses,
+# collections, datetime, pathlib, os, sys, time, math, random, struct, warnings,
+# traceback, and logging are included in Python standard library and don't need to be installed via pip

@@ -1,0 +1,120 @@
+{
+  "description": "Victims of genocide and ethnic cleansing in Myanmar - Rohingya and other persecuted ethnic groups",
+  "targets": [
+    {
+      "name": "Rohingya Genocide Victims",
+      "category": "genocide_victims",
+      "description": "Rohingya people who have been killed, disappeared, or severely affected by the genocide in Myanmar",
+      "priority": 10,
+      "intention": "May all Rohingya genocide victims find peace, may their families find justice and healing, may the persecution end",
+      "additional_data": {
+        "estimated_count": "Tens of thousands killed, hundreds of thousands displaced",
+        "data_sources": ["UN Human Rights Council", "Amnesty International", "Human Rights Watch"],
+        "period": "2016-present",
+        "regions": ["Rakhine State", "Bangladesh refugee camps", "Southeast Asian countries"]
+      }
+    },
+    {
+      "name": "Rohingya Refugees in Bangladesh",
+      "category": "refugee",
+      "description": "Rohingya refugees living in overcrowded camps in Bangladesh, especially children and elderly",
+      "priority": 9,
+      "intention": "May all Rohingya refugees find safety, dignity, and the right to return home in peace",
+      "additional_data": {
+        "estimated_count": "1+ million in Cox's Bazar camps",
+        "data_sources": ["UNHCR", "International Organization for Migration", "Bangladesh government"],
+        "camps": ["Kutupalong", "Nayapara", "Rohingya camps in Teknaf"],
+        "vulnerabilities": ["Malnutrition", "Disease outbreaks", "Human trafficking", "Mental health trauma"]
+      }
+    },
+    {
+      "name": "Missing Rohingya Persons",
+      "category": "missing_person",
+      "description": "Rohingya individuals who have disappeared during military operations and village raids",
+      "priority": 10,
+      "intention": "May all missing Rohingya persons be accounted for, may their families know their fate and find closure",
+      "additional_data": {
+        "estimated_count": "Thousands disappeared",
+        "data_sources": ["UN investigators", "Rohingya human rights organizations"],
+        "circumstances": ["Military raids", "Village burnings", "Detention centers", "Forced disappearances"]
+      }
+    },
+    {
+      "name": "Karen Ethnic Persecution Victims",
+      "category": "genocide_victims",
+      "description": "Karen people who have been killed, displaced, or persecuted by Myanmar military forces",
+      "priority": 8,
+      "intention": "May all Karen persecution victims find safety and freedom, may their culture and people thrive",
+      "additional_data": {
+        "estimated_count": "Hundreds of thousands affected over decades",
+        "data_sources": ["Karen Human Rights Group", "Free Burma Rangers", "UN reports"],
+        "regions": ["Karen State", "Kayah State", "Bago Region", "Thai-Myanmar border refugee camps"]
+      }
+    },
+    {
+      "name": "Kachin Conflict Victims",
+      "category": "genocide_victims",
+      "description": "Kachin people affected by ongoing military conflict and persecution in northern Myanmar",
+      "priority": 8,
+      "intention": "May all Kachin conflict victims find peace, may the fighting end and their communities be restored",
+      "additional_data": {
+        "estimated_count": "Over 100,000 displaced",
+        "data_sources": ["Kachin Women's Association Thailand", "UN OCHA", "Local human rights groups"],
+        "regions": ["Kachin State", "Northern Shan State"],
+        "camps": ["IDP camps near Myitkyina", "Laiza", "Mansi"]
+      }
+    },
+    {
+      "name": "Chin Persecution Victims",
+      "category": "genocide_victims",
+      "description": "Chin people who have been persecuted, killed, or displaced by Myanmar military and religious persecution",
+      "priority": 7,
+      "intention": "May all Chin persecution victims find safety and religious freedom, may their communities be protected",
+      "additional_data": {
+        "estimated_count": "Tens of thousands affected",
+        "data_sources": ["Chin Human Rights Organization", "UN reports"],
+        "regions": ["Chin State", "Sagaing Region"],
+        "issues": ["Religious persecution", "Forced labor", "Military attacks", "Cultural suppression"]
+      }
+    },
+    {
+      "name": "Mon Conflict Victims",
+      "category": "genocide_victims",
+      "description": "Mon people who have been affected by military operations and persecution in Myanmar",
+      "priority": 7,
+      "intention": "May all Mon conflict victims find peace and cultural preservation, may their communities thrive",
+      "additional_data": {
+        "estimated_count": "Thousands affected",
+        "data_sources": ["Mon Human Rights Organization", "Local NGOs"],
+        "regions": ["Mon State", "Tanintharyi Region", "Kayin State"],
+        "issues": ["Land confiscation", "Military attacks", "Cultural suppression"]
+      }
+    },
+    {
+      "name": "Myanmar Political Prisoners",
+      "category": "genocide_victims",
+      "description": "Political prisoners detained, tortured, or killed by the military junta after the 2021 coup",
+      "priority": 9,
+      "intention": "May all political prisoners be freed, may democracy and human rights be restored in Myanmar",
+      "additional_data": {
+        "estimated_count": "Thousands detained, hundreds killed",
+        "data_sources": ["Assistance Association for Political Prisoners", "UN Human Rights Office"],
+        "detention_centers": ["Insein Prison", "Mandalay Prison", "Secret detention facilities"],
+        "victims": ["Elected officials", "Journalists", "Activists", "Civil servants", "Healthcare workers"]
+      }
+    },
+    {
+      "name": "Rohingya Women and Girls",
+      "category": "genocide_victims",
+      "description": "Rohingya women and girls who have been victims of sexual violence, rape, and gender-based persecution",
+      "priority": 10,
+      "intention": "May all Rohingya women and girls find healing and safety, may perpetrators be brought to justice",
+      "additional_data": {
+        "estimated_count": "Thousands of documented cases",
+        "data_sources": ["UN investigations", "Women's rights organizations", "Medical humanitarian groups"],
+        "violence_types": ["Systematic rape", "Sexual slavery", "Forced marriage", "Pregnancy from rape"],
+        "trauma": ["Physical injuries", "Psychological trauma", "Social stigma", "Children born from violence"]
+      }
+    }
+  ]
+}

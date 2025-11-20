@@ -1,0 +1,89 @@
+{
+  "description": "Missing persons from California - individuals who have disappeared and are awaiting reunion with their families",
+  "targets": [
+    {
+      "name": "Missing Children - California",
+      "category": "missing_person",
+      "description": "Children reported missing in California who have not yet been found",
+      "priority": 10,
+      "intention": "May all missing children in California be found safe, returned to loving homes, and healed from trauma",
+      "additional_data": {
+        "estimated_count": "Thousands annually",
+        "data_sources": ["California Department of Justice", "NCMEC", "California Missing Persons Database"],
+        "regions": ["Los Angeles County", "San Diego County", "Orange County", "San Francisco Bay Area", "Central Valley"]
+      }
+    },
+    {
+      "name": "Missing Adults - California",
+      "category": "missing_person",
+      "description": "Adults reported missing in California who have not yet been located",
+      "priority": 9,
+      "intention": "May all missing adults in California be found, and may their families find peace and closure",
+      "additional_data": {
+        "estimated_count": "Thousands annually",
+        "data_sources": ["California Missing Persons Database", "Local law enforcement agencies"],
+        "regions": ["Northern California", "Southern California", "Central California", "Coastal Regions"]
+      }
+    },
+    {
+      "name": "Endangered Missing Persons - California",
+      "category": "missing_person",
+      "description": "Individuals considered to be in immediate danger who have gone missing in California",
+      "priority": 10,
+      "intention": "May all endangered missing persons in California be found quickly and brought to safety",
+      "additional_data": {
+        "estimated_count": "Hundreds annually",
+        "data_sources": ["California Highway Patrol", "FBI", "California Department of Justice"],
+        "alert_systems": ["AMBER Alert", "Silver Alert", "Blue Alert"]
+      }
+    },
+    {
+      "name": "Missing Indigenous Persons - California",
+      "category": "missing_person",
+      "description": "Indigenous people who have gone missing in California, particularly from tribal communities",
+      "priority": 9,
+      "intention": "May all missing indigenous persons in California be found, may their communities find healing and justice",
+      "additional_data": {
+        "estimated_count": "Disproportionately high rate",
+        "data_sources": ["Tribal law enforcement", "California Tribal Law Enforcement Association"],
+        "tribes": ["Yurok Tribe", "Hoopa Valley Tribe", "Karuk Tribe", "Wiyot Tribe", "Tolowa Dee-ni' Nation"]
+      }
+    },
+    {
+      "name": "Missing Migrant Workers - California",
+      "category": "missing_person",
+      "description": "Migrant agricultural workers who have disappeared while working in California",
+      "priority": 8,
+      "intention": "May all missing migrant workers in California be found, may they have safe working conditions and fair treatment",
+      "additional_data": {
+        "estimated_count": "Underreported, likely hundreds",
+        "data_sources": ["United Farm Workers", "California Labor Federation"],
+        "regions": ["Central Valley", "Salinas Valley", "Imperial County", "Sacramento Valley"]
+      }
+    },
+    {
+      "name": "Missing Persons with Mental Health Conditions - California",
+      "category": "missing_person",
+      "description": "Individuals with mental health conditions who have gone missing in California",
+      "priority": 8,
+      "intention": "May all missing persons with mental health conditions in California be found safely and receive compassionate care",
+      "additional_data": {
+        "estimated_count": "Thousands annually",
+        "data_sources": ["NAMI California", "California Department of Mental Health"],
+        "vulnerabilities": ["Wandering", "Crisis situations", "Medication non-compliance"]
+      }
+    },
+    {
+      "name": "Cold Case Missing Persons - California",
+      "category": "missing_person",
+      "description": "Long-term missing persons cases in California that have gone unsolved for years",
+      "priority": 7,
+      "intention": "May all cold case missing persons in California be found, may their families find answers and peace",
+      "additional_data": {
+        "estimated_count": "Thousands of unsolved cases",
+        "data_sources": ["California Department of Justice Cold Case Unit", "Local law enforcement cold case divisions"],
+        "timeframe": "Cases from 1950s to present"
+      }
+    }
+  ]
+}

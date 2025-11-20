@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Layers, BarChart3, Globe, Gem, Hexagon } from 'lucide-react';
+import { Eye, Layers, BarChart3, Globe, Gem, Hexagon, Radio } from 'lucide-react';
 
 const VisualizationSelector = ({ currentType, onChange }) => {
   const visualizations = [
@@ -8,6 +8,12 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       name: 'Flower of Life',
       icon: <Layers className="w-4 h-4" />,
       description: 'Sacred geometry pattern with audio reactivity'
+    },
+    {
+      id: 'radionics',
+      name: 'Radionics',
+      icon: <Radio className="w-4 h-4" />,
+      description: 'Radionics operation visualization'
     },
     {
       id: 'crystal-grid',

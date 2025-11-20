@@ -19,6 +19,7 @@ websockets>=12.0
 numpy>=1.24.0
 scipy>=1.10.0
 sounddevice>=0.4.6
+pydub>=0.25.0
 
 # Image Processing
 pillow>=10.0.0
@@ -32,6 +33,10 @@ llama-cpp-python>=0.2.0
 # Astrology
 astropy>=5.3.0
 astroquery>=0.4.6
+pyswisseph>=2.10.3.2  # Missing dependency - needed for astrology calculations
+
+# Text-to-Speech
+pyttsx3>=2.90
 
 # Utilities
 python-multipart>=0.0.6
@@ -40,7 +45,68 @@ passlib[bcrypt]>=1.7.4
 python-dotenv>=1.0.0
 requests>=2.31.0
 
+# HTTP Client
+httpx>=0.25.0
+
+# Async Support
+aiohttp>=3.8.0
+aiofiles>=0.8.0
+
+# Security
+cryptography>=3.4.0
+
+# Rich Terminal Output
+rich>=13.0.0
+colorama>=0.4.0
+
+# JSON Processing
+orjson>=3.8.0
+
+# Logging
+loguru>=0.7.0
+
 # Testing
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
+
+# System Monitoring
+psutil>=5.9.0
+
+# Cache Management
+cachetools>=5.0.0
+
+# Error Handling
+tenacity>=8.0.0
+
+# Task Scheduling
+apscheduler>=3.10.0
+
+# Template Engine
+jinja2>=3.1.0
+
+# Time Zone Support
+pytz>=2023.3
+
+# Type Hints
+typing-extensions>=4.0.0
+
+# WebSocket Client
+websocket-client>=1.6.0
+
+# Configuration
+pyyaml>=6.0
+
+# File System Monitoring
+watchdog>=3.0.0
+
+# Progress Bars
+tqdm>=4.64.0
+
+# Math and Geometry
+matplotlib>=3.7.0
+
+# Audio Processing (advanced)
+# librosa requires numba which doesn't support Python 3.14 yet
+# librosa>=0.9.0  # Uncomment when numba supports Python 3.14
+soundfile>=0.12.0

@@ -26,7 +26,16 @@ export const useAudioStore = create((set, get) => ({
       set({ audioStatus: 'generating', errorMessage: null });
       
       const { frequency, volume, prayerBowlMode, harmonicStrength, modulationDepth, duration } = get();
+      console.log('DEBUG: generateAudio called with settings:', {
+        frequency,
+        volume,
+        prayerBowlMode,
+        harmonicStrength,
+        modulationDepth,
+        duration
+      });
       
+      console.log('DEBUG: Making request to /api/v1/audio/generate');
       const response = await fetch('/api/v1/audio/generate', {
         method: 'POST',
         headers: {
@@ -42,10 +51,12 @@ export const useAudioStore = create((set, get) => ({
         }),
       });
       
+      console.log('DEBUG: Generate response status:', response.status);
       const result = await response.json();
+      console.log('DEBUG: Generate response data:', result);
       
       if (result.status === 'success') {
-        set({ 
+        set({
           audioStatus: 'generated',
           lastGeneratedAudio: result,
           errorMessage: null
@@ -57,9 +68,10 @@ export const useAudioStore = create((set, get) => ({
       }
     } catch (error) {
       console.error('Error generating audio:', error);
-      set({ 
-        audioStatus: 'error', 
-        errorMessage: error.message || 'Failed to generate audio'
+      set({
+        audioStatus: 'error',
+        errorMessage: error.message || 'Failed to generate audio',
+        lastGeneratedAudio: null
       });
       return false;
     }
@@ -67,8 +79,23 @@ export const useAudioStore = create((set, get) => ({
   
   playAudio: async (hardwareLevel = 2) => {
     try {
+      // Check if audio has been generated
+      const { lastGeneratedAudio, audioStatus } = get();
+      console.log('DEBUG: playAudio called - lastGeneratedAudio:', lastGeneratedAudio, 'audioStatus:', audioStatus);
+      
+      if (!lastGeneratedAudio || audioStatus !== 'generated') {
+        console.error('ERROR: No audio generated yet. Cannot play audio.');
+        set({
+          audioStatus: 'error',
+          errorMessage: 'No audio data available. Please generate audio first.',
+          isPlaying: false
+        });
+        return false;
+      }
+      
       set({ audioStatus: 'playing', errorMessage: null });
       
+      console.log('DEBUG: Making request to /api/v1/audio/play');
       const response = await fetch('/api/v1/audio/play', {
         method: 'POST',
         headers: {
@@ -79,10 +106,12 @@ export const useAudioStore = create((set, get) => ({
         }),
       });
       
+      console.log('DEBUG: Response status:', response.status);
       const result = await response.json();
+      console.log('DEBUG: Response data:', result);
       
       if (result.status === 'success') {
-        set({ 
+        set({
           isPlaying: true,
           audioStatus: 'playing',
           errorMessage: null
@@ -94,8 +123,8 @@ export const useAudioStore = create((set, get) => ({
       }
     } catch (error) {
       console.error('Error playing audio:', error);
-      set({ 
-        audioStatus: 'error', 
+      set({
+        audioStatus: 'error',
         errorMessage: error.message || 'Failed to start audio playback',
         isPlaying: false
       });

@@ -20,7 +20,7 @@ async def get_current_astrology():
     try:
         logger.info("🌙 Current astrology data request")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         astrology_data = await vajra_service._get_astrology_data()
         
@@ -39,7 +39,7 @@ async def get_moon_phase():
     try:
         logger.info("🌙 Moon phase request")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         astrology_data = await vajra_service._get_astrology_data()
         moon_phase = astrology_data.get("moon_phase", "unknown")
@@ -60,7 +60,7 @@ async def get_planetary_positions():
     try:
         logger.info("🪐 Planetary positions request")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         astrology_data = await vajra_service._get_astrology_data()
         planetary_positions = astrology_data.get("planetary_positions", {})
@@ -80,7 +80,7 @@ async def get_auspicious_times():
     try:
         logger.info("⏰ Auspicious times request")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         astrology_data = await vajra_service._get_astrology_data()
         auspicious_times = astrology_data.get("auspicious_times", [])

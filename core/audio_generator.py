@@ -5,13 +5,31 @@ Scalar wave and frequency generation for blessing/healing broadcasts
 
 import numpy as np
 import sounddevice as sd
-from scipy import signal
+import time
+import logging
 import sys
 import os
+import logging
+from scipy import signal
+from typing import Optional, List, Dict, Union
+from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config.settings import PRAYER_BOWL_CONFIG
+try:
+    from config.settings import PRAYER_BOWL_CONFIG
+except ImportError:
+    import sys
+    sys.path.append(str(Path(__file__).parent.parent))
+    try:
+        from config.settings import PRAYER_BOWL_CONFIG
+    except ImportError:
+        # Fallback if config package is not found directly
+        import sys
+        sys.path.append(str(Path(__file__).parent.parent / "config"))
+        from settings import PRAYER_BOWL_CONFIG
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class ScalarWaveGenerator:

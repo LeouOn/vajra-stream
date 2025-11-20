@@ -7,6 +7,17 @@ Pillow>=10.0.0  # PIL fork for image creation and manipulation
 numpy>=1.24.0   # Numerical operations
 scipy>=1.10.0   # Scientific computing
 
+# Essential missing dependencies for visualization
+matplotlib>=3.7.0  # For plotting and visualization
+colorama>=0.4.0   # For colored terminal output
+
+# Audio dependencies for visualization with sound
+sounddevice>=0.4.6  # For audio playback in visualizations
+
+# Note: Built-in modules like colorsys, json, pathlib, io, base64, time, datetime,
+# math, random, enum, dataclasses, and typing are included in Python standard library
+# and don't need to be installed via pip
+
 # For 3D visualization (future)
 # matplotlib>=3.7.0
 # pyvista>=0.40.0
@@ -17,3 +28,8 @@ scipy>=1.10.0   # Scientific computing
 # For web-based interactive visualizations (future)
 # plotly>=5.14.0
 # bokeh>=3.1.0
+
+# Additional dependencies for advanced visualizations
+opencv-python>=4.8.0  # For advanced image processing
+rich>=13.0.0  # For rich terminal output
+jinja2>=3.1.0  # For template rendering

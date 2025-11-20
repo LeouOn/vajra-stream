@@ -19,6 +19,7 @@ from core.integrated_scalar_radionics import (
     IntentionType,
     BroadcastConfiguration
 )
+from backend.core.orchestrator_bridge import orchestrator_bridge
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +73,22 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
     try:
         logger.info(f"📡 Starting broadcast: {request.intention} for {len(request.target_names)} targets")
 
+        # Use OrchestratorBridge to create session
+        targets = [{"type": "individual", "identifier": name} for name in request.target_names]
+        modalities = []
+        if request.use_chakras: modalities.append("chakras")
+        if request.use_meridians: modalities.append("meridians")
+        if request.scalar_intensity > 0: modalities.append("scalar")
+        
+        # Create session via orchestrator
+        # Note: This is a synchronous call wrapped in async in the bridge
+        session_id = await orchestrator_bridge.create_session(
+            intention=request.intention,
+            targets=targets,
+            modalities=modalities,
+            duration=request.duration_minutes * 60
+        )
+
         # Map intention string to IntentionType enum
         intention_map = {
             "healing": IntentionType.HEALING,
@@ -115,9 +132,9 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
 
         # Simulate broadcast (in real implementation, this would run in background)
         import time
-        import uuid
+        # import uuid
 
-        session_id = str(uuid.uuid4())
+        # session_id = str(uuid.uuid4())
         start_time = time.time()
 
         # Simulate broadcast processing

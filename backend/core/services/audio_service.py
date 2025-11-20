@@ -8,9 +8,18 @@ import os
 from typing import List, Optional, Dict, Any
 import numpy as np
 from datetime import datetime
+import threading
+import time
 
 # Add project root to path for importing core modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    import sounddevice as sd
+    SOUNDDEVICE_AVAILABLE = True
+except ImportError:
+    print("Warning: sounddevice not available. Audio playback will be simulated.")
+    SOUNDDEVICE_AVAILABLE = False
 
 try:
     from core.enhanced_audio_generator import EnhancedAudioGenerator
@@ -83,20 +92,59 @@ class AudioService:
             return {"error": f"Audio generation failed: {str(e)}"}
         
     async def play_audio(self, audio_data: List[float]) -> Dict[str, Any]:
-        """Play audio data (simulation)"""
+        """Play audio data through system speakers"""
         try:
+            if not SOUNDDEVICE_AVAILABLE:
+                print(f"Simulating audio playback with {len(audio_data)} samples (sounddevice not available)")
+                self.is_playing = True
+                return {"status": "simulated", "message": "Audio playback simulated (sounddevice not available)"}
+            
             self.is_playing = True
-            # In a real implementation, this would send audio to sounddevice
-            # For now, we'll simulate playback
-            print(f"Playing audio with {len(audio_data)} samples")
-            return {"status": "playing", "message": "Audio playback started"}
+            
+            # Convert list to numpy array if needed
+            if isinstance(audio_data, list):
+                audio_data = np.array(audio_data)
+            
+            # Ensure audio is in the right format (float32)
+            if audio_data.dtype != np.float32:
+                audio_data = audio_data.astype(np.float32)
+            
+            # For stereo, ensure we have 2D array
+            if audio_data.ndim == 1:
+                # Convert mono to stereo
+                stereo_audio = np.column_stack([audio_data, audio_data])
+            else:
+                stereo_audio = audio_data
+            
+            print(f"Playing audio with {len(audio_data)} samples through system speakers")
+            
+            # Play audio in a separate thread to avoid blocking the async function
+            def play_in_thread():
+                try:
+                    sd.play(stereo_audio, samplerate=44100)
+                    sd.wait()  # Wait until playback is finished
+                except Exception as e:
+                    print(f"Error in audio playback thread: {e}")
+                finally:
+                    self.is_playing = False
+            
+            # Start playback in background thread
+            playback_thread = threading.Thread(target=play_in_thread)
+            playback_thread.daemon = True
+            playback_thread.start()
+            
+            return {"status": "playing", "message": "Audio playback started through system speakers"}
+            
         except Exception as e:
+            self.is_playing = False
             return {"error": f"Audio playback failed: {str(e)}"}
         
     async def stop_audio(self) -> Dict[str, Any]:
         """Stop current audio playback"""
         try:
             self.is_playing = False
+            if SOUNDDEVICE_AVAILABLE:
+                sd.stop()  # Stop sounddevice playback
             print("Audio playback stopped")
             return {"status": "stopped", "message": "Audio playback stopped"}
         except Exception as e:

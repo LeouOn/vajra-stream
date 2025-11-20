@@ -6,6 +6,7 @@ import { useAudioStore } from './stores/audioStore';
 import SacredGeometry from './components/3D/SacredGeometry';
 import CrystalGrid from './components/3D/CrystalGrid';
 import SacredMandala from './components/3D/SacredMandala';
+import RadionicsVisualization from './components/3D/RadionicsVisualization';
 import AudioSpectrum from './components/2D/AudioSpectrum';
 import ControlPanel from './components/UI/ControlPanel';
 import SessionManager from './components/UI/SessionManager';
@@ -27,16 +28,19 @@ function App() {
     startSession, 
     stopSession,
     connectionStatus,
-    lastUpdate 
+    lastUpdate,
+    crystalStatus,
+    scalarStatus
   } = useWebSocket();
   
-  const { 
-    isPlaying, 
-    frequency, 
-    volume, 
+  const {
+    isPlaying,
+    frequency,
+    volume,
     prayerBowlMode,
     harmonicStrength,
     modulationDepth,
+    duration,
     updateSettings,
     generateAudio,
     playAudio,
@@ -81,26 +85,28 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 p-4 z-10">
+      <header className="bg-gray-800 border-b border-gray-700 p-4 z-10 glassmorphism mystical-border">
         <div className="max-w-full mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-lg hover:bg-gray-700 transition-colors"
+              className="p-2 rounded-lg hover:bg-purple-700/30 transition-all duration-300 glassmorphism"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 className="text-2xl font-bold text-vajra-cyan">Vajra.Stream</h1>
+            <h1 className="text-2xl font-bold text-vajra-cyan glow-cyan">Vajra.Stream</h1>
           </div>
           
           <div className="flex items-center space-x-6">
-            <StatusIndicator 
+            <StatusIndicator
               isConnected={isConnected}
               isPlaying={isPlaying}
               frequency={frequency}
               lastUpdate={lastUpdate}
+              crystalStatus={crystalStatus}
+              scalarStatus={scalarStatus}
             />
             
             <VisualizationSelector
@@ -114,7 +120,7 @@ function App() {
       {/* Main Content */}
       <main className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Controls */}
-        <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-gray-800 border-r border-gray-700 transition-all duration-300 overflow-hidden flex flex-col`}>
+        <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-gray-800 border-r border-gray-700 transition-all duration-300 overflow-hidden flex flex-col glassmorphism`}>
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <ControlPanel
               isPlaying={isPlaying}
@@ -123,11 +129,14 @@ function App() {
               prayerBowlMode={prayerBowlMode}
               harmonicStrength={harmonicStrength}
               modulationDepth={modulationDepth}
+              duration={duration}
               onSettingsChange={updateSettings}
               onGenerateAudio={handleGenerateAudio}
               onPlayAudio={handlePlayAudio}
               onStopAudio={handleStopAudio}
               audioStatus={audioStatus}
+              onStartSession={startSession}
+              attunedRate={scalarStatus?.rate}
             />
             
             <SessionManager
@@ -179,6 +188,11 @@ function App() {
               />
               <Environment preset="sunset" />
             </Canvas>
+          ) : visualizationType === 'radionics' ? (
+            <RadionicsVisualization
+              attunedRate={scalarStatus?.rate}
+              isPlaying={isPlaying}
+            />
           ) : visualizationType === 'crystal-grid' ? (
             <Canvas
               camera={{ position: [0, -8, 12], fov: 60 }}
@@ -275,16 +289,16 @@ function App() {
           )}
           
           {/* Floating Info Panel */}
-          <div className="absolute top-4 left-4 bg-gray-800 bg-opacity-90 p-4 rounded-lg max-w-sm">
-            <h3 className="text-sm font-semibold mb-2 text-vajra-cyan">Active Session</h3>
+          <div className="absolute top-4 left-4 mystical-card max-w-sm">
+            <h3 className="text-sm font-semibold mb-3 text-vajra-cyan glow-cyan">Active Session</h3>
             {Object.keys(sessions).length > 0 ? (
               <div className="space-y-2 text-sm">
                 {Object.values(sessions).slice(0, 3).map((session) => (
-                  <div key={session.id} className="flex justify-between items-center">
-                    <span className="truncate mr-2">{session.name}</span>
-                    <span className={`px-2 py-1 text-xs rounded ${
-                      session.status === 'running' 
-                        ? 'bg-green-600 text-white' 
+                  <div key={session.id} className="flex justify-between items-center p-2 glassmorphism rounded-lg">
+                    <span className="truncate mr-2 text-purple-300">{session.name}</span>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      session.status === 'running'
+                        ? 'bg-green-600 text-white pulse-glow'
                         : 'bg-gray-600 text-gray-300'
                     }`}>
                       {session.status}
@@ -293,22 +307,22 @@ function App() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400">No active sessions</p>
+              <p className="text-sm text-purple-400">No active sessions</p>
             )}
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 border-t border-gray-700 p-4">
+      <footer className="bg-gray-800 border-t border-gray-700 p-4 glassmorphism mystical-border">
         <div className="max-w-full mx-auto flex justify-between items-center text-sm text-gray-400">
-          <div>
+          <div className="text-purple-300">
             © 2024 Vajra.Stream - Sacred Technology Platform
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-6">
             <span>Frequency: <span className="frequency-display">{frequency.toFixed(1)} Hz</span></span>
-            <span>Volume: <span className="text-vajra-cyan">{Math.round(volume * 100)}%</span></span>
-            <span>Mode: <span className="text-vajra-purple">{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</span></span>
+            <span>Volume: <span className="text-vajra-cyan glow-cyan">{Math.round(volume * 100)}%</span></span>
+            <span>Mode: <span className="text-vajra-purple glow-text">{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</span></span>
           </div>
         </div>
       </footer>

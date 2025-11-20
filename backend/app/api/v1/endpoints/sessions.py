@@ -30,41 +30,36 @@ async def create_session(config: SessionConfig, background_tasks: BackgroundTask
     try:
         logger.info(f"🆕 Session creation request: {config.name}")
         
-        from core.services.vajra_service import vajra_service
-        from core.services.vajra_service import SessionConfig as ServiceSessionConfig, AudioConfig
+        from backend.core.orchestrator_bridge import orchestrator_bridge
         
-        # Convert Pydantic model to service config
-        audio_config = AudioConfig(
-            frequency=config.audio_frequency,
-            duration=config.duration / 60,  # Convert seconds to minutes
-            volume=0.8,  # Default volume
-            prayer_bowl_mode=True,
-            harmonic_strength=0.3,
-            modulation_depth=0.05
-        )
+        # Initialize orchestrator if not already done
+        if not orchestrator_bridge.initialized:
+            orchestrator_bridge.initialize()
         
-        service_config = ServiceSessionConfig(
-            name=config.name,
-            intention=config.intention,
-            duration=config.duration,
-            audio_config=audio_config,
-            astrology_enabled=config.astrology_enabled,
-            hardware_enabled=config.hardware_enabled,
-            visuals_enabled=config.visuals_enabled
-        )
+        # Convert modalities based on config
+        modalities = []
+        if config.hardware_enabled:
+            modalities.append("crystal")
+        if config.visuals_enabled:
+            modalities.append("visuals")
+        if config.astrology_enabled:
+            modalities.append("astrology")
         
-        # Create session in background
-        async def create_background():
-            try:
-                session_id = await vajra_service.create_session(service_config)
-                logger.info(f"✅ Session created: {session_id}")
-                return session_id
-            except Exception as e:
-                logger.error(f"❌ Background session creation failed: {e}")
-                raise e
+        # Create target specification
+        targets = [{"type": "individual", "identifier": config.name, "metadata": {"intention": config.intention}}]
         
-        # Create session synchronously for immediate response
-        session_id = await create_background()
+        # Create session using UnifiedOrchestrator
+        try:
+            session_id = await orchestrator_bridge.create_session(
+                intention=config.intention,
+                targets=targets,
+                modalities=modalities,
+                duration=config.duration
+            )
+            logger.info(f"✅ Session created: {session_id}")
+        except Exception as e:
+            logger.error(f"❌ Session creation failed: {e}")
+            raise e
         
         return {
             "status": "success",
@@ -91,23 +86,21 @@ async def start_session(session_id: str, background_tasks: BackgroundTasks):
     try:
         logger.info(f"🚀 Session start request: {session_id}")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.orchestrator_bridge import orchestrator_bridge
         
-        # Start session in background
-        async def start_background():
-            try:
-                success = await vajra_service.start_session(session_id)
-                if success:
-                    logger.info(f"✅ Session started: {session_id}")
-                else:
-                    logger.error(f"❌ Failed to start session: {session_id}")
-                return success
-            except Exception as e:
-                logger.error(f"❌ Background session start failed: {e}")
-                raise e
-        
-        # Start session synchronously for immediate response
-        success = await start_background()
+        # Start session using UnifiedOrchestrator
+        try:
+            orchestrator = orchestrator_bridge.get_orchestrator()
+            if orchestrator and session_id in orchestrator.active_sessions:
+                orchestrator.active_sessions[session_id]['status'] = 'running'
+                logger.info(f"✅ Session started: {session_id}")
+                success = True
+            else:
+                logger.error(f"❌ Failed to start session: {session_id}")
+                success = False
+        except Exception as e:
+            logger.error(f"❌ Session start failed: {e}")
+            success = False
         
         if success:
             return {
@@ -130,23 +123,21 @@ async def stop_session(session_id: str, background_tasks: BackgroundTasks):
     try:
         logger.info(f"🛑 Session stop request: {session_id}")
         
-        from core.services.vajra_service import vajra_service
+        from backend.core.orchestrator_bridge import orchestrator_bridge
         
-        # Stop session in background
-        async def stop_background():
-            try:
-                success = await vajra_service.stop_session(session_id)
-                if success:
-                    logger.info(f"✅ Session stopped: {session_id}")
-                else:
-                    logger.error(f"❌ Failed to stop session: {session_id}")
-                return success
-            except Exception as e:
-                logger.error(f"❌ Background session stop failed: {e}")
-                raise e
-        
-        # Stop session synchronously for immediate response
-        success = await stop_background()
+        # Stop session using UnifiedOrchestrator
+        try:
+            orchestrator = orchestrator_bridge.get_orchestrator()
+            if orchestrator and session_id in orchestrator.active_sessions:
+                orchestrator.active_sessions[session_id]['status'] = 'stopped'
+                logger.info(f"✅ Session stopped: {session_id}")
+                success = True
+            else:
+                logger.error(f"❌ Failed to stop session: {session_id}")
+                success = False
+        except Exception as e:
+            logger.error(f"❌ Session stop failed: {e}")
+            success = False
         
         if success:
             return {
@@ -167,7 +158,7 @@ async def stop_session(session_id: str, background_tasks: BackgroundTasks):
 async def get_session_status(session_id: str):
     """Get status of a specific session"""
     try:
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         session = vajra_service.get_session_status(session_id)
         
@@ -215,7 +206,7 @@ async def get_session_status(session_id: str):
 async def get_all_sessions():
     """Get all active sessions"""
     try:
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         sessions = vajra_service.get_all_sessions()
         
@@ -248,7 +239,7 @@ async def get_all_sessions():
 async def get_session_history():
     """Get session history"""
     try:
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         history = vajra_service.get_session_history()
         
@@ -280,7 +271,7 @@ async def get_session_history():
 async def get_session_statistics():
     """Get session statistics"""
     try:
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         active_sessions = vajra_service.get_all_sessions()
         history = vajra_service.get_session_history()
@@ -318,7 +309,7 @@ async def get_session_statistics():
 async def delete_session(session_id: str):
     """Delete a session (only if not running)"""
     try:
-        from core.services.vajra_service import vajra_service
+        from backend.core.services.vajra_service import vajra_service
         
         session = vajra_service.get_session_status(session_id)
         

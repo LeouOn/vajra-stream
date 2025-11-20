@@ -159,29 +159,111 @@ class VajraStreamService:
     async def broadcast_audio(self, audio_data: np.ndarray, hardware_level: int = 2) -> bool:
         """Broadcast audio using existing crystal broadcasters"""
         try:
+            # Import sounddevice for direct audio playback
+            import sounddevice as sd
+            import threading
+            
             if ENHANCED_MODE:
                 if hardware_level == 2 and self.level2_broadcaster:
                     print("Broadcasting with Level 2 Crystal Broadcaster")
-                    success = await self.level2_broadcaster.generate_5_channel_blessing(audio_data)
+                    # Play audio directly through sounddevice
+                    def play_audio():
+                        try:
+                            # Convert to stereo if needed
+                            if audio_data.ndim == 1:
+                                stereo_audio = np.column_stack([audio_data, audio_data])
+                            else:
+                                stereo_audio = audio_data
+                            
+                            sd.play(stereo_audio, samplerate=44100)
+                            sd.wait()
+                        except Exception as e:
+                            print(f"Error in audio playback: {e}")
+                    
+                    # Play in background thread
+                    playback_thread = threading.Thread(target=play_audio)
+                    playback_thread.daemon = True
+                    playback_thread.start()
+                    
+                    success = True
                 elif hardware_level == 3 and self.level3_broadcaster:
                     print("Broadcasting with Level 3 Crystal Broadcaster")
-                    success = await self.level3_broadcaster.generate_528hz_blessing(audio_data)
+                    # Play audio directly through sounddevice
+                    def play_audio():
+                        try:
+                            # Convert to stereo if needed
+                            if audio_data.ndim == 1:
+                                stereo_audio = np.column_stack([audio_data, audio_data])
+                            else:
+                                stereo_audio = audio_data
+                            
+                            sd.play(stereo_audio, samplerate=44100)
+                            sd.wait()
+                        except Exception as e:
+                            print(f"Error in audio playback: {e}")
+                    
+                    # Play in background thread
+                    playback_thread = threading.Thread(target=play_audio)
+                    playback_thread.daemon = True
+                    playback_thread.start()
+                    
+                    success = True
                 else:
-                    print(f"Hardware level {hardware_level} not available")
-                    success = False
+                    print(f"Hardware level {hardware_level} not available, using direct audio playback")
+                    # Direct audio playback fallback
+                    def play_audio():
+                        try:
+                            # Convert to stereo if needed
+                            if audio_data.ndim == 1:
+                                stereo_audio = np.column_stack([audio_data, audio_data])
+                            else:
+                                stereo_audio = audio_data
+                            
+                            sd.play(stereo_audio, samplerate=44100)
+                            sd.wait()
+                        except Exception as e:
+                            print(f"Error in audio playback: {e}")
+                    
+                    # Play in background thread
+                    playback_thread = threading.Thread(target=play_audio)
+                    playback_thread.daemon = True
+                    playback_thread.start()
+                    
+                    success = True
             else:
-                # Simulate broadcasting
-                print(f"Simulating audio broadcast at level {hardware_level}")
-                await asyncio.sleep(0.1)  # Simulate processing time
+                # Direct audio playback in basic mode
+                print(f"Playing audio directly through system speakers")
+                def play_audio():
+                    try:
+                        # Convert to stereo if needed
+                        if audio_data.ndim == 1:
+                            stereo_audio = np.column_stack([audio_data, audio_data])
+                        else:
+                            stereo_audio = audio_data
+                        
+                        sd.play(stereo_audio, samplerate=44100)
+                        sd.wait()
+                    except Exception as e:
+                        print(f"Error in audio playback: {e}")
+                
+                # Play in background thread
+                playback_thread = threading.Thread(target=play_audio)
+                playback_thread.daemon = True
+                playback_thread.start()
+                
                 success = True
             
             if success:
-                print("Audio broadcast successful")
+                print("Audio broadcast successful - playing through system speakers")
             else:
                 print("Audio broadcast failed")
             
             return success
             
+        except ImportError:
+            print("sounddevice not available, simulating audio broadcast")
+            await asyncio.sleep(0.1)  # Simulate processing time
+            return True
         except Exception as e:
             print(f"Error broadcasting audio: {e}")
             return False

@@ -1,0 +1,136 @@
+{
+  "description": "Refugees and displaced persons in the Democratic Republic of Congo and neighboring countries due to ongoing conflict and humanitarian crises",
+  "targets": [
+    {
+      "name": "Eastern Congo IDPs",
+      "category": "refugee",
+      "description": "Internally displaced persons in eastern Democratic Republic of Congo due to ongoing armed conflict",
+      "priority": 9,
+      "intention": "May all internally displaced persons in eastern Congo find safety, shelter, and the opportunity to return home in peace",
+      "additional_data": {
+        "estimated_count": "5.5+ million internally displaced",
+        "data_sources": ["UNHCR", "OCHA", "Internal Displacement Monitoring Centre"],
+        "regions": ["North Kivu", "South Kivu", "Ituri", "Tanganyika"],
+        "conflicts": ["M23 rebellion", "Allied Democratic Forces", "Local militia conflicts"]
+      }
+    },
+    {
+      "name": "Congolese Child Refugees",
+      "category": "refugee",
+      "description": "Children who have been displaced or become refugees due to conflict in Congo, including unaccompanied minors",
+      "priority": 10,
+      "intention": "May all Congolese child refugees find protection, education, and the chance to experience a normal childhood",
+      "additional_data": {
+        "estimated_count": "Hundreds of thousands of children affected",
+        "data_sources": ["UNICEF", "Save the Children", "UNHCR"],
+        "vulnerabilities": ["Separation from families", "Recruitment by armed groups", "Malnutrition", "Lack of education"],
+        "host_countries": ["Uganda", "Rwanda", "Burundi", "Tanzania"]
+      }
+    },
+    {
+      "name": "Congolese Women Refugees",
+      "category": "refugee",
+      "description": "Women who have fled conflict in Congo, many of whom are survivors of sexual violence and gender-based persecution",
+      "priority": 10,
+      "intention": "May all Congolese women refugees find safety, healing from trauma, and opportunities for empowerment",
+      "additional_data": {
+        "estimated_count": "Hundreds of thousands",
+        "data_sources": ["UN Women", "Women's Refugee Commission", "UNHCR"],
+        "trauma_types": ["Sexual violence", "Forced displacement", "Loss of family members", "Economic hardship"],
+        "needs": ["Medical care", "Psychological support", "Safe shelter", "Livelihood opportunities"]
+      }
+    },
+    {
+      "name": "Congolese Refugees in Uganda",
+      "category": "refugee",
+      "description": "Congolese refugees living in refugee settlements in Uganda, one of the largest host countries",
+      "priority": 8,
+      "intention": "May all Congolese refugees in Uganda find welcome, support, and opportunities for rebuilding their lives",
+      "additional_data": {
+        "estimated_count": "400,000+",
+        "data_sources": ["UNHCR Uganda", "Ugandan Office of the Prime Minister"],
+        "settlements": ["Kyaka II", "Rwamwanja", "Kyangwali", "Nakivale"],
+        "challenges": ["Limited resources", "Overcrowding", "Integration difficulties", "Food insecurity"]
+      }
+    },
+    {
+      "name": "Congolese Refugees in Rwanda",
+      "category": "refugee",
+      "description": "Congolese refugees in Rwanda, including long-term refugees and recent arrivals due to renewed conflict",
+      "priority": 8,
+      "intention": "May all Congolese refugees in Rwanda find safety, dignity, and pathways to lasting solutions",
+      "additional_data": {
+        "estimated_count": "70,000+",
+        "data_sources": ["UNHCR Rwanda", "Rwandan Ministry of Emergency Management"],
+        "camps": ["Kiziba", "Gihembe", "Kigeme", "Mugombwa"],
+        "duration": ["Some since 1990s", "New arrivals since 2022"],
+        "challenges": ["Protracted displacement", "Limited opportunities", "Psychological trauma"]
+      }
+    },
+    {
+      "name": "Congolese Refugees in Burundi",
+      "category": "refugee",
+      "description": "Congolese refugees who have fled to Burundi to escape conflict and persecution",
+      "priority": 7,
+      "intention": "May all Congolese refugees in Burundi find safety and support, may their basic needs be met",
+      "additional_data": {
+        "estimated_count": "80,000+",
+        "data_sources": ["UNHCR Burundi", "Burundian government"],
+        "camps": ["Giharo", "Bwagiriza", "Musasa", "Rukaramu"],
+        "challenges": ["Resource constraints", "Weather-related disasters", "Integration issues"]
+      }
+    },
+    {
+      "name": "Disabled Congolese Refugees",
+      "category": "refugee",
+      "description": "Refugees with disabilities who have fled conflict in Congo, facing additional barriers and challenges",
+      "priority": 9,
+      "intention": "May all disabled Congolese refugees find accessible services, dignity, and specialized support",
+      "additional_data": {
+        "estimated_count": "Significant portion of refugee population",
+        "data_sources": ["Handicap International", "UNHCR", "Disability rights organizations"],
+        "disability_types": ["Physical disabilities", "Visual impairments", "Hearing impairments", "Psychological disabilities"],
+        "barriers": ["Physical access", "Communication barriers", "Stigma", "Lack of specialized services"]
+      }
+    },
+    {
+      "name": "Elderly Congolese Refugees",
+      "category": "refugee",
+      "description": "Elderly people who have been displaced from their homes in Congo, often with specific health and care needs",
+      "priority": 8,
+      "intention": "May all elderly Congolese refugees find comfort, appropriate healthcare, and respect for their wisdom and experience",
+      "additional_data": {
+        "estimated_count": "Tens of thousands",
+        "data_sources": ["HelpAge International", "UNHCR", "Humanitarian organizations"],
+        "needs": ["Healthcare", "Mobility assistance", "Social connection", "Cultural preservation"],
+        "vulnerabilities": ["Chronic health conditions", "Isolation", "Climate sensitivity", "Loss of traditional support systems"]
+      }
+    },
+    {
+      "name": "Congolese Urban Refugees",
+      "category": "refugee",
+      "description": "Congolese refugees living in urban areas rather than formal camps, often with limited access to services",
+      "priority": 7,
+      "intention": "May all Congolese urban refugees find community, support networks, and opportunities for self-reliance",
+      "additional_data": {
+        "estimated_count": "Growing numbers",
+        "data_sources": ["Urban Refugee Task Force", "UNHCR"],
+        "cities": ["Goma", "Bukavu", "Butembo", "Beni", "Kisangani"],
+        "challenges": ["Informal settlements", "Limited access to services", "Employment difficulties", "Housing insecurity"]
+      }
+    },
+    {
+      "name": "Returnee Congolese Refugees",
+      "category": "refugee",
+      "description": "Congolese refugees attempting to return home but facing challenges of reintegration and continued insecurity",
+      "priority": 8,
+      "intention": "May all returning Congolese refugees find safety in their home communities, may their reintegration be successful",
+      "additional_data": {
+        "estimated_count": "Tens of thousands attempting return",
+        "data_sources": ["UNHCR", "International Organization for Migration"],
+        "challenges": ["Ongoing insecurity", "Destroyed infrastructure", "Land disputes", "Psychological trauma"],
+        "needs": ["Safety guarantees", "Reconstruction assistance", "Reconciliation programs", "Livelihood support"]
+      }
+    }
+  ]
+}

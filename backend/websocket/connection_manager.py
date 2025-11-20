@@ -32,6 +32,62 @@ class ConnectionManager:
             "status": "connected",
             "message": "Successfully connected to Vajra.Stream"
         }, websocket)
+
+    async def handle_message(self, websocket: WebSocket, message: str):
+        """Handle incoming WebSocket messages"""
+        try:
+            data = json.loads(message)
+            msg_type = data.get("type")
+            
+            if msg_type == "START_SESSION":
+                await self._handle_start_session(data)
+            elif msg_type == "UPDATE_SETTINGS":
+                await self._handle_update_settings(data)
+            elif msg_type == "ping":
+                await self.send_personal_message({"type": "pong"}, websocket)
+            else:
+                logger.warning(f"Unknown message type: {msg_type}")
+                
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON received")
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+
+    async def _handle_start_session(self, data: dict):
+        """Handle session start request"""
+        try:
+            from backend.core.orchestrator_bridge import orchestrator_bridge
+            
+            payload = data.get("payload", {})
+            intention = payload.get("intention", "General Blessing")
+            targets = payload.get("targets", [])
+            modalities = payload.get("modalities", [])
+            duration = payload.get("duration", 600)
+            
+            session_id = await orchestrator_bridge.create_session(
+                intention=intention,
+                targets=targets,
+                modalities=modalities,
+                duration=duration
+            )
+            
+            await self.broadcast({
+                "type": "SESSION_STARTED",
+                "session_id": session_id,
+                "intention": intention
+            })
+            
+        except Exception as e:
+            logger.error(f"Error starting session: {e}")
+            await self.broadcast({
+                "type": "ERROR",
+                "message": f"Failed to start session: {str(e)}"
+            })
+
+    async def _handle_update_settings(self, data: dict):
+        """Handle settings update"""
+        # TODO: Implement settings update logic
+        logger.info(f"Settings update requested: {data}")
     
     def disconnect(self, websocket: WebSocket):
         """Remove WebSocket connection"""

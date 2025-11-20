@@ -122,9 +122,18 @@ class EnhancedEventBus:
         if self._persistence_enabled:
             self._persist_event(processed_event, event_type, event_id, timestamp)
 
-        # Notify handlers
-        handlers = self._handlers.get(event_type, [])
-        for handler in handlers:
+        # Notify handlers (including those subscribed to parent classes)
+        # We collect all handlers from the MRO to ensure we catch subscriptions to base classes
+        handlers_to_notify = []
+        for cls in event_type.__mro__:
+            if cls in self._handlers:
+                handlers_to_notify.extend(self._handlers[cls])
+        
+        # Remove duplicates while preserving order (if a handler is subscribed to multiple levels)
+        # Note: In Python 3.7+, dict keys preserve insertion order
+        unique_handlers = list(dict.fromkeys(handlers_to_notify))
+
+        for handler in unique_handlers:
             try:
                 handler(processed_event)
             except Exception as e:

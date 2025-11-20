@@ -5,6 +5,10 @@
 numpy>=1.24.0
 pillow>=10.0.0
 
+# Audio Processing (essential for crystal broadcaster)
+sounddevice>=0.4.6
+scipy>=1.10.0
+
 # Web Framework (for API server)
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
@@ -26,8 +30,16 @@ psutil>=5.9.0
 jinja2>=3.1.0
 
 # Optional but recommended
-scipy>=1.10.0  # For advanced scalar waves
 matplotlib>=3.7.0  # For plotting
+
+# Essential missing dependencies
+requests>=2.31.0  # For HTTP requests
+websockets>=12.0  # For WebSocket support
+pyyaml>=6.0  # For YAML configuration
+aiohttp>=3.8.0  # For async HTTP
+aiofiles>=0.8.0  # For async file operations
+python-multipart>=0.0.6  # For file uploads
+pytz>=2023.3  # For timezone handling
 
 # To install full system with all features:
 # pip install -r requirements.txt

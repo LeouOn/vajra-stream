@@ -14,7 +14,7 @@ from backend.core.services.population_manager import (
     SourceType
 )
 
-router = APIRouter(prefix="/populations", tags=["populations"])
+router = APIRouter(tags=["populations"])
 
 
 # Request/Response Models

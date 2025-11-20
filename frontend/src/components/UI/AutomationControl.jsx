@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Square, RotateCw, Clock, Users, Zap, TrendingUp, Info } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8001/api/v1';
+const API_BASE = 'http://localhost:8003/api/v1';
 
 const AutomationControl = ({ className = '' }) => {
   const [sessionId, setSessionId] = useState(null);

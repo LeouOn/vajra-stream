@@ -10,7 +10,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 try:
-    from core.services.audio_service_fixed import audio_service
+    from backend.core.services.audio_service_fixed import audio_service
 except ImportError as e:
     print(f"Warning: Could not import audio service: {e}")
     audio_service = None

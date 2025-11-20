@@ -7,6 +7,8 @@ export const useWebSocket = () => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [lastUpdate, setLastUpdate] = useState(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [crystalStatus, setCrystalStatus] = useState({ active: false, intention: '' });
+  const [scalarStatus, setScalarStatus] = useState({ active: false, rate: 0 });
   
   const ws = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -17,7 +19,9 @@ export const useWebSocket = () => {
     try {
       // Use WebSocket with proper protocol detection
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//localhost:8000/ws`;
+      // Use the same host as the frontend but connect to backend port
+      const frontendHost = window.location.hostname;
+      const wsUrl = `${wsProtocol}//${frontendHost}:8003/ws`;
       
       console.log('Connecting to WebSocket:', wsUrl);
       ws.current = new WebSocket(wsUrl);
@@ -76,6 +80,19 @@ export const useWebSocket = () => {
               break;
             case 'connection_status':
               setConnectionStatus(data.status);
+              break;
+            case 'BLESSING_STARTED':
+              console.log('Blessing started:', data.data);
+              // Handle blessing started event if needed
+              break;
+            case 'CRYSTAL_BROADCAST_STARTED':
+              setCrystalStatus({ active: true, intention: data.data.intention });
+              break;
+            case 'RADIONICS_RATE_BROADCAST':
+              setScalarStatus(prev => ({ ...prev, rate: data.data.rate }));
+              break;
+            case 'SCALAR_WAVE_ACTIVE':
+              setScalarStatus(prev => ({ ...prev, active: data.data.active }));
               break;
             default:
               console.log('Unknown WebSocket message type:', data.type);
@@ -196,6 +213,8 @@ export const useWebSocket = () => {
     connectionStatus,
     lastUpdate,
     reconnectAttempts,
+    crystalStatus,
+    scalarStatus,
     startSession,
     stopSession,
     sendMessage,

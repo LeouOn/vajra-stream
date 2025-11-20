@@ -370,3 +370,6 @@ if __name__ == "__main__":
         broadcaster.generate_amplified_blessing(intention, duration)
     else:
         broadcaster.generate_5_channel_blessing(intention, duration)
+
+# Add alias for backward compatibility
+Level3CrystalBroadcaster = Level3AmplifiedBroadcaster
