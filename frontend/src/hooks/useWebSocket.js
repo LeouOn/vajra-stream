@@ -21,7 +21,7 @@ export const useWebSocket = () => {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       // Use the same host as the frontend but connect to backend port
       const frontendHost = window.location.hostname;
-      const wsUrl = `${wsProtocol}//${frontendHost}:8003/ws`;
+      const wsUrl = `${wsProtocol}//${frontendHost}:8008/ws`;
       
       console.log('Connecting to WebSocket:', wsUrl);
       ws.current = new WebSocket(wsUrl);

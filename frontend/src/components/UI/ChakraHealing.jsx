@@ -1,0 +1,185 @@
+import React, { useState, useEffect } from 'react';
+import { Heart, Zap, RefreshCw, ChevronRight } from 'lucide-react';
+
+const API_BASE = 'http://localhost:8008/api/v1';
+
+const CHAKRA_LIST = [
+  'root', 'sacral', 'solar_plexus', 'heart', 'throat', 'third_eye', 'crown'
+];
+
+const INTENTION_OPTIONS = [
+  { id: 'balance', name: 'Balance', desc: 'General chakra balance' },
+  { id: 'healing', name: 'Healing', desc: 'Healing and restoration' },
+  { id: 'activation', name: 'Activate', desc: 'Activate chakra energy' },
+  { id: 'ground', name: 'Ground', desc: 'Grounding and stability' },
+  { id: 'expand', name: 'Expand', desc: 'Expansion and enlightenment' },
+];
+
+const ChakraHealing = ({ className = '' }) => {
+  const [chakras, setChakras] = useState({});
+  const [selectedChakra, setSelectedChakra] = useState(null);
+  const [intention, setIntention] = useState('balance');
+  const [sequence, setSequence] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [chakraInfo, setChakraInfo] = useState(null);
+
+  useEffect(() => {
+    loadChakras();
+  }, []);
+
+  const loadChakras = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/healing/chakra/all`);
+      if (response.ok) {
+        const data = await response.json();
+        setChakras(data.chakras || {});
+      }
+    } catch (error) {
+      console.error('Failed to load chakras:', error);
+    }
+    setIsLoading(false);
+  };
+
+  const getChakraInfo = async (chakraName) => {
+    try {
+      const response = await fetch(`${API_BASE}/healing/chakra/info/${chakraName}`);
+      if (response.ok) {
+        const data = await response.json();
+        setChakraInfo(data.chakra);
+        setSelectedChakra(chakraName);
+      }
+    } catch (error) {
+      console.error('Failed to get chakra info:', error);
+    }
+  };
+
+  const createSequence = async (type = 'full') => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/healing/chakra/balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intention, sequence_type: type })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSequence(data.sequence);
+      }
+    } catch (error) {
+      console.error('Failed to create sequence:', error);
+    }
+    setIsLoading(false);
+  };
+
+  const getChakraColor = (chakraName) => {
+    const colors = {
+      root: 'bg-red-600',
+      sacral: 'bg-orange-600',
+      solar_plexus: 'bg-yellow-600',
+      heart: 'bg-green-600',
+      throat: 'bg-blue-600',
+      third_eye: 'bg-indigo-600',
+      crown: 'bg-violet-600'
+    };
+    return colors[chakraName] || 'bg-gray-600';
+  };
+
+  return (
+    <div className={`bg-gray-800 rounded-lg p-4 ${className}`}>
+      <h3 className="text-lg font-semibold text-vajra-cyan flex items-center mb-4">
+        <Heart className="w-5 h-5 mr-2" />
+        Chakra Healing
+      </h3>
+
+      <div className="mb-4">
+        <label className="block text-sm text-gray-400 mb-1">Intention</label>
+        <select
+          value={intention}
+          onChange={(e) => setIntention(e.target.value)}
+          className="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm"
+        >
+          {INTENTION_OPTIONS.map((opt) => (
+            <option key={opt.id} value={opt.id}>
+              {opt.name} - {opt.desc}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm text-gray-400 mb-1">Chakras</label>
+        <div className="grid grid-cols-1 gap-2">
+          {CHAKRA_LIST.map((name) => (
+            <button
+              key={name}
+              onClick={() => getChakraInfo(name)}
+              className={`flex items-center justify-between p-2 rounded transition-colors ${
+                selectedChakra === name ? 'bg-vajra-cyan text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
+              }`}
+            >
+              <span className="flex items-center">
+                <span className={`w-3 h-3 rounded-full ${getChakraColor(name)} mr-2`}></span>
+                <span className="text-sm capitalize">{name.replace('_', ' ')}</span>
+              </span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {chakraInfo && (
+        <div className="mb-4 bg-gray-900 rounded p-3">
+          <h4 className="font-semibold text-vajra-cyan mb-2">{chakraInfo.name}</h4>
+          <p className="text-xs text-gray-400 mb-2">{chakraInfo.sanskrit}</p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-gray-500">Element:</span>
+              <span className="ml-1 text-white">{chakraInfo.element}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Color:</span>
+              <span className="ml-1 text-white">{chakraInfo.color}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Frequency:</span>
+              <span className="ml-1 text-white">{chakraInfo.frequencies?.root} Hz</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={() => createSequence('full')}
+        disabled={isLoading}
+        className="w-full bg-vajra-cyan hover:bg-cyan-700 disabled:bg-gray-600 text-white rounded px-4 py-2 text-sm flex items-center justify-center mb-4"
+      >
+        {isLoading ? (
+          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+        ) : (
+          <Zap className="w-4 h-4 mr-2" />
+        )}
+        {isLoading ? 'Creating...' : 'Create Full Healing Sequence'}
+      </button>
+
+      {sequence && (
+        <div className="bg-gray-900 rounded p-3 max-h-60 overflow-y-auto">
+          <h4 className="text-sm font-semibold text-vajra-purple mb-2">
+            Healing Sequence ({sequence.total_duration}s)
+          </h4>
+          <div className="space-y-2">
+            {sequence.chakras.map((c, i) => (
+              <div key={i} className="flex items-center text-xs">
+                <span className={`w-2 h-2 rounded-full ${getChakraColor(c.name?.toLowerCase().split(' ')[0])} mr-2`}></span>
+                <span className="text-gray-300">{c.name}</span>
+                <span className="ml-auto text-gray-500">{c.frequencies?.root} Hz</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ChakraHealing;

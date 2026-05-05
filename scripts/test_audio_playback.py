@@ -16,7 +16,7 @@ def test_audio_generate():
     """Test audio generation endpoint first"""
     
     # API endpoint
-    url = "http://localhost:8003/api/v1/audio/generate"
+    url = "http://localhost:8008/api/v1/audio/generate"
     
     # Test payload
     payload = {
@@ -103,7 +103,7 @@ def test_audio_playback():
     """Test audio playback endpoint"""
     
     # API endpoint
-    url = "http://localhost:8003/api/v1/audio/play"
+    url = "http://localhost:8008/api/v1/audio/play"
     
     # Test payload
     payload = {
@@ -184,7 +184,7 @@ def test_audio_playback():
 def test_audio_status():
     """Test audio status endpoint to verify playback state"""
     
-    url = "http://localhost:8003/api/v1/audio/status"
+    url = "http://localhost:8008/api/v1/audio/status"
     
     print(f"\nTesting Audio Status Endpoint")
     print(f"URL: {url}")

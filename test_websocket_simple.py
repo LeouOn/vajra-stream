@@ -3,7 +3,7 @@ import websockets
 import json
 
 async def test_websocket():
-    uri = "ws://localhost:8003/ws"
+    uri = "ws://localhost:8008/ws"
     print(f"Testing WebSocket connection to {uri}...")
     
     try:

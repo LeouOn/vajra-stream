@@ -17,7 +17,7 @@ def test_populations_data():
     """Test populations data loading endpoint"""
     
     # API endpoint
-    url = "http://localhost:8003/api/v1/populations/"
+    url = "http://localhost:8008/api/v1/populations/"
     
     print(f"Testing Populations Data Loading API")
     print(f"URL: {url}")
@@ -118,7 +118,7 @@ def test_populations_data():
 def test_populations_statistics():
     """Test populations statistics endpoint"""
     
-    url = "http://localhost:8003/api/v1/populations/statistics/overall"
+    url = "http://localhost:8008/api/v1/populations/statistics/overall"
     
     print(f"\nTesting Populations Statistics Endpoint")
     print(f"URL: {url}")
@@ -155,7 +155,7 @@ def test_populations_statistics():
 def test_populations_health():
     """Test populations health endpoint"""
     
-    url = "http://localhost:8003/api/v1/populations/health"
+    url = "http://localhost:8008/api/v1/populations/health"
     
     print(f"\nTesting Populations Health Endpoint")
     print(f"URL: {url}")

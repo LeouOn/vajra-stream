@@ -16,6 +16,8 @@ import RNGAttunement from './components/UI/RNGAttunement';
 import BlessingSlideshow from './components/UI/BlessingSlideshow';
 import PopulationManager from './components/UI/PopulationManager';
 import AutomationControl from './components/UI/AutomationControl';
+import DharmaTales from './components/UI/DharmaTales';
+import ChakraHealing from './components/UI/ChakraHealing';
 
 function App() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
@@ -153,6 +155,10 @@ function App() {
             <PopulationManager className="mt-6" />
 
             <AutomationControl className="mt-6" />
+
+            <DharmaTales className="mt-6" />
+
+            <ChakraHealing className="mt-6" />
           </div>
         </div>
 

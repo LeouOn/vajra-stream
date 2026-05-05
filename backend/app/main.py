@@ -37,7 +37,9 @@ from backend.app.api.v1.endpoints import (
     rng_attunement as rng_endpoint,
     blessing_slideshow as slideshow_endpoint,
     populations as populations_endpoint,
-    automation as automation_endpoint
+    automation as automation_endpoint,
+    dharma_tales as dharma_tales_endpoint,
+    personal_healing as personal_healing_endpoint
 )
 
 # Setup templates
@@ -148,6 +150,8 @@ app.include_router(rng_endpoint.router, prefix="/api/v1", tags=["rng-attunement"
 app.include_router(slideshow_endpoint.router, prefix="/api/v1", tags=["blessing-slideshow"])
 app.include_router(populations_endpoint.router, prefix="/api/v1", tags=["populations"])
 app.include_router(automation_endpoint.router, prefix="/api/v1", tags=["automation"])
+app.include_router(dharma_tales_endpoint.router, prefix="/api/v1/dharma", tags=["dharma-tales"])
+app.include_router(personal_healing_endpoint.router, prefix="/api/v1/healing", tags=["healing"])
 
 # WebSocket endpoint - Stable implementation
 @app.websocket("/ws")

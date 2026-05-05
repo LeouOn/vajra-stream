@@ -1,0 +1,366 @@
+{
+  "buddhist": {
+    "compassion": {
+      "name": "Om Mani Padme Hum",
+      "sanskrit": "ॐ मणि पद्मे हूँ",
+      "tibetan": "ཨོཾ་མ་ཎི་པདྨེ་ཧུཾ།",
+      "tradition": "Avalokiteshvara",
+      "meaning": "Jewel in the Lotus - compassion of all buddhas",
+      "purpose": "Compassion, protection, love, healing",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "green_tara": {
+      "name": "Om Tare Tuttare Ture Soha",
+      "sanskrit": "ॐ तारे तुत्तारे तुरे सोहा",
+      "tradition": "Tara",
+      "meaning": "Homage to Tara, the liberator",
+      "purpose": "Protection, long life, prosperity",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "medicine_buddha": {
+      "name": "Tayata Om Bekanze Bekanze Maha Bekanze Radza Samudgate Soha",
+      "sanskrit": "तयात ओम बेकणजे बेकणजे महा बेकणजे रद्ज समुद्गते सोहा",
+      "tradition": "Medicine Buddha",
+      "meaning": "Healing mantra of the Medicine Buddha",
+      "purpose": "Healing, purification, protection from illness",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "manjushri": {
+      "name": "Om Ah Ra Pa Tsa Na Dhih",
+      "sanskrit": "ॐ अह रा प च न धीः",
+      "tradition": "Manjushri",
+      "meaning": "Wisdom mantra of Manjushri",
+      "purpose": "Wisdom, insight, intelligence",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "guru_rinpoche": {
+      "name": "Om Ah Hum Vajra Guru Padma Siddhi Hum",
+      "sanskrit": "ॐ अहूँ वज्र गुरु पद्म सिद्धि हूँ",
+      "tradition": "Guru Rinpoche",
+      "meaning": "Mantra of the Precious Guru",
+      "purpose": " blessings, protection, spiritual growth",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "heart_sutra": {
+      "name": "Gate Gate Paragate Parasamgate Bodhi Svaha",
+      "sanskrit": "गते गते पारगते पारसमगते बोधि स्वाहा",
+      "tradition": "Mahayana",
+      "meaning": "Gone, gone, gone to the other shore, awakened, so be it",
+      "purpose": "Liberation, insight into emptiness",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "vajrasattva": {
+      "name": "Om Vajrasattva Hum",
+      "sanskrit": "ॐ वज्रसत्त्व हूँ",
+      "tradition": "Vajrayana",
+      "meaning": "Diamond Being",
+      "purpose": "Purification, confession",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "white_tara": {
+      "name": "Om Tare Tuttare Ture Mama Ayur Punye Jnana Purti Kuru Soha",
+      "tradition": "Tara",
+      "meaning": "Long life mantra of White Tara",
+      "purpose": "Long life, vitality, wisdom",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "mituore": {
+      "name": "Namu Amida Butsu",
+      "japanese": "南無阿弥陀仏",
+      "tradition": "Pure Land",
+      "meaning": "Homage to Amida Buddha",
+      "purpose": " rebirth, peace, salvation",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "long_life": {
+      "name": "Om Subodai Svasti",
+      "tradition": "Tibetan",
+      "meaning": "Auspicious long life mantra",
+      "purpose": "Longevity, health, prosperity",
+      "times": 108,
+      "chakra": "crown"
+    }
+  },
+  "hindu": {
+    "om": {
+      "name": "Om",
+      "sanskrit": "ॐ",
+      "meaning": "The primordial sound / Brahman",
+      "purpose": "Meditation, grounding, ultimate reality",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "gayatri": {
+      "name": "Om Bhur Bhuvah Swaha, Tatsavitur Varenyam, Bhargo Devasya Dhimahi, Dhiyo Yo Nah Prachodayat",
+      "sanskrit": "ॐ भूर्भुवः स्वः तत्सवितुर्वरेण्यं भर्गो देवस्य धीमहि धियो यो नः प्रचोदयात्",
+      "tradition": "Vedic",
+      "meaning": "May we attain the brilliance of Savitur",
+      "purpose": "Enlightenment, wisdom, spiritual illumination",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "mahamrityunjay": {
+      "name": "Om Tryambakam Yajamahe Sugandhim Pushtivardhanam, Urvarukamiva Bandhanan, Mrityor Mukshiya Maamritat",
+      "sanskrit": "ॐ त्र्यम्बकं यजामहे सुगन्धिं पुष्टिवर्धनम् उर्वारुकमिव बन्धनान् मृत्योर्मुक्षीय मामृतात्",
+      "tradition": "Shiva",
+      "meaning": "We worship the three-eyed one, source of all fragrance and nourishment",
+      "purpose": "Moksha, liberation, healing, overcoming death",
+      "times": 108,
+      "chakra": "throat"
+    },
+    "durga": {
+      "name": "Om Dum Durgaye Durgamaye Mahi Durgam Namosthute",
+      "sanskrit": "ॐ दुं दुर्गायै दुर्गमायै महि दुर्गां नमोस्तुते",
+      "tradition": "Durga",
+      "meaning": "Salutations to Goddess Durga",
+      "purpose": "Protection, strength, victory over obstacles",
+      "times": 108,
+      "chakra": "solar_plexus"
+    },
+    "lakshmi": {
+      "name": "Om Shrim Klim Mahalakshmyai Namaha",
+      "sanskrit": "ॐ श्रीं क्लीं महालक्ष्म्यै नमः",
+      "tradition": "Lakshmi",
+      "meaning": "Salutations to Goddess Lakshmi",
+      "purpose": "Prosperity, abundance, fortune",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "saraswati": {
+      "name": "Om Aim Saraswatiye Namaha",
+      "sanskrit": "ॐ ऐं सरस्वतीयै नमः",
+      "tradition": "Saraswati",
+      "meaning": "Salutations to Goddess Saraswati",
+      "purpose": "Wisdom, learning, creativity, arts",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "ganesha": {
+      "name": "Om Gam Ganapataye Namaha",
+      "sanskrit": "ॐ गं गणपतये नमः",
+      "tradition": "Ganesha",
+      "meaning": "Salutations to Lord Ganesha",
+      "purpose": "Removal of obstacles, new beginnings, success",
+      "times": 108,
+      "chakra": "solar_plexus"
+    },
+    "shiva": {
+      "name": "Om Namah Shivaya",
+      "sanskrit": "ॐ नमः शिवाय",
+      "tradition": "Shiva",
+      "meaning": "Salutations to Lord Shiva",
+      "purpose": "Meditation, transformation, purity",
+      "times": 108,
+      "chakra": "throat"
+    },
+    "vishnu": {
+      "name": "Om Namo Narayanaya",
+      "sanskrit": "ॐ नमो नारायणाय",
+      "tradition": "Vishnu",
+      "meaning": "Salutations to Lord Vishnu",
+      "purpose": "Preservation, protection, dharma",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "krishna": {
+      "name": "Om Namo Bhagavate Vasudevaya",
+      "sanskrit": "ॐ नमो भगवते वासुदेवाय",
+      "tradition": "Krishna",
+      "meaning": "Salutations to Lord Vasudeva",
+      "purpose": "Devotion, love, divine connection",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "hanuman": {
+      "name": "Om Han Han Hanate Namaha",
+      "sanskrit": "ॐ हन हन हनते नमः",
+      "tradition": "Hanuman",
+      "meaning": "Salutations to Hanuman",
+      "purpose": "Strength, courage, devotion, protection",
+      "times": 108,
+      "chakra": "root"
+    },
+    "surya": {
+      "name": "Om Hrim Suryaya Namaha",
+      "sanskrit": "ॐ ह्रीं सूर्याय नमः",
+      "tradition": "Surya",
+      "meaning": "Salutations to Lord Sun",
+      "purpose": "Vitality, energy, clarity, success",
+      "times": 108,
+      "chakra": "solar_plexus"
+    }
+  },
+  "sufi": {
+    "la_ilaha": {
+      "name": "La ilaha illallah",
+      "arabic": "لا إله إلا الله",
+      "meaning": "There is no god but God",
+      "tradition": "Sufi/Islamic",
+      "purpose": "Tawhid, submission to divine will",
+      "times": 99,
+      "chakra": "heart"
+    },
+    "ya_raazzaq": {
+      "name": "Ya Razzaq",
+      "arabic": "يا رزاق",
+      "meaning": "O Provider",
+      "purpose": "Sustenance, provision, gratitude",
+      "times": 99,
+      "chakra": "heart"
+    },
+    "ya_shaafi": {
+      "name": "Ya Shafi",
+      "arabic": "يا شافي",
+      "meaning": "O Healer",
+      "purpose": "Healing, restoration, wholeness",
+      "times": 99,
+      "chakra": "heart"
+    },
+    "subhanallah": {
+      "name": "SubhanAllah",
+      "arabic": "سبحان الله",
+      "meaning": "Glory be to God",
+      "purpose": "Glory, gratitude, remembrance",
+      "times": 33,
+      "chakra": "crown"
+    },
+    "alhamdullilah": {
+      "name": "Alhamdulillah",
+      "arabic": "الحمد لله",
+      "meaning": "Praise be to God",
+      "purpose": "Gratitude, praise, contentment",
+      "times": 33,
+      "chakra": "heart"
+    },
+    "allah_akbar": {
+      "name": "Allahu Akbar",
+      "arabic": "الله أكبر",
+      "meaning": "God is Great",
+      "purpose": "Magnificence, awe, strength",
+      "times": 33,
+      "chakra": "solar_plexus"
+    }
+  },
+  "christian": {
+    "lords_prayer": {
+      "name": "Our Father",
+      "aramaic": "Abwoon d'bwashmaya",
+      "meaning": "Our Father in heaven",
+      "tradition": "Christian",
+      "purpose": "Communion with divine, guidance",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "jesus_prayer": {
+      "name": "Lord Jesus Christ, Son of God, have mercy on me",
+      "greek": "Κύριε Ἰησοῦ Χριστέ, Υἱὲ τοῦ Θεοῦ, ἐλέησόν με",
+      "tradition": "Eastern Orthodox",
+      "purpose": "Communion, repentance, mercy",
+      "times": "continuous",
+      "chakra": "heart"
+    },
+    "halelujah": {
+      "name": "Hallelujah",
+      "hebrew": "הללויה",
+      "meaning": "Praise Yahweh",
+      "tradition": "Christian",
+      "purpose": "Joy, praise, celebration",
+      "times": 108,
+      "chakra": "crown"
+    }
+  },
+  "shamanic": {
+    "earth_healing": {
+      "name": "Mitakuye Oyasin",
+      "lakota": "Mitakuye Oyasin",
+      "meaning": "All my relatives",
+      "tradition": "Lakota",
+      "purpose": "Connection with all life, healing earth",
+      "times": 108,
+      "chakra": "root"
+    },
+    "wolf_medicine": {
+      "name": "Aho",
+      "native": "Aho",
+      "meaning": "I behold the sacred mystery",
+      "tradition": "Native American",
+      "purpose": "Intuition, freedom, guardianship",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "eagle_prayer": {
+      "name": "Great Spirit, hear my prayer",
+      "meaning": "Prayer for vision, wisdom, and protection",
+      "tradition": "Universal",
+      "purpose": "Vision quest, spiritual ascent, clarity",
+      "times": 108,
+      "chakra": "crown"
+    }
+  },
+  "universal": {
+    "loving_kindness": {
+      "name": "Sadharma Pravriddhi",
+      "pali": "Sabbe satta bhavantu sukhitatta",
+      "meaning": "May all beings be happy",
+      "tradition": "Buddhist",
+      "purpose": "Loving-kindness, compassion for all",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "peace_prayer": {
+      "name": "Om Shanti",
+      "sanskrit": "ॐ शान्तिः शान्तिः शान्तिः",
+      "meaning": "Peace peace peace",
+      "tradition": "Universal",
+      "purpose": "Peace, calm, resolution of conflict",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "one_light": {
+      "name": "Ek Onkar",
+      "punjabi": "ੴ",
+      "meaning": "One Creator",
+      "tradition": "Sikh",
+      "purpose": "Unity, divine connection, truth",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "green_man": {
+      "name": "Ar Bor",
+      "celtic": "Ar Bor",
+      "meaning": "I am the oak tree",
+      "tradition": "Celtic",
+      "purpose": "Nature connection, grounding, strength",
+      "times": 108,
+      "chakra": "root"
+    }
+  },
+  "aspirations": {
+    "four_immeasurables": [
+      "May all beings have happiness and the causes of happiness",
+      "May all beings be free from suffering and the causes of suffering",
+      "May all beings never be separated from the great happiness devoid of suffering",
+      "May all beings dwell in equanimity, free from attachment and aversion"
+    ],
+    "bodhisattva_vows": [
+      "Sentient beings are numberless; I vow to liberate them all",
+      "Delusions are inexhaustible; I vow to end them all",
+      "Dharma gates are boundless; I vow to enter them all",
+      "Buddha's way is unsurpassable; I vow to become it"
+    ],
+    "dedications": [
+      "By this merit may all obtain omniscience. May it defeat the enemy, wrongdoing.",
+      "May all beings be freed from the stormy waves of birth, old age, sickness and death.",
+      "For as long as space endures, and for as long as living beings remain, until then may I too abide to dispel the misery of the world."
+    ]
+  }
+}

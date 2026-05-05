@@ -9,11 +9,11 @@ export default defineConfig({
     strictPort: false, // Allow using different port if 3009 is occupied
     proxy: {
       '/api': {
-        target: 'http://localhost:8003',
+        target: 'http://localhost:8008',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:8003',
+        target: 'ws://localhost:8008',
         ws: true,
       },
     },
