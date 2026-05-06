@@ -18,6 +18,8 @@ import PopulationManager from './components/UI/PopulationManager';
 import AutomationControl from './components/UI/AutomationControl';
 import DharmaTales from './components/UI/DharmaTales';
 import ChakraHealing from './components/UI/ChakraHealing';
+import { SidebarSection } from './components/UI/SidebarSection';
+import { Volume2, Clock, Heart, Sparkles, Zap, Users, Radio, BookOpen } from 'lucide-react';
 
 function App() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
@@ -123,42 +125,58 @@ function App() {
       <main className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Controls */}
         <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-gray-800 border-r border-gray-700 transition-all duration-300 overflow-hidden flex flex-col glassmorphism`}>
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            <ControlPanel
-              isPlaying={isPlaying}
-              frequency={frequency}
-              volume={volume}
-              prayerBowlMode={prayerBowlMode}
-              harmonicStrength={harmonicStrength}
-              modulationDepth={modulationDepth}
-              duration={duration}
-              onSettingsChange={updateSettings}
-              onGenerateAudio={handleGenerateAudio}
-              onPlayAudio={handlePlayAudio}
-              onStopAudio={handleStopAudio}
-              audioStatus={audioStatus}
-              onStartSession={startSession}
-              attunedRate={scalarStatus?.rate}
-            />
-            
-            <SessionManager
-              sessions={sessions}
-              onStartSession={startSession}
-              onStopSession={stopSession}
-              isConnected={isConnected}
-            />
+          <div className="flex-1 overflow-y-auto p-4 space-y-1">
+            <SidebarSection title="Audio Control" icon={Volume2} defaultOpen={true}>
+              <ControlPanel
+                isPlaying={isPlaying}
+                frequency={frequency}
+                volume={volume}
+                prayerBowlMode={prayerBowlMode}
+                harmonicStrength={harmonicStrength}
+                modulationDepth={modulationDepth}
+                duration={duration}
+                onSettingsChange={updateSettings}
+                onGenerateAudio={handleGenerateAudio}
+                onPlayAudio={handlePlayAudio}
+                onStopAudio={handleStopAudio}
+                audioStatus={audioStatus}
+                onStartSession={startSession}
+                attunedRate={scalarStatus?.rate}
+              />
+            </SidebarSection>
 
-            <RNGAttunement className="mt-6" />
+            <SidebarSection title="Sessions" icon={Clock} defaultOpen={true}>
+              <SessionManager
+                sessions={sessions}
+                onStartSession={startSession}
+                onStopSession={stopSession}
+                isConnected={isConnected}
+              />
+            </SidebarSection>
 
-            <BlessingSlideshow className="mt-6" />
+            <SidebarSection title="RNG Attunement" icon={Radio} defaultOpen={false}>
+              <RNGAttunement />
+            </SidebarSection>
 
-            <PopulationManager className="mt-6" />
+            <SidebarSection title="Blessing Slideshow" icon={Sparkles} defaultOpen={false}>
+              <BlessingSlideshow />
+            </SidebarSection>
 
-            <AutomationControl className="mt-6" />
+            <SidebarSection title="Populations" icon={Users} defaultOpen={false}>
+              <PopulationManager />
+            </SidebarSection>
 
-            <DharmaTales className="mt-6" />
+            <SidebarSection title="Automation" icon={Zap} defaultOpen={false}>
+              <AutomationControl />
+            </SidebarSection>
 
-            <ChakraHealing className="mt-6" />
+            <SidebarSection title="Dharma Tales" icon={BookOpen} defaultOpen={false}>
+              <DharmaTales />
+            </SidebarSection>
+
+            <SidebarSection title="Chakra Healing" icon={Heart} defaultOpen={false}>
+              <ChakraHealing />
+            </SidebarSection>
           </div>
         </div>
 

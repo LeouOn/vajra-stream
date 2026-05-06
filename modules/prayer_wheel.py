@@ -1,6 +1,6 @@
 """
-Prayer Wheel Module
-Wraps prayer wheel functionality
+Prayer Wheel Module - Adapter Wrapper
+Wraps core.prayer_wheel.PrayerWheel with EventBus integration
 """
 
 import sys
@@ -13,7 +13,10 @@ from modules.interfaces import EventBus
 
 
 class PrayerWheelService:
-    """Digital prayer wheel service"""
+    """
+    Digital prayer wheel service adapter.
+    Wraps core.prayer_wheel.PrayerWheel with event bus integration.
+    """
 
     def __init__(self, event_bus: EventBus = None):
         self.event_bus = event_bus
@@ -21,7 +24,7 @@ class PrayerWheelService:
 
     @property
     def wheel(self):
-        """Get prayer wheel"""
+        """Get prayer wheel instance (lazy loading)"""
         if self._wheel is None:
             try:
                 from core.prayer_wheel import PrayerWheel
@@ -55,29 +58,12 @@ class PrayerWheelService:
         except Exception as e:
             return {'error': str(e)}
 
-    def add_mantra(
-        self,
-        mantra: str,
-        tradition: str = "tibetan",
-        meaning: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Add a mantra to the wheel"""
+    def generate_prayer(self, intention: str = "peace", use_llm: bool = True,
+                        tradition: str = 'universal') -> str:
+        """Generate a prayer based on intention"""
         if self.wheel is None:
-            return {'error': 'Prayer wheel not available'}
-
-        try:
-            self.wheel.add_mantra(
-                mantra=mantra,
-                tradition=tradition,
-                meaning=meaning
-            )
-            return {
-                'status': 'success',
-                'mantra': mantra,
-                'tradition': tradition
-            }
-        except Exception as e:
-            return {'error': str(e)}
+            return "Prayer wheel not available"
+        return self.wheel.generate_prayer(intention, use_llm, tradition)
 
     def continuous_spinning(
         self,
@@ -104,37 +90,11 @@ class PrayerWheelService:
 
     def get_traditional_mantras(self) -> List[Dict[str, str]]:
         """Get list of traditional mantras"""
+        if self.wheel is None:
+            return DEFAULT_MANTRAS
         return [
-            {
-                'mantra': 'Om Mani Padme Hum',
-                'tradition': 'Tibetan Buddhist',
-                'deity': 'Chenrezig (Avalokiteshvara)',
-                'benefit': 'Compassion, purification'
-            },
-            {
-                'mantra': 'Om Ah Hum Vajra Guru Padma Siddhi Hum',
-                'tradition': 'Tibetan Buddhist',
-                'deity': 'Guru Rinpoche',
-                'benefit': 'Blessings, accomplishment'
-            },
-            {
-                'mantra': 'Om Tare Tuttare Ture Soha',
-                'tradition': 'Tibetan Buddhist',
-                'deity': 'Green Tara',
-                'benefit': 'Protection, swift liberation'
-            },
-            {
-                'mantra': 'Namo Amitabha Buddha',
-                'tradition': 'Pure Land Buddhist',
-                'deity': 'Amitabha Buddha',
-                'benefit': 'Rebirth in pure land'
-            },
-            {
-                'mantra': 'Gate Gate Paragate Parasamgate Bodhi Svaha',
-                'tradition': 'Zen Buddhist',
-                'meaning': 'Heart Sutra mantra',
-                'benefit': 'Wisdom, emptiness realization'
-            }
+            {'mantra': m, 'tradition': 'tibetan', 'benefit': 'general'}
+            for m in self.wheel.traditional_prayers.get('mantras', [])
         ]
 
     def get_status(self) -> Dict[str, Any]:
@@ -143,3 +103,10 @@ class PrayerWheelService:
             'prayer_wheel': self.wheel is not None,
             'available_mantras': len(self.get_traditional_mantras())
         }
+
+
+DEFAULT_MANTRAS = [
+    {'mantra': 'Om Mani Padme Hum', 'tradition': 'Tibetan Buddhist', 'deity': 'Chenrezig', 'benefit': 'Compassion'},
+    {'mantra': 'Om Tare Tuttare Ture Soha', 'tradition': 'Tibetan Buddhist', 'deity': 'Green Tara', 'benefit': 'Protection'},
+    {'mantra': 'Om Ah Ra Pa Tsa Na Dhih', 'tradition': 'Buddhist', 'deity': 'Manjushri', 'benefit': 'Wisdom'},
+]
