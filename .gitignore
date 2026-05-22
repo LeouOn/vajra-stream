@@ -21,6 +21,7 @@ build/
 generated_stories/
 generated_sigils/
 session_logs/
+llm_generated/
 
 # Audio files
 *.wav
@@ -82,3 +83,16 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# Virtual environments (expanded)
+.venv/
+
+# AI tooling
+.kilo/
+
+# Backend server logs (runtime artifacts)
+backend_server.err
+backend_server.log
+
+# Byte-compiled (explicit)
+*.pyc
