@@ -31,7 +31,7 @@ import { SidebarSection } from './components/UI/SidebarSection';
 import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
 import {
   Volume2, Clock, Heart, Sparkles, Zap, Users, Radio, BookOpen,
-  Sliders, Gem, LayoutDashboard, Search, Command
+  Sliders, Gem, LayoutDashboard, Search, Command, TrendingUp
 } from 'lucide-react';
 
 const VIEWS = {
@@ -346,6 +346,23 @@ function App() {
               ) : visualizationType === 'scalar-wave' ? (
                 <div className="w-full h-full">
                   <ScalarWaveVisualizer />
+                </div>
+              ) : visualizationType === 'trends' ? (
+                <div className="w-full h-full overflow-auto p-6 bg-gray-900">
+                  <Dashboard />
+                </div>
+              ) : visualizationType === 'chakra-trend' ? (
+                <div className="w-full h-full flex flex-col">
+                  <div className="flex-1 flex items-center justify-center">
+                    <ChakraAlignmentStrip />
+                  </div>
+                </div>
+              ) : visualizationType === 'radionics-panel' ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold mb-4">Radionics Panel</h2>
+                    <p className="text-gray-400">Use the sidebar panel for radionics controls</p>
+                  </div>
                 </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">

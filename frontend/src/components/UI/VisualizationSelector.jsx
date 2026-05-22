@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Layers, BarChart3, Globe, Gem, Hexagon, Radio } from 'lucide-react';
+import { Eye, Layers, BarChart3, Globe, Gem, Hexagon, Radio, TrendingUp, Heart } from 'lucide-react';
 
 const VisualizationSelector = ({ currentType, onChange }) => {
   const visualizations = [
@@ -50,6 +50,24 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       name: 'Planetary System',
       icon: <Globe className="w-4 h-4" />,
       description: 'Astrological visualization (coming soon)'
+    },
+    {
+      id: 'radionics-panel',
+      name: 'Radionics Panel',
+      icon: <Radio className="w-4 h-4" />,
+      description: 'Full radionics broadcast control panel'
+    },
+    {
+      id: 'trends',
+      name: 'Trends',
+      icon: <TrendingUp className="w-4 h-4" />,
+      description: 'Session history and rate trends'
+    },
+    {
+      id: 'chakra-trend',
+      name: 'Chakra Trends',
+      icon: <Heart className="w-4 h-4" />,
+      description: 'Live chakra alignment and frequency trending'
     }
   ];
 
