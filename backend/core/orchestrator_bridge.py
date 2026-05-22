@@ -40,9 +40,29 @@ class OrchestratorBridge:
         if self.orchestrator and self.orchestrator.event_bus:
             # Subscribe to all events for forwarding
             # Note: In a production system, we might want to filter this
-            from modules.interfaces import DomainEvent
+            from modules.interfaces import DomainEvent, SessionStarted
 
             self.orchestrator.event_bus.subscribe(DomainEvent, self._forward_event_to_websocket)
+            self.orchestrator.event_bus.subscribe(SessionStarted, self._on_session_started)
+
+    def _on_session_started(self, event):
+        """Handle session started event - trigger crystal broadcast as background task"""
+        try:
+            import threading
+            crystal = self.orchestrator.services.get("crystal")
+            if crystal and event.session_id:
+                def run_broadcast():
+                    try:
+                        crystal.broadcast_intention(
+                            intention=event.name,
+                            duration=3600,
+                            hardware_level=2,
+                        )
+                    except Exception as e:
+                        logger.error(f"Crystal broadcast error: {e}")
+                threading.Thread(target=run_broadcast, daemon=True).start()
+        except Exception as e:
+            logger.error(f"Error handling SessionStarted: {e}")
 
     def _forward_event_to_websocket(self, event):
         """Forward domain events to WebSocket clients"""
