@@ -35,7 +35,7 @@ export const useWebSocketStable = (wsUrl = null) => {
   const getDefaultWsUrl = () => {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const frontendHost = window.location.hostname;
-    return `${wsProtocol}//${frontendHost}:8007/ws`; // Use stable server port
+    return `${wsProtocol}//${frontendHost}:8008/ws`; // Use stable server port
   };
 
   // Clear all timers
