@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Zap, 
@@ -11,6 +11,7 @@ import {
   Plus,
   Settings
 } from 'lucide-react';
+import TrendsChart from './TrendsChart';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -43,6 +44,14 @@ const Dashboard = () => {
   const { sessions, isConnected, crystalStatus, scalarStatus } = useWebSocket();
   const { isPlaying, frequency, playAudio, stopAudio, generateAudio } = useAudioStore();
   const { addToast, setSidebarOpen, setSearchOpen } = useUIStore();
+  const [sessionHistory, setSessionHistory] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/v1/sessions/history')
+      .then(r => r.json())
+      .then(d => setSessionHistory(d.history || []))
+      .catch(() => setSessionHistory([]));
+  }, []);
   
   const activeSessions = Object.values(sessions);
   const runningSessions = activeSessions.filter(s => s.status === 'running');
@@ -145,6 +154,11 @@ const Dashboard = () => {
           value={activeSessions.length}
           color="text-amber-400"
         />
+      </div>
+
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold text-gray-200 mb-4">Trends</h2>
+        <TrendsChart sessionHistory={sessionHistory} />
       </div>
 
       {/* Quick Actions */}
