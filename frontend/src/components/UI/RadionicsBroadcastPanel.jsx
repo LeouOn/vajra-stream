@@ -14,13 +14,13 @@ const RadionicsBroadcastPanel = () => {
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
   const { isPlaying } = useWebSocket();
   const [progress, setProgress] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   const activeSessions = Object.values(sessions || {}).filter(s => s.status === 'running');
   const activeSession = activeSessions[0];
 
   useEffect(() => {
-    if (!activeSession) {
-      setProgress(0);
+    if (!activeSession || paused) {
       return;
     }
     const interval = setInterval(() => {
@@ -29,7 +29,7 @@ const RadionicsBroadcastPanel = () => {
       setProgress(pct);
     }, 100);
     return () => clearInterval(interval);
-  }, [activeSession]);
+  }, [activeSession, paused]);
 
   const rate = scalarStatus?.rate || 42.0;
   const r1 = Math.round(((Math.sin(rate * 1.7) + 1) / 2) * 100);
@@ -115,8 +115,12 @@ const RadionicsBroadcastPanel = () => {
 
       {/* Controls */}
       <div className="flex gap-2">
-        <button className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm">
-          <Pause className="w-4 h-4" /> Pause
+        <button
+          onClick={() => setPaused(p => !p)}
+          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+        >
+          {paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+          {paused ? 'Resume' : 'Pause'}
         </button>
         <button
           onClick={() => activeSession && stopSession(activeSession.id)}
