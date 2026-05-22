@@ -24,6 +24,7 @@ import ChakraHealing from './components/UI/ChakraHealing';
 import RadionicsNarrative from './components/UI/RadionicsNarrative';
 import RateTuner from './components/UI/RateTuner';
 import CrystalProgramming from './components/UI/CrystalProgramming';
+import RadionicsBroadcastPanel from './components/UI/RadionicsBroadcastPanel';
 import Dashboard from './components/UI/Dashboard';
 import { ToastContainer } from './components/UI/Toast';
 import { SidebarSection } from './components/UI/SidebarSection';
@@ -198,6 +199,10 @@ function App() {
         {/* Left Sidebar */}
         <div className={`${sidebarOpen ? 'w-80' : 'w-0'} bg-gray-800/95 border-r border-gray-700 transition-all duration-300 overflow-hidden flex flex-col`}>
           <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
+            <SidebarSection title="Radionics" icon={Radio} defaultOpen={true}>
+              <RadionicsBroadcastPanel />
+            </SidebarSection>
+
             {/* Audio & Broadcasting */}
             <div className="text-xs text-gray-500 uppercase tracking-wider px-3 py-1 mt-1">Audio & Broadcasting</div>
             
