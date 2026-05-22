@@ -69,10 +69,9 @@ class OrchestratorBridge:
         try:
             # Convert event to dict for JSON serialization
             event_data = {
-                "type": "domain_event",
-                "event_type": event.__class__.__name__,
+                "type": event.__class__.__name__,
                 "timestamp": event.timestamp.isoformat(),
-                "data": event.__dict__,
+                "data": {k: v for k, v in event.__dict__.items() if not k.startswith("_")},
             }
 
             # Use asyncio.create_task to run async broadcast from sync callback

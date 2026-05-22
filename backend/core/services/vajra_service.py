@@ -353,6 +353,17 @@ class VajraStreamService:
             except Exception:
                 pass
 
+        # Notify via WebSocket that broadcast started
+        try:
+            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            asyncio.create_task(stable_connection_manager_v2.broadcast({
+                "type": "CRYSTAL_BROADCAST_STARTED",
+                "session_id": session_id,
+                "timestamp": time.time(),
+            }))
+        except Exception:
+            pass  # Non-critical
+
         print(f"Session started successfully: {session_id}")
         return True
 
