@@ -34,6 +34,12 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       description: 'Real-time frequency spectrum analysis'
     },
     {
+      id: 'live-wave',
+      name: 'Live Wave',
+      icon: <Radio className="w-4 h-4" />,
+      description: 'Audio-reactive sine wave with spectrum bars'
+    },
+    {
       id: 'planetary-system',
       name: 'Planetary System',
       icon: <Globe className="w-4 h-4" />,

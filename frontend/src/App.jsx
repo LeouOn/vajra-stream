@@ -9,6 +9,7 @@ import CrystalGrid from './components/3D/CrystalGrid';
 import SacredMandala from './components/3D/SacredMandala';
 import RadionicsVisualization from './components/3D/RadionicsVisualization';
 import AudioSpectrum from './components/2D/AudioSpectrum';
+import LiveWaveVisualizer from './components/2D/LiveWaveVisualizer';
 import ControlPanel from './components/UI/ControlPanel';
 import SessionManager from './components/UI/SessionManager';
 import StatusIndicator from './components/UI/StatusIndicator';
@@ -331,6 +332,10 @@ function App() {
               ) : visualizationType === 'audio-spectrum' ? (
                 <div className="w-full h-full flex items-center justify-center p-8">
                   <AudioSpectrum spectrum={audioSpectrum} isPlaying={isPlaying} frequency={frequency} />
+                </div>
+              ) : visualizationType === 'live-wave' ? (
+                <div className="w-full h-full">
+                  <LiveWaveVisualizer />
                 </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
