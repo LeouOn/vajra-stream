@@ -321,7 +321,7 @@ Om Mani Padme Hum 🙏
                     event_date = datetime.fromisoformat(date_str)
                     result = self.heal_past_event(event_date, event)
                     print(f"\n✅ Healing sent to {event}\n")
-                except:
+                except:  # noqa: E722
                     print("\n❌ Invalid date format\n")
                 input("Press Enter to continue...")
 

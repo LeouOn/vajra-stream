@@ -17,8 +17,8 @@ if sys.platform == "win32":
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from infrastructure.event_bus import SimpleEventBus
-from modules.scalar_waves import ScalarWaveService
+from infrastructure.event_bus import SimpleEventBus  # noqa: E402
+from modules.scalar_waves import ScalarWaveService  # noqa: E402
 
 
 class Container:
@@ -71,7 +71,7 @@ class Container:
         return self._scalar_waves
 
     @property
-    def radionics(self) -> "RadionicsService":
+    def radionics(self) -> "RadionicsService":  # noqa: F821
         """Get radionics service"""
         if self._radionics is None:
             logger.info("Initializing Radionics Service...")
@@ -81,7 +81,7 @@ class Container:
         return self._radionics
 
     @property
-    def anatomy(self) -> "AnatomyService":
+    def anatomy(self) -> "AnatomyService":  # noqa: F821
         """Get anatomy service"""
         if self._anatomy is None:
             logger.info("Initializing Anatomy Service...")
@@ -91,7 +91,7 @@ class Container:
         return self._anatomy
 
     @property
-    def blessings(self) -> "BlessingService":
+    def blessings(self) -> "BlessingService":  # noqa: F821
         """Get blessings service"""
         if self._blessings is None:
             logger.info("Initializing Blessings Service...")
@@ -101,7 +101,7 @@ class Container:
         return self._blessings
 
     @property
-    def astrology(self) -> "AstrologyService | None":
+    def astrology(self) -> "AstrologyService | None":  # noqa: F821
         """Get astrology service"""
         if self._astrology is None:
             logger.info("Initializing Astrology Service...")
@@ -115,7 +115,7 @@ class Container:
         return self._astrology
 
     @property
-    def audio(self) -> "AudioService":
+    def audio(self) -> "AudioService":  # noqa: F821
         """Get audio service"""
         if self._audio is None:
             logger.info("Initializing Audio Service...")
@@ -125,7 +125,7 @@ class Container:
         return self._audio
 
     @property
-    def visualization(self) -> "VisualizationService":
+    def visualization(self) -> "VisualizationService":  # noqa: F821
         """Get visualization service"""
         if self._visualization is None:
             logger.info("Initializing Visualization Service...")
@@ -135,7 +135,7 @@ class Container:
         return self._visualization
 
     @property
-    def time_cycles(self) -> "TimeCyclesService":
+    def time_cycles(self) -> "TimeCyclesService":  # noqa: F821
         """Get time cycles service"""
         if self._time_cycles is None:
             logger.info("Initializing Time Cycles Service...")
@@ -145,7 +145,7 @@ class Container:
         return self._time_cycles
 
     @property
-    def prayer_wheel(self) -> "PrayerWheelService":
+    def prayer_wheel(self) -> "PrayerWheelService":  # noqa: F821
         """Get prayer wheel service"""
         if self._prayer_wheel is None:
             logger.info("Initializing Prayer Wheel Service...")
@@ -155,7 +155,7 @@ class Container:
         return self._prayer_wheel
 
     @property
-    def composer(self) -> "ComposerService":
+    def composer(self) -> "ComposerService":  # noqa: F821
         """Get composer service"""
         if self._composer is None:
             logger.info("Initializing Composer Service...")
@@ -165,7 +165,7 @@ class Container:
         return self._composer
 
     @property
-    def healing(self) -> "HealingService":
+    def healing(self) -> "HealingService":  # noqa: F821
         """Get healing service"""
         if self._healing is None:
             logger.info("Initializing Healing Service...")
@@ -175,7 +175,7 @@ class Container:
         return self._healing
 
     @property
-    def llm(self) -> "LLMService":
+    def llm(self) -> "LLMService":  # noqa: F821
         """Get LLM service"""
         if self._llm is None:
             logger.info("Initializing LLM Service...")
