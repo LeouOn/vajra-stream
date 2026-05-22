@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class AudioConfig(BaseModel):
+    frequency: float = 136.1
+    duration: float = 30.0
+    volume: float = 0.8
+    prayer_bowl_mode: bool = True
+    harmonic_strength: float = 0.3
+    modulation_depth: float = 0.05
+    envelope_type: str = "prayer_bowl"
+
+
 class SessionConfig(BaseModel):
     name: str
     intention: str
@@ -23,6 +33,24 @@ class SessionConfig(BaseModel):
     astrology_enabled: bool = True
     hardware_enabled: bool = True
     visuals_enabled: bool = True
+
+    _audio_config: AudioConfig = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self._audio_config = AudioConfig(
+            frequency=self.audio_frequency,
+            duration=30.0,
+            volume=0.8,
+            prayer_bowl_mode=True,
+            harmonic_strength=0.3,
+            modulation_depth=0.05,
+            envelope_type="prayer_bowl"
+        )
+
+    @property
+    def audio_config(self) -> AudioConfig:
+        return self._audio_config
 
 
 @router.post("/create")
@@ -280,14 +308,11 @@ async def delete_session(session_id: str):
         if session["status"] == "running":
             raise HTTPException(status_code=400, detail="Cannot delete running session. Please stop it first.")
 
-        # Remove from active sessions
-        if session_id in vajra_service.active_sessions:
-            del vajra_service.active_sessions[session_id]
+        if vajra_service.delete_session(session_id):
             logger.info(f"🗑️ Session deleted: {session_id}")
-
             return {"status": "success", "message": "Session deleted successfully", "session_id": session_id}
         else:
-            raise HTTPException(status_code=404, detail="Session not found in active sessions")
+            raise HTTPException(status_code=404, detail="Failed to delete session")
 
     except HTTPException:
         raise

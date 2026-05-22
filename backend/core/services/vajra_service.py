@@ -35,30 +35,7 @@ except ImportError as e:
     ENHANCED_MODE = False
 
 
-@dataclass
-class AudioConfig:
-    """Audio configuration for prayer bowl generation"""
-
-    frequency: float = 136.1  # OM frequency
-    duration: float = 30.0
-    volume: float = 0.8
-    prayer_bowl_mode: bool = True
-    harmonic_strength: float = 0.3
-    modulation_depth: float = 0.05
-    envelope_type: str = "prayer_bowl"
-
-
-@dataclass
-class SessionConfig:
-    """Session configuration"""
-
-    name: str
-    intention: str
-    audio_config: AudioConfig
-    duration: int = 3600  # 1 hour
-    astrology_enabled: bool = True
-    hardware_enabled: bool = True
-    visuals_enabled: bool = True
+from backend.app.api.v1.endpoints.sessions import SessionConfig
 
 
 class VajraStreamService:
@@ -406,6 +383,21 @@ class VajraStreamService:
         del self.active_sessions[session_id]
 
         print(f"Session stopped: {session_id}")
+        return True
+
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session (only if not running)"""
+        if session_id not in self.active_sessions:
+            print(f"Session not found: {session_id}")
+            return False
+
+        session = self.active_sessions[session_id]
+        if session["status"] == "running":
+            print(f"Cannot delete running session: {session_id}")
+            return False
+
+        del self.active_sessions[session_id]
+        print(f"Session deleted: {session_id}")
         return True
 
     async def _get_astrology_data(self) -> dict:
