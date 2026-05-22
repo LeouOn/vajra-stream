@@ -1,0 +1,139 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "vajra-stream"
+version = "0.2.0"
+description = "Digital Dharma Technology — sacred technology for continuous blessing, healing, and purification"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "pillow>=10.0.0",
+    "pydantic>=2.5.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0",
+    "colorama>=0.4.0",
+    "psutil>=5.9.0",
+    "requests>=2.31.0",
+    "httpx>=0.25.0",
+]
+
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "jinja2>=3.1.0",
+    "websockets>=12.0",
+    "python-multipart>=0.0.6",
+    "aiohttp>=3.8.0",
+    "aiofiles>=0.8.0",
+]
+audio = [
+    "sounddevice>=0.4.6",
+    "pydub>=0.25.0",
+    "soundfile>=0.12.0",
+    "pyttsx3>=2.90",
+]
+science = [
+    "matplotlib>=3.7.0",
+    "pandas>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "alembic",
+    "astropy>=5.3.0",
+    "sympy>=1.0.0",
+]
+astrology = [
+    "pyswisseph>=2.10.3.2",
+    "astroquery>=0.4.6",
+]
+llm = [
+    "openai>=1.3.0",
+    "anthropic>=0.7.0",
+]
+hardware = [
+    "pyserial>=3.5",
+]
+viz = [
+    "opencv-python>=4.8.0",
+]
+all = [
+    "vajra-stream[web,audio,science,astrology,llm,hardware,viz]",
+    "cryptography>=3.4.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "orjson>=3.8.0",
+    "cachetools>=5.0.0",
+    "tenacity>=8.0.0",
+    "apscheduler>=3.10.0",
+    "markdown>=3.4.0",
+    "watchdog>=3.0.0",
+    "click>=8.0.0",
+    "tqdm>=4.64.0",
+    "loguru>=0.7.0",
+    "pytz>=2023.3",
+    "typing-extensions>=4.0.0",
+    "websocket-client>=1.6.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "coverage>=7.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.5.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["modules*", "core*", "infrastructure*", "config*", "backend*", "scripts*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ANN"]
+"scripts/**" = ["D", "ANN"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+exclude = [
+    "frontend/",
+    "generated/",
+    ".venv/",
+    "node_modules/",
+]
+
+[[tool.mypy.overrides]]
+module = ["modules.*", "core.*", "backend.*", "infrastructure.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: fast isolated tests",
+    "integration: tests that wire multiple modules together",
+    "slow: tests that take more than a few seconds",
+]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["modules", "core", "infrastructure", "config"]
+omit = ["tests/*", "scripts/*", "frontend/*"]
