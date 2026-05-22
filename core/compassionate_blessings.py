@@ -15,18 +15,17 @@ This system honors:
 and the enlightenment of all beings."
 """
 
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime, timedelta
-from pathlib import Path
-from dataclasses import dataclass, field
-from enum import Enum
+import hashlib
 import json
 import sqlite3
-import hashlib
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 
 
 class BlessingCategory(Enum):
     """Categories of beings receiving blessings."""
+
     MISSING_PERSON = "missing_person"
     UNIDENTIFIED_REMAINS = "unidentified_remains"
     SHELTER_ANIMAL = "shelter_animal"
@@ -43,6 +42,7 @@ class BlessingCategory(Enum):
 
 class MantraType(Enum):
     """Types of mantras for different blessing purposes."""
+
     CHENREZIG = "om_mani_padme_hum"  # Universal compassion
     MEDICINE_BUDDHA = "bekandze"  # Healing
     GREEN_TARA = "om_tare_tuttare"  # Protection from suffering
@@ -54,17 +54,18 @@ class MantraType(Enum):
 @dataclass
 class GeoCoordinate:
     """Geographic location data."""
+
     latitude: float
     longitude: float
     location_name: str = ""
     timezone: str = "UTC"
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
-            'latitude': self.latitude,
-            'longitude': self.longitude,
-            'location_name': self.location_name,
-            'timezone': self.timezone
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "location_name": self.location_name,
+            "timezone": self.timezone,
         }
 
 
@@ -76,34 +77,35 @@ class BlessingCoordinate:
     Combines temporal, spatial, and astrological data for optimal
     energetic transmission.
     """
+
     # Temporal layer
     julian_day: float
     calendar_system: str = "auto"  # julian/gregorian/auto
-    reference_datetime: Optional[datetime] = None  # Birth, discovery, etc.
+    reference_datetime: datetime | None = None  # Birth, discovery, etc.
 
     # Spatial layer
-    location: Optional[GeoCoordinate] = None
+    location: GeoCoordinate | None = None
 
     # Astrological layer
-    natal_chart_data: Optional[Dict] = None
-    dominant_planetary_lines: List[Dict] = field(default_factory=list)
-    active_parans: List[Dict] = field(default_factory=list)
+    natal_chart_data: dict | None = None
+    dominant_planetary_lines: list[dict] = field(default_factory=list)
+    active_parans: list[dict] = field(default_factory=list)
 
     # Radionics layer
-    witness_data: Dict = field(default_factory=dict)
-    radionics_rate: Optional[List[int]] = None
+    witness_data: dict = field(default_factory=dict)
+    radionics_rate: list[int] | None = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
-            'julian_day': self.julian_day,
-            'calendar_system': self.calendar_system,
-            'reference_datetime': self.reference_datetime.isoformat() if self.reference_datetime else None,
-            'location': self.location.to_dict() if self.location else None,
-            'natal_chart_data': self.natal_chart_data,
-            'dominant_planetary_lines': self.dominant_planetary_lines,
-            'active_parans': self.active_parans,
-            'witness_data': self.witness_data,
-            'radionics_rate': self.radionics_rate
+            "julian_day": self.julian_day,
+            "calendar_system": self.calendar_system,
+            "reference_datetime": self.reference_datetime.isoformat() if self.reference_datetime else None,
+            "location": self.location.to_dict() if self.location else None,
+            "natal_chart_data": self.natal_chart_data,
+            "dominant_planetary_lines": self.dominant_planetary_lines,
+            "active_parans": self.active_parans,
+            "witness_data": self.witness_data,
+            "radionics_rate": self.radionics_rate,
         }
 
 
@@ -115,31 +117,32 @@ class BlessingTarget:
     Represents a being or group of beings in the database,
     with as much information as is known.
     """
+
     # Identity (as much as known)
     identifier: str  # Unique ID
-    name: Optional[str] = None  # "Unknown" if not known
+    name: str | None = None  # "Unknown" if not known
     category: BlessingCategory = BlessingCategory.SUFFERING_UNKNOWN
 
     # Description
     description: str = ""
-    case_number: Optional[str] = None
+    case_number: str | None = None
 
     # Temporal data
-    relevant_date: Optional[datetime] = None  # Birth, disappearance, death, etc.
-    discovery_date: Optional[datetime] = None
+    relevant_date: datetime | None = None  # Birth, disappearance, death, etc.
+    discovery_date: datetime | None = None
     last_updated: datetime = field(default_factory=datetime.now)
 
     # Blessing coordinates
-    coordinates: Optional[BlessingCoordinate] = None
+    coordinates: BlessingCoordinate | None = None
 
     # Media/witness
-    photograph_path: Optional[str] = None
-    additional_data: Dict = field(default_factory=dict)
+    photograph_path: str | None = None
+    additional_data: dict = field(default_factory=dict)
 
     # Blessing tracking
     mantras_dedicated: int = 0
     prayer_wheel_rotations: int = 0
-    dedication_sessions: List[datetime] = field(default_factory=list)
+    dedication_sessions: list[datetime] = field(default_factory=list)
 
     # Intention
     intention: str = "Complete liberation from suffering"
@@ -157,82 +160,86 @@ class BlessingTarget:
         hash_obj = hashlib.md5(data_str.encode())
         return f"{self.category.value}_{hash_obj.hexdigest()[:12]}"
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
-            'identifier': self.identifier,
-            'name': self.name,
-            'category': self.category.value,
-            'description': self.description,
-            'case_number': self.case_number,
-            'relevant_date': self.relevant_date.isoformat() if self.relevant_date else None,
-            'discovery_date': self.discovery_date.isoformat() if self.discovery_date else None,
-            'last_updated': self.last_updated.isoformat(),
-            'coordinates': self.coordinates.to_dict() if self.coordinates else None,
-            'photograph_path': self.photograph_path,
-            'additional_data': self.additional_data,
-            'mantras_dedicated': self.mantras_dedicated,
-            'prayer_wheel_rotations': self.prayer_wheel_rotations,
-            'dedication_sessions': [dt.isoformat() for dt in self.dedication_sessions],
-            'intention': self.intention,
-            'priority': self.priority
+            "identifier": self.identifier,
+            "name": self.name,
+            "category": self.category.value,
+            "description": self.description,
+            "case_number": self.case_number,
+            "relevant_date": self.relevant_date.isoformat() if self.relevant_date else None,
+            "discovery_date": self.discovery_date.isoformat() if self.discovery_date else None,
+            "last_updated": self.last_updated.isoformat(),
+            "coordinates": self.coordinates.to_dict() if self.coordinates else None,
+            "photograph_path": self.photograph_path,
+            "additional_data": self.additional_data,
+            "mantras_dedicated": self.mantras_dedicated,
+            "prayer_wheel_rotations": self.prayer_wheel_rotations,
+            "dedication_sessions": [dt.isoformat() for dt in self.dedication_sessions],
+            "intention": self.intention,
+            "priority": self.priority,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'BlessingTarget':
+    def from_dict(cls, data: dict) -> "BlessingTarget":
         """Create from dictionary."""
         # Parse dates
-        relevant_date = datetime.fromisoformat(data['relevant_date']) if data.get('relevant_date') else None
-        discovery_date = datetime.fromisoformat(data['discovery_date']) if data.get('discovery_date') else None
-        last_updated = datetime.fromisoformat(data['last_updated']) if data.get('last_updated') else datetime.now()
+        relevant_date = datetime.fromisoformat(data["relevant_date"]) if data.get("relevant_date") else None
+        discovery_date = datetime.fromisoformat(data["discovery_date"]) if data.get("discovery_date") else None
+        last_updated = datetime.fromisoformat(data["last_updated"]) if data.get("last_updated") else datetime.now()
 
         # Parse dedication sessions
-        dedication_sessions = [datetime.fromisoformat(dt) for dt in data.get('dedication_sessions', [])]
+        dedication_sessions = [datetime.fromisoformat(dt) for dt in data.get("dedication_sessions", [])]
 
         # Parse location if present
         coordinates = None
-        if data.get('coordinates'):
-            coord_data = data['coordinates']
+        if data.get("coordinates"):
+            coord_data = data["coordinates"]
             location = None
-            if coord_data.get('location'):
-                loc_data = coord_data['location']
+            if coord_data.get("location"):
+                loc_data = coord_data["location"]
                 location = GeoCoordinate(
-                    latitude=loc_data['latitude'],
-                    longitude=loc_data['longitude'],
-                    location_name=loc_data.get('location_name', ''),
-                    timezone=loc_data.get('timezone', 'UTC')
+                    latitude=loc_data["latitude"],
+                    longitude=loc_data["longitude"],
+                    location_name=loc_data.get("location_name", ""),
+                    timezone=loc_data.get("timezone", "UTC"),
                 )
 
-            ref_dt = datetime.fromisoformat(coord_data['reference_datetime']) if coord_data.get('reference_datetime') else None
+            ref_dt = (
+                datetime.fromisoformat(coord_data["reference_datetime"])
+                if coord_data.get("reference_datetime")
+                else None
+            )
 
             coordinates = BlessingCoordinate(
-                julian_day=coord_data['julian_day'],
-                calendar_system=coord_data.get('calendar_system', 'auto'),
+                julian_day=coord_data["julian_day"],
+                calendar_system=coord_data.get("calendar_system", "auto"),
                 reference_datetime=ref_dt,
                 location=location,
-                natal_chart_data=coord_data.get('natal_chart_data'),
-                dominant_planetary_lines=coord_data.get('dominant_planetary_lines', []),
-                active_parans=coord_data.get('active_parans', []),
-                witness_data=coord_data.get('witness_data', {}),
-                radionics_rate=coord_data.get('radionics_rate')
+                natal_chart_data=coord_data.get("natal_chart_data"),
+                dominant_planetary_lines=coord_data.get("dominant_planetary_lines", []),
+                active_parans=coord_data.get("active_parans", []),
+                witness_data=coord_data.get("witness_data", {}),
+                radionics_rate=coord_data.get("radionics_rate"),
             )
 
         return cls(
-            identifier=data['identifier'],
-            name=data.get('name'),
-            category=BlessingCategory(data['category']),
-            description=data.get('description', ''),
-            case_number=data.get('case_number'),
+            identifier=data["identifier"],
+            name=data.get("name"),
+            category=BlessingCategory(data["category"]),
+            description=data.get("description", ""),
+            case_number=data.get("case_number"),
             relevant_date=relevant_date,
             discovery_date=discovery_date,
             last_updated=last_updated,
             coordinates=coordinates,
-            photograph_path=data.get('photograph_path'),
-            additional_data=data.get('additional_data', {}),
-            mantras_dedicated=data.get('mantras_dedicated', 0),
-            prayer_wheel_rotations=data.get('prayer_wheel_rotations', 0),
+            photograph_path=data.get("photograph_path"),
+            additional_data=data.get("additional_data", {}),
+            mantras_dedicated=data.get("mantras_dedicated", 0),
+            prayer_wheel_rotations=data.get("prayer_wheel_rotations", 0),
             dedication_sessions=dedication_sessions,
-            intention=data.get('intention', 'Complete liberation from suffering'),
-            priority=data.get('priority', 5)
+            intention=data.get("intention", "Complete liberation from suffering"),
+            priority=data.get("priority", 5),
         )
 
 
@@ -253,7 +260,7 @@ class BlessingDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS blessing_targets (
                 identifier TEXT PRIMARY KEY,
                 name TEXT,
@@ -272,9 +279,9 @@ class BlessingDatabase:
                 intention TEXT,
                 priority INTEGER DEFAULT 5
             )
-        ''')
+        """)
 
-        cursor.execute('''
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS blessing_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_date TEXT NOT NULL,
@@ -286,9 +293,9 @@ class BlessingDatabase:
                 notes TEXT,
                 astrological_data_json TEXT
             )
-        ''')
+        """)
 
-        cursor.execute('''
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS mantra_dedications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 target_identifier TEXT NOT NULL,
@@ -301,7 +308,7 @@ class BlessingDatabase:
                 FOREIGN KEY (target_identifier) REFERENCES blessing_targets(identifier),
                 FOREIGN KEY (session_id) REFERENCES blessing_sessions(id)
             )
-        ''')
+        """)
 
         conn.commit()
         conn.close()
@@ -314,7 +321,8 @@ class BlessingDatabase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO blessing_targets
             (identifier, name, category, description, case_number,
              relevant_date, discovery_date, last_updated,
@@ -322,36 +330,41 @@ class BlessingDatabase:
              mantras_dedicated, prayer_wheel_rotations,
              dedication_sessions_json, intention, priority)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            target.identifier,
-            target.name,
-            target.category.value,
-            target.description,
-            target.case_number,
-            target.relevant_date.isoformat() if target.relevant_date else None,
-            target.discovery_date.isoformat() if target.discovery_date else None,
-            target.last_updated.isoformat(),
-            json.dumps(target.coordinates.to_dict()) if target.coordinates else None,
-            target.photograph_path,
-            json.dumps(target.additional_data),
-            target.mantras_dedicated,
-            target.prayer_wheel_rotations,
-            json.dumps([dt.isoformat() for dt in target.dedication_sessions]),
-            target.intention,
-            target.priority
-        ))
+        """,
+            (
+                target.identifier,
+                target.name,
+                target.category.value,
+                target.description,
+                target.case_number,
+                target.relevant_date.isoformat() if target.relevant_date else None,
+                target.discovery_date.isoformat() if target.discovery_date else None,
+                target.last_updated.isoformat(),
+                json.dumps(target.coordinates.to_dict()) if target.coordinates else None,
+                target.photograph_path,
+                json.dumps(target.additional_data),
+                target.mantras_dedicated,
+                target.prayer_wheel_rotations,
+                json.dumps([dt.isoformat() for dt in target.dedication_sessions]),
+                target.intention,
+                target.priority,
+            ),
+        )
 
         conn.commit()
         conn.close()
 
-    def get_target(self, identifier: str) -> Optional[BlessingTarget]:
+    def get_target(self, identifier: str) -> BlessingTarget | None:
         """Retrieve a blessing target."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             SELECT * FROM blessing_targets WHERE identifier = ?
-        ''', (identifier,))
+        """,
+            (identifier,),
+        )
 
         row = cursor.fetchone()
         conn.close()
@@ -361,53 +374,55 @@ class BlessingDatabase:
 
         # Reconstruct target from row
         data = {
-            'identifier': row[0],
-            'name': row[1],
-            'category': row[2],
-            'description': row[3],
-            'case_number': row[4],
-            'relevant_date': row[5],
-            'discovery_date': row[6],
-            'last_updated': row[7],
-            'coordinates': json.loads(row[8]) if row[8] else None,
-            'photograph_path': row[9],
-            'additional_data': json.loads(row[10]) if row[10] else {},
-            'mantras_dedicated': row[11],
-            'prayer_wheel_rotations': row[12],
-            'dedication_sessions': json.loads(row[13]) if row[13] else [],
-            'intention': row[14],
-            'priority': row[15]
+            "identifier": row[0],
+            "name": row[1],
+            "category": row[2],
+            "description": row[3],
+            "case_number": row[4],
+            "relevant_date": row[5],
+            "discovery_date": row[6],
+            "last_updated": row[7],
+            "coordinates": json.loads(row[8]) if row[8] else None,
+            "photograph_path": row[9],
+            "additional_data": json.loads(row[10]) if row[10] else {},
+            "mantras_dedicated": row[11],
+            "prayer_wheel_rotations": row[12],
+            "dedication_sessions": json.loads(row[13]) if row[13] else [],
+            "intention": row[14],
+            "priority": row[15],
         }
 
         return BlessingTarget.from_dict(data)
 
-    def get_targets_by_category(self, category: BlessingCategory) -> List[BlessingTarget]:
+    def get_targets_by_category(self, category: BlessingCategory) -> list[BlessingTarget]:
         """Get all targets in a category."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             SELECT identifier FROM blessing_targets WHERE category = ?
-        ''', (category.value,))
+        """,
+            (category.value,),
+        )
 
         identifiers = [row[0] for row in cursor.fetchall()]
         conn.close()
 
         return [self.get_target(id) for id in identifiers]
 
-    def get_all_targets(self) -> List[BlessingTarget]:
+    def get_all_targets(self) -> list[BlessingTarget]:
         """Get all blessing targets."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('SELECT identifier FROM blessing_targets')
+        cursor.execute("SELECT identifier FROM blessing_targets")
         identifiers = [row[0] for row in cursor.fetchall()]
         conn.close()
 
         return [self.get_target(id) for id in identifiers]
 
-    def update_blessing_count(self, identifier: str, mantras: int = 0,
-                             rotations: int = 0):
+    def update_blessing_count(self, identifier: str, mantras: int = 0, rotations: int = 0):
         """Update mantra/rotation counts for a target."""
         target = self.get_target(identifier)
         if not target:
@@ -420,29 +435,38 @@ class BlessingDatabase:
 
         self.add_target(target)  # Update
 
-    def record_session(self, mantra_type: str, total_mantras: int,
-                      total_rotations: int, targets_blessed: int,
-                      allocation_method: str, notes: str = "",
-                      astrological_data: Dict = None) -> int:
+    def record_session(
+        self,
+        mantra_type: str,
+        total_mantras: int,
+        total_rotations: int,
+        targets_blessed: int,
+        allocation_method: str,
+        notes: str = "",
+        astrological_data: dict = None,
+    ) -> int:
         """Record a blessing session."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO blessing_sessions
             (session_date, mantra_type, total_mantras, total_rotations,
              targets_blessed, allocation_method, notes, astrological_data_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            datetime.now().isoformat(),
-            mantra_type,
-            total_mantras,
-            total_rotations,
-            targets_blessed,
-            allocation_method,
-            notes,
-            json.dumps(astrological_data) if astrological_data else None
-        ))
+        """,
+            (
+                datetime.now().isoformat(),
+                mantra_type,
+                total_mantras,
+                total_rotations,
+                targets_blessed,
+                allocation_method,
+                notes,
+                json.dumps(astrological_data) if astrological_data else None,
+            ),
+        )
 
         session_id = cursor.lastrowid
         conn.commit()
@@ -450,27 +474,28 @@ class BlessingDatabase:
 
         return session_id
 
-    def record_dedication(self, target_identifier: str, session_id: int,
-                         mantra_type: str, mantras_count: int,
-                         dedicator: str = "", notes: str = ""):
+    def record_dedication(
+        self,
+        target_identifier: str,
+        session_id: int,
+        mantra_type: str,
+        mantras_count: int,
+        dedicator: str = "",
+        notes: str = "",
+    ):
         """Record individual dedication to a target."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute('''
+        cursor.execute(
+            """
             INSERT INTO mantra_dedications
             (target_identifier, session_id, mantra_type, mantras_count,
              dedication_date, dedicator, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            target_identifier,
-            session_id,
-            mantra_type,
-            mantras_count,
-            datetime.now().isoformat(),
-            dedicator,
-            notes
-        ))
+        """,
+            (target_identifier, session_id, mantra_type, mantras_count, datetime.now().isoformat(), dedicator, notes),
+        )
 
         conn.commit()
         conn.close()
@@ -478,41 +503,41 @@ class BlessingDatabase:
         # Update target counts
         self.update_blessing_count(target_identifier, mantras=mantras_count)
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get overall blessing statistics."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         # Total targets
-        cursor.execute('SELECT COUNT(*) FROM blessing_targets')
+        cursor.execute("SELECT COUNT(*) FROM blessing_targets")
         total_targets = cursor.fetchone()[0]
 
         # Targets by category
-        cursor.execute('''
+        cursor.execute("""
             SELECT category, COUNT(*) FROM blessing_targets GROUP BY category
-        ''')
+        """)
         by_category = {row[0]: row[1] for row in cursor.fetchall()}
 
         # Total mantras dedicated
-        cursor.execute('SELECT SUM(mantras_dedicated) FROM blessing_targets')
+        cursor.execute("SELECT SUM(mantras_dedicated) FROM blessing_targets")
         total_mantras = cursor.fetchone()[0] or 0
 
         # Total rotations
-        cursor.execute('SELECT SUM(prayer_wheel_rotations) FROM blessing_targets')
+        cursor.execute("SELECT SUM(prayer_wheel_rotations) FROM blessing_targets")
         total_rotations = cursor.fetchone()[0] or 0
 
         # Total sessions
-        cursor.execute('SELECT COUNT(*) FROM blessing_sessions')
+        cursor.execute("SELECT COUNT(*) FROM blessing_sessions")
         total_sessions = cursor.fetchone()[0]
 
         conn.close()
 
         return {
-            'total_targets': total_targets,
-            'by_category': by_category,
-            'total_mantras_dedicated': total_mantras,
-            'total_prayer_wheel_rotations': total_rotations,
-            'total_sessions': total_sessions
+            "total_targets": total_targets,
+            "by_category": by_category,
+            "total_mantras_dedicated": total_mantras,
+            "total_prayer_wheel_rotations": total_rotations,
+            "total_sessions": total_sessions,
         }
 
 
@@ -528,7 +553,7 @@ class BlessingAllocator:
     """
 
     @staticmethod
-    def allocate_equitable(total_mantras: int, targets: List[BlessingTarget]) -> Dict[str, int]:
+    def allocate_equitable(total_mantras: int, targets: list[BlessingTarget]) -> dict[str, int]:
         """Equal distribution to all targets."""
         if not targets:
             return {}
@@ -546,7 +571,7 @@ class BlessingAllocator:
         return allocation
 
     @staticmethod
-    def allocate_urgent(total_mantras: int, targets: List[BlessingTarget]) -> Dict[str, int]:
+    def allocate_urgent(total_mantras: int, targets: list[BlessingTarget]) -> dict[str, int]:
         """Priority to those waiting longest or with highest urgency."""
         if not targets:
             return {}
@@ -593,7 +618,7 @@ class BlessingAllocator:
         return allocation
 
     @staticmethod
-    def allocate_weighted(total_mantras: int, targets: List[BlessingTarget]) -> Dict[str, int]:
+    def allocate_weighted(total_mantras: int, targets: list[BlessingTarget]) -> dict[str, int]:
         """Weighted by priority scores."""
         if not targets:
             return {}
@@ -624,11 +649,14 @@ class BlessingAllocator:
 
 
 # Convenience functions
-def create_target(name: str, category: BlessingCategory,
-                 location: Optional[Tuple[float, float]] = None,
-                 date: Optional[datetime] = None,
-                 description: str = "",
-                 priority: int = 5) -> BlessingTarget:
+def create_target(
+    name: str,
+    category: BlessingCategory,
+    location: tuple[float, float] | None = None,
+    date: datetime | None = None,
+    description: str = "",
+    priority: int = 5,
+) -> BlessingTarget:
     """
     Quick function to create a blessing target.
 
@@ -646,10 +674,7 @@ def create_target(name: str, category: BlessingCategory,
     # Create location if provided
     geo_loc = None
     if location:
-        geo_loc = GeoCoordinate(
-            latitude=location[0],
-            longitude=location[1]
-        )
+        geo_loc = GeoCoordinate(latitude=location[0], longitude=location[1])
 
     # Create coordinates if we have location and/or date
     coords = None
@@ -658,22 +683,14 @@ def create_target(name: str, category: BlessingCategory,
 
         if date:
             jd = CalendarConverter.date_to_julian_day(
-                date.year, date.month, date.day,
-                date.hour, date.minute, date.second
+                date.year, date.month, date.day, date.hour, date.minute, date.second
             )
         else:
             # Use current time
             now = datetime.now()
-            jd = CalendarConverter.date_to_julian_day(
-                now.year, now.month, now.day,
-                now.hour, now.minute, now.second
-            )
+            jd = CalendarConverter.date_to_julian_day(now.year, now.month, now.day, now.hour, now.minute, now.second)
 
-        coords = BlessingCoordinate(
-            julian_day=jd,
-            reference_datetime=date,
-            location=geo_loc
-        )
+        coords = BlessingCoordinate(julian_day=jd, reference_datetime=date, location=geo_loc)
 
     return BlessingTarget(
         identifier="",  # Will be auto-generated
@@ -682,7 +699,7 @@ def create_target(name: str, category: BlessingCategory,
         description=description,
         relevant_date=date,
         coordinates=coords,
-        priority=priority
+        priority=priority,
     )
 
 
@@ -706,7 +723,7 @@ if __name__ == "__main__":
         location=(40.7128, -74.0060),  # NYC
         date=datetime(2020, 6, 15, 14, 30),
         description="Missing since June 2020",
-        priority=8
+        priority=8,
     )
     db.add_target(target1)
     print(f"Added: {target1.name} ({target1.category.value})")
@@ -718,7 +735,7 @@ if __name__ == "__main__":
         location=(34.0522, -118.2437),  # LA
         date=datetime(2024, 12, 1),
         description="Awaiting adoption",
-        priority=6
+        priority=6,
     )
     db.add_target(target2)
     print(f"Added: {target2.name} ({target2.category.value})")
@@ -728,7 +745,7 @@ if __name__ == "__main__":
         name="All Sentient Beings",
         category=BlessingCategory.ALL_SENTIENT_BEINGS,
         description="Universal compassion for all",
-        priority=10
+        priority=10,
     )
     db.add_target(target3)
     print(f"Added: {target3.name} ({target3.category.value})")
@@ -739,8 +756,8 @@ if __name__ == "__main__":
 
     stats = db.get_statistics()
     print(f"Total targets: {stats['total_targets']}")
-    print(f"By category:")
-    for cat, count in stats['by_category'].items():
+    print("By category:")
+    for cat, count in stats["by_category"].items():
         print(f"  {cat}: {count}")
 
     # Allocate mantras
@@ -781,7 +798,7 @@ if __name__ == "__main__":
         total_rotations=0,
         targets_blessed=len(all_targets),
         allocation_method="equitable",
-        notes="Daily practice dedication"
+        notes="Daily practice dedication",
     )
 
     print(f"Session recorded (ID: {session_id})")
@@ -793,7 +810,7 @@ if __name__ == "__main__":
             session_id=session_id,
             mantra_type="om_mani_padme_hum",
             mantras_count=count,
-            dedicator="Practitioner"
+            dedicator="Practitioner",
         )
 
     # Final statistics

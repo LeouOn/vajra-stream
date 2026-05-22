@@ -4,9 +4,8 @@ Vajra.Stream Visual Demo
 Simple demonstration of visual system
 """
 
-import sys
 import os
-import time
+import sys
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -18,9 +17,9 @@ def main():
     """
     Run visual demonstration
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("VAJRA.STREAM VISUAL DEMONSTRATION")
-    print("="*60)
+    print("=" * 60)
 
     renderer = SimpleVisualRenderer()
 

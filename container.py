@@ -3,10 +3,8 @@ Dependency Injection Container
 Single place that wires all modules together
 """
 
-import sys
-from pathlib import Path
 import logging
-from typing import Optional
+import sys
 
 if sys.platform == "win32":
     try:
@@ -78,6 +76,7 @@ class Container:
         if self._radionics is None:
             logger.info("Initializing Radionics Service...")
             from modules.radionics import RadionicsService
+
             self._radionics = RadionicsService(event_bus=self.event_bus)
         return self._radionics
 
@@ -87,6 +86,7 @@ class Container:
         if self._anatomy is None:
             logger.info("Initializing Anatomy Service...")
             from modules.anatomy import AnatomyService
+
             self._anatomy = AnatomyService(event_bus=self.event_bus)
         return self._anatomy
 
@@ -96,16 +96,18 @@ class Container:
         if self._blessings is None:
             logger.info("Initializing Blessings Service...")
             from modules.blessings import BlessingService
+
             self._blessings = BlessingService(event_bus=self.event_bus)
         return self._blessings
 
     @property
-    def astrology(self) -> "Optional[AstrologyService]":
+    def astrology(self) -> "AstrologyService | None":
         """Get astrology service"""
         if self._astrology is None:
             logger.info("Initializing Astrology Service...")
             try:
                 from modules.astrology import AstrologyService
+
                 self._astrology = AstrologyService(event_bus=self.event_bus)
             except ImportError:
                 logger.warning("Astrology service not available")
@@ -118,6 +120,7 @@ class Container:
         if self._audio is None:
             logger.info("Initializing Audio Service...")
             from modules.audio import AudioService
+
             self._audio = AudioService(event_bus=self.event_bus)
         return self._audio
 
@@ -127,6 +130,7 @@ class Container:
         if self._visualization is None:
             logger.info("Initializing Visualization Service...")
             from modules.visualization import VisualizationService
+
             self._visualization = VisualizationService(event_bus=self.event_bus)
         return self._visualization
 
@@ -136,6 +140,7 @@ class Container:
         if self._time_cycles is None:
             logger.info("Initializing Time Cycles Service...")
             from modules.time_cycles import TimeCyclesService
+
             self._time_cycles = TimeCyclesService(event_bus=self.event_bus)
         return self._time_cycles
 
@@ -145,6 +150,7 @@ class Container:
         if self._prayer_wheel is None:
             logger.info("Initializing Prayer Wheel Service...")
             from modules.prayer_wheel import PrayerWheelService
+
             self._prayer_wheel = PrayerWheelService(event_bus=self.event_bus)
         return self._prayer_wheel
 
@@ -154,6 +160,7 @@ class Container:
         if self._composer is None:
             logger.info("Initializing Composer Service...")
             from modules.composer import ComposerService
+
             self._composer = ComposerService(event_bus=self.event_bus)
         return self._composer
 
@@ -163,6 +170,7 @@ class Container:
         if self._healing is None:
             logger.info("Initializing Healing Service...")
             from modules.healing import HealingService
+
             self._healing = HealingService(event_bus=self.event_bus)
         return self._healing
 
@@ -172,12 +180,13 @@ class Container:
         if self._llm is None:
             logger.info("Initializing LLM Service...")
             from modules.llm import LLMService
+
             self._llm = LLMService(event_bus=self.event_bus)
         return self._llm
 
     def _setup_event_handlers(self):
         """Wire up event handlers between modules"""
-        from modules.interfaces import HealingSessionStarted, ScalarWavesGenerated, BlessingGenerated
+        from modules.interfaces import BlessingGenerated, HealingSessionStarted, ScalarWavesGenerated
 
         # Example: Log all events
         def log_all_events(event):

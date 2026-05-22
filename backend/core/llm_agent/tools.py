@@ -8,9 +8,9 @@ Each function is designed to be called by an LLM agent and returns structured da
 that can be used in the agent's responses.
 """
 
-from typing import Dict, List, Optional, Any
+from typing import Any
+
 import requests
-from enum import Enum
 
 
 class APIClient:
@@ -19,25 +19,25 @@ class APIClient:
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
 
-    def _get(self, endpoint: str) -> Dict[str, Any]:
+    def _get(self, endpoint: str) -> dict[str, Any]:
         """Make GET request"""
         response = requests.get(f"{self.base_url}{endpoint}")
         response.raise_for_status()
         return response.json()
 
-    def _post(self, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _post(self, endpoint: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
         """Make POST request"""
         response = requests.post(f"{self.base_url}{endpoint}", json=data or {})
         response.raise_for_status()
         return response.json()
 
-    def _put(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _put(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
         """Make PUT request"""
         response = requests.put(f"{self.base_url}{endpoint}", json=data)
         response.raise_for_status()
         return response.json()
 
-    def _delete(self, endpoint: str) -> Dict[str, Any]:
+    def _delete(self, endpoint: str) -> dict[str, Any]:
         """Make DELETE request"""
         response = requests.delete(f"{self.base_url}{endpoint}")
         response.raise_for_status()
@@ -60,10 +60,8 @@ def get_client() -> APIClient:
 # RNG ATTUNEMENT TOOLS
 # ============================================================================
 
-def create_rng_session(
-    baseline_tone_arm: float = 5.0,
-    sensitivity: float = 1.0
-) -> Dict[str, Any]:
+
+def create_rng_session(baseline_tone_arm: float = 5.0, sensitivity: float = 1.0) -> dict[str, Any]:
     """
     Create a new RNG attunement session for monitoring psychoenergetic activity.
 
@@ -80,13 +78,12 @@ def create_rng_session(
         {"session_id": "rng_1234567890_abcdef12"}
     """
     client = get_client()
-    return client._post("/api/v1/rng/session/create", {
-        "baseline_tone_arm": baseline_tone_arm,
-        "sensitivity": sensitivity
-    })
+    return client._post(
+        "/api/v1/rng/session/create", {"baseline_tone_arm": baseline_tone_arm, "sensitivity": sensitivity}
+    )
 
 
-def get_rng_reading(session_id: str) -> Dict[str, Any]:
+def get_rng_reading(session_id: str) -> dict[str, Any]:
     """
     Get current RNG reading including needle state and floating needle score.
 
@@ -112,7 +109,7 @@ def get_rng_reading(session_id: str) -> Dict[str, Any]:
     return client._get(f"/api/v1/rng/session/{session_id}/reading")
 
 
-def stop_rng_session(session_id: str) -> Dict[str, Any]:
+def stop_rng_session(session_id: str) -> dict[str, Any]:
     """
     Stop RNG session and get final summary.
 
@@ -130,15 +127,16 @@ def stop_rng_session(session_id: str) -> Dict[str, Any]:
 # BLESSING SLIDESHOW TOOLS
 # ============================================================================
 
+
 def create_blessing_slideshow(
     directory_path: str,
     mantra: str = "chenrezig",
-    intentions: List[str] = None,
+    intentions: list[str] = None,
     repetitions_per_photo: int = 108,
     display_duration_ms: int = 2000,
     loop_mode: bool = True,
-    rng_session_id: Optional[str] = None
-) -> Dict[str, Any]:
+    rng_session_id: str | None = None,
+) -> dict[str, Any]:
     """
     Create a blessing slideshow session for a directory of photos.
 
@@ -163,21 +161,24 @@ def create_blessing_slideshow(
         intentions = ["love", "healing", "peace"]
 
     client = get_client()
-    return client._post("/api/v1/slideshow/session/create", {
-        "directory_path": directory_path,
-        "intention_set": {
-            "primary_mantra": mantra,
-            "intentions": intentions,
-            "repetitions_per_photo": repetitions_per_photo,
-            "dedication": "May all beings benefit"
+    return client._post(
+        "/api/v1/slideshow/session/create",
+        {
+            "directory_path": directory_path,
+            "intention_set": {
+                "primary_mantra": mantra,
+                "intentions": intentions,
+                "repetitions_per_photo": repetitions_per_photo,
+                "dedication": "May all beings benefit",
+            },
+            "loop_mode": loop_mode,
+            "display_duration_ms": display_duration_ms,
+            "rng_session_id": rng_session_id,
         },
-        "loop_mode": loop_mode,
-        "display_duration_ms": display_duration_ms,
-        "rng_session_id": rng_session_id
-    })
+    )
 
 
-def get_current_slide(session_id: str) -> Dict[str, Any]:
+def get_current_slide(session_id: str) -> dict[str, Any]:
     """
     Get current slide information including photo details and progress.
 
@@ -191,7 +192,7 @@ def get_current_slide(session_id: str) -> Dict[str, Any]:
     return client._get(f"/api/v1/slideshow/session/{session_id}/current")
 
 
-def stop_slideshow(session_id: str) -> Dict[str, Any]:
+def stop_slideshow(session_id: str) -> dict[str, Any]:
     """
     Stop slideshow and get final statistics.
 
@@ -209,17 +210,18 @@ def stop_slideshow(session_id: str) -> Dict[str, Any]:
 # POPULATION MANAGEMENT TOOLS
 # ============================================================================
 
+
 def create_population(
     name: str,
     category: str,
     source_type: str,
     description: str = "",
-    directory_path: Optional[str] = None,
+    directory_path: str | None = None,
     mantra_preference: str = "chenrezig",
-    intentions: List[str] = None,
+    intentions: list[str] = None,
     priority: int = 5,
-    is_urgent: bool = False
-) -> Dict[str, Any]:
+    is_urgent: bool = False,
+) -> dict[str, Any]:
     """
     Create a new target population for automated blessings.
 
@@ -246,28 +248,29 @@ def create_population(
         intentions = ["love", "healing", "peace"]
 
     client = get_client()
-    return client._post("/api/v1/populations/create", {
-        "name": name,
-        "description": description,
-        "category": category,
-        "source_type": source_type,
-        "directory_path": directory_path,
-        "mantra_preference": mantra_preference,
-        "intentions": intentions,
-        "repetitions_per_photo": 108,
-        "display_duration_ms": 2000,
-        "priority": priority,
-        "is_urgent": is_urgent,
-        "tags": [],
-        "notes": ""
-    })
+    return client._post(
+        "/api/v1/populations/create",
+        {
+            "name": name,
+            "description": description,
+            "category": category,
+            "source_type": source_type,
+            "directory_path": directory_path,
+            "mantra_preference": mantra_preference,
+            "intentions": intentions,
+            "repetitions_per_photo": 108,
+            "display_duration_ms": 2000,
+            "priority": priority,
+            "is_urgent": is_urgent,
+            "tags": [],
+            "notes": "",
+        },
+    )
 
 
 def list_populations(
-    active_only: bool = False,
-    category: Optional[str] = None,
-    urgent_only: bool = False
-) -> List[Dict[str, Any]]:
+    active_only: bool = False, category: str | None = None, urgent_only: bool = False
+) -> list[dict[str, Any]]:
     """
     Get list of all populations with optional filtering.
 
@@ -292,7 +295,7 @@ def list_populations(
     return client._get(f"/api/v1/populations/{query}")
 
 
-def get_population_statistics() -> Dict[str, Any]:
+def get_population_statistics() -> dict[str, Any]:
     """
     Get overall statistics across all populations.
 
@@ -303,10 +306,7 @@ def get_population_statistics() -> Dict[str, Any]:
     return client._get("/api/v1/populations/statistics/overall")
 
 
-def update_population(
-    population_id: str,
-    **updates
-) -> Dict[str, Any]:
+def update_population(population_id: str, **updates) -> dict[str, Any]:
     """
     Update a population's settings.
 
@@ -325,14 +325,15 @@ def update_population(
 # AUTOMATION/SCHEDULER TOOLS
 # ============================================================================
 
+
 def start_automation(
     duration_per_population: int = 1800,
     transition_pause: int = 30,
     link_rng: bool = True,
     continuous_mode: bool = True,
     only_active: bool = True,
-    min_priority: int = 1
-) -> Dict[str, Any]:
+    min_priority: int = 1,
+) -> dict[str, Any]:
     """
     Start automated 24/7 rotation through populations.
 
@@ -353,19 +354,22 @@ def start_automation(
         {"session_id": "scheduler_...", "populations_in_queue": 15}
     """
     client = get_client()
-    return client._post("/api/v1/automation/start", {
-        "mode": "round_robin",
-        "duration_per_population": duration_per_population,
-        "transition_pause": transition_pause,
-        "link_rng": link_rng,
-        "auto_dedicate": True,
-        "continuous_mode": continuous_mode,
-        "only_active": only_active,
-        "min_priority": min_priority
-    })
+    return client._post(
+        "/api/v1/automation/start",
+        {
+            "mode": "round_robin",
+            "duration_per_population": duration_per_population,
+            "transition_pause": transition_pause,
+            "link_rng": link_rng,
+            "auto_dedicate": True,
+            "continuous_mode": continuous_mode,
+            "only_active": only_active,
+            "min_priority": min_priority,
+        },
+    )
 
 
-def get_automation_status(session_id: str) -> Dict[str, Any]:
+def get_automation_status(session_id: str) -> dict[str, Any]:
     """
     Get current automation status (lightweight, for frequent polling).
 
@@ -384,7 +388,7 @@ def get_automation_status(session_id: str) -> Dict[str, Any]:
     return client._get(f"/api/v1/automation/{session_id}/status")
 
 
-def get_automation_stats(session_id: str) -> Dict[str, Any]:
+def get_automation_stats(session_id: str) -> dict[str, Any]:
     """
     Get complete automation statistics.
 
@@ -398,7 +402,7 @@ def get_automation_stats(session_id: str) -> Dict[str, Any]:
     return client._get(f"/api/v1/automation/{session_id}/stats")
 
 
-def stop_automation(session_id: str) -> Dict[str, Any]:
+def stop_automation(session_id: str) -> dict[str, Any]:
     """
     Stop automated rotation and get final statistics.
 
@@ -412,7 +416,7 @@ def stop_automation(session_id: str) -> Dict[str, Any]:
     return client._post(f"/api/v1/automation/{session_id}/stop")
 
 
-def pause_automation(session_id: str) -> Dict[str, Any]:
+def pause_automation(session_id: str) -> dict[str, Any]:
     """
     Pause automated rotation (can be resumed later).
 
@@ -426,7 +430,7 @@ def pause_automation(session_id: str) -> Dict[str, Any]:
     return client._post(f"/api/v1/automation/{session_id}/pause")
 
 
-def resume_automation(session_id: str) -> Dict[str, Any]:
+def resume_automation(session_id: str) -> dict[str, Any]:
     """
     Resume paused automation.
 
@@ -460,11 +464,11 @@ TOOL_REGISTRY = {
     "get_automation_stats": get_automation_stats,
     "stop_automation": stop_automation,
     "pause_automation": pause_automation,
-    "resume_automation": resume_automation
+    "resume_automation": resume_automation,
 }
 
 
-def get_tool_schemas() -> List[Dict[str, Any]]:
+def get_tool_schemas() -> list[dict[str, Any]]:
     """
     Get JSON schemas for all available tools.
 
@@ -483,14 +487,11 @@ def get_tool_schemas() -> List[Dict[str, Any]]:
                 "properties": {
                     "baseline_tone_arm": {
                         "type": "number",
-                        "description": "Baseline tone arm setting (0-10), default 5.0"
+                        "description": "Baseline tone arm setting (0-10), default 5.0",
                     },
-                    "sensitivity": {
-                        "type": "number",
-                        "description": "Sensitivity multiplier (0.1-5.0), default 1.0"
-                    }
-                }
-            }
+                    "sensitivity": {"type": "number", "description": "Sensitivity multiplier (0.1-5.0), default 1.0"},
+                },
+            },
         },
         {
             "name": "get_rng_reading",
@@ -498,13 +499,10 @@ def get_tool_schemas() -> List[Dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "session_id": {
-                        "type": "string",
-                        "description": "RNG session ID from create_rng_session"
-                    }
+                    "session_id": {"type": "string", "description": "RNG session ID from create_rng_session"}
                 },
-                "required": ["session_id"]
-            }
+                "required": ["session_id"],
+            },
         },
         {
             "name": "create_blessing_slideshow",
@@ -512,30 +510,48 @@ def get_tool_schemas() -> List[Dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "directory_path": {
-                        "type": "string",
-                        "description": "Absolute path to directory containing photos"
-                    },
+                    "directory_path": {"type": "string", "description": "Absolute path to directory containing photos"},
                     "mantra": {
                         "type": "string",
-                        "enum": ["chenrezig", "tara", "medicine_buddha", "vajrasattva", "manjushri", "amitabha", "universal"],
-                        "description": "Mantra to use (default: chenrezig)"
+                        "enum": [
+                            "chenrezig",
+                            "tara",
+                            "medicine_buddha",
+                            "vajrasattva",
+                            "manjushri",
+                            "amitabha",
+                            "universal",
+                        ],
+                        "description": "Mantra to use (default: chenrezig)",
                     },
                     "intentions": {
                         "type": "array",
                         "items": {
                             "type": "string",
-                            "enum": ["love", "healing", "peace", "protection", "prosperity", "wisdom", "reunion", "safety", "liberation", "compassion", "clarity", "strength"]
+                            "enum": [
+                                "love",
+                                "healing",
+                                "peace",
+                                "protection",
+                                "prosperity",
+                                "wisdom",
+                                "reunion",
+                                "safety",
+                                "liberation",
+                                "compassion",
+                                "clarity",
+                                "strength",
+                            ],
                         },
-                        "description": "List of intentions to transmit"
+                        "description": "List of intentions to transmit",
                     },
                     "rng_session_id": {
                         "type": "string",
-                        "description": "Optional RNG session ID to link for monitoring"
-                    }
+                        "description": "Optional RNG session ID to link for monitoring",
+                    },
                 },
-                "required": ["directory_path"]
-            }
+                "required": ["directory_path"],
+            },
         },
         {
             "name": "create_population",
@@ -543,33 +559,39 @@ def get_tool_schemas() -> List[Dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Clear, descriptive name for the population"
-                    },
+                    "name": {"type": "string", "description": "Clear, descriptive name for the population"},
                     "category": {
                         "type": "string",
-                        "enum": ["missing_persons", "refugees", "disaster_victims", "conflict_zones", "hospital_patients", "humanitarian_crisis", "memorial", "custom"],
-                        "description": "Category of population"
+                        "enum": [
+                            "missing_persons",
+                            "refugees",
+                            "disaster_victims",
+                            "conflict_zones",
+                            "hospital_patients",
+                            "humanitarian_crisis",
+                            "memorial",
+                            "custom",
+                        ],
+                        "description": "Category of population",
                     },
                     "source_type": {
                         "type": "string",
                         "enum": ["local_directory", "manual"],
-                        "description": "Where photos come from"
+                        "description": "Where photos come from",
                     },
                     "directory_path": {
                         "type": "string",
-                        "description": "Path to photos (required for local_directory)"
+                        "description": "Path to photos (required for local_directory)",
                     },
                     "priority": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 10,
-                        "description": "Priority level (1-10, higher = more important)"
-                    }
+                        "description": "Priority level (1-10, higher = more important)",
+                    },
                 },
-                "required": ["name", "category", "source_type"]
-            }
+                "required": ["name", "category", "source_type"],
+            },
         },
         {
             "name": "start_automation",
@@ -579,32 +601,21 @@ def get_tool_schemas() -> List[Dict[str, Any]]:
                 "properties": {
                     "duration_per_population": {
                         "type": "integer",
-                        "description": "Seconds to spend on each population (default 1800 = 30 min)"
+                        "description": "Seconds to spend on each population (default 1800 = 30 min)",
                     },
-                    "continuous_mode": {
-                        "type": "boolean",
-                        "description": "Loop indefinitely if true (default true)"
-                    },
-                    "link_rng": {
-                        "type": "boolean",
-                        "description": "Monitor RNG for each population (default true)"
-                    }
-                }
-            }
+                    "continuous_mode": {"type": "boolean", "description": "Loop indefinitely if true (default true)"},
+                    "link_rng": {"type": "boolean", "description": "Monitor RNG for each population (default true)"},
+                },
+            },
         },
         {
             "name": "get_automation_status",
             "description": "Get current automation status for monitoring. Call every 5-10 seconds for UI updates",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "session_id": {
-                        "type": "string",
-                        "description": "Automation session ID"
-                    }
-                },
-                "required": ["session_id"]
-            }
+                "properties": {"session_id": {"type": "string", "description": "Automation session ID"}},
+                "required": ["session_id"],
+            },
         },
         {
             "name": "list_populations",
@@ -612,25 +623,16 @@ def get_tool_schemas() -> List[Dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "active_only": {
-                        "type": "boolean",
-                        "description": "Only return active populations"
-                    },
-                    "category": {
-                        "type": "string",
-                        "description": "Filter by specific category"
-                    }
-                }
-            }
+                    "active_only": {"type": "boolean", "description": "Only return active populations"},
+                    "category": {"type": "string", "description": "Filter by specific category"},
+                },
+            },
         },
         {
             "name": "get_population_statistics",
             "description": "Get overall statistics across all populations including totals and categories",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     ]
 
 
@@ -639,10 +641,7 @@ if __name__ == "__main__":
     # Example: Complete automated workflow
     print("Creating population...")
     pop = create_population(
-        name="Test Population",
-        category="custom",
-        source_type="manual",
-        description="Test population for demonstration"
+        name="Test Population", category="custom", source_type="manual", description="Test population for demonstration"
     )
     print(f"Created: {pop['id']}")
 

@@ -9,38 +9,30 @@ Tests all modules working together:
 5. Cross-module integration
 """
 
-import pytest
 import asyncio
-import time
-import tempfile
-import os
 import json
+import os
+import tempfile
+import time
 from pathlib import Path
 
-# Import all services
-from backend.core.services.rng_attunement_service import (
-    get_rng_service,
-    RNGAttunementService
-)
+import pytest
+
+from backend.core.services.blessing_scheduler import BlessingScheduler, SchedulerConfig, SchedulerMode
 from backend.core.services.blessing_slideshow_service import (
-    get_blessing_slideshow_service,
     BlessingSlideshowService,
     IntentionSet,
+    IntentionType,
     MantraType,
-    IntentionType
 )
 from backend.core.services.population_manager import (
-    get_population_manager,
-    PopulationManager,
     PopulationCategory,
-    SourceType
+    PopulationManager,
+    SourceType,
 )
-from backend.core.services.blessing_scheduler import (
-    get_scheduler,
-    BlessingScheduler,
-    SchedulerConfig,
-    SchedulerMode
-)
+
+# Import all services
+from backend.core.services.rng_attunement_service import RNGAttunementService
 
 
 class TestRNGAttunementService:
@@ -55,10 +47,7 @@ class TestRNGAttunementService:
     def test_session_creation(self):
         """Test creating RNG session"""
         service = RNGAttunementService()
-        session_id = service.create_session(
-            baseline_tone_arm=5.0,
-            sensitivity=1.0
-        )
+        session_id = service.create_session(baseline_tone_arm=5.0, sensitivity=1.0)
         assert session_id is not None
         assert session_id in service.sessions
 
@@ -85,9 +74,9 @@ class TestRNGAttunementService:
             time.sleep(0.1)
 
         summary = service.get_session_summary(session_id)
-        assert 'floating_needle_count' in summary
-        assert 'total_readings' in summary
-        assert summary['total_readings'] >= 20
+        assert "floating_needle_count" in summary
+        assert "total_readings" in summary
+        assert summary["total_readings"] >= 20
 
     def test_session_stop(self):
         """Test stopping session"""
@@ -96,7 +85,7 @@ class TestRNGAttunementService:
 
         service.stop_session(session_id)
         session = service.sessions[session_id]
-        assert session.is_active == False
+        assert not session.is_active
 
 
 class TestBlessingSlideshowService:
@@ -125,14 +114,11 @@ class TestBlessingSlideshowService:
         intention_set = IntentionSet(
             primary_mantra=MantraType.CHENREZIG,
             intentions=[IntentionType.LOVE, IntentionType.HEALING],
-            repetitions_per_photo=108
+            repetitions_per_photo=108,
         )
 
         session_id = service.create_session(
-            directory_path=temp_photo_dir,
-            intention_set=intention_set,
-            loop_mode=True,
-            display_duration_ms=1000
+            directory_path=temp_photo_dir, intention_set=intention_set, loop_mode=True, display_duration_ms=1000
         )
 
         assert session_id is not None
@@ -142,39 +128,29 @@ class TestBlessingSlideshowService:
         """Test photos are loaded correctly"""
         service = BlessingSlideshowService()
 
-        intention_set = IntentionSet(
-            primary_mantra=MantraType.CHENREZIG,
-            intentions=[IntentionType.LOVE]
-        )
+        intention_set = IntentionSet(primary_mantra=MantraType.CHENREZIG, intentions=[IntentionType.LOVE])
 
-        session_id = service.create_session(
-            directory_path=temp_photo_dir,
-            intention_set=intention_set
-        )
+        session_id = service.create_session(directory_path=temp_photo_dir, intention_set=intention_set)
 
         slide = service.get_current_slide(session_id)
         assert slide is not None
-        assert slide['session']['total_photos'] == 5
+        assert slide["session"]["total_photos"] == 5
 
     def test_slideshow_progression(self, temp_photo_dir):
         """Test slideshow advances through photos"""
         service = BlessingSlideshowService()
 
         intention_set = IntentionSet(
-            primary_mantra=MantraType.CHENREZIG,
-            intentions=[IntentionType.LOVE],
-            repetitions_per_photo=10
+            primary_mantra=MantraType.CHENREZIG, intentions=[IntentionType.LOVE], repetitions_per_photo=10
         )
 
         session_id = service.create_session(
-            directory_path=temp_photo_dir,
-            intention_set=intention_set,
-            display_duration_ms=100
+            directory_path=temp_photo_dir, intention_set=intention_set, display_duration_ms=100
         )
 
         # Get initial slide
         initial = service.get_current_slide(session_id)
-        initial_index = initial['session']['current_index']
+        initial_index = initial["session"]["current_index"]
 
         # Advance multiple times
         for _ in range(3):
@@ -182,31 +158,26 @@ class TestBlessingSlideshowService:
 
         # Check progression
         current = service.get_current_slide(session_id)
-        assert current['session']['current_index'] > initial_index
+        assert current["session"]["current_index"] > initial_index
 
     def test_session_statistics(self, temp_photo_dir):
         """Test statistics tracking"""
         service = BlessingSlideshowService()
 
         intention_set = IntentionSet(
-            primary_mantra=MantraType.CHENREZIG,
-            intentions=[IntentionType.LOVE],
-            repetitions_per_photo=108
+            primary_mantra=MantraType.CHENREZIG, intentions=[IntentionType.LOVE], repetitions_per_photo=108
         )
 
-        session_id = service.create_session(
-            directory_path=temp_photo_dir,
-            intention_set=intention_set
-        )
+        session_id = service.create_session(directory_path=temp_photo_dir, intention_set=intention_set)
 
         # Advance through some photos
         for _ in range(3):
             service.advance_slide(session_id)
 
         stats = service.stop_session(session_id)
-        assert 'photos_blessed' in stats
-        assert 'total_mantras_repeated' in stats
-        assert stats['photos_blessed'] >= 3
+        assert "photos_blessed" in stats
+        assert "total_mantras_repeated" in stats
+        assert stats["photos_blessed"] >= 3
 
 
 class TestPopulationManager:
@@ -231,7 +202,7 @@ class TestPopulationManager:
             source_type=SourceType.MANUAL,
             mantra_preference="chenrezig",
             intentions=["love", "healing"],
-            priority=5
+            priority=5,
         )
 
         assert population is not None
@@ -244,10 +215,7 @@ class TestPopulationManager:
 
         # Create population
         pop = manager.create_population(
-            name="Test Pop",
-            description="Test",
-            category=PopulationCategory.REFUGEES,
-            source_type=SourceType.MANUAL
+            name="Test Pop", description="Test", category=PopulationCategory.REFUGEES, source_type=SourceType.MANUAL
         )
 
         # Retrieve it
@@ -266,15 +234,11 @@ class TestPopulationManager:
             description="Original",
             category=PopulationCategory.CUSTOM,
             source_type=SourceType.MANUAL,
-            priority=3
+            priority=3,
         )
 
         # Update it
-        updated = manager.update_population(
-            pop.id,
-            name="Updated Name",
-            priority=8
-        )
+        updated = manager.update_population(pop.id, name="Updated Name", priority=8)
 
         assert updated.name == "Updated Name"
         assert updated.priority == 8
@@ -286,14 +250,11 @@ class TestPopulationManager:
 
         # Create and delete
         pop = manager.create_population(
-            name="To Delete",
-            description="",
-            category=PopulationCategory.CUSTOM,
-            source_type=SourceType.MANUAL
+            name="To Delete", description="", category=PopulationCategory.CUSTOM, source_type=SourceType.MANUAL
         )
 
         success = manager.delete_population(pop.id)
-        assert success == True
+        assert success
 
         # Verify deleted
         retrieved = manager.get_population(pop.id)
@@ -310,7 +271,7 @@ class TestPopulationManager:
                 name=f"Pop {i}",
                 description="",
                 category=PopulationCategory.MISSING_PERSONS,
-                source_type=SourceType.MANUAL
+                source_type=SourceType.MANUAL,
             )
             pops.append(pop)
 
@@ -318,8 +279,8 @@ class TestPopulationManager:
         manager.update_population(pops[2].id, is_active=False)
 
         stats = manager.get_statistics()
-        assert stats['total_populations'] == 3
-        assert stats['active_populations'] == 2
+        assert stats["total_populations"] == 3
+        assert stats["active_populations"] == 2
 
     def test_persistence(self, temp_storage):
         """Test data persists to disk"""
@@ -331,19 +292,19 @@ class TestPopulationManager:
             name="Persistent Pop",
             description="Should persist",
             category=PopulationCategory.REFUGEES,
-            source_type=SourceType.MANUAL
+            source_type=SourceType.MANUAL,
         )
 
         # Verify file exists
         assert os.path.exists(storage_path)
 
         # Load data
-        with open(storage_path, 'r') as f:
+        with open(storage_path) as f:
             data = json.load(f)
 
-        assert 'populations' in data
+        assert "populations" in data
         # Data is stored as list, check if our pop ID is in any of them
-        pop_ids = [p['id'] for p in data['populations']]
+        pop_ids = [p["id"] for p in data["populations"]]
         assert pop.id in pop_ids
 
 
@@ -377,7 +338,7 @@ class TestBlessingScheduler:
                     directory_path=temp_photo_dir,
                     mantra_preference="chenrezig",
                     intentions=["love", "healing"],
-                    priority=5
+                    priority=5,
                 )
 
             yield manager
@@ -393,11 +354,7 @@ class TestBlessingScheduler:
         scheduler = BlessingScheduler()
         scheduler.population_manager = populated_manager
 
-        config = SchedulerConfig(
-            mode=SchedulerMode.ROUND_ROBIN,
-            only_active=True,
-            min_priority=1
-        )
+        config = SchedulerConfig(mode=SchedulerMode.ROUND_ROBIN, only_active=True, min_priority=1)
 
         queue = scheduler._build_queue(config)
         assert len(queue) == 3  # All 3 populations
@@ -410,16 +367,13 @@ class TestBlessingScheduler:
             description="",
             category=PopulationCategory.MISSING_PERSONS,
             source_type=SourceType.MANUAL,
-            priority=8
+            priority=8,
         )
 
         scheduler = BlessingScheduler()
         scheduler.population_manager = populated_manager
 
-        config = SchedulerConfig(
-            only_active=True,
-            min_priority=7
-        )
+        config = SchedulerConfig(only_active=True, min_priority=7)
 
         queue = scheduler._build_queue(config)
         assert len(queue) == 1  # Only high priority
@@ -433,7 +387,7 @@ class TestBlessingScheduler:
         config = SchedulerConfig(
             mode=SchedulerMode.ROUND_ROBIN,
             duration_per_population=5,  # 5 seconds
-            continuous_mode=False
+            continuous_mode=False,
         )
 
         session_id = scheduler.start_automation(config)
@@ -446,7 +400,7 @@ class TestBlessingScheduler:
         # Check status
         status = scheduler.get_current_status(session_id)
         assert status is not None
-        assert status['status'] in ['running', 'transitioning']
+        assert status["status"] in ["running", "transitioning"]
 
         # Stop it
         scheduler.stop_automation(session_id)
@@ -457,10 +411,7 @@ class TestBlessingScheduler:
         scheduler = BlessingScheduler()
         scheduler.population_manager = populated_manager
 
-        config = SchedulerConfig(
-            duration_per_population=30,
-            continuous_mode=True
-        )
+        config = SchedulerConfig(duration_per_population=30, continuous_mode=True)
 
         session_id = scheduler.start_automation(config)
 
@@ -469,14 +420,14 @@ class TestBlessingScheduler:
 
         # Pause
         success = scheduler.pause_automation(session_id)
-        assert success == True
+        assert success
 
         session = scheduler.sessions[session_id]
-        assert session.status.value == 'paused'
+        assert session.status.value == "paused"
 
         # Resume
         success = scheduler.resume_automation(session_id)
-        assert success == True
+        assert success
 
         # Stop
         scheduler.stop_automation(session_id)
@@ -487,20 +438,17 @@ class TestBlessingScheduler:
         scheduler = BlessingScheduler()
         scheduler.population_manager = populated_manager
 
-        config = SchedulerConfig(
-            duration_per_population=1,
-            continuous_mode=False
-        )
+        config = SchedulerConfig(duration_per_population=1, continuous_mode=False)
 
         session_id = scheduler.start_automation(config)
 
         # Get stats immediately
         stats = scheduler.get_session_stats(session_id)
         assert stats is not None
-        assert 'session_id' in stats
-        assert 'status' in stats
-        assert 'populations_in_queue' in stats
-        assert stats['populations_in_queue'] == 3
+        assert "session_id" in stats
+        assert "status" in stats
+        assert "populations_in_queue" in stats
+        assert stats["populations_in_queue"] == 3
 
         scheduler.stop_automation(session_id)
 
@@ -524,27 +472,22 @@ class TestIntegration:
         slideshow_service = BlessingSlideshowService()
 
         # Create RNG session
-        rng_id = rng_service.create_session(
-            baseline_tone_arm=5.0,
-            sensitivity=1.0
-        )
+        rng_id = rng_service.create_session(baseline_tone_arm=5.0, sensitivity=1.0)
 
         # Create slideshow linked to RNG
         intention_set = IntentionSet(
             primary_mantra=MantraType.CHENREZIG,
             intentions=[IntentionType.LOVE, IntentionType.HEALING],
-            repetitions_per_photo=108
+            repetitions_per_photo=108,
         )
 
         slideshow_id = slideshow_service.create_session(
-            directory_path=temp_photo_dir,
-            intention_set=intention_set,
-            rng_session_id=rng_id
+            directory_path=temp_photo_dir, intention_set=intention_set, rng_session_id=rng_id
         )
 
         # Verify linkage
         slide = slideshow_service.get_current_slide(slideshow_id)
-        assert slide['session']['rng_session_id'] == rng_id
+        assert slide["session"]["rng_session_id"] == rng_id
 
         # Generate some RNG readings
         for _ in range(5):
@@ -557,7 +500,7 @@ class TestIntegration:
 
         # Verify RNG data collected
         rng_summary = rng_service.get_session_summary(rng_id)
-        assert rng_summary['total_readings'] >= 5
+        assert rng_summary["total_readings"] >= 5
 
     @pytest.mark.asyncio
     async def test_scheduler_with_population_integration(self, temp_photo_dir):
@@ -577,7 +520,7 @@ class TestIntegration:
                     directory_path=temp_photo_dir,
                     mantra_preference="chenrezig",
                     intentions=["love", "peace"],
-                    priority=5
+                    priority=5,
                 )
 
             # Create scheduler
@@ -588,7 +531,7 @@ class TestIntegration:
             config = SchedulerConfig(
                 duration_per_population=2,  # 2 seconds per population
                 transition_pause=1,
-                continuous_mode=False
+                continuous_mode=False,
             )
 
             session_id = scheduler.start_automation(config)
@@ -598,11 +541,11 @@ class TestIntegration:
 
             # Check stats
             stats = scheduler.get_session_stats(session_id)
-            assert stats['populations_in_queue'] == 2
+            assert stats["populations_in_queue"] == 2
 
             # Stop
             final_stats = scheduler.stop_automation(session_id)
-            assert 'total_photos_blessed' in final_stats
+            assert "total_photos_blessed" in final_stats
 
     @pytest.mark.asyncio
     async def test_full_stack_integration(self, temp_photo_dir):
@@ -625,7 +568,7 @@ class TestIntegration:
                 intentions=["healing", "peace", "love"],
                 repetitions_per_photo=108,
                 display_duration_ms=1000,
-                priority=7
+                priority=7,
             )
 
             # Start automation with RNG linked
@@ -634,7 +577,7 @@ class TestIntegration:
                 duration_per_population=3,  # 3 seconds
                 transition_pause=1,
                 link_rng=True,  # Enable RNG integration
-                continuous_mode=False
+                continuous_mode=False,
             )
 
             session_id = scheduler.start_automation(config)
@@ -645,15 +588,15 @@ class TestIntegration:
             # Check current status
             status = scheduler.get_current_status(session_id)
             assert status is not None
-            assert 'current_population' in status
+            assert "current_population" in status
 
-            if status['current_population']:
-                assert status['current_population']['name'] == "Full Stack Test"
+            if status["current_population"]:
+                assert status["current_population"]["name"] == "Full Stack Test"
 
             # Get queue
             queue = scheduler.get_queue(session_id)
             assert len(queue) == 1
-            assert queue[0]['name'] == "Full Stack Test"
+            assert queue[0]["name"] == "Full Stack Test"
 
             # Let it run for full duration plus buffer
             await asyncio.sleep(5)  # 3sec population + 1sec transition + 1sec buffer
@@ -663,11 +606,11 @@ class TestIntegration:
 
             # Verify all systems tracked data
             # At least check that the automation ran
-            assert 'completed_sessions' in final_stats
-            assert 'total_photos_blessed' in final_stats
-            assert 'total_mantras' in final_stats
+            assert "completed_sessions" in final_stats
+            assert "total_photos_blessed" in final_stats
+            assert "total_mantras" in final_stats
             # The session should have at least started (may or may not have completed)
-            assert final_stats['total_duration'] > 0
+            assert final_stats["total_duration"] > 0
 
             # Verify population exists (update may or may not have happened depending on timing)
             updated_pop = manager.get_population(pop.id)
@@ -693,11 +636,7 @@ class TestEndToEndWorkflows:
             storage_file = os.path.join(tmpdir, "populations.json")
             manager = PopulationManager(storage_path=storage_file)
 
-            yield {
-                'photo_dir': photo_dir,
-                'manager': manager,
-                'tmpdir': tmpdir
-            }
+            yield {"photo_dir": photo_dir, "manager": manager, "tmpdir": tmpdir}
 
     @pytest.mark.asyncio
     async def test_workflow_manual_practice(self, full_system):
@@ -707,11 +646,11 @@ class TestEndToEndWorkflows:
         - Starts slideshow with RNG monitoring
         - Reviews results
         """
-        manager = full_system['manager']
-        photo_dir = full_system['photo_dir']
+        manager = full_system["manager"]
+        photo_dir = full_system["photo_dir"]
 
         # Step 1: Create population
-        pop = manager.create_population(
+        manager.create_population(
             name="Evening Practice",
             description="Daily compassion practice",
             category=PopulationCategory.REFUGEES,
@@ -720,7 +659,7 @@ class TestEndToEndWorkflows:
             mantra_preference="chenrezig",
             intentions=["love", "peace", "protection"],
             repetitions_per_photo=108,
-            priority=5
+            priority=5,
         )
 
         # Step 2: Start RNG session
@@ -732,14 +671,11 @@ class TestEndToEndWorkflows:
         intention_set = IntentionSet(
             primary_mantra=MantraType.CHENREZIG,
             intentions=[IntentionType.LOVE, IntentionType.PEACE],
-            repetitions_per_photo=108
+            repetitions_per_photo=108,
         )
 
         slideshow_id = slideshow_service.create_session(
-            directory_path=photo_dir,
-            intention_set=intention_set,
-            rng_session_id=rng_id,
-            display_duration_ms=500
+            directory_path=photo_dir, intention_set=intention_set, rng_session_id=rng_id, display_duration_ms=500
         )
 
         # Step 4: Practice for a bit
@@ -755,8 +691,8 @@ class TestEndToEndWorkflows:
         rng_service.stop_session(rng_id)
 
         # Verify workflow completed successfully
-        assert slideshow_stats['photos_blessed'] >= 5
-        assert rng_summary['total_readings'] >= 5
+        assert slideshow_stats["photos_blessed"] >= 5
+        assert rng_summary["total_readings"] >= 5
 
     @pytest.mark.asyncio
     async def test_workflow_automated_rotation(self, full_system):
@@ -766,15 +702,15 @@ class TestEndToEndWorkflows:
         - Starts automated rotation
         - System handles everything automatically
         """
-        manager = full_system['manager']
-        photo_dir = full_system['photo_dir']
+        manager = full_system["manager"]
+        photo_dir = full_system["photo_dir"]
 
         # Step 1: Create multiple populations
         populations = []
         categories = [
             PopulationCategory.MISSING_PERSONS,
             PopulationCategory.REFUGEES,
-            PopulationCategory.DISASTER_VICTIMS
+            PopulationCategory.DISASTER_VICTIMS,
         ]
 
         for i, cat in enumerate(categories):
@@ -786,7 +722,7 @@ class TestEndToEndWorkflows:
                 directory_path=photo_dir,
                 mantra_preference="chenrezig",
                 intentions=["love", "healing"],
-                priority=5
+                priority=5,
             )
             populations.append(pop)
 
@@ -799,7 +735,7 @@ class TestEndToEndWorkflows:
             duration_per_population=2,  # 2 seconds each
             transition_pause=0,
             link_rng=True,
-            continuous_mode=False  # One cycle
+            continuous_mode=False,  # One cycle
         )
 
         session_id = scheduler.start_automation(config)
@@ -812,9 +748,9 @@ class TestEndToEndWorkflows:
         final_stats = scheduler.stop_automation(session_id)
 
         # Verify automation ran (may or may not have completed all populations)
-        assert 'completed_sessions' in final_stats
-        assert 'total_photos_blessed' in final_stats
-        assert final_stats['total_duration'] > 0
+        assert "completed_sessions" in final_stats
+        assert "total_photos_blessed" in final_stats
+        assert final_stats["total_duration"] > 0
 
         # Verify populations still exist in manager
         for pop in populations:

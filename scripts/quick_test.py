@@ -4,19 +4,22 @@ Quick test of all Vajra.Stream modules
 Tests functionality without requiring audio output or LLM
 """
 
-import sys
 import os
+import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def test_astrology():
     """Test astrology module"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Testing Astrology Module")
-    print("="*60)
+    print("=" * 60)
 
     try:
-        from core.astrology import AstrologicalCalculator
         from datetime import datetime
+
+        from core.astrology import AstrologicalCalculator
 
         astro = AstrologicalCalculator()
 
@@ -40,9 +43,9 @@ def test_astrology():
 
 def test_rothko():
     """Test Rothko visual generator"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Testing Rothko Visual Generator")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from core.rothko_generator import RothkoGenerator
@@ -50,13 +53,13 @@ def test_rothko():
         gen = RothkoGenerator(width=800, height=600)
 
         # Generate a test image
-        img = gen.generate_rothko('compassion', num_bands=3)
+        img = gen.generate_rothko("compassion", num_bands=3)
 
         print(f"✓ Generated image: {img.size[0]}x{img.size[1]}")
         print(f"✓ Image mode: {img.mode}")
 
         # Save test image
-        output_dir = './generated/rothko/test'
+        output_dir = "./generated/rothko/test"
         os.makedirs(output_dir, exist_ok=True)
         filepath = f"{output_dir}/test_compassion.png"
         img.save(filepath)
@@ -67,32 +70,33 @@ def test_rothko():
     except Exception as e:
         print(f"✗ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
 
 def test_llm():
     """Test LLM integration"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Testing LLM Integration")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from core.llm_integration import LLMIntegration
 
-        llm = LLMIntegration(model_type='auto')
+        llm = LLMIntegration(model_type="auto")
 
         # List available models
         available = llm.list_available_models()
 
         print(f"Local models: {len(available['local'])} found")
-        if available['local']:
-            for model in available['local']:
+        if available["local"]:
+            for model in available["local"]:
                 print(f"  - {model}")
 
         print(f"API models: {len(available['api'])} configured")
-        if available['api']:
-            for api in available['api']:
+        if available["api"]:
+            for api in available["api"]:
                 print(f"  - {api}")
 
         if llm.client or llm.local_model:
@@ -108,9 +112,9 @@ def test_llm():
 
 def test_prayer_wheel():
     """Test prayer wheel"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Testing Prayer Wheel")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from core.prayer_wheel import PrayerWheel
@@ -118,7 +122,7 @@ def test_prayer_wheel():
         wheel = PrayerWheel()
 
         # Generate traditional prayers
-        intentions = ['healing', 'wisdom', 'compassion', 'peace']
+        intentions = ["healing", "wisdom", "compassion", "peace"]
 
         for intention in intentions:
             prayer = wheel.generate_prayer(intention, use_llm=False)
@@ -132,13 +136,12 @@ def test_prayer_wheel():
 
 def test_audio_generator():
     """Test audio generator (without playback)"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Testing Audio Generator")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from core.audio_generator import ScalarWaveGenerator
-        import numpy as np
 
         gen = ScalarWaveGenerator()
 
@@ -160,9 +163,9 @@ def test_audio_generator():
 
 def test_tts():
     """Test TTS (without speaking)"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Testing TTS Engine")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from core.tts_engine import TTSEngine
@@ -177,30 +180,30 @@ def test_tts():
             print(f"  Default: {voices[0]['name']}")
 
         return True
-    except Exception as e:
-        print(f"ℹ TTS not available (may not work in headless environment)")
+    except Exception:
+        print("ℹ TTS not available (may not work in headless environment)")
         return True  # Don't fail on TTS
 
 
 def main():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("VAJRA.STREAM - SYSTEM TEST")
-    print("="*60)
+    print("=" * 60)
 
     results = {}
 
     # Run all tests
-    results['Astrology'] = test_astrology()
-    results['Rothko Visuals'] = test_rothko()
-    results['Audio Generator'] = test_audio_generator()
-    results['LLM Integration'] = test_llm()
-    results['Prayer Wheel'] = test_prayer_wheel()
-    results['TTS Engine'] = test_tts()
+    results["Astrology"] = test_astrology()
+    results["Rothko Visuals"] = test_rothko()
+    results["Audio Generator"] = test_audio_generator()
+    results["LLM Integration"] = test_llm()
+    results["Prayer Wheel"] = test_prayer_wheel()
+    results["TTS Engine"] = test_tts()
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST SUMMARY")
-    print("="*60)
+    print("=" * 60)
 
     all_passed = True
     for test_name, passed in results.items():
@@ -209,7 +212,7 @@ def main():
         if not passed:
             all_passed = False
 
-    print("="*60)
+    print("=" * 60)
 
     if all_passed:
         print("\n🙏 All core systems operational")

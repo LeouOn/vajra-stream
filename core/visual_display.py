@@ -5,8 +5,6 @@ Display Rothko-style images for contemplative practice
 
 import os
 import time
-from typing import Optional, List
-from pathlib import Path
 
 from PIL import Image
 
@@ -38,21 +36,22 @@ class MeditationDisplay:
         """Initialize the best available display backend"""
         try:
             import pygame
+
             pygame.init()
             pygame.display.set_caption("Vajra.Stream - Visual Meditation")
-            self.backend = 'pygame'
+            self.backend = "pygame"
             self.window = pygame.display.set_mode(
-                (self.width, self.height),
-                pygame.FULLSCREEN if self.fullscreen else 0
+                (self.width, self.height), pygame.FULLSCREEN if self.fullscreen else 0
             )
         except ImportError:
             try:
                 import tkinter as tk
                 from tkinter import Canvas, Label, TclError
-                self.backend = 'tkinter'
+
+                self.backend = "tkinter"
                 self._setup_tkinter()
             except ImportError:
-                self.backend = 'pillow'
+                self.backend = "pillow"
 
     def _setup_tkinter(self):
         """Setup tkinter backend"""
@@ -62,9 +61,9 @@ class MeditationDisplay:
             self.canvas = Canvas(self.root, width=self.width, height=self.height)
             self.canvas.pack()
             if self.fullscreen:
-                self.root.attributes('-fullscreen', True)
+                self.root.attributes("-fullscreen", True)
         except Exception:
-            self.backend = 'pillow'
+            self.backend = "pillow"
 
     def display_image(self, image_path: str, duration: int = 0):
         """
@@ -80,9 +79,9 @@ class MeditationDisplay:
 
         img = Image.open(image_path)
 
-        if self.backend == 'pygame':
+        if self.backend == "pygame":
             self._display_pygame(img)
-        elif self.backend == 'tkinter':
+        elif self.backend == "tkinter":
             self._display_tkinter(img, duration)
         else:
             self._display_pillow(img, duration)
@@ -95,7 +94,7 @@ class MeditationDisplay:
             import pygame
 
             surface = pygame.display.get_surface()
-            pygame.pixelcopy.array_to_surface(surface, img.resize((self.width, self.height)).convert('RGB'))
+            pygame.pixelcopy.array_to_surface(surface, img.resize((self.width, self.height)).convert("RGB"))
             pygame.display.flip()
 
             running = True
@@ -136,8 +135,9 @@ class MeditationDisplay:
             print("Visual display not available in this environment")
             print(f"Saved image would be: {img.size}")
 
-    def display_sequence(self, image_paths: List[str], duration_per: int = 5,
-                         transition: str = 'fade', loop: bool = True):
+    def display_sequence(
+        self, image_paths: list[str], duration_per: int = 5, transition: str = "fade", loop: bool = True
+    ):
         """
         Display a sequence of images with transitions
 
@@ -153,16 +153,16 @@ class MeditationDisplay:
         loop_count = 0
         while loop or loop_count == 0:
             for i, path in enumerate(image_paths):
-                if self.backend == 'pygame':
+                if self.backend == "pygame":
                     if not self._handle_events():
                         return
-                elif self.backend == 'tkinter':
+                elif self.backend == "tkinter":
                     self.root.update()
 
                 print(f"Displaying: {os.path.basename(path)}")
                 self.display_image(path, duration_per)
 
-                if transition == 'fade' and i < len(image_paths) - 1:
+                if transition == "fade" and i < len(image_paths) - 1:
                     self._fade_transition(duration=1)
 
             loop_count += 1
@@ -173,6 +173,7 @@ class MeditationDisplay:
         """Handle pygame events, return False to quit"""
         try:
             import pygame
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or event.type == pygame.KEYDOWN:
                     return False
@@ -186,38 +187,39 @@ class MeditationDisplay:
 
     def close(self):
         """Close the display"""
-        if self.backend == 'pygame':
+        if self.backend == "pygame":
             import pygame
+
             pygame.quit()
-        elif self.backend == 'tkinter':
+        elif self.backend == "tkinter":
             try:
                 self.root.quit()
             except:
                 pass
 
-    def save_meditation_session(self, image_paths: List[str], output_dir: str = './generated/meditation_sessions'):
+    def save_meditation_session(self, image_paths: list[str], output_dir: str = "./generated/meditation_sessions"):
         """Save a meditation session configuration"""
         import json
         from datetime import datetime
 
         os.makedirs(output_dir, exist_ok=True)
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        session_file = os.path.join(output_dir, f'session_{timestamp}.json')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        session_file = os.path.join(output_dir, f"session_{timestamp}.json")
 
         session_data = {
-            'created': datetime.now().isoformat(),
-            'image_count': len(image_paths),
-            'images': [os.path.abspath(p) for p in image_paths]
+            "created": datetime.now().isoformat(),
+            "image_count": len(image_paths),
+            "images": [os.path.abspath(p) for p in image_paths],
         }
 
-        with open(session_file, 'w') as f:
+        with open(session_file, "w") as f:
             json.dump(session_data, f, indent=2)
 
         return session_file
 
 
-def quick_display(theme: str = 'peace', count: int = 5, duration_per: int = 10):
+def quick_display(theme: str = "peace", count: int = 5, duration_per: int = 10):
     """
     Quick display of meditation images
 
@@ -251,12 +253,12 @@ def display_chakra_series():
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Vajra.Stream Visual Meditation Display')
-    parser.add_argument('--theme', type=str, default='peace', help='Meditation theme')
-    parser.add_argument('--count', type=int, default=5, help='Number of images')
-    parser.add_argument('--duration', type=int, default=10, help='Seconds per image')
-    parser.add_argument('--chakra', action='store_true', help='Display chakra series')
-    parser.add_argument('--fullscreen', action='store_true', default=True, help='Fullscreen mode')
+    parser = argparse.ArgumentParser(description="Vajra.Stream Visual Meditation Display")
+    parser.add_argument("--theme", type=str, default="peace", help="Meditation theme")
+    parser.add_argument("--count", type=int, default=5, help="Number of images")
+    parser.add_argument("--duration", type=int, default=10, help="Seconds per image")
+    parser.add_argument("--chakra", action="store_true", help="Display chakra series")
+    parser.add_argument("--fullscreen", action="store_true", default=True, help="Fullscreen mode")
 
     args = parser.parse_args()
 

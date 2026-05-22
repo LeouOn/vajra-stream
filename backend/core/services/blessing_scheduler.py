@@ -6,27 +6,25 @@ Phase 1: Round Robin mode for equal time distribution.
 """
 
 import asyncio
+import secrets
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
 from enum import Enum
-import secrets
+from typing import Any
 
-from backend.core.services.population_manager import (
-    get_population_manager,
-    TargetPopulation
-)
 from backend.core.services.blessing_slideshow_service import (
-    get_blessing_slideshow_service,
     IntentionSet,
+    IntentionType,
     MantraType,
-    IntentionType
+    get_blessing_slideshow_service,
 )
+from backend.core.services.population_manager import TargetPopulation, get_population_manager
 from backend.core.services.rng_attunement_service import get_rng_service
 
 
 class SchedulerMode(str, Enum):
     """Scheduler modes"""
+
     ROUND_ROBIN = "round_robin"  # Equal time to all (Phase 1)
     PRIORITY_BASED = "priority_based"  # More time to higher priority (Phase 2)
     TIME_WEIGHTED = "time_weighted"  # Prioritize neglected (Phase 2)
@@ -37,6 +35,7 @@ class SchedulerMode(str, Enum):
 
 class SchedulerStatus(str, Enum):
     """Scheduler status"""
+
     STOPPED = "stopped"
     RUNNING = "running"
     PAUSED = "paused"
@@ -68,13 +67,14 @@ class SchedulerConfig:
 @dataclass
 class PopulationSession:
     """Statistics for one population's blessing session"""
+
     population_id: str
     population_name: str
     start_time: float
-    end_time: Optional[float] = None
+    end_time: float | None = None
     duration: float = 0.0
-    slideshow_session_id: Optional[str] = None
-    rng_session_id: Optional[str] = None
+    slideshow_session_id: str | None = None
+    rng_session_id: str | None = None
     photos_blessed: int = 0
     mantras_repeated: int = 0
     rng_floating_needles: int = 0
@@ -83,20 +83,21 @@ class PopulationSession:
 @dataclass
 class SchedulerSession:
     """Active scheduler session"""
+
     session_id: str
     config: SchedulerConfig
     status: SchedulerStatus
     start_time: float
-    populations_queue: List[str]  # List of population IDs
+    populations_queue: list[str]  # List of population IDs
     current_index: int = 0
-    current_population_id: Optional[str] = None
-    current_slideshow_id: Optional[str] = None
-    current_rng_id: Optional[str] = None
-    current_start_time: Optional[float] = None
+    current_population_id: str | None = None
+    current_slideshow_id: str | None = None
+    current_rng_id: str | None = None
+    current_start_time: float | None = None
     cycle_count: int = 0  # Number of complete rotations
-    session_history: List[PopulationSession] = field(default_factory=list)
+    session_history: list[PopulationSession] = field(default_factory=list)
 
-    def get_current_population_id(self) -> Optional[str]:
+    def get_current_population_id(self) -> str | None:
         """Get current population ID"""
         if 0 <= self.current_index < len(self.populations_queue):
             return self.populations_queue[self.current_index]
@@ -116,13 +117,13 @@ class BlessingScheduler:
     """
 
     def __init__(self):
-        self.sessions: Dict[str, SchedulerSession] = {}
-        self.running_tasks: Dict[str, asyncio.Task] = {}
+        self.sessions: dict[str, SchedulerSession] = {}
+        self.running_tasks: dict[str, asyncio.Task] = {}
         self.population_manager = get_population_manager()
         self.slideshow_service = get_blessing_slideshow_service()
         self.rng_service = get_rng_service()
 
-    def _build_queue(self, config: SchedulerConfig) -> List[str]:
+    def _build_queue(self, config: SchedulerConfig) -> list[str]:
         """
         Build queue of population IDs based on config
 
@@ -144,11 +145,7 @@ class BlessingScheduler:
 
         return [p.id for p in populations]
 
-    def start_automation(
-        self,
-        config: Optional[SchedulerConfig] = None,
-        session_id: Optional[str] = None
-    ) -> str:
+    def start_automation(self, config: SchedulerConfig | None = None, session_id: str | None = None) -> str:
         """
         Start automated blessing rotation
 
@@ -178,7 +175,7 @@ class BlessingScheduler:
             status=SchedulerStatus.RUNNING,
             start_time=time.time(),
             populations_queue=queue,
-            current_index=0
+            current_index=0,
         )
 
         self.sessions[session_id] = session
@@ -243,11 +240,7 @@ class BlessingScheduler:
             session.status = SchedulerStatus.ERROR
             raise
 
-    async def _bless_population(
-        self,
-        session_id: str,
-        population: TargetPopulation
-    ):
+    async def _bless_population(self, session_id: str, population: TargetPopulation):
         """
         Run blessing session for one population
 
@@ -257,19 +250,14 @@ class BlessingScheduler:
         """
         session = self.sessions[session_id]
         pop_session = PopulationSession(
-            population_id=population.id,
-            population_name=population.name,
-            start_time=time.time()
+            population_id=population.id, population_name=population.name, start_time=time.time()
         )
 
         try:
             # Create RNG session if enabled
             rng_id = None
             if session.config.link_rng:
-                rng_id = self.rng_service.create_session(
-                    baseline_tone_arm=5.0,
-                    sensitivity=1.0
-                )
+                rng_id = self.rng_service.create_session(baseline_tone_arm=5.0, sensitivity=1.0)
                 pop_session.rng_session_id = rng_id
                 session.current_rng_id = rng_id
 
@@ -280,7 +268,7 @@ class BlessingScheduler:
             intention_set = IntentionSet(
                 primary_mantra=MantraType(population.mantra_preference),
                 intentions=intentions,
-                repetitions_per_photo=population.repetitions_per_photo
+                repetitions_per_photo=population.repetitions_per_photo,
             )
 
             # Create slideshow
@@ -289,7 +277,7 @@ class BlessingScheduler:
                 intention_set=intention_set,
                 loop_mode=True,
                 display_duration_ms=population.display_duration_ms,
-                rng_session_id=rng_id
+                rng_session_id=rng_id,
             )
 
             pop_session.slideshow_session_id = slideshow_id
@@ -315,20 +303,20 @@ class BlessingScheduler:
             if rng_id:
                 rng_stats = self.rng_service.get_session_summary(rng_id)
                 self.rng_service.stop_session(rng_id)
-                pop_session.rng_floating_needles = rng_stats.get('floating_needle_count', 0)
+                pop_session.rng_floating_needles = rng_stats.get("floating_needle_count", 0)
 
             # Record statistics
             pop_session.end_time = time.time()
             pop_session.duration = pop_session.end_time - pop_session.start_time
-            pop_session.photos_blessed = slideshow_stats.get('photos_blessed', 0)
-            pop_session.mantras_repeated = slideshow_stats.get('total_mantras_repeated', 0)
+            pop_session.photos_blessed = slideshow_stats.get("photos_blessed", 0)
+            pop_session.mantras_repeated = slideshow_stats.get("total_mantras_repeated", 0)
 
             # Update population stats
             self.population_manager.record_blessing_session(
                 population_id=population.id,
                 blessings_sent=pop_session.photos_blessed,
                 mantras_repeated=pop_session.mantras_repeated,
-                session_duration=pop_session.duration
+                session_duration=pop_session.duration,
             )
 
             # Add to history
@@ -347,7 +335,7 @@ class BlessingScheduler:
             session.session_history.append(pop_session)
             raise
 
-    def stop_automation(self, session_id: str) -> Dict[str, Any]:
+    def stop_automation(self, session_id: str) -> dict[str, Any]:
         """
         Stop automated rotation
 
@@ -420,7 +408,7 @@ class BlessingScheduler:
 
         return True
 
-    def get_session_stats(self, session_id: str) -> Dict[str, Any]:
+    def get_session_stats(self, session_id: str) -> dict[str, Any]:
         """Get current session statistics"""
         session = self.sessions.get(session_id)
         if not session:
@@ -430,36 +418,36 @@ class BlessingScheduler:
         completed_sessions = [s for s in session.session_history if s.end_time]
 
         return {
-            'session_id': session.session_id,
-            'status': session.status.value,
-            'mode': session.config.mode.value,
-            'start_time': session.start_time,
-            'total_duration': total_duration,
-            'cycle_count': session.cycle_count,
-            'populations_in_queue': len(session.populations_queue),
-            'current_index': session.current_index,
-            'current_population_id': session.current_population_id,
-            'current_slideshow_id': session.current_slideshow_id,
-            'current_rng_id': session.current_rng_id,
-            'completed_sessions': len(completed_sessions),
-            'total_photos_blessed': sum(s.photos_blessed for s in completed_sessions),
-            'total_mantras': sum(s.mantras_repeated for s in completed_sessions),
-            'total_rng_floating_needles': sum(s.rng_floating_needles for s in completed_sessions),
-            'session_history': [
+            "session_id": session.session_id,
+            "status": session.status.value,
+            "mode": session.config.mode.value,
+            "start_time": session.start_time,
+            "total_duration": total_duration,
+            "cycle_count": session.cycle_count,
+            "populations_in_queue": len(session.populations_queue),
+            "current_index": session.current_index,
+            "current_population_id": session.current_population_id,
+            "current_slideshow_id": session.current_slideshow_id,
+            "current_rng_id": session.current_rng_id,
+            "completed_sessions": len(completed_sessions),
+            "total_photos_blessed": sum(s.photos_blessed for s in completed_sessions),
+            "total_mantras": sum(s.mantras_repeated for s in completed_sessions),
+            "total_rng_floating_needles": sum(s.rng_floating_needles for s in completed_sessions),
+            "session_history": [
                 {
-                    'population_id': s.population_id,
-                    'population_name': s.population_name,
-                    'start_time': s.start_time,
-                    'duration': s.duration,
-                    'photos_blessed': s.photos_blessed,
-                    'mantras_repeated': s.mantras_repeated,
-                    'rng_floating_needles': s.rng_floating_needles
+                    "population_id": s.population_id,
+                    "population_name": s.population_name,
+                    "start_time": s.start_time,
+                    "duration": s.duration,
+                    "photos_blessed": s.photos_blessed,
+                    "mantras_repeated": s.mantras_repeated,
+                    "rng_floating_needles": s.rng_floating_needles,
                 }
                 for s in session.session_history
-            ]
+            ],
         }
 
-    def get_current_status(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_current_status(self, session_id: str) -> dict[str, Any] | None:
         """Get current status including current population details"""
         session = self.sessions.get(session_id)
         if not session:
@@ -470,13 +458,13 @@ class BlessingScheduler:
             pop = self.population_manager.get_population(session.current_population_id)
             if pop:
                 current_pop = {
-                    'id': pop.id,
-                    'name': pop.name,
-                    'category': pop.category.value,
-                    'priority': pop.priority,
-                    'mantra': pop.mantra_preference,
-                    'intentions': pop.intentions,
-                    'photo_count': pop.photo_count
+                    "id": pop.id,
+                    "name": pop.name,
+                    "category": pop.category.value,
+                    "priority": pop.priority,
+                    "mantra": pop.mantra_preference,
+                    "intentions": pop.intentions,
+                    "photo_count": pop.photo_count,
                 }
 
         elapsed = 0
@@ -484,15 +472,15 @@ class BlessingScheduler:
             elapsed = time.time() - session.current_start_time
 
         return {
-            'session_id': session.session_id,
-            'status': session.status.value,
-            'current_population': current_pop,
-            'elapsed_seconds': elapsed,
-            'target_duration': session.config.duration_per_population,
-            'progress_percentage': min(100, (elapsed / session.config.duration_per_population) * 100)
+            "session_id": session.session_id,
+            "status": session.status.value,
+            "current_population": current_pop,
+            "elapsed_seconds": elapsed,
+            "target_duration": session.config.duration_per_population,
+            "progress_percentage": min(100, (elapsed / session.config.duration_per_population) * 100),
         }
 
-    def get_queue(self, session_id: str) -> Optional[List[Dict[str, Any]]]:
+    def get_queue(self, session_id: str) -> list[dict[str, Any]] | None:
         """Get upcoming populations in queue"""
         session = self.sessions.get(session_id)
         if not session:
@@ -502,23 +490,25 @@ class BlessingScheduler:
         for i, pop_id in enumerate(session.populations_queue):
             pop = self.population_manager.get_population(pop_id)
             if pop:
-                queue_info.append({
-                    'position': i,
-                    'is_current': i == session.current_index,
-                    'id': pop.id,
-                    'name': pop.name,
-                    'category': pop.category.value,
-                    'priority': pop.priority,
-                    'is_urgent': pop.is_urgent,
-                    'photo_count': pop.photo_count,
-                    'last_blessed': pop.last_blessed_time
-                })
+                queue_info.append(
+                    {
+                        "position": i,
+                        "is_current": i == session.current_index,
+                        "id": pop.id,
+                        "name": pop.name,
+                        "category": pop.category.value,
+                        "priority": pop.priority,
+                        "is_urgent": pop.is_urgent,
+                        "photo_count": pop.photo_count,
+                        "last_blessed": pop.last_blessed_time,
+                    }
+                )
 
         return queue_info
 
 
 # Global instance
-_scheduler: Optional[BlessingScheduler] = None
+_scheduler: BlessingScheduler | None = None
 
 
 def get_scheduler() -> BlessingScheduler:

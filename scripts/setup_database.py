@@ -3,12 +3,11 @@
 Set up Vajra.Stream database
 """
 
-import sqlite3
 import os
-from datetime import datetime
+import sqlite3
 
 
-def create_database(db_path='vajra_stream.db'):
+def create_database(db_path="vajra_stream.db"):
     """
     Create database with all necessary tables
     """
@@ -16,18 +15,18 @@ def create_database(db_path='vajra_stream.db'):
     if os.path.exists(db_path):
         print(f"Database {db_path} already exists.")
         response = input("Overwrite? (y/n): ")
-        if response.lower() != 'y':
+        if response.lower() != "y":
             print("Keeping existing database.")
             return
         os.remove(db_path)
-    
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     print("Creating tables...")
-    
+
     # Sessions table
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_type TEXT,
@@ -38,10 +37,10 @@ def create_database(db_path='vajra_stream.db'):
             settings TEXT,
             notes TEXT
         )
-    ''')
-    
+    """)
+
     # Intentions table
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE intentions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             intention_text TEXT UNIQUE,
@@ -51,10 +50,10 @@ def create_database(db_path='vajra_stream.db'):
             parent_intention_id INTEGER,
             FOREIGN KEY (parent_intention_id) REFERENCES intentions(id)
         )
-    ''')
-    
+    """)
+
     # Generated content table
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE generated_content (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             content_type TEXT,
@@ -65,10 +64,10 @@ def create_database(db_path='vajra_stream.db'):
             archived BOOLEAN DEFAULT 0,
             FOREIGN KEY (intention_id) REFERENCES intentions(id)
         )
-    ''')
-    
+    """)
+
     # Healing history table (enhanced)
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE healing_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id INTEGER,
@@ -86,10 +85,10 @@ def create_database(db_path='vajra_stream.db'):
             subjective_rating INTEGER,
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         )
-    ''')
-    
+    """)
+
     # Scheduled events table
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE scheduled_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             event_type TEXT,
@@ -100,10 +99,10 @@ def create_database(db_path='vajra_stream.db'):
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP
         )
-    ''')
-    
+    """)
+
     # Prayer wheel tracking
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE prayer_rotations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id INTEGER,
@@ -116,10 +115,10 @@ def create_database(db_path='vajra_stream.db'):
             frequencies_used TEXT,
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         )
-    ''')
+    """)
 
     # Astrological snapshots
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE astrological_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TIMESTAMP,
@@ -133,10 +132,10 @@ def create_database(db_path='vajra_stream.db'):
             location_lat REAL,
             location_lon REAL
         )
-    ''')
+    """)
 
     # Generated visuals tracking
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE generated_visuals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id INTEGER,
@@ -147,10 +146,10 @@ def create_database(db_path='vajra_stream.db'):
             used_for_meditation BOOLEAN DEFAULT 0,
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         )
-    ''')
+    """)
 
     # LLM generation tracking
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE llm_generations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id INTEGER,
@@ -164,38 +163,35 @@ def create_database(db_path='vajra_stream.db'):
             quality_rating INTEGER,
             FOREIGN KEY (session_id) REFERENCES sessions(id)
         )
-    ''')
+    """)
 
     # User preferences table
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE user_preferences (
             key TEXT PRIMARY KEY,
             value TEXT
         )
-    ''')
-    
+    """)
+
     # Insert default preferences
     defaults = [
-        ('hardware_level', '2'),
-        ('default_duration', '300'),
-        ('audio_device', 'default'),
-        ('sample_rate', '44100'),
-        ('default_location_lat', '0.0'),
-        ('default_location_lon', '0.0'),
-        ('llm_model_type', 'auto'),
-        ('enable_tts', 'true'),
-        ('enable_visuals', 'true'),
-        ('enable_astrological_alignment', 'true'),
+        ("hardware_level", "2"),
+        ("default_duration", "300"),
+        ("audio_device", "default"),
+        ("sample_rate", "44100"),
+        ("default_location_lat", "0.0"),
+        ("default_location_lon", "0.0"),
+        ("llm_model_type", "auto"),
+        ("enable_tts", "true"),
+        ("enable_visuals", "true"),
+        ("enable_astrological_alignment", "true"),
     ]
-    
-    cursor.executemany(
-        'INSERT INTO user_preferences (key, value) VALUES (?, ?)',
-        defaults
-    )
-    
+
+    cursor.executemany("INSERT INTO user_preferences (key, value) VALUES (?, ?)", defaults)
+
     conn.commit()
     conn.close()
-    
+
     print(f"\n✓ Database created: {db_path}")
     print("✓ All tables initialized")
     print("✓ Default preferences set")

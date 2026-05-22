@@ -4,9 +4,9 @@ Wraps astrology and astrocartography functionality
 """
 
 import sys
-from pathlib import Path
-from typing import Dict, Any, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -27,6 +27,7 @@ class AstrologyService:
         if self._astro_engine is None:
             try:
                 from core.astrology import AstrologyEngine
+
                 self._astro_engine = AstrologyEngine()
             except ImportError:
                 self._astro_engine = None
@@ -38,134 +39,94 @@ class AstrologyService:
         if self._astrocartography is None:
             try:
                 from core.astrocartography import AstrocartographyAnalyzer
+
                 self._astrocartography = AstrocartographyAnalyzer()
             except ImportError:
                 self._astrocartography = None
         return self._astrocartography
 
     def calculate_natal_chart(
-        self,
-        birth_date: datetime,
-        latitude: float,
-        longitude: float,
-        name: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, birth_date: datetime, latitude: float, longitude: float, name: str | None = None
+    ) -> dict[str, Any]:
         """Calculate natal chart"""
         if self.astrology is None:
             return {
-                'error': 'Astrology engine not available - astropy not installed.\n'
-                         'Install with: pip install astropy astroquery\n'
-                         'Or install all dependencies: pip install -r requirements.txt'
+                "error": "Astrology engine not available - astropy not installed.\n"
+                "Install with: pip install astropy astroquery\n"
+                "Or install all dependencies: pip install -r requirements.txt"
             }
 
         try:
-            chart = self.astrology.calculate_chart(
-                date=birth_date,
-                lat=latitude,
-                lon=longitude,
-                name=name
-            )
+            chart = self.astrology.calculate_chart(date=birth_date, lat=latitude, lon=longitude, name=name)
             return {
-                'status': 'success',
-                'chart': chart,
-                'birth_date': birth_date.isoformat(),
-                'location': {'latitude': latitude, 'longitude': longitude}
+                "status": "success",
+                "chart": chart,
+                "birth_date": birth_date.isoformat(),
+                "location": {"latitude": latitude, "longitude": longitude},
             }
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
 
-    def get_current_transits(
-        self,
-        natal_chart: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def get_current_transits(self, natal_chart: dict[str, Any] | None = None) -> dict[str, Any]:
         """Get current planetary transits"""
         if self.astrology is None:
             return {
-                'error': 'Astrology engine not available - astropy not installed.\n'
-                         'Install with: pip install astropy astroquery\n'
-                         'Or install all dependencies: pip install -r requirements.txt'
+                "error": "Astrology engine not available - astropy not installed.\n"
+                "Install with: pip install astropy astroquery\n"
+                "Or install all dependencies: pip install -r requirements.txt"
             }
 
         try:
-            transits = self.astrology.get_transits(
-                natal_chart=natal_chart,
-                transit_date=datetime.now()
-            )
-            return {
-                'status': 'success',
-                'transits': transits,
-                'date': datetime.now().isoformat()
-            }
+            transits = self.astrology.get_transits(natal_chart=natal_chart, transit_date=datetime.now())
+            return {"status": "success", "transits": transits, "date": datetime.now().isoformat()}
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
 
     def analyze_location_energy(
-        self,
-        natal_chart: Dict[str, Any],
-        target_latitude: float,
-        target_longitude: float
-    ) -> Dict[str, Any]:
+        self, natal_chart: dict[str, Any], target_latitude: float, target_longitude: float
+    ) -> dict[str, Any]:
         """Analyze energetic influence of a location (astrocartography)"""
         if self.astrocartography is None:
             return {
-                'error': 'Astrocartography not available - astropy not installed.\n'
-                         'Install with: pip install astropy astroquery\n'
-                         'Or install all dependencies: pip install -r requirements.txt'
+                "error": "Astrocartography not available - astropy not installed.\n"
+                "Install with: pip install astropy astroquery\n"
+                "Or install all dependencies: pip install -r requirements.txt"
             }
 
         try:
             analysis = self.astrocartography.analyze_location(
-                chart=natal_chart,
-                lat=target_latitude,
-                lon=target_longitude
+                chart=natal_chart, lat=target_latitude, lon=target_longitude
             )
             return {
-                'status': 'success',
-                'analysis': analysis,
-                'location': {
-                    'latitude': target_latitude,
-                    'longitude': target_longitude
-                }
+                "status": "success",
+                "analysis": analysis,
+                "location": {"latitude": target_latitude, "longitude": target_longitude},
             }
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
 
-    def find_power_places(
-        self,
-        natal_chart: Dict[str, Any],
-        intention: str = "general"
-    ) -> Dict[str, Any]:
+    def find_power_places(self, natal_chart: dict[str, Any], intention: str = "general") -> dict[str, Any]:
         """Find energetically favorable locations"""
         if self.astrocartography is None:
             return {
-                'error': 'Astrocartography not available - astropy not installed.\n'
-                         'Install with: pip install astropy astroquery\n'
-                         'Or install all dependencies: pip install -r requirements.txt'
+                "error": "Astrocartography not available - astropy not installed.\n"
+                "Install with: pip install astropy astroquery\n"
+                "Or install all dependencies: pip install -r requirements.txt"
             }
 
         try:
-            places = self.astrocartography.find_power_places(
-                chart=natal_chart,
-                intention=intention
-            )
-            return {
-                'status': 'success',
-                'intention': intention,
-                'power_places': places
-            }
+            places = self.astrocartography.find_power_places(chart=natal_chart, intention=intention)
+            return {"status": "success", "intention": intention, "power_places": places}
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
 
-    def get_planetary_positions(
-        self,
-        date: Optional[datetime] = None
-    ) -> Dict[str, Any]:
+    def get_planetary_positions(self, date: datetime | None = None) -> dict[str, Any]:
         """Get current planetary positions"""
         if self.astrology is None:
             return {
-                'error': 'Astrology engine not available - astropy not installed.\n'
-                         'Install with: pip install astropy astroquery\n'
-                         'Or install all dependencies: pip install -r requirements.txt'
+                "error": "Astrology engine not available - astropy not installed.\n"
+                "Install with: pip install astropy astroquery\n"
+                "Or install all dependencies: pip install -r requirements.txt"
             }
 
         if date is None:
@@ -173,17 +134,10 @@ class AstrologyService:
 
         try:
             positions = self.astrology.get_planetary_positions(date)
-            return {
-                'status': 'success',
-                'date': date.isoformat(),
-                'positions': positions
-            }
+            return {"status": "success", "date": date.isoformat(), "positions": positions}
         except Exception as e:
-            return {'error': str(e)}
+            return {"error": str(e)}
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get status of astrology subsystems"""
-        return {
-            'astrology_engine': self.astrology is not None,
-            'astrocartography': self.astrocartography is not None
-        }
+        return {"astrology_engine": self.astrology is not None, "astrocartography": self.astrocartography is not None}

@@ -1,9 +1,9 @@
 import pytest
 
-from infrastructure.event_bus import EnhancedEventBus, DomainEvent
 from config.enhanced_settings import EnhancedConfig
-from modules.crystal import CrystalService, CrystalBroadcastStarted, CrystalBroadcastCompleted
-from modules.blessing_router import BlessingRouter, BlessingRouted, TargetSpecification, TargetType, DeliveryMethod
+from infrastructure.event_bus import DomainEvent, EnhancedEventBus
+from modules.blessing_router import BlessingRouted, BlessingRouter, DeliveryMethod, TargetSpecification, TargetType
+from modules.crystal import CrystalBroadcastCompleted, CrystalBroadcastStarted, CrystalService
 from modules.enhanced_scalar_waves import EnhancedScalarWaveService, WaveSessionStarted
 
 

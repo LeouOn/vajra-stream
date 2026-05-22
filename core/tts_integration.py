@@ -13,35 +13,36 @@ Gives voice to:
 Supports multiple TTS engines with automatic fallback.
 """
 
+import re
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional, Union
-from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
-import re
-import time
 
 # Try importing TTS engines
 try:
     import pyttsx3
+
     HAS_PYTTSX3 = True
 except ImportError:
     HAS_PYTTSX3 = False
 
 try:
     from gtts import gTTS
+
     HAS_GTTS = True
 except ImportError:
     HAS_GTTS = False
 
 try:
     import edge_tts
+
     HAS_EDGE_TTS = True
 except ImportError:
     HAS_EDGE_TTS = False
 
 try:
     from core.blessing_narratives import GeneratedStory
+
     HAS_NARRATIVES = True
 except ImportError:
     HAS_NARRATIVES = False
@@ -51,16 +52,19 @@ except ImportError:
 # ENUMS AND DATA CLASSES
 # ============================================================================
 
+
 class TTSEngineType(Enum):
     """Available TTS engines"""
-    PYTTSX3 = "pyttsx3"      # Offline, free
-    GTTS = "gtts"            # Online, free
-    EDGE_TTS = "edge_tts"    # Online, free, high quality
-    AUTO = "auto"            # Auto-select best available
+
+    PYTTSX3 = "pyttsx3"  # Offline, free
+    GTTS = "gtts"  # Online, free
+    EDGE_TTS = "edge_tts"  # Online, free, high quality
+    AUTO = "auto"  # Auto-select best available
 
 
 class VoiceGender(Enum):
     """Voice gender options"""
+
     MALE = "male"
     FEMALE = "female"
     NEUTRAL = "neutral"
@@ -68,15 +72,17 @@ class VoiceGender(Enum):
 
 class SpeakingRate(Enum):
     """Speaking rate presets"""
+
     VERY_SLOW = "very_slow"  # 80-100 WPM (meditation)
-    SLOW = "slow"            # 100-120 WPM (contemplative)
-    NORMAL = "normal"        # 140-160 WPM (conversational)
-    FAST = "fast"            # 180-200 WPM (energetic)
+    SLOW = "slow"  # 100-120 WPM (contemplative)
+    NORMAL = "normal"  # 140-160 WPM (conversational)
+    FAST = "fast"  # 180-200 WPM (energetic)
 
 
 @dataclass
 class Voice:
     """Voice information"""
+
     id: str
     name: str
     gender: VoiceGender
@@ -88,11 +94,12 @@ class Voice:
 @dataclass
 class TTSConfig:
     """TTS generation configuration"""
+
     engine: TTSEngineType = TTSEngineType.AUTO
-    voice_id: Optional[str] = None
+    voice_id: str | None = None
     rate: SpeakingRate = SpeakingRate.NORMAL
     volume: float = 1.0  # 0.0 to 1.0
-    pitch: Optional[int] = None  # Engine-dependent
+    pitch: int | None = None  # Engine-dependent
     add_pauses: bool = True
     pause_duration: float = 1.0  # seconds
 
@@ -100,6 +107,7 @@ class TTSConfig:
 # ============================================================================
 # TTS ENGINE BASE CLASS
 # ============================================================================
+
 
 class TTSEngine(ABC):
     """Base class for TTS engines"""
@@ -120,7 +128,7 @@ class TTSEngine(ABC):
         pass
 
     @abstractmethod
-    def get_voices(self) -> List[Voice]:
+    def get_voices(self) -> list[Voice]:
         """Get available voices"""
         pass
 
@@ -132,12 +140,12 @@ class TTSEngine(ABC):
     def preprocess_text(self, text: str) -> str:
         """Preprocess text (remove markdown, etc.)"""
         # Remove markdown headers
-        text = re.sub(r'^#+\s+', '', text, flags=re.MULTILINE)
+        text = re.sub(r"^#+\s+", "", text, flags=re.MULTILINE)
 
         # Remove markdown emphasis
-        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # Bold
-        text = re.sub(r'\*(.+?)\*', r'\1', text)      # Italic
-        text = re.sub(r'_(.+?)_', r'\1', text)        # Italic
+        text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)  # Bold
+        text = re.sub(r"\*(.+?)\*", r"\1", text)  # Italic
+        text = re.sub(r"_(.+?)_", r"\1", text)  # Italic
 
         # Remove custom pause markers for simple engines
         # (Keep for engines that support them)
@@ -149,6 +157,7 @@ class TTSEngine(ABC):
 # ============================================================================
 # PYTTSX3 ENGINE (Offline)
 # ============================================================================
+
 
 class Pyttsx3Engine(TTSEngine):
     """Offline TTS using pyttsx3"""
@@ -166,32 +175,34 @@ class Pyttsx3Engine(TTSEngine):
         """Check if pyttsx3 is available"""
         return HAS_PYTTSX3 and self.engine is not None
 
-    def get_voices(self) -> List[Voice]:
+    def get_voices(self) -> list[Voice]:
         """Get available system voices"""
         if not self.is_available():
             return []
 
         voices = []
         try:
-            system_voices = self.engine.getProperty('voices')
+            system_voices = self.engine.getProperty("voices")
             for i, voice in enumerate(system_voices):
                 # Try to detect gender from voice name
                 name_lower = voice.name.lower()
-                if 'female' in name_lower or 'woman' in name_lower:
+                if "female" in name_lower or "woman" in name_lower:
                     gender = VoiceGender.FEMALE
-                elif 'male' in name_lower or 'man' in name_lower:
+                elif "male" in name_lower or "man" in name_lower:
                     gender = VoiceGender.MALE
                 else:
                     gender = VoiceGender.NEUTRAL
 
-                voices.append(Voice(
-                    id=voice.id,
-                    name=voice.name,
-                    gender=gender,
-                    language=voice.languages[0] if voice.languages else 'en',
-                    engine='pyttsx3',
-                    quality='standard'
-                ))
+                voices.append(
+                    Voice(
+                        id=voice.id,
+                        name=voice.name,
+                        gender=gender,
+                        language=voice.languages[0] if voice.languages else "en",
+                        engine="pyttsx3",
+                        quality="standard",
+                    )
+                )
         except Exception as e:
             print(f"Warning: Could not get voices: {e}")
 
@@ -206,24 +217,24 @@ class Pyttsx3Engine(TTSEngine):
         text = self.preprocess_text(text)
 
         # Set properties
-        voice_id = kwargs.get('voice_id')
+        voice_id = kwargs.get("voice_id")
         if voice_id:
-            self.engine.setProperty('voice', voice_id)
+            self.engine.setProperty("voice", voice_id)
 
         # Rate (words per minute)
-        rate = kwargs.get('rate', 150)
+        rate = kwargs.get("rate", 150)
         if isinstance(rate, SpeakingRate):
             rate = {
                 SpeakingRate.VERY_SLOW: 90,
                 SpeakingRate.SLOW: 110,
                 SpeakingRate.NORMAL: 150,
-                SpeakingRate.FAST: 190
+                SpeakingRate.FAST: 190,
             }.get(rate, 150)
-        self.engine.setProperty('rate', rate)
+        self.engine.setProperty("rate", rate)
 
         # Volume (0.0 to 1.0)
-        volume = kwargs.get('volume', 1.0)
-        self.engine.setProperty('volume', volume)
+        volume = kwargs.get("volume", 1.0)
+        self.engine.setProperty("volume", volume)
 
         # Generate audio
         try:
@@ -238,6 +249,7 @@ class Pyttsx3Engine(TTSEngine):
 # GTTS ENGINE (Online, Free)
 # ============================================================================
 
+
 class GTTSEngine(TTSEngine):
     """Google TTS engine (online, free)"""
 
@@ -245,7 +257,7 @@ class GTTSEngine(TTSEngine):
         """Check if gTTS is available"""
         return HAS_GTTS
 
-    def get_voices(self) -> List[Voice]:
+    def get_voices(self) -> list[Voice]:
         """Get available voices (gTTS has limited options)"""
         if not HAS_GTTS:
             return []
@@ -254,12 +266,12 @@ class GTTSEngine(TTSEngine):
         # Return a basic set
         return [
             Voice(
-                id='gtts_en',
-                name='Google TTS English',
+                id="gtts_en",
+                name="Google TTS English",
                 gender=VoiceGender.FEMALE,
-                language='en',
-                engine='gtts',
-                quality='standard'
+                language="en",
+                engine="gtts",
+                quality="standard",
             )
         ]
 
@@ -272,12 +284,12 @@ class GTTSEngine(TTSEngine):
         text = self.preprocess_text(text)
 
         # Get language
-        lang = kwargs.get('lang', 'en')
+        lang = kwargs.get("lang", "en")
 
         # Slow mode for meditation/contemplative content
-        slow = kwargs.get('slow', False)
-        if 'rate' in kwargs:
-            rate = kwargs['rate']
+        slow = kwargs.get("slow", False)
+        if "rate" in kwargs:
+            rate = kwargs["rate"]
             if rate in [SpeakingRate.VERY_SLOW, SpeakingRate.SLOW]:
                 slow = True
 
@@ -293,6 +305,7 @@ class GTTSEngine(TTSEngine):
 # TTS NARRATOR (High-Level Interface)
 # ============================================================================
 
+
 class TTSNarrator:
     """
     High-level interface for text-to-speech narration.
@@ -306,9 +319,12 @@ class TTSNarrator:
     - Historical commemoration
     """
 
-    def __init__(self, engine: Union[TTSEngineType, str] = TTSEngineType.AUTO,
-                 voice: Optional[str] = None,
-                 config: Optional[TTSConfig] = None):
+    def __init__(
+        self,
+        engine: TTSEngineType | str = TTSEngineType.AUTO,
+        voice: str | None = None,
+        config: TTSConfig | None = None,
+    ):
         """
         Initialize TTS narrator.
 
@@ -370,14 +386,13 @@ class TTSNarrator:
         else:
             raise ValueError(f"Unknown engine type: {engine_type}")
 
-    def list_voices(self) -> List[Voice]:
+    def list_voices(self) -> list[Voice]:
         """List available voices"""
         return self.engine.get_voices()
 
-    def generate_audio(self, text: str, output_file: str,
-                      rate: Optional[SpeakingRate] = None,
-                      volume: Optional[float] = None,
-                      **kwargs) -> str:
+    def generate_audio(
+        self, text: str, output_file: str, rate: SpeakingRate | None = None, volume: float | None = None, **kwargs
+    ) -> str:
         """
         Generate audio from text.
 
@@ -396,19 +411,18 @@ class TTSNarrator:
         actual_volume = volume if volume is not None else self.config.volume
 
         # Prepare kwargs
-        synth_kwargs = {
-            'rate': actual_rate,
-            'volume': actual_volume,
-            'voice_id': self.voice,
-            **kwargs
-        }
+        synth_kwargs = {"rate": actual_rate, "volume": actual_volume, "voice_id": self.voice, **kwargs}
 
         return self.engine.synthesize(text, output_file, **synth_kwargs)
 
-    def narrate_story(self, story: 'GeneratedStory', output_file: str,
-                     rate: SpeakingRate = SpeakingRate.SLOW,
-                     add_intro: bool = True,
-                     add_outro: bool = True) -> str:
+    def narrate_story(
+        self,
+        story: "GeneratedStory",
+        output_file: str,
+        rate: SpeakingRate = SpeakingRate.SLOW,
+        add_intro: bool = True,
+        add_outro: bool = True,
+    ) -> str:
         """
         Narrate a blessing story.
 
@@ -435,11 +449,11 @@ class TTSNarrator:
         # Main story (remove excessive formatting)
         clean_text = story.story_text
         # Remove markdown formatting
-        clean_text = re.sub(r'^#+\s+', '', clean_text, flags=re.MULTILINE)
-        clean_text = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_text)
-        clean_text = re.sub(r'\*(.+?)\*', r'\1', clean_text)
+        clean_text = re.sub(r"^#+\s+", "", clean_text, flags=re.MULTILINE)
+        clean_text = re.sub(r"\*\*(.+?)\*\*", r"\1", clean_text)
+        clean_text = re.sub(r"\*(.+?)\*", r"\1", clean_text)
         # Remove horizontal rules
-        clean_text = re.sub(r'-{3,}', '', clean_text)
+        clean_text = re.sub(r"-{3,}", "", clean_text)
 
         parts.append(clean_text)
 
@@ -450,15 +464,9 @@ class TTSNarrator:
 
         full_text = "\n\n".join(parts)
 
-        return self.generate_audio(
-            text=full_text,
-            output_file=output_file,
-            rate=rate
-        )
+        return self.generate_audio(text=full_text, output_file=output_file, rate=rate)
 
-    def generate_mantra_audio(self, mantra: str, repetitions: int,
-                             output_file: str,
-                             pause_between: float = 1.0) -> str:
+    def generate_mantra_audio(self, mantra: str, repetitions: int, output_file: str, pause_between: float = 1.0) -> str:
         """
         Generate mantra repetition audio.
 
@@ -485,11 +493,10 @@ class TTSNarrator:
         return self.generate_audio(
             text=full_text,
             output_file=output_file,
-            rate=SpeakingRate.SLOW  # Mantras should be slow and clear
+            rate=SpeakingRate.SLOW,  # Mantras should be slow and clear
         )
 
-    def guided_meditation(self, script: str, output_file: str,
-                         background_description: Optional[str] = None) -> str:
+    def guided_meditation(self, script: str, output_file: str, background_description: str | None = None) -> str:
         """
         Generate guided meditation audio.
 
@@ -506,16 +513,16 @@ class TTSNarrator:
 
         # Replace pause markers with actual pauses
         # For now, just remove them (engines don't all support SSML)
-        processed_script = re.sub(r'\[PAUSE:\d+\]', '...', processed_script)
-        processed_script = re.sub(r'\[BREATHE\]', '... breathe ...', processed_script)
+        processed_script = re.sub(r"\[PAUSE:\d+\]", "...", processed_script)
+        processed_script = re.sub(r"\[BREATHE\]", "... breathe ...", processed_script)
 
         return self.generate_audio(
             text=processed_script,
             output_file=output_file,
-            rate=SpeakingRate.VERY_SLOW  # Meditations very slow
+            rate=SpeakingRate.VERY_SLOW,  # Meditations very slow
         )
 
-    def commemorate_event(self, event: Dict, date, output_file: str) -> str:
+    def commemorate_event(self, event: dict, date, output_file: str) -> str:
         """
         Generate historical commemoration.
 
@@ -533,17 +540,17 @@ class TTSNarrator:
         text_parts.append(f"Today we remember {event['name']}.")
         text_parts.append(f"On {date.strftime('%B %d, %Y')}.")
 
-        if event.get('estimated_deaths'):
-            deaths = event['estimated_deaths']
+        if event.get("estimated_deaths"):
+            deaths = event["estimated_deaths"]
             text_parts.append(f"We honor the {deaths:,} souls who perished.")
 
-        text_parts.append(event.get('blessing_focus', ''))
+        text_parts.append(event.get("blessing_focus", ""))
 
         text_parts.append("May they find peace.")
         text_parts.append("May healing reach all who suffered.")
 
         # Add mantras
-        mantras = event.get('mantras', [])
+        mantras = event.get("mantras", [])
         if mantras:
             text_parts.append("")
             for mantra in mantras[:2]:  # Use first two
@@ -551,19 +558,15 @@ class TTSNarrator:
 
         full_text = " ... ".join(text_parts)
 
-        return self.generate_audio(
-            text=full_text,
-            output_file=output_file,
-            rate=SpeakingRate.SLOW
-        )
+        return self.generate_audio(text=full_text, output_file=output_file, rate=SpeakingRate.SLOW)
 
 
 # ============================================================================
 # CONVENIENCE FUNCTIONS
 # ============================================================================
 
-def quick_narrate(text: str, output_file: str = "narration.mp3",
-                 engine: str = 'auto', slow: bool = False) -> str:
+
+def quick_narrate(text: str, output_file: str = "narration.mp3", engine: str = "auto", slow: bool = False) -> str:
     """
     Quick function to narrate text.
 
@@ -579,16 +582,10 @@ def quick_narrate(text: str, output_file: str = "narration.mp3",
     narrator = TTSNarrator(engine=engine)
     rate = SpeakingRate.SLOW if slow else SpeakingRate.NORMAL
 
-    return narrator.generate_audio(
-        text=text,
-        output_file=output_file,
-        rate=rate
-    )
+    return narrator.generate_audio(text=text, output_file=output_file, rate=rate)
 
 
-def narrate_mantra(mantra: str = "Om Mani Padme Hum",
-                  repetitions: int = 108,
-                  output_file: str = "mantra.mp3") -> str:
+def narrate_mantra(mantra: str = "Om Mani Padme Hum", repetitions: int = 108, output_file: str = "mantra.mp3") -> str:
     """
     Quick function to generate mantra audio.
 
@@ -601,11 +598,7 @@ def narrate_mantra(mantra: str = "Om Mani Padme Hum",
         Path to generated file
     """
     narrator = TTSNarrator()
-    return narrator.generate_mantra_audio(
-        mantra=mantra,
-        repetitions=repetitions,
-        output_file=output_file
-    )
+    return narrator.generate_mantra_audio(mantra=mantra, repetitions=repetitions, output_file=output_file)
 
 
 # Example usage
@@ -636,11 +629,7 @@ if __name__ == "__main__":
         print("=== Example 1: Simple Narration ===")
         blessing_text = "May all beings be free from suffering. May all beings find peace and liberation."
 
-        output = narrator.generate_audio(
-            text=blessing_text,
-            output_file="/tmp/blessing.mp3",
-            rate=SpeakingRate.SLOW
-        )
+        output = narrator.generate_audio(text=blessing_text, output_file="/tmp/blessing.mp3", rate=SpeakingRate.SLOW)
         print(f"✓ Generated: {output}")
         print()
 
@@ -649,17 +638,14 @@ if __name__ == "__main__":
         output = narrator.generate_mantra_audio(
             mantra="Om Mani Padme Hum",
             repetitions=21,  # Shorter for demo
-            output_file="/tmp/mantra_21.mp3"
+            output_file="/tmp/mantra_21.mp3",
         )
         print(f"✓ Generated: {output}")
         print()
 
         # Example 3: Quick function
         print("=== Example 3: Quick Narrate ===")
-        output = quick_narrate(
-            "This is a test of the quick narration function.",
-            output_file="/tmp/quick_test.mp3"
-        )
+        output = quick_narrate("This is a test of the quick narration function.", output_file="/tmp/quick_test.mp3")
         print(f"✓ Generated: {output}")
         print()
 

@@ -23,26 +23,24 @@ Usage Examples:
     python story_generator.py --batch --category hungry_ghost --output ./stories --count 20
 """
 
-import sys
 import argparse
+import sys
 from pathlib import Path
-from typing import List, Optional
-from datetime import datetime
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.blessing_narratives import (
-    StoryGenerator,
     NarrativeType,
+    PureLandDescriptions,
     PureLandTradition,
-    GeneratedStory,
     StoryExporter,
-    PureLandDescriptions
+    StoryGenerator,
 )
 
 try:
-    from core.compassionate_blessings import BlessingDatabase, BlessingCategory
+    from core.compassionate_blessings import BlessingCategory, BlessingDatabase
+
     HAS_BLESSINGS_DB = True
 except ImportError:
     HAS_BLESSINGS_DB = False
@@ -57,15 +55,12 @@ class StoryGeneratorCLI:
 
     def cmd_generate(self, args):
         """Generate a single story"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("GENERATING LIBERATION NARRATIVE")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Initialize generator
-        self.generator = StoryGenerator(
-            use_llm=args.use_llm,
-            llm_provider=args.llm_provider
-        )
+        self.generator = StoryGenerator(use_llm=args.use_llm, llm_provider=args.llm_provider)
 
         # Get narrative type
         try:
@@ -93,21 +88,18 @@ class StoryGeneratorCLI:
             print("📝 Using templates")
 
         story = self.generator.generate_story(
-            target_name=args.name,
-            narrative_type=narrative_type,
-            pure_land=pure_land,
-            custom_context=args.context or ""
+            target_name=args.name, narrative_type=narrative_type, pure_land=pure_land, custom_context=args.context or ""
         )
 
         # Display story
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(story.story_text)
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Save if requested
         if args.output:
             output_path = Path(args.output)
-            if output_path.suffix == '.json':
+            if output_path.suffix == ".json":
                 StoryExporter.export_as_json(story, str(output_path))
                 print(f"💾 Saved as JSON: {output_path}")
             else:
@@ -120,15 +112,12 @@ class StoryGeneratorCLI:
             print("❌ Blessing database not available. Install dependencies first.")
             return
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("BATCH STORY GENERATION")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Initialize generator
-        self.generator = StoryGenerator(
-            use_llm=args.use_llm,
-            llm_provider=args.llm_provider
-        )
+        self.generator = StoryGenerator(use_llm=args.use_llm, llm_provider=args.llm_provider)
 
         # Get narrative type
         try:
@@ -157,7 +146,7 @@ class StoryGeneratorCLI:
                 return
         else:
             # Get all targets
-            stats = self.db.get_statistics()
+            self.db.get_statistics()
             targets = []
             for cat in BlessingCategory:
                 targets.extend(self.db.get_targets_by_category(cat))
@@ -182,11 +171,7 @@ class StoryGeneratorCLI:
         for i, target in enumerate(targets, 1):
             print(f"  [{i}/{count}] {target.name}...")
 
-            story = self.generator.generate_story(
-                target=target,
-                narrative_type=narrative_type,
-                pure_land=pure_land
-            )
+            story = self.generator.generate_story(target=target, narrative_type=narrative_type, pure_land=pure_land)
             stories.append(story)
 
         print(f"\n✅ Generated {len(stories)} stories")
@@ -199,25 +184,25 @@ class StoryGeneratorCLI:
             print(f"✅ Exported {len(stories)} stories + index")
         else:
             # Display first story as example
-            print("\n" + "="*70)
+            print("\n" + "=" * 70)
             print("EXAMPLE STORY (first of collection):")
-            print("="*70 + "\n")
+            print("=" * 70 + "\n")
             print(stories[0].story_text)
-            print("\n" + "="*70)
+            print("\n" + "=" * 70)
             print("\nUse --output <directory> to save all stories")
 
     def cmd_list_types(self, args):
         """List available narrative types and pure lands"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("AVAILABLE NARRATIVE TYPES")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         for ntype in NarrativeType:
             print(f"  • {ntype.value}")
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("AVAILABLE PURE LAND TRADITIONS")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         for pland in PureLandTradition:
             desc = PureLandDescriptions.get_description(pland)
@@ -235,33 +220,33 @@ class StoryGeneratorCLI:
 
         desc = PureLandDescriptions.get_description(pure_land)
 
-        print("\n" + "="*70)
-        print(desc['name'].upper())
-        print("="*70 + "\n")
+        print("\n" + "=" * 70)
+        print(desc["name"].upper())
+        print("=" * 70 + "\n")
 
-        print(desc['description'].strip())
+        print(desc["description"].strip())
 
-        print("\n" + "-"*70)
+        print("\n" + "-" * 70)
         print("ACTIVITIES")
-        print("-"*70 + "\n")
+        print("-" * 70 + "\n")
 
-        for activity in desc['activities']:
+        for activity in desc["activities"]:
             print(f"  • {activity}")
 
-        print("\n" + "-"*70)
+        print("\n" + "-" * 70)
         print("SENSORY EXPERIENCE")
-        print("-"*70 + "\n")
+        print("-" * 70 + "\n")
 
-        for sense, experience in desc['sensory'].items():
+        for sense, experience in desc["sensory"].items():
             print(f"  {sense.upper()}: {experience}")
 
-        print("\n" + "="*70 + "\n")
+        print("\n" + "=" * 70 + "\n")
 
     def cmd_interactive(self, args):
         """Interactive story generation mode"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("INTERACTIVE STORY GENERATION")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Name
         name = input("Enter being's name (or description): ").strip()
@@ -274,7 +259,7 @@ class StoryGeneratorCLI:
         for i, ntype in enumerate(types, 1):
             print(f"  {i}. {ntype.value}")
 
-        type_choice = input("\nSelect type (1-{0}): ".format(len(types))).strip()
+        type_choice = input(f"\nSelect type (1-{len(types)}): ").strip()
         try:
             narrative_type = types[int(type_choice) - 1]
         except (ValueError, IndexError):
@@ -290,7 +275,7 @@ class StoryGeneratorCLI:
                 desc = PureLandDescriptions.get_description(pl)
                 print(f"  {i}. {desc['name']}")
 
-            pl_choice = input("\nSelect pure land (1-{0}): ".format(len(plands))).strip()
+            pl_choice = input(f"\nSelect pure land (1-{len(plands)}): ").strip()
             try:
                 pure_land = plands[int(pl_choice) - 1]
             except (ValueError, IndexError):
@@ -299,7 +284,7 @@ class StoryGeneratorCLI:
 
         # LLM option
         use_llm_input = input("\nUse LLM for generation? (y/n, default: n): ").strip().lower()
-        use_llm = use_llm_input == 'y'
+        use_llm = use_llm_input == "y"
 
         # Context
         print("\nOptional context (press Enter to skip):")
@@ -311,20 +296,17 @@ class StoryGeneratorCLI:
         self.generator = StoryGenerator(use_llm=use_llm)
 
         story = self.generator.generate_story(
-            target_name=name,
-            narrative_type=narrative_type,
-            pure_land=pure_land,
-            custom_context=context
+            target_name=name, narrative_type=narrative_type, pure_land=pure_land, custom_context=context
         )
 
         # Display
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(story.story_text)
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Save option
         save = input("Save this story? (y/n): ").strip().lower()
-        if save == 'y':
+        if save == "y":
             filename = input("Filename (default: story.md): ").strip()
             if not filename:
                 filename = "story.md"
@@ -353,45 +335,36 @@ Examples:
 
   # Describe a pure land
   %(prog)s --describe-pure-land sukhavati
-            """
+            """,
         )
 
         # Main commands
-        parser.add_argument('--generate', action='store_true',
-                          help='Generate a single story')
-        parser.add_argument('--batch', action='store_true',
-                          help='Generate batch of stories from database')
-        parser.add_argument('--interactive', action='store_true',
-                          help='Interactive story generation mode')
-        parser.add_argument('--list-types', action='store_true',
-                          help='List available narrative types and pure lands')
-        parser.add_argument('--describe-pure-land',
-                          help='Show detailed description of a pure land')
+        parser.add_argument("--generate", action="store_true", help="Generate a single story")
+        parser.add_argument("--batch", action="store_true", help="Generate batch of stories from database")
+        parser.add_argument("--interactive", action="store_true", help="Interactive story generation mode")
+        parser.add_argument("--list-types", action="store_true", help="List available narrative types and pure lands")
+        parser.add_argument("--describe-pure-land", help="Show detailed description of a pure land")
 
         # Story parameters
-        parser.add_argument('--name', default='Unknown Being',
-                          help='Name of being receiving blessing')
-        parser.add_argument('--type', default='pure_land_arrival',
-                          help='Type of narrative (default: pure_land_arrival)')
-        parser.add_argument('--pure-land', default='universal_light',
-                          help='Pure land tradition (default: universal_light)')
-        parser.add_argument('--context', help='Additional context for story')
+        parser.add_argument("--name", default="Unknown Being", help="Name of being receiving blessing")
+        parser.add_argument(
+            "--type", default="pure_land_arrival", help="Type of narrative (default: pure_land_arrival)"
+        )
+        parser.add_argument(
+            "--pure-land", default="universal_light", help="Pure land tradition (default: universal_light)"
+        )
+        parser.add_argument("--context", help="Additional context for story")
 
         # Batch parameters
-        parser.add_argument('--category',
-                          help='Blessing category for batch generation')
-        parser.add_argument('--count', type=int, default=10,
-                          help='Number of stories to generate (default: 10)')
+        parser.add_argument("--category", help="Blessing category for batch generation")
+        parser.add_argument("--count", type=int, default=10, help="Number of stories to generate (default: 10)")
 
         # Generation parameters
-        parser.add_argument('--use-llm', action='store_true',
-                          help='Use LLM for generation (vs templates)')
-        parser.add_argument('--llm-provider', default='ollama',
-                          help='LLM provider (default: ollama)')
+        parser.add_argument("--use-llm", action="store_true", help="Use LLM for generation (vs templates)")
+        parser.add_argument("--llm-provider", default="ollama", help="LLM provider (default: ollama)")
 
         # Output
-        parser.add_argument('--output',
-                          help='Output file or directory')
+        parser.add_argument("--output", help="Output file or directory")
 
         args = parser.parse_args()
 

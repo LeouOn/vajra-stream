@@ -68,8 +68,9 @@ class TestBlessings:
 @pytest.mark.integration
 class TestEventBus:
     def test_publish_and_receive(self, fresh_container):
-        from modules.interfaces import ScalarWavesGenerated
         from datetime import datetime
+
+        from modules.interfaces import ScalarWavesGenerated
 
         events = []
         fresh_container.event_bus.subscribe(ScalarWavesGenerated, lambda e: events.append(e))

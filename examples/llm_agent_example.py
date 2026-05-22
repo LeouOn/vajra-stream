@@ -9,15 +9,14 @@ tools and providing guidance.
 """
 
 import time
+
 from backend.core.llm_agent import (
     create_rng_session,
+    get_automation_status,
     get_rng_reading,
-    create_blessing_slideshow,
-    create_population,
+    get_tool_schemas,
     list_populations,
     start_automation,
-    get_automation_status,
-    get_tool_schemas
 )
 
 
@@ -30,10 +29,7 @@ class VajraStreamAgent:
     """
 
     def __init__(self):
-        self.context = {
-            "active_sessions": {},
-            "user_preferences": {}
-        }
+        self.context = {"active_sessions": {}, "user_preferences": {}}
 
     def handle_request(self, user_message: str) -> str:
         """
@@ -71,8 +67,8 @@ class VajraStreamAgent:
         try:
             # Tool call: create_rng_session
             result = create_rng_session(baseline_tone_arm=5.0, sensitivity=1.0)
-            session_id = result['session_id']
-            self.context['active_sessions']['rng'] = session_id
+            session_id = result["session_id"]
+            self.context["active_sessions"]["rng"] = session_id
 
             # Tool call: get_rng_reading (simulate monitoring)
             reading = get_rng_reading(session_id)
@@ -80,13 +76,13 @@ class VajraStreamAgent:
             response = f"""I've started RNG monitoring for you.
 
 Current Reading:
-- Tone Arm: {reading['tone_arm']:.1f}
-- Needle Position: {reading['needle_position']:.1f}
-- Needle State: {reading['needle_state']}
-- Floating Needle Score: {reading['floating_needle_score']:.2f}
+- Tone Arm: {reading["tone_arm"]:.1f}
+- Needle Position: {reading["needle_position"]:.1f}
+- Needle State: {reading["needle_state"]}
+- Floating Needle Score: {reading["floating_needle_score"]:.2f}
 
 """
-            if reading['floating_needle_score'] > 0.6:
+            if reading["floating_needle_score"] > 0.6:
                 response += "🎯 **Floating Needle detected!** This indicates a release or completion.\n"
             else:
                 response += "Continue monitoring. I'll watch for a Floating Needle (score > 0.6).\n"
@@ -144,18 +140,18 @@ Would you like me to help you create a population first?
             result = start_automation(
                 duration_per_population=1800,  # 30 minutes each
                 continuous_mode=True,
-                link_rng=True
+                link_rng=True,
             )
 
-            session_id = result['session_id']
-            self.context['active_sessions']['automation'] = session_id
+            session_id = result["session_id"]
+            self.context["active_sessions"]["automation"] = session_id
 
             return f"""Automated blessing rotation started! 🙏
 
 **Configuration**:
 - Mode: Round Robin (fair time distribution)
 - Duration per population: 30 minutes
-- Populations in queue: {result['populations_in_queue']}
+- Populations in queue: {result["populations_in_queue"]}
 - RNG monitoring: Enabled
 - Continuous mode: Yes (runs indefinitely)
 
@@ -176,7 +172,7 @@ You can check status anytime by asking "How's the automation going?"
 
     def _handle_status_request(self) -> str:
         """Handle status inquiry"""
-        automation_id = self.context['active_sessions'].get('automation')
+        automation_id = self.context["active_sessions"].get("automation")
 
         if not automation_id:
             return "No automation is currently running. Would you like to start automated blessing rotation?"
@@ -185,14 +181,14 @@ You can check status anytime by asking "How's the automation going?"
             # Tool call: get_automation_status
             status = get_automation_status(automation_id)
 
-            current_pop = status.get('current_population')
+            current_pop = status.get("current_population")
             if current_pop:
-                pop_name = current_pop['name']
-                category = current_pop['category']
-                progress = status['progress_percentage']
-                elapsed = status['elapsed_seconds']
+                pop_name = current_pop["name"]
+                category = current_pop["category"]
+                progress = status["progress_percentage"]
+                elapsed = status["elapsed_seconds"]
 
-                return f"""Automation Status: {status['status'].title()} ✨
+                return f"""Automation Status: {status["status"].title()} ✨
 
 **Currently Blessing**: {pop_name}
 - Category: {category}
@@ -261,7 +257,7 @@ def main():
         "What can you do?",
         "Start monitoring RNG for floating needle",
         "How's everything going?",
-        "Start automated rotation"
+        "Start automated rotation",
     ]
 
     for user_msg in conversations:

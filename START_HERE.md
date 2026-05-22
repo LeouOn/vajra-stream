@@ -1,14 +1,41 @@
-# 🙏 START HERE - Vajra.Stream Quick Start
+# START HERE - Vajra.Stream Quick Start
 
 Welcome! Your sacred technology system is ready to use.
 
-## Immediate Next Steps (Today)
+## Quick Launch
 
-### 1. Download Everything ✓
+```bash
+# Activate your virtual environment first
+# Windows: .venv\Scripts\activate
+# Unix:    source .venv/bin/activate
 
-You already have the complete project! All files are in the `vajra-stream` folder.
+# Install dependencies
+python run.py install
 
-### 2. Set Up Your Environment (10 minutes)
+# Start full system (backend + frontend)
+python run.py full
+
+# Or start individually:
+python run.py serve          # Backend API on port 8008
+python run.py frontend       # Frontend dev server on port 3009
+```
+
+All commands available:
+- `python run.py serve` — Start backend API server
+- `python run.py frontend` — Start frontend dev server
+- `python run.py full` — Start both (opens in separate windows)
+- `python run.py status` — Show system status
+- `python run.py test` — Run test suite
+- `python run.py install` — Install Python dependencies
+- `python run.py benchmark` — Run scalar wave benchmark
+- `python run.py ui` — Launch terminal UI
+
+Windows users can also use `vajra.bat` instead of `python run.py`:
+- `vajra.bat serve`
+- `vajra.bat full`
+- etc.
+
+## Set Up Your Environment (First Time)
 
 ```bash
 # Open terminal/command prompt

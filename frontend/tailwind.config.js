@@ -78,6 +78,9 @@ export default {
           }
         }
       },
+      transitionProperty: {
+        'grid': 'grid-template-rows, opacity',
+      },
       backdropBlur: {
         'xs': '2px',
       }

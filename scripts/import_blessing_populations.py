@@ -15,21 +15,16 @@ Usage:
     python import_blessing_populations.py --file animals.json --priority 9
 """
 
-import sys
-import json
 import argparse
-from pathlib import Path
+import json
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.compassionate_blessings import (
-    BlessingDatabase,
-    BlessingTarget,
-    BlessingCategory,
-    create_target
-)
+from core.compassionate_blessings import BlessingCategory, BlessingDatabase, create_target
 
 
 def import_population_file(filepath: Path, db: BlessingDatabase, priority_override: int = None):
@@ -37,55 +32,55 @@ def import_population_file(filepath: Path, db: BlessingDatabase, priority_overri
     print(f"\n📖 Loading: {filepath.name}")
     print("-" * 70)
 
-    with open(filepath, 'r') as f:
+    with open(filepath) as f:
         data = json.load(f)
 
-    description = data.get('description', '')
-    note = data.get('note', '')
+    description = data.get("description", "")
+    note = data.get("note", "")
 
     print(f"Description: {description}")
     if note:
         print(f"Note: {note}")
 
-    targets = data.get('targets', [])
+    targets = data.get("targets", [])
     print(f"Targets: {len(targets)}\n")
 
     imported = 0
     for target_data in targets:
         try:
             # Parse category
-            category = BlessingCategory(target_data['category'])
+            category = BlessingCategory(target_data["category"])
 
             # Parse location if present
             location = None
-            if 'latitude' in target_data and 'longitude' in target_data:
-                location = (target_data['latitude'], target_data['longitude'])
+            if "latitude" in target_data and "longitude" in target_data:
+                location = (target_data["latitude"], target_data["longitude"])
 
             # Parse date if present
             date = None
-            if 'relevant_date' in target_data:
-                date = datetime.fromisoformat(target_data['relevant_date'])
+            if "relevant_date" in target_data:
+                date = datetime.fromisoformat(target_data["relevant_date"])
 
             # Use priority override or target priority or default
-            priority = priority_override or target_data.get('priority', 5)
+            priority = priority_override or target_data.get("priority", 5)
 
             # Create target
             target = create_target(
-                name=target_data['name'],
+                name=target_data["name"],
                 category=category,
                 location=location,
                 date=date,
-                description=target_data.get('description', ''),
-                priority=priority
+                description=target_data.get("description", ""),
+                priority=priority,
             )
 
             # Set intention if provided
-            if 'intention' in target_data:
-                target.intention = target_data['intention']
+            if "intention" in target_data:
+                target.intention = target_data["intention"]
 
             # Set additional data
-            if 'additional_data' in target_data:
-                target.additional_data = target_data['additional_data']
+            if "additional_data" in target_data:
+                target.additional_data = target_data["additional_data"]
 
             # Add to database
             db.add_target(target)
@@ -101,17 +96,12 @@ def import_population_file(filepath: Path, db: BlessingDatabase, priority_overri
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Import Blessing Populations from JSON files"
-    )
+    parser = argparse.ArgumentParser(description="Import Blessing Populations from JSON files")
 
-    parser.add_argument('--all', action='store_true',
-                       help='Import all population files')
-    parser.add_argument('--file', help='Import specific file')
-    parser.add_argument('--priority', type=int,
-                       help='Override priority for all imported targets')
-    parser.add_argument('--clear', action='store_true',
-                       help='Clear existing targets before importing (CAUTION!)')
+    parser.add_argument("--all", action="store_true", help="Import all population files")
+    parser.add_argument("--file", help="Import specific file")
+    parser.add_argument("--priority", type=int, help="Override priority for all imported targets")
+    parser.add_argument("--clear", action="store_true", help="Clear existing targets before importing (CAUTION!)")
 
     args = parser.parse_args()
 
@@ -121,7 +111,7 @@ def main():
     # Clear if requested
     if args.clear:
         response = input("\n⚠️  WARNING: This will delete ALL existing blessing targets. Continue? (yes/no): ")
-        if response.lower() != 'yes':
+        if response.lower() != "yes":
             print("Cancelled.")
             return 0
 
@@ -135,9 +125,9 @@ def main():
         print(f"❌ Error: Populations directory not found: {pop_dir}")
         return 1
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("IMPORTING BLESSING POPULATIONS")
-    print("="*70)
+    print("=" * 70)
 
     total_imported = 0
 
@@ -177,21 +167,21 @@ def main():
         return 0
 
     # Show final statistics
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("IMPORT COMPLETE")
-    print("="*70)
+    print("=" * 70)
 
     print(f"\nTotal targets imported: {total_imported}")
 
     stats = db.get_statistics()
     print(f"Total targets in database: {stats['total_targets']}")
     print("\nTargets by category:")
-    for category, count in stats['by_category'].items():
+    for category, count in stats["by_category"].items():
         print(f"  {category:30s}: {count}")
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("DEDICATION PRAYER")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     print(f"""By adding {total_imported} beings to this sacred database,
 may we remember those who are forgotten,
@@ -202,7 +192,7 @@ May this technology serve as a meditation object
 reminding us of the vast scope of suffering in the world,
 and inspiring us to compassionate action.
 
-May all {stats['total_targets']} beings in this database
+May all {stats["total_targets"]} beings in this database
 receive the light of awareness and compassion,
 and may this work ripen as the cause for their liberation
 and the liberation of all beings.
@@ -210,7 +200,7 @@ and the liberation of all beings.
 Gate gate pāragate pārasaṃgate bodhi svāhā
 """)
 
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     return 0
 

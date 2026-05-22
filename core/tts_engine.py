@@ -4,10 +4,10 @@ Speaks prayers, mantras, and teachings
 Converts generated text to spoken audio for meditation and practice
 """
 
-import pyttsx3
-from typing import Optional, List
-import time
 import os
+import time
+
+import pyttsx3
 
 
 class TTSEngine:
@@ -28,13 +28,13 @@ class TTSEngine:
         self.engine = pyttsx3.init()
 
         # Set properties
-        self.engine.setProperty('rate', rate)
-        self.engine.setProperty('volume', volume)
+        self.engine.setProperty("rate", rate)
+        self.engine.setProperty("volume", volume)
 
         # Try to set voice
-        voices = self.engine.getProperty('voices')
+        voices = self.engine.getProperty("voices")
         if voice_index < len(voices):
-            self.engine.setProperty('voice', voices[voice_index].id)
+            self.engine.setProperty("voice", voices[voice_index].id)
 
         self.rate = rate
         self.volume = volume
@@ -52,7 +52,7 @@ class TTSEngine:
         if blocking:
             self.engine.runAndWait()
 
-    def speak_with_pauses(self, text: str, pause_at: str = '.', pause_duration: float = 1.0):
+    def speak_with_pauses(self, text: str, pause_at: str = ".", pause_duration: float = 1.0):
         """
         Speak text with pauses at punctuation for contemplation
 
@@ -72,8 +72,9 @@ class TTSEngine:
                 if i < len(segments) - 1:
                     time.sleep(pause_duration)
 
-    def speak_mantra(self, mantra: str, repetitions: int = 1,
-                    pause_between: float = 2.0, rate_override: Optional[int] = None):
+    def speak_mantra(
+        self, mantra: str, repetitions: int = 1, pause_between: float = 2.0, rate_override: int | None = None
+    ):
         """
         Speak a mantra with appropriate pacing
 
@@ -87,10 +88,10 @@ class TTSEngine:
         original_rate = self.rate
 
         if rate_override:
-            self.engine.setProperty('rate', rate_override)
+            self.engine.setProperty("rate", rate_override)
         else:
             # Default mantra rate is slower
-            self.engine.setProperty('rate', int(self.rate * 0.7))
+            self.engine.setProperty("rate", int(self.rate * 0.7))
 
         try:
             for i in range(repetitions):
@@ -102,7 +103,7 @@ class TTSEngine:
 
         finally:
             # Restore original rate
-            self.engine.setProperty('rate', original_rate)
+            self.engine.setProperty("rate", original_rate)
 
     def speak_prayer_slowly(self, prayer: str, pause_per_line: float = 3.0):
         """
@@ -114,10 +115,10 @@ class TTSEngine:
         """
         # Very slow for prayers
         original_rate = self.rate
-        self.engine.setProperty('rate', int(self.rate * 0.6))
+        self.engine.setProperty("rate", int(self.rate * 0.6))
 
         try:
-            lines = prayer.split('\n')
+            lines = prayer.split("\n")
 
             for line in lines:
                 if line.strip():
@@ -125,7 +126,7 @@ class TTSEngine:
                     time.sleep(pause_per_line)
 
         finally:
-            self.engine.setProperty('rate', original_rate)
+            self.engine.setProperty("rate", original_rate)
 
     def speak_teaching(self, teaching: str):
         """
@@ -135,40 +136,42 @@ class TTSEngine:
             teaching: Teaching text
         """
         # Natural reading pace for teachings
-        self.speak_with_pauses(teaching, pause_at='.', pause_duration=0.8)
+        self.speak_with_pauses(teaching, pause_at=".", pause_duration=0.8)
 
     def adjust_rate(self, rate: int):
         """Adjust speaking rate"""
         self.rate = rate
-        self.engine.setProperty('rate', rate)
+        self.engine.setProperty("rate", rate)
 
     def adjust_volume(self, volume: float):
         """Adjust volume (0.0 to 1.0)"""
         self.volume = volume
-        self.engine.setProperty('volume', volume)
+        self.engine.setProperty("volume", volume)
 
-    def list_available_voices(self) -> List[dict]:
+    def list_available_voices(self) -> list[dict]:
         """Get information about available voices"""
-        voices = self.engine.getProperty('voices')
+        voices = self.engine.getProperty("voices")
 
         voice_list = []
         for i, voice in enumerate(voices):
-            voice_list.append({
-                'index': i,
-                'id': voice.id,
-                'name': voice.name,
-                'languages': voice.languages,
-                'gender': getattr(voice, 'gender', 'unknown'),
-                'age': getattr(voice, 'age', 'unknown')
-            })
+            voice_list.append(
+                {
+                    "index": i,
+                    "id": voice.id,
+                    "name": voice.name,
+                    "languages": voice.languages,
+                    "gender": getattr(voice, "gender", "unknown"),
+                    "age": getattr(voice, "age", "unknown"),
+                }
+            )
 
         return voice_list
 
     def set_voice_by_index(self, index: int):
         """Change voice by index"""
-        voices = self.engine.getProperty('voices')
+        voices = self.engine.getProperty("voices")
         if 0 <= index < len(voices):
-            self.engine.setProperty('voice', voices[index].id)
+            self.engine.setProperty("voice", voices[index].id)
             return True
         return False
 
@@ -210,11 +213,11 @@ class GuidedMeditationSpeaker:
 
         When you are ready, we will begin."""
 
-        self.tts.speak_with_pauses(intro, pause_at='.', pause_duration=2.0)
+        self.tts.speak_with_pauses(intro, pause_at=".", pause_duration=2.0)
 
     def speak_meditation_body(self, instructions: str):
         """Speak main meditation instructions"""
-        self.tts.speak_with_pauses(instructions, pause_at='.', pause_duration=2.5)
+        self.tts.speak_with_pauses(instructions, pause_at=".", pause_duration=2.5)
 
     def speak_meditation_closing(self):
         """Speak meditation closing"""
@@ -226,7 +229,7 @@ class GuidedMeditationSpeaker:
 
         May all beings benefit from this practice."""
 
-        self.tts.speak_with_pauses(closing, pause_at='.', pause_duration=3.0)
+        self.tts.speak_with_pauses(closing, pause_at=".", pause_duration=3.0)
 
     def guide_full_meditation(self, practice_name: str, instructions: str):
         """
@@ -236,9 +239,9 @@ class GuidedMeditationSpeaker:
             practice_name: Name of the meditation
             instructions: Main practice instructions
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"GUIDED MEDITATION: {practice_name.upper()}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Intro
         self.speak_meditation_intro(practice_name)
@@ -255,12 +258,12 @@ class GuidedMeditationSpeaker:
         # Closing
         self.speak_meditation_closing()
 
-        print(f"\n{'='*60}")
-        print(f"Meditation complete")
-        print(f"{'='*60}\n")
+        print(f"\n{'=' * 60}")
+        print("Meditation complete")
+        print(f"{'=' * 60}\n")
 
 
-def create_contemplation_audio(tts: TTSEngine, text: str, output_dir: str = './generated/audio'):
+def create_contemplation_audio(tts: TTSEngine, text: str, output_dir: str = "./generated/audio"):
     """
     Create audio file for contemplation practice
 
@@ -273,7 +276,7 @@ def create_contemplation_audio(tts: TTSEngine, text: str, output_dir: str = './g
 
     # Create filename from first few words
     words = text.split()[:5]
-    filename = '_'.join(words) + '.mp3'
+    filename = "_".join(words) + ".mp3"
     filepath = os.path.join(output_dir, filename)
 
     tts.save_to_file(text, filepath)
@@ -306,9 +309,11 @@ if __name__ == "__main__":
 
         # Test teaching
         print("\n3. Testing dharma teaching...")
-        teaching = "Compassion is the wish for others to be free from suffering. " \
-                  "It arises naturally when we see the struggles of other beings. " \
-                  "We can cultivate compassion through meditation and daily practice."
+        teaching = (
+            "Compassion is the wish for others to be free from suffering. "
+            "It arises naturally when we see the struggles of other beings. "
+            "We can cultivate compassion through meditation and daily practice."
+        )
         tts.speak_teaching(teaching)
 
         # Test guided meditation

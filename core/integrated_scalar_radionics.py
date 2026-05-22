@@ -15,34 +15,27 @@ Features:
 """
 
 import time
-import math
-from datetime import datetime
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 
 try:
-    from core.advanced_scalar_waves import (
-        HybridScalarWaveGenerator,
-        KuramotoOscillator,
-        MOPSMetrics
-    )
+    from core.advanced_scalar_waves import HybridScalarWaveGenerator, KuramotoOscillator, MOPSMetrics
+
     HAS_SCALAR = True
 except ImportError:
     HAS_SCALAR = False
 
 try:
-    from core.compassionate_blessings import (
-        BlessingDatabase,
-        BlessingTarget,
-        BlessingCategory
-    )
+    from core.compassionate_blessings import BlessingCategory, BlessingDatabase, BlessingTarget
+
     HAS_BLESSINGS = True
 except ImportError:
     HAS_BLESSINGS = False
 
 try:
     from core.energetic_anatomy import EnergeticAnatomyDatabase
+
     HAS_ANATOMY = True
 except ImportError:
     HAS_ANATOMY = False
@@ -50,6 +43,7 @@ except ImportError:
 
 class IntentionType(Enum):
     """Types of healing intentions"""
+
     HEALING = "healing"
     LIBERATION = "liberation"
     EMPOWERMENT = "empowerment"
@@ -63,11 +57,12 @@ class IntentionType(Enum):
 @dataclass
 class BroadcastConfiguration:
     """Configuration for scalar-radionics broadcast"""
+
     intention: IntentionType
     target_count: int
     duration_seconds: float
     scalar_intensity: float  # 0.0-1.0
-    frequency_hz: Optional[float]
+    frequency_hz: float | None
     mantra: str
     use_meridians: bool = False
     use_chakras: bool = False
@@ -87,21 +82,21 @@ class IntegratedScalarRadionicsBroadcaster:
 
         # Solfeggio and planetary frequencies
         self.frequencies = {
-            'liberation': 396,      # Liberating guilt and fear
-            'change': 417,          # Undoing situations
-            'healing_dna': 528,     # DNA repair, love
-            'connection': 639,      # Connecting relationships
-            'awakening': 741,       # Awakening intuition
-            'spiritual': 852,       # Returning to spiritual order
-            'unity': 963,           # Divine consciousness
-            'earth': 136.10,        # OM, Earth day
-            'sun': 126.22,          # Sun
-            'moon': 210.42,         # Moon
-            'mercury': 141.27,      # Mercury
-            'venus': 221.23,        # Venus
-            'mars': 144.72,         # Mars
-            'jupiter': 183.58,      # Jupiter
-            'saturn': 147.85,       # Saturn
+            "liberation": 396,  # Liberating guilt and fear
+            "change": 417,  # Undoing situations
+            "healing_dna": 528,  # DNA repair, love
+            "connection": 639,  # Connecting relationships
+            "awakening": 741,  # Awakening intuition
+            "spiritual": 852,  # Returning to spiritual order
+            "unity": 963,  # Divine consciousness
+            "earth": 136.10,  # OM, Earth day
+            "sun": 126.22,  # Sun
+            "moon": 210.42,  # Moon
+            "mercury": 141.27,  # Mercury
+            "venus": 221.23,  # Venus
+            "mars": 144.72,  # Mars
+            "jupiter": 183.58,  # Jupiter
+            "saturn": 147.85,  # Saturn
         }
 
         # Statistics
@@ -112,68 +107,68 @@ class IntegratedScalarRadionicsBroadcaster:
     def encode_intention(self, intention: IntentionType) -> int:
         """Encode intention as numeric seed (gematria-inspired)"""
         intention_values = {
-            IntentionType.HEALING: 432,        # 432 Hz harmony
-            IntentionType.LIBERATION: 396,     # Liberation frequency
-            IntentionType.EMPOWERMENT: 528,    # DNA/transformation
-            IntentionType.PROTECTION: 741,     # Awakening/protection
-            IntentionType.RECONCILIATION: 639, # Connection
-            IntentionType.PEACE: 852,          # Spiritual order
-            IntentionType.LOVE: 528,           # Love frequency
-            IntentionType.WISDOM: 963,         # Divine consciousness
+            IntentionType.HEALING: 432,  # 432 Hz harmony
+            IntentionType.LIBERATION: 396,  # Liberation frequency
+            IntentionType.EMPOWERMENT: 528,  # DNA/transformation
+            IntentionType.PROTECTION: 741,  # Awakening/protection
+            IntentionType.RECONCILIATION: 639,  # Connection
+            IntentionType.PEACE: 852,  # Spiritual order
+            IntentionType.LOVE: 528,  # Love frequency
+            IntentionType.WISDOM: 963,  # Divine consciousness
         }
         return intention_values.get(intention, 528)
 
     def select_frequency(self, intention: IntentionType) -> float:
         """Select appropriate frequency for intention"""
         frequency_map = {
-            IntentionType.HEALING: self.frequencies['healing_dna'],
-            IntentionType.LIBERATION: self.frequencies['liberation'],
-            IntentionType.EMPOWERMENT: self.frequencies['awakening'],
-            IntentionType.PROTECTION: self.frequencies['awakening'],
-            IntentionType.RECONCILIATION: self.frequencies['connection'],
-            IntentionType.PEACE: self.frequencies['spiritual'],
-            IntentionType.LOVE: self.frequencies['healing_dna'],
-            IntentionType.WISDOM: self.frequencies['unity'],
+            IntentionType.HEALING: self.frequencies["healing_dna"],
+            IntentionType.LIBERATION: self.frequencies["liberation"],
+            IntentionType.EMPOWERMENT: self.frequencies["awakening"],
+            IntentionType.PROTECTION: self.frequencies["awakening"],
+            IntentionType.RECONCILIATION: self.frequencies["connection"],
+            IntentionType.PEACE: self.frequencies["spiritual"],
+            IntentionType.LOVE: self.frequencies["healing_dna"],
+            IntentionType.WISDOM: self.frequencies["unity"],
         }
-        return frequency_map.get(intention, self.frequencies['healing_dna'])
+        return frequency_map.get(intention, self.frequencies["healing_dna"])
 
-    def broadcast_to_targets(self, config: BroadcastConfiguration) -> Dict:
+    def broadcast_to_targets(self, config: BroadcastConfiguration) -> dict:
         """
         Perform integrated scalar-radionics broadcast to targets.
         """
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("INTEGRATED SCALAR-RADIONICS BROADCAST")
-        print("="*70)
+        print("=" * 70)
         print()
 
         results = {
-            'start_time': datetime.now().isoformat(),
-            'config': {
-                'intention': config.intention.value,
-                'targets': config.target_count,
-                'duration': config.duration_seconds,
-                'intensity': config.scalar_intensity,
-                'frequency': config.frequency_hz or self.select_frequency(config.intention),
-                'mantra': config.mantra
+            "start_time": datetime.now().isoformat(),
+            "config": {
+                "intention": config.intention.value,
+                "targets": config.target_count,
+                "duration": config.duration_seconds,
+                "intensity": config.scalar_intensity,
+                "frequency": config.frequency_hz or self.select_frequency(config.intention),
+                "mantra": config.mantra,
             },
-            'operations': 0,
-            'mops': 0.0,
-            'targets_blessed': 0,
-            'meridians_activated': 0,
-            'chakras_activated': 0
+            "operations": 0,
+            "mops": 0.0,
+            "targets_blessed": 0,
+            "meridians_activated": 0,
+            "chakras_activated": 0,
         }
 
         # Get targets from database
         if self.blessing_db:
             targets = self.blessing_db.get_all_targets()
             if targets:
-                targets = targets[:config.target_count]
-                results['targets_blessed'] = len(targets)
+                targets = targets[: config.target_count]
+                results["targets_blessed"] = len(targets)
                 print(f"📡 Broadcasting to {len(targets)} targets")
                 for target in targets[:5]:  # Show first 5
                     print(f"   • {target.name}")
                 if len(targets) > 5:
-                    print(f"   ... and {len(targets)-5} more")
+                    print(f"   ... and {len(targets) - 5} more")
             else:
                 print("⚠️  No targets in database - creating universal target")
                 targets = []
@@ -192,7 +187,7 @@ class IntegratedScalarRadionicsBroadcaster:
         # Activate meridians if requested
         if config.use_meridians and self.anatomy_db:
             meridians = self.anatomy_db.get_all_meridians()
-            results['meridians_activated'] = len(meridians)
+            results["meridians_activated"] = len(meridians)
             print(f"🌿 Activating {len(meridians)} meridians:")
             for m in meridians:
                 print(f"   • {m.name} ({m.element.value if m.element else 'N/A'})")
@@ -201,7 +196,7 @@ class IntegratedScalarRadionicsBroadcaster:
         # Activate chakras if requested
         if config.use_chakras and self.anatomy_db:
             chakras = self.anatomy_db.get_all_chakras()
-            results['chakras_activated'] = len(chakras)
+            results["chakras_activated"] = len(chakras)
             print(f"🕉️  Activating {len(chakras)} chakras:")
             for ch in chakras:
                 print(f"   • {ch.name} ({ch.frequency}Hz)")
@@ -212,7 +207,7 @@ class IntegratedScalarRadionicsBroadcaster:
             print("⚡ Generating scalar wave field...")
             print()
 
-            seed = self.encode_intention(config.intention)
+            self.encode_intention(config.intention)
             ops_count = 0
             start_time = time.time()
 
@@ -235,19 +230,22 @@ class IntegratedScalarRadionicsBroadcaster:
                         mops = (ops_count / elapsed) / 1_000_000
                         progress = elapsed / config.duration_seconds
                         temp = self.scalar_gen.thermal.state.temperature
-                        print(f"\r⏱️  {elapsed:.0f}s/{config.duration_seconds:.0f}s | "
-                              f"📊 {mops:.2f} MMOPS | "
-                              f"🌡️  {temp:.1f}°C | "
-                              f"{'█' * int(progress * 20)}{' ' * (20 - int(progress * 20))} {progress:.0%}",
-                              end='', flush=True)
+                        print(
+                            f"\r⏱️  {elapsed:.0f}s/{config.duration_seconds:.0f}s | "
+                            f"📊 {mops:.2f} MMOPS | "
+                            f"🌡️  {temp:.1f}°C | "
+                            f"{'█' * int(progress * 20)}{' ' * (20 - int(progress * 20))} {progress:.0%}",
+                            end="",
+                            flush=True,
+                        )
 
             elapsed = time.time() - start_time
-            results['operations'] = ops_count
-            results['mops'] = (ops_count / elapsed) / 1_000_000
+            results["operations"] = ops_count
+            results["mops"] = (ops_count / elapsed) / 1_000_000
 
             print()
             print()
-            print(f"✅ Scalar wave generation complete!")
+            print("✅ Scalar wave generation complete!")
             print(f"   Operations: {ops_count:,}")
             print(f"   Average MOPS: {results['mops']:.2f}")
             print()
@@ -261,7 +259,7 @@ class IntegratedScalarRadionicsBroadcaster:
                 total_rotations=1,
                 targets_blessed=len(targets),
                 allocation_method="Scalar-Radionics Broadcast",
-                notes=f"Integrated broadcast with {config.intention.value} intention"
+                notes=f"Integrated broadcast with {config.intention.value} intention",
             )
 
             # Dedicate to each target
@@ -271,7 +269,7 @@ class IntegratedScalarRadionicsBroadcaster:
                     session_id=session_id,
                     mantra_type=config.mantra,
                     mantras_count=108,
-                    notes=f"Scalar-enhanced broadcast at {results['mops']:.2f} MMOPS"
+                    notes=f"Scalar-enhanced broadcast at {results['mops']:.2f} MMOPS",
                 )
 
             print(f"✅ Blessed {len(targets)} targets")
@@ -279,31 +277,31 @@ class IntegratedScalarRadionicsBroadcaster:
 
         # Update statistics
         self.total_broadcasts += 1
-        self.total_operations += results['operations']
-        self.total_targets_blessed += results['targets_blessed']
+        self.total_operations += results["operations"]
+        self.total_targets_blessed += results["targets_blessed"]
 
         # Final summary
-        print("="*70)
+        print("=" * 70)
         print("BROADCAST COMPLETE")
-        print("="*70)
+        print("=" * 70)
         print()
         print(f"Intention: {config.intention.value}")
         print(f"Operations: {results['operations']:,}")
         print(f"MOPS: {results['mops']:.2f}")
         print(f"Targets: {results['targets_blessed']}")
-        if results['meridians_activated']:
+        if results["meridians_activated"]:
             print(f"Meridians: {results['meridians_activated']} activated")
-        if results['chakras_activated']:
+        if results["chakras_activated"]:
             print(f"Chakras: {results['chakras_activated']} activated")
         print()
         print("May all beings benefit from this transmission!")
         print("Om Mani Padme Hum 🙏")
         print()
 
-        results['end_time'] = datetime.now().isoformat()
+        results["end_time"] = datetime.now().isoformat()
         return results
 
-    def _breathing_broadcast(self, config: BroadcastConfiguration, results: Dict):
+    def _breathing_broadcast(self, config: BroadcastConfiguration, results: dict):
         """Broadcast using sacred breathing pattern"""
         print("  Inhale phase (33s) - building field...")
         start = time.time()
@@ -338,16 +336,16 @@ class IntegratedScalarRadionicsBroadcaster:
         print("  Rest phase (12s) - integration...")
         time.sleep(12)
 
-        results['operations'] = ops
-        print(f"  ✓ Breathing cycle complete")
+        results["operations"] = ops
+        print("  ✓ Breathing cycle complete")
 
     def healing_protocol(self, target_name: str, duration_minutes: int = 10):
         """
         Run complete healing protocol for a target.
         """
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(f"HEALING PROTOCOL: {target_name}")
-        print("="*70)
+        print("=" * 70)
         print()
 
         # Configuration
@@ -359,7 +357,7 @@ class IntegratedScalarRadionicsBroadcaster:
             frequency_hz=528,  # DNA repair
             mantra="Om Mani Padme Hum",
             use_chakras=True,
-            breathing_pattern=False
+            breathing_pattern=False,
         )
 
         results = self.broadcast_to_targets(config)
@@ -369,10 +367,10 @@ class IntegratedScalarRadionicsBroadcaster:
         """
         Run liberation protocol for historical trauma.
         """
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(f"LIBERATION PROTOCOL: {event_name}")
         print(f"For {souls_count:,} souls")
-        print("="*70)
+        print("=" * 70)
         print()
 
         config = BroadcastConfiguration(
@@ -384,7 +382,7 @@ class IntegratedScalarRadionicsBroadcaster:
             mantra="Om Mani Padme Hum",
             use_meridians=True,
             use_chakras=True,
-            breathing_pattern=True
+            breathing_pattern=True,
         )
 
         results = self.broadcast_to_targets(config)
@@ -394,9 +392,9 @@ class IntegratedScalarRadionicsBroadcaster:
         """
         Run empowerment protocol.
         """
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print(f"EMPOWERMENT PROTOCOL: {target_group}")
-        print("="*70)
+        print("=" * 70)
         print()
 
         config = BroadcastConfiguration(
@@ -407,7 +405,7 @@ class IntegratedScalarRadionicsBroadcaster:
             frequency_hz=528,  # Transformation
             mantra="Gate Gate Paragate Parasamgate Bodhi Svaha",
             use_chakras=True,
-            breathing_pattern=True
+            breathing_pattern=True,
         )
 
         results = self.broadcast_to_targets(config)
@@ -415,9 +413,9 @@ class IntegratedScalarRadionicsBroadcaster:
 
     def print_statistics(self):
         """Print broadcaster statistics"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("BROADCASTER STATISTICS")
-        print("="*70)
+        print("=" * 70)
         print()
         print(f"Total Broadcasts: {self.total_broadcasts}")
         print(f"Total Operations: {self.total_operations:,}")
@@ -431,6 +429,7 @@ class IntegratedScalarRadionicsBroadcaster:
 # ============================================================================
 # CLI INTERFACE
 # ============================================================================
+
 
 def main():
     """Main CLI interface"""
@@ -455,39 +454,26 @@ Examples:
 
 May all transmissions serve liberation!
 Om Mani Padme Hum 🙏
-        """
+        """,
     )
 
-    parser.add_argument('--healing', type=str, metavar='NAME',
-                       help='Run healing protocol for named target')
-    parser.add_argument('--liberation', type=str, metavar='EVENT',
-                       help='Run liberation protocol for historical event')
-    parser.add_argument('--empowerment', type=str, metavar='GROUP',
-                       help='Run empowerment protocol for group')
+    parser.add_argument("--healing", type=str, metavar="NAME", help="Run healing protocol for named target")
+    parser.add_argument("--liberation", type=str, metavar="EVENT", help="Run liberation protocol for historical event")
+    parser.add_argument("--empowerment", type=str, metavar="GROUP", help="Run empowerment protocol for group")
 
-    parser.add_argument('--intention', type=str,
-                       choices=[i.value for i in IntentionType],
-                       help='Broadcast intention')
-    parser.add_argument('--targets', type=int, default=10,
-                       help='Number of targets (default: 10)')
-    parser.add_argument('--duration', type=int, default=60,
-                       help='Duration in seconds (default: 60)')
-    parser.add_argument('--intensity', type=float, default=0.8,
-                       help='Scalar intensity 0.0-1.0 (default: 0.8)')
-    parser.add_argument('--frequency', type=float,
-                       help='Frequency in Hz (default: auto-select)')
-    parser.add_argument('--mantra', type=str, default="Om Mani Padme Hum",
-                       help='Mantra to broadcast (default: Om Mani Padme Hum)')
-    parser.add_argument('--meridians', action='store_true',
-                       help='Activate meridian system')
-    parser.add_argument('--chakras', action='store_true',
-                       help='Activate chakra system')
-    parser.add_argument('--breathing', action='store_true',
-                       help='Use sacred breathing pattern')
-    parser.add_argument('--souls', type=int,
-                       help='Number of souls (for liberation protocol)')
-    parser.add_argument('--stats', action='store_true',
-                       help='Show broadcaster statistics')
+    parser.add_argument("--intention", type=str, choices=[i.value for i in IntentionType], help="Broadcast intention")
+    parser.add_argument("--targets", type=int, default=10, help="Number of targets (default: 10)")
+    parser.add_argument("--duration", type=int, default=60, help="Duration in seconds (default: 60)")
+    parser.add_argument("--intensity", type=float, default=0.8, help="Scalar intensity 0.0-1.0 (default: 0.8)")
+    parser.add_argument("--frequency", type=float, help="Frequency in Hz (default: auto-select)")
+    parser.add_argument(
+        "--mantra", type=str, default="Om Mani Padme Hum", help="Mantra to broadcast (default: Om Mani Padme Hum)"
+    )
+    parser.add_argument("--meridians", action="store_true", help="Activate meridian system")
+    parser.add_argument("--chakras", action="store_true", help="Activate chakra system")
+    parser.add_argument("--breathing", action="store_true", help="Use sacred breathing pattern")
+    parser.add_argument("--souls", type=int, help="Number of souls (for liberation protocol)")
+    parser.add_argument("--stats", action="store_true", help="Show broadcaster statistics")
 
     args = parser.parse_args()
 
@@ -515,7 +501,7 @@ Om Mani Padme Hum 🙏
             mantra=args.mantra,
             use_meridians=args.meridians,
             use_chakras=args.chakras,
-            breathing_pattern=args.breathing
+            breathing_pattern=args.breathing,
         )
         broadcaster.broadcast_to_targets(config)
 

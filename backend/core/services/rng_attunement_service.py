@@ -4,18 +4,20 @@ Inspired by Ken Ogger's Super Scio and E-meter technology
 Provides quantum-random readings that may be influenced by psychic/paranormal activity
 """
 
-import numpy as np
-import time
-from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
-from enum import Enum
-from collections import deque
 import hashlib
 import secrets
+import time
+from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
+
+import numpy as np
 
 
 class NeedleState(str, Enum):
     """E-meter style needle states"""
+
     STUCK = "stuck"  # No movement
     RISING = "rising"  # Moving up (increasing charge)
     FALLING = "falling"  # Moving down (releasing charge)
@@ -26,6 +28,7 @@ class NeedleState(str, Enum):
 
 class ReadingQuality(str, Enum):
     """Quality of the attunement reading"""
+
     EXCELLENT = "excellent"  # Clear, stable signal
     GOOD = "good"  # Stable with minor fluctuations
     FAIR = "fair"  # Some noise
@@ -36,6 +39,7 @@ class ReadingQuality(str, Enum):
 @dataclass
 class AttunementReading:
     """Single RNG attunement reading"""
+
     timestamp: float
     raw_value: float  # Raw RNG value 0.0-1.0
     tone_arm: float  # E-meter tone arm position 0.0-10.0
@@ -51,6 +55,7 @@ class AttunementReading:
 @dataclass
 class AttunementSession:
     """RNG Attunement session tracking"""
+
     session_id: str
     start_time: float
     readings: deque = field(default_factory=lambda: deque(maxlen=1000))
@@ -59,7 +64,7 @@ class AttunementSession:
     is_active: bool = True
     total_readings: int = 0
     floating_needle_count: int = 0
-    last_fn_time: Optional[float] = None
+    last_fn_time: float | None = None
 
     def add_reading(self, reading: AttunementReading):
         """Add a reading to the session"""
@@ -85,7 +90,7 @@ class RNGAttunementService:
     """
 
     def __init__(self):
-        self.sessions: Dict[str, AttunementSession] = {}
+        self.sessions: dict[str, AttunementSession] = {}
         self.global_baseline = 5.0
         self._entropy_pool = deque(maxlen=100)
         self._initialize_entropy_pool()
@@ -99,7 +104,7 @@ class RNGAttunementService:
             timestamp_bytes = str(time.time()).encode()
             combined = hashlib.sha256(entropy_bytes + timestamp_bytes).digest()
             # Convert to float 0.0-1.0
-            entropy_value = int.from_bytes(combined[:4], 'big') / (2**32)
+            entropy_value = int.from_bytes(combined[:4], "big") / (2**32)
             self._entropy_pool.append(entropy_value)
 
     def _generate_quantum_like_random(self) -> float:
@@ -125,19 +130,14 @@ class RNGAttunementService:
 
         # Combine with weighted average
         # This combination is where consciousness influence might occur
-        combined = (
-            primary * 0.4 +
-            secondary * 0.3 +
-            time_component * 0.2 +
-            pool_sample * 0.1
-        )
+        combined = primary * 0.4 + secondary * 0.3 + time_component * 0.2 + pool_sample * 0.1
 
         # Add to entropy pool for feedback
         self._entropy_pool.append(combined)
 
         return combined
 
-    def _calculate_entropy(self, recent_values: List[float]) -> float:
+    def _calculate_entropy(self, recent_values: list[float]) -> float:
         """
         Calculate Shannon entropy of recent readings
         High entropy = high randomness/chaos
@@ -156,7 +156,7 @@ class RNGAttunementService:
 
         return float(normalized_entropy)
 
-    def _calculate_coherence(self, recent_values: List[float]) -> float:
+    def _calculate_coherence(self, recent_values: list[float]) -> float:
         """
         Calculate coherence (inverse of variance)
         High coherence = low variance = more ordered/patterned
@@ -171,10 +171,7 @@ class RNGAttunementService:
         return float(coherence)
 
     def _detect_needle_state(
-        self,
-        current_position: float,
-        recent_positions: List[float],
-        recent_velocities: List[float]
+        self, current_position: float, recent_positions: list[float], recent_velocities: list[float]
     ) -> NeedleState:
         """
         Detect E-meter style needle state
@@ -195,9 +192,7 @@ class RNGAttunementService:
         avg_velocity = np.mean(recent_velocities) if recent_velocities else 0
 
         # Floating Needle: small oscillations, low velocity, near zero
-        if (position_range < 5 and
-            velocity_std < 2 and
-            abs(np.mean(recent_positions)) < 10):
+        if position_range < 5 and velocity_std < 2 and abs(np.mean(recent_positions)) < 10:
             return NeedleState.FLOATING
 
         # Rock Slam: high velocity variation, large swings
@@ -208,10 +203,10 @@ class RNGAttunementService:
         # Check for periodicity using autocorrelation
         if len(recent_positions) >= 10:
             positions_array = np.array(recent_positions)
-            autocorr = np.correlate(positions_array - np.mean(positions_array),
-                                   positions_array - np.mean(positions_array),
-                                   mode='same')
-            if np.max(autocorr[1:]) > 0.7 * autocorr[len(autocorr)//2]:
+            autocorr = np.correlate(
+                positions_array - np.mean(positions_array), positions_array - np.mean(positions_array), mode="same"
+            )
+            if np.max(autocorr[1:]) > 0.7 * autocorr[len(autocorr) // 2]:
                 return NeedleState.THETA_BOP
 
         # Rising: consistent upward trend
@@ -226,10 +221,7 @@ class RNGAttunementService:
         return NeedleState.STUCK
 
     def _calculate_floating_needle_score(
-        self,
-        needle_state: NeedleState,
-        coherence: float,
-        recent_positions: List[float]
+        self, needle_state: NeedleState, coherence: float, recent_positions: list[float]
     ) -> float:
         """
         Calculate likelihood of genuine Floating Needle (0.0-1.0)
@@ -260,19 +252,12 @@ class RNGAttunementService:
 
         return min(1.0, score)
 
-    def _assess_reading_quality(
-        self,
-        entropy: float,
-        coherence: float,
-        needle_state: NeedleState
-    ) -> ReadingQuality:
+    def _assess_reading_quality(self, entropy: float, coherence: float, needle_state: NeedleState) -> ReadingQuality:
         """
         Assess overall quality of the reading
         """
         # Excellent: high coherence, moderate entropy, stable needle
-        if (coherence > 0.7 and
-            0.3 < entropy < 0.7 and
-            needle_state in [NeedleState.FLOATING, NeedleState.THETA_BOP]):
+        if coherence > 0.7 and 0.3 < entropy < 0.7 and needle_state in [NeedleState.FLOATING, NeedleState.THETA_BOP]:
             return ReadingQuality.EXCELLENT
 
         # Good: decent coherence, reasonable entropy
@@ -291,10 +276,7 @@ class RNGAttunementService:
         return ReadingQuality.FAIR
 
     def create_session(
-        self,
-        session_id: Optional[str] = None,
-        baseline_tone_arm: float = 5.0,
-        sensitivity: float = 1.0
+        self, session_id: str | None = None, baseline_tone_arm: float = 5.0, sensitivity: float = 1.0
     ) -> str:
         """
         Create a new attunement session
@@ -311,16 +293,13 @@ class RNGAttunementService:
             session_id = f"rng_session_{int(time.time())}_{secrets.token_hex(4)}"
 
         session = AttunementSession(
-            session_id=session_id,
-            start_time=time.time(),
-            baseline_tone_arm=baseline_tone_arm,
-            sensitivity=sensitivity
+            session_id=session_id, start_time=time.time(), baseline_tone_arm=baseline_tone_arm, sensitivity=sensitivity
         )
 
         self.sessions[session_id] = session
         return session_id
 
-    def get_reading(self, session_id: str) -> Optional[AttunementReading]:
+    def get_reading(self, session_id: str) -> AttunementReading | None:
         """
         Get a new attunement reading for a session
 
@@ -361,10 +340,7 @@ class RNGAttunementService:
         recent_positions = [r.needle_position for r in list(session.readings)[-20:]]
         recent_velocities = []
         if len(recent_positions) >= 2:
-            recent_velocities = [
-                recent_positions[i] - recent_positions[i-1]
-                for i in range(1, len(recent_positions))
-            ]
+            recent_velocities = [recent_positions[i] - recent_positions[i - 1] for i in range(1, len(recent_positions))]
 
         # Calculate entropy and coherence
         recent_values = recent_raw + [raw_value]
@@ -373,9 +349,7 @@ class RNGAttunementService:
 
         # Detect needle state
         needle_state = self._detect_needle_state(
-            needle_position,
-            recent_positions + [needle_position],
-            recent_velocities
+            needle_position, recent_positions + [needle_position], recent_velocities
         )
 
         # Calculate trend
@@ -385,11 +359,7 @@ class RNGAttunementService:
             trend = 0.0
 
         # Calculate floating needle score
-        fn_score = self._calculate_floating_needle_score(
-            needle_state,
-            coherence,
-            recent_positions + [needle_position]
-        )
+        fn_score = self._calculate_floating_needle_score(needle_state, coherence, recent_positions + [needle_position])
 
         # Assess quality
         quality = self._assess_reading_quality(entropy, coherence, needle_state)
@@ -405,7 +375,7 @@ class RNGAttunementService:
             entropy=entropy,
             coherence=coherence,
             trend=trend,
-            floating_needle_score=fn_score
+            floating_needle_score=fn_score,
         )
 
         # Add to session
@@ -413,7 +383,7 @@ class RNGAttunementService:
 
         return reading
 
-    def get_session_summary(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_session_summary(self, session_id: str) -> dict[str, Any] | None:
         """Get summary statistics for a session"""
         session = self.sessions.get(session_id)
         if not session:
@@ -421,12 +391,7 @@ class RNGAttunementService:
 
         readings = list(session.readings)
         if not readings:
-            return {
-                "session_id": session_id,
-                "total_readings": 0,
-                "duration_seconds": 0,
-                "status": "no_data"
-            }
+            return {"session_id": session_id, "total_readings": 0, "duration_seconds": 0, "status": "no_data"}
 
         return {
             "session_id": session_id,
@@ -438,14 +403,12 @@ class RNGAttunementService:
             "avg_coherence": float(np.mean([r.coherence for r in readings])),
             "avg_entropy": float(np.mean([r.entropy for r in readings])),
             "needle_state_distribution": {
-                state.value: sum(1 for r in readings if r.needle_state == state)
-                for state in NeedleState
+                state.value: sum(1 for r in readings if r.needle_state == state) for state in NeedleState
             },
             "quality_distribution": {
-                quality.value: sum(1 for r in readings if r.quality == quality)
-                for quality in ReadingQuality
+                quality.value: sum(1 for r in readings if r.quality == quality) for quality in ReadingQuality
             },
-            "is_active": session.is_active
+            "is_active": session.is_active,
         }
 
     def stop_session(self, session_id: str) -> bool:
@@ -456,13 +419,13 @@ class RNGAttunementService:
             return True
         return False
 
-    def get_all_sessions(self) -> List[str]:
+    def get_all_sessions(self) -> list[str]:
         """Get all session IDs"""
         return list(self.sessions.keys())
 
 
 # Global service instance
-_rng_service: Optional[RNGAttunementService] = None
+_rng_service: RNGAttunementService | None = None
 
 
 def get_rng_service() -> RNGAttunementService:

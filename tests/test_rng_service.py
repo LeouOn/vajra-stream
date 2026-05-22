@@ -1,9 +1,9 @@
 import pytest
 
 from backend.core.services.rng_attunement_service import (
-    RNGAttunementService,
     NeedleState,
     ReadingQuality,
+    RNGAttunementService,
 )
 
 

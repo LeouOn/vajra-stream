@@ -4,13 +4,13 @@ Test all data flows in Vajra.Stream with local LLM at http://127.0.0.1:1234
 Tests: PrayerWheel → DharmaTales → LLM → Audio → PersonalHealing
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
 import requests
-import json
-from datetime import datetime
 
 LLM_BASE_URL = "http://127.0.0.1:1234"
 LLM_MODEL = "gemma-4-e4b-it-uncensored-max-opus-4.7"
@@ -22,10 +22,9 @@ class LocalLLMIntegration:
     def __init__(self, base_url: str = LLM_BASE_URL, model: str = LLM_MODEL):
         self.base_url = base_url
         self.model = model
-        self.model_type = 'local'
+        self.model_type = "local"
 
-    def generate(self, prompt: str, system_prompt: str = None,
-                 max_tokens: int = 500, temperature: float = 0.7) -> str:
+    def generate(self, prompt: str, system_prompt: str = None, max_tokens: int = 500, temperature: float = 0.7) -> str:
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -33,19 +32,14 @@ class LocalLLMIntegration:
 
         resp = requests.post(
             f"{self.base_url}/v1/chat/completions",
-            json={
-                "model": self.model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature
-            },
-            timeout=120
+            json={"model": self.model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature},
+            timeout=120,
         )
 
         if resp.status_code != 200:
             raise Exception(f"LLM error: {resp.status_code} - {resp.text}")
 
-        return resp.json()['choices'][0]['message']['content']
+        return resp.json()["choices"][0]["message"]["content"]
 
     def list_models(self):
         resp = requests.get(f"{self.base_url}/v1/models")
@@ -53,9 +47,9 @@ class LocalLLMIntegration:
 
 
 def test_llm_connectivity():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 1: LLM Connectivity")
-    print("="*60)
+    print("=" * 60)
 
     llm = LocalLLMIntegration()
 
@@ -67,18 +61,18 @@ def test_llm_connectivity():
 
     result = llm.generate("Respond with exactly one word: hello")
     print(f"  Test generation: '{result}'")
-    print(f"  [OK] LLM connectivity OK")
+    print("  [OK] LLM connectivity OK")
     return True
 
 
 def test_prayer_wheel_with_llm():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 2: Prayer Wheel → LLM → Prayer Text")
-    print("="*60)
+    print("=" * 60)
 
     try:
-        from core.prayer_wheel import PrayerWheel
         from core.audio_generator import ScalarWaveGenerator
+        from core.prayer_wheel import PrayerWheel
     except ImportError as e:
         print(f"  [FAIL] Import failed: {e}")
         return False
@@ -97,9 +91,9 @@ def test_prayer_wheel_with_llm():
 
 
 def test_dharma_tales_with_llm():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 3: DharmaTalesGenerator → LLM → Teaching Story")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from core.dharma_tales import DharmaTalesGenerator
@@ -119,9 +113,9 @@ def test_dharma_tales_with_llm():
 
 
 def test_audio_generation():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 4: AudioGenerator → Frequency Waves")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from core.audio_generator import ScalarWaveGenerator
@@ -145,9 +139,9 @@ def test_audio_generation():
 
 
 def test_personal_healing_module():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 5: PersonalHealingModule → Chakra Balancing")
-    print("="*60)
+    print("=" * 60)
 
     try:
         from modules.personal_healing import PersonalHealingModule
@@ -158,7 +152,7 @@ def test_personal_healing_module():
     phm = PersonalHealingModule()
 
     print("  Running chakra healing sequence for 'balance' intention...")
-    sequence = phm.create_chakra_healing_sequence(sequence_type='full', duration_per=1)
+    sequence = phm.create_chakra_healing_sequence(sequence_type="full", duration_per=1)
     print(f"    Sequence type: {sequence['type']}")
     print(f"    Total duration: {sequence['total_duration']}s")
     print(f"    Chakras: {[c['name'] for c in sequence['chakras']]}")
@@ -167,14 +161,14 @@ def test_personal_healing_module():
 
 
 def test_full_flow():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 6: Full Flow - PrayerWheel → DharmaTales → Audio")
-    print("="*60)
+    print("=" * 60)
 
     try:
-        from core.prayer_wheel import PrayerWheel
         from core.audio_generator import ScalarWaveGenerator
         from core.dharma_tales import DharmaTalesGenerator
+        from core.prayer_wheel import PrayerWheel
         from modules.personal_healing import PersonalHealingModule
     except ImportError as e:
         print(f"  [FAIL] Import failed: {e}")
@@ -198,13 +192,13 @@ def test_full_flow():
     print(f"    Story: {story[:100]}...")
 
     print("  Step 3: Get chakra frequencies...")
-    sequence = phm.create_chakra_healing_sequence(sequence_type='full', duration_per=1)
+    sequence = phm.create_chakra_healing_sequence(sequence_type="full", duration_per=1)
     print(f"    Chakras: {[c['name'] for c in sequence['chakras']]}")
 
     print("  Step 4: Generate layered audio...")
     freqs = []
-    for c in sequence['chakras'][:3]:
-        freq = c['frequencies']['root']
+    for c in sequence["chakras"][:3]:
+        freq = c["frequencies"]["root"]
         freqs.append((freq, 0.3))
     wave = audio.layer_frequencies(freqs, duration=1)
     print(f"    Wave shape: {wave.shape}")
@@ -214,10 +208,10 @@ def test_full_flow():
 
 
 def main():
-    print("\n" + "#"*60)
+    print("\n" + "#" * 60)
     print("# VAJRA.STREAM - DATA FLOW TESTS")
     print(f"# LLM: {LLM_MODEL} at {LLM_BASE_URL}")
-    print("#"*60)
+    print("#" * 60)
 
     tests = [
         ("LLM Connectivity", test_llm_connectivity),
@@ -236,12 +230,13 @@ def main():
         except Exception as e:
             print(f"  [FAIL] FAILED: {e}")
             import traceback
+
             traceback.print_exc()
             results.append((name, False))
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY")
-    print("="*60)
+    print("=" * 60)
     for name, result in results:
         status = "[OK] PASS" if result else "[FAIL] FAIL"
         print(f"  {status}: {name}")

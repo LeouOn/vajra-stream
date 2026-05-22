@@ -5,6 +5,7 @@ import pytest
 class TestContainerInit:
     def test_container_imports(self):
         from container import container
+
         assert container is not None
 
     def test_scalar_waves_accessible(self, fresh_container):
@@ -21,6 +22,7 @@ class TestContainerInit:
 class TestVisualizationModule:
     def test_loads_and_reports_status(self):
         from modules.visualization import VisualizationService
+
         viz = VisualizationService()
         status = viz.get_status()
         assert "rothko_available" in status
@@ -31,6 +33,7 @@ class TestVisualizationModule:
 class TestAnatomyModule:
     def test_loads_with_visualization_flag(self):
         from modules.anatomy import AnatomyService
+
         anatomy = AnatomyService()
         assert hasattr(anatomy, "has_visualization")
 
@@ -39,6 +42,7 @@ class TestAnatomyModule:
 class TestAudioModule:
     def test_loads_and_reports_status(self):
         from modules.audio import AudioService
+
         audio = AudioService()
         status = audio.get_status()
         assert "audio_generator" in status
@@ -49,4 +53,5 @@ class TestAudioModule:
 class TestAPIImport:
     def test_fastapi_app_imports(self):
         from backend.app.main import app
+
         assert app is not None

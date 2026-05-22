@@ -3,23 +3,20 @@ Radionics API Endpoints for Vajra.Stream
 Integrated scalar-radionics broadcasting system
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
 import asyncio
+import json
 import logging
-import sys
 import os
+import sys
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
 
 # Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../../../'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
-from core.integrated_scalar_radionics import (
-    IntegratedScalarRadionicsBroadcaster,
-    IntentionType,
-    BroadcastConfiguration
-)
 from backend.core.orchestrator_bridge import orchestrator_bridge
+from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -30,42 +27,48 @@ router = APIRouter()
 # Global instance
 broadcaster = IntegratedScalarRadionicsBroadcaster()
 
+
 # Request Models
 class BroadcastRequest(BaseModel):
     intention: str = Field(..., description="Intention type: healing, liberation, empowerment, protection, etc.")
-    target_names: List[str] = Field(..., description="Names of targets for broadcast")
+    target_names: list[str] = Field(..., description="Names of targets for broadcast")
     duration_minutes: int = Field(default=10, ge=1, le=120, description="Duration in minutes")
-    frequency_hz: Optional[float] = Field(None, description="Specific frequency (optional, auto-selected if not provided)")
+    frequency_hz: float | None = Field(None, description="Specific frequency (optional, auto-selected if not provided)")
     scalar_intensity: float = Field(default=0.8, ge=0.0, le=1.0, description="Scalar wave intensity")
     use_chakras: bool = Field(default=True, description="Activate chakra system")
     use_meridians: bool = Field(default=False, description="Activate meridian system")
-    mantra: Optional[str] = Field(None, description="Optional mantra for broadcast")
+    mantra: str | None = Field(None, description="Optional mantra for broadcast")
     breathing_pattern: bool = Field(default=True, description="Use sacred breathing cycles")
+
 
 class HealingProtocolRequest(BaseModel):
     target_name: str = Field(..., description="Name of person/situation to heal")
     duration_minutes: int = Field(default=10, ge=1, le=120, description="Duration")
-    specific_intention: Optional[str] = Field(None, description="Specific healing intention")
+    specific_intention: str | None = Field(None, description="Specific healing intention")
+
 
 class LiberationProtocolRequest(BaseModel):
     event_name: str = Field(..., description="Name of event/situation")
     souls_count: int = Field(default=1, ge=1, description="Estimated number of souls")
     duration_minutes: int = Field(default=30, ge=10, le=180, description="Duration")
 
+
 # Response Models
 class BroadcastResponse(BaseModel):
     status: str
     session_id: str
     intention: str
-    targets: List[str]
+    targets: list[str]
     frequency_hz: float
     duration_seconds: float
     scalar_mops: float
-    chakras_activated: List[str]
-    meridians_activated: List[str]
+    chakras_activated: list[str]
+    meridians_activated: list[str]
     dedication: str
 
+
 # Endpoints
+
 
 @router.post("/broadcast", response_model=BroadcastResponse)
 async def start_broadcast(request: BroadcastRequest, background_tasks: BackgroundTasks):
@@ -76,17 +79,17 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
         # Use OrchestratorBridge to create session
         targets = [{"type": "individual", "identifier": name} for name in request.target_names]
         modalities = []
-        if request.use_chakras: modalities.append("chakras")
-        if request.use_meridians: modalities.append("meridians")
-        if request.scalar_intensity > 0: modalities.append("scalar")
-        
+        if request.use_chakras:
+            modalities.append("chakras")
+        if request.use_meridians:
+            modalities.append("meridians")
+        if request.scalar_intensity > 0:
+            modalities.append("scalar")
+
         # Create session via orchestrator
         # Note: This is a synchronous call wrapped in async in the bridge
         session_id = await orchestrator_bridge.create_session(
-            intention=request.intention,
-            targets=targets,
-            modalities=modalities,
-            duration=request.duration_minutes * 60
+            intention=request.intention, targets=targets, modalities=modalities, duration=request.duration_minutes * 60
         )
 
         # Map intention string to IntentionType enum
@@ -98,27 +101,27 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             "reconciliation": IntentionType.RECONCILIATION,
             "peace": IntentionType.PEACE,
             "love": IntentionType.LOVE,
-            "wisdom": IntentionType.WISDOM
+            "wisdom": IntentionType.WISDOM,
         }
 
         intention_type = intention_map.get(request.intention.lower(), IntentionType.HEALING)
 
         # Auto-select frequency if not provided
         frequency_mapping = {
-            "healing": 528,      # DNA repair
-            "liberation": 396,   # Liberation from fear
+            "healing": 528,  # DNA repair
+            "liberation": 396,  # Liberation from fear
             "empowerment": 528,
-            "protection": 741,   # Awakening intuition
+            "protection": 741,  # Awakening intuition
             "reconciliation": 639,  # Connecting relationships
-            "peace": 852,        # Spiritual order
+            "peace": 852,  # Spiritual order
             "love": 528,
-            "wisdom": 963        # Divine consciousness
+            "wisdom": 963,  # Divine consciousness
         }
 
         frequency_hz = request.frequency_hz or frequency_mapping.get(request.intention.lower(), 432)
 
         # Create broadcast configuration
-        config = BroadcastConfiguration(
+        BroadcastConfiguration(
             intention=intention_type,
             frequency_hz=frequency_hz,
             target_names=request.target_names,
@@ -127,7 +130,7 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             use_chakras=request.use_chakras,
             use_meridians=request.use_meridians,
             mantra=request.mantra,
-            breathing_pattern=request.breathing_pattern
+            breathing_pattern=request.breathing_pattern,
         )
 
         # Simulate broadcast (in real implementation, this would run in background)
@@ -146,10 +149,30 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
         estimated_mops = 17.73 * request.scalar_intensity
 
         # Get activated systems
-        chakras_activated = ["muladhara", "svadhisthana", "manipura", "anahata", "vishuddha", "ajna", "sahasrara"] if request.use_chakras else []
+        chakras_activated = (
+            ["muladhara", "svadhisthana", "manipura", "anahata", "vishuddha", "ajna", "sahasrara"]
+            if request.use_chakras
+            else []
+        )
 
-        meridians_activated = ["lung", "large_intestine", "stomach", "spleen", "heart", "small_intestine",
-                              "bladder", "kidney", "pericardium", "triple_warmer", "gallbladder", "liver"] if request.use_meridians else []
+        meridians_activated = (
+            [
+                "lung",
+                "large_intestine",
+                "stomach",
+                "spleen",
+                "heart",
+                "small_intestine",
+                "bladder",
+                "kidney",
+                "pericardium",
+                "triple_warmer",
+                "gallbladder",
+                "liver",
+            ]
+            if request.use_meridians
+            else []
+        )
 
         dedication = f"May all beings benefit! Dedicated to {', '.join(request.target_names)}"
 
@@ -163,7 +186,7 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             scalar_mops=estimated_mops,
             chakras_activated=chakras_activated,
             meridians_activated=meridians_activated,
-            dedication=dedication
+            dedication=dedication,
         )
 
     except Exception as e:
@@ -186,7 +209,7 @@ async def healing_protocol(request: HealingProtocolRequest, background_tasks: Ba
             use_chakras=True,
             use_meridians=False,
             mantra="Om Mani Padme Hum",
-            breathing_pattern=True
+            breathing_pattern=True,
         )
 
         response = await start_broadcast(broadcast_request, background_tasks)
@@ -195,7 +218,7 @@ async def healing_protocol(request: HealingProtocolRequest, background_tasks: Ba
             **response.dict(),
             "protocol": "healing",
             "frequency_name": "528 Hz - Solfeggio DNA Repair",
-            "specific_intention": request.specific_intention
+            "specific_intention": request.specific_intention,
         }
 
     except Exception as e:
@@ -218,7 +241,7 @@ async def liberation_protocol(request: LiberationProtocolRequest, background_tas
             use_chakras=True,
             use_meridians=True,  # Full meridian activation
             mantra="Namo Amitabha Buddha",  # Liberation mantra
-            breathing_pattern=True
+            breathing_pattern=True,
         )
 
         response = await start_broadcast(broadcast_request, background_tasks)
@@ -229,7 +252,7 @@ async def liberation_protocol(request: LiberationProtocolRequest, background_tas
             "frequency_name": "396 Hz - Liberation from Guilt & Fear",
             "souls_count": request.souls_count,
             "event": request.event_name,
-            "special_dedication": f"May the {request.souls_count} souls find peace, liberation, and the highest rebirth"
+            "special_dedication": f"May the {request.souls_count} souls find peace, liberation, and the highest rebirth",
         }
 
     except Exception as e:
@@ -248,58 +271,58 @@ async def list_intentions():
                 "name": "Healing",
                 "frequency": 528,
                 "frequency_name": "528 Hz - DNA Repair, Love, Transformation",
-                "description": "Physical, emotional, and spiritual healing"
+                "description": "Physical, emotional, and spiritual healing",
             },
             {
                 "id": "liberation",
                 "name": "Liberation",
                 "frequency": 396,
                 "frequency_name": "396 Hz - Liberation from Guilt & Fear",
-                "description": "Freedom from suffering and negative patterns"
+                "description": "Freedom from suffering and negative patterns",
             },
             {
                 "id": "empowerment",
                 "name": "Empowerment",
                 "frequency": 528,
                 "frequency_name": "528 Hz - Transformation",
-                "description": "Personal power and positive change"
+                "description": "Personal power and positive change",
             },
             {
                 "id": "protection",
                 "name": "Protection",
                 "frequency": 741,
                 "frequency_name": "741 Hz - Awakening Intuition",
-                "description": "Spiritual and energetic protection"
+                "description": "Spiritual and energetic protection",
             },
             {
                 "id": "reconciliation",
                 "name": "Reconciliation",
                 "frequency": 639,
                 "frequency_name": "639 Hz - Connecting Relationships",
-                "description": "Harmony and mending relationships"
+                "description": "Harmony and mending relationships",
             },
             {
                 "id": "peace",
                 "name": "Peace",
                 "frequency": 852,
                 "frequency_name": "852 Hz - Spiritual Order",
-                "description": "Inner and outer peace"
+                "description": "Inner and outer peace",
             },
             {
                 "id": "love",
                 "name": "Love",
                 "frequency": 528,
                 "frequency_name": "528 Hz - Love Frequency",
-                "description": "Universal compassion and loving-kindness"
+                "description": "Universal compassion and loving-kindness",
             },
             {
                 "id": "wisdom",
                 "name": "Wisdom",
                 "frequency": 963,
                 "frequency_name": "963 Hz - Divine Consciousness",
-                "description": "Higher wisdom and enlightenment"
-            }
-        ]
+                "description": "Higher wisdom and enlightenment",
+            },
+        ],
     }
 
 
@@ -315,7 +338,7 @@ async def list_frequencies():
             {"hz": 639, "name": "Connecting Relationships"},
             {"hz": 741, "name": "Awakening Intuition"},
             {"hz": 852, "name": "Returning to Spiritual Order"},
-            {"hz": 963, "name": "Divine Consciousness, Pineal Activation"}
+            {"hz": 963, "name": "Divine Consciousness, Pineal Activation"},
         ],
         "planetary_frequencies": [
             {"hz": 136.10, "name": "Earth (OM)", "chakra": "Heart"},
@@ -325,14 +348,94 @@ async def list_frequencies():
             {"hz": 183.58, "name": "Jupiter", "chakra": "Throat"},
             {"hz": 147.85, "name": "Saturn", "chakra": "Root"},
             {"hz": 207.36, "name": "Uranus", "chakra": "Third Eye"},
-            {"hz": 221.23, "name": "Neptune", "chakra": "Crown"}
+            {"hz": 221.23, "name": "Neptune", "chakra": "Crown"},
         ],
         "other_sacred_frequencies": [
             {"hz": 432, "name": "Cosmic A (Verdi's A, Natural Tuning)"},
             {"hz": 111, "name": "Holy Frequency (Cellular Regeneration)"},
-            {"hz": 7.83, "name": "Schumann Resonance (Earth's Heartbeat)"}
-        ]
+            {"hz": 7.83, "name": "Schumann Resonance (Earth's Heartbeat)"},
+        ],
     }
+
+
+@router.get("/rates/search")
+async def search_rates(query: str = "", category: str | None = None, limit: int = 20):
+    """Search radionics rates by name, description, or category"""
+    try:
+        all_rates = []
+        rate_dirs = [
+            os.path.join(os.path.dirname(__file__), "../../../../knowledge/radionics_rates"),
+        ]
+
+        for rate_dir in rate_dirs:
+            rate_dir = os.path.normpath(rate_dir)
+            if os.path.exists(rate_dir):
+                for fname in os.listdir(rate_dir):
+                    if fname.endswith(".json"):
+                        fpath = os.path.join(rate_dir, fname)
+                        try:
+                            with open(fpath, encoding="utf-8") as f:
+                                data = json.load(f)
+                            cat_name = fname.replace(".json", "").replace("_", " ")
+                            if isinstance(data, list):
+                                for entry in data:
+                                    name = entry.get("name", entry.get("rate_name", ""))
+                                    desc = entry.get("description", entry.get("notes", ""))
+                                    values = entry.get("rate", entry.get("values", []))
+                                    if isinstance(values, str):
+                                        try:
+                                            values = [int(v.strip()) for v in values.split("-")]
+                                        except ValueError:
+                                            values = []
+                                    rate_cat = entry.get("category", cat_name)
+                                    if (
+                                        query.lower() in name.lower()
+                                        or query.lower() in desc.lower()
+                                        or query.lower() in rate_cat.lower()
+                                    ):
+                                        if category and category.lower() not in rate_cat.lower():
+                                            continue
+                                        all_rates.append(
+                                            {"name": name, "description": desc, "values": values, "category": rate_cat}
+                                        )
+                        except Exception:
+                            continue
+
+        return {"status": "success", "results": all_rates[:limit], "total": len(all_rates), "query": query}
+    except Exception as e:
+        logger.error(f"Rate search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/rates/categories")
+async def list_rate_categories():
+    """List available rate categories"""
+    try:
+        categories = []
+        rate_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../../../knowledge/radionics_rates"))
+        if os.path.exists(rate_dir):
+            for fname in os.listdir(rate_dir):
+                if fname.endswith(".json"):
+                    cat_name = fname.replace(".json", "").replace("_", " ")
+                    categories.append({"id": fname.replace(".json", ""), "name": cat_name.title()})
+        return {"status": "success", "categories": categories}
+    except Exception as e:
+        logger.error(f"Rate categories error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/rates/generate-signature")
+async def generate_signature_rate(name: str, num_dials: int = 3, algorithm: str = "mixed"):
+    """Generate a radionics signature rate from a name/intention"""
+    try:
+        from core.radionics_engine import SignatureCalculator
+
+        calc = SignatureCalculator()
+        rate = calc.text_to_rate(name, num_dials=num_dials, max_value=100, algorithm=algorithm)
+        return {"status": "success", "rate": rate.to_dict()}
+    except Exception as e:
+        logger.error(f"Signature generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/status/{session_id}")
@@ -347,7 +450,7 @@ async def get_broadcast_status(session_id: str):
             "progress_percent": 75,
             "estimated_time_remaining_seconds": 120,
             "current_mops": 17.73,
-            "thermal_status": "optimal"
+            "thermal_status": "optimal",
         }
 
     except Exception as e:

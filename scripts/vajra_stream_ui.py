@@ -16,23 +16,21 @@ Usage:
 """
 
 import sys
-import time
 from pathlib import Path
-from datetime import datetime
-from typing import Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Try to import rich for beautiful terminal UI
 try:
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.table import Table
-    from rich.progress import Progress, SpinnerColumn, TextColumn
-    from rich.layout import Layout
-    from rich.text import Text
     from rich import box
+    from rich.console import Console
+    from rich.layout import Layout
+    from rich.panel import Panel
+    from rich.progress import Progress, SpinnerColumn, TextColumn
+    from rich.table import Table
+    from rich.text import Text
+
     HAS_RICH = True
 except ImportError:
     HAS_RICH = False
@@ -63,7 +61,7 @@ class VajraStreamUI:
                 "[white]Integrated Scalar-Radionics-Energetic Healing Platform[/white]\n"
                 "[dim]May all beings be free from suffering[/dim]",
                 border_style="bright_cyan",
-                box=box.DOUBLE
+                box=box.DOUBLE,
             )
             self.console.print(header)
         else:
@@ -123,7 +121,7 @@ class VajraStreamUI:
                     "[white]4.[/white] Stress Test (Safe Mode)\n"
                     "[white]5.[/white] Custom Configuration\n"
                     "[white]0.[/white] Back to Main Menu",
-                    border_style="yellow"
+                    border_style="yellow",
                 )
                 self.console.print(panel)
             else:
@@ -137,20 +135,22 @@ class VajraStreamUI:
 
             choice = input("\n Choice: ").strip()
 
-            if choice == '1':
+            if choice == "1":
                 self._run_command("python3 scripts/scalar_wave_benchmark.py --method hybrid --duration 5")
-            elif choice == '2':
+            elif choice == "2":
                 self._run_command("python3 scripts/scalar_wave_benchmark.py --all --duration 5")
-            elif choice == '3':
+            elif choice == "3":
                 cycles = input("Number of breathing cycles (default 1): ").strip() or "1"
                 self._run_command(f"python3 scripts/scalar_wave_benchmark.py --breathing --cycles {cycles}")
-            elif choice == '4':
+            elif choice == "4":
                 duration = input("Duration in seconds (default 60): ").strip() or "60"
-                self._run_command(f"python3 scripts/scalar_wave_benchmark.py --stress-test --safe --duration {duration}")
-            elif choice == '0':
+                self._run_command(
+                    f"python3 scripts/scalar_wave_benchmark.py --stress-test --safe --duration {duration}"
+                )
+            elif choice == "0":
                 break
 
-            if choice in ['1', '2', '3', '4']:
+            if choice in ["1", "2", "3", "4"]:
                 input("\nPress Enter to continue...")
 
     def radionics_menu(self):
@@ -168,7 +168,7 @@ class VajraStreamUI:
                     "[white]4.[/white] Custom Broadcast\n"
                     "[white]5.[/white] View Statistics\n"
                     "[white]0.[/white] Back to Main Menu",
-                    border_style="green"
+                    border_style="green",
                 )
                 self.console.print(panel)
             else:
@@ -182,26 +182,30 @@ class VajraStreamUI:
 
             choice = input("\nChoice: ").strip()
 
-            if choice == '1':
+            if choice == "1":
                 target = input("Target name: ").strip()
                 duration = input("Duration in minutes (default 10): ").strip() or "10"
                 if target:
-                    self._run_command(f"python3 core/integrated_scalar_radionics.py --healing '{target}' --duration {duration}")
-            elif choice == '2':
+                    self._run_command(
+                        f"python3 core/integrated_scalar_radionics.py --healing '{target}' --duration {duration}"
+                    )
+            elif choice == "2":
                 event = input("Historical event name: ").strip()
                 souls = input("Number of souls (default 1000000): ").strip() or "1000000"
                 if event:
-                    self._run_command(f"python3 core/integrated_scalar_radionics.py --liberation '{event}' --souls {souls}")
-            elif choice == '3':
+                    self._run_command(
+                        f"python3 core/integrated_scalar_radionics.py --liberation '{event}' --souls {souls}"
+                    )
+            elif choice == "3":
                 group = input("Target group: ").strip()
                 if group:
                     self._run_command(f"python3 core/integrated_scalar_radionics.py --empowerment '{group}'")
-            elif choice == '5':
+            elif choice == "5":
                 self._run_command("python3 core/integrated_scalar_radionics.py --stats")
-            elif choice == '0':
+            elif choice == "0":
                 break
 
-            if choice in ['1', '2', '3', '5']:
+            if choice in ["1", "2", "3", "5"]:
                 input("\nPress Enter to continue...")
 
     def visualization_menu(self):
@@ -220,7 +224,7 @@ class VajraStreamUI:
                     "[white]5.[/white] Sacred Geometry (Flower of Life, etc.)\n"
                     "[white]6.[/white] Complete Visualization Suite\n"
                     "[white]0.[/white] Back to Main Menu",
-                    border_style="magenta"
+                    border_style="magenta",
                 )
                 self.console.print(panel)
             else:
@@ -235,32 +239,35 @@ class VajraStreamUI:
 
             choice = input("\nChoice: ").strip()
 
-            if choice == '1':
+            if choice == "1":
                 print("\nGenerating seven chakras diagram...")
                 from core.meridian_visualization import create_complete_chakra_diagram
+
                 output = create_complete_chakra_diagram()
                 print(f"Saved to: {output}")
-            elif choice == '2':
+            elif choice == "2":
                 print("\nGenerating central channel diagram...")
                 from core.meridian_visualization import create_central_channel
+
                 output = create_central_channel()
                 print(f"Saved to: {output}")
-            elif choice == '3':
+            elif choice == "3":
                 print("\nGenerating meridian map...")
                 from core.meridian_visualization import create_complete_meridian_map
+
                 output = create_complete_meridian_map()
                 print(f"Saved to: {output}")
-            elif choice == '4':
+            elif choice == "4":
                 self._run_command("python3 test_visualization.py")
-            elif choice == '5':
+            elif choice == "5":
                 self._run_command("python3 test_visualization.py")
-            elif choice == '6':
+            elif choice == "6":
                 self._run_command("python3 core/meridian_visualization.py")
                 self._run_command("python3 test_visualization.py")
-            elif choice == '0':
+            elif choice == "0":
                 break
 
-            if choice in ['1', '2', '3', '4', '5', '6']:
+            if choice in ["1", "2", "3", "4", "5", "6"]:
                 input("\nPress Enter to continue...")
 
     def complete_session_menu(self):
@@ -278,7 +285,7 @@ class VajraStreamUI:
                 "• Energetic anatomy activation\n"
                 "• Radionics broadcasting\n\n"
                 "[yellow]Duration: 5-10 minutes[/yellow]",
-                border_style="cyan"
+                border_style="cyan",
             )
             self.console.print(panel)
         else:
@@ -293,7 +300,7 @@ class VajraStreamUI:
 
         proceed = input("\nProceed? (y/n): ").strip().lower()
 
-        if proceed == 'y':
+        if proceed == "y":
             self._run_command("python3 test_full_integration.py")
             input("\nPress Enter to continue...")
 
@@ -310,31 +317,26 @@ class VajraStreamUI:
 
             # Check components
             try:
-                from core.advanced_scalar_waves import HybridScalarWaveGenerator
                 table.add_row("Scalar Waves", "✅ Ready", "Terra MOPS capable")
             except:
                 table.add_row("Scalar Waves", "⚠️  Limited", "Install numpy for full power")
 
             try:
-                from core.compassionate_blessings import BlessingDatabase
                 table.add_row("Blessing System", "✅ Ready", "Database available")
             except:
                 table.add_row("Blessing System", "⚠️  Limited", "Basic functions only")
 
             try:
-                from core.energetic_anatomy import EnergeticAnatomyDatabase
                 table.add_row("Energetic Anatomy", "✅ Ready", "3 traditions loaded")
             except:
                 table.add_row("Energetic Anatomy", "❌ Unavailable", "")
 
             try:
-                from PIL import Image
                 table.add_row("Visualization", "✅ Ready", "PIL/Pillow available")
             except:
                 table.add_row("Visualization", "❌ Unavailable", "Install Pillow")
 
             try:
-                from core.tts_integration import TTSNarrator
                 table.add_row("TTS Narration", "✅ Ready", "Multi-engine support")
             except:
                 table.add_row("TTS Narration", "⚠️  Limited", "Install pyttsx3 or gTTS")
@@ -400,6 +402,7 @@ Om Mani Padme Hum 🙏
     def _run_command(self, command: str):
         """Run external command"""
         import subprocess
+
         try:
             subprocess.run(command, shell=True, check=True)
         except subprocess.CalledProcessError as e:
@@ -414,39 +417,40 @@ Om Mani Padme Hum 🙏
 
             choice = input("\nChoose an option: ").strip()
 
-            if choice == '1':
+            if choice == "1":
                 self.scalar_waves_menu()
-            elif choice == '2':
+            elif choice == "2":
                 self.radionics_menu()
-            elif choice == '3':
+            elif choice == "3":
                 self.visualization_menu()
-            elif choice == '4':
+            elif choice == "4":
                 print("\nLaunching blessing narrative generator...")
                 self._run_command("python3 scripts/story_generator.py --interactive")
                 input("\nPress Enter to continue...")
-            elif choice == '5':
+            elif choice == "5":
                 print("\nLaunching time cycle healer...")
                 self._run_command("python3 scripts/time_cycle_healer.py --list")
                 input("\nPress Enter to continue...")
-            elif choice == '6':
+            elif choice == "6":
                 print("\nExploring energetic anatomy...")
                 try:
                     from core.energetic_anatomy import EnergeticAnatomyDatabase
+
                     db = EnergeticAnatomyDatabase()
-                    print(f"\n✓ Loaded:")
+                    print("\n✓ Loaded:")
                     print(f"  • {len(db.get_all_chakras())} Hindu chakras")
                     print(f"  • {len(db.get_all_meridians())} Taoist meridians")
                     print(f"  • {len(db.get_all_tibetan_chakras())} Tibetan chakras")
                 except Exception as e:
                     print(f"Error: {e}")
                 input("\nPress Enter to continue...")
-            elif choice == '7':
+            elif choice == "7":
                 self.complete_session_menu()
-            elif choice == '8':
+            elif choice == "8":
                 self.system_status()
-            elif choice == '9':
+            elif choice == "9":
                 self.help_menu()
-            elif choice == '0':
+            elif choice == "0":
                 self.clear()
                 if self.console:
                     farewell = Panel(
@@ -454,7 +458,7 @@ Om Mani Padme Hum 🙏
                         "[white]May all beings find peace and liberation.[/white]\n\n"
                         "[yellow]Om Mani Padme Hum 🙏[/yellow]",
                         border_style="cyan",
-                        box=box.DOUBLE
+                        box=box.DOUBLE,
                     )
                     self.console.print(farewell)
                 else:

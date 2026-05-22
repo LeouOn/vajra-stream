@@ -1,11 +1,11 @@
-from fastapi.testclient import TestClient
-
 import pytest
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture
 def client():
     from backend.app.main import app
+
     return TestClient(app)
 
 

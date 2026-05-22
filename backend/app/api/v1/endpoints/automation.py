@@ -4,15 +4,12 @@ Automation/Scheduler API Endpoints
 Control automated blessing rotation through populations.
 """
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from typing import Any
 
-from backend.core.services.blessing_scheduler import (
-    get_scheduler,
-    SchedulerMode,
-    SchedulerConfig
-)
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from backend.core.services.blessing_scheduler import SchedulerConfig, SchedulerMode, get_scheduler
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 
@@ -20,6 +17,7 @@ router = APIRouter(prefix="/automation", tags=["automation"])
 # Request/Response Models
 class StartAutomationRequest(BaseModel):
     """Request to start automation"""
+
     mode: SchedulerMode = SchedulerMode.ROUND_ROBIN
     duration_per_population: int = Field(1800, ge=60, le=86400, description="Seconds per population (1 min - 24 hours)")
     transition_pause: int = Field(30, ge=0, le=600, description="Pause between populations (0-10 min)")
@@ -35,13 +33,14 @@ class StartAutomationRequest(BaseModel):
                 "mode": "round_robin",
                 "duration_per_population": 1800,
                 "link_rng": True,
-                "continuous_mode": True
+                "continuous_mode": True,
             }
         }
 
 
 class AutomationSessionResponse(BaseModel):
     """Automation session information"""
+
     session_id: str
     message: str
     populations_in_queue: int
@@ -49,6 +48,7 @@ class AutomationSessionResponse(BaseModel):
 
 class SessionStatsResponse(BaseModel):
     """Session statistics"""
+
     session_id: str
     status: str
     mode: str
@@ -57,21 +57,22 @@ class SessionStatsResponse(BaseModel):
     cycle_count: int
     populations_in_queue: int
     current_index: int
-    current_population_id: Optional[str]
-    current_slideshow_id: Optional[str]
-    current_rng_id: Optional[str]
+    current_population_id: str | None
+    current_slideshow_id: str | None
+    current_rng_id: str | None
     completed_sessions: int
     total_photos_blessed: int
     total_mantras: int
     total_rng_floating_needles: int
-    session_history: List[Dict[str, Any]]
+    session_history: list[dict[str, Any]]
 
 
 class CurrentStatusResponse(BaseModel):
     """Current status"""
+
     session_id: str
     status: str
-    current_population: Optional[Dict[str, Any]]
+    current_population: dict[str, Any] | None
     elapsed_seconds: float
     target_duration: int
     progress_percentage: float
@@ -79,6 +80,7 @@ class CurrentStatusResponse(BaseModel):
 
 class QueueItemResponse(BaseModel):
     """Queue item information"""
+
     position: int
     is_current: bool
     id: str
@@ -87,10 +89,11 @@ class QueueItemResponse(BaseModel):
     priority: int
     is_urgent: bool
     photo_count: int
-    last_blessed: Optional[float]
+    last_blessed: float | None
 
 
 # Endpoints
+
 
 @router.post("/start", response_model=AutomationSessionResponse)
 async def start_automation(request: StartAutomationRequest):
@@ -130,7 +133,7 @@ async def start_automation(request: StartAutomationRequest):
         auto_dedicate=request.auto_dedicate,
         continuous_mode=request.continuous_mode,
         only_active=request.only_active,
-        min_priority=request.min_priority
+        min_priority=request.min_priority,
     )
 
     try:
@@ -142,7 +145,7 @@ async def start_automation(request: StartAutomationRequest):
         return AutomationSessionResponse(
             session_id=session_id,
             message="Automated blessing rotation started successfully",
-            populations_in_queue=stats['populations_in_queue']
+            populations_in_queue=stats["populations_in_queue"],
         )
 
     except ValueError as e:
@@ -261,7 +264,7 @@ async def get_current_status(session_id: str):
     return CurrentStatusResponse(**status)
 
 
-@router.get("/{session_id}/queue", response_model=List[QueueItemResponse])
+@router.get("/{session_id}/queue", response_model=list[QueueItemResponse])
 async def get_queue(session_id: str):
     """
     Get upcoming populations in queue
@@ -297,43 +300,43 @@ async def list_modes():
             "value": SchedulerMode.ROUND_ROBIN.value,
             "name": "Round Robin",
             "description": "Equal time to all populations (fair distribution)",
-            "available": True
+            "available": True,
         },
         {
             "value": SchedulerMode.PRIORITY_BASED.value,
             "name": "Priority Based",
             "description": "More time to higher priority populations",
             "available": False,  # Phase 2
-            "phase": 2
+            "phase": 2,
         },
         {
             "value": SchedulerMode.TIME_WEIGHTED.value,
             "name": "Time Weighted",
             "description": "Prioritize populations that haven't been blessed recently",
             "available": False,  # Phase 2
-            "phase": 2
+            "phase": 2,
         },
         {
             "value": SchedulerMode.RNG_GUIDED.value,
             "name": "RNG Guided",
             "description": "Extend sessions showing strong RNG response",
             "available": False,  # Phase 2
-            "phase": 2
+            "phase": 2,
         },
         {
             "value": SchedulerMode.HYBRID.value,
             "name": "Hybrid",
             "description": "Intelligently combine multiple factors",
             "available": False,  # Phase 2
-            "phase": 2
+            "phase": 2,
         },
         {
             "value": SchedulerMode.MANUAL.value,
             "name": "Manual",
             "description": "User controls all transitions",
             "available": False,  # Phase 2
-            "phase": 2
-        }
+            "phase": 2,
+        },
     ]
 
 
@@ -342,8 +345,4 @@ async def health_check():
     """Health check endpoint"""
     scheduler = get_scheduler()
 
-    return {
-        "status": "healthy",
-        "service": "automation",
-        "active_sessions": len(scheduler.sessions)
-    }
+    return {"status": "healthy", "service": "automation", "active_sessions": len(scheduler.sessions)}

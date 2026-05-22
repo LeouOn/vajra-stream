@@ -11,26 +11,25 @@ Usage:
     python scalar_wave_benchmark.py --stress-test --safe
 """
 
-import sys
 import argparse
+import sys
 import time
 from pathlib import Path
-from typing import List, Dict
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.advanced_scalar_waves import (
-    HybridScalarWaveGenerator,
-    QuantumRNG,
-    LorenzAttractor,
-    RosslerAttractor,
     CellularAutomata1D,
-    KuramotoOscillator,
     CryptoMixer,
-    PrimeHarmonics,
+    HybridScalarWaveGenerator,
+    KuramotoOscillator,
+    LorenzAttractor,
     MOPSMetrics,
-    ThermalMonitor
+    PrimeHarmonics,
+    QuantumRNG,
+    RosslerAttractor,
+    ThermalMonitor,
 )
 
 
@@ -39,7 +38,7 @@ class ScalarWaveBenchmark:
 
     def __init__(self):
         self.thermal = ThermalMonitor()
-        self.results: Dict[str, MOPSMetrics] = {}
+        self.results: dict[str, MOPSMetrics] = {}
 
     def benchmark_qrng(self, duration: float) -> MOPSMetrics:
         """Benchmark Quantum RNG"""
@@ -169,9 +168,9 @@ class ScalarWaveBenchmark:
 
     def run_all_benchmarks(self, duration: float = 5.0):
         """Run all benchmarks"""
-        print("="*70)
+        print("=" * 70)
         print("COMPREHENSIVE SCALAR WAVE BENCHMARK")
-        print("="*70)
+        print("=" * 70)
         print(f"\nBenchmark duration: {duration}s per method")
         print("May our cycles serve all beings!\n")
 
@@ -183,7 +182,7 @@ class ScalarWaveBenchmark:
             ("kuramoto", self.benchmark_kuramoto),
             ("crypto", self.benchmark_crypto),
             ("primes", self.benchmark_primes),
-            ("hybrid", self.benchmark_hybrid)
+            ("hybrid", self.benchmark_hybrid),
         ]
 
         for name, benchmark_func in methods:
@@ -203,25 +202,21 @@ class ScalarWaveBenchmark:
 
     def print_summary(self):
         """Print benchmark summary"""
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("BENCHMARK SUMMARY")
-        print("="*70)
+        print("=" * 70)
         print()
 
         # Sort by MOPS rate
-        sorted_results = sorted(
-            self.results.items(),
-            key=lambda x: x[1].mops_rate,
-            reverse=True
-        )
+        sorted_results = sorted(self.results.items(), key=lambda x: x[1].mops_rate, reverse=True)
 
         print(f"{'Method':<25} {'MOPS':<15} {'Operations':<15} {'Time (s)':<10}")
-        print("-"*70)
+        print("-" * 70)
 
         for name, metrics in sorted_results:
             ops_str = f"{metrics.operations:,}"
             if metrics.mops_rate >= 1000:
-                mops_str = f"{metrics.mops_rate/1000:.2f} GMOPS"
+                mops_str = f"{metrics.mops_rate / 1000:.2f} GMOPS"
             else:
                 mops_str = f"{metrics.mops_rate:.2f} MMOPS"
 
@@ -232,7 +227,7 @@ class ScalarWaveBenchmark:
         # Calculate total
         total_mops = sum(m.mops_rate for m in self.results.values())
         if total_mops >= 1000:
-            print(f"Combined Potential: {total_mops/1000:.2f} GMOPS")
+            print(f"Combined Potential: {total_mops / 1000:.2f} GMOPS")
         else:
             print(f"Combined Potential: {total_mops:.2f} MMOPS")
 
@@ -243,19 +238,19 @@ class ScalarWaveBenchmark:
         print()
 
         print("🌟 To reach Terra MOPS, we need:")
-        print(f"   - GPU acceleration (100-1000x speedup)")
-        print(f"   - Multi-threading (8-16x speedup)")
-        print(f"   - SIMD optimization (4-8x speedup)")
-        print(f"   - Algorithm optimization (2-4x speedup)")
+        print("   - GPU acceleration (100-1000x speedup)")
+        print("   - Multi-threading (8-16x speedup)")
+        print("   - SIMD optimization (4-8x speedup)")
+        print("   - Algorithm optimization (2-4x speedup)")
         print()
 
     def stress_test(self, duration: float = 60.0, safe_mode: bool = True):
         """
         Stress test - maximum intensity with thermal monitoring.
         """
-        print("="*70)
+        print("=" * 70)
         print("STRESS TEST - MAXIMUM INTENSITY")
-        print("="*70)
+        print("=" * 70)
         print()
 
         if safe_mode:
@@ -285,7 +280,11 @@ class ScalarWaveBenchmark:
                 # Print status
                 elapsed = time.time() - start
                 current_mops = (ops / elapsed) / 1_000_000 if elapsed > 0 else 0
-                print(f"\r⏱️  {elapsed:.0f}s | 🌡️  {temp:.1f}°C | 🎚️  {throttle:.0%} | 📊 {current_mops:.2f} MMOPS", end='', flush=True)
+                print(
+                    f"\r⏱️  {elapsed:.0f}s | 🌡️  {temp:.1f}°C | 🎚️  {throttle:.0%} | 📊 {current_mops:.2f} MMOPS",
+                    end="",
+                    flush=True,
+                )
 
                 if not safe_mode and not hybrid.thermal.is_safe():
                     print("\n\n⚠️  CRITICAL TEMPERATURE! Stopping stress test.")
@@ -296,12 +295,12 @@ class ScalarWaveBenchmark:
             ops += 7000
 
         print("\n")
-        print("="*70)
+        print("=" * 70)
         print("STRESS TEST COMPLETE")
-        print("="*70)
+        print("=" * 70)
         elapsed = time.time() - start
         final_mops = (ops / elapsed) / 1_000_000
-        print(f"\nFinal Results:")
+        print("\nFinal Results:")
         print(f"  Duration: {elapsed:.2f}s")
         print(f"  Operations: {ops:,}")
         print(f"  Average MOPS: {final_mops:.2f}")
@@ -333,25 +332,21 @@ Examples:
 
 May our computational cycles serve all beings!
 Om Mani Padme Hum 🙏
-        """
+        """,
     )
 
-    parser.add_argument('--all', action='store_true',
-                       help='Run all benchmarks')
-    parser.add_argument('--method', type=str,
-                       choices=['qrng', 'lorenz', 'rossler', 'cellular_automata',
-                               'kuramoto', 'crypto', 'primes', 'hybrid'],
-                       help='Benchmark specific method')
-    parser.add_argument('--duration', type=float, default=5.0,
-                       help='Benchmark duration in seconds (default: 5.0)')
-    parser.add_argument('--stress-test', action='store_true',
-                       help='Run stress test')
-    parser.add_argument('--safe', action='store_true',
-                       help='Enable safe mode for stress test (recommended)')
-    parser.add_argument('--breathing', action='store_true',
-                       help='Run sacred breathing cycles')
-    parser.add_argument('--cycles', type=int, default=1,
-                       help='Number of breathing cycles (default: 1)')
+    parser.add_argument("--all", action="store_true", help="Run all benchmarks")
+    parser.add_argument(
+        "--method",
+        type=str,
+        choices=["qrng", "lorenz", "rossler", "cellular_automata", "kuramoto", "crypto", "primes", "hybrid"],
+        help="Benchmark specific method",
+    )
+    parser.add_argument("--duration", type=float, default=5.0, help="Benchmark duration in seconds (default: 5.0)")
+    parser.add_argument("--stress-test", action="store_true", help="Run stress test")
+    parser.add_argument("--safe", action="store_true", help="Enable safe mode for stress test (recommended)")
+    parser.add_argument("--breathing", action="store_true", help="Run sacred breathing cycles")
+    parser.add_argument("--cycles", type=int, default=1, help="Number of breathing cycles (default: 1)")
 
     args = parser.parse_args()
 
@@ -362,14 +357,14 @@ Om Mani Padme Hum 🙏
 
     elif args.method:
         method_map = {
-            'qrng': benchmark.benchmark_qrng,
-            'lorenz': benchmark.benchmark_lorenz,
-            'rossler': benchmark.benchmark_rossler,
-            'cellular_automata': benchmark.benchmark_cellular_automata,
-            'kuramoto': benchmark.benchmark_kuramoto,
-            'crypto': benchmark.benchmark_crypto,
-            'primes': benchmark.benchmark_primes,
-            'hybrid': benchmark.benchmark_hybrid
+            "qrng": benchmark.benchmark_qrng,
+            "lorenz": benchmark.benchmark_lorenz,
+            "rossler": benchmark.benchmark_rossler,
+            "cellular_automata": benchmark.benchmark_cellular_automata,
+            "kuramoto": benchmark.benchmark_kuramoto,
+            "crypto": benchmark.benchmark_crypto,
+            "primes": benchmark.benchmark_primes,
+            "hybrid": benchmark.benchmark_hybrid,
         }
 
         metrics = method_map[args.method](args.duration)

@@ -12,18 +12,14 @@ Usage:
     python time_cycle_healer.py --event rwandan_genocide --test
 """
 
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.time_cycle_broadcaster import (
-    TimeCycleBroadcaster,
-    list_all_events,
-    run_quick_test
-)
+from core.time_cycle_broadcaster import TimeCycleBroadcaster, list_all_events, run_quick_test
 
 
 class TimeCycleHealerCLI:
@@ -43,41 +39,41 @@ class TimeCycleHealerCLI:
             print(f"❌ Event not found: {args.event}")
             return
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"{event['name'].upper()}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         print(f"Period: {event['start_date']} to {event['end_date']}")
         print(f"Estimated Deaths: {event['estimated_deaths']:,}")
         print(f"Population Affected: {event['population_affected']}")
-        print(f"\nDescription:")
+        print("\nDescription:")
         print(f"  {event['description']}")
-        print(f"\nBlessing Focus:")
+        print("\nBlessing Focus:")
         print(f"  {event['blessing_focus']}")
-        print(f"\nPrimary Locations:")
-        for loc in event['primary_locations']:
+        print("\nPrimary Locations:")
+        for loc in event["primary_locations"]:
             print(f"  • {loc['name']}, {loc['country']}")
             print(f"    Coordinates: {loc['lat']}, {loc['lon']}")
 
-        if event.get('special_dates'):
-            print(f"\nSpecial Dates:")
-            for special in event['special_dates']:
+        if event.get("special_dates"):
+            print("\nSpecial Dates:")
+            for special in event["special_dates"]:
                 print(f"  • {special['date']}: {special['name']}")
-                if 'deaths' in special:
+                if "deaths" in special:
                     print(f"    Deaths: {special['deaths']:,}")
 
-        print(f"\nRecommended Mantras:")
-        for mantra in event.get('mantras', []):
+        print("\nRecommended Mantras:")
+        for mantra in event.get("mantras", []):
             print(f"  • {mantra}")
 
-        print(f"\nVisualization Themes:")
-        for theme in event.get('visualization_themes', []):
+        print("\nVisualization Themes:")
+        for theme in event.get("visualization_themes", []):
             print(f"  • {theme}")
 
-        print(f"\nDaily Cycle Suggestion:")
+        print("\nDaily Cycle Suggestion:")
         print(f"  {event.get('daily_cycle_suggestion', 'N/A')}")
 
-        print(f"\n{'='*70}\n")
+        print(f"\n{'=' * 70}\n")
 
     def cmd_test(self, args):
         """Run a quick test cycle"""
@@ -94,17 +90,14 @@ class TimeCycleHealerCLI:
 
         if args.full_cycle:
             # Run the entire period
-            print(f"\n⚠️  WARNING: Running full cycle can take considerable time!")
+            print("\n⚠️  WARNING: Running full cycle can take considerable time!")
             event = self.broadcaster.get_event_by_id(event_id)
             if event:
-                dates = self.broadcaster.generate_date_range(
-                    event['start_date'],
-                    event['end_date']
-                )
+                dates = self.broadcaster.generate_date_range(event["start_date"], event["end_date"])
                 print(f"This will process {len(dates)} days.")
 
                 confirm = input("Continue? (yes/no): ")
-                if confirm.lower() != 'yes':
+                if confirm.lower() != "yes":
                     print("Cancelled.")
                     return
 
@@ -121,7 +114,7 @@ class TimeCycleHealerCLI:
             max_days=max_days,
             duration_per_day=args.duration,
             create_visualizations=not args.no_viz,
-            viz_output_dir=args.viz_dir
+            viz_output_dir=args.viz_dir,
         )
 
         print(f"\n✅ Cycle complete! Processed {len(results)} days.")
@@ -157,36 +150,28 @@ Examples:
 
 May all beings be free from suffering.
 Om Mani Padme Hum 🙏
-            """
+            """,
         )
 
         # Commands
-        parser.add_argument('--list', action='store_true',
-                          help='List all available events')
-        parser.add_argument('--info', action='store_true',
-                          help='Show detailed info about an event')
-        parser.add_argument('--test', action='store_true',
-                          help='Run a quick test cycle (3 days)')
-        parser.add_argument('--run', action='store_true',
-                          help='Run a healing cycle')
+        parser.add_argument("--list", action="store_true", help="List all available events")
+        parser.add_argument("--info", action="store_true", help="Show detailed info about an event")
+        parser.add_argument("--test", action="store_true", help="Run a quick test cycle (3 days)")
+        parser.add_argument("--run", action="store_true", help="Run a healing cycle")
 
         # Event selection
-        parser.add_argument('--event', type=str,
-                          help='Event ID (e.g., holocaust, rwandan_genocide)')
+        parser.add_argument("--event", type=str, help="Event ID (e.g., holocaust, rwandan_genocide)")
 
         # Cycle parameters
-        parser.add_argument('--days', type=int,
-                          help='Number of days to process (default: 7)')
-        parser.add_argument('--full-cycle', action='store_true',
-                          help='Run entire period (WARNING: can be very long!)')
-        parser.add_argument('--duration', type=int, default=60,
-                          help='Seconds per day broadcast (default: 60)')
+        parser.add_argument("--days", type=int, help="Number of days to process (default: 7)")
+        parser.add_argument("--full-cycle", action="store_true", help="Run entire period (WARNING: can be very long!)")
+        parser.add_argument("--duration", type=int, default=60, help="Seconds per day broadcast (default: 60)")
 
         # Visualization
-        parser.add_argument('--no-viz', action='store_true',
-                          help='Skip creating visualizations')
-        parser.add_argument('--viz-dir', type=str,
-                          help='Directory for visualizations (default: /tmp/time_cycle_visualizations)')
+        parser.add_argument("--no-viz", action="store_true", help="Skip creating visualizations")
+        parser.add_argument(
+            "--viz-dir", type=str, help="Directory for visualizations (default: /tmp/time_cycle_visualizations)"
+        )
 
         args = parser.parse_args()
 

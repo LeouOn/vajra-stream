@@ -2,10 +2,10 @@
 Personal Healing API endpoints for Vajra.Stream
 """
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,16 +41,9 @@ async def balance_chakras(request: ChakraBalanceRequest):
         from modules.personal_healing import PersonalHealingModule
 
         phm = PersonalHealingModule()
-        sequence = phm.create_chakra_healing_sequence(
-            sequence_type=request.sequence_type,
-            duration_per=60
-        )
+        sequence = phm.create_chakra_healing_sequence(sequence_type=request.sequence_type, duration_per=60)
 
-        return {
-            "status": "success",
-            "intention": request.intention,
-            "sequence": sequence
-        }
+        return {"status": "success", "intention": request.intention, "sequence": sequence}
     except Exception as e:
         logger.error(f"Error balancing chakras: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -68,10 +61,7 @@ async def get_chakra_info(chakra_name: str):
         if not info:
             raise HTTPException(status_code=404, detail=f"Chakra '{chakra_name}' not found")
 
-        return {
-            "status": "success",
-            "chakra": info
-        }
+        return {"status": "success", "chakra": info}
     except HTTPException:
         raise
     except Exception as e:
@@ -88,10 +78,7 @@ async def get_all_chakras():
         phm = PersonalHealingModule()
         chakras = phm.get_all_chakras()
 
-        return {
-            "status": "success",
-            "chakras": chakras
-        }
+        return {"status": "success", "chakras": chakras}
     except Exception as e:
         logger.error(f"Error getting all chakras: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -104,16 +91,13 @@ async def get_healing_frequencies(request: HealingFrequenciesRequest):
         from modules.personal_healing import PersonalHealingModule
 
         phm = PersonalHealingModule()
-        frequencies = phm.get_healing_frequencies(
-            chakra_name=request.chakra_name,
-            intention=request.intention
-        )
+        frequencies = phm.get_healing_frequencies(chakra_name=request.chakra_name, intention=request.intention)
 
         return {
             "status": "success",
             "chakra": request.chakra_name,
             "intention": request.intention,
-            "frequencies": frequencies
+            "frequencies": frequencies,
         }
     except Exception as e:
         logger.error(f"Error getting healing frequencies: {e}")
@@ -128,14 +112,10 @@ async def create_healing_sequence(request: HealingSequenceRequest):
 
         phm = PersonalHealingModule()
         sequence = phm.create_chakra_healing_sequence(
-            sequence_type=request.sequence_type,
-            duration_per=request.duration_per
+            sequence_type=request.sequence_type, duration_per=request.duration_per
         )
 
-        return {
-            "status": "success",
-            "sequence": sequence
-        }
+        return {"status": "success", "sequence": sequence}
     except Exception as e:
         logger.error(f"Error creating healing sequence: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -153,10 +133,7 @@ async def get_meridian_info(meridian_name: str):
         if not info:
             raise HTTPException(status_code=404, detail=f"Meridian '{meridian_name}' not found")
 
-        return {
-            "status": "success",
-            "meridian": info
-        }
+        return {"status": "success", "meridian": info}
     except HTTPException:
         raise
     except Exception as e:
@@ -173,11 +150,7 @@ async def get_elemental_healing(element: str):
         phm = PersonalHealingModule()
         frequencies = phm.get_elemental_healing_frequencies(element)
 
-        return {
-            "status": "success",
-            "element": element,
-            "frequencies": frequencies
-        }
+        return {"status": "success", "element": element, "frequencies": frequencies}
     except Exception as e:
         logger.error(f"Error getting elemental healing: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -192,11 +165,7 @@ async def get_emotional_frequencies(emotion: str):
         phm = PersonalHealingModule()
         frequencies = phm.get_emotional_frequencies(emotion)
 
-        return {
-            "status": "success",
-            "emotion": emotion,
-            "frequencies": frequencies
-        }
+        return {"status": "success", "emotion": emotion, "frequencies": frequencies}
     except Exception as e:
         logger.error(f"Error getting emotional frequencies: {e}")
         raise HTTPException(status_code=500, detail=str(e))

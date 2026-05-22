@@ -3,16 +3,10 @@ RNG Attunement API Endpoints
 Provides REST API access to RNG attunement readings
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-from enum import Enum
 
-from backend.core.services.rng_attunement_service import (
-    get_rng_service,
-    NeedleState,
-    ReadingQuality
-)
+from backend.core.services.rng_attunement_service import NeedleState, ReadingQuality, get_rng_service
 
 router = APIRouter(prefix="/rng-attunement", tags=["rng-attunement"])
 
@@ -20,27 +14,25 @@ router = APIRouter(prefix="/rng-attunement", tags=["rng-attunement"])
 # Request/Response Models
 class CreateSessionRequest(BaseModel):
     """Request to create new RNG session"""
-    session_id: Optional[str] = Field(None, description="Optional custom session ID")
+
+    session_id: str | None = Field(None, description="Optional custom session ID")
     baseline_tone_arm: float = Field(5.0, ge=0, le=10, description="Starting tone arm position (0-10)")
     sensitivity: float = Field(1.0, ge=0.1, le=5.0, description="Reading sensitivity multiplier")
 
     class Config:
-        json_schema_extra = {
-            "example": {
-                "baseline_tone_arm": 5.0,
-                "sensitivity": 1.0
-            }
-        }
+        json_schema_extra = {"example": {"baseline_tone_arm": 5.0, "sensitivity": 1.0}}
 
 
 class SessionResponse(BaseModel):
     """Response with session ID"""
+
     session_id: str
     message: str
 
 
 class ReadingResponse(BaseModel):
     """Single attunement reading"""
+
     timestamp: float
     raw_value: float
     tone_arm: float
@@ -64,34 +56,37 @@ class ReadingResponse(BaseModel):
                 "entropy": 0.45,
                 "coherence": 0.78,
                 "trend": 0.05,
-                "floating_needle_score": 0.85
+                "floating_needle_score": 0.85,
             }
         }
 
 
 class SessionSummaryResponse(BaseModel):
     """Summary statistics for a session"""
+
     session_id: str
     total_readings: int
     floating_needle_count: int
-    last_fn_time: Optional[float]
+    last_fn_time: float | None
     duration_seconds: float
     avg_tone_arm: float
     avg_coherence: float
     avg_entropy: float
-    needle_state_distribution: Dict[str, int]
-    quality_distribution: Dict[str, int]
+    needle_state_distribution: dict[str, int]
+    quality_distribution: dict[str, int]
     is_active: bool
 
 
 class NeedleStateInfo(BaseModel):
     """Information about needle states"""
+
     state: str
     description: str
 
 
 class QualityInfo(BaseModel):
     """Information about reading quality levels"""
+
     quality: str
     description: str
 
@@ -112,15 +107,10 @@ async def create_session(request: CreateSessionRequest):
     service = get_rng_service()
 
     session_id = service.create_session(
-        session_id=request.session_id,
-        baseline_tone_arm=request.baseline_tone_arm,
-        sensitivity=request.sensitivity
+        session_id=request.session_id, baseline_tone_arm=request.baseline_tone_arm, sensitivity=request.sensitivity
     )
 
-    return SessionResponse(
-        session_id=session_id,
-        message="RNG attunement session created successfully"
-    )
+    return SessionResponse(session_id=session_id, message="RNG attunement session created successfully")
 
 
 @router.get("/reading/{session_id}", response_model=ReadingResponse)
@@ -165,7 +155,7 @@ async def get_reading(session_id: str):
         entropy=reading.entropy,
         coherence=reading.coherence,
         trend=reading.trend,
-        floating_needle_score=reading.floating_needle_score
+        floating_needle_score=reading.floating_needle_score,
     )
 
 
@@ -208,7 +198,7 @@ async def stop_session(session_id: str):
     return {"message": "Session stopped successfully", "session_id": session_id}
 
 
-@router.get("/sessions", response_model=List[str])
+@router.get("/sessions", response_model=list[str])
 async def get_all_sessions():
     """
     Get list of all session IDs
@@ -219,7 +209,7 @@ async def get_all_sessions():
     return service.get_all_sessions()
 
 
-@router.get("/info/needle-states", response_model=List[NeedleStateInfo])
+@router.get("/info/needle-states", response_model=list[NeedleStateInfo])
 async def get_needle_states_info():
     """
     Get information about all needle states
@@ -230,32 +220,31 @@ async def get_needle_states_info():
     return [
         NeedleStateInfo(
             state=NeedleState.FLOATING.value,
-            description="Small rhythmic oscillations. Indicates release, end phenomenon (EP). Good indicator to end process."
+            description="Small rhythmic oscillations. Indicates release, end phenomenon (EP). Good indicator to end process.",
         ),
         NeedleStateInfo(
             state=NeedleState.RISING.value,
-            description="Consistent upward movement. Indicates increasing charge, resistance on item being addressed."
+            description="Consistent upward movement. Indicates increasing charge, resistance on item being addressed.",
         ),
         NeedleStateInfo(
             state=NeedleState.FALLING.value,
-            description="Consistent downward movement. Indicates releasing charge, processing occurring."
+            description="Consistent downward movement. Indicates releasing charge, processing occurring.",
         ),
         NeedleStateInfo(
             state=NeedleState.ROCKSLAM.value,
-            description="Violent rapid oscillations. Indicates heavy charge on item. Significant material being addressed."
+            description="Violent rapid oscillations. Indicates heavy charge on item. Significant material being addressed.",
         ),
         NeedleStateInfo(
             state=NeedleState.THETA_BOP.value,
-            description="Regular rhythmic movement. May indicate specific type of charge or pattern."
+            description="Regular rhythmic movement. May indicate specific type of charge or pattern.",
         ),
         NeedleStateInfo(
-            state=NeedleState.STUCK.value,
-            description="Little to no movement. Neutral state or blocked/stuck state."
-        )
+            state=NeedleState.STUCK.value, description="Little to no movement. Neutral state or blocked/stuck state."
+        ),
     ]
 
 
-@router.get("/info/quality-levels", response_model=List[QualityInfo])
+@router.get("/info/quality-levels", response_model=list[QualityInfo])
 async def get_quality_levels_info():
     """
     Get information about reading quality levels
@@ -265,24 +254,23 @@ async def get_quality_levels_info():
     return [
         QualityInfo(
             quality=ReadingQuality.EXCELLENT.value,
-            description="Clear, stable signal with high coherence. Optimal conditions for attunement work."
+            description="Clear, stable signal with high coherence. Optimal conditions for attunement work.",
         ),
         QualityInfo(
             quality=ReadingQuality.GOOD.value,
-            description="Stable signal with minor fluctuations. Good conditions for most applications."
+            description="Stable signal with minor fluctuations. Good conditions for most applications.",
         ),
         QualityInfo(
-            quality=ReadingQuality.FAIR.value,
-            description="Moderate noise present. Usable but less reliable readings."
+            quality=ReadingQuality.FAIR.value, description="Moderate noise present. Usable but less reliable readings."
         ),
         QualityInfo(
             quality=ReadingQuality.POOR.value,
-            description="High noise, unstable signal. May indicate environmental interference or lack of attunement."
+            description="High noise, unstable signal. May indicate environmental interference or lack of attunement.",
         ),
         QualityInfo(
             quality=ReadingQuality.DISRUPTED.value,
-            description="External interference or extreme fluctuations. May indicate rockslam or environmental disruption."
-        )
+            description="External interference or extreme fluctuations. May indicate rockslam or environmental disruption.",
+        ),
     ]
 
 
@@ -290,8 +278,4 @@ async def get_quality_levels_info():
 async def health_check():
     """Health check endpoint"""
     service = get_rng_service()
-    return {
-        "status": "healthy",
-        "service": "rng_attunement",
-        "active_sessions": len(service.get_all_sessions())
-    }
+    return {"status": "healthy", "service": "rng_attunement", "active_sessions": len(service.get_all_sessions())}

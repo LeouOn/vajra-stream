@@ -4,11 +4,11 @@ Creates contemplative color field images for meditation and visual dharma practi
 Inspired by Rothko's approach to color, light, and spiritual experience
 """
 
-from PIL import Image, ImageDraw, ImageFilter
-import random
 import colorsys
-from typing import Tuple, List, Optional
 import os
+import random
+
+from PIL import Image, ImageDraw, ImageFilter
 
 
 class RothkoGenerator:
@@ -23,76 +23,77 @@ class RothkoGenerator:
 
         # Color palettes inspired by spiritual themes
         self.PALETTES = {
-            'compassion': [
+            "compassion": [
                 # Pinks, soft reds, warm whites
                 (255, 182, 193),  # Light pink
                 (255, 105, 180),  # Hot pink
                 (255, 228, 225),  # Misty rose
-                (220, 20, 60),    # Crimson
+                (220, 20, 60),  # Crimson
             ],
-            'wisdom': [
+            "wisdom": [
                 # Deep blues, purples, indigos
-                (25, 25, 112),    # Midnight blue
-                (75, 0, 130),     # Indigo
-                (138, 43, 226),   # Blue violet
+                (25, 25, 112),  # Midnight blue
+                (75, 0, 130),  # Indigo
+                (138, 43, 226),  # Blue violet
                 (230, 230, 250),  # Lavender
             ],
-            'peace': [
+            "peace": [
                 # Blues, soft greens, white
                 (135, 206, 235),  # Sky blue
                 (176, 224, 230),  # Powder blue
                 (152, 251, 152),  # Pale green
                 (245, 245, 220),  # Beige
             ],
-            'awakening': [
+            "awakening": [
                 # Golds, oranges, warm yellows
-                (255, 215, 0),    # Gold
-                (255, 140, 0),    # Dark orange
+                (255, 215, 0),  # Gold
+                (255, 140, 0),  # Dark orange
                 (255, 228, 181),  # Moccasin
                 (255, 250, 205),  # Lemon chiffon
             ],
-            'emptiness': [
+            "emptiness": [
                 # Grays, blacks, whites - void nature
-                (47, 79, 79),     # Dark slate gray
+                (47, 79, 79),  # Dark slate gray
                 (112, 128, 144),  # Slate gray
                 (211, 211, 211),  # Light gray
                 (245, 245, 245),  # White smoke
             ],
-            'earth': [
+            "earth": [
                 # Browns, ochres, earth tones
-                (139, 69, 19),    # Saddle brown
-                (205, 133, 63),   # Peru
+                (139, 69, 19),  # Saddle brown
+                (205, 133, 63),  # Peru
                 (222, 184, 135),  # Burlywood
                 (245, 222, 179),  # Wheat
             ],
-            'transcendence': [
+            "transcendence": [
                 # Deep reds, blacks, golds - Tibetan thangka colors
-                (139, 0, 0),      # Dark red
-                (220, 20, 60),    # Crimson
-                (255, 215, 0),    # Gold
-                (25, 25, 25),     # Near black
+                (139, 0, 0),  # Dark red
+                (220, 20, 60),  # Crimson
+                (255, 215, 0),  # Gold
+                (25, 25, 25),  # Near black
             ],
-            'rainbow_body': [
+            "rainbow_body": [
                 # Spectrum colors for rainbow body meditation
-                (255, 0, 0),      # Red
-                (255, 127, 0),    # Orange
-                (255, 255, 0),    # Yellow
-                (0, 255, 0),      # Green
-                (0, 0, 255),      # Blue
-                (75, 0, 130),     # Indigo
-                (148, 0, 211),    # Violet
-            ]
+                (255, 0, 0),  # Red
+                (255, 127, 0),  # Orange
+                (255, 255, 0),  # Yellow
+                (0, 255, 0),  # Green
+                (0, 0, 255),  # Blue
+                (75, 0, 130),  # Indigo
+                (148, 0, 211),  # Violet
+            ],
         }
 
-    def create_soft_rectangle(self, draw, bbox: Tuple[int, int, int, int],
-                             color: Tuple[int, int, int], alpha: int = 230) -> Image:
+    def create_soft_rectangle(
+        self, draw, bbox: tuple[int, int, int, int], color: tuple[int, int, int], alpha: int = 230
+    ) -> Image:
         """
         Create a soft-edged rectangle with gradual alpha blend
         """
         x1, y1, x2, y2 = bbox
 
         # Create a temporary image for this rectangle
-        temp = Image.new('RGBA', (self.width, self.height), (0, 0, 0, 0))
+        temp = Image.new("RGBA", (self.width, self.height), (0, 0, 0, 0))
         temp_draw = ImageDraw.Draw(temp)
 
         # Draw the base rectangle
@@ -125,7 +126,7 @@ class RothkoGenerator:
 
         return img
 
-    def adjust_luminosity(self, color: Tuple[int, int, int], factor: float) -> Tuple[int, int, int]:
+    def adjust_luminosity(self, color: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
         """
         Adjust color luminosity while preserving hue
         factor > 1 makes it lighter, < 1 makes it darker
@@ -139,10 +140,9 @@ class RothkoGenerator:
         r, g, b = colorsys.hls_to_rgb(h, l, s)
         return tuple(int(x * 255) for x in (r, g, b))
 
-    def generate_rothko(self, theme: str = 'compassion',
-                       num_bands: int = 3,
-                       variation: bool = True,
-                       seed: Optional[int] = None) -> Image:
+    def generate_rothko(
+        self, theme: str = "compassion", num_bands: int = 3, variation: bool = True, seed: int | None = None
+    ) -> Image:
         """
         Generate a Rothko-style composition
 
@@ -156,14 +156,14 @@ class RothkoGenerator:
             random.seed(seed)
 
         # Get palette
-        palette = self.PALETTES.get(theme, self.PALETTES['compassion'])
+        palette = self.PALETTES.get(theme, self.PALETTES["compassion"])
 
         # Create base image
-        img = Image.new('RGBA', (self.width, self.height), (255, 255, 255, 255))
+        Image.new("RGBA", (self.width, self.height), (255, 255, 255, 255))
 
         # Choose background color (usually darkest or lightest)
         bg_color = random.choice(palette)
-        img_bg = Image.new('RGBA', (self.width, self.height), bg_color + (255,))
+        img_bg = Image.new("RGBA", (self.width, self.height), bg_color + (255,))
 
         # Calculate band heights
         margin_top = int(self.height * 0.05)
@@ -178,10 +178,7 @@ class RothkoGenerator:
 
         # Add variation to colors
         if variation:
-            band_colors = [
-                self.adjust_luminosity(c, random.uniform(0.8, 1.2))
-                for c in band_colors
-            ]
+            band_colors = [self.adjust_luminosity(c, random.uniform(0.8, 1.2)) for c in band_colors]
 
         # Create bands
         layers = [img_bg]
@@ -207,10 +204,7 @@ class RothkoGenerator:
 
             # Create soft rectangle
             band = self.create_soft_rectangle(
-                None,
-                (x1, y1, x2, y2),
-                color,
-                alpha=random.randint(200, 240) if variation else 230
+                None, (x1, y1, x2, y2), color, alpha=random.randint(200, 240) if variation else 230
             )
 
             layers.append(band)
@@ -226,13 +220,14 @@ class RothkoGenerator:
             result = self.add_texture(result, intensity=0.05)
 
         # Convert to RGB
-        final = Image.new('RGB', (self.width, self.height), (255, 255, 255))
+        final = Image.new("RGB", (self.width, self.height), (255, 255, 255))
         final.paste(result, (0, 0), result)
 
         return final
 
-    def generate_meditation_sequence(self, theme: str, count: int = 5,
-                                    output_dir: str = './generated/rothko') -> List[str]:
+    def generate_meditation_sequence(
+        self, theme: str, count: int = 5, output_dir: str = "./generated/rothko"
+    ) -> list[str]:
         """
         Generate a sequence of related images for meditation progression
         """
@@ -241,7 +236,7 @@ class RothkoGenerator:
         paths = []
         for i in range(count):
             img = self.generate_rothko(theme, num_bands=random.randint(2, 4))
-            filename = f"{theme}_{i+1:02d}.png"
+            filename = f"{theme}_{i + 1:02d}.png"
             filepath = os.path.join(output_dir, filename)
             img.save(filepath, quality=95)
             paths.append(filepath)
@@ -249,20 +244,20 @@ class RothkoGenerator:
 
         return paths
 
-    def generate_chakra_series(self, output_dir: str = './generated/rothko/chakras') -> List[str]:
+    def generate_chakra_series(self, output_dir: str = "./generated/rothko/chakras") -> list[str]:
         """
         Generate one image for each chakra
         """
         os.makedirs(output_dir, exist_ok=True)
 
         chakra_colors = {
-            'root': [(255, 0, 0), (139, 0, 0), (205, 92, 92)],
-            'sacral': [(255, 140, 0), (255, 165, 0), (255, 200, 124)],
-            'solar_plexus': [(255, 255, 0), (255, 215, 0), (255, 250, 205)],
-            'heart': [(0, 255, 0), (152, 251, 152), (144, 238, 144)],
-            'throat': [(0, 191, 255), (135, 206, 250), (176, 224, 230)],
-            'third_eye': [(75, 0, 130), (138, 43, 226), (216, 191, 216)],
-            'crown': [(148, 0, 211), (218, 112, 214), (255, 250, 250)]
+            "root": [(255, 0, 0), (139, 0, 0), (205, 92, 92)],
+            "sacral": [(255, 140, 0), (255, 165, 0), (255, 200, 124)],
+            "solar_plexus": [(255, 255, 0), (255, 215, 0), (255, 250, 205)],
+            "heart": [(0, 255, 0), (152, 251, 152), (144, 238, 144)],
+            "throat": [(0, 191, 255), (135, 206, 250), (176, 224, 230)],
+            "third_eye": [(75, 0, 130), (138, 43, 226), (216, 191, 216)],
+            "crown": [(148, 0, 211), (218, 112, 214), (255, 250, 250)],
         }
 
         paths = []
@@ -287,24 +282,24 @@ class RothkoGenerator:
 
         # Map keywords to themes
         theme_mapping = {
-            'love': 'compassion',
-            'compassion': 'compassion',
-            'peace': 'peace',
-            'calm': 'peace',
-            'wisdom': 'wisdom',
-            'insight': 'wisdom',
-            'awakening': 'awakening',
-            'enlightenment': 'awakening',
-            'ground': 'earth',
-            'stability': 'earth',
-            'void': 'emptiness',
-            'emptiness': 'emptiness',
-            'transcend': 'transcendence',
-            'rainbow': 'rainbow_body'
+            "love": "compassion",
+            "compassion": "compassion",
+            "peace": "peace",
+            "calm": "peace",
+            "wisdom": "wisdom",
+            "insight": "wisdom",
+            "awakening": "awakening",
+            "enlightenment": "awakening",
+            "ground": "earth",
+            "stability": "earth",
+            "void": "emptiness",
+            "emptiness": "emptiness",
+            "transcend": "transcendence",
+            "rainbow": "rainbow_body",
         }
 
         # Find matching theme
-        theme = 'compassion'  # default
+        theme = "compassion"  # default
         for keyword, theme_name in theme_mapping.items():
             if keyword in intention_lower:
                 theme = theme_name
@@ -331,9 +326,9 @@ if __name__ == "__main__":
     generator = RothkoGenerator(width=1920, height=1080)
 
     # Test each theme
-    themes = ['compassion', 'wisdom', 'peace', 'awakening', 'emptiness', 'transcendence']
+    themes = ["compassion", "wisdom", "peace", "awakening", "emptiness", "transcendence"]
 
-    output_dir = './generated/rothko/test'
+    output_dir = "./generated/rothko/test"
     os.makedirs(output_dir, exist_ok=True)
 
     for theme in themes:

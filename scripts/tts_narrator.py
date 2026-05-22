@@ -12,20 +12,17 @@ Usage:
     python tts_narrator.py --commemorate --event holocaust --date 1945-01-27
 """
 
-import sys
 import argparse
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.tts_integration import (
-    TTSNarrator,
-    quick_narrate
-)
-from core.blessing_narratives import StoryGenerator, NarrativeType, PureLandTradition
+from core.blessing_narratives import NarrativeType, PureLandTradition, StoryGenerator
 from core.time_cycle_broadcaster import TimeCycleBroadcaster
+from core.tts_integration import TTSNarrator, quick_narrate
 
 
 class TTSNarratorCLI:
@@ -43,7 +40,7 @@ class TTSNarratorCLI:
                 print(f"❌ Story file not found: {args.story_file}")
                 return
 
-            with open(story_path, 'r') as f:
+            with open(story_path) as f:
                 text = f.read()
 
             # Simple story object
@@ -82,7 +79,7 @@ class TTSNarratorCLI:
                 target_name=args.name or "Unknown Soul",
                 narrative_type=narrative_type,
                 pure_land=pure_land,
-                custom_context=args.context or ""
+                custom_context=args.context or "",
             )
 
             print(f"✅ Story generated: {story.title}")
@@ -94,14 +91,14 @@ class TTSNarratorCLI:
         # Generate audio
         output_file = args.output or "/tmp/blessing_story.mp3"
 
-        print(f"\n🎙️  Narrating story...")
+        print("\n🎙️  Narrating story...")
         print(f"   Engine: {self.narrator.engine.__class__.__name__}")
         print(f"   Output: {output_file}")
 
         result = self.narrator.narrate_story(story, output_file)
 
         print(f"\n✅ Audio generated: {result}")
-        print(f"   Duration: Story narration complete")
+        print("   Duration: Story narration complete")
 
     def cmd_mantra(self, args):
         """Generate mantra repetition audio"""
@@ -109,16 +106,13 @@ class TTSNarratorCLI:
         count = args.count or 108
         output_file = args.output or f"/tmp/mantra_{count}.mp3"
 
-        print(f"\n🕉️  Generating mantra repetition audio...")
+        print("\n🕉️  Generating mantra repetition audio...")
         print(f"   Mantra: {mantra}")
         print(f"   Count: {count}")
         print(f"   Output: {output_file}")
 
         result = self.narrator.generate_mantra_audio(
-            mantra=mantra,
-            repetitions=count,
-            output_file=output_file,
-            pause_seconds=args.pause or 2.0
+            mantra=mantra, repetitions=count, output_file=output_file, pause_seconds=args.pause or 2.0
         )
 
         print(f"\n✅ Audio generated: {result}")
@@ -129,13 +123,13 @@ class TTSNarratorCLI:
         if args.chakra:
             # Chakra meditation script
             chakra_info = {
-                'muladhara': ('Root', 'Earth', 'grounding and stability'),
-                'svadhisthana': ('Sacral', 'Water', 'creativity and pleasure'),
-                'manipura': ('Solar Plexus', 'Fire', 'power and transformation'),
-                'anahata': ('Heart', 'Air', 'love and compassion'),
-                'vishuddha': ('Throat', 'Sound', 'truth and expression'),
-                'ajna': ('Third Eye', 'Light', 'intuition and wisdom'),
-                'sahasrara': ('Crown', 'Consciousness', 'unity and enlightenment')
+                "muladhara": ("Root", "Earth", "grounding and stability"),
+                "svadhisthana": ("Sacral", "Water", "creativity and pleasure"),
+                "manipura": ("Solar Plexus", "Fire", "power and transformation"),
+                "anahata": ("Heart", "Air", "love and compassion"),
+                "vishuddha": ("Throat", "Sound", "truth and expression"),
+                "ajna": ("Third Eye", "Light", "intuition and wisdom"),
+                "sahasrara": ("Crown", "Consciousness", "unity and enlightenment"),
             }
 
             if args.chakra not in chakra_info:
@@ -178,7 +172,7 @@ class TTSNarratorCLI:
                 print(f"❌ Script file not found: {args.script}")
                 return
 
-            with open(script_path, 'r') as f:
+            with open(script_path) as f:
                 script = f.read()
 
         else:
@@ -205,13 +199,10 @@ class TTSNarratorCLI:
 
         output_file = args.output or "/tmp/meditation.mp3"
 
-        print(f"\n🧘 Generating guided meditation...")
+        print("\n🧘 Generating guided meditation...")
         print(f"   Output: {output_file}")
 
-        result = self.narrator.guided_meditation(
-            script=script,
-            output_file=output_file
-        )
+        result = self.narrator.guided_meditation(script=script, output_file=output_file)
 
         print(f"\n✅ Audio generated: {result}")
 
@@ -237,20 +228,16 @@ class TTSNarratorCLI:
                 return
         else:
             # Use start date
-            date = datetime.strptime(event['start_date'], "%Y-%m-%d")
+            date = datetime.strptime(event["start_date"], "%Y-%m-%d")
 
         output_file = args.output or f"/tmp/commemorate_{args.event}_{date.strftime('%Y%m%d')}.mp3"
 
-        print(f"\n🕊️  Generating commemoration narration...")
+        print("\n🕊️  Generating commemoration narration...")
         print(f"   Event: {event['name']}")
         print(f"   Date: {date.strftime('%B %d, %Y')}")
         print(f"   Output: {output_file}")
 
-        result = self.narrator.commemorate_event(
-            event=event,
-            date=date,
-            output_file=output_file
-        )
+        result = self.narrator.commemorate_event(event=event, date=date, output_file=output_file)
 
         print(f"\n✅ Audio generated: {result}")
 
@@ -263,7 +250,7 @@ class TTSNarratorCLI:
             if not text_path.exists():
                 print(f"❌ File not found: {args.file}")
                 return
-            with open(text_path, 'r') as f:
+            with open(text_path) as f:
                 text = f.read()
         else:
             print("❌ Either --text or --file required")
@@ -271,7 +258,7 @@ class TTSNarratorCLI:
 
         output_file = args.output or "/tmp/tts_output.mp3"
 
-        print(f"\n🎙️  Generating audio...")
+        print("\n🎙️  Generating audio...")
         print(f"   Text length: {len(text)} characters")
         print(f"   Output: {output_file}")
 
@@ -305,67 +292,45 @@ Examples:
   %(prog)s --quick --text "May all beings be free from suffering" --output blessing.mp3
 
 May these voices carry blessings to all beings! 🙏
-            """
+            """,
         )
 
         # Command modes
         mode_group = parser.add_mutually_exclusive_group(required=True)
-        mode_group.add_argument('--story', dest='story_file',
-                              help='Narrate story from file')
-        mode_group.add_argument('--generate', action='store_true',
-                              help='Generate and narrate new story')
-        mode_group.add_argument('--mantra', type=str,
-                              help='Generate mantra repetition')
-        mode_group.add_argument('--meditate', action='store_true',
-                              help='Generate guided meditation')
-        mode_group.add_argument('--commemorate', action='store_true',
-                              help='Generate historical commemoration')
-        mode_group.add_argument('--quick', action='store_true',
-                              help='Quick TTS from text or file')
+        mode_group.add_argument("--story", dest="story_file", help="Narrate story from file")
+        mode_group.add_argument("--generate", action="store_true", help="Generate and narrate new story")
+        mode_group.add_argument("--mantra", type=str, help="Generate mantra repetition")
+        mode_group.add_argument("--meditate", action="store_true", help="Generate guided meditation")
+        mode_group.add_argument("--commemorate", action="store_true", help="Generate historical commemoration")
+        mode_group.add_argument("--quick", action="store_true", help="Quick TTS from text or file")
 
         # Story generation options
-        parser.add_argument('--type', type=str,
-                          help='Story narrative type (for --generate)')
-        parser.add_argument('--pure-land', type=str,
-                          help='Pure land tradition (for --generate)')
-        parser.add_argument('--name', type=str,
-                          help='Target being name (for --generate)')
-        parser.add_argument('--context', type=str,
-                          help='Additional context (for --generate)')
+        parser.add_argument("--type", type=str, help="Story narrative type (for --generate)")
+        parser.add_argument("--pure-land", type=str, help="Pure land tradition (for --generate)")
+        parser.add_argument("--name", type=str, help="Target being name (for --generate)")
+        parser.add_argument("--context", type=str, help="Additional context (for --generate)")
 
         # Mantra options
-        parser.add_argument('--count', type=int,
-                          help='Mantra repetition count (default: 108)')
-        parser.add_argument('--pause', type=float,
-                          help='Pause between mantras in seconds (default: 2.0)')
+        parser.add_argument("--count", type=int, help="Mantra repetition count (default: 108)")
+        parser.add_argument("--pause", type=float, help="Pause between mantras in seconds (default: 2.0)")
 
         # Meditation options
-        parser.add_argument('--chakra', type=str,
-                          help='Chakra for meditation')
-        parser.add_argument('--script', type=str,
-                          help='Custom meditation script file')
-        parser.add_argument('--duration', type=int,
-                          help='Meditation duration in minutes')
+        parser.add_argument("--chakra", type=str, help="Chakra for meditation")
+        parser.add_argument("--script", type=str, help="Custom meditation script file")
+        parser.add_argument("--duration", type=int, help="Meditation duration in minutes")
 
         # Commemoration options
-        parser.add_argument('--event', type=str,
-                          help='Historical event ID')
-        parser.add_argument('--date', type=str,
-                          help='Date (YYYY-MM-DD)')
+        parser.add_argument("--event", type=str, help="Historical event ID")
+        parser.add_argument("--date", type=str, help="Date (YYYY-MM-DD)")
 
         # Quick TTS options
-        parser.add_argument('--text', type=str,
-                          help='Text to speak (for --quick)')
-        parser.add_argument('--file', type=str,
-                          help='Text file to speak (for --quick)')
+        parser.add_argument("--text", type=str, help="Text to speak (for --quick)")
+        parser.add_argument("--file", type=str, help="Text file to speak (for --quick)")
 
         # Common options
-        parser.add_argument('--output', '-o', type=str,
-                          help='Output audio file path')
-        parser.add_argument('--engine', type=str,
-                          help='TTS engine to use (pyttsx3, gtts, edge)')
-        parser.add_argument('--voice', type=str,
-                          help='Voice to use (engine-specific)')
+        parser.add_argument("--output", "-o", type=str, help="Output audio file path")
+        parser.add_argument("--engine", type=str, help="TTS engine to use (pyttsx3, gtts, edge)")
+        parser.add_argument("--voice", type=str, help="Voice to use (engine-specific)")
 
         args = parser.parse_args()
 
@@ -385,6 +350,7 @@ May these voices carry blessings to all beings! 🙏
         except Exception as e:
             print(f"\n❌ Error: {e}")
             import traceback
+
             traceback.print_exc()
             return 1
 

@@ -6,14 +6,12 @@ Supports both cloud APIs and local open-source TTS systems
 
 import os
 import sys
-import time
 import tempfile
+import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any
-import warnings
+from typing import Any
 
 # Base imports
-import numpy as np
 
 
 class TTSProvider:
@@ -53,6 +51,7 @@ class ElevenLabsTTS(TTSProvider):
 
         try:
             from elevenlabs import generate, set_api_key, voices
+
             set_api_key(self.api_key)
             self.generate_func = generate
             self.voices_func = voices
@@ -64,17 +63,12 @@ class ElevenLabsTTS(TTSProvider):
             self.error_msg = f"ElevenLabs initialization error: {str(e)}"
             return False
 
-    def generate_audio_file(self, text: str, output_path: str,
-                           voice: str = "Bella", **kwargs) -> bool:
+    def generate_audio_file(self, text: str, output_path: str, voice: str = "Bella", **kwargs) -> bool:
         """Generate audio file using ElevenLabs"""
         try:
-            audio = self.generate_func(
-                text=text,
-                voice=voice,
-                model="eleven_monolingual_v1"
-            )
+            audio = self.generate_func(text=text, voice=voice, model="eleven_monolingual_v1")
 
-            with open(output_path, 'wb') as f:
+            with open(output_path, "wb") as f:
                 f.write(audio)
 
             return True
@@ -84,7 +78,7 @@ class ElevenLabsTTS(TTSProvider):
 
     def speak(self, text: str, **kwargs) -> bool:
         """Generate and play audio"""
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -101,6 +95,7 @@ class ElevenLabsTTS(TTSProvider):
         """Play audio file using available player"""
         try:
             import pygame
+
             pygame.mixer.init()
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
@@ -128,10 +123,8 @@ class AzureTTS(TTSProvider):
 
         try:
             import azure.cognitiveservices.speech as speechsdk
-            self.speech_config = speechsdk.SpeechConfig(
-                subscription=self.api_key,
-                region=self.region
-            )
+
+            self.speech_config = speechsdk.SpeechConfig(subscription=self.api_key, region=self.region)
             self.speechsdk = speechsdk
             return True
         except ImportError:
@@ -141,20 +134,14 @@ class AzureTTS(TTSProvider):
             self.error_msg = f"Azure TTS initialization error: {str(e)}"
             return False
 
-    def generate_audio_file(self, text: str, output_path: str,
-                           voice: str = "en-US-JennyNeural", **kwargs) -> bool:
+    def generate_audio_file(self, text: str, output_path: str, voice: str = "en-US-JennyNeural", **kwargs) -> bool:
         """Generate audio file using Azure TTS"""
         try:
             self.speech_config.speech_synthesis_voice_name = voice
 
-            audio_config = self.speechsdk.audio.AudioOutputConfig(
-                filename=output_path
-            )
+            audio_config = self.speechsdk.audio.AudioOutputConfig(filename=output_path)
 
-            synthesizer = self.speechsdk.SpeechSynthesizer(
-                speech_config=self.speech_config,
-                audio_config=audio_config
-            )
+            synthesizer = self.speechsdk.SpeechSynthesizer(speech_config=self.speech_config, audio_config=audio_config)
 
             result = synthesizer.speak_text_async(text).get()
 
@@ -172,9 +159,7 @@ class AzureTTS(TTSProvider):
         try:
             self.speech_config.speech_synthesis_voice_name = voice
 
-            synthesizer = self.speechsdk.SpeechSynthesizer(
-                speech_config=self.speech_config
-            )
+            synthesizer = self.speechsdk.SpeechSynthesizer(speech_config=self.speech_config)
 
             result = synthesizer.speak_text_async(text).get()
 
@@ -204,6 +189,7 @@ class GoogleCloudTTS(TTSProvider):
 
         try:
             from google.cloud import texttospeech
+
             self.client = texttospeech.TextToSpeechClient()
             self.texttospeech = texttospeech
             return True
@@ -214,29 +200,20 @@ class GoogleCloudTTS(TTSProvider):
             self.error_msg = f"Google Cloud TTS initialization error: {str(e)}"
             return False
 
-    def generate_audio_file(self, text: str, output_path: str,
-                           voice_name: str = "en-US-Wavenet-D",
-                           language_code: str = "en-US", **kwargs) -> bool:
+    def generate_audio_file(
+        self, text: str, output_path: str, voice_name: str = "en-US-Wavenet-D", language_code: str = "en-US", **kwargs
+    ) -> bool:
         """Generate audio file using Google Cloud TTS"""
         try:
             synthesis_input = self.texttospeech.SynthesisInput(text=text)
 
-            voice = self.texttospeech.VoiceSelectionParams(
-                language_code=language_code,
-                name=voice_name
-            )
+            voice = self.texttospeech.VoiceSelectionParams(language_code=language_code, name=voice_name)
 
-            audio_config = self.texttospeech.AudioConfig(
-                audio_encoding=self.texttospeech.AudioEncoding.MP3
-            )
+            audio_config = self.texttospeech.AudioConfig(audio_encoding=self.texttospeech.AudioEncoding.MP3)
 
-            response = self.client.synthesize_speech(
-                input=synthesis_input,
-                voice=voice,
-                audio_config=audio_config
-            )
+            response = self.client.synthesize_speech(input=synthesis_input, voice=voice, audio_config=audio_config)
 
-            with open(output_path, 'wb') as f:
+            with open(output_path, "wb") as f:
                 f.write(response.audio_content)
 
             return True
@@ -246,7 +223,7 @@ class GoogleCloudTTS(TTSProvider):
 
     def speak(self, text: str, **kwargs) -> bool:
         """Generate and play audio"""
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -262,6 +239,7 @@ class GoogleCloudTTS(TTSProvider):
         """Play audio file"""
         try:
             import pygame
+
             pygame.mixer.init()
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
@@ -287,6 +265,7 @@ class OpenAITTS(TTSProvider):
 
         try:
             from openai import OpenAI
+
             self.client = OpenAI(api_key=self.api_key)
             return True
         except ImportError:
@@ -296,14 +275,15 @@ class OpenAITTS(TTSProvider):
             self.error_msg = f"OpenAI initialization error: {str(e)}"
             return False
 
-    def generate_audio_file(self, text: str, output_path: str,
-                           voice: str = "nova", model: str = "tts-1", **kwargs) -> bool:
+    def generate_audio_file(
+        self, text: str, output_path: str, voice: str = "nova", model: str = "tts-1", **kwargs
+    ) -> bool:
         """Generate audio file using OpenAI TTS"""
         try:
             response = self.client.audio.speech.create(
                 model=model,  # tts-1 or tts-1-hd
                 voice=voice,  # alloy, echo, fable, onyx, nova, shimmer
-                input=text
+                input=text,
             )
 
             response.stream_to_file(output_path)
@@ -314,7 +294,7 @@ class OpenAITTS(TTSProvider):
 
     def speak(self, text: str, **kwargs) -> bool:
         """Generate and play audio"""
-        with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -330,6 +310,7 @@ class OpenAITTS(TTSProvider):
         """Play audio file"""
         try:
             import pygame
+
             pygame.mixer.init()
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
@@ -350,6 +331,7 @@ class CoquiTTS(TTSProvider):
     def check_availability(self) -> bool:
         try:
             from TTS.api import TTS as CoquiTTSAPI
+
             # Use a fast, high-quality model
             self.tts = CoquiTTSAPI("tts_models/en/ljspeech/tacotron2-DDC")
             return True
@@ -371,7 +353,7 @@ class CoquiTTS(TTSProvider):
 
     def speak(self, text: str, **kwargs) -> bool:
         """Generate and play audio"""
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -387,6 +369,7 @@ class CoquiTTS(TTSProvider):
         """Play audio file"""
         try:
             import pygame
+
             pygame.mixer.init()
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
@@ -408,6 +391,7 @@ class PiperTTS(TTSProvider):
     def check_availability(self) -> bool:
         # Check if piper binary is available
         import shutil
+
         self.piper_path = shutil.which("piper")
 
         if not self.piper_path:
@@ -418,7 +402,7 @@ class PiperTTS(TTSProvider):
         model_dirs = [
             Path.home() / ".local/share/piper/models",
             Path("/usr/share/piper/models"),
-            Path("./models/piper")
+            Path("./models/piper"),
         ]
 
         for model_dir in model_dirs:
@@ -438,18 +422,10 @@ class PiperTTS(TTSProvider):
             import subprocess
 
             # Piper reads from stdin and writes to stdout
-            cmd = [
-                self.piper_path,
-                "--model", str(self.model_path),
-                "--output_file", output_path
-            ]
+            cmd = [self.piper_path, "--model", str(self.model_path), "--output_file", output_path]
 
             process = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
+                cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
 
             stdout, stderr = process.communicate(input=text)
@@ -465,7 +441,7 @@ class PiperTTS(TTSProvider):
 
     def speak(self, text: str, **kwargs) -> bool:
         """Generate and play audio"""
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp_path = tmp.name
 
         try:
@@ -481,6 +457,7 @@ class PiperTTS(TTSProvider):
         """Play audio file"""
         try:
             import pygame
+
             pygame.mixer.init()
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
@@ -501,6 +478,7 @@ class Pyttsx3TTS(TTSProvider):
     def check_availability(self) -> bool:
         try:
             import pyttsx3
+
             self.engine = pyttsx3.init()
             return True
         except ImportError:
@@ -513,7 +491,7 @@ class Pyttsx3TTS(TTSProvider):
     def speak(self, text: str, rate: int = 150, **kwargs) -> bool:
         """Speak text using pyttsx3"""
         try:
-            self.engine.setProperty('rate', rate)
+            self.engine.setProperty("rate", rate)
             self.engine.say(text)
             self.engine.runAndWait()
             return True
@@ -521,11 +499,10 @@ class Pyttsx3TTS(TTSProvider):
             self.error_msg = f"pyttsx3 speech error: {str(e)}"
             return False
 
-    def generate_audio_file(self, text: str, output_path: str,
-                           rate: int = 150, **kwargs) -> bool:
+    def generate_audio_file(self, text: str, output_path: str, rate: int = 150, **kwargs) -> bool:
         """Generate audio file using pyttsx3"""
         try:
-            self.engine.setProperty('rate', rate)
+            self.engine.setProperty("rate", rate)
             self.engine.save_to_file(text, output_path)
             self.engine.runAndWait()
             return True
@@ -573,7 +550,7 @@ class EnhancedTTSEngine:
             CoquiTTS,
             PiperTTS,
             # Fallback
-            Pyttsx3TTS
+            Pyttsx3TTS,
         ]
 
         for provider_class in provider_classes:
@@ -594,7 +571,7 @@ class EnhancedTTSEngine:
                 "ElevenLabs",
                 "Azure TTS",
                 "Google Cloud TTS",
-                "pyttsx3"
+                "pyttsx3",
             ]
         else:
             # Try cloud first
@@ -605,7 +582,7 @@ class EnhancedTTSEngine:
                 "Google Cloud TTS",
                 "Coqui TTS",
                 "Piper TTS",
-                "pyttsx3"
+                "pyttsx3",
             ]
 
         for provider_name in priority:
@@ -618,15 +595,17 @@ class EnhancedTTSEngine:
 
         raise RuntimeError("No TTS provider available!")
 
-    def list_available_providers(self) -> List[Dict[str, Any]]:
+    def list_available_providers(self) -> list[dict[str, Any]]:
         """List all available TTS providers"""
         result = []
         for name, provider in self.providers.items():
-            result.append({
-                "name": name,
-                "available": provider.available,
-                "error": provider.error_msg if not provider.available else None
-            })
+            result.append(
+                {
+                    "name": name,
+                    "available": provider.available,
+                    "error": provider.error_msg if not provider.available else None,
+                }
+            )
         return result
 
     def set_provider(self, provider_name: str) -> bool:
@@ -659,7 +638,7 @@ class EnhancedTTSEngine:
 
     def speak_slowly(self, text: str, pause_duration: float = 1.0, **kwargs) -> bool:
         """Speak text with contemplative pacing"""
-        sentences = text.replace('?', '.').replace('!', '.').split('.')
+        sentences = text.replace("?", ".").replace("!", ".").split(".")
         sentences = [s.strip() for s in sentences if s.strip()]
 
         for sentence in sentences:
@@ -669,8 +648,7 @@ class EnhancedTTSEngine:
 
         return True
 
-    def speak_mantra(self, mantra: str, repetitions: int = 108,
-                     pause_duration: float = 2.0, **kwargs) -> bool:
+    def speak_mantra(self, mantra: str, repetitions: int = 108, pause_duration: float = 2.0, **kwargs) -> bool:
         """Speak a mantra with repetitions"""
         for i in range(repetitions):
             if not self.speak(mantra, **kwargs):
@@ -714,8 +692,7 @@ def speak_prayer(text: str, prefer_local: bool = False, **kwargs) -> bool:
     return engine.speak_slowly(text, pause_duration=1.5, **kwargs)
 
 
-def speak_mantra(mantra: str, repetitions: int = 108,
-                prefer_local: bool = False, **kwargs) -> bool:
+def speak_mantra(mantra: str, repetitions: int = 108, prefer_local: bool = False, **kwargs) -> bool:
     """Speak mantra with repetitions"""
     engine = EnhancedTTSEngine(prefer_local=prefer_local)
     return engine.speak_mantra(mantra, repetitions=repetitions, **kwargs)
@@ -734,7 +711,7 @@ if __name__ == "__main__":
     print("\nAvailable TTS Providers:")
     print("-" * 60)
     for provider in engine.list_available_providers():
-        status = "✓ Available" if provider['available'] else f"✗ {provider['error']}"
+        status = "✓ Available" if provider["available"] else f"✗ {provider['error']}"
         print(f"{provider['name']:<20} {status}")
 
     print("\n" + "=" * 60)

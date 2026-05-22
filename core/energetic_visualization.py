@@ -12,23 +12,16 @@ Multi-modal visualization system supporting:
 Renders beautiful, meaningful visualizations for practice and contemplation.
 """
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageColor
-from PIL.ImageDraw import Draw
 import math
 import random
-from typing import List, Tuple, Optional, Dict, Union
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-import colorsys
+
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 try:
-    from core.energetic_anatomy import (
-        EnergeticAnatomyDatabase,
-        Chakra,
-        Meridian,
-        Element,
-        get_chakra_by_name
-    )
+    from core.energetic_anatomy import Chakra, Element, EnergeticAnatomyDatabase, Meridian, get_chakra_by_name
+
     HAS_ANATOMY = True
 except ImportError:
     HAS_ANATOMY = False
@@ -40,49 +33,49 @@ except ImportError:
 
 # Chakra colors (RGB)
 CHAKRA_COLORS = {
-    'muladhara': (196, 0, 0),        # Deep red
-    'svadhisthana': (255, 127, 0),    # Orange
-    'manipura': (255, 255, 0),        # Yellow/gold
-    'anahata': (0, 255, 0),           # Green
-    'anahata_alt': (255, 182, 193),   # Pink (alternative)
-    'vishuddha': (0, 127, 255),       # Sky blue
-    'ajna': (75, 0, 130),             # Indigo
-    'sahasrara': (148, 0, 211)        # Violet
+    "muladhara": (196, 0, 0),  # Deep red
+    "svadhisthana": (255, 127, 0),  # Orange
+    "manipura": (255, 255, 0),  # Yellow/gold
+    "anahata": (0, 255, 0),  # Green
+    "anahata_alt": (255, 182, 193),  # Pink (alternative)
+    "vishuddha": (0, 127, 255),  # Sky blue
+    "ajna": (75, 0, 130),  # Indigo
+    "sahasrara": (148, 0, 211),  # Violet
 }
 
 # Five Element colors
 ELEMENT_COLORS = {
-    'wood': (34, 139, 34),      # Forest green
-    'fire': (220, 20, 60),      # Crimson
-    'earth': (218, 165, 32),    # Goldenrod
-    'metal': (192, 192, 192),   # Silver
-    'water': (25, 25, 112)      # Midnight blue
+    "wood": (34, 139, 34),  # Forest green
+    "fire": (220, 20, 60),  # Crimson
+    "earth": (218, 165, 32),  # Goldenrod
+    "metal": (192, 192, 192),  # Silver
+    "water": (25, 25, 112),  # Midnight blue
 }
 
 # Rothko-inspired palettes
 ROTHKO_PALETTES = {
-    'classic': [(212, 69, 47), (255, 198, 93), (20, 20, 20)],
-    'meditative': [(72, 61, 139), (147, 112, 219), (255, 250, 250)],
-    'warm': [(255, 99, 71), (255, 140, 0), (255, 228, 181)],
-    'cool': [(70, 130, 180), (176, 224, 230), (240, 248, 255)],
-    'earth': [(139, 90, 43), (210, 180, 140), (245, 245, 220)],
-    'sunset': [(255, 94, 77), (255, 155, 66), (254, 211, 48)],
-    'ocean': [(13, 27, 42), (27, 38, 59), (65, 90, 119)],
-    'forest': [(27, 54, 38), (76, 116, 73), (180, 204, 148)]
+    "classic": [(212, 69, 47), (255, 198, 93), (20, 20, 20)],
+    "meditative": [(72, 61, 139), (147, 112, 219), (255, 250, 250)],
+    "warm": [(255, 99, 71), (255, 140, 0), (255, 228, 181)],
+    "cool": [(70, 130, 180), (176, 224, 230), (240, 248, 255)],
+    "earth": [(139, 90, 43), (210, 180, 140), (245, 245, 220)],
+    "sunset": [(255, 94, 77), (255, 155, 66), (254, 211, 48)],
+    "ocean": [(13, 27, 42), (27, 38, 59), (65, 90, 119)],
+    "forest": [(27, 54, 38), (76, 116, 73), (180, 204, 148)],
 }
 
 # Planetary colors
 PLANET_COLORS = {
-    'sun': (255, 215, 0),         # Gold
-    'moon': (192, 192, 192),      # Silver
-    'mercury': (128, 128, 128),   # Gray
-    'venus': (50, 205, 50),       # Lime green
-    'mars': (178, 34, 34),        # Firebrick
-    'jupiter': (138, 43, 226),    # Blue violet
-    'saturn': (25, 25, 112),      # Midnight blue
-    'uranus': (64, 224, 208),     # Turquoise
-    'neptune': (72, 61, 139),     # Dark slate blue
-    'pluto': (139, 0, 0)          # Dark red
+    "sun": (255, 215, 0),  # Gold
+    "moon": (192, 192, 192),  # Silver
+    "mercury": (128, 128, 128),  # Gray
+    "venus": (50, 205, 50),  # Lime green
+    "mars": (178, 34, 34),  # Firebrick
+    "jupiter": (138, 43, 226),  # Blue violet
+    "saturn": (25, 25, 112),  # Midnight blue
+    "uranus": (64, 224, 208),  # Turquoise
+    "neptune": (72, 61, 139),  # Dark slate blue
+    "pluto": (139, 0, 0),  # Dark red
 }
 
 
@@ -90,8 +83,10 @@ PLANET_COLORS = {
 # ENUMS
 # ============================================================================
 
+
 class VisualizationStyle(Enum):
     """Visualization style"""
+
     ROTHKO = "rothko"
     MINIMAL = "minimal"
     DETAILED = "detailed"
@@ -103,34 +98,37 @@ class VisualizationStyle(Enum):
 
 class RothkoLayout(Enum):
     """Layout for Rothko-style fields"""
-    SINGLE = "single"          # One large field
-    TWO_HORIZONTAL = "two_h"   # Two fields stacked
+
+    SINGLE = "single"  # One large field
+    TWO_HORIZONTAL = "two_h"  # Two fields stacked
     THREE_HORIZONTAL = "three_h"  # Three fields stacked
-    TWO_VERTICAL = "two_v"     # Two fields side by side
-    FOUR_GRID = "four_grid"    # 2x2 grid
+    TWO_VERTICAL = "two_v"  # Two fields side by side
+    FOUR_GRID = "four_grid"  # 2x2 grid
 
 
 # ============================================================================
 # DATA CLASSES
 # ============================================================================
 
+
 @dataclass
 class ColorField:
     """A Rothko-style color field"""
-    color: Tuple[int, int, int]
-    position: Tuple[float, float]  # (x, y) as fraction of canvas (0-1)
-    size: Tuple[float, float]      # (width, height) as fraction
-    edge_blur: int = 30            # Blur radius for soft edges
-    luminosity: float = 1.0        # Brightness multiplier
-    texture_strength: float = 0.1  # Subtle texture variation
-    name: str = ""                 # Optional name/label
 
-    def add_color_variation(self, amount: float = 0.05) -> 'ColorField':
+    color: tuple[int, int, int]
+    position: tuple[float, float]  # (x, y) as fraction of canvas (0-1)
+    size: tuple[float, float]  # (width, height) as fraction
+    edge_blur: int = 30  # Blur radius for soft edges
+    luminosity: float = 1.0  # Brightness multiplier
+    texture_strength: float = 0.1  # Subtle texture variation
+    name: str = ""  # Optional name/label
+
+    def add_color_variation(self, amount: float = 0.05) -> "ColorField":
         """Create slight color variation"""
         r, g, b = self.color
-        r = int(max(0, min(255, r + random.randint(-int(255*amount), int(255*amount)))))
-        g = int(max(0, min(255, g + random.randint(-int(255*amount), int(255*amount)))))
-        b = int(max(0, min(255, b + random.randint(-int(255*amount), int(255*amount)))))
+        r = int(max(0, min(255, r + random.randint(-int(255 * amount), int(255 * amount)))))
+        g = int(max(0, min(255, g + random.randint(-int(255 * amount), int(255 * amount)))))
+        b = int(max(0, min(255, b + random.randint(-int(255 * amount), int(255 * amount)))))
         return ColorField(
             color=(r, g, b),
             position=self.position,
@@ -138,7 +136,7 @@ class ColorField:
             edge_blur=self.edge_blur,
             luminosity=self.luminosity,
             texture_strength=self.texture_strength,
-            name=self.name
+            name=self.name,
         )
 
 
@@ -146,12 +144,13 @@ class ColorField:
 # BASE VISUALIZER
 # ============================================================================
 
+
 class BaseVisualizer:
     """Base class for all visualizers"""
 
-    def __init__(self, width: int = 1920, height: int = 1080,
-                 background: Tuple[int, int, int] = (255, 255, 255),
-                 dpi: int = 150):
+    def __init__(
+        self, width: int = 1920, height: int = 1080, background: tuple[int, int, int] = (255, 255, 255), dpi: int = 150
+    ):
         """
         Initialize visualizer.
 
@@ -165,24 +164,24 @@ class BaseVisualizer:
         self.height = height
         self.background = background
         self.dpi = dpi
-        self.canvas = Image.new('RGB', (width, height), background)
+        self.canvas = Image.new("RGB", (width, height), background)
         self.draw = ImageDraw.Draw(self.canvas)
 
     def clear(self):
         """Clear canvas to background color"""
-        self.canvas = Image.new('RGB', (self.width, self.height), self.background)
+        self.canvas = Image.new("RGB", (self.width, self.height), self.background)
         self.draw = ImageDraw.Draw(self.canvas)
 
-    def save(self, filepath: str, format: Optional[str] = None):
+    def save(self, filepath: str, format: str | None = None):
         """Save image to file"""
         if format is None:
             # Detect from extension
-            if filepath.endswith('.png'):
-                format = 'PNG'
-            elif filepath.endswith('.jpg') or filepath.endswith('.jpeg'):
-                format = 'JPEG'
-            elif filepath.endswith('.pdf'):
-                format = 'PDF'
+            if filepath.endswith(".png"):
+                format = "PNG"
+            elif filepath.endswith(".jpg") or filepath.endswith(".jpeg"):
+                format = "JPEG"
+            elif filepath.endswith(".pdf"):
+                format = "PDF"
 
         self.canvas.save(filepath, format=format, dpi=(self.dpi, self.dpi))
 
@@ -211,6 +210,7 @@ class BaseVisualizer:
 # ROTHKO-STYLE VISUALIZER
 # ============================================================================
 
+
 class RothkoVisualizer(BaseVisualizer):
     """
     Create Rothko-style abstract color field paintings.
@@ -219,18 +219,20 @@ class RothkoVisualizer(BaseVisualizer):
     Perfect for chakra meditations, emotional states, and contemplative art.
     """
 
-    def __init__(self, width: int = 1920, height: int = 1080,
-                 background: Tuple[int, int, int] = (245, 245, 240)):
+    def __init__(self, width: int = 1920, height: int = 1080, background: tuple[int, int, int] = (245, 245, 240)):
         """Initialize with off-white background (Rothko's typical choice)"""
         super().__init__(width, height, background)
-        self.fields: List[ColorField] = []
+        self.fields: list[ColorField] = []
 
-    def create_field(self, color: Tuple[int, int, int],
-                     position: Tuple[float, float],
-                     size: Tuple[float, float],
-                     edge_blur: int = 40,
-                     luminosity: float = 1.0,
-                     name: str = "") -> ColorField:
+    def create_field(
+        self,
+        color: tuple[int, int, int],
+        position: tuple[float, float],
+        size: tuple[float, float],
+        edge_blur: int = 40,
+        luminosity: float = 1.0,
+        name: str = "",
+    ) -> ColorField:
         """
         Create a single color field.
 
@@ -246,12 +248,7 @@ class RothkoVisualizer(BaseVisualizer):
             ColorField object
         """
         field = ColorField(
-            color=color,
-            position=position,
-            size=size,
-            edge_blur=edge_blur,
-            luminosity=luminosity,
-            name=name
+            color=color, position=position, size=size, edge_blur=edge_blur, luminosity=luminosity, name=name
         )
         self.fields.append(field)
         return field
@@ -271,7 +268,7 @@ class RothkoVisualizer(BaseVisualizer):
         h = int(field.size[1] * self.height)
 
         # Create field on separate layer for blending
-        field_layer = Image.new('RGB', (self.width, self.height), self.background)
+        field_layer = Image.new("RGB", (self.width, self.height), self.background)
         field_draw = ImageDraw.Draw(field_layer)
 
         # Apply luminosity
@@ -282,10 +279,7 @@ class RothkoVisualizer(BaseVisualizer):
         field_color = (r, g, b)
 
         # Draw rectangle
-        field_draw.rectangle(
-            [(x, y), (x + w, y + h)],
-            fill=field_color
-        )
+        field_draw.rectangle([(x, y), (x + w, y + h)], fill=field_color)
 
         # Add subtle texture variations
         if add_variation:
@@ -368,13 +362,13 @@ class RothkoVisualizer(BaseVisualizer):
         self.fields = []
 
         # Single large field for meditation
-        field = self.create_field(
+        self.create_field(
             color=color,
             position=(0.1, 0.15),
             size=(0.8, 0.7),
             edge_blur=50,
             luminosity=1.1,  # Slightly brighter for glowing effect
-            name=chakra_name
+            name=chakra_name,
         )
 
         self.render_all_fields()
@@ -391,14 +385,13 @@ class RothkoVisualizer(BaseVisualizer):
             label = chakra_name.upper()
             bbox = self.draw.textbbox((0, 0), label, font=font)
             text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
+            bbox[3] - bbox[1]
             text_x = (self.width - text_width) // 2
             text_y = int(self.height * 0.90)
 
             # Draw text with subtle shadow
             shadow_offset = 2
-            self.draw.text((text_x + shadow_offset, text_y + shadow_offset),
-                          label, fill=(0, 0, 0, 128), font=font)
+            self.draw.text((text_x + shadow_offset, text_y + shadow_offset), label, fill=(0, 0, 0, 128), font=font)
             self.draw.text((text_x, text_y), label, fill=(50, 50, 50), font=font)
 
     def create_seven_chakras(self, vertical: bool = True):
@@ -409,8 +402,7 @@ class RothkoVisualizer(BaseVisualizer):
             vertical: If True, stack vertically (root to crown).
                      If False, arrange horizontally.
         """
-        chakras = ['muladhara', 'svadhisthana', 'manipura', 'anahata',
-                  'vishuddha', 'ajna', 'sahasrara']
+        chakras = ["muladhara", "svadhisthana", "manipura", "anahata", "vishuddha", "ajna", "sahasrara"]
 
         self.fields = []
 
@@ -421,11 +413,7 @@ class RothkoVisualizer(BaseVisualizer):
                 color = CHAKRA_COLORS[chakra_name]
                 y_pos = i * segment_height
                 self.create_field(
-                    color=color,
-                    position=(0.0, y_pos),
-                    size=(1.0, segment_height),
-                    edge_blur=30,
-                    name=chakra_name
+                    color=color, position=(0.0, y_pos), size=(1.0, segment_height), edge_blur=30, name=chakra_name
                 )
         else:
             # Arrange horizontally
@@ -434,11 +422,7 @@ class RothkoVisualizer(BaseVisualizer):
                 color = CHAKRA_COLORS[chakra_name]
                 x_pos = i * segment_width
                 self.create_field(
-                    color=color,
-                    position=(x_pos, 0.0),
-                    size=(segment_width, 1.0),
-                    edge_blur=30,
-                    name=chakra_name
+                    color=color, position=(x_pos, 0.0), size=(segment_width, 1.0), edge_blur=30, name=chakra_name
                 )
 
         self.render_all_fields()
@@ -458,20 +442,14 @@ class RothkoVisualizer(BaseVisualizer):
 
         # Create field with element-appropriate characteristics
         edge_blur = {
-            'wood': 35,  # Slightly crisp (growing)
-            'fire': 60,  # Very soft (flickering)
-            'earth': 20, # Sharp (stable)
-            'metal': 25, # Crisp (refined)
-            'water': 50  # Soft (flowing)
+            "wood": 35,  # Slightly crisp (growing)
+            "fire": 60,  # Very soft (flickering)
+            "earth": 20,  # Sharp (stable)
+            "metal": 25,  # Crisp (refined)
+            "water": 50,  # Soft (flowing)
         }.get(element_name, 40)
 
-        self.create_field(
-            color=color,
-            position=(0.1, 0.15),
-            size=(0.8, 0.7),
-            edge_blur=edge_blur,
-            name=element_name
-        )
+        self.create_field(color=color, position=(0.1, 0.15), size=(0.8, 0.7), edge_blur=edge_blur, name=element_name)
 
         self.render_all_fields()
 
@@ -480,6 +458,7 @@ class RothkoVisualizer(BaseVisualizer):
 # SACRED GEOMETRY VISUALIZER
 # ============================================================================
 
+
 class SacredGeometryVisualizer(BaseVisualizer):
     """
     Create sacred geometry patterns.
@@ -487,15 +466,19 @@ class SacredGeometryVisualizer(BaseVisualizer):
     Supports: Flower of Life, Seed of Life, Metatron's Cube, etc.
     """
 
-    def __init__(self, width: int = 1920, height: int = 1080,
-                 background: Tuple[int, int, int] = (20, 20, 30)):
+    def __init__(self, width: int = 1920, height: int = 1080, background: tuple[int, int, int] = (20, 20, 30)):
         """Initialize with dark background for luminous effect"""
         super().__init__(width, height, background)
         self.center = (width // 2, height // 2)
 
-    def draw_circle_outline(self, center: Tuple[int, int], radius: int,
-                           color: Tuple[int, int, int] = (255, 255, 255),
-                           width: int = 2, glow: bool = False):
+    def draw_circle_outline(
+        self,
+        center: tuple[int, int],
+        radius: int,
+        color: tuple[int, int, int] = (255, 255, 255),
+        width: int = 2,
+        glow: bool = False,
+    ):
         """Draw a circle outline, optionally with glow"""
         if glow:
             # Draw multiple circles with decreasing opacity for glow effect
@@ -503,23 +486,17 @@ class SacredGeometryVisualizer(BaseVisualizer):
                 alpha = int(255 * (i / 10) * 0.3)
                 glow_color = (*color, alpha)
                 self.draw.ellipse(
-                    [center[0] - radius - i, center[1] - radius - i,
-                     center[0] + radius + i, center[1] + radius + i],
+                    [center[0] - radius - i, center[1] - radius - i, center[0] + radius + i, center[1] + radius + i],
                     outline=glow_color,
-                    width=1
+                    width=1,
                 )
 
         # Draw main circle
         self.draw.ellipse(
-            [center[0] - radius, center[1] - radius,
-             center[0] + radius, center[1] + radius],
-            outline=color,
-            width=width
+            [center[0] - radius, center[1] - radius, center[0] + radius, center[1] + radius], outline=color, width=width
         )
 
-    def create_flower_of_life(self, radius: int = 200,
-                             color: Tuple[int, int, int] = (255, 215, 0),
-                             glow: bool = True):
+    def create_flower_of_life(self, radius: int = 200, color: tuple[int, int, int] = (255, 215, 0), glow: bool = True):
         """
         Create Flower of Life pattern.
 
@@ -545,9 +522,7 @@ class SacredGeometryVisualizer(BaseVisualizer):
             y = self.center[1] + int(distance * math.sin(rad))
             self.draw_circle_outline((x, y), radius, color, width=2, glow=glow)
 
-    def create_seed_of_life(self, radius: int = 200,
-                           color: Tuple[int, int, int] = (147, 112, 219),
-                           glow: bool = True):
+    def create_seed_of_life(self, radius: int = 200, color: tuple[int, int, int] = (147, 112, 219), glow: bool = True):
         """
         Create Seed of Life pattern.
 
@@ -564,8 +539,7 @@ class SacredGeometryVisualizer(BaseVisualizer):
             y = self.center[1] + int(radius * math.sin(rad))
             self.draw_circle_outline((x, y), radius, color, width=3, glow=glow)
 
-    def create_sri_yantra_simple(self, size: int = 400,
-                                 color: Tuple[int, int, int] = (255, 100, 100)):
+    def create_sri_yantra_simple(self, size: int = 400, color: tuple[int, int, int] = (255, 100, 100)):
         """
         Create simplified Sri Yantra pattern.
 
@@ -578,9 +552,9 @@ class SacredGeometryVisualizer(BaseVisualizer):
         for i in range(5):
             offset = i * 40
             points = [
-                (self.center[0], self.center[1] - half + offset),           # Top
+                (self.center[0], self.center[1] - half + offset),  # Top
                 (self.center[0] - half + offset, self.center[1] + half - offset),  # Bottom left
-                (self.center[0] + half - offset, self.center[1] + half - offset)   # Bottom right
+                (self.center[0] + half - offset, self.center[1] + half - offset),  # Bottom right
             ]
             self.draw.polygon(points, outline=color, width=2)
 
@@ -588,18 +562,22 @@ class SacredGeometryVisualizer(BaseVisualizer):
         for i in range(4):
             offset = i * 40 + 20
             points = [
-                (self.center[0], self.center[1] + half - offset),           # Bottom
+                (self.center[0], self.center[1] + half - offset),  # Bottom
                 (self.center[0] - half + offset, self.center[1] - half + offset),  # Top left
-                (self.center[0] + half - offset, self.center[1] - half + offset)   # Top right
+                (self.center[0] + half - offset, self.center[1] - half + offset),  # Top right
             ]
             self.draw.polygon(points, outline=color, width=2)
 
         # Central bindu (point)
         bindu_radius = 8
         self.draw.ellipse(
-            [self.center[0] - bindu_radius, self.center[1] - bindu_radius,
-             self.center[0] + bindu_radius, self.center[1] + bindu_radius],
-            fill=color
+            [
+                self.center[0] - bindu_radius,
+                self.center[1] - bindu_radius,
+                self.center[0] + bindu_radius,
+                self.center[1] + bindu_radius,
+            ],
+            fill=color,
         )
 
 
@@ -607,8 +585,10 @@ class SacredGeometryVisualizer(BaseVisualizer):
 # CONVENIENCE FUNCTIONS
 # ============================================================================
 
-def create_chakra_meditation(chakra_name: str, width: int = 1920, height: int = 1080,
-                             style: str = 'rothko', save_path: Optional[str] = None) -> Image.Image:
+
+def create_chakra_meditation(
+    chakra_name: str, width: int = 1920, height: int = 1080, style: str = "rothko", save_path: str | None = None
+) -> Image.Image:
     """
     Quick function to create a chakra meditation visual.
 
@@ -622,17 +602,14 @@ def create_chakra_meditation(chakra_name: str, width: int = 1920, height: int = 
     Returns:
         PIL Image
     """
-    if style == 'rothko':
+    if style == "rothko":
         viz = RothkoVisualizer(width, height)
         viz.create_chakra_field(chakra_name, include_label=True)
     else:
         viz = BaseVisualizer(width, height, background=(0, 0, 0))
         color = CHAKRA_COLORS.get(chakra_name, (255, 255, 255))
         # Simple filled rectangle
-        viz.draw.rectangle(
-            [(width * 0.2, height * 0.2), (width * 0.8, height * 0.8)],
-            fill=color
-        )
+        viz.draw.rectangle([(width * 0.2, height * 0.2), (width * 0.8, height * 0.8)], fill=color)
 
     if save_path:
         viz.save(save_path)
@@ -640,9 +617,9 @@ def create_chakra_meditation(chakra_name: str, width: int = 1920, height: int = 
     return viz.get_image()
 
 
-def create_seven_chakras_composition(width: int = 1920, height: int = 1080,
-                                    vertical: bool = True,
-                                    save_path: Optional[str] = None) -> Image.Image:
+def create_seven_chakras_composition(
+    width: int = 1920, height: int = 1080, vertical: bool = True, save_path: str | None = None
+) -> Image.Image:
     """Quick function to create seven chakras composition"""
     viz = RothkoVisualizer(width, height, background=(30, 30, 35))
     viz.create_seven_chakras(vertical=vertical)
@@ -653,9 +630,9 @@ def create_seven_chakras_composition(width: int = 1920, height: int = 1080,
     return viz.get_image()
 
 
-def create_flower_of_life(width: int = 1920, height: int = 1080,
-                         color: Tuple[int, int, int] = (255, 215, 0),
-                         save_path: Optional[str] = None) -> Image.Image:
+def create_flower_of_life(
+    width: int = 1920, height: int = 1080, color: tuple[int, int, int] = (255, 215, 0), save_path: str | None = None
+) -> Image.Image:
     """Quick function to create Flower of Life"""
     viz = SacredGeometryVisualizer(width, height)
     viz.create_flower_of_life(radius=min(width, height) // 4, color=color, glow=True)
@@ -673,43 +650,43 @@ if __name__ == "__main__":
     # Example 1: Rothko-style chakra field
     print("Creating heart chakra Rothko field...")
     viz1 = RothkoVisualizer(1920, 1080)
-    viz1.create_chakra_field('anahata', include_label=True)
-    viz1.save('/tmp/heart_chakra_rothko.png')
+    viz1.create_chakra_field("anahata", include_label=True)
+    viz1.save("/tmp/heart_chakra_rothko.png")
     print("  → Saved to /tmp/heart_chakra_rothko.png")
 
     # Example 2: Seven chakras composition
     print("\nCreating seven chakras vertical composition...")
     viz2 = RothkoVisualizer(1080, 1920)  # Portrait orientation
     viz2.create_seven_chakras(vertical=True)
-    viz2.save('/tmp/seven_chakras.png')
+    viz2.save("/tmp/seven_chakras.png")
     print("  → Saved to /tmp/seven_chakras.png")
 
     # Example 3: Rothko palette
     print("\nCreating Rothko 'meditative' palette...")
     viz3 = RothkoVisualizer(1920, 1080)
-    viz3.create_from_palette('meditative', RothkoLayout.THREE_HORIZONTAL)
-    viz3.save('/tmp/rothko_meditative.png')
+    viz3.create_from_palette("meditative", RothkoLayout.THREE_HORIZONTAL)
+    viz3.save("/tmp/rothko_meditative.png")
     print("  → Saved to /tmp/rothko_meditative.png")
 
     # Example 4: Flower of Life
     print("\nCreating Flower of Life sacred geometry...")
     viz4 = SacredGeometryVisualizer(1920, 1920)  # Square
     viz4.create_flower_of_life(radius=400, color=(255, 215, 0), glow=True)
-    viz4.save('/tmp/flower_of_life.png')
+    viz4.save("/tmp/flower_of_life.png")
     print("  → Saved to /tmp/flower_of_life.png")
 
     # Example 5: Seed of Life
     print("\nCreating Seed of Life sacred geometry...")
     viz5 = SacredGeometryVisualizer(1920, 1920)
     viz5.create_seed_of_life(radius=350, color=(147, 112, 219), glow=True)
-    viz5.save('/tmp/seed_of_life.png')
+    viz5.save("/tmp/seed_of_life.png")
     print("  → Saved to /tmp/seed_of_life.png")
 
     # Example 6: Element field (Water)
     print("\nCreating Water element Rothko field...")
     viz6 = RothkoVisualizer(1920, 1080)
-    viz6.create_element_field('water')
-    viz6.save('/tmp/element_water.png')
+    viz6.create_element_field("water")
+    viz6.save("/tmp/element_water.png")
     print("  → Saved to /tmp/element_water.png")
 
     print("\n✨ All visualizations created successfully! ✨")

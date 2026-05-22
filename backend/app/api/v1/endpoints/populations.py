@@ -4,15 +4,12 @@ Target Populations API Endpoints
 CRUD operations for managing populations that receive automated blessings.
 """
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
 
-from backend.core.services.population_manager import (
-    get_population_manager,
-    PopulationCategory,
-    SourceType
-)
+from backend.core.services.population_manager import PopulationCategory, SourceType, get_population_manager
 
 router = APIRouter(tags=["populations"])
 
@@ -20,19 +17,20 @@ router = APIRouter(tags=["populations"])
 # Request/Response Models
 class CreatePopulationRequest(BaseModel):
     """Request to create new population"""
+
     name: str = Field(..., min_length=1, max_length=200)
     description: str = Field("", max_length=1000)
     category: PopulationCategory
     source_type: SourceType
-    directory_path: Optional[str] = None
-    source_url: Optional[str] = None
+    directory_path: str | None = None
+    source_url: str | None = None
     mantra_preference: str = "chenrezig"
-    intentions: List[str] = Field(default_factory=lambda: ["love", "healing", "peace"])
+    intentions: list[str] = Field(default_factory=lambda: ["love", "healing", "peace"])
     repetitions_per_photo: int = Field(108, ge=1, le=10000)
     display_duration_ms: int = Field(2000, ge=100, le=60000)
     priority: int = Field(5, ge=1, le=10)
     is_urgent: bool = False
-    tags: List[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
     notes: str = ""
 
     class Config:
@@ -45,70 +43,74 @@ class CreatePopulationRequest(BaseModel):
                 "directory_path": "/path/to/photos",
                 "mantra_preference": "chenrezig",
                 "intentions": ["reunion", "safety", "love"],
-                "priority": 7
+                "priority": 7,
             }
         }
 
 
 class UpdatePopulationRequest(BaseModel):
     """Request to update population"""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    directory_path: Optional[str] = None
-    source_url: Optional[str] = None
-    mantra_preference: Optional[str] = None
-    intentions: Optional[List[str]] = None
-    repetitions_per_photo: Optional[int] = None
-    display_duration_ms: Optional[int] = None
-    priority: Optional[int] = None
-    is_urgent: Optional[bool] = None
-    is_active: Optional[bool] = None
-    tags: Optional[List[str]] = None
-    notes: Optional[str] = None
+
+    name: str | None = None
+    description: str | None = None
+    directory_path: str | None = None
+    source_url: str | None = None
+    mantra_preference: str | None = None
+    intentions: list[str] | None = None
+    repetitions_per_photo: int | None = None
+    display_duration_ms: int | None = None
+    priority: int | None = None
+    is_urgent: bool | None = None
+    is_active: bool | None = None
+    tags: list[str] | None = None
+    notes: str | None = None
 
 
 class PopulationResponse(BaseModel):
     """Population data"""
+
     id: str
     name: str
     description: str
     category: str
     source_type: str
-    source_url: Optional[str]
-    directory_path: Optional[str]
+    source_url: str | None
+    directory_path: str | None
     mantra_preference: str
-    intentions: List[str]
+    intentions: list[str]
     repetitions_per_photo: int
     display_duration_ms: int
     priority: int
     is_urgent: bool
     is_active: bool
     added_time: float
-    last_blessed_time: Optional[float]
+    last_blessed_time: float | None
     total_blessings_sent: int
     total_mantras_repeated: int
     total_session_duration: float
     photo_count: int
-    tags: List[str]
+    tags: list[str]
     notes: str
     offline_available: bool
-    last_sync_time: Optional[float]
+    last_sync_time: float | None
 
 
 class StatisticsResponse(BaseModel):
     """Overall statistics"""
+
     total_populations: int
     active_populations: int
     urgent_populations: int
     total_blessings_sent: int
     total_mantras_repeated: int
     total_session_duration: float
-    categories: Dict[str, int]
+    categories: dict[str, int]
     never_blessed: int
     offline_available: int
 
 
 # Endpoints
+
 
 @router.post("/create", response_model=PopulationResponse)
 async def create_population(request: CreatePopulationRequest):
@@ -147,7 +149,7 @@ async def create_population(request: CreatePopulationRequest):
             priority=request.priority,
             is_urgent=request.is_urgent,
             tags=request.tags,
-            notes=request.notes
+            notes=request.notes,
         )
 
         return PopulationResponse(**population.to_dict())
@@ -168,11 +170,11 @@ async def get_population(population_id: str):
     return PopulationResponse(**population.to_dict())
 
 
-@router.get("/", response_model=List[PopulationResponse])
+@router.get("/", response_model=list[PopulationResponse])
 async def get_all_populations(
     active_only: bool = Query(False, description="Only return active populations"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    urgent_only: bool = Query(False, description="Only return urgent populations")
+    category: str | None = Query(None, description="Filter by category"),
+    urgent_only: bool = Query(False, description="Only return urgent populations"),
 ):
     """
     Get all populations
@@ -276,8 +278,7 @@ async def export_populations():
 
 @router.post("/import")
 async def import_populations(
-    data: Dict[str, Any],
-    merge: bool = Query(False, description="Merge with existing vs. replace all")
+    data: dict[str, Any], merge: bool = Query(False, description="Merge with existing vs. replace all")
 ):
     """
     Import populations from backup
@@ -294,11 +295,7 @@ async def import_populations(
 
     try:
         count = manager.import_data(data, merge=merge)
-        return {
-            "message": f"Successfully imported {count} populations",
-            "count": count,
-            "merge": merge
-        }
+        return {"message": f"Successfully imported {count} populations", "count": count, "merge": merge}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
 
@@ -311,11 +308,7 @@ async def list_categories():
     Returns category values and descriptions.
     """
     return [
-        {
-            "value": cat.value,
-            "name": cat.value.replace("_", " ").title(),
-            "description": _get_category_description(cat)
-        }
+        {"value": cat.value, "name": cat.value.replace("_", " ").title(), "description": _get_category_description(cat)}
         for cat in PopulationCategory
     ]
 
@@ -329,8 +322,15 @@ async def list_source_types():
             "name": src.value.replace("_", " ").title(),
             "description": _get_source_description(src),
             "requires_path": src == SourceType.LOCAL_DIRECTORY,
-            "requires_url": src in [SourceType.RSS_FEED, SourceType.NEWS_API, SourceType.GDACS, SourceType.RELIEF_WEB, SourceType.CUSTOM_API],
-            "online_only": src != SourceType.LOCAL_DIRECTORY and src != SourceType.MANUAL
+            "requires_url": src
+            in [
+                SourceType.RSS_FEED,
+                SourceType.NEWS_API,
+                SourceType.GDACS,
+                SourceType.RELIEF_WEB,
+                SourceType.CUSTOM_API,
+            ],
+            "online_only": src != SourceType.LOCAL_DIRECTORY and src != SourceType.MANUAL,
         }
         for src in SourceType
     ]
@@ -349,7 +349,7 @@ def _get_category_description(cat: PopulationCategory) -> str:
         PopulationCategory.HUMANITARIAN_CRISIS: "Humanitarian crisis situations",
         PopulationCategory.MEMORIAL: "Memorial and remembrance",
         PopulationCategory.ENDANGERED_SPECIES: "Endangered species",
-        PopulationCategory.CUSTOM: "Custom category"
+        PopulationCategory.CUSTOM: "Custom category",
     }
     return descriptions.get(cat, "")
 
@@ -363,7 +363,7 @@ def _get_source_description(src: SourceType) -> str:
         SourceType.NEWS_API: "News API service (online)",
         SourceType.GDACS: "Global Disaster Alert System (online)",
         SourceType.RELIEF_WEB: "UN ReliefWeb API (online)",
-        SourceType.CUSTOM_API: "Custom API endpoint (online)"
+        SourceType.CUSTOM_API: "Custom API endpoint (online)",
     }
     return descriptions.get(src, "")
 
@@ -377,6 +377,6 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "populations",
-        "total_populations": stats['total_populations'],
-        "active_populations": stats['active_populations']
+        "total_populations": stats["total_populations"],
+        "active_populations": stats["active_populations"],
     }

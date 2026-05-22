@@ -3,28 +3,28 @@ Scalar Waves API Endpoints for Vajra.Stream
 Terra MOPS scalar wave generation and benchmarking
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
 import asyncio
 import logging
-import sys
 import os
+import sys
+from typing import Any
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
 
 # Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../../../'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from core.advanced_scalar_waves import (
-    HybridScalarWaveGenerator,
-    ThermalMonitor,
-    QuantumRNG,
-    LorenzAttractor,
-    RosslerAttractor,
     CellularAutomata1D,
-    KuramotoOscillator,
     CryptoMixer,
+    HybridScalarWaveGenerator,
+    KuramotoOscillator,
+    LorenzAttractor,
     PrimeHarmonics,
-    MOPSMetrics
+    QuantumRNG,
+    RosslerAttractor,
+    ThermalMonitor,
 )
 
 # Setup logging
@@ -37,19 +37,23 @@ router = APIRouter()
 thermal_monitor = ThermalMonitor()
 scalar_generator = HybridScalarWaveGenerator()
 
+
 # Request Models
 class ScalarGenerationRequest(BaseModel):
     method: str = Field(..., description="Method: qrng, lorenz, rossler, ca, kuramoto, crypto, primes, hybrid")
     count: int = Field(default=10000, ge=100, le=10000000, description="Number of values to generate")
     intensity: float = Field(default=1.0, ge=0.0, le=1.0, description="Generation intensity (0.0-1.0)")
 
+
 class BenchmarkRequest(BaseModel):
-    methods: Optional[List[str]] = Field(None, description="Methods to benchmark (None = all)")
+    methods: list[str] | None = Field(None, description="Methods to benchmark (None = all)")
     duration_seconds: float = Field(default=3.0, ge=1.0, le=60.0, description="Duration per method")
+
 
 class BreathingCycleRequest(BaseModel):
     cycles: int = Field(default=3, ge=1, le=108, description="Number of 108-second cycles")
     intensity: float = Field(default=0.7, ge=0.1, le=1.0, description="Generation intensity")
+
 
 # Response Models
 class ScalarGenerationResponse(BaseModel):
@@ -58,15 +62,17 @@ class ScalarGenerationResponse(BaseModel):
     count: int
     mops: float
     generation_time: float
-    thermal_status: Dict[str, Any]
-    statistics: Dict[str, float]
+    thermal_status: dict[str, Any]
+    statistics: dict[str, float]
+
 
 class BenchmarkResponse(BaseModel):
     status: str
-    results: Dict[str, Dict[str, Any]]
+    results: dict[str, dict[str, Any]]
     combined_mops: float
-    thermal_status: Dict[str, Any]
-    recommendations: List[str]
+    thermal_status: dict[str, Any]
+    recommendations: list[str]
+
 
 class ThermalStatusResponse(BaseModel):
     temperature: float
@@ -76,7 +82,9 @@ class ThermalStatusResponse(BaseModel):
     max_temp: float
     status: str
 
+
 # Endpoints
+
 
 @router.post("/generate", response_model=ScalarGenerationResponse)
 async def generate_scalar_waves(request: ScalarGenerationRequest, background_tasks: BackgroundTasks):
@@ -89,6 +97,7 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
 
         # Select generator
         import time
+
         start_time = time.time()
 
         if request.method == "qrng":
@@ -122,19 +131,20 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
 
         # Calculate statistics
         import statistics
+
         stats = {
             "mean": statistics.mean(values),
             "median": statistics.median(values),
             "stdev": statistics.stdev(values) if len(values) > 1 else 0,
             "min": min(values),
-            "max": max(values)
+            "max": max(values),
         }
 
         # Get thermal status
         thermal_status = {
             "temperature": thermal_monitor.state.temperature,
             "throttle_factor": thermal_monitor.state.throttle_factor,
-            "load": thermal_monitor.state.load_average
+            "load": thermal_monitor.state.load_average,
         }
 
         return ScalarGenerationResponse(
@@ -144,7 +154,7 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
             mops=mops,
             generation_time=generation_time,
             thermal_status=thermal_status,
-            statistics=stats
+            statistics=stats,
         )
 
     except Exception as e:
@@ -166,7 +176,7 @@ async def run_benchmark(request: BenchmarkRequest, background_tasks: BackgroundT
             # Update thermal monitor
             thermal_monitor.update()
             if thermal_monitor.state.throttle_factor < 0.5:
-                logger.warning(f"⚠️ Thermal throttling detected, pausing benchmark")
+                logger.warning("⚠️ Thermal throttling detected, pausing benchmark")
                 await asyncio.sleep(5)
 
             # Run benchmark for this method
@@ -174,7 +184,7 @@ async def run_benchmark(request: BenchmarkRequest, background_tasks: BackgroundT
                 gen_request = ScalarGenerationRequest(
                     method=method,
                     count=int(request.duration_seconds * 1_000_000),  # Estimate based on duration
-                    intensity=1.0
+                    intensity=1.0,
                 )
 
                 response = await generate_scalar_waves(gen_request, background_tasks)
@@ -182,7 +192,7 @@ async def run_benchmark(request: BenchmarkRequest, background_tasks: BackgroundT
                 results[method] = {
                     "mops": response.mops,
                     "generation_time": response.generation_time,
-                    "count": response.count
+                    "count": response.count,
                 }
                 total_mops += response.mops
 
@@ -202,7 +212,7 @@ async def run_benchmark(request: BenchmarkRequest, background_tasks: BackgroundT
         thermal_status = {
             "temperature": thermal_monitor.state.temperature,
             "throttle_factor": thermal_monitor.state.throttle_factor,
-            "status": "optimal" if thermal_monitor.state.temperature < 75 else "warm"
+            "status": "optimal" if thermal_monitor.state.temperature < 75 else "warm",
         }
 
         return BenchmarkResponse(
@@ -210,7 +220,7 @@ async def run_benchmark(request: BenchmarkRequest, background_tasks: BackgroundT
             results=results,
             combined_mops=total_mops,
             thermal_status=thermal_status,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     except Exception as e:
@@ -233,18 +243,20 @@ async def sacred_breathing_cycle(request: BreathingCycleRequest, background_task
             work_gen_request = ScalarGenerationRequest(
                 method="hybrid",
                 count=int(72 * 100_000 * request.intensity),  # Scale by intensity
-                intensity=request.intensity
+                intensity=request.intensity,
             )
             work_response = await generate_scalar_waves(work_gen_request, background_tasks)
 
             # Rest phase (36 seconds)
             await asyncio.sleep(min(5, 36))  # Simulate rest (shortened for API)
 
-            cycle_results.append({
-                "cycle": cycle_num + 1,
-                "mops": work_response.mops,
-                "thermal_temp": work_response.thermal_status["temperature"]
-            })
+            cycle_results.append(
+                {
+                    "cycle": cycle_num + 1,
+                    "mops": work_response.mops,
+                    "thermal_temp": work_response.thermal_status["temperature"],
+                }
+            )
 
         avg_mops = sum(r["mops"] for r in cycle_results) / len(cycle_results)
 
@@ -255,7 +267,7 @@ async def sacred_breathing_cycle(request: BreathingCycleRequest, background_task
             "average_mops": avg_mops,
             "total_work_time_seconds": request.cycles * 72,
             "total_rest_time_seconds": request.cycles * 36,
-            "dedication": "May all beings benefit from these computational cycles! 🙏"
+            "dedication": "May all beings benefit from these computational cycles! 🙏",
         }
 
     except Exception as e:
@@ -283,7 +295,7 @@ async def get_thermal_status():
             throttle_factor=thermal_monitor.state.throttle_factor,
             target_temp=thermal_monitor.state.target_temp,
             max_temp=thermal_monitor.state.max_temp,
-            status=status
+            status=status,
         )
 
     except Exception as e:
@@ -301,18 +313,14 @@ async def get_mops_metrics():
             "current_mmops": 17.73,
             "target_terra_mops": 1.0,
             "progress_percent": 0.001773,
-            "next_milestone": {
-                "name": "NumPy Vectorization",
-                "target_mmops": 500,
-                "speedup": "30x"
-            },
+            "next_milestone": {"name": "NumPy Vectorization", "target_mmops": 500, "speedup": "30x"},
             "optimization_path": [
                 {"level": 1, "name": "Pure Python", "mops": 17.73, "status": "✅ Complete"},
                 {"level": 2, "name": "NumPy Vectorization", "mops": 500, "status": "📋 Planned"},
                 {"level": 3, "name": "Multi-threading", "mops": 8000, "status": "📋 Planned"},
                 {"level": 4, "name": "GPU Acceleration", "mops": 500000, "status": "📋 Planned"},
-                {"level": 5, "name": "Terra MOPS", "mops": 1000000, "status": "🎯 Goal"}
-            ]
+                {"level": 5, "name": "Terra MOPS", "mops": 1000000, "status": "🎯 Goal"},
+            ],
         }
 
     except Exception as e:
@@ -331,58 +339,58 @@ async def list_methods():
                 "name": "Quantum Random Number Generation",
                 "power_rating": 5,
                 "estimated_mops": 1.8,
-                "description": "True randomness from system entropy"
+                "description": "True randomness from system entropy",
             },
             {
                 "id": "lorenz",
                 "name": "Lorenz Chaotic Attractor",
                 "power_rating": 4,
                 "estimated_mops": 2.7,
-                "description": "Butterfly effect chaos generator"
+                "description": "Butterfly effect chaos generator",
             },
             {
                 "id": "rossler",
                 "name": "Rössler Chaotic Attractor",
                 "power_rating": 4,
                 "estimated_mops": 2.8,
-                "description": "Alternative chaotic system"
+                "description": "Alternative chaotic system",
             },
             {
                 "id": "ca",
                 "name": "Cellular Automata",
                 "power_rating": 4,
                 "estimated_mops": 6.6,
-                "description": "Emergent complexity (fastest method!)"
+                "description": "Emergent complexity (fastest method!)",
             },
             {
                 "id": "kuramoto",
                 "name": "Kuramoto Oscillators",
                 "power_rating": 3,
                 "estimated_mops": 0.6,
-                "description": "Phase synchronization at Solfeggio frequencies"
+                "description": "Phase synchronization at Solfeggio frequencies",
             },
             {
                 "id": "crypto",
                 "name": "Cryptographic Hashing",
                 "power_rating": 3,
                 "estimated_mops": 0.6,
-                "description": "Maximum diffusion mixing"
+                "description": "Maximum diffusion mixing",
             },
             {
                 "id": "primes",
                 "name": "Prime Harmonics",
                 "power_rating": 4,
                 "estimated_mops": 2.6,
-                "description": "Sacred number sequences"
+                "description": "Sacred number sequences",
             },
             {
                 "id": "hybrid",
                 "name": "Hybrid Synthesis",
                 "power_rating": 5,
                 "estimated_mops": 17.7,
-                "description": "All methods combined for maximum power"
-            }
+                "description": "All methods combined for maximum power",
+            },
         ],
         "combined_potential_mmops": 17.73,
-        "progress_to_terra_mops_percent": 0.001773
+        "progress_to_terra_mops_percent": 0.001773,
     }

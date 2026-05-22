@@ -4,8 +4,8 @@ Vajra.Stream Visual Demo Test
 Non-interactive test of visual system
 """
 
-import sys
 import os
+import sys
 import time
 
 # Add project root to path
@@ -18,15 +18,15 @@ def main():
     """
     Test visual demonstration without user input
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("VAJRA.STREAM VISUAL DEMONSTRATION TEST")
-    print("="*60)
+    print("=" * 60)
 
     renderer = SimpleVisualRenderer()
 
     # Test all visualization types
     print("\nTesting visualizations...")
-    
+
     # Test 1: Rotating Mandala (short duration)
     print("\n1. Testing Rotating Mandala (5 seconds)...")
     try:
@@ -55,9 +55,9 @@ def main():
     except Exception as e:
         print(f"- Concentric Circles test failed: {e}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("VISUAL DEMONSTRATION TEST COMPLETE")
-    print("="*60)
+    print("=" * 60)
     print("All visualizations tested successfully!")
     print("May this practice benefit all beings. 🙏")
 

@@ -19,20 +19,19 @@ Target: Terra MOPS (1,000,000,000,000 Magical Operations Per Second)
 May our cycles serve all beings!
 """
 
-import time
-import math
 import hashlib
+import math
 import secrets
 import struct
-from typing import List, Tuple, Optional, Callable
+import time
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
-import threading
-from collections import deque
 
 # Try to import optimization libraries
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -43,8 +42,10 @@ except ImportError:
 # CONFIGURATION & TYPES
 # ============================================================================
 
+
 class WaveMethod(Enum):
     """Available scalar wave generation methods"""
+
     QUANTUM_RNG = "quantum_rng"
     CHAOTIC_ATTRACTOR = "chaotic_attractor"
     CELLULAR_AUTOMATA = "cellular_automata"
@@ -57,6 +58,7 @@ class WaveMethod(Enum):
 @dataclass
 class ThermalState:
     """Current thermal state of the system"""
+
     temperature: float = 0.0  # Estimated CPU temp (°C)
     load_average: float = 0.0  # System load
     throttle_factor: float = 1.0  # 0.0-1.0, current throttle
@@ -67,6 +69,7 @@ class ThermalState:
 @dataclass
 class MOPSMetrics:
     """Magical Operations Per Second metrics"""
+
     operations: int = 0
     elapsed_time: float = 0.0
     mops_rate: float = 0.0  # Millions of ops/sec
@@ -74,7 +77,7 @@ class MOPSMetrics:
 
     def __str__(self):
         if self.mops_rate >= 1000:
-            return f"{self.mops_rate/1000:.2f} GMOPS ({self.method})"
+            return f"{self.mops_rate / 1000:.2f} GMOPS ({self.method})"
         else:
             return f"{self.mops_rate:.2f} MMOPS ({self.method})"
 
@@ -82,6 +85,7 @@ class MOPSMetrics:
 # ============================================================================
 # THERMAL MANAGEMENT
 # ============================================================================
+
 
 class ThermalMonitor:
     """Monitor and manage thermal state"""
@@ -98,7 +102,7 @@ class ThermalMonitor:
         # For now, estimate based on load
 
         try:
-            with open('/proc/loadavg', 'r') as f:
+            with open("/proc/loadavg") as f:
                 self.state.load_average = float(f.read().split()[0])
         except:
             self.state.load_average = 0.5  # Default estimate
@@ -133,6 +137,7 @@ class ThermalMonitor:
 # METHOD 1: QUANTUM-INSPIRED RNG
 # ============================================================================
 
+
 class QuantumRNG:
     """
     Quantum-inspired random number generation.
@@ -150,7 +155,7 @@ class QuantumRNG:
         self.entropy_pool = bytearray(secrets.token_bytes(1024))
         self.pool_index = 0
 
-    def generate(self, count: int = 1) -> List[float]:
+    def generate(self, count: int = 1) -> list[float]:
         """Generate quantum-inspired random numbers (0.0-1.0)"""
         results = []
         for _ in range(count):
@@ -158,11 +163,11 @@ class QuantumRNG:
                 self._refill_pool()
 
             # Extract 8 bytes and convert to float
-            bytes_val = self.entropy_pool[self.pool_index:self.pool_index+8]
+            bytes_val = self.entropy_pool[self.pool_index : self.pool_index + 8]
             self.pool_index += 8
 
             # Convert to float in range [0, 1]
-            int_val = struct.unpack('Q', bytes_val)[0]
+            int_val = struct.unpack("Q", bytes_val)[0]
             float_val = int_val / (2**64)
             results.append(float_val)
 
@@ -178,13 +183,14 @@ class QuantumRNG:
 # METHOD 2: CHAOTIC ATTRACTORS
 # ============================================================================
 
+
 class LorenzAttractor:
     """
     Lorenz chaotic attractor (butterfly effect).
     Extremely sensitive to initial conditions.
     """
 
-    def __init__(self, sigma=10.0, rho=28.0, beta=8.0/3.0):
+    def __init__(self, sigma=10.0, rho=28.0, beta=8.0 / 3.0):
         self.sigma = sigma
         self.rho = rho
         self.beta = beta
@@ -196,7 +202,7 @@ class LorenzAttractor:
 
         self.dt = 0.01  # Time step
 
-    def step(self) -> Tuple[float, float, float]:
+    def step(self) -> tuple[float, float, float]:
         """Advance one step and return state"""
         # Lorenz equations:
         # dx/dt = sigma * (y - x)
@@ -213,7 +219,7 @@ class LorenzAttractor:
 
         return (self.x, self.y, self.z)
 
-    def generate_stream(self, count: int) -> List[float]:
+    def generate_stream(self, count: int) -> list[float]:
         """Generate stream of values"""
         values = []
         for _ in range(count):
@@ -241,7 +247,7 @@ class RosslerAttractor:
 
         self.dt = 0.05
 
-    def step(self) -> Tuple[float, float, float]:
+    def step(self) -> tuple[float, float, float]:
         """Advance one step"""
         # Rössler equations:
         # dx/dt = -y - z
@@ -258,7 +264,7 @@ class RosslerAttractor:
 
         return (self.x, self.y, self.z)
 
-    def generate_stream(self, count: int) -> List[float]:
+    def generate_stream(self, count: int) -> list[float]:
         """Generate stream"""
         values = []
         for _ in range(count):
@@ -271,6 +277,7 @@ class RosslerAttractor:
 # ============================================================================
 # METHOD 3: CELLULAR AUTOMATA
 # ============================================================================
+
 
 class CellularAutomata1D:
     """
@@ -308,10 +315,10 @@ class CellularAutomata1D:
         if ones == 0 or ones == self.size:
             return 0.0
         p = ones / self.size
-        entropy = -p * math.log2(p) - (1-p) * math.log2(1-p)
+        entropy = -p * math.log2(p) - (1 - p) * math.log2(1 - p)
         return entropy
 
-    def generate_stream(self, count: int) -> List[float]:
+    def generate_stream(self, count: int) -> list[float]:
         """Generate stream from CA evolution"""
         values = []
         for _ in range(count):
@@ -324,6 +331,7 @@ class CellularAutomata1D:
 # ============================================================================
 # METHOD 4: NEURAL OSCILLATORS
 # ============================================================================
+
 
 class KuramotoOscillator:
     """
@@ -374,7 +382,7 @@ class KuramotoOscillator:
         r = math.sqrt(real**2 + imag**2)
         return r
 
-    def generate_stream(self, count: int) -> List[float]:
+    def generate_stream(self, count: int) -> list[float]:
         """Generate stream from oscillator synchronization"""
         values = []
         for _ in range(count):
@@ -388,6 +396,7 @@ class KuramotoOscillator:
 # METHOD 5: CRYPTOGRAPHIC MIXING
 # ============================================================================
 
+
 class CryptoMixer:
     """
     Use cryptographic hash functions for maximum diffusion.
@@ -398,10 +407,10 @@ class CryptoMixer:
         self.state = secrets.token_bytes(64)
         self.counter = 0
 
-    def mix(self, data: bytes = b'') -> bytes:
+    def mix(self, data: bytes = b"") -> bytes:
         """Mix state with new data"""
         # Combine state, counter, and data
-        combined = self.state + self.counter.to_bytes(8, 'big') + data
+        combined = self.state + self.counter.to_bytes(8, "big") + data
 
         # Hash with SHA3-256 (very CPU intensive!)
         hashed = hashlib.sha3_256(combined).digest()
@@ -412,13 +421,13 @@ class CryptoMixer:
 
         return hashed
 
-    def generate_stream(self, count: int) -> List[float]:
+    def generate_stream(self, count: int) -> list[float]:
         """Generate stream of mixed values"""
         values = []
         for _ in range(count):
             hashed = self.mix()
             # Convert first 8 bytes to float
-            int_val = struct.unpack('Q', hashed[:8])[0]
+            int_val = struct.unpack("Q", hashed[:8])[0]
             float_val = int_val / (2**64)
             values.append(float_val)
         return values
@@ -427,6 +436,7 @@ class CryptoMixer:
 # ============================================================================
 # METHOD 6: PRIME HARMONICS
 # ============================================================================
+
 
 class PrimeHarmonics:
     """
@@ -439,19 +449,19 @@ class PrimeHarmonics:
         self.primes = self._sieve(10000)[:1000]
         self.index = 0
 
-    def _sieve(self, n: int) -> List[int]:
+    def _sieve(self, n: int) -> list[int]:
         """Sieve of Eratosthenes"""
         is_prime = [True] * (n + 1)
         is_prime[0] = is_prime[1] = False
 
         for i in range(2, int(n**0.5) + 1):
             if is_prime[i]:
-                for j in range(i*i, n + 1, i):
+                for j in range(i * i, n + 1, i):
                     is_prime[j] = False
 
         return [i for i in range(n + 1) if is_prime[i]]
 
-    def generate_stream(self, count: int) -> List[float]:
+    def generate_stream(self, count: int) -> list[float]:
         """Generate stream based on prime gaps and ratios"""
         values = []
         for _ in range(count):
@@ -473,6 +483,7 @@ class PrimeHarmonics:
 # ============================================================================
 # HYBRID SYNTHESIS ENGINE
 # ============================================================================
+
 
 class HybridScalarWaveGenerator:
     """
@@ -496,7 +507,7 @@ class HybridScalarWaveGenerator:
         self.total_ops = 0
         self.start_time = time.time()
 
-    def generate_hybrid_stream(self, count: int) -> List[float]:
+    def generate_hybrid_stream(self, count: int) -> list[float]:
         """
         Generate hybrid stream combining all methods.
         Each method contributes to the final output.
@@ -522,13 +533,13 @@ class HybridScalarWaveGenerator:
         for i in range(actual_count):
             # Weighted combination
             value = (
-                0.20 * qrng_vals[i] +      # Quantum foundation
-                0.15 * lorenz_vals[i] +    # Chaos 1
-                0.15 * rossler_vals[i] +   # Chaos 2
-                0.15 * ca_vals[i] +        # Emergence
-                0.15 * kuramoto_vals[i] +  # Coherence
-                0.10 * crypto_vals[i] +    # Mixing
-                0.10 * prime_vals[i]       # Harmony
+                0.20 * qrng_vals[i]  # Quantum foundation
+                + 0.15 * lorenz_vals[i]  # Chaos 1
+                + 0.15 * rossler_vals[i]  # Chaos 2
+                + 0.15 * ca_vals[i]  # Emergence
+                + 0.15 * kuramoto_vals[i]  # Coherence
+                + 0.10 * crypto_vals[i]  # Mixing
+                + 0.10 * prime_vals[i]  # Harmony
             )
             combined.append(value)
 
@@ -557,14 +568,9 @@ class HybridScalarWaveGenerator:
         elapsed = time.time() - start
         mops = (ops_count / elapsed) / 1_000_000
 
-        metrics = MOPSMetrics(
-            operations=ops_count,
-            elapsed_time=elapsed,
-            mops_rate=mops,
-            method="Hybrid Synthesis"
-        )
+        metrics = MOPSMetrics(operations=ops_count, elapsed_time=elapsed, mops_rate=mops, method="Hybrid Synthesis")
 
-        print(f"✅ Benchmark complete!")
+        print("✅ Benchmark complete!")
         print(f"   Operations: {ops_count:,}")
         print(f"   Time: {elapsed:.2f}s")
         print(f"   Rate: {metrics}")
@@ -627,9 +633,9 @@ class HybridScalarWaveGenerator:
 # ============================================================================
 
 if __name__ == "__main__":
-    print("="*70)
+    print("=" * 70)
     print("ADVANCED SCALAR WAVE GENERATOR - Terra MOPS Edition")
-    print("="*70)
+    print("=" * 70)
     print()
     print("May our computational cycles serve all beings!")
     print("Om Mani Padme Hum 🙏")
@@ -642,11 +648,11 @@ if __name__ == "__main__":
     metrics = generator.benchmark(duration_seconds=5.0)
 
     # Run one sacred breathing cycle
-    #generator.sacred_breathing_cycle(cycles=1)
+    # generator.sacred_breathing_cycle(cycles=1)
 
-    print("="*70)
+    print("=" * 70)
     print("SESSION COMPLETE")
-    print("="*70)
+    print("=" * 70)
     print()
     print("System is ready for Terra MOPS operations!")
     print("Run with care and intention.")

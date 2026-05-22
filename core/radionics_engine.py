@@ -13,14 +13,13 @@ Inspired by AetherOnePi and traditional radionics practices.
 """
 
 import hashlib
+import json
+import os
 import random
 import secrets
 import time
-from typing import List, Dict, Tuple, Optional, Any
 from datetime import datetime
-import json
-import os
-from pathlib import Path
+
 import numpy as np
 
 
@@ -36,8 +35,9 @@ class RadionicsRate:
     - Multi-dial systems
     """
 
-    def __init__(self, values: List[int], name: str = "", description: str = "",
-                 category: str = "", potency: float = 0.0):
+    def __init__(
+        self, values: list[int], name: str = "", description: str = "", category: str = "", potency: float = 0.0
+    ):
         """
         Initialize a radionics rate.
 
@@ -64,29 +64,29 @@ class RadionicsRate:
     def __repr__(self) -> str:
         return f"RadionicsRate({self.values}, name='{self.name}', potency={self.potency:.2f})"
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for storage/serialization."""
         return {
-            'values': self.values,
-            'name': self.name,
-            'description': self.description,
-            'category': self.category,
-            'potency': self.potency,
-            'timestamp': self.timestamp.isoformat()
+            "values": self.values,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category,
+            "potency": self.potency,
+            "timestamp": self.timestamp.isoformat(),
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'RadionicsRate':
+    def from_dict(cls, data: dict) -> "RadionicsRate":
         """Create from dictionary."""
         rate = cls(
-            values=data['values'],
-            name=data.get('name', ''),
-            description=data.get('description', ''),
-            category=data.get('category', ''),
-            potency=data.get('potency', 0.0)
+            values=data["values"],
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            category=data.get("category", ""),
+            potency=data.get("potency", 0.0),
         )
-        if 'timestamp' in data:
-            rate.timestamp = datetime.fromisoformat(data['timestamp'])
+        if "timestamp" in data:
+            rate.timestamp = datetime.fromisoformat(data["timestamp"])
         return rate
 
 
@@ -100,7 +100,7 @@ class RandomNumberGenerator:
     - Intention-modulated (seeded by intention text)
     """
 
-    def __init__(self, mode: str = 'secure'):
+    def __init__(self, mode: str = "secure"):
         """
         Initialize RNG.
 
@@ -109,8 +109,7 @@ class RandomNumberGenerator:
         """
         self.mode = mode
 
-    def generate(self, min_val: int = 0, max_val: int = 100,
-                count: int = 1, intention: str = "") -> List[int]:
+    def generate(self, min_val: int = 0, max_val: int = 100, count: int = 1, intention: str = "") -> list[int]:
         """
         Generate random numbers for rate selection.
 
@@ -123,17 +122,16 @@ class RandomNumberGenerator:
         Returns:
             List of random integers
         """
-        if self.mode == 'secure':
-            return [secrets.randbelow(max_val - min_val + 1) + min_val
-                   for _ in range(count)]
+        if self.mode == "secure":
+            return [secrets.randbelow(max_val - min_val + 1) + min_val for _ in range(count)]
 
-        elif self.mode == 'quantum':
+        elif self.mode == "quantum":
             # Use system entropy and time-based seed
-            seed = int.from_bytes(os.urandom(8), 'big') + int(time.time() * 1000000)
+            seed = int.from_bytes(os.urandom(8), "big") + int(time.time() * 1000000)
             random.seed(seed)
             return [random.randint(min_val, max_val) for _ in range(count)]
 
-        elif self.mode == 'intention':
+        elif self.mode == "intention":
             # Seed with intention text for reproducible but intention-specific randomness
             if intention:
                 seed = int(hashlib.sha256(intention.encode()).hexdigest(), 16) % (2**32)
@@ -144,12 +142,10 @@ class RandomNumberGenerator:
             # Fallback to standard random
             return [random.randint(min_val, max_val) for _ in range(count)]
 
-    def generate_float(self, min_val: float = 0.0, max_val: float = 1.0,
-                      count: int = 1) -> List[float]:
+    def generate_float(self, min_val: float = 0.0, max_val: float = 1.0, count: int = 1) -> list[float]:
         """Generate random floats."""
-        if self.mode == 'secure':
-            return [min_val + secrets.randbelow(10000) / 10000.0 * (max_val - min_val)
-                   for _ in range(count)]
+        if self.mode == "secure":
+            return [min_val + secrets.randbelow(10000) / 10000.0 * (max_val - min_val) for _ in range(count)]
         else:
             return [random.uniform(min_val, max_val) for _ in range(count)]
 
@@ -169,8 +165,9 @@ class SignatureCalculator:
         # Letter value mappings for gematria-style calculations
         self.english_gematria = {chr(i): i - 64 for i in range(65, 91)}  # A=1, B=2, etc.
 
-    def text_to_rate(self, text: str, num_dials: int = 3,
-                    max_value: int = 100, algorithm: str = 'hash') -> RadionicsRate:
+    def text_to_rate(
+        self, text: str, num_dials: int = 3, max_value: int = 100, algorithm: str = "hash"
+    ) -> RadionicsRate:
         """
         Convert text signature to radionics rate.
 
@@ -185,13 +182,13 @@ class SignatureCalculator:
         """
         text = text.strip().upper()
 
-        if algorithm == 'hash':
+        if algorithm == "hash":
             return self._hash_algorithm(text, num_dials, max_value)
-        elif algorithm == 'gematria':
+        elif algorithm == "gematria":
             return self._gematria_algorithm(text, num_dials, max_value)
-        elif algorithm == 'phonetic':
+        elif algorithm == "phonetic":
             return self._phonetic_algorithm(text, num_dials, max_value)
-        elif algorithm == 'mixed':
+        elif algorithm == "mixed":
             return self._mixed_algorithm(text, num_dials, max_value)
         else:
             return self._hash_algorithm(text, num_dials, max_value)
@@ -207,10 +204,7 @@ class SignatureCalculator:
             values.append(dial_val)
 
         return RadionicsRate(
-            values=values,
-            name=text,
-            description=f"Hash-generated rate for '{text}'",
-            category="signature"
+            values=values, name=text, description=f"Hash-generated rate for '{text}'", category="signature"
         )
 
     def _gematria_algorithm(self, text: str, num_dials: int, max_value: int) -> RadionicsRate:
@@ -234,7 +228,7 @@ class SignatureCalculator:
             values=values,
             name=text,
             description=f"Gematria-generated rate for '{text}' (value: {total})",
-            category="signature"
+            category="signature",
         )
 
     def _phonetic_algorithm(self, text: str, num_dials: int, max_value: int) -> RadionicsRate:
@@ -259,10 +253,7 @@ class SignatureCalculator:
             values.extend(hash_rate.values)
 
         return RadionicsRate(
-            values=values,
-            name=text,
-            description=f"Phonetic-generated rate for '{text}'",
-            category="signature"
+            values=values, name=text, description=f"Phonetic-generated rate for '{text}'", category="signature"
         )
 
     def _mixed_algorithm(self, text: str, num_dials: int, max_value: int) -> RadionicsRate:
@@ -277,10 +268,7 @@ class SignatureCalculator:
             values.append(avg_val)
 
         return RadionicsRate(
-            values=values,
-            name=text,
-            description=f"Mixed-algorithm rate for '{text}'",
-            category="signature"
+            values=values, name=text, description=f"Mixed-algorithm rate for '{text}'", category="signature"
         )
 
 
@@ -296,12 +284,12 @@ class GeneralVitalityMeter:
     - 800-1000: Excellent vitality
     """
 
-    def __init__(self, rng: Optional[RandomNumberGenerator] = None):
+    def __init__(self, rng: RandomNumberGenerator | None = None):
         """Initialize GV meter."""
-        self.rng = rng or RandomNumberGenerator(mode='quantum')
+        self.rng = rng or RandomNumberGenerator(mode="quantum")
         self.history = []
 
-    def measure(self, subject: str = "", context: Dict = None) -> float:
+    def measure(self, subject: str = "", context: dict = None) -> float:
         """
         Measure General Vitality.
 
@@ -324,25 +312,25 @@ class GeneralVitalityMeter:
             adjustments = 0
 
             # Astrological factors
-            if 'moon_phase' in context:
-                phase = context['moon_phase']
-                if 'full' in phase.lower():
+            if "moon_phase" in context:
+                phase = context["moon_phase"]
+                if "full" in phase.lower():
                     adjustments += 50  # Full moon boost
-                elif 'new' in phase.lower():
+                elif "new" in phase.lower():
                     adjustments -= 30  # New moon reduction
 
             # Time of day factors
-            if 'hour' in context:
-                hour = context['hour']
+            if "hour" in context:
+                hour = context["hour"]
                 if 4 <= hour <= 6:  # Brahma Muhurta
                     adjustments += 40
                 elif 12 <= hour <= 13:  # Solar noon
                     adjustments += 30
 
             # Intention clarity
-            if 'intention_length' in context:
+            if "intention_length" in context:
                 # Longer, more detailed intentions may correlate with clarity
-                length = context['intention_length']
+                length = context["intention_length"]
                 if length > 50:
                     adjustments += 20
 
@@ -351,17 +339,16 @@ class GeneralVitalityMeter:
 
         # Record measurement
         measurement = {
-            'gv': base_gv,
-            'subject': subject,
-            'timestamp': datetime.now().isoformat(),
-            'context': context or {}
+            "gv": base_gv,
+            "subject": subject,
+            "timestamp": datetime.now().isoformat(),
+            "context": context or {},
         }
         self.history.append(measurement)
 
         return base_gv
 
-    def measure_multiple(self, count: int = 10, subject: str = "",
-                        context: Dict = None) -> Dict:
+    def measure_multiple(self, count: int = 10, subject: str = "", context: dict = None) -> dict:
         """
         Take multiple GV measurements and return statistics.
 
@@ -376,13 +363,13 @@ class GeneralVitalityMeter:
         measurements = [self.measure(subject, context) for _ in range(count)]
 
         return {
-            'mean': np.mean(measurements),
-            'median': np.median(measurements),
-            'std': np.std(measurements),
-            'min': min(measurements),
-            'max': max(measurements),
-            'measurements': measurements,
-            'count': count
+            "mean": np.mean(measurements),
+            "median": np.median(measurements),
+            "std": np.std(measurements),
+            "min": min(measurements),
+            "max": max(measurements),
+            "measurements": measurements,
+            "count": count,
         }
 
     def interpret_gv(self, gv: float) -> str:
@@ -418,14 +405,14 @@ class RateDatabase:
     - Rate watchlists
     """
 
-    def __init__(self, database_path: Optional[str] = None):
+    def __init__(self, database_path: str | None = None):
         """
         Initialize rate database.
 
         Args:
             database_path: Path to JSON database file
         """
-        self.rates: List[RadionicsRate] = []
+        self.rates: list[RadionicsRate] = []
         self.database_path = database_path
 
         if database_path and os.path.exists(database_path):
@@ -435,7 +422,7 @@ class RateDatabase:
         """Add a rate to the database."""
         self.rates.append(rate)
 
-    def find_by_name(self, name: str, exact: bool = False) -> List[RadionicsRate]:
+    def find_by_name(self, name: str, exact: bool = False) -> list[RadionicsRate]:
         """
         Find rates by name.
 
@@ -452,39 +439,39 @@ class RateDatabase:
         else:
             return [r for r in self.rates if name_lower in r.name.lower()]
 
-    def find_by_category(self, category: str) -> List[RadionicsRate]:
+    def find_by_category(self, category: str) -> list[RadionicsRate]:
         """Find all rates in a category."""
         category_lower = category.lower()
         return [r for r in self.rates if r.category.lower() == category_lower]
 
-    def get_categories(self) -> List[str]:
+    def get_categories(self) -> list[str]:
         """Get all unique categories."""
         return sorted(list(set(r.category for r in self.rates if r.category)))
 
-    def save(self, path: Optional[str] = None):
+    def save(self, path: str | None = None):
         """Save database to JSON file."""
         save_path = path or self.database_path
         if not save_path:
             raise ValueError("No database path specified")
 
         data = {
-            'rates': [r.to_dict() for r in self.rates],
-            'saved_at': datetime.now().isoformat(),
-            'count': len(self.rates)
+            "rates": [r.to_dict() for r in self.rates],
+            "saved_at": datetime.now().isoformat(),
+            "count": len(self.rates),
         }
 
-        with open(save_path, 'w') as f:
+        with open(save_path, "w") as f:
             json.dump(data, f, indent=2)
 
     def load(self, path: str):
         """Load database from JSON file."""
-        with open(path, 'r') as f:
+        with open(path) as f:
             data = json.load(f)
 
-        self.rates = [RadionicsRate.from_dict(r) for r in data.get('rates', [])]
+        self.rates = [RadionicsRate.from_dict(r) for r in data.get("rates", [])]
         self.database_path = path
 
-    def export_watchlist(self, path: str, category: Optional[str] = None):
+    def export_watchlist(self, path: str, category: str | None = None):
         """
         Export rates to CSV watchlist format.
 
@@ -496,20 +483,19 @@ class RateDatabase:
         if category:
             rates_to_export = self.find_by_category(category)
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             f.write("Name,Rate,Category,Description,Potency\n")
             for rate in rates_to_export:
                 rate_str = "-".join(str(v) for v in rate.values)
-                f.write(f'"{rate.name}","{rate_str}","{rate.category}",'
-                       f'"{rate.description}",{rate.potency:.3f}\n')
+                f.write(f'"{rate.name}","{rate_str}","{rate.category}","{rate.description}",{rate.potency:.3f}\n')
 
     def import_watchlist(self, path: str):
         """Import rates from CSV watchlist."""
-        with open(path, 'r') as f:
+        with open(path) as f:
             # Skip header
             next(f)
             for line in f:
-                parts = line.strip().split(',')
+                parts = line.strip().split(",")
                 if len(parts) >= 2:
                     name = parts[0].strip('"')
                     rate_str = parts[1].strip('"')
@@ -517,7 +503,7 @@ class RateDatabase:
                     description = parts[3].strip('"') if len(parts) > 3 else ""
                     potency = float(parts[4]) if len(parts) > 4 else 0.0
 
-                    values = [int(v) for v in rate_str.split('-')]
+                    values = [int(v) for v in rate_str.split("-")]
                     rate = RadionicsRate(values, name, description, category, potency)
                     self.add_rate(rate)
 
@@ -533,16 +519,15 @@ class RadionicsAnalyzer:
     - Broadcasting recommendations
     """
 
-    def __init__(self, rate_database: Optional[RateDatabase] = None):
+    def __init__(self, rate_database: RateDatabase | None = None):
         """Initialize analyzer."""
         self.rate_database = rate_database or RateDatabase()
-        self.rng = RandomNumberGenerator(mode='quantum')
+        self.rng = RandomNumberGenerator(mode="quantum")
         self.gv_meter = GeneralVitalityMeter(self.rng)
         self.sig_calculator = SignatureCalculator()
         self.analysis_history = []
 
-    def analyze_subject(self, subject: str, num_rates: int = 10,
-                       context: Dict = None) -> Dict:
+    def analyze_subject(self, subject: str, num_rates: int = 10, context: dict = None) -> dict:
         """
         Perform radionics analysis on a subject.
 
@@ -562,13 +547,13 @@ class RadionicsAnalyzer:
         # Measure baseline General Vitality
         print("📊 Measuring General Vitality...")
         gv_stats = self.gv_meter.measure_multiple(count=10, subject=subject, context=context)
-        baseline_gv = gv_stats['mean']
+        baseline_gv = gv_stats["mean"]
 
         print(f"   Baseline GV: {baseline_gv:.1f} - {self.gv_meter.interpret_gv(baseline_gv)}")
 
         # Generate signature rate for subject
         print("🔢 Generating signature rate...")
-        signature_rate = self.sig_calculator.text_to_rate(subject, num_dials=3, algorithm='mixed')
+        signature_rate = self.sig_calculator.text_to_rate(subject, num_dials=3, algorithm="mixed")
         print(f"   Signature: {signature_rate}")
 
         # Generate additional resonant rates
@@ -579,7 +564,7 @@ class RadionicsAnalyzer:
             values = self.rng.generate(min_val=0, max_val=100, count=3, intention=subject)
 
             # Measure resonance (simulated via GV measurement)
-            test_rate = RadionicsRate(values, f"Rate-{i+1}", category="generated")
+            test_rate = RadionicsRate(values, f"Rate-{i + 1}", category="generated")
             resonance = self.rng.generate_float(0.0, 1.0, 1)[0]
             test_rate.potency = resonance
 
@@ -594,22 +579,22 @@ class RadionicsAnalyzer:
 
         # Create analysis result
         result = {
-            'subject': subject,
-            'timestamp': datetime.now().isoformat(),
-            'baseline_gv': baseline_gv,
-            'gv_stats': gv_stats,
-            'signature_rate': signature_rate.to_dict(),
-            'resonant_rates': [r.to_dict() for r in resonant_rates],
-            'context': context or {},
-            'interpretation': self.gv_meter.interpret_gv(baseline_gv)
+            "subject": subject,
+            "timestamp": datetime.now().isoformat(),
+            "baseline_gv": baseline_gv,
+            "gv_stats": gv_stats,
+            "signature_rate": signature_rate.to_dict(),
+            "resonant_rates": [r.to_dict() for r in resonant_rates],
+            "context": context or {},
+            "interpretation": self.gv_meter.interpret_gv(baseline_gv),
         }
 
         self.analysis_history.append(result)
         return result
 
-    def broadcast_with_feedback(self, subject: str, rate: RadionicsRate,
-                               duration_seconds: int = 300,
-                               check_interval: int = 60) -> Dict:
+    def broadcast_with_feedback(
+        self, subject: str, rate: RadionicsRate, duration_seconds: int = 300, check_interval: int = 60
+    ) -> dict:
         """
         Broadcast a rate while monitoring General Vitality for feedback.
 
@@ -632,7 +617,7 @@ class RadionicsAnalyzer:
 
         # Initial GV
         initial_gv = self.gv_meter.measure(subject)
-        gv_measurements.append({'time': 0, 'gv': initial_gv})
+        gv_measurements.append({"time": 0, "gv": initial_gv})
         print(f"   Initial GV: {initial_gv:.1f}")
 
         # Simulate broadcasting with periodic GV checks
@@ -645,12 +630,12 @@ class RadionicsAnalyzer:
 
             # Measure current GV
             current_gv = self.gv_meter.measure(subject)
-            gv_measurements.append({'time': elapsed, 'gv': current_gv})
+            gv_measurements.append({"time": elapsed, "gv": current_gv})
             print(f"   GV at {elapsed:.0f}s: {current_gv:.1f}")
 
         # Final GV
         final_gv = self.gv_meter.measure(subject)
-        gv_measurements.append({'time': duration_seconds, 'gv': final_gv})
+        gv_measurements.append({"time": duration_seconds, "gv": final_gv})
         print(f"   Final GV: {final_gv:.1f}")
 
         # Calculate trend
@@ -660,18 +645,18 @@ class RadionicsAnalyzer:
         print(f"   GV Change: {gv_change:+.1f} ({gv_trend})")
 
         return {
-            'subject': subject,
-            'rate': rate.to_dict(),
-            'duration': duration_seconds,
-            'initial_gv': initial_gv,
-            'final_gv': final_gv,
-            'gv_change': gv_change,
-            'gv_trend': gv_trend,
-            'gv_measurements': gv_measurements,
-            'timestamp': datetime.now().isoformat()
+            "subject": subject,
+            "rate": rate.to_dict(),
+            "duration": duration_seconds,
+            "initial_gv": initial_gv,
+            "final_gv": final_gv,
+            "gv_change": gv_change,
+            "gv_trend": gv_trend,
+            "gv_measurements": gv_measurements,
+            "timestamp": datetime.now().isoformat(),
         }
 
-    def find_balancing_rates(self, subject: str, num_rates: int = 5) -> List[RadionicsRate]:
+    def find_balancing_rates(self, subject: str, num_rates: int = 5) -> list[RadionicsRate]:
         """
         Find rates that could help balance/heal the subject.
 
@@ -685,21 +670,20 @@ class RadionicsAnalyzer:
             List of balancing rates
         """
         # Get subject's signature
-        signature = self.sig_calculator.text_to_rate(subject, num_dials=3, algorithm='mixed')
+        signature = self.sig_calculator.text_to_rate(subject, num_dials=3, algorithm="mixed")
 
         balancing_rates = []
 
         # Generate complementary rates
         for i in range(num_rates):
             # Create inverse/complementary values
-            complementary_values = [(100 - v + self.rng.generate(0, 20, 1)[0]) % 100
-                                   for v in signature.values]
+            complementary_values = [(100 - v + self.rng.generate(0, 20, 1)[0]) % 100 for v in signature.values]
 
             rate = RadionicsRate(
                 values=complementary_values,
-                name=f"Balance-{i+1} for {subject}",
+                name=f"Balance-{i + 1} for {subject}",
                 description=f"Complementary balancing rate for {subject}",
-                category="balancing"
+                category="balancing",
             )
 
             # Estimate potency
@@ -711,7 +695,7 @@ class RadionicsAnalyzer:
 
 
 # Convenience function for quick analysis
-def quick_analysis(subject: str, verbose: bool = True) -> Dict:
+def quick_analysis(subject: str, verbose: bool = True) -> dict:
     """
     Perform a quick radionics analysis on a subject.
 
@@ -726,7 +710,7 @@ def quick_analysis(subject: str, verbose: bool = True) -> Dict:
     result = analyzer.analyze_subject(subject, num_rates=10)
 
     if verbose:
-        print(f"\n✅ Analysis complete!")
+        print("\n✅ Analysis complete!")
         print(f"   Subject: {subject}")
         print(f"   GV: {result['baseline_gv']:.1f}")
         print(f"   Status: {result['interpretation']}")
@@ -746,7 +730,7 @@ if __name__ == "__main__":
 
     test_subjects = ["John Doe", "World Peace", "Planetary Healing"]
     for subject in test_subjects:
-        rate = sig_calc.text_to_rate(subject, num_dials=3, algorithm='mixed')
+        rate = sig_calc.text_to_rate(subject, num_dials=3, algorithm="mixed")
         print(f"   {subject}: {rate}")
 
     # Test GV measurement

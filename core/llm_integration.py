@@ -4,11 +4,8 @@ Supports both API-based LLMs (OpenAI, Anthropic) and local GGUF models
 For generating prayers, dharma teachings, and wisdom content
 """
 
-import os
-import json
-from typing import Dict, List, Optional, Any
-from pathlib import Path
 import glob
+import os
 
 
 class LLMIntegration:
@@ -16,8 +13,13 @@ class LLMIntegration:
     Unified interface for both API and local LLM models
     """
 
-    def __init__(self, model_type: str = 'auto', model_name: Optional[str] = None,
-                 api_key: Optional[str] = None, local_models_dir: str = './models'):
+    def __init__(
+        self,
+        model_type: str = "auto",
+        model_name: str | None = None,
+        api_key: str | None = None,
+        local_models_dir: str = "./models",
+    ):
         """
         Initialize LLM integration
 
@@ -29,20 +31,20 @@ class LLMIntegration:
         """
         self.model_type = model_type
         self.model_name = model_name
-        self.api_key = api_key or os.getenv('OPENAI_API_KEY') or os.getenv('ANTHROPIC_API_KEY')
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         self.local_models_dir = local_models_dir
 
         self.client = None
         self.local_model = None
 
         # Initialize based on type
-        if model_type == 'auto':
+        if model_type == "auto":
             self._initialize_auto()
-        elif model_type == 'local':
+        elif model_type == "local":
             self._initialize_local()
-        elif model_type == 'openai':
+        elif model_type == "openai":
             self._initialize_openai()
-        elif model_type == 'anthropic':
+        elif model_type == "anthropic":
             self._initialize_anthropic()
 
     def _initialize_auto(self):
@@ -59,7 +61,7 @@ class LLMIntegration:
             print(f"  Local model not available: {e}")
 
         # Fall back to API
-        if os.getenv('ANTHROPIC_API_KEY'):
+        if os.getenv("ANTHROPIC_API_KEY"):
             try:
                 self._initialize_anthropic()
                 print("✓ Using Anthropic API")
@@ -67,7 +69,7 @@ class LLMIntegration:
             except:
                 pass
 
-        if os.getenv('OPENAI_API_KEY'):
+        if os.getenv("OPENAI_API_KEY"):
             try:
                 self._initialize_openai()
                 print("✓ Using OpenAI API")
@@ -101,13 +103,13 @@ class LLMIntegration:
             n_ctx=2048,  # Context window
             n_threads=4,  # CPU threads
             n_gpu_layers=0,  # Set > 0 if you have GPU
-            verbose=False
+            verbose=False,
         )
 
-        self.model_type = 'local'
+        self.model_type = "local"
         self.model_name = os.path.basename(model_path)
 
-    def _find_gguf_model(self) -> Optional[str]:
+    def _find_gguf_model(self) -> str | None:
         """Scan directory for GGUF models"""
         os.makedirs(self.local_models_dir, exist_ok=True)
 
@@ -122,7 +124,7 @@ class LLMIntegration:
             if models:
                 # Prefer models with 'instruct' or 'chat' in name
                 for model in models:
-                    if 'instruct' in model.lower() or 'chat' in model.lower():
+                    if "instruct" in model.lower() or "chat" in model.lower():
                         return model
                 # Otherwise return first found
                 return models[0]
@@ -136,10 +138,10 @@ class LLMIntegration:
         except ImportError:
             raise ImportError("openai package not installed. Run: pip install openai")
 
-        self.client = OpenAI(api_key=self.api_key or os.getenv('OPENAI_API_KEY'))
-        self.model_type = 'openai'
+        self.client = OpenAI(api_key=self.api_key or os.getenv("OPENAI_API_KEY"))
+        self.model_type = "openai"
         if not self.model_name:
-            self.model_name = 'gpt-4o-mini'  # Default to smaller, cheaper model
+            self.model_name = "gpt-4o-mini"  # Default to smaller, cheaper model
 
     def _initialize_anthropic(self):
         """Initialize Anthropic API"""
@@ -148,13 +150,14 @@ class LLMIntegration:
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
 
-        self.client = Anthropic(api_key=self.api_key or os.getenv('ANTHROPIC_API_KEY'))
-        self.model_type = 'anthropic'
+        self.client = Anthropic(api_key=self.api_key or os.getenv("ANTHROPIC_API_KEY"))
+        self.model_type = "anthropic"
         if not self.model_name:
-            self.model_name = 'claude-3-5-haiku-20241022'  # Default to Haiku
+            self.model_name = "claude-3-5-haiku-20241022"  # Default to Haiku
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None,
-                max_tokens: int = 1000, temperature: float = 0.7) -> str:
+    def generate(
+        self, prompt: str, system_prompt: str | None = None, max_tokens: int = 1000, temperature: float = 0.7
+    ) -> str:
         """
         Generate text from prompt
 
@@ -164,17 +167,16 @@ class LLMIntegration:
             max_tokens: Maximum response length
             temperature: Creativity (0-1)
         """
-        if self.model_type == 'local':
+        if self.model_type == "local":
             return self._generate_local(prompt, system_prompt, max_tokens, temperature)
-        elif self.model_type == 'openai':
+        elif self.model_type == "openai":
             return self._generate_openai(prompt, system_prompt, max_tokens, temperature)
-        elif self.model_type == 'anthropic':
+        elif self.model_type == "anthropic":
             return self._generate_anthropic(prompt, system_prompt, max_tokens, temperature)
         else:
             return "No LLM initialized. Please configure an API key or local model."
 
-    def _generate_local(self, prompt: str, system_prompt: Optional[str],
-                       max_tokens: int, temperature: float) -> str:
+    def _generate_local(self, prompt: str, system_prompt: str | None, max_tokens: int, temperature: float) -> str:
         """Generate using local GGUF model"""
         # Format prompt with system message if provided
         if system_prompt:
@@ -184,17 +186,12 @@ class LLMIntegration:
 
         # Generate
         response = self.local_model(
-            formatted_prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            stop=["###", "\n\n\n"],
-            echo=False
+            formatted_prompt, max_tokens=max_tokens, temperature=temperature, stop=["###", "\n\n\n"], echo=False
         )
 
-        return response['choices'][0]['text'].strip()
+        return response["choices"][0]["text"].strip()
 
-    def _generate_openai(self, prompt: str, system_prompt: Optional[str],
-                        max_tokens: int, temperature: float) -> str:
+    def _generate_openai(self, prompt: str, system_prompt: str | None, max_tokens: int, temperature: float) -> str:
         """Generate using OpenAI API"""
         messages = []
 
@@ -204,22 +201,18 @@ class LLMIntegration:
         messages.append({"role": "user", "content": prompt})
 
         response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature
+            model=self.model_name, messages=messages, max_tokens=max_tokens, temperature=temperature
         )
 
         return response.choices[0].message.content
 
-    def _generate_anthropic(self, prompt: str, system_prompt: Optional[str],
-                           max_tokens: int, temperature: float) -> str:
+    def _generate_anthropic(self, prompt: str, system_prompt: str | None, max_tokens: int, temperature: float) -> str:
         """Generate using Anthropic API"""
         kwargs = {
             "model": self.model_name,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "messages": [{"role": "user", "content": prompt}]
+            "messages": [{"role": "user", "content": prompt}],
         }
 
         if system_prompt:
@@ -229,12 +222,9 @@ class LLMIntegration:
 
         return response.content[0].text
 
-    def list_available_models(self) -> Dict[str, List[str]]:
+    def list_available_models(self) -> dict[str, list[str]]:
         """List all available models"""
-        available = {
-            'local': [],
-            'api': []
-        }
+        available = {"local": [], "api": []}
 
         # Check for local models
         patterns = [
@@ -244,14 +234,14 @@ class LLMIntegration:
 
         for pattern in patterns:
             models = glob.glob(pattern, recursive=True)
-            available['local'].extend([os.path.basename(m) for m in models])
+            available["local"].extend([os.path.basename(m) for m in models])
 
         # Check for API keys
-        if os.getenv('OPENAI_API_KEY'):
-            available['api'].append('OpenAI (gpt-4o, gpt-4o-mini, etc.)')
+        if os.getenv("OPENAI_API_KEY"):
+            available["api"].append("OpenAI (gpt-4o, gpt-4o-mini, etc.)")
 
-        if os.getenv('ANTHROPIC_API_KEY'):
-            available['api'].append('Anthropic (claude-3-5-sonnet, claude-3-5-haiku)')
+        if os.getenv("ANTHROPIC_API_KEY"):
+            available["api"].append("Anthropic (claude-3-5-sonnet, claude-3-5-haiku)")
 
         return available
 
@@ -270,7 +260,7 @@ meditation practices, and contemplative traditions. You speak with clarity, comp
 and depth. Your teachings are rooted in the Buddhadharma but accessible to all beings.
 You draw from Theravada, Mahayana, and Vajrayana traditions as appropriate."""
 
-    def generate_prayer(self, intention: str, tradition: str = 'universal') -> str:
+    def generate_prayer(self, intention: str, tradition: str = "universal") -> str:
         """
         Generate a prayer/aspiration based on intention
 
@@ -292,10 +282,9 @@ The prayer should:
 
 Generate only the prayer text, no explanation."""
 
-        return self.llm.generate(prompt, system_prompt=self.dharma_system,
-                                max_tokens=200, temperature=0.8)
+        return self.llm.generate(prompt, system_prompt=self.dharma_system, max_tokens=200, temperature=0.8)
 
-    def generate_teaching(self, topic: str, length: str = 'short') -> str:
+    def generate_teaching(self, topic: str, length: str = "short") -> str:
         """
         Generate a dharma teaching on a topic
 
@@ -303,15 +292,11 @@ Generate only the prayer text, no explanation."""
             topic: Teaching topic (e.g., "impermanence", "compassion", "emptiness")
             length: 'short' (paragraph), 'medium' (2-3 paragraphs), 'long' (essay)
         """
-        length_map = {
-            'short': '1 paragraph',
-            'medium': '2-3 paragraphs',
-            'long': '4-6 paragraphs'
-        }
+        length_map = {"short": "1 paragraph", "medium": "2-3 paragraphs", "long": "4-6 paragraphs"}
 
         prompt = f"""Offer a teaching on {topic}.
 
-Length: {length_map.get(length, '1 paragraph')}
+Length: {length_map.get(length, "1 paragraph")}
 
 The teaching should:
 - Be clear and accessible
@@ -321,11 +306,11 @@ The teaching should:
 
 Generate the teaching:"""
 
-        max_tokens_map = {'short': 300, 'medium': 600, 'long': 1200}
+        max_tokens_map = {"short": 300, "medium": 600, "long": 1200}
 
-        return self.llm.generate(prompt, system_prompt=self.dharma_system,
-                                max_tokens=max_tokens_map.get(length, 300),
-                                temperature=0.7)
+        return self.llm.generate(
+            prompt, system_prompt=self.dharma_system, max_tokens=max_tokens_map.get(length, 300), temperature=0.7
+        )
 
     def generate_meditation_instruction(self, practice: str) -> str:
         """
@@ -345,8 +330,7 @@ Keep it practical and clear. Suitable for beginners but also valuable for experi
 
 Generate the instructions:"""
 
-        return self.llm.generate(prompt, system_prompt=self.dharma_system,
-                                max_tokens=800, temperature=0.6)
+        return self.llm.generate(prompt, system_prompt=self.dharma_system, max_tokens=800, temperature=0.6)
 
     def generate_dedication(self) -> str:
         """Generate a dedication of merit"""
@@ -356,8 +340,7 @@ Generate the instructions:"""
 
 Generate only the dedication text:"""
 
-        return self.llm.generate(prompt, system_prompt=self.dharma_system,
-                                max_tokens=150, temperature=0.8)
+        return self.llm.generate(prompt, system_prompt=self.dharma_system, max_tokens=150, temperature=0.8)
 
     def generate_contemplation(self, theme: str) -> str:
         """
@@ -377,8 +360,7 @@ Make it profound yet accessible.
 
 Generate the contemplation:"""
 
-        return self.llm.generate(prompt, system_prompt=self.dharma_system,
-                                max_tokens=400, temperature=0.7)
+        return self.llm.generate(prompt, system_prompt=self.dharma_system, max_tokens=400, temperature=0.7)
 
 
 if __name__ == "__main__":
@@ -386,7 +368,7 @@ if __name__ == "__main__":
     print("=" * 60)
 
     # List available models
-    llm = LLMIntegration(model_type='auto')
+    llm = LLMIntegration(model_type="auto")
     available = llm.list_available_models()
 
     print("\nAvailable Models:")
@@ -407,7 +389,7 @@ if __name__ == "__main__":
 
         print("=" * 60)
         print("\n2. Generating short teaching on compassion...")
-        teaching = dharma.generate_teaching("compassion", length='short')
+        teaching = dharma.generate_teaching("compassion", length="short")
         print(f"\n{teaching}\n")
 
         print("=" * 60)

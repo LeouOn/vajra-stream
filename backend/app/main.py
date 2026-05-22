@@ -2,18 +2,16 @@
 FastAPI Application for Vajra.Stream Web Interface - Stable WebSocket Version
 """
 
+import asyncio
+import logging
+import traceback
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
-import asyncio
-import sys
-import os
-from pathlib import Path
-import logging
-import traceback
 
 # Import stable connection manager v2
 from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
@@ -22,37 +20,37 @@ from backend.websocket.connection_manager_stable_v2 import stable_connection_man
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from backend.app.api.v1.endpoints import (
-    audio as audio_endpoint,
-    sessions as sessions_endpoint,
-    astrology as astrology_endpoint,
-    scalar_waves as scalar_endpoint,
-    radionics as radionics_endpoint,
-    radionics_narratives as radionics_narratives_endpoint,
-    anatomy as anatomy_endpoint,
-    blessings as blessings_endpoint,
-    visualization as visualization_endpoint,
-    rng_attunement as rng_endpoint,
-    blessing_slideshow as slideshow_endpoint,
-    populations as populations_endpoint,
-    automation as automation_endpoint,
-    dharma_tales as dharma_tales_endpoint,
-    personal_healing as personal_healing_endpoint
-)
+from backend.app.api.v1.endpoints import anatomy as anatomy_endpoint
+from backend.app.api.v1.endpoints import astrology as astrology_endpoint
+from backend.app.api.v1.endpoints import audio as audio_endpoint
+from backend.app.api.v1.endpoints import automation as automation_endpoint
+from backend.app.api.v1.endpoints import blessing_slideshow as slideshow_endpoint
+from backend.app.api.v1.endpoints import blessings as blessings_endpoint
+from backend.app.api.v1.endpoints import dharma_tales as dharma_tales_endpoint
+from backend.app.api.v1.endpoints import personal_healing as personal_healing_endpoint
+from backend.app.api.v1.endpoints import populations as populations_endpoint
+from backend.app.api.v1.endpoints import radionics as radionics_endpoint
+from backend.app.api.v1.endpoints import radionics_narratives as radionics_narratives_endpoint
+from backend.app.api.v1.endpoints import rng_attunement as rng_endpoint
+from backend.app.api.v1.endpoints import scalar_waves as scalar_endpoint
+from backend.app.api.v1.endpoints import sessions as sessions_endpoint
+from backend.app.api.v1.endpoints import visualization as visualization_endpoint
 
 # Setup templates
 template_dir = Path(__file__).parent.parent.parent.parent / "templates"
 templates = Jinja2Templates(directory=str(template_dir))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     print("Vajra.Stream API starting up...")
     print("Initializing Stable WebSocket connection manager v2...")
-    
+
     # Initialize Orchestrator Bridge
     try:
         from backend.core.orchestrator_bridge import orchestrator_bridge
+
         print("Initializing Orchestrator Bridge...")
         orchestrator_bridge.initialize()
         print("Orchestrator Bridge initialized successfully")
@@ -60,7 +58,7 @@ async def lifespan(app: FastAPI):
         print(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(traceback.format_exc())
-    
+
     # Start real-time streaming with stable manager v2
     streaming_task = None
     try:
@@ -70,13 +68,13 @@ async def lifespan(app: FastAPI):
         print(f"Failed to start streaming: {e}")
         logger.error(f"Failed to start streaming: {e}")
         logger.error(traceback.format_exc())
-    
+
     yield
-    
+
     # Shutdown
     print("Vajra.Stream API shutting down...")
     stable_connection_manager_v2.stop_realtime_streaming()
-    
+
     if streaming_task:
         streaming_task.cancel()
         try:
@@ -84,54 +82,63 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
 
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Vajra.Stream API",
     description="Sacred Technology Web Interface - Stable WebSocket Version v2",
     version="1.0.0-stable-v2",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS middleware - FIXED to include localhost:5173 and port 3010
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3009", "http://127.0.0.1:3009",
-        "http://localhost:3010", "http://127.0.0.1:3010",
-        "http://localhost:3001", "http://127.0.0.1:3001",
-        "http://localhost:5173", "http://127.0.0.1:5173"
+        "http://localhost:3009",
+        "http://127.0.0.1:3009",
+        "http://localhost:3010",
+        "http://127.0.0.1:3010",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
 # API Routes
 @app.get("/")
 async def root():
     return {
-        "message": "Vajra.Stream API", 
+        "message": "Vajra.Stream API",
         "status": "active",
         "version": "1.0.0-stable-v2",
         "description": "Sacred Technology Web Interface - Stable WebSocket Version v2",
-        "websocket_stats": stable_connection_manager_v2.get_connection_stats()
+        "websocket_stats": stable_connection_manager_v2.get_connection_stats(),
     }
+
 
 @app.get("/health")
 async def health_check():
     return {
-        "status": "healthy", 
+        "status": "healthy",
         "service": "vajra-stream",
         "version": "1.0.0-stable-v2",
         "timestamp": asyncio.get_event_loop().time(),
         "websocket_connections": stable_connection_manager_v2.get_connection_count(),
-        "streaming_active": stable_connection_manager_v2.is_streaming()
+        "streaming_active": stable_connection_manager_v2.is_streaming(),
     }
+
 
 @app.get("/ws-stats")
 async def websocket_stats():
     """Get WebSocket connection statistics"""
     return stable_connection_manager_v2.get_connection_stats()
+
 
 # Include routers
 app.include_router(audio_endpoint.router, prefix="/api/v1/audio", tags=["audio"])
@@ -152,6 +159,7 @@ app.include_router(automation_endpoint.router, prefix="/api/v1", tags=["automati
 app.include_router(dharma_tales_endpoint.router, prefix="/api/v1/dharma", tags=["dharma-tales"])
 app.include_router(personal_healing_endpoint.router, prefix="/api/v1/healing", tags=["healing"])
 
+
 # WebSocket endpoint - Stable implementation
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -160,25 +168,24 @@ async def websocket_endpoint(websocket: WebSocket):
         print("WebSocket connection attempt received")
         connection_id = await stable_connection_manager_v2.connect(websocket)
         print(f"WebSocket {connection_id} accepted successfully")
-        
+
         # Message handling loop
         while True:
             try:
                 # Receive message with timeout
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
                 print(f"Received WebSocket message from {connection_id}: {data[:100]}...")  # Truncate long messages
-                
+
                 # Handle message using stable manager v2
                 await stable_connection_manager_v2.handle_message(connection_id, data)
-                
+
             except asyncio.TimeoutError:
                 # Send ping to keep connection alive
-                await stable_connection_manager_v2.send_personal_message({
-                    "type": "ping",
-                    "timestamp": asyncio.get_event_loop().time()
-                }, connection_id)
+                await stable_connection_manager_v2.send_personal_message(
+                    {"type": "ping", "timestamp": asyncio.get_event_loop().time()}, connection_id
+                )
                 print(f"Sent ping to {connection_id} to keep alive")
-                
+
     except WebSocketDisconnect as e:
         print(f"WebSocket {connection_id} disconnected with code: {e.code}")
         logger.info(f"WebSocket {connection_id} disconnected cleanly: {e.code} {e.reason}")
@@ -190,6 +197,7 @@ async def websocket_endpoint(websocket: WebSocket):
         if connection_id:
             stable_connection_manager_v2.disconnect(connection_id)
 
+
 # Visualization Gallery
 @app.get("/visualizations", response_class=HTMLResponse)
 @app.get("/gallery", response_class=HTMLResponse)
@@ -199,13 +207,11 @@ async def visualization_gallery():
     """
     template_path = template_dir / "visualization.html"
     if template_path.exists():
-        with open(template_path, 'r', encoding='utf-8') as f:
+        with open(template_path, encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     else:
-        return HTMLResponse(
-            content="<h1>Visualization template not found</h1>",
-            status_code=404
-        )
+        return HTMLResponse(content="<h1>Visualization template not found</h1>", status_code=404)
+
 
 # Static file serving for frontend (optional)
 @app.get("/frontend", response_class=HTMLResponse)
@@ -263,8 +269,10 @@ async def get_frontend():
     </html>
     """
 
+
 if __name__ == "__main__":
     import uvicorn
+
     print("Starting Vajra.Stream API Server (Stable WebSocket Version v2)...")
     print("WebSocket endpoint: ws://localhost:8008/ws")
     print("API Documentation: http://localhost:8008/docs")
@@ -272,10 +280,4 @@ if __name__ == "__main__":
     print("Visualization Gallery: http://localhost:8008/visualizations")
     print("React/Vite frontend (if used): http://localhost:3009")
 
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8008,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8008, reload=True, log_level="info")

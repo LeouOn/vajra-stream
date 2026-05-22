@@ -11,14 +11,15 @@ from unittest.mock import MagicMock
 try:
     import sounddevice
 except (OSError, ImportError):
-    sys.modules['sounddevice'] = MagicMock()
+    sys.modules["sounddevice"] = MagicMock()
 
 # Mock opencv if needed
 try:
     import cv2
 except (OSError, ImportError):
-    sys.modules['cv2'] = MagicMock()
+    sys.modules["cv2"] = MagicMock()
 
 # Ensure proper Python path
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))

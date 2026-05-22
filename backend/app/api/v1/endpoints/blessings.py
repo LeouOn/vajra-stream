@@ -3,20 +3,21 @@ Blessings API Endpoints for Vajra.Stream
 Blessing narrative generation and compassionate blessings
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-import asyncio
 import logging
-import sys
 import os
+import sys
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 # Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../../../'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 try:
     from core.blessing_narratives import BlessingNarrativeGenerator, BlessingTarget
-    from core.compassionate_blessings import CompassionateBlessingGenerator, BlessingTradition
+    from core.compassionate_blessings import BlessingTradition, CompassionateBlessingGenerator
+
     HAS_BLESSING_MODULES = True
 except ImportError:
     HAS_BLESSING_MODULES = False
@@ -34,6 +35,7 @@ if HAS_BLESSING_MODULES:
     narrative_generator = BlessingNarrativeGenerator()
     compassionate_generator = CompassionateBlessingGenerator()
 
+
 # Request Models
 class BlessingNarrativeRequest(BaseModel):
     target_name: str = Field(..., description="Name of person, place, or situation")
@@ -43,12 +45,14 @@ class BlessingNarrativeRequest(BaseModel):
     length: str = Field(default="medium", description="Length: short, medium, long")
     include_dedication: bool = Field(default=True, description="Include dedication of merit")
 
+
 class CompassionateBlessingRequest(BaseModel):
-    recipients: List[str] = Field(..., description="List of recipients")
+    recipients: list[str] = Field(..., description="List of recipients")
     intention: str = Field(..., description="Blessing intention")
     tradition: str = Field(default="buddhist", description="Tradition: buddhist, tibetan, zen, universal")
     include_mantra: bool = Field(default=True, description="Include sacred mantra")
     include_dedication: bool = Field(default=True, description="Include dedication")
+
 
 class MassLiberationRequest(BaseModel):
     event_name: str = Field(..., description="Name of event (disaster, conflict, etc.)")
@@ -56,17 +60,20 @@ class MassLiberationRequest(BaseModel):
     estimated_souls: int = Field(default=1000, ge=1, description="Estimated number affected")
     duration_minutes: int = Field(default=108, ge=1, le=1080, description="Duration of blessing")
 
+
 # Response Models
 class BlessingResponse(BaseModel):
     status: str
     blessing_text: str
     tradition: str
-    recipients: List[str]
-    mantra: Optional[str] = None
-    dedication: Optional[str] = None
-    metadata: Dict[str, Any]
+    recipients: list[str]
+    mantra: str | None = None
+    dedication: str | None = None
+    metadata: dict[str, Any]
+
 
 # Endpoints
+
 
 @router.post("/generate-narrative", response_model=BlessingResponse)
 async def generate_blessing_narrative(request: BlessingNarrativeRequest):
@@ -111,7 +118,7 @@ May all positive qualities increase,
 May ultimate realization be swiftly attained.
 
 Om Ah Hum Vajra Guru Padma Siddhi Hum
-            """
+            """,
         }
 
         blessing_text = blessing_templates.get(request.tradition, blessing_templates["universal"])
@@ -135,7 +142,7 @@ But ever increase, higher and higher.
             "universal": "Om Shanti Shanti Shanti",
             "buddhist": "Om Mani Padme Hum",
             "tibetan": "Om Ah Hum Vajra Guru Padma Siddhi Hum",
-            "zen": "Gate Gate Paragate Parasamgate Bodhi Svaha"
+            "zen": "Gate Gate Paragate Parasamgate Bodhi Svaha",
         }.get(request.tradition, "Om")
 
         return BlessingResponse(
@@ -149,8 +156,8 @@ But ever increase, higher and higher.
                 "target_type": request.target_type,
                 "intention": request.intention,
                 "length": request.length,
-                "generated_at": "2025-11-16"
-            }
+                "generated_at": "2025-11-16",
+            },
         )
 
     except Exception as e:
@@ -188,12 +195,14 @@ Experience the same boundless love, compassion, and care.
                 "buddhist": "Om Mani Padme Hum",
                 "tibetan": "Om Tare Tuttare Ture Soha",  # Green Tara
                 "zen": "Namu Amida Butsu",
-                "universal": "Om Shanti"
+                "universal": "Om Shanti",
             }.get(request.tradition, "Om Mani Padme Hum")
 
         dedication = None
         if request.include_dedication:
-            dedication = "By the power of this blessing, may all beings find peace, happiness, and liberation from suffering."
+            dedication = (
+                "By the power of this blessing, may all beings find peace, happiness, and liberation from suffering."
+            )
 
         return BlessingResponse(
             status="success",
@@ -202,10 +211,7 @@ Experience the same boundless love, compassion, and care.
             recipients=request.recipients,
             mantra=mantra,
             dedication=dedication,
-            metadata={
-                "intention": request.intention,
-                "recipient_count": len(request.recipients)
-            }
+            metadata={"intention": request.intention, "recipient_count": len(request.recipients)},
         )
 
     except Exception as e:
@@ -255,7 +261,7 @@ May all beings benefit from this dedication.
             "recommended_recitation_count": mantra_count,
             "duration_minutes": request.duration_minutes,
             "dedication": f"Dedicated to the liberation of all {request.estimated_souls} souls affected by {request.event_name}",
-            "special_instruction": "Recite with deep compassion, visualizing each being finding peace and liberation"
+            "special_instruction": "Recite with deep compassion, visualizing each being finding peace and liberation",
         }
 
     except Exception as e:
@@ -273,33 +279,33 @@ async def list_traditions():
                 "id": "universal",
                 "name": "Universal / Interfaith",
                 "description": "Inclusive blessings suitable for all backgrounds",
-                "primary_mantra": "Om Shanti"
+                "primary_mantra": "Om Shanti",
             },
             {
                 "id": "buddhist",
                 "name": "Buddhist",
                 "description": "Mahayana Buddhist loving-kindness blessings",
-                "primary_mantra": "Om Mani Padme Hum"
+                "primary_mantra": "Om Mani Padme Hum",
             },
             {
                 "id": "tibetan",
                 "name": "Tibetan Buddhist",
                 "description": "Vajrayana blessings with deity practices",
-                "primary_mantra": "Om Ah Hum Vajra Guru Padma Siddhi Hum"
+                "primary_mantra": "Om Ah Hum Vajra Guru Padma Siddhi Hum",
             },
             {
                 "id": "zen",
                 "name": "Zen Buddhist",
                 "description": "Simple, direct blessings in Zen style",
-                "primary_mantra": "Namu Amida Butsu"
+                "primary_mantra": "Namu Amida Butsu",
             },
             {
                 "id": "yogic",
                 "name": "Yogic / Hindu",
                 "description": "Vedic and yogic blessings",
-                "primary_mantra": "Om Namah Shivaya"
-            }
-        ]
+                "primary_mantra": "Om Namah Shivaya",
+            },
+        ],
     }
 
 
@@ -313,31 +319,31 @@ async def list_blessing_templates():
                 "id": "healing",
                 "name": "Healing Blessing",
                 "description": "For physical, emotional, or spiritual healing",
-                "use_cases": ["illness", "injury", "emotional trauma"]
+                "use_cases": ["illness", "injury", "emotional trauma"],
             },
             {
                 "id": "protection",
                 "name": "Protection Blessing",
                 "description": "For safety and protection",
-                "use_cases": ["travel", "dangerous situations", "spiritual protection"]
+                "use_cases": ["travel", "dangerous situations", "spiritual protection"],
             },
             {
                 "id": "liberation",
                 "name": "Liberation Blessing",
                 "description": "For those who have passed",
-                "use_cases": ["death", "transition", "memorial"]
+                "use_cases": ["death", "transition", "memorial"],
             },
             {
                 "id": "compassion",
                 "name": "Compassion Blessing",
                 "description": "For cultivating loving-kindness",
-                "use_cases": ["conflict resolution", "relationship healing", "global peace"]
+                "use_cases": ["conflict resolution", "relationship healing", "global peace"],
             },
             {
                 "id": "wisdom",
                 "name": "Wisdom Blessing",
                 "description": "For clarity and understanding",
-                "use_cases": ["decision making", "study", "spiritual practice"]
-            }
-        ]
+                "use_cases": ["decision making", "study", "spiritual practice"],
+            },
+        ],
     }

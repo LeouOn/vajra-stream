@@ -1,12 +1,21 @@
 """
-Vajra Stream Module Audit v2
+Vajra Stream Module Audit
 Check which core modules are wrapped and which are missing
 """
 
 import sys
 from pathlib import Path
 
-# Core modules
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 core_modules = [
     "advanced_scalar_waves",
     "integrated_scalar_radionics",
@@ -29,10 +38,9 @@ core_modules = [
     "intelligent_composer",
     "healing_systems",
     "radionics_engine",
-    "llm_integration"
+    "llm_integration",
 ]
 
-# Updated mapping of what's wrapped where
 wrapped_in_modules = {
     "scalar_waves": ["advanced_scalar_waves"],
     "radionics": ["integrated_scalar_radionics", "radionics_engine"],
@@ -45,7 +53,7 @@ wrapped_in_modules = {
     "prayer_wheel": ["prayer_wheel"],
     "composer": ["intelligent_composer"],
     "healing": ["healing_systems"],
-    "llm": ["llm_integration"]
+    "llm": ["llm_integration"],
 }
 
 print("VAJRA STREAM MODULE AUDIT v2.0")
@@ -57,41 +65,38 @@ for module_file, core_list in wrapped_in_modules.items():
     for core in core_list:
         wrapped.append(core)
 
-print("✅ WRAPPED MODULES:")
+print("[OK] WRAPPED MODULES:")
 for core in sorted(wrapped):
     module = [k for k, v in wrapped_in_modules.items() if core in v][0]
-    print(f"   {core:30s} → modules/{module}.py")
+    print(f"   {core:30s} -> modules/{module}.py")
 
 print()
 missing = [m for m in core_modules if m not in wrapped]
 if missing:
-    print("❌ MISSING MODULES:")
+    print("[MISSING] MODULES:")
     for core in sorted(missing):
         print(f"   {core}")
 else:
-    print("✅ NO MISSING MODULES - 100% COVERAGE!")
+    print("[OK] NO MISSING MODULES - 100% COVERAGE!")
 
 print()
-print(f"Coverage: {len(wrapped)}/{len(core_modules)} modules ({len(wrapped)/len(core_modules)*100:.0f}%)")
+print(f"Coverage: {len(wrapped)}/{len(core_modules)} modules ({len(wrapped) / len(core_modules) * 100:.0f}%)")
 print()
 
-# Show module breakdown
 print("MODULE BREAKDOWN:")
 print()
 for module_name, cores in sorted(wrapped_in_modules.items()):
     print(f"  modules/{module_name}.py ({len(cores)} core modules)")
     for core in cores:
-        print(f"    ✓ {core}")
+        print(f"    [OK] {core}")
 print()
 
-# Services accessible via container
 print("SERVICES ACCESSIBLE VIA CONTAINER:")
 print()
 for service_name in sorted(wrapped_in_modules.keys()):
     print(f"  container.{service_name}")
 print()
 
-# Accessible via VajraStream
 mapping = {
     "scalar_waves": "scalar",
     "radionics": "radionics",
@@ -104,7 +109,7 @@ mapping = {
     "prayer_wheel": "prayer_wheel",
     "composer": "composer",
     "healing": "healing",
-    "llm": "llm"
+    "llm": "llm",
 }
 
 print("ACCESSIBLE VIA VAJRA STREAM:")
@@ -115,6 +120,5 @@ for service_name, attr in sorted(mapping.items()):
 
 print()
 print("=" * 70)
-print("✅ COMPLETE FEATURE PARITY ACHIEVED!")
-print(f"All {len(core_modules)} core modules are accessible through the modular monolith.")
+print(f"[OK] COMPLETE FEATURE PARITY - All {len(core_modules)} core modules accessible")
 print("=" * 70)

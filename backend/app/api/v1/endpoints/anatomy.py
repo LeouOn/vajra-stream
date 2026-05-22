@@ -3,21 +3,20 @@ Energetic Anatomy API Endpoints for Vajra.Stream
 Meridians, chakras, and energetic visualization
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks, Response
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-import asyncio
-import logging
-import sys
-import os
 import base64
 import io
+import logging
+import os
+import sys
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 # Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../../../../'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
-from core.meridian_visualization import MeridianVisualizer, BodyPosition
-from core.energetic_anatomy import EnergeticAnatomyDatabase, Tradition
+from core.energetic_anatomy import EnergeticAnatomyDatabase
+from core.meridian_visualization import MeridianVisualizer
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +28,7 @@ router = APIRouter()
 visualizer = MeridianVisualizer()
 anatomy_db = EnergeticAnatomyDatabase()
 
+
 # Request Models
 class ChakraVisualizationRequest(BaseModel):
     width: int = Field(default=1200, ge=400, le=4000, description="Image width")
@@ -36,6 +36,7 @@ class ChakraVisualizationRequest(BaseModel):
     show_labels: bool = Field(default=True, description="Show Sanskrit names")
     glow_effect: bool = Field(default=True, description="Add glow effects")
     format: str = Field(default="png", description="Output format (png, jpg)")
+
 
 class MeridianVisualizationRequest(BaseModel):
     tradition: str = Field(default="taoist", description="Tradition: taoist, tibetan, yogic")
@@ -45,6 +46,7 @@ class MeridianVisualizationRequest(BaseModel):
     element_colors: bool = Field(default=True, description="Use five element colors")
     format: str = Field(default="png", description="Output format (png, jpg)")
 
+
 class CentralChannelRequest(BaseModel):
     width: int = Field(default=1200, ge=400, le=4000, description="Image width")
     height: int = Field(default=1800, ge=600, le=5000, description="Image height")
@@ -53,9 +55,11 @@ class CentralChannelRequest(BaseModel):
     show_chakras: bool = Field(default=True, description="Show chakras at intersections")
     format: str = Field(default="png", description="Output format (png, jpg)")
 
+
 class ImbalanceAnalysisRequest(BaseModel):
-    symptoms: List[str] = Field(..., description="List of symptoms")
+    symptoms: list[str] = Field(..., description="List of symptoms")
     tradition: str = Field(default="taoist", description="Tradition to use for analysis")
+
 
 # Response Models
 class VisualizationResponse(BaseModel):
@@ -66,7 +70,9 @@ class VisualizationResponse(BaseModel):
     format: str
     description: str
 
+
 # Endpoints
+
 
 @router.post("/visualize/chakras", response_model=VisualizationResponse)
 async def visualize_chakras(request: ChakraVisualizationRequest):
@@ -84,7 +90,7 @@ async def visualize_chakras(request: ChakraVisualizationRequest):
         img_byte_arr.seek(0)
 
         # Encode as base64
-        img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
+        img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
 
         return VisualizationResponse(
             status="success",
@@ -92,7 +98,7 @@ async def visualize_chakras(request: ChakraVisualizationRequest):
             width=request.width,
             height=request.height,
             format=request.format,
-            description="Seven chakras diagram with Sanskrit names and traditional colors"
+            description="Seven chakras diagram with Sanskrit names and traditional colors",
         )
 
     except Exception as e:
@@ -116,7 +122,7 @@ async def visualize_meridians(request: MeridianVisualizationRequest):
         img_byte_arr.seek(0)
 
         # Encode as base64
-        img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
+        img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
 
         return VisualizationResponse(
             status="success",
@@ -124,7 +130,7 @@ async def visualize_meridians(request: MeridianVisualizationRequest):
             width=request.width,
             height=request.height,
             format=request.format,
-            description=f"{request.tradition.title()} meridian system with five element correspondences"
+            description=f"{request.tradition.title()} meridian system with five element correspondences",
         )
 
     except Exception as e:
@@ -136,7 +142,7 @@ async def visualize_meridians(request: MeridianVisualizationRequest):
 async def visualize_central_channel(request: CentralChannelRequest):
     """Generate central channel (Sushumna, Ida, Pingala) visualization"""
     try:
-        logger.info(f"⚡ Generating central channel visualization")
+        logger.info("⚡ Generating central channel visualization")
 
         # Create visualization
         viz = MeridianVisualizer(width=request.width, height=request.height)
@@ -148,7 +154,7 @@ async def visualize_central_channel(request: CentralChannelRequest):
         img_byte_arr.seek(0)
 
         # Encode as base64
-        img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
+        img_base64 = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
 
         return VisualizationResponse(
             status="success",
@@ -156,7 +162,7 @@ async def visualize_central_channel(request: CentralChannelRequest):
             width=request.width,
             height=request.height,
             format=request.format,
-            description="Central channel (Sushumna) with Ida and Pingala nadis"
+            description="Central channel (Sushumna) with Ida and Pingala nadis",
         )
 
     except Exception as e:
@@ -175,7 +181,7 @@ async def list_traditions():
                 "name": "Taoist (Chinese Medicine)",
                 "meridians": 12,
                 "elements": 5,
-                "description": "12 primary meridians with five element correspondences"
+                "description": "12 primary meridians with five element correspondences",
             },
             {
                 "id": "tibetan",
@@ -183,16 +189,16 @@ async def list_traditions():
                 "channels": 3,
                 "chakras": 5,
                 "winds": 5,
-                "description": "Central, left, right channels with five chakras and five winds"
+                "description": "Central, left, right channels with five chakras and five winds",
             },
             {
                 "id": "yogic",
                 "name": "Hindu Yogic",
                 "nadis": 3,
                 "chakras": 7,
-                "description": "Sushumna, Ida, Pingala nadis with seven chakras"
-            }
-        ]
+                "description": "Sushumna, Ida, Pingala nadis with seven chakras",
+            },
+        ],
     }
 
 
@@ -209,7 +215,7 @@ async def list_chakras():
                 "element": "Earth",
                 "color": "Red",
                 "frequency": 396,
-                "qualities": ["Grounding", "Stability", "Survival"]
+                "qualities": ["Grounding", "Stability", "Survival"],
             },
             {
                 "sanskrit": "Svadhisthana",
@@ -218,7 +224,7 @@ async def list_chakras():
                 "element": "Water",
                 "color": "Orange",
                 "frequency": 417,
-                "qualities": ["Creativity", "Sexuality", "Emotions"]
+                "qualities": ["Creativity", "Sexuality", "Emotions"],
             },
             {
                 "sanskrit": "Manipura",
@@ -227,7 +233,7 @@ async def list_chakras():
                 "element": "Fire",
                 "color": "Yellow",
                 "frequency": 528,
-                "qualities": ["Power", "Will", "Transformation"]
+                "qualities": ["Power", "Will", "Transformation"],
             },
             {
                 "sanskrit": "Anahata",
@@ -236,7 +242,7 @@ async def list_chakras():
                 "element": "Air",
                 "color": "Green",
                 "frequency": 639,
-                "qualities": ["Love", "Compassion", "Connection"]
+                "qualities": ["Love", "Compassion", "Connection"],
             },
             {
                 "sanskrit": "Vishuddha",
@@ -245,7 +251,7 @@ async def list_chakras():
                 "element": "Ether",
                 "color": "Blue",
                 "frequency": 741,
-                "qualities": ["Expression", "Truth", "Communication"]
+                "qualities": ["Expression", "Truth", "Communication"],
             },
             {
                 "sanskrit": "Ajna",
@@ -254,7 +260,7 @@ async def list_chakras():
                 "element": "Light",
                 "color": "Indigo",
                 "frequency": 852,
-                "qualities": ["Intuition", "Insight", "Perception"]
+                "qualities": ["Intuition", "Insight", "Perception"],
             },
             {
                 "sanskrit": "Sahasrara",
@@ -263,9 +269,9 @@ async def list_chakras():
                 "element": "Consciousness",
                 "color": "Violet/White",
                 "frequency": 963,
-                "qualities": ["Unity", "Enlightenment", "Divine Connection"]
-            }
-        ]
+                "qualities": ["Unity", "Enlightenment", "Divine Connection"],
+            },
+        ],
     }
 
 
@@ -286,15 +292,15 @@ async def list_meridians():
             {"name": "Pericardium", "element": "Fire", "yin_yang": "Yin", "hours": "7-9 PM"},
             {"name": "Triple Warmer", "element": "Fire", "yin_yang": "Yang", "hours": "9-11 PM"},
             {"name": "Gallbladder", "element": "Wood", "yin_yang": "Yang", "hours": "11 PM-1 AM"},
-            {"name": "Liver", "element": "Wood", "yin_yang": "Yin", "hours": "1-3 AM"}
+            {"name": "Liver", "element": "Wood", "yin_yang": "Yin", "hours": "1-3 AM"},
         ],
         "five_elements": [
             {"name": "Wood", "season": "Spring", "organs": ["Liver", "Gallbladder"], "emotion": "Anger/Kindness"},
             {"name": "Fire", "season": "Summer", "organs": ["Heart", "Small Intestine"], "emotion": "Joy/Anxiety"},
             {"name": "Earth", "season": "Late Summer", "organs": ["Spleen", "Stomach"], "emotion": "Worry/Empathy"},
             {"name": "Metal", "season": "Autumn", "organs": ["Lung", "Large Intestine"], "emotion": "Grief/Courage"},
-            {"name": "Water", "season": "Winter", "organs": ["Kidney", "Bladder"], "emotion": "Fear/Wisdom"}
-        ]
+            {"name": "Water", "season": "Winter", "organs": ["Kidney", "Bladder"], "emotion": "Fear/Wisdom"},
+        ],
     }
 
 
@@ -308,32 +314,38 @@ async def analyze_energetic_imbalance(request: ImbalanceAnalysisRequest):
         recommendations = []
 
         if "tired" in str(request.symptoms).lower() or "fatigue" in str(request.symptoms).lower():
-            recommendations.append({
-                "meridian": "Kidney",
-                "element": "Water",
-                "suggestion": "Tonify Kidney meridian, rest 5-7 PM, practice grounding"
-            })
+            recommendations.append(
+                {
+                    "meridian": "Kidney",
+                    "element": "Water",
+                    "suggestion": "Tonify Kidney meridian, rest 5-7 PM, practice grounding",
+                }
+            )
 
         if "anxious" in str(request.symptoms).lower() or "worry" in str(request.symptoms).lower():
-            recommendations.append({
-                "chakra": "Manipura (Solar Plexus)",
-                "frequency": 528,
-                "suggestion": "Balance solar plexus, use 528 Hz, practice breathwork"
-            })
+            recommendations.append(
+                {
+                    "chakra": "Manipura (Solar Plexus)",
+                    "frequency": 528,
+                    "suggestion": "Balance solar plexus, use 528 Hz, practice breathwork",
+                }
+            )
 
         if "throat" in str(request.symptoms).lower() or "communication" in str(request.symptoms).lower():
-            recommendations.append({
-                "chakra": "Vishuddha (Throat)",
-                "frequency": 741,
-                "suggestion": "Activate throat chakra, use 741 Hz, practice authentic expression"
-            })
+            recommendations.append(
+                {
+                    "chakra": "Vishuddha (Throat)",
+                    "frequency": 741,
+                    "suggestion": "Activate throat chakra, use 741 Hz, practice authentic expression",
+                }
+            )
 
         return {
             "status": "success",
             "symptoms": request.symptoms,
             "tradition": request.tradition,
             "recommendations": recommendations,
-            "general_advice": "Consult with a qualified practitioner for personalized guidance"
+            "general_advice": "Consult with a qualified practitioner for personalized guidance",
         }
 
     except Exception as e:

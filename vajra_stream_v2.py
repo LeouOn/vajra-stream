@@ -8,9 +8,6 @@ Terra MOPS Scalar Wave Edition
 """
 
 import sys
-import os
-from pathlib import Path
-from typing import Optional, List
 from datetime import datetime
 
 if sys.platform == "win32":
@@ -119,11 +116,7 @@ class VajraStream:
             duration_minutes: Duration of broadcast
             frequency_hz: Healing frequency (default 528 Hz - DNA repair)
         """
-        return self.radionics.broadcast_healing(
-            target_name,
-            duration_minutes,
-            frequency_hz
-        )
+        return self.radionics.broadcast_healing(target_name, duration_minutes, frequency_hz)
 
     def visualize_chakras(self, output_path=None, width=1200, height=1600):
         """Generate chakra diagram"""
@@ -136,7 +129,7 @@ class VajraStream:
     def generate_blessing(self, target_name, intention="peace and happiness", tradition="universal"):
         """Generate a blessing"""
         result = self.blessings.generate_blessing(target_name, intention, tradition)
-        return result.get('blessing_text', '')
+        return result.get("blessing_text", "")
 
     def generate_rothko_art(self, output_path=None, width=1920, height=1080):
         """Generate Rothko-style art"""
@@ -145,9 +138,7 @@ class VajraStream:
     def generate_healing_music(self, duration_seconds=300, frequency=528):
         """Generate healing music"""
         return self.composer.compose_healing_music(
-            intention="healing",
-            duration_seconds=duration_seconds,
-            base_frequency=frequency
+            intention="healing", duration_seconds=duration_seconds, base_frequency=frequency
         )
 
     def spin_prayer_wheel(self, mantra="Om Mani Padme Hum", rotations=108):
@@ -163,7 +154,7 @@ class VajraStream:
         return self.healing.create_healing_session(
             target_name,
             modalities=None,  # Use all modalities
-            duration_minutes=duration_minutes
+            duration_minutes=duration_minutes,
         )
 
     def benchmark_scalar_waves(self, duration=3):
@@ -173,14 +164,14 @@ class VajraStream:
         print(f"🔬 Benchmarking Scalar Wave Methods ({duration}s each)\n")
 
         for method, data in sorted(results.items()):
-            if 'error' in data:
+            if "error" in data:
                 print(f"   {method:15s} ERROR: {data['error']}")
             else:
                 print(f"   {method:15s} {data['mops']:8.2f} MMOPS")
 
-        total_mops = sum(r['mops'] for r in results.values() if 'mops' in r)
+        total_mops = sum(r["mops"] for r in results.values() if "mops" in r)
         print(f"\n   Total Potential: {total_mops:.2f} MMOPS")
-        print(f"   Progress to Terra MOPS: {(total_mops/1_000_000)*100:.4f}%\n")
+        print(f"   Progress to Terra MOPS: {(total_mops / 1_000_000) * 100:.4f}%\n")
 
         return results
 
@@ -210,8 +201,8 @@ Duration: {duration_minutes} minutes
 
         # 3. Start radionics broadcast
         print("📡 Step 3: Radionics Broadcast...")
-        broadcast = self.broadcast_healing(target_name, duration_minutes, 528)
-        print(f"   Broadcasting at 528 Hz (DNA Repair)")
+        self.broadcast_healing(target_name, duration_minutes, 528)
+        print("   Broadcasting at 528 Hz (DNA Repair)")
         print()
 
         # 4. Visualize chakras
@@ -240,15 +231,15 @@ Om Mani Padme Hum 🙏
     def get_system_status(self):
         """Get status of all subsystems"""
         status = {
-            'scalar_waves': self.scalar.get_thermal_status(),
-            'audio': self.audio.get_status(),
-            'visualization': self.visualization.get_status(),
-            'astrology': self.astrology.get_status() if self.astrology else {'astrology_engine': False},
-            'time_cycles': self.time_cycles.get_status(),
-            'prayer_wheel': self.prayer_wheel.get_status(),
-            'composer': self.composer.get_status(),
-            'healing': self.healing.get_status(),
-            'llm': self.llm.get_status()
+            "scalar_waves": self.scalar.get_thermal_status(),
+            "audio": self.audio.get_status(),
+            "visualization": self.visualization.get_status(),
+            "astrology": self.astrology.get_status() if self.astrology else {"astrology_engine": False},
+            "time_cycles": self.time_cycles.get_status(),
+            "prayer_wheel": self.prayer_wheel.get_status(),
+            "composer": self.composer.get_status(),
+            "healing": self.healing.get_status(),
+            "llm": self.llm.get_status(),
         }
 
         print("\n📊 VAJRA STREAM SYSTEM STATUS\n")
@@ -338,7 +329,7 @@ Om Mani Padme Hum 🙏
                 duration = int(input("Duration (seconds) [300]: ").strip() or "300")
                 freq = float(input("Frequency [528]: ").strip() or "528")
                 result = self.generate_healing_music(duration, freq)
-                print(f"\n✅ Music generated\n")
+                print("\n✅ Music generated\n")
                 input("Press Enter to continue...")
 
             elif choice == "11":
@@ -366,11 +357,11 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Vajra Stream - Sacred Technology Platform")
-    parser.add_argument('--interactive', '-i', action='store_true', help="Run interactive menu")
-    parser.add_argument('--benchmark', '-b', action='store_true', help="Run scalar wave benchmark")
-    parser.add_argument('--serve', '-s', action='store_true', help="Start API server")
-    parser.add_argument('--port', type=int, default=8001, help="API server port")
-    parser.add_argument('--status', action='store_true', help="Show system status")
+    parser.add_argument("--interactive", "-i", action="store_true", help="Run interactive menu")
+    parser.add_argument("--benchmark", "-b", action="store_true", help="Run scalar wave benchmark")
+    parser.add_argument("--serve", "-s", action="store_true", help="Start API server")
+    parser.add_argument("--port", type=int, default=8001, help="API server port")
+    parser.add_argument("--status", action="store_true", help="Show system status")
 
     args = parser.parse_args()
 
@@ -379,7 +370,9 @@ def main():
     if args.serve:
         print("🚀 Starting API server...")
         import uvicorn
+
         from backend.app.main import app
+
         uvicorn.run(app, host="0.0.0.0", port=args.port)
     elif args.benchmark:
         vs.benchmark_scalar_waves()

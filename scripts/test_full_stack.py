@@ -4,15 +4,15 @@ Full Stack Integration Tests for Vajra.Stream
 Tests backend API, WebSocket, and frontend connectivity
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import requests
-import websockets
 import json
-import time
 from datetime import datetime
+
+import requests
 
 BACKEND_URL = "http://localhost:8008"
 WEBSOCKET_URL = "ws://localhost:8008/ws"
@@ -21,9 +21,9 @@ LLM_MODEL = "gemma-4-e4b-it-uncensored-max-opus-4.7"
 
 
 def test_backend_health():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 1: Backend Health Check")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.get(f"{BACKEND_URL}/health", timeout=5)
@@ -37,9 +37,9 @@ def test_backend_health():
 
 
 def test_backend_api_root():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 2: Backend API Root")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.get(f"{BACKEND_URL}/", timeout=5)
@@ -53,9 +53,9 @@ def test_backend_api_root():
 
 
 def test_audio_generate_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 3: Audio Generate API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.post(
@@ -66,15 +66,15 @@ def test_audio_generate_api():
                 "volume": 0.8,
                 "prayer_bowl_mode": True,
                 "harmonic_strength": 0.3,
-                "modulation_depth": 0.05
+                "modulation_depth": 0.05,
             },
-            timeout=30
+            timeout=30,
         )
         print(f"  Status: {resp.status_code}")
         data = resp.json()
         print(f"  Response status: {data.get('status')}")
         print(f"  Audio generated: {data.get('audio_generated', False)}")
-        if data.get('status') == 'success':
+        if data.get("status") == "success":
             print("  [OK] Audio generate API passed")
             return True
         else:
@@ -86,20 +86,16 @@ def test_audio_generate_api():
 
 
 def test_audio_play_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 4: Audio Play API")
-    print("="*60)
+    print("=" * 60)
 
     try:
-        resp = requests.post(
-            f"{BACKEND_URL}/api/v1/audio/play",
-            json={"hardware_level": 2},
-            timeout=10
-        )
+        resp = requests.post(f"{BACKEND_URL}/api/v1/audio/play", json={"hardware_level": 2}, timeout=10)
         print(f"  Status: {resp.status_code}")
         data = resp.json()
         print(f"  Response: {data}")
-        if data.get('status') in ['success', 'playing']:
+        if data.get("status") in ["success", "playing"]:
             print("  [OK] Audio play API passed")
             return True
         else:
@@ -111,9 +107,9 @@ def test_audio_play_api():
 
 
 def test_audio_status_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 5: Audio Status API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.get(f"{BACKEND_URL}/api/v1/audio/status", timeout=5)
@@ -127,13 +123,14 @@ def test_audio_status_api():
 
 
 def test_websocket_connectivity():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 6: WebSocket Connectivity")
-    print("="*60)
+    print("=" * 60)
 
     ws = None
     try:
         import websocket as ws_client
+
         ws = ws_client.create_connection(WEBSOCKET_URL, timeout=10)
         print(f"  Connected to {WEBSOCKET_URL}")
 
@@ -156,9 +153,9 @@ def test_websocket_connectivity():
 
 
 def test_sessions_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 7: Sessions API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.get(f"{BACKEND_URL}/api/v1/sessions/", timeout=5)
@@ -172,9 +169,9 @@ def test_sessions_api():
 
 
 def test_astrology_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 8: Astrology API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.get(f"{BACKEND_URL}/api/v1/astrology/current", timeout=5)
@@ -192,9 +189,9 @@ def test_astrology_api():
 
 
 def test_scalar_waves_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 9: Scalar Waves API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.get(f"{BACKEND_URL}/api/v1/scalar/status", timeout=5)
@@ -212,9 +209,9 @@ def test_scalar_waves_api():
 
 
 def test_llm_integration():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 10: LLM Integration (Local Gemma)")
-    print("="*60)
+    print("=" * 60)
 
     try:
         # Test chat completion
@@ -224,17 +221,17 @@ def test_llm_integration():
                 "model": LLM_MODEL,
                 "messages": [
                     {"role": "system", "content": "You are a helpful meditation guide."},
-                    {"role": "user", "content": "Give me a one-sentence meditation tip."}
+                    {"role": "user", "content": "Give me a one-sentence meditation tip."},
                 ],
                 "max_tokens": 50,
-                "temperature": 0.7
+                "temperature": 0.7,
             },
-            timeout=30
+            timeout=30,
         )
         print(f"  Status: {resp.status_code}")
         if resp.status_code == 200:
             data = resp.json()
-            reply = data['choices'][0]['message']['content']
+            reply = data["choices"][0]["message"]["content"]
             print(f"  Response: {reply}")
             print("  [OK] LLM integration passed")
             return True
@@ -247,17 +244,18 @@ def test_llm_integration():
 
 
 def test_prayer_wheel_llm_flow():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 11: Prayer Wheel → LLM Flow")
-    print("="*60)
+    print("=" * 60)
 
     try:
-        from core.prayer_wheel import PrayerWheel
         from core.audio_generator import ScalarWaveGenerator
+        from core.prayer_wheel import PrayerWheel
 
         class LocalLLM:
             def __init__(self):
-                self.model_type = 'local'
+                self.model_type = "local"
+
             def generate(self, prompt, system_prompt=None, max_tokens=200, temperature=0.7):
                 resp = requests.post(
                     f"{LLM_BASE_URL}/v1/chat/completions",
@@ -265,14 +263,14 @@ def test_prayer_wheel_llm_flow():
                         "model": LLM_MODEL,
                         "messages": [
                             {"role": "system", "content": system_prompt or "You are a helpful assistant."},
-                            {"role": "user", "content": prompt}
+                            {"role": "user", "content": prompt},
                         ],
                         "max_tokens": max_tokens,
-                        "temperature": temperature
+                        "temperature": temperature,
                     },
-                    timeout=60
+                    timeout=60,
                 )
-                return resp.json()['choices'][0]['message']['content']
+                return resp.json()["choices"][0]["message"]["content"]
 
         llm = LocalLLM()
         audio = ScalarWaveGenerator()
@@ -286,20 +284,21 @@ def test_prayer_wheel_llm_flow():
     except Exception as e:
         print(f"  [FAIL] Prayer Wheel → LLM flow failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
 
 def test_dharma_tales_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 12: Dharma Tales API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.post(
             f"{BACKEND_URL}/api/v1/dharma/tale/generate",
             json={"theme": "compassion", "tradition": "zen", "length": "short"},
-            timeout=30
+            timeout=30,
         )
         print(f"  Status: {resp.status_code}")
         if resp.status_code == 200:
@@ -316,16 +315,16 @@ def test_dharma_tales_api():
 
 
 def test_personal_healing_api():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 13: Personal Healing API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.get(f"{BACKEND_URL}/api/v1/healing/chakra/all", timeout=10)
         print(f"  Status: {resp.status_code}")
         if resp.status_code == 200:
             data = resp.json()
-            chakras = list(data.get('chakras', {}).keys())
+            chakras = list(data.get("chakras", {}).keys())
             print(f"  Chakras: {chakras}")
             print("  [OK] Personal Healing API passed")
             return True
@@ -338,21 +337,21 @@ def test_personal_healing_api():
 
 
 def test_healing_sequence():
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST 14: Healing Sequence API")
-    print("="*60)
+    print("=" * 60)
 
     try:
         resp = requests.post(
             f"{BACKEND_URL}/api/v1/healing/chakra/balance",
             json={"intention": "healing", "sequence_type": "full"},
-            timeout=10
+            timeout=10,
         )
         print(f"  Status: {resp.status_code}")
         if resp.status_code == 200:
             data = resp.json()
-            seq = data.get('sequence', {})
-            chakra_names = [c['name'] for c in seq.get('chakras', [])]
+            seq = data.get("sequence", {})
+            chakra_names = [c["name"] for c in seq.get("chakras", [])]
             print(f"  Sequence: {chakra_names}")
             print("  [OK] Healing Sequence API passed")
             return True
@@ -365,12 +364,12 @@ def test_healing_sequence():
 
 
 def main():
-    print("\n" + "#"*60)
+    print("\n" + "#" * 60)
     print("# VAJRA.STREAM - FULL STACK INTEGRATION TESTS")
     print(f"# Backend: {BACKEND_URL}")
     print(f"# WebSocket: {WEBSOCKET_URL}")
     print(f"# LLM: {LLM_MODEL} at {LLM_BASE_URL}")
-    print("#"*60)
+    print("#" * 60)
 
     tests = [
         ("Backend Health", test_backend_health),
@@ -397,12 +396,13 @@ def main():
         except Exception as e:
             print(f"  [FAIL] Test failed with exception: {e}")
             import traceback
+
             traceback.print_exc()
             results.append((name, False))
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY")
-    print("="*60)
+    print("=" * 60)
     for name, result in results:
         status = "[OK] PASS" if result else "[FAIL] FAIL"
         print(f"  {status}: {name}")

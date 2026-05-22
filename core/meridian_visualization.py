@@ -13,29 +13,26 @@ Beautiful visualizations of:
 Creates stunning visual representations for healing work.
 """
 
-import math
-from typing import List, Tuple, Optional, Dict
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
 
 try:
-    from PIL import Image, ImageDraw, ImageFont, ImageFilter
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
     print("Note: PIL not available - visualization disabled")
 
 try:
-    from core.energetic_anatomy import (
-        EnergeticAnatomyDatabase,
-        Tradition,
-        Element
-    )
+    from core.energetic_anatomy import Element, EnergeticAnatomyDatabase, Tradition
+
     HAS_ANATOMY = True
 except ImportError:
     HAS_ANATOMY = False
     # Define simple Element enum if not available
     from enum import Enum as EnumBase
+
     class Element(EnumBase):
         WOOD = "wood"
         FIRE = "fire"
@@ -46,6 +43,7 @@ except ImportError:
 
 class BodyPosition(Enum):
     """Standard body positions for visualization"""
+
     FRONT = "front"
     BACK = "back"
     SIDE_LEFT = "side_left"
@@ -57,8 +55,7 @@ class MeridianVisualizer:
     Visualize meridians and energy channels on human body outline.
     """
 
-    def __init__(self, width: int = 1200, height: int = 1600,
-                 background: Tuple[int, int, int] = (20, 20, 30)):
+    def __init__(self, width: int = 1200, height: int = 1600, background: tuple[int, int, int] = (20, 20, 30)):
         if not HAS_PIL:
             raise RuntimeError("PIL/Pillow required for visualization")
 
@@ -67,31 +64,31 @@ class MeridianVisualizer:
         self.background = background
 
         # Create image
-        self.image = Image.new('RGB', (width, height), background)
-        self.draw = ImageDraw.Draw(self.image, 'RGBA')
+        self.image = Image.new("RGB", (width, height), background)
+        self.draw = ImageDraw.Draw(self.image, "RGBA")
 
         # Load anatomy database
         self.anatomy_db = EnergeticAnatomyDatabase() if HAS_ANATOMY else None
 
         # Element colors
         self.element_colors = {
-            Element.WOOD: (0, 200, 100, 200),      # Green
-            Element.FIRE: (255, 100, 50, 200),     # Red-orange
-            Element.EARTH: (200, 150, 50, 200),    # Yellow-brown
-            Element.METAL: (200, 200, 220, 200),   # Silver-white
-            Element.WATER: (50, 150, 255, 200),    # Blue
-            None: (150, 150, 200, 200)             # Default lavender
+            Element.WOOD: (0, 200, 100, 200),  # Green
+            Element.FIRE: (255, 100, 50, 200),  # Red-orange
+            Element.EARTH: (200, 150, 50, 200),  # Yellow-brown
+            Element.METAL: (200, 200, 220, 200),  # Silver-white
+            Element.WATER: (50, 150, 255, 200),  # Blue
+            None: (150, 150, 200, 200),  # Default lavender
         }
 
         # Chakra colors
         self.chakra_colors = {
-            'muladhara': (196, 0, 0),         # Root - Red
-            'svadhisthana': (255, 127, 0),    # Sacral - Orange
-            'manipura': (255, 255, 0),        # Solar - Yellow
-            'anahata': (0, 255, 0),           # Heart - Green
-            'vishuddha': (0, 127, 255),       # Throat - Blue
-            'ajna': (75, 0, 130),             # Third Eye - Indigo
-            'sahasrara': (148, 0, 211)        # Crown - Violet
+            "muladhara": (196, 0, 0),  # Root - Red
+            "svadhisthana": (255, 127, 0),  # Sacral - Orange
+            "manipura": (255, 255, 0),  # Solar - Yellow
+            "anahata": (0, 255, 0),  # Heart - Green
+            "vishuddha": (0, 127, 255),  # Throat - Blue
+            "ajna": (75, 0, 130),  # Third Eye - Indigo
+            "sahasrara": (148, 0, 211),  # Crown - Violet
         }
 
     def draw_body_outline(self, position: BodyPosition = BodyPosition.FRONT):
@@ -107,73 +104,63 @@ class MeridianVisualizer:
             # Head (circle)
             head_radius = 60
             self.draw.ellipse(
-                [center_x - head_radius, head_y - head_radius,
-                 center_x + head_radius, head_y + head_radius],
+                [center_x - head_radius, head_y - head_radius, center_x + head_radius, head_y + head_radius],
                 outline=(100, 100, 150, 150),
-                width=2
+                width=2,
             )
 
             # Neck
             self.draw.line(
-                [(center_x, head_y + head_radius), (center_x, torso_top)],
-                fill=(100, 100, 150, 150),
-                width=15
+                [(center_x, head_y + head_radius), (center_x, torso_top)], fill=(100, 100, 150, 150), width=15
             )
 
             # Shoulders
             shoulder_width = 180
             self.draw.line(
-                [(center_x - shoulder_width, torso_top),
-                 (center_x + shoulder_width, torso_top)],
+                [(center_x - shoulder_width, torso_top), (center_x + shoulder_width, torso_top)],
                 fill=(100, 100, 150, 150),
-                width=15
+                width=15,
             )
 
             # Arms
             arm_length = 400
             # Left arm
             self.draw.line(
-                [(center_x - shoulder_width, torso_top),
-                 (center_x - shoulder_width - 50, torso_top + arm_length)],
+                [(center_x - shoulder_width, torso_top), (center_x - shoulder_width - 50, torso_top + arm_length)],
                 fill=(100, 100, 150, 150),
-                width=12
+                width=12,
             )
             # Right arm
             self.draw.line(
-                [(center_x + shoulder_width, torso_top),
-                 (center_x + shoulder_width + 50, torso_top + arm_length)],
+                [(center_x + shoulder_width, torso_top), (center_x + shoulder_width + 50, torso_top + arm_length)],
                 fill=(100, 100, 150, 150),
-                width=12
+                width=12,
             )
 
             # Torso (elongated oval)
             torso_width = 140
             self.draw.ellipse(
-                [center_x - torso_width, torso_top,
-                 center_x + torso_width, torso_bottom],
+                [center_x - torso_width, torso_top, center_x + torso_width, torso_bottom],
                 outline=(100, 100, 150, 150),
-                width=3
+                width=3,
             )
 
             # Legs
             leg_spread = 60
             # Left leg
             self.draw.line(
-                [(center_x - leg_spread, hip_y),
-                 (center_x - leg_spread - 20, foot_y)],
+                [(center_x - leg_spread, hip_y), (center_x - leg_spread - 20, foot_y)],
                 fill=(100, 100, 150, 150),
-                width=15
+                width=15,
             )
             # Right leg
             self.draw.line(
-                [(center_x + leg_spread, hip_y),
-                 (center_x + leg_spread + 20, foot_y)],
+                [(center_x + leg_spread, hip_y), (center_x + leg_spread + 20, foot_y)],
                 fill=(100, 100, 150, 150),
-                width=15
+                width=15,
             )
 
-    def draw_chakra(self, name: str, position: Tuple[int, int],
-                    size: int = 40, glow: bool = True):
+    def draw_chakra(self, name: str, position: tuple[int, int], size: int = 40, glow: bool = True):
         """Draw a chakra point"""
         x, y = position
         color = self.chakra_colors.get(name, (255, 255, 255))
@@ -183,32 +170,24 @@ class MeridianVisualizer:
             for i in range(15, 0, -1):
                 alpha = int(255 * (i / 15) * 0.3)
                 glow_color = (*color, alpha)
-                self.draw.ellipse(
-                    [x - size - i, y - size - i,
-                     x + size + i, y + size + i],
-                    fill=glow_color
-                )
+                self.draw.ellipse([x - size - i, y - size - i, x + size + i, y + size + i], fill=glow_color)
 
         # Draw main chakra
-        self.draw.ellipse(
-            [x - size, y - size, x + size, y + size],
-            fill=(*color, 220),
-            outline=(*color, 255),
-            width=2
-        )
+        self.draw.ellipse([x - size, y - size, x + size, y + size], fill=(*color, 220), outline=(*color, 255), width=2)
 
         # Draw center point
         center_size = size // 3
         self.draw.ellipse(
-            [x - center_size, y - center_size,
-             x + center_size, y + center_size],
-            fill=(255, 255, 255, 255)
+            [x - center_size, y - center_size, x + center_size, y + center_size], fill=(255, 255, 255, 255)
         )
 
-    def draw_meridian_flow(self, points: List[Tuple[int, int]],
-                          color: Tuple[int, int, int, int],
-                          width: int = 3,
-                          flow_animation: bool = False):
+    def draw_meridian_flow(
+        self,
+        points: list[tuple[int, int]],
+        color: tuple[int, int, int, int],
+        width: int = 3,
+        flow_animation: bool = False,
+    ):
         """Draw meridian as flowing energy line"""
         if len(points) < 2:
             return
@@ -228,10 +207,7 @@ class MeridianVisualizer:
                     t = j / num_circles
                     x = int(x1 + (x2 - x1) * t)
                     y = int(y1 + (y2 - y1) * t)
-                    self.draw.ellipse(
-                        [x - 3, y - 3, x + 3, y + 3],
-                        fill=(*color[:3], 255)
-                    )
+                    self.draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=(*color[:3], 255))
 
     def create_seven_chakras_diagram(self) -> Image.Image:
         """Create diagram showing all 7 chakras on body"""
@@ -241,13 +217,13 @@ class MeridianVisualizer:
 
         # Chakra positions (front view)
         chakra_positions = {
-            'sahasrara': (center_x, 60),       # Crown
-            'ajna': (center_x, 130),           # Third eye
-            'vishuddha': (center_x, 220),      # Throat
-            'anahata': (center_x, 400),        # Heart
-            'manipura': (center_x, 550),       # Solar plexus
-            'svadhisthana': (center_x, 700),   # Sacral
-            'muladhara': (center_x, 850)       # Root
+            "sahasrara": (center_x, 60),  # Crown
+            "ajna": (center_x, 130),  # Third eye
+            "vishuddha": (center_x, 220),  # Throat
+            "anahata": (center_x, 400),  # Heart
+            "manipura": (center_x, 550),  # Solar plexus
+            "svadhisthana": (center_x, 700),  # Sacral
+            "muladhara": (center_x, 850),  # Root
         }
 
         # Draw each chakra
@@ -261,13 +237,13 @@ class MeridianVisualizer:
             font = ImageFont.load_default()
 
         labels = {
-            'sahasrara': 'Crown\nSahasrara',
-            'ajna': 'Third Eye\nAjna',
-            'vishuddha': 'Throat\nVishuddha',
-            'anahata': 'Heart\nAnahata',
-            'manipura': 'Solar Plexus\nManipura',
-            'svadhisthana': 'Sacral\nSvadhisthana',
-            'muladhara': 'Root\nMuladhara'
+            "sahasrara": "Crown\nSahasrara",
+            "ajna": "Third Eye\nAjna",
+            "vishuddha": "Throat\nVishuddha",
+            "anahata": "Heart\nAnahata",
+            "manipura": "Solar Plexus\nManipura",
+            "svadhisthana": "Sacral\nSvadhisthana",
+            "muladhara": "Root\nMuladhara",
         }
 
         for name, pos in chakra_positions.items():
@@ -277,12 +253,7 @@ class MeridianVisualizer:
 
             # Draw label to the side
             label_x = x + 100
-            self.draw.text(
-                (label_x, y - 20),
-                label,
-                fill=(*color, 255),
-                font=font
-            )
+            self.draw.text((label_x, y - 20), label, fill=(*color, 255), font=font)
 
         return self.image
 
@@ -311,25 +282,25 @@ class MeridianVisualizer:
             # For now, draw representative flow
             if "Lung" in meridian.name:
                 points = [
-                    (center_x + 80, 300),   # Chest
+                    (center_x + 80, 300),  # Chest
                     (center_x + 120, 350),
                     (center_x + 150, 450),  # Arm
-                    (center_x + 170, 550)   # Hand
+                    (center_x + 170, 550),  # Hand
                 ]
             elif "Heart" in meridian.name:
                 points = [
-                    (center_x + 50, 400),   # Heart area
+                    (center_x + 50, 400),  # Heart area
                     (center_x + 80, 450),
                     (center_x + 110, 520),  # Inner arm
-                    (center_x + 130, 580)   # Hand
+                    (center_x + 130, 580),  # Hand
                 ]
             elif "Kidney" in meridian.name:
                 points = [
-                    (center_x - 40, 650),   # Lower abdomen
+                    (center_x - 40, 650),  # Lower abdomen
                     (center_x - 30, 800),
                     (center_x - 20, 1000),  # Leg
                     (center_x - 10, 1200),
-                    (center_x, 1400)        # Foot
+                    (center_x, 1400),  # Foot
                 ]
             elif "Liver" in meridian.name:
                 points = [
@@ -337,22 +308,13 @@ class MeridianVisualizer:
                     (center_x + 30, 800),
                     (center_x + 20, 1000),
                     (center_x + 10, 1200),
-                    (center_x, 1400)
+                    (center_x, 1400),
                 ]
             elif "Spleen" in meridian.name:
-                points = [
-                    (center_x - 60, 700),
-                    (center_x - 50, 900),
-                    (center_x - 40, 1100),
-                    (center_x - 30, 1350)
-                ]
+                points = [(center_x - 60, 700), (center_x - 50, 900), (center_x - 40, 1100), (center_x - 30, 1350)]
             else:
                 # Default path
-                points = [
-                    (center_x, 300),
-                    (center_x, 600),
-                    (center_x, 900)
-                ]
+                points = [(center_x, 300), (center_x, 600), (center_x, 900)]
 
             # Draw meridian
             self.draw_meridian_flow(points, color, width=4, flow_animation=True)
@@ -367,12 +329,7 @@ class MeridianVisualizer:
                 label_x, label_y = points[0]
                 label_x += 20
                 element_name = meridian.element.value if meridian.element else "N/A"
-                self.draw.text(
-                    (label_x, label_y),
-                    f"{meridian.name}\n({element_name})",
-                    fill=color,
-                    font=font
-                )
+                self.draw.text((label_x, label_y), f"{meridian.name}\n({element_name})", fill=color, font=font)
 
         return self.image
 
@@ -384,13 +341,13 @@ class MeridianVisualizer:
 
         # Draw central channel (sushumna/uma)
         channel_points = [
-            (center_x, 850),   # Base (muladhara)
-            (center_x, 700),   # Sacral
-            (center_x, 550),   # Solar
-            (center_x, 400),   # Heart
-            (center_x, 220),   # Throat
-            (center_x, 130),   # Third eye
-            (center_x, 60)     # Crown
+            (center_x, 850),  # Base (muladhara)
+            (center_x, 700),  # Sacral
+            (center_x, 550),  # Solar
+            (center_x, 400),  # Heart
+            (center_x, 220),  # Throat
+            (center_x, 130),  # Third eye
+            (center_x, 60),  # Crown
         ]
 
         # Draw with gold color
@@ -416,8 +373,7 @@ class MeridianVisualizer:
         self.draw_meridian_flow(pingala_points, pingala_color, width=6)
 
         # Draw chakras at intersections
-        chakras = ['muladhara', 'svadhisthana', 'manipura', 'anahata',
-                  'vishuddha', 'ajna', 'sahasrara']
+        chakras = ["muladhara", "svadhisthana", "manipura", "anahata", "vishuddha", "ajna", "sahasrara"]
 
         for chakra, (x, y) in zip(chakras, channel_points):
             self.draw_chakra(chakra, (x, y), size=30, glow=True)
@@ -428,12 +384,7 @@ class MeridianVisualizer:
         except:
             font = ImageFont.load_default()
 
-        self.draw.text(
-            (self.width // 2 - 200, 30),
-            "Three Channels (Nadis)",
-            fill=(255, 255, 255, 255),
-            font=font
-        )
+        self.draw.text((self.width // 2 - 200, 30), "Three Channels (Nadis)", fill=(255, 255, 255, 255), font=font)
 
         # Add legend
         try:
@@ -472,41 +423,28 @@ class MeridianVisualizer:
             font = ImageFont.load_default()
             font_small = font
 
-        self.draw.text(
-            (self.width // 2 - 150, 30),
-            "Five Element Meridians",
-            fill=(255, 255, 255, 255),
-            font=font
-        )
+        self.draw.text((self.width // 2 - 150, 30), "Five Element Meridians", fill=(255, 255, 255, 255), font=font)
 
         # Draw element legend
         legend_x = 50
         legend_y = 1000
         y_offset = 0
 
-        for element in [Element.WOOD, Element.FIRE, Element.EARTH,
-                       Element.METAL, Element.WATER]:
+        for element in [Element.WOOD, Element.FIRE, Element.EARTH, Element.METAL, Element.WATER]:
             if element in element_groups:
                 color = self.element_colors[element]
                 meridians = element_groups[element]
 
                 # Draw color swatch
                 self.draw.rectangle(
-                    [legend_x, legend_y + y_offset,
-                     legend_x + 30, legend_y + y_offset + 20],
-                    fill=color
+                    [legend_x, legend_y + y_offset, legend_x + 30, legend_y + y_offset + 20], fill=color
                 )
 
                 # Draw element name and meridians
                 text = f"{element.value.capitalize()}: "
                 text += ", ".join([m.name for m in meridians])
 
-                self.draw.text(
-                    (legend_x + 40, legend_y + y_offset),
-                    text,
-                    fill=(255, 255, 255, 255),
-                    font=font_small
-                )
+                self.draw.text((legend_x + 40, legend_y + y_offset), text, fill=(255, 255, 255, 255), font=font_small)
 
                 y_offset += 35
 
@@ -527,6 +465,7 @@ class MeridianVisualizer:
 # ============================================================================
 # CONVENIENCE FUNCTIONS
 # ============================================================================
+
 
 def create_complete_chakra_diagram(output_path: str = "/tmp/chakra_diagram.png"):
     """Create and save complete chakra diagram"""
@@ -557,9 +496,9 @@ def create_central_channel(output_path: str = "/tmp/central_channel.png"):
 # ============================================================================
 
 if __name__ == "__main__":
-    print("="*70)
+    print("=" * 70)
     print("MERIDIAN & ENERGETIC ANATOMY VISUALIZATION")
-    print("="*70)
+    print("=" * 70)
     print()
 
     output_dir = Path("/tmp/vajra_meridian_viz")
@@ -581,9 +520,9 @@ if __name__ == "__main__":
     create_complete_meridian_map(str(output_dir / "meridian_map.png"))
 
     print()
-    print("="*70)
+    print("=" * 70)
     print("VISUALIZATION COMPLETE")
-    print("="*70)
+    print("=" * 70)
     print(f"\nAll visualizations saved to: {output_dir}")
     print()
     print("May these visualizations serve healing and understanding!")

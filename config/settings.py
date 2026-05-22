@@ -5,7 +5,7 @@ Edit these settings to customize your setup
 
 # Audio Settings
 SAMPLE_RATE = 44100  # Hz
-AUDIO_DEVICE = 'default'  # or specific device name
+AUDIO_DEVICE = "default"  # or specific device name
 
 # Prayer Bowl Audio Settings (NEW)
 PRAYER_BOWL_MODE = True  # Default to prayer bowl synthesis (rich harmonics)
@@ -27,7 +27,7 @@ BASS_SHAKER_CONNECTED = False
 BLESSING_FREQUENCIES = [7.83, 136.1, 528, 639, 741]
 
 # Database
-DB_PATH = 'vajra_stream.db'
+DB_PATH = "vajra_stream.db"
 
 # Session Defaults
 DEFAULT_DURATION = 300  # seconds (5 minutes)
@@ -35,17 +35,17 @@ DEFAULT_INTENTION = "May all beings be happy and free from suffering"
 
 # Crystal Grid
 CRYSTAL_COUNT = 6
-GRID_PATTERN = 'hexagon'  # hexagon, circle, flower_of_life
+GRID_PATTERN = "hexagon"  # hexagon, circle, flower_of_life
 
 # Display
-VISUAL_MODE = 'minimalist'  # minimalist, detailed, off
+VISUAL_MODE = "minimalist"  # minimalist, detailed, off
 SHOW_FREQUENCIES = True
 SHOW_TIMER = True
 
 # Paths
-KNOWLEDGE_PATH = './knowledge/'
-GENERATED_CONTENT_PATH = './generated/'
-SESSION_LOGS_PATH = './logs/'
+KNOWLEDGE_PATH = "./knowledge/"
+GENERATED_CONTENT_PATH = "./generated/"
+SESSION_LOGS_PATH = "./logs/"
 
 # Safety
 MAX_VOLUME = 0.8  # Maximum audio volume (0.0 - 1.0)
@@ -53,10 +53,10 @@ WARNING_ENABLED = True  # Warn before amplified mode
 
 # Prayer Bowl Configuration
 PRAYER_BOWL_CONFIG = {
-    'harmonic_ratios': [1.0, 2.13, 3.02, 4.15, 5.26, 6.33],  # Measured from real bowls
-    'inharmonic_partials': [2.89, 3.76, 4.93],  # Metallic resonances
-    'tremolo_rate': 0.15,  # Very slow amplitude modulation
-    'tremolo_depth': 0.08,  # Subtle
-    'vibrato_rate': 0.05,  # Very slow pitch variation
-    'vibrato_depth': 0.02,  # Very subtle
+    "harmonic_ratios": [1.0, 2.13, 3.02, 4.15, 5.26, 6.33],  # Measured from real bowls
+    "inharmonic_partials": [2.89, 3.76, 4.93],  # Metallic resonances
+    "tremolo_rate": 0.15,  # Very slow amplitude modulation
+    "tremolo_depth": 0.08,  # Subtle
+    "vibrato_rate": 0.05,  # Very slow pitch variation
+    "vibrato_depth": 0.02,  # Very subtle
 }

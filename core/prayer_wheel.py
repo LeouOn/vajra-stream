@@ -4,12 +4,10 @@ Continuous generation and emanation of prayers, mantras, and aspirations
 Combines ancient prayer wheel technology with modern LLM and audio systems
 """
 
-import time
-from datetime import datetime
-from typing import Optional, List, Dict
 import json
 import os
-from pathlib import Path
+import time
+from datetime import datetime
 
 
 class PrayerWheel:
@@ -39,10 +37,10 @@ class PrayerWheel:
         self.prayers_generated = 0
         self.rotations = 0  # Like counting physical wheel spins
 
-    def _load_traditional_prayers(self) -> Dict[str, List[str]]:
+    def _load_traditional_prayers(self) -> dict[str, list[str]]:
         """Load library of traditional prayers and mantras"""
         return {
-            'mantras': [
+            "mantras": [
                 "Om Mani Padme Hum",  # Avalokiteshvara - compassion
                 "Om Tare Tuttare Ture Soha",  # Green Tara - protection
                 "Gate Gate Paragate Parasamgate Bodhi Svaha",  # Heart Sutra
@@ -50,29 +48,28 @@ class PrayerWheel:
                 "Tayata Om Bekanze Bekanze Maha Bekanze Radza Samudgate Soha",  # Medicine Buddha
                 "Om Ah Ra Pa Tsa Na Dhih",  # Manjushri - wisdom
             ],
-            'aspirations': [
+            "aspirations": [
                 "May all beings be happy and free from suffering",
                 "May all beings have happiness and the causes of happiness",
                 "May all beings be free from suffering and the causes of suffering",
                 "May all beings never be separated from the great happiness devoid of suffering",
                 "May all beings dwell in equanimity, free from attachment and aversion",
             ],
-            'dedications': [
+            "dedications": [
                 "By this merit may all obtain omniscience. May it defeat the enemy, wrongdoing.",
                 "May all beings be freed from the stormy waves of birth, old age, sickness and death.",
                 "For as long as space endures, and for as long as living beings remain, "
                 "until then may I too abide to dispel the misery of the world.",
             ],
-            'bodhisattva_vows': [
+            "bodhisattva_vows": [
                 "Sentient beings are numberless; I vow to liberate them all",
                 "Delusions are inexhaustible; I vow to end them all",
                 "Dharma gates are boundless; I vow to enter them all",
                 "Buddha's way is unsurpassable; I vow to become it",
-            ]
+            ],
         }
 
-    def generate_prayer(self, intention: str = "peace", use_llm: bool = True,
-                       tradition: str = 'universal') -> str:
+    def generate_prayer(self, intention: str = "peace", use_llm: bool = True, tradition: str = "universal") -> str:
         """
         Generate a prayer based on intention
 
@@ -84,6 +81,7 @@ class PrayerWheel:
         if use_llm and self.llm:
             # Generate fresh prayer using LLM
             from core.llm_integration import DharmaLLM
+
             dharma = DharmaLLM(self.llm)
             prayer = dharma.generate_prayer(intention, tradition)
         else:
@@ -98,29 +96,36 @@ class PrayerWheel:
         intention_lower = intention.lower()
 
         # Map intentions to prayer types
-        if 'wisdom' in intention_lower or 'insight' in intention_lower:
+        if "wisdom" in intention_lower or "insight" in intention_lower:
             # Manjushri mantra
             return "Om Ah Ra Pa Tsa Na Dhih"
 
-        elif 'healing' in intention_lower or 'health' in intention_lower:
+        elif "healing" in intention_lower or "health" in intention_lower:
             # Medicine Buddha mantra
             return "Tayata Om Bekanze Bekanze Maha Bekanze Radza Samudgate Soha"
 
-        elif 'protection' in intention_lower or 'safety' in intention_lower:
+        elif "protection" in intention_lower or "safety" in intention_lower:
             # Green Tara
             return "Om Tare Tuttare Ture Soha"
 
-        elif 'compassion' in intention_lower or 'love' in intention_lower:
+        elif "compassion" in intention_lower or "love" in intention_lower:
             # Avalokiteshvara
             return "Om Mani Padme Hum"
 
         else:
             # Default to general aspiration
             import random
-            return random.choice(self.traditional_prayers['aspirations'])
 
-    def spin(self, prayer: str, duration: int = 60, with_audio: bool = True,
-            with_voice: bool = False, frequencies: List[float] = None):
+            return random.choice(self.traditional_prayers["aspirations"])
+
+    def spin(
+        self,
+        prayer: str,
+        duration: int = 60,
+        with_audio: bool = True,
+        with_voice: bool = False,
+        frequencies: list[float] = None,
+    ):
         """
         'Spin' the prayer wheel - broadcast prayer with audio and/or voice
 
@@ -131,12 +136,12 @@ class PrayerWheel:
             with_voice: Speak the prayer using TTS
             frequencies: Specific frequencies to use
         """
-        print(f"\n{'='*60}")
-        print(f"PRAYER WHEEL SPINNING")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("PRAYER WHEEL SPINNING")
+        print(f"{'=' * 60}")
         print(f"Prayer: {prayer}")
         print(f"Duration: {duration} seconds")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Speak prayer if TTS available
         if with_voice and self.tts:
@@ -168,9 +173,14 @@ class PrayerWheel:
         self.rotations += 1
         print(f"\n✓ Rotation complete (Total rotations: {self.rotations})")
 
-    def continuous_rotation(self, intention: str = "peace", interval: int = 60,
-                          use_llm: bool = True, with_audio: bool = True,
-                          with_voice: bool = False):
+    def continuous_rotation(
+        self,
+        intention: str = "peace",
+        interval: int = 60,
+        use_llm: bool = True,
+        with_audio: bool = True,
+        with_voice: bool = False,
+    ):
         """
         Continuously generate and broadcast prayers
         Like keeping a prayer wheel spinning perpetually
@@ -184,14 +194,14 @@ class PrayerWheel:
         """
         self.session_start = datetime.now()
 
-        print(f"\n{'='*60}")
-        print(f"CONTINUOUS PRAYER WHEEL")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("CONTINUOUS PRAYER WHEEL")
+        print(f"{'=' * 60}")
         print(f"Intention: {intention}")
         print(f"Interval: {interval} seconds")
         print(f"Started: {self.session_start.strftime('%I:%M %p')}")
-        print(f"\nPress Ctrl+C to stop")
-        print(f"{'='*60}\n")
+        print("\nPress Ctrl+C to stop")
+        print(f"{'=' * 60}\n")
 
         try:
             while True:
@@ -199,8 +209,7 @@ class PrayerWheel:
                 prayer = self.generate_prayer(intention, use_llm=use_llm)
 
                 # Spin wheel with this prayer
-                self.spin(prayer, duration=interval, with_audio=with_audio,
-                         with_voice=with_voice)
+                self.spin(prayer, duration=interval, with_audio=with_audio, with_voice=with_voice)
 
                 # Brief pause between rotations
                 time.sleep(2)
@@ -208,9 +217,9 @@ class PrayerWheel:
         except KeyboardInterrupt:
             self._end_session()
 
-    def mantra_accumulation(self, mantra: str, count: int = 108,
-                           with_audio: bool = True, with_voice: bool = True,
-                           duration_per: int = 10):
+    def mantra_accumulation(
+        self, mantra: str, count: int = 108, with_audio: bool = True, with_voice: bool = True, duration_per: int = 10
+    ):
         """
         Accumulate mantra recitations (like traditional practice)
 
@@ -221,19 +230,19 @@ class PrayerWheel:
             with_voice: Speak mantra
             duration_per: Seconds per recitation
         """
-        print(f"\n{'='*60}")
-        print(f"MANTRA ACCUMULATION")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print("MANTRA ACCUMULATION")
+        print(f"{'=' * 60}")
         print(f"Mantra: {mantra}")
         print(f"Count: {count}")
         print(f"Total time: {(count * duration_per) / 60:.1f} minutes")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         self.session_start = datetime.now()
 
         try:
             for i in range(count):
-                print(f"\nRecitation {i+1}/{count}")
+                print(f"\nRecitation {i + 1}/{count}")
 
                 # Speak mantra
                 if with_voice and self.tts:
@@ -242,10 +251,7 @@ class PrayerWheel:
                 # Generate carrier wave
                 if with_audio and self.audio:
                     # Use OM frequency and Schumann resonance for mantras
-                    wave = self.audio.layer_frequencies(
-                        [(136.1, 0.5), (7.83, 0.5)],
-                        duration=duration_per
-                    )
+                    wave = self.audio.layer_frequencies([(136.1, 0.5), (7.83, 0.5)], duration=duration_per)
                     self.audio.play(wave, blocking=True)
                 else:
                     time.sleep(duration_per)
@@ -254,14 +260,14 @@ class PrayerWheel:
 
                 # Progress indicator
                 if (i + 1) % 27 == 0:  # Quarter mala
-                    print(f"  ✓ {i+1} recitations complete")
+                    print(f"  ✓ {i + 1} recitations complete")
 
         except KeyboardInterrupt:
-            print(f"\n\nMantra accumulation paused at {i+1} recitations")
+            print(f"\n\nMantra accumulation paused at {i + 1} recitations")
 
         self._end_session()
 
-    def prayer_cycle(self, theme: str = 'four_immeasurables', with_audio: bool = True):
+    def prayer_cycle(self, theme: str = "four_immeasurables", with_audio: bool = True):
         """
         Complete a traditional prayer cycle
 
@@ -270,21 +276,21 @@ class PrayerWheel:
             with_audio: Include audio frequencies
         """
         cycles = {
-            'four_immeasurables': [
+            "four_immeasurables": [
                 "May all beings have happiness and the causes of happiness",
                 "May all beings be free from suffering and the causes of suffering",
                 "May all beings never be separated from the great happiness devoid of suffering",
                 "May all beings dwell in equanimity, free from attachment and aversion",
             ],
-            'bodhisattva_vows': self.traditional_prayers['bodhisattva_vows'],
-            'dedications': self.traditional_prayers['dedications']
+            "bodhisattva_vows": self.traditional_prayers["bodhisattva_vows"],
+            "dedications": self.traditional_prayers["dedications"],
         }
 
-        prayers = cycles.get(theme, cycles['four_immeasurables'])
+        prayers = cycles.get(theme, cycles["four_immeasurables"])
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"PRAYER CYCLE: {theme.upper()}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         for i, prayer in enumerate(prayers, 1):
             print(f"\n{i}. {prayer}\n")
@@ -299,27 +305,27 @@ class PrayerWheel:
 
             self.rotations += 1
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Prayer cycle complete: {len(prayers)} prayers offered")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
     def _end_session(self):
         """End prayer wheel session and show statistics"""
         if self.session_start:
             duration = datetime.now() - self.session_start
 
-            print(f"\n{'='*60}")
-            print(f"PRAYER WHEEL SESSION COMPLETE")
-            print(f"{'='*60}")
+            print(f"\n{'=' * 60}")
+            print("PRAYER WHEEL SESSION COMPLETE")
+            print(f"{'=' * 60}")
             print(f"Duration: {duration}")
             print(f"Rotations: {self.rotations}")
             print(f"Prayers generated: {self.prayers_generated}")
-            print(f"\nDedication:")
-            print(f"May all merit from this practice benefit all beings")
-            print(f"throughout space and time.")
-            print(f"{'='*60}\n")
+            print("\nDedication:")
+            print("May all merit from this practice benefit all beings")
+            print("throughout space and time.")
+            print(f"{'=' * 60}\n")
 
-    def save_session_log(self, filepath: str = './logs/prayer_wheel_sessions.jsonl'):
+    def save_session_log(self, filepath: str = "./logs/prayer_wheel_sessions.jsonl"):
         """Save session statistics"""
         if not self.session_start:
             return
@@ -327,14 +333,14 @@ class PrayerWheel:
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
         session_data = {
-            'start_time': self.session_start.isoformat(),
-            'end_time': datetime.now().isoformat(),
-            'rotations': self.rotations,
-            'prayers_generated': self.prayers_generated
+            "start_time": self.session_start.isoformat(),
+            "end_time": datetime.now().isoformat(),
+            "rotations": self.rotations,
+            "prayers_generated": self.prayers_generated,
         }
 
-        with open(filepath, 'a') as f:
-            f.write(json.dumps(session_data) + '\n')
+        with open(filepath, "a") as f:
+            f.write(json.dumps(session_data) + "\n")
 
 
 if __name__ == "__main__":
@@ -355,11 +361,11 @@ if __name__ == "__main__":
     # Test prayer cycle
     print("\n2. Running Four Immeasurables cycle...")
     print("   (without audio for quick test)")
-    wheel.prayer_cycle(theme='four_immeasurables', with_audio=False)
+    wheel.prayer_cycle(theme="four_immeasurables", with_audio=False)
 
     # Test mantra selection
     print("\n3. Generating prayers for different intentions...")
-    intentions = ['healing', 'wisdom', 'protection', 'peace']
+    intentions = ["healing", "wisdom", "protection", "peace"]
     for intention in intentions:
         prayer = wheel.generate_prayer(intention, use_llm=False)
         print(f"   {intention.title()}: {prayer}")

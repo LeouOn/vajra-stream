@@ -12,18 +12,18 @@ Inspired by:
 - Tibetan Buddhist dedication practices
 """
 
-import os
-import time
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Set
-from enum import Enum
 import hashlib
 import secrets
+import time
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 
 class IntentionType(str, Enum):
     """Types of positive intentions"""
+
     LOVE = "love"
     HEALING = "healing"
     PEACE = "peace"
@@ -40,6 +40,7 @@ class IntentionType(str, Enum):
 
 class MantraType(str, Enum):
     """Sacred mantras for overlaying"""
+
     CHENREZIG = "chenrezig"  # Om Mani Padme Hum
     MEDICINE_BUDDHA = "medicine_buddha"  # Tayata Om...
     TARA = "tara"  # Om Tare Tuttare Ture Soha
@@ -65,9 +66,10 @@ MANTRA_TEXTS = {
 @dataclass
 class IntentionSet:
     """Set of intentions to overlay on images"""
+
     primary_mantra: MantraType
-    custom_mantra: Optional[str] = None
-    intentions: List[IntentionType] = field(default_factory=list)
+    custom_mantra: str | None = None
+    intentions: list[IntentionType] = field(default_factory=list)
     dedication: str = "May all beings benefit"
     repetitions_per_photo: int = 108  # Traditional Buddhist number
 
@@ -77,7 +79,7 @@ class IntentionSet:
             return self.custom_mantra
         return MANTRA_TEXTS.get(self.primary_mantra, "")
 
-    def get_intentions_text(self) -> List[str]:
+    def get_intentions_text(self) -> list[str]:
         """Get intention phrases"""
         intention_phrases = {
             IntentionType.LOVE: "May you be surrounded by love",
@@ -99,45 +101,48 @@ class IntentionSet:
 @dataclass
 class PhotoRecord:
     """Record of a photo in the slideshow"""
+
     file_path: str
     filename: str
     file_hash: str
     added_time: float
     times_blessed: int = 0
     total_mantra_repetitions: int = 0
-    last_blessed_time: Optional[float] = None
+    last_blessed_time: float | None = None
 
 
 @dataclass
 class SlideshowStats:
     """Statistics for a slideshow session"""
+
     total_photos: int = 0
     photos_blessed: int = 0
     total_blessings_sent: int = 0
     total_mantras_repeated: int = 0
     session_duration: float = 0.0
     average_time_per_photo: float = 0.0
-    intentions_used: List[str] = field(default_factory=list)
+    intentions_used: list[str] = field(default_factory=list)
     mantra_used: str = ""
 
 
 @dataclass
 class SlideshowSession:
     """Active slideshow session"""
+
     session_id: str
     directory_path: str
     intention_set: IntentionSet
-    photos: List[PhotoRecord]
+    photos: list[PhotoRecord]
     current_index: int = 0
     is_active: bool = True
     start_time: float = field(default_factory=time.time)
-    pause_time: Optional[float] = None
+    pause_time: float | None = None
     stats: SlideshowStats = field(default_factory=SlideshowStats)
     loop_mode: bool = True
     display_duration_ms: int = 2000  # Time to display each photo
-    rng_session_id: Optional[str] = None  # Link to RNG monitoring
+    rng_session_id: str | None = None  # Link to RNG monitoring
 
-    def get_current_photo(self) -> Optional[PhotoRecord]:
+    def get_current_photo(self) -> PhotoRecord | None:
         """Get current photo"""
         if 0 <= self.current_index < len(self.photos):
             return self.photos[self.current_index]
@@ -181,16 +186,16 @@ class BlessingSlideshowService:
     similar to a high-speed prayer wheel for visual witness samples.
     """
 
-    SUPPORTED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+    SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
 
     def __init__(self):
-        self.sessions: Dict[str, SlideshowSession] = {}
-        self.photo_cache: Dict[str, Set[str]] = {}  # directory -> set of file hashes
+        self.sessions: dict[str, SlideshowSession] = {}
+        self.photo_cache: dict[str, set[str]] = {}  # directory -> set of file hashes
 
     def _calculate_file_hash(self, file_path: str) -> str:
         """Calculate hash of file for deduplication"""
         try:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 # Read first 8KB for speed
                 data = f.read(8192)
                 return hashlib.md5(data).hexdigest()
@@ -199,11 +204,8 @@ class BlessingSlideshowService:
             return hashlib.md5(file_path.encode()).hexdigest()
 
     def scan_directory(
-        self,
-        directory_path: str,
-        recursive: bool = False,
-        deduplicate: bool = True
-    ) -> List[PhotoRecord]:
+        self, directory_path: str, recursive: bool = False, deduplicate: bool = True
+    ) -> list[PhotoRecord]:
         """
         Scan directory for image files
 
@@ -224,9 +226,9 @@ class BlessingSlideshowService:
 
         # Choose scanning method
         if recursive:
-            files = path.rglob('*')
+            files = path.rglob("*")
         else:
-            files = path.glob('*')
+            files = path.glob("*")
 
         for file_path in files:
             # Skip if not a file
@@ -248,10 +250,7 @@ class BlessingSlideshowService:
 
             # Create record
             photo = PhotoRecord(
-                file_path=str(file_path),
-                filename=file_path.name,
-                file_hash=file_hash,
-                added_time=time.time()
+                file_path=str(file_path), filename=file_path.name, file_hash=file_hash, added_time=time.time()
             )
             photos.append(photo)
 
@@ -264,11 +263,11 @@ class BlessingSlideshowService:
         self,
         directory_path: str,
         intention_set: IntentionSet,
-        session_id: Optional[str] = None,
+        session_id: str | None = None,
         loop_mode: bool = True,
         display_duration_ms: int = 2000,
         recursive: bool = False,
-        rng_session_id: Optional[str] = None
+        rng_session_id: str | None = None,
     ) -> str:
         """
         Create a new blessing slideshow session
@@ -299,7 +298,7 @@ class BlessingSlideshowService:
         stats = SlideshowStats(
             total_photos=len(photos),
             intentions_used=[i.value for i in intention_set.intentions],
-            mantra_used=intention_set.primary_mantra.value
+            mantra_used=intention_set.primary_mantra.value,
         )
 
         # Create session
@@ -311,14 +310,14 @@ class BlessingSlideshowService:
             stats=stats,
             loop_mode=loop_mode,
             display_duration_ms=display_duration_ms,
-            rng_session_id=rng_session_id
+            rng_session_id=rng_session_id,
         )
 
         self.sessions[session_id] = session
 
         return session_id
 
-    def get_current_slide(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_current_slide(self, session_id: str) -> dict[str, Any] | None:
         """
         Get current slide information
 
@@ -339,7 +338,7 @@ class BlessingSlideshowService:
             "mantra_repetitions": session.intention_set.repetitions_per_photo,
             "intentions": session.intention_set.get_intentions_text(),
             "dedication": session.intention_set.dedication,
-            "display_duration_ms": session.display_duration_ms
+            "display_duration_ms": session.display_duration_ms,
         }
 
         return {
@@ -348,7 +347,7 @@ class BlessingSlideshowService:
                 "filename": photo.filename,
                 "times_blessed": photo.times_blessed,
                 "total_mantra_repetitions": photo.total_mantra_repetitions,
-                "last_blessed_time": photo.last_blessed_time
+                "last_blessed_time": photo.last_blessed_time,
             },
             "session": {
                 "session_id": session.session_id,
@@ -356,14 +355,14 @@ class BlessingSlideshowService:
                 "total_photos": len(session.photos),
                 "is_active": session.is_active,
                 "loop_mode": session.loop_mode,
-                "rng_session_id": session.rng_session_id
+                "rng_session_id": session.rng_session_id,
             },
             "overlay": overlay_data,
             "progress": {
                 "current": session.current_index + 1,
                 "total": len(session.photos),
-                "percentage": ((session.current_index + 1) / len(session.photos)) * 100 if session.photos else 0
-            }
+                "percentage": ((session.current_index + 1) / len(session.photos)) * 100 if session.photos else 0,
+            },
         }
 
     def advance_slide(self, session_id: str, record_blessing: bool = True) -> bool:
@@ -413,7 +412,7 @@ class BlessingSlideshowService:
 
         return True
 
-    def stop_session(self, session_id: str) -> Dict[str, Any]:
+    def stop_session(self, session_id: str) -> dict[str, Any]:
         """
         Stop a session and return final statistics
 
@@ -429,13 +428,11 @@ class BlessingSlideshowService:
         # Calculate final stats
         session.stats.session_duration = time.time() - session.start_time
         if session.stats.photos_blessed > 0:
-            session.stats.average_time_per_photo = (
-                session.stats.session_duration / session.stats.photos_blessed
-            )
+            session.stats.average_time_per_photo = session.stats.session_duration / session.stats.photos_blessed
 
         return self.get_session_stats(session_id)
 
-    def get_session_stats(self, session_id: str) -> Dict[str, Any]:
+    def get_session_stats(self, session_id: str) -> dict[str, Any]:
         """Get current session statistics"""
         session = self.sessions.get(session_id)
         if not session:
@@ -453,8 +450,7 @@ class BlessingSlideshowService:
             "total_mantras_repeated": session.stats.total_mantras_repeated,
             "session_duration": current_duration,
             "average_time_per_photo": (
-                current_duration / session.stats.photos_blessed
-                if session.stats.photos_blessed > 0 else 0
+                current_duration / session.stats.photos_blessed if session.stats.photos_blessed > 0 else 0
             ),
             "intentions_used": session.stats.intentions_used,
             "mantra_used": session.stats.mantra_used,
@@ -462,16 +458,16 @@ class BlessingSlideshowService:
                 "current_index": session.current_index,
                 "current_photo": session.current_index + 1,
                 "total_photos": len(session.photos),
-                "percentage": ((session.current_index + 1) / len(session.photos)) * 100 if session.photos else 0
+                "percentage": ((session.current_index + 1) / len(session.photos)) * 100 if session.photos else 0,
             },
-            "rng_session_id": session.rng_session_id
+            "rng_session_id": session.rng_session_id,
         }
 
-    def get_all_sessions(self) -> List[str]:
+    def get_all_sessions(self) -> list[str]:
         """Get list of all session IDs"""
         return list(self.sessions.keys())
 
-    def get_photo_list(self, session_id: str) -> List[Dict[str, Any]]:
+    def get_photo_list(self, session_id: str) -> list[dict[str, Any]]:
         """Get list of all photos in session with their blessing counts"""
         session = self.sessions.get(session_id)
         if not session:
@@ -483,7 +479,7 @@ class BlessingSlideshowService:
                 "file_path": photo.file_path,
                 "times_blessed": photo.times_blessed,
                 "total_mantra_repetitions": photo.total_mantra_repetitions,
-                "last_blessed_time": photo.last_blessed_time
+                "last_blessed_time": photo.last_blessed_time,
             }
             for photo in session.photos
         ]
@@ -502,7 +498,7 @@ class BlessingSlideshowService:
 
 
 # Global service instance
-_blessing_slideshow_service: Optional[BlessingSlideshowService] = None
+_blessing_slideshow_service: BlessingSlideshowService | None = None
 
 
 def get_blessing_slideshow_service() -> BlessingSlideshowService:

@@ -5,18 +5,19 @@ Manages populations that receive automated blessings.
 Supports both online and offline storage with JSON persistence.
 """
 
-import os
 import json
-import time
-from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict, Any
-from enum import Enum
+import os
 import secrets
+import time
+from dataclasses import asdict, dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 
 class PopulationCategory(str, Enum):
     """Categories of populations"""
+
     MISSING_PERSONS = "missing_persons"
     UNIDENTIFIED_REMAINS = "unidentified_remains"
     DISASTER_VICTIMS = "disaster_victims"
@@ -32,6 +33,7 @@ class PopulationCategory(str, Enum):
 
 class SourceType(str, Enum):
     """Source types for populations"""
+
     MANUAL = "manual"
     LOCAL_DIRECTORY = "local_directory"
     RSS_FEED = "rss_feed"
@@ -53,12 +55,12 @@ class TargetPopulation:
 
     # Source
     source_type: SourceType
-    source_url: Optional[str] = None
-    directory_path: Optional[str] = None
+    source_url: str | None = None
+    directory_path: str | None = None
 
     # Configuration
     mantra_preference: str = "chenrezig"  # MantraType
-    intentions: List[str] = field(default_factory=lambda: ["love", "healing", "peace"])
+    intentions: list[str] = field(default_factory=lambda: ["love", "healing", "peace"])
     repetitions_per_photo: int = 108
     display_duration_ms: int = 2000
 
@@ -69,34 +71,34 @@ class TargetPopulation:
 
     # History
     added_time: float = field(default_factory=time.time)
-    last_blessed_time: Optional[float] = None
+    last_blessed_time: float | None = None
     total_blessings_sent: int = 0
     total_mantras_repeated: int = 0
     total_session_duration: float = 0.0
 
     # Metadata
     photo_count: int = 0
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     notes: str = ""
 
     # Offline Support
     offline_available: bool = True
-    last_sync_time: Optional[float] = None
+    last_sync_time: float | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         data = asdict(self)
         # Convert enums to strings
-        data['category'] = self.category.value
-        data['source_type'] = self.source_type.value
+        data["category"] = self.category.value
+        data["source_type"] = self.source_type.value
         return data
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'TargetPopulation':
+    def from_dict(cls, data: dict[str, Any]) -> "TargetPopulation":
         """Create from dictionary"""
         # Convert string enums back
-        data['category'] = PopulationCategory(data['category'])
-        data['source_type'] = SourceType(data['source_type'])
+        data["category"] = PopulationCategory(data["category"])
+        data["source_type"] = SourceType(data["source_type"])
         return cls(**data)
 
 
@@ -112,7 +114,7 @@ class PopulationManager:
     - Export/import for backup
     """
 
-    def __init__(self, storage_path: Optional[str] = None):
+    def __init__(self, storage_path: str | None = None):
         """
         Initialize population manager
 
@@ -127,7 +129,7 @@ class PopulationManager:
             storage_path = str(vajra_dir / "populations.json")
 
         self.storage_path = storage_path
-        self.populations: Dict[str, TargetPopulation] = {}
+        self.populations: dict[str, TargetPopulation] = {}
         self._load()
 
     def _load(self):
@@ -136,11 +138,11 @@ class PopulationManager:
             return
 
         try:
-            with open(self.storage_path, 'r', encoding='utf-8') as f:
+            with open(self.storage_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Load populations
-            for pop_data in data.get('populations', []):
+            for pop_data in data.get("populations", []):
                 pop = TargetPopulation.from_dict(pop_data)
                 self.populations[pop.id] = pop
 
@@ -151,12 +153,12 @@ class PopulationManager:
         """Save populations to JSON file"""
         try:
             data = {
-                'version': '1.0',
-                'last_updated': time.time(),
-                'populations': [pop.to_dict() for pop in self.populations.values()]
+                "version": "1.0",
+                "last_updated": time.time(),
+                "populations": [pop.to_dict() for pop in self.populations.values()],
             }
 
-            with open(self.storage_path, 'w', encoding='utf-8') as f:
+            with open(self.storage_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
 
         except Exception as e:
@@ -168,7 +170,7 @@ class PopulationManager:
         if not directory_path or not os.path.exists(directory_path):
             return 0
 
-        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
         count = 0
 
         try:
@@ -187,17 +189,17 @@ class PopulationManager:
         description: str,
         category: PopulationCategory,
         source_type: SourceType,
-        directory_path: Optional[str] = None,
-        source_url: Optional[str] = None,
+        directory_path: str | None = None,
+        source_url: str | None = None,
         mantra_preference: str = "chenrezig",
-        intentions: Optional[List[str]] = None,
+        intentions: list[str] | None = None,
         repetitions_per_photo: int = 108,
         display_duration_ms: int = 2000,
         priority: int = 5,
         is_urgent: bool = False,
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
         notes: str = "",
-        population_id: Optional[str] = None
+        population_id: str | None = None,
     ) -> TargetPopulation:
         """
         Create a new target population
@@ -255,7 +257,7 @@ class PopulationManager:
             photo_count=photo_count,
             tags=tags or [],
             notes=notes,
-            offline_available=offline_available
+            offline_available=offline_available,
         )
 
         # Save
@@ -264,11 +266,7 @@ class PopulationManager:
 
         return population
 
-    def update_population(
-        self,
-        population_id: str,
-        **updates
-    ) -> Optional[TargetPopulation]:
+    def update_population(self, population_id: str, **updates) -> TargetPopulation | None:
         """
         Update a population
 
@@ -287,15 +285,15 @@ class PopulationManager:
         for key, value in updates.items():
             if hasattr(population, key):
                 # Handle enum conversions
-                if key == 'category' and isinstance(value, str):
+                if key == "category" and isinstance(value, str):
                     value = PopulationCategory(value)
-                elif key == 'source_type' and isinstance(value, str):
+                elif key == "source_type" and isinstance(value, str):
                     value = SourceType(value)
 
                 setattr(population, key, value)
 
         # Recount photos if directory changed
-        if 'directory_path' in updates:
+        if "directory_path" in updates:
             population.photo_count = self._count_photos(population.directory_path)
             population.offline_available = bool(population.directory_path)
 
@@ -318,35 +316,28 @@ class PopulationManager:
             return True
         return False
 
-    def get_population(self, population_id: str) -> Optional[TargetPopulation]:
+    def get_population(self, population_id: str) -> TargetPopulation | None:
         """Get a population by ID"""
         return self.populations.get(population_id)
 
-    def get_all_populations(self) -> List[TargetPopulation]:
+    def get_all_populations(self) -> list[TargetPopulation]:
         """Get all populations"""
         return list(self.populations.values())
 
-    def get_active_populations(self) -> List[TargetPopulation]:
+    def get_active_populations(self) -> list[TargetPopulation]:
         """Get all active populations"""
         return [p for p in self.populations.values() if p.is_active]
 
-    def get_by_category(
-        self,
-        category: PopulationCategory
-    ) -> List[TargetPopulation]:
+    def get_by_category(self, category: PopulationCategory) -> list[TargetPopulation]:
         """Get populations by category"""
         return [p for p in self.populations.values() if p.category == category]
 
-    def get_urgent_populations(self) -> List[TargetPopulation]:
+    def get_urgent_populations(self) -> list[TargetPopulation]:
         """Get urgent populations"""
         return [p for p in self.populations.values() if p.is_urgent and p.is_active]
 
     def record_blessing_session(
-        self,
-        population_id: str,
-        blessings_sent: int,
-        mantras_repeated: int,
-        session_duration: float
+        self, population_id: str, blessings_sent: int, mantras_repeated: int, session_duration: float
     ) -> bool:
         """
         Record statistics from a blessing session
@@ -372,34 +363,31 @@ class PopulationManager:
         self._save()
         return True
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get overall statistics"""
         populations = list(self.populations.values())
 
         return {
-            'total_populations': len(populations),
-            'active_populations': len([p for p in populations if p.is_active]),
-            'urgent_populations': len([p for p in populations if p.is_urgent]),
-            'total_blessings_sent': sum(p.total_blessings_sent for p in populations),
-            'total_mantras_repeated': sum(p.total_mantras_repeated for p in populations),
-            'total_session_duration': sum(p.total_session_duration for p in populations),
-            'categories': {
-                cat.value: len([p for p in populations if p.category == cat])
-                for cat in PopulationCategory
-            },
-            'never_blessed': len([p for p in populations if p.last_blessed_time is None]),
-            'offline_available': len([p for p in populations if p.offline_available])
+            "total_populations": len(populations),
+            "active_populations": len([p for p in populations if p.is_active]),
+            "urgent_populations": len([p for p in populations if p.is_urgent]),
+            "total_blessings_sent": sum(p.total_blessings_sent for p in populations),
+            "total_mantras_repeated": sum(p.total_mantras_repeated for p in populations),
+            "total_session_duration": sum(p.total_session_duration for p in populations),
+            "categories": {cat.value: len([p for p in populations if p.category == cat]) for cat in PopulationCategory},
+            "never_blessed": len([p for p in populations if p.last_blessed_time is None]),
+            "offline_available": len([p for p in populations if p.offline_available]),
         }
 
-    def export_data(self) -> Dict[str, Any]:
+    def export_data(self) -> dict[str, Any]:
         """Export all data for backup"""
         return {
-            'version': '1.0',
-            'exported_at': time.time(),
-            'populations': [pop.to_dict() for pop in self.populations.values()]
+            "version": "1.0",
+            "exported_at": time.time(),
+            "populations": [pop.to_dict() for pop in self.populations.values()],
         }
 
-    def import_data(self, data: Dict[str, Any], merge: bool = False) -> int:
+    def import_data(self, data: dict[str, Any], merge: bool = False) -> int:
         """
         Import data from backup
 
@@ -414,7 +402,7 @@ class PopulationManager:
             self.populations.clear()
 
         count = 0
-        for pop_data in data.get('populations', []):
+        for pop_data in data.get("populations", []):
             pop = TargetPopulation.from_dict(pop_data)
             self.populations[pop.id] = pop
             count += 1
@@ -424,7 +412,7 @@ class PopulationManager:
 
 
 # Global instance
-_population_manager: Optional[PopulationManager] = None
+_population_manager: PopulationManager | None = None
 
 
 def get_population_manager() -> PopulationManager:

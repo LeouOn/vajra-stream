@@ -3,19 +3,19 @@ Module Interfaces (Ports)
 Define clear contracts between modules
 """
 
-from typing import Protocol, List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
-
+from typing import Any, Protocol
 
 # ============================================================================
 # Domain Events
 # ============================================================================
 
+
 @dataclass
 class DomainEvent:
     """Base class for all domain events"""
+
     timestamp: datetime
     event_id: str
 
@@ -23,6 +23,7 @@ class DomainEvent:
 @dataclass
 class HealingSessionStarted(DomainEvent):
     """Event: Healing session has started"""
+
     target_name: str
     intention: str
     duration_minutes: int
@@ -31,6 +32,7 @@ class HealingSessionStarted(DomainEvent):
 @dataclass
 class ScalarWavesGenerated(DomainEvent):
     """Event: Scalar waves have been generated"""
+
     method: str
     count: int
     mops: float
@@ -39,6 +41,7 @@ class ScalarWavesGenerated(DomainEvent):
 @dataclass
 class BlessingGenerated(DomainEvent):
     """Event: Blessing has been created"""
+
     target_name: str
     blessing_text: str
     tradition: str
@@ -48,15 +51,11 @@ class BlessingGenerated(DomainEvent):
 # Module Interfaces (Ports)
 # ============================================================================
 
+
 class ScalarWaveGenerator(Protocol):
     """Port for scalar wave generation"""
 
-    def generate(
-        self,
-        method: str,
-        count: int,
-        intensity: float = 1.0
-    ) -> Dict[str, Any]:
+    def generate(self, method: str, count: int, intensity: float = 1.0) -> dict[str, Any]:
         """Generate scalar waves
 
         Args:
@@ -69,11 +68,11 @@ class ScalarWaveGenerator(Protocol):
         """
         ...
 
-    def benchmark(self, duration: float = 3.0) -> Dict[str, Dict[str, float]]:
+    def benchmark(self, duration: float = 3.0) -> dict[str, dict[str, float]]:
         """Benchmark all methods"""
         ...
 
-    def get_thermal_status(self) -> Dict[str, Any]:
+    def get_thermal_status(self) -> dict[str, Any]:
         """Get thermal monitoring status"""
         ...
 
@@ -82,29 +81,22 @@ class RadionicsBroadcaster(Protocol):
     """Port for radionics broadcasting"""
 
     def broadcast_healing(
-        self,
-        target_name: str,
-        duration_minutes: int = 10,
-        frequency_hz: float = 528.0,
-        intensity: float = 0.8
-    ) -> Dict[str, Any]:
+        self, target_name: str, duration_minutes: int = 10, frequency_hz: float = 528.0, intensity: float = 0.8
+    ) -> dict[str, Any]:
         """Broadcast healing to target"""
         ...
 
     def broadcast_liberation(
-        self,
-        event_name: str,
-        souls_count: int = 1000,
-        duration_minutes: int = 108
-    ) -> Dict[str, Any]:
+        self, event_name: str, souls_count: int = 1000, duration_minutes: int = 108
+    ) -> dict[str, Any]:
         """Broadcast liberation protocol"""
         ...
 
-    def get_available_intentions(self) -> List[Dict[str, Any]]:
+    def get_available_intentions(self) -> list[dict[str, Any]]:
         """Get list of available intention types"""
         ...
 
-    def get_sacred_frequencies(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_sacred_frequencies(self) -> dict[str, list[dict[str, Any]]]:
         """Get sacred frequency mappings"""
         ...
 
@@ -112,38 +104,23 @@ class RadionicsBroadcaster(Protocol):
 class AnatomyVisualizer(Protocol):
     """Port for energetic anatomy visualization"""
 
-    def visualize_chakras(
-        self,
-        width: int = 1200,
-        height: int = 1600,
-        output_path: Optional[str] = None
-    ) -> str:
+    def visualize_chakras(self, width: int = 1200, height: int = 1600, output_path: str | None = None) -> str:
         """Generate chakra diagram"""
         ...
 
-    def visualize_meridians(
-        self,
-        width: int = 1200,
-        height: int = 1600,
-        output_path: Optional[str] = None
-    ) -> str:
+    def visualize_meridians(self, width: int = 1200, height: int = 1600, output_path: str | None = None) -> str:
         """Generate meridian map"""
         ...
 
-    def visualize_central_channel(
-        self,
-        width: int = 1200,
-        height: int = 1800,
-        output_path: Optional[str] = None
-    ) -> str:
+    def visualize_central_channel(self, width: int = 1200, height: int = 1800, output_path: str | None = None) -> str:
         """Generate central channel diagram"""
         ...
 
-    def get_chakra_info(self) -> List[Dict[str, Any]]:
+    def get_chakra_info(self) -> list[dict[str, Any]]:
         """Get chakra information"""
         ...
 
-    def get_meridian_info(self) -> List[Dict[str, Any]]:
+    def get_meridian_info(self) -> list[dict[str, Any]]:
         """Get meridian information"""
         ...
 
@@ -157,22 +134,18 @@ class BlessingGenerator(Protocol):
         intention: str = "peace and happiness",
         tradition: str = "universal",
         include_mantra: bool = True,
-        include_dedication: bool = True
-    ) -> Dict[str, Any]:
+        include_dedication: bool = True,
+    ) -> dict[str, Any]:
         """Generate a blessing"""
         ...
 
     def generate_mass_liberation(
-        self,
-        event_name: str,
-        location: str,
-        souls_count: int = 1000,
-        duration_minutes: int = 108
-    ) -> Dict[str, Any]:
+        self, event_name: str, location: str, souls_count: int = 1000, duration_minutes: int = 108
+    ) -> dict[str, Any]:
         """Generate mass liberation blessing"""
         ...
 
-    def get_available_traditions(self) -> List[Dict[str, Any]]:
+    def get_available_traditions(self) -> list[dict[str, Any]]:
         """Get available blessing traditions"""
         ...
 
@@ -181,24 +154,16 @@ class AstrologyCalculator(Protocol):
     """Port for astrological calculations"""
 
     def calculate_natal_chart(
-        self,
-        date: datetime,
-        latitude: float,
-        longitude: float,
-        name: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, date: datetime, latitude: float, longitude: float, name: str | None = None
+    ) -> dict[str, Any]:
         """Calculate natal chart"""
         ...
 
-    def calculate_transits(
-        self,
-        natal_chart_data: Dict[str, Any],
-        transit_date: datetime
-    ) -> Dict[str, Any]:
+    def calculate_transits(self, natal_chart_data: dict[str, Any], transit_date: datetime) -> dict[str, Any]:
         """Calculate current transits"""
         ...
 
-    def get_planetary_positions(self, date: datetime) -> Dict[str, Any]:
+    def get_planetary_positions(self, date: datetime) -> dict[str, Any]:
         """Get current planetary positions"""
         ...
 
@@ -206,6 +171,7 @@ class AstrologyCalculator(Protocol):
 # ============================================================================
 # Event Bus Interface
 # ============================================================================
+
 
 class EventBus(Protocol):
     """Port for event bus (in-process)"""

@@ -39,25 +39,21 @@ Usage examples:
     python blessing_manager.py export --format json
 """
 
-import sys
-import os
 import argparse
+import json
+import sys
 from datetime import datetime
 from pathlib import Path
-import json
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.compassionate_blessings import (
-    BlessingDatabase,
-    BlessingTarget,
-    BlessingCategory,
-    MantraType,
     BlessingAllocator,
-    GeoCoordinate,
-    BlessingCoordinate,
-    create_target
+    BlessingCategory,
+    BlessingDatabase,
+    MantraType,
+    create_target,
 )
 
 
@@ -70,9 +66,9 @@ class BlessingManagerCLI:
 
     def cmd_add(self, args):
         """Add a new blessing target."""
-        print(f"\n{'='*70}")
-        print(f"ADDING BLESSING TARGET")
-        print(f"{'='*70}\n")
+        print(f"\n{'=' * 70}")
+        print("ADDING BLESSING TARGET")
+        print(f"{'=' * 70}\n")
 
         # Parse date if provided
         date = None
@@ -98,13 +94,13 @@ class BlessingManagerCLI:
             location=location,
             date=date,
             description=args.description or "",
-            priority=args.priority
+            priority=args.priority,
         )
 
         # Add to database
         self.db.add_target(target)
 
-        print(f"✅ Added blessing target:")
+        print("✅ Added blessing target:")
         print(f"   Name: {target.name}")
         print(f"   Category: {target.category.value}")
         print(f"   Identifier: {target.identifier}")
@@ -113,13 +109,13 @@ class BlessingManagerCLI:
         if date:
             print(f"   Date: {date}")
         print(f"   Priority: {target.priority}")
-        print(f"\n{'='*70}\n")
+        print(f"\n{'=' * 70}\n")
 
     def cmd_list(self, args):
         """List blessing targets."""
-        print(f"\n{'='*70}")
-        print(f"BLESSING TARGETS")
-        print(f"{'='*70}\n")
+        print(f"\n{'=' * 70}")
+        print("BLESSING TARGETS")
+        print(f"{'=' * 70}\n")
 
         # Get targets
         if args.category:
@@ -167,13 +163,13 @@ class BlessingManagerCLI:
 
             print()
 
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
     def cmd_dedicate(self, args):
         """Dedicate mantras to blessing targets."""
-        print(f"\n{'='*70}")
-        print(f"MANTRA DEDICATION")
-        print(f"{'='*70}\n")
+        print(f"\n{'=' * 70}")
+        print("MANTRA DEDICATION")
+        print(f"{'=' * 70}\n")
 
         # Get targets
         if args.category:
@@ -214,7 +210,7 @@ class BlessingManagerCLI:
             total_rotations=args.rotations,
             targets_blessed=len(allocation),
             allocation_method=args.allocation,
-            notes=args.notes or ""
+            notes=args.notes or "",
         )
 
         print(f"Session ID: {session_id}\n")
@@ -233,30 +229,26 @@ class BlessingManagerCLI:
                 mantra_type=args.mantra_type,
                 mantras_count=count,
                 dedicator=args.dedicator or "Practitioner",
-                notes=""
+                notes="",
             )
 
             print(f"{target.name or target.identifier}: {count} mantras")
 
         print()
         print("✅ Dedication complete!")
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("DEDICATION PRAYER")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
-        print(self._generate_dedication_prayer(
-            targets=targets,
-            mantras=args.mantras,
-            mantra_type=args.mantra_type
-        ))
+        print(self._generate_dedication_prayer(targets=targets, mantras=args.mantras, mantra_type=args.mantra_type))
 
-        print(f"\n{'='*70}\n")
+        print(f"\n{'=' * 70}\n")
 
     def cmd_stats(self, args):
         """Show blessing statistics."""
-        print(f"\n{'='*70}")
-        print(f"BLESSING STATISTICS")
-        print(f"{'='*70}\n")
+        print(f"\n{'=' * 70}")
+        print("BLESSING STATISTICS")
+        print(f"{'=' * 70}\n")
 
         stats = self.db.get_statistics()
 
@@ -267,16 +259,16 @@ class BlessingManagerCLI:
 
         print("Targets by category:")
         print("-" * 70)
-        for category, count in stats['by_category'].items():
+        for category, count in stats["by_category"].items():
             print(f"  {category:30s}: {count:6d}")
 
-        print(f"\n{'='*70}\n")
+        print(f"\n{'=' * 70}\n")
 
     def cmd_broadcast(self, args):
         """Broadcast blessings to all targets using radionics."""
-        print(f"\n{'='*70}")
-        print(f"COMPASSIONATE RADIONICS BROADCASTING")
-        print(f"{'='*70}\n")
+        print(f"\n{'=' * 70}")
+        print("COMPASSIONATE RADIONICS BROADCASTING")
+        print(f"{'=' * 70}\n")
 
         # Get targets
         if args.category:
@@ -290,7 +282,7 @@ class BlessingManagerCLI:
             return
 
         print(f"Broadcasting to {len(targets)} beings")
-        print(f"Duration: {args.duration} seconds ({args.duration/60:.1f} minutes)")
+        print(f"Duration: {args.duration} seconds ({args.duration / 60:.1f} minutes)")
         print(f"Mantra type: {args.mantra_type}\n")
 
         # Import radionics operation
@@ -318,7 +310,7 @@ class BlessingManagerCLI:
             with_astrology=True,
             with_prayer=True,
             with_audio=not args.no_audio,
-            with_visuals=not args.no_visuals
+            with_visuals=not args.no_visuals,
         )
 
         # Record as blessing session
@@ -328,29 +320,29 @@ class BlessingManagerCLI:
             total_rotations=0,
             targets_blessed=len(targets),
             allocation_method="broadcast",
-            notes=f"Radionics broadcast, {args.duration}s"
+            notes=f"Radionics broadcast, {args.duration}s",
         )
 
         print(f"\n✅ Broadcasting complete (Session ID: {session_id})")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
     def cmd_export(self, args):
         """Export blessing data."""
-        print(f"\n{'='*70}")
-        print(f"EXPORTING BLESSING DATA")
-        print(f"{'='*70}\n")
+        print(f"\n{'=' * 70}")
+        print("EXPORTING BLESSING DATA")
+        print(f"{'=' * 70}\n")
 
         targets = self.db.get_all_targets()
 
         if args.format == "json":
             data = {
-                'targets': [t.to_dict() for t in targets],
-                'exported_at': datetime.now().isoformat(),
-                'statistics': self.db.get_statistics()
+                "targets": [t.to_dict() for t in targets],
+                "exported_at": datetime.now().isoformat(),
+                "statistics": self.db.get_statistics(),
             }
 
             output_file = args.output or "blessing_export.json"
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(data, f, indent=2)
 
             print(f"✅ Exported {len(targets)} targets to {output_file}")
@@ -359,38 +351,57 @@ class BlessingManagerCLI:
             import csv
 
             output_file = args.output or "blessing_export.csv"
-            with open(output_file, 'w', newline='') as f:
+            with open(output_file, "w", newline="") as f:
                 writer = csv.writer(f)
 
                 # Header
-                writer.writerow([
-                    'Identifier', 'Name', 'Category', 'Description',
-                    'Latitude', 'Longitude', 'Date', 'Mantras',
-                    'Rotations', 'Priority'
-                ])
+                writer.writerow(
+                    [
+                        "Identifier",
+                        "Name",
+                        "Category",
+                        "Description",
+                        "Latitude",
+                        "Longitude",
+                        "Date",
+                        "Mantras",
+                        "Rotations",
+                        "Priority",
+                    ]
+                )
 
                 # Data
                 for target in targets:
-                    lat = target.coordinates.location.latitude if target.coordinates and target.coordinates.location else ''
-                    lon = target.coordinates.location.longitude if target.coordinates and target.coordinates.location else ''
-                    date = target.relevant_date.isoformat() if target.relevant_date else ''
+                    lat = (
+                        target.coordinates.location.latitude
+                        if target.coordinates and target.coordinates.location
+                        else ""
+                    )
+                    lon = (
+                        target.coordinates.location.longitude
+                        if target.coordinates and target.coordinates.location
+                        else ""
+                    )
+                    date = target.relevant_date.isoformat() if target.relevant_date else ""
 
-                    writer.writerow([
-                        target.identifier,
-                        target.name or '',
-                        target.category.value,
-                        target.description,
-                        lat,
-                        lon,
-                        date,
-                        target.mantras_dedicated,
-                        target.prayer_wheel_rotations,
-                        target.priority
-                    ])
+                    writer.writerow(
+                        [
+                            target.identifier,
+                            target.name or "",
+                            target.category.value,
+                            target.description,
+                            lat,
+                            lon,
+                            date,
+                            target.mantras_dedicated,
+                            target.prayer_wheel_rotations,
+                            target.priority,
+                        ]
+                    )
 
             print(f"✅ Exported {len(targets)} targets to {output_file}")
 
-        print(f"\n{'='*70}\n")
+        print(f"\n{'=' * 70}\n")
 
     def _generate_dedication_prayer(self, targets: list, mantras: int, mantra_type: str) -> str:
         """Generate dedication prayer text."""
@@ -402,11 +413,11 @@ class BlessingManagerCLI:
 
         # Mantra name
         mantra_names = {
-            'om_mani_padme_hum': 'OM MANI PADME HUM (Chenrezig)',
-            'bekandze': 'Medicine Buddha mantra',
-            'om_tare_tuttare': 'OM TARE TUTTARE TURE SOHA (Green Tara)',
-            'vajrasattva_100': 'Vajrasattva 100-syllable mantra',
-            'om_ami_dewa_hri': 'OM AMI DEWA HRI (Amitabha)'
+            "om_mani_padme_hum": "OM MANI PADME HUM (Chenrezig)",
+            "bekandze": "Medicine Buddha mantra",
+            "om_tare_tuttare": "OM TARE TUTTARE TURE SOHA (Green Tara)",
+            "vajrasattva_100": "Vajrasattva 100-syllable mantra",
+            "om_ami_dewa_hri": "OM AMI DEWA HRI (Amitabha)",
         }
 
         mantra_display = mantra_names.get(mantra_type, mantra_type)
@@ -421,7 +432,7 @@ May the {len(targets)} beings represented in this sacred database—
         for cat, count in categories.items():
             prayer += f"  {count} {cat.replace('_', ' ')},\n"
 
-        prayer += f"""
+        prayer += """
 whose names are known to the Buddhas even if unknown to the world—
 receive these blessings.
 
@@ -442,12 +453,12 @@ Gate gate pāragate pārasaṃgate bodhi svāhā
     def _generate_broadcast_intention(self, targets: list, mantra_type: str) -> str:
         """Generate intention for radionics broadcasting."""
         categories = set(t.category.value for t in targets)
-        cat_list = ", ".join(c.replace('_', ' ') for c in categories)
+        cat_list = ", ".join(c.replace("_", " ") for c in categories)
 
         return f"""Compassionate healing and liberation for {len(targets)} beings:
 {cat_list}.
 
-Through the power of {mantra_type.replace('_', ' ')},
+Through the power of {mantra_type.replace("_", " ")},
 may healing reach all who suffer,
 may all who are lost be found,
 may all who are forgotten be remembered,
@@ -485,71 +496,62 @@ Examples:
 
   # Export data
   %(prog)s export --format json --output blessings.json
-        """
+        """,
     )
 
-    subparsers = parser.add_subparsers(dest='command', help='Command to execute')
+    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
     # Add command
-    p_add = subparsers.add_parser('add', help='Add a blessing target')
-    p_add.add_argument('--name', required=True, help='Name (or identifier)')
-    p_add.add_argument('--category', required=True,
-                      choices=[c.value for c in BlessingCategory],
-                      help='Category of being')
-    p_add.add_argument('--lat', type=float, help='Latitude')
-    p_add.add_argument('--lon', type=float, help='Longitude')
-    p_add.add_argument('--date', help='Date (ISO format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)')
-    p_add.add_argument('--description', help='Description')
-    p_add.add_argument('--priority', type=int, default=5,
-                      help='Priority (1-10, 10 highest, default 5)')
+    p_add = subparsers.add_parser("add", help="Add a blessing target")
+    p_add.add_argument("--name", required=True, help="Name (or identifier)")
+    p_add.add_argument(
+        "--category", required=True, choices=[c.value for c in BlessingCategory], help="Category of being"
+    )
+    p_add.add_argument("--lat", type=float, help="Latitude")
+    p_add.add_argument("--lon", type=float, help="Longitude")
+    p_add.add_argument("--date", help="Date (ISO format: YYYY-MM-DD or YYYY-MM-DD HH:MM:SS)")
+    p_add.add_argument("--description", help="Description")
+    p_add.add_argument("--priority", type=int, default=5, help="Priority (1-10, 10 highest, default 5)")
 
     # List command
-    p_list = subparsers.add_parser('list', help='List blessing targets')
-    p_list.add_argument('--category', choices=[c.value for c in BlessingCategory],
-                       help='Filter by category')
-    p_list.add_argument('--verbose', '-v', action='store_true',
-                       help='Show detailed information')
+    p_list = subparsers.add_parser("list", help="List blessing targets")
+    p_list.add_argument("--category", choices=[c.value for c in BlessingCategory], help="Filter by category")
+    p_list.add_argument("--verbose", "-v", action="store_true", help="Show detailed information")
 
     # Dedicate command
-    p_dedicate = subparsers.add_parser('dedicate', help='Dedicate mantras')
-    p_dedicate.add_argument('--mantras', type=int, required=True,
-                           help='Number of mantras to dedicate')
-    p_dedicate.add_argument('--mantra-type', default='om_mani_padme_hum',
-                           choices=[m.value for m in MantraType],
-                           help='Type of mantra')
-    p_dedicate.add_argument('--rotations', type=int, default=0,
-                           help='Prayer wheel rotations')
-    p_dedicate.add_argument('--allocation', default='equitable',
-                           choices=['equitable', 'urgent', 'weighted'],
-                           help='Allocation method')
-    p_dedicate.add_argument('--category', choices=[c.value for c in BlessingCategory],
-                           help='Dedicate only to specific category')
-    p_dedicate.add_argument('--identifier', help='Dedicate to specific target')
-    p_dedicate.add_argument('--dedicator', default='Practitioner',
-                           help='Name of person dedicating')
-    p_dedicate.add_argument('--notes', help='Session notes')
+    p_dedicate = subparsers.add_parser("dedicate", help="Dedicate mantras")
+    p_dedicate.add_argument("--mantras", type=int, required=True, help="Number of mantras to dedicate")
+    p_dedicate.add_argument(
+        "--mantra-type", default="om_mani_padme_hum", choices=[m.value for m in MantraType], help="Type of mantra"
+    )
+    p_dedicate.add_argument("--rotations", type=int, default=0, help="Prayer wheel rotations")
+    p_dedicate.add_argument(
+        "--allocation", default="equitable", choices=["equitable", "urgent", "weighted"], help="Allocation method"
+    )
+    p_dedicate.add_argument(
+        "--category", choices=[c.value for c in BlessingCategory], help="Dedicate only to specific category"
+    )
+    p_dedicate.add_argument("--identifier", help="Dedicate to specific target")
+    p_dedicate.add_argument("--dedicator", default="Practitioner", help="Name of person dedicating")
+    p_dedicate.add_argument("--notes", help="Session notes")
 
     # Stats command
-    p_stats = subparsers.add_parser('stats', help='Show statistics')
+    subparsers.add_parser("stats", help="Show statistics")
 
     # Broadcast command
-    p_broadcast = subparsers.add_parser('broadcast', help='Broadcast blessings')
-    p_broadcast.add_argument('--duration', type=int, default=600,
-                            help='Duration in seconds (default 600 = 10 min)')
-    p_broadcast.add_argument('--mantra-type', default='om_mani_padme_hum',
-                            help='Mantra type for intention')
-    p_broadcast.add_argument('--category', choices=[c.value for c in BlessingCategory],
-                            help='Broadcast only to specific category')
-    p_broadcast.add_argument('--no-audio', action='store_true',
-                            help='Silent mode')
-    p_broadcast.add_argument('--no-visuals', action='store_true',
-                            help='No visual generation')
+    p_broadcast = subparsers.add_parser("broadcast", help="Broadcast blessings")
+    p_broadcast.add_argument("--duration", type=int, default=600, help="Duration in seconds (default 600 = 10 min)")
+    p_broadcast.add_argument("--mantra-type", default="om_mani_padme_hum", help="Mantra type for intention")
+    p_broadcast.add_argument(
+        "--category", choices=[c.value for c in BlessingCategory], help="Broadcast only to specific category"
+    )
+    p_broadcast.add_argument("--no-audio", action="store_true", help="Silent mode")
+    p_broadcast.add_argument("--no-visuals", action="store_true", help="No visual generation")
 
     # Export command
-    p_export = subparsers.add_parser('export', help='Export blessing data')
-    p_export.add_argument('--format', choices=['json', 'csv'], default='json',
-                         help='Export format')
-    p_export.add_argument('--output', '-o', help='Output file path')
+    p_export = subparsers.add_parser("export", help="Export blessing data")
+    p_export.add_argument("--format", choices=["json", "csv"], default="json", help="Export format")
+    p_export.add_argument("--output", "-o", help="Output file path")
 
     args = parser.parse_args()
 
@@ -561,13 +563,14 @@ Examples:
     cli = BlessingManagerCLI()
 
     # Dispatch to command handler
-    handler = getattr(cli, f'cmd_{args.command}', None)
+    handler = getattr(cli, f"cmd_{args.command}", None)
     if handler:
         try:
             handler(args)
         except Exception as e:
             print(f"\n❌ Error: {e}")
             import traceback
+
             traceback.print_exc()
             return 1
     else:
