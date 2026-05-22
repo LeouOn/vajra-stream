@@ -96,6 +96,9 @@ class VajraStreamService:
         self.audio_spectrum: list[float] = []
         self.session_history: list[dict] = []
 
+        # Event bus for session events
+        self.event_bus = None
+
         print("Vajra.Stream Service ready!")
 
     def _initialize_basic_mode(self):
@@ -278,9 +281,29 @@ class VajraStreamService:
             print(f"Error broadcasting audio: {e}")
             return False
 
-    async def create_session(self, config: SessionConfig) -> str:
+    async def create_session(
+        self,
+        name: str,
+        intention: str,
+        audio_frequency: float = 136.1,
+        duration: int = 3600,
+        astrology_enabled: bool = True,
+        hardware_enabled: bool = True,
+        visuals_enabled: bool = True,
+    ) -> str:
         """Create a new blessing session"""
         session_id = f"session_{int(time.time() * 1000)}"
+
+        audio_config = AudioConfig(frequency=audio_frequency)
+        config = SessionConfig(
+            name=name,
+            intention=intention,
+            audio_config=audio_config,
+            duration=duration,
+            astrology_enabled=astrology_enabled,
+            hardware_enabled=hardware_enabled,
+            visuals_enabled=visuals_enabled,
+        )
 
         session_data = {
             "id": session_id,
@@ -295,9 +318,21 @@ class VajraStreamService:
 
         self.active_sessions[session_id] = session_data
 
-        # Generate astrology data if enabled
-        if config.astrology_enabled:
+        if astrology_enabled:
             session_data["astrology_data"] = await self._get_astrology_data()
+
+        from modules.interfaces import SessionCreated
+        if self.event_bus:
+            try:
+                self.event_bus.publish(SessionCreated(
+                    session_id=session_id,
+                    name=name,
+                    intention=intention,
+                    duration=duration,
+                    audio_frequency=audio_frequency,
+                ))
+            except Exception:
+                pass
 
         print(f"Session created: {session_id} - {config.name}")
         return session_id
@@ -326,6 +361,21 @@ class VajraStreamService:
         if session["config"].visuals_enabled:
             session["visual_data"] = await self._generate_visuals(audio_data)
 
+        from modules.interfaces import SessionStarted, BroadcastStarted
+        if self.event_bus:
+            try:
+                self.event_bus.publish(SessionStarted(session_id=session_id, name=session["config"].name))
+            except Exception:
+                pass
+            try:
+                self.event_bus.publish(BroadcastStarted(
+                    session_id=session_id,
+                    hardware_level=2 if session["config"].hardware_enabled else 0,
+                    frequencies=[session["config"].audio_config.frequency],
+                ))
+            except Exception:
+                pass
+
         print(f"Session started successfully: {session_id}")
         return True
 
@@ -338,6 +388,18 @@ class VajraStreamService:
         session = self.active_sessions[session_id]
         session["status"] = "stopped"
         session["end_time"] = time.time()
+
+        from modules.interfaces import SessionStopped
+        runtime = time.time() - session["start_time"] if session.get("start_time") else 0
+        if self.event_bus:
+            try:
+                self.event_bus.publish(SessionStopped(
+                    session_id=session_id,
+                    name=session["config"].name,
+                    runtime_seconds=runtime,
+                ))
+            except Exception:
+                pass
 
         # Move to history
         self.session_history.append(session.copy())

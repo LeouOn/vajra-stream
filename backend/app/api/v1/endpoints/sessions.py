@@ -31,33 +31,18 @@ async def create_session(config: SessionConfig, background_tasks: BackgroundTask
     try:
         logger.info(f"🆕 Session creation request: {config.name}")
 
-        from backend.core.orchestrator_bridge import orchestrator_bridge
+        from backend.core.services.vajra_service import vajra_service
 
-        # Initialize orchestrator if not already done
-        if not orchestrator_bridge.initialized:
-            orchestrator_bridge.initialize()
-
-        # Convert modalities based on config
-        modalities = []
-        if config.hardware_enabled:
-            modalities.append("crystal")
-        if config.visuals_enabled:
-            modalities.append("visuals")
-        if config.astrology_enabled:
-            modalities.append("astrology")
-
-        # Create target specification
-        targets = [{"type": "individual", "identifier": config.name, "metadata": {"intention": config.intention}}]
-
-        # Create session using UnifiedOrchestrator
-        try:
-            session_id = await orchestrator_bridge.create_session(
-                intention=config.intention, targets=targets, modalities=modalities, duration=config.duration
-            )
-            logger.info(f"✅ Session created: {session_id}")
-        except Exception as e:
-            logger.error(f"❌ Session creation failed: {e}")
-            raise e
+        session_id = await vajra_service.create_session(
+            name=config.name,
+            intention=config.intention,
+            audio_frequency=config.audio_frequency,
+            duration=config.duration,
+            astrology_enabled=config.astrology_enabled,
+            hardware_enabled=config.hardware_enabled,
+            visuals_enabled=config.visuals_enabled,
+        )
+        logger.info(f"✅ Session created: {session_id}")
 
         return {
             "status": "success",
@@ -85,25 +70,15 @@ async def start_session(session_id: str, background_tasks: BackgroundTasks):
     try:
         logger.info(f"🚀 Session start request: {session_id}")
 
-        from backend.core.orchestrator_bridge import orchestrator_bridge
+        from backend.core.services.vajra_service import vajra_service
 
-        # Start session using UnifiedOrchestrator
-        try:
-            orchestrator = orchestrator_bridge.get_orchestrator()
-            if orchestrator and session_id in orchestrator.active_sessions:
-                orchestrator.active_sessions[session_id]["status"] = "running"
-                logger.info(f"✅ Session started: {session_id}")
-                success = True
-            else:
-                logger.error(f"❌ Failed to start session: {session_id}")
-                success = False
-        except Exception as e:
-            logger.error(f"❌ Session start failed: {e}")
-            success = False
+        success = await vajra_service.start_session(session_id)
 
         if success:
+            logger.info(f"✅ Session started: {session_id}")
             return {"status": "success", "message": "Session started successfully", "session_id": session_id}
         else:
+            logger.error(f"❌ Failed to start session: {session_id}")
             raise HTTPException(status_code=404, detail="Session not found or failed to start")
 
     except HTTPException:
@@ -119,25 +94,15 @@ async def stop_session(session_id: str, background_tasks: BackgroundTasks):
     try:
         logger.info(f"🛑 Session stop request: {session_id}")
 
-        from backend.core.orchestrator_bridge import orchestrator_bridge
+        from backend.core.services.vajra_service import vajra_service
 
-        # Stop session using UnifiedOrchestrator
-        try:
-            orchestrator = orchestrator_bridge.get_orchestrator()
-            if orchestrator and session_id in orchestrator.active_sessions:
-                orchestrator.active_sessions[session_id]["status"] = "stopped"
-                logger.info(f"✅ Session stopped: {session_id}")
-                success = True
-            else:
-                logger.error(f"❌ Failed to stop session: {session_id}")
-                success = False
-        except Exception as e:
-            logger.error(f"❌ Session stop failed: {e}")
-            success = False
+        success = await vajra_service.stop_session(session_id)
 
         if success:
+            logger.info(f"✅ Session stopped: {session_id}")
             return {"status": "success", "message": "Session stopped successfully", "session_id": session_id}
         else:
+            logger.error(f"❌ Failed to stop session: {session_id}")
             raise HTTPException(status_code=404, detail="Session not found or failed to stop")
 
     except HTTPException:
