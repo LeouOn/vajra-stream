@@ -25,6 +25,7 @@ import CrystalProgramming from './components/UI/CrystalProgramming';
 import Dashboard from './components/UI/Dashboard';
 import { ToastContainer } from './components/UI/Toast';
 import { SidebarSection } from './components/UI/SidebarSection';
+import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
 import {
   Volume2, Clock, Heart, Sparkles, Zap, Users, Radio, BookOpen,
   Sliders, Gem, LayoutDashboard, Search, Command
@@ -339,6 +340,8 @@ function App() {
                   </div>
                 </div>
               )}
+              
+              {currentView === VIEWS.visualization && <ChakraAlignmentStrip />}
               
               {/* Floating Info Panel */}
               <div className="absolute top-4 left-4 mystical-card max-w-sm">
