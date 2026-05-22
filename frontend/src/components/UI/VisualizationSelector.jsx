@@ -40,6 +40,12 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       description: 'Audio-reactive sine wave with spectrum bars'
     },
     {
+      id: 'scalar-wave',
+      name: 'Scalar Wave',
+      icon: <Radio className="w-4 h-4" />,
+      description: 'PRNG-driven scalar noise visualization'
+    },
+    {
       id: 'planetary-system',
       name: 'Planetary System',
       icon: <Globe className="w-4 h-4" />,

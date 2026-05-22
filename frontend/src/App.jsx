@@ -10,6 +10,7 @@ import SacredMandala from './components/3D/SacredMandala';
 import RadionicsVisualization from './components/3D/RadionicsVisualization';
 import AudioSpectrum from './components/2D/AudioSpectrum';
 import LiveWaveVisualizer from './components/2D/LiveWaveVisualizer';
+import ScalarWaveVisualizer from './components/2D/ScalarWaveVisualizer';
 import ControlPanel from './components/UI/ControlPanel';
 import SessionManager from './components/UI/SessionManager';
 import StatusIndicator from './components/UI/StatusIndicator';
@@ -336,6 +337,10 @@ function App() {
               ) : visualizationType === 'live-wave' ? (
                 <div className="w-full h-full">
                   <LiveWaveVisualizer />
+                </div>
+              ) : visualizationType === 'scalar-wave' ? (
+                <div className="w-full h-full">
+                  <ScalarWaveVisualizer />
                 </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
