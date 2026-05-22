@@ -29,7 +29,7 @@ const commandRegistry = [
   // Dharma Tales
   { id: 'tales.new', label: 'New Dharma Tale', category: 'Dharma Tales', shortcut: 'Ctrl+T', icon: 'book-open' },
   { id: 'tales.library', label: 'Story Library', category: 'Dharma Tales', shortcut: 'Ctrl+Shift+L', icon: 'library' },
-  { id: tales.generate': label: 'Generate Teaching Tale', category: 'Dharma Tales', shortcut: '', icon: 'sparkles' },
+  { id: 'tales.generate', label: 'Generate Teaching Tale', category: 'Dharma Tales', shortcut: '', icon: 'sparkles' },
 
   // Views
   { id: 'view.dashboard', label: 'Dashboard', category: 'Views', shortcut: 'Ctrl+D', icon: 'layout-dashboard' },
@@ -130,7 +130,7 @@ export const useCommandStore = create(
         // Search stories (if backend available)
         if ((state.searchContext === 'all' || state.searchContext === 'stories')) {
           try {
-            const response = await fetch('http://localhost:8008/api/v1/stories/search?q=' + encodeURIComponent(query));
+            const response = await fetch('/api/v1/stories/search?q=' + encodeURIComponent(query));
             if (response.ok) {
               const data = await response.json();
               data.stories?.forEach(story => {
@@ -155,7 +155,7 @@ export const useCommandStore = create(
         // Search rates
         if ((state.searchContext === 'all' || state.searchContext === 'rates')) {
           try {
-            const response = await fetch('http://localhost:8008/api/v1/radionics/rates/search?query=' + encodeURIComponent(query));
+            const response = await fetch('/api/v1/radionics/rates/search?query=' + encodeURIComponent(query));
             if (response.ok) {
               const data = await response.json();
               data.results?.forEach(rate => {
@@ -211,7 +211,7 @@ export const useCommandStore = create(
         terms.forEach(term => {
           if (textLower.includes(term)) {
             score += 10;
-          } else if (textLower.includes(term.substring(0, Math.min(3, term.length))) {
+          } else if (textLower.includes(term.substring(0, Math.min(3, term.length)))) {
             score += 5;
           } else if (textLower.includes(term.charAt(0))) {
             score += 2;

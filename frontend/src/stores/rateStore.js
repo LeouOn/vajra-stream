@@ -279,7 +279,39 @@ export const useRateStore = create(
           searchResults: [],
           comparisonRates: []
         });
-      }
+      },
+
+      fetchRatesFromBackend: async (query = '') => {
+        try {
+          const url = query
+            ? `/api/v1/radionics/rates/search?query=${encodeURIComponent(query)}`
+            : '/api/v1/radionics/rates/categories';
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('Failed to fetch rates');
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.warn('Rate fetch failed:', error);
+          return null;
+        }
+      },
+
+      getRateCategories: async () => {
+        try {
+          const response = await fetch('/api/v1/radionics/rates/categories');
+          if (!response.ok) throw new Error('Failed to fetch categories');
+          const data = await response.json();
+          if (data.categories) {
+            Object.entries(data.categories).forEach(([category, rates]) => {
+              get().setRateLibrary(category, rates);
+            });
+          }
+          return data;
+        } catch (error) {
+          console.warn('Categories fetch failed:', error);
+          return null;
+        }
+      },
     }),
     {
       name: 'rate-storage',

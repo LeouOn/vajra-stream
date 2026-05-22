@@ -247,7 +247,49 @@ export const useCrystalStore = create(
       // Get crystals by property
       getCrystalsByProperty: (property) => {
         return get().crystalLibrary.filter(c => c.properties.includes(property));
-      }
+      },
+
+      fetchCrystalGrid: async () => {
+        try {
+          const response = await fetch('/api/v1/radionics/crystal/grid');
+          if (!response.ok) throw new Error('Failed to fetch crystal grid');
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.warn('Crystal grid fetch failed:', error);
+          return null;
+        }
+      },
+
+      programCrystal: async (crystalId, intention) => {
+        try {
+          const response = await fetch('/api/v1/radionics/crystal/program', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ crystal_id: crystalId, intention }),
+          });
+          if (!response.ok) throw new Error('Failed to program crystal');
+          return await response.json();
+        } catch (error) {
+          console.error('Crystal programming failed:', error);
+          return null;
+        }
+      },
+
+      broadcastCrystal: async (duration = 3600, hardwareLevel = 2) => {
+        try {
+          const response = await fetch('/api/v1/radionics/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ duration_minutes: duration / 60, hardware_level: hardwareLevel }),
+          });
+          if (!response.ok) throw new Error('Failed to broadcast');
+          return await response.json();
+        } catch (error) {
+          console.error('Crystal broadcast failed:', error);
+          return null;
+        }
+      },
     }),
     {
       name: 'crystal-storage',
