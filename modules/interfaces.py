@@ -47,6 +47,46 @@ class BlessingGenerated(DomainEvent):
     tradition: str
 
 
+@dataclass
+class SessionCreated(DomainEvent):
+    """Event: A blessing session has been created"""
+    session_id: str
+    name: str
+    intention: str
+    duration: int
+    audio_frequency: float
+
+
+@dataclass
+class SessionStarted(DomainEvent):
+    """Event: A session has started broadcasting"""
+    session_id: str
+    name: str
+
+
+@dataclass
+class SessionStopped(DomainEvent):
+    """Event: A session has been stopped"""
+    session_id: str
+    name: str
+    runtime_seconds: float
+
+
+@dataclass
+class BroadcastStarted(DomainEvent):
+    """Event: Crystal/radionics broadcast has started"""
+    session_id: str
+    hardware_level: int
+    frequencies: list[float]
+
+
+@dataclass
+class BroadcastStopped(DomainEvent):
+    """Event: Crystal/radionics broadcast has stopped"""
+    session_id: str
+    actual_runtime: float
+
+
 # ============================================================================
 # Module Interfaces (Ports)
 # ============================================================================
