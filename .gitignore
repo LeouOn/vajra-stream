@@ -96,3 +96,6 @@ backend_server.log
 
 # Byte-compiled (explicit)
 *.pyc
+
+#Javascript
+node_modules/
