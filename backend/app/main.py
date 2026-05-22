@@ -15,9 +15,6 @@ from pathlib import Path
 import logging
 import traceback
 
-# Add parent directory to path to import existing Vajra.Stream modules
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../'))
-
 # Import stable connection manager v2
 from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
 
@@ -31,6 +28,7 @@ from backend.app.api.v1.endpoints import (
     astrology as astrology_endpoint,
     scalar_waves as scalar_endpoint,
     radionics as radionics_endpoint,
+    radionics_narratives as radionics_narratives_endpoint,
     anatomy as anatomy_endpoint,
     blessings as blessings_endpoint,
     visualization as visualization_endpoint,
@@ -143,6 +141,7 @@ app.include_router(astrology_endpoint.router, prefix="/api/v1/astrology", tags=[
 # Terra MOPS and Healing System routers
 app.include_router(scalar_endpoint.router, prefix="/api/v1/scalar", tags=["scalar-waves"])
 app.include_router(radionics_endpoint.router, prefix="/api/v1/radionics", tags=["radionics"])
+app.include_router(radionics_narratives_endpoint.router, prefix="/api/v1/radionics", tags=["radionics-narratives"])
 app.include_router(anatomy_endpoint.router, prefix="/api/v1/anatomy", tags=["anatomy"])
 app.include_router(blessings_endpoint.router, prefix="/api/v1/blessings", tags=["blessings"])
 app.include_router(visualization_endpoint.router, prefix="/api/v1/visualization", tags=["visualization"])

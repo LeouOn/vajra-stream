@@ -6,13 +6,18 @@ Single place that wires all modules together
 import sys
 from pathlib import Path
 import logging
+from typing import Optional
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
 
 from infrastructure.event_bus import SimpleEventBus
 from modules.scalar_waves import ScalarWaveService
@@ -68,7 +73,7 @@ class Container:
         return self._scalar_waves
 
     @property
-    def radionics(self):
+    def radionics(self) -> "RadionicsService":
         """Get radionics service"""
         if self._radionics is None:
             logger.info("Initializing Radionics Service...")
@@ -77,7 +82,7 @@ class Container:
         return self._radionics
 
     @property
-    def anatomy(self):
+    def anatomy(self) -> "AnatomyService":
         """Get anatomy service"""
         if self._anatomy is None:
             logger.info("Initializing Anatomy Service...")
@@ -86,7 +91,7 @@ class Container:
         return self._anatomy
 
     @property
-    def blessings(self):
+    def blessings(self) -> "BlessingService":
         """Get blessings service"""
         if self._blessings is None:
             logger.info("Initializing Blessings Service...")
@@ -95,7 +100,7 @@ class Container:
         return self._blessings
 
     @property
-    def astrology(self):
+    def astrology(self) -> "Optional[AstrologyService]":
         """Get astrology service"""
         if self._astrology is None:
             logger.info("Initializing Astrology Service...")
@@ -108,7 +113,7 @@ class Container:
         return self._astrology
 
     @property
-    def audio(self):
+    def audio(self) -> "AudioService":
         """Get audio service"""
         if self._audio is None:
             logger.info("Initializing Audio Service...")
@@ -117,7 +122,7 @@ class Container:
         return self._audio
 
     @property
-    def visualization(self):
+    def visualization(self) -> "VisualizationService":
         """Get visualization service"""
         if self._visualization is None:
             logger.info("Initializing Visualization Service...")
@@ -126,7 +131,7 @@ class Container:
         return self._visualization
 
     @property
-    def time_cycles(self):
+    def time_cycles(self) -> "TimeCyclesService":
         """Get time cycles service"""
         if self._time_cycles is None:
             logger.info("Initializing Time Cycles Service...")
@@ -135,7 +140,7 @@ class Container:
         return self._time_cycles
 
     @property
-    def prayer_wheel(self):
+    def prayer_wheel(self) -> "PrayerWheelService":
         """Get prayer wheel service"""
         if self._prayer_wheel is None:
             logger.info("Initializing Prayer Wheel Service...")
@@ -144,7 +149,7 @@ class Container:
         return self._prayer_wheel
 
     @property
-    def composer(self):
+    def composer(self) -> "ComposerService":
         """Get composer service"""
         if self._composer is None:
             logger.info("Initializing Composer Service...")
@@ -153,7 +158,7 @@ class Container:
         return self._composer
 
     @property
-    def healing(self):
+    def healing(self) -> "HealingService":
         """Get healing service"""
         if self._healing is None:
             logger.info("Initializing Healing Service...")
@@ -162,7 +167,7 @@ class Container:
         return self._healing
 
     @property
-    def llm(self):
+    def llm(self) -> "LLMService":
         """Get LLM service"""
         if self._llm is None:
             logger.info("Initializing LLM Service...")
