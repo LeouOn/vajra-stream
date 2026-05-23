@@ -3,6 +3,7 @@ import { Sliders, Save, RotateCcw, Search, Star, Play, Square, Zap, ChevronDown,
 import RateDial from './RateDial';
 import { useRateStore, RATE_PRESETS } from '../../stores/rateStore';
 import { useUIStore } from '../../stores/uiStore';
+import { audioFeedback } from '../../utils/audioFeedback';
 
 const COLORS = ['#8a2be2', '#00bfff', '#ffd700'];
 
@@ -46,6 +47,7 @@ const RateTuner = ({ className = '' }) => {
     loadRate(rate);
     setNumDials(preset.values.length);
     setShowPresets(false);
+    audioFeedback.playSuccess();
     addToast({
       type: 'success',
       title: 'Preset Loaded',
@@ -56,6 +58,7 @@ const RateTuner = ({ className = '' }) => {
   
   const handleSave = useCallback(() => {
     saveRate();
+    audioFeedback.playSuccess();
     addToast({
       type: 'success',
       title: 'Rate Saved',
@@ -71,20 +74,34 @@ const RateTuner = ({ className = '' }) => {
       description: '',
       category: ''
     });
+    audioFeedback.playClick();
   }, [loadRate, numDials]);
   
+  const handleLoadRate = useCallback((rate) => {
+    loadRate(rate);
+    audioFeedback.playSuccess();
+  }, [loadRate]);
+  
   const handleAddDial = useCallback(() => {
-    if (numDials >= 5) return;
+    if (numDials >= 5) {
+      audioFeedback.playError();
+      return;
+    }
     const newValues = [...currentRate.values, 50];
     loadRate({ ...currentRate, values: newValues });
     setNumDials(numDials + 1);
+    audioFeedback.playClick();
   }, [numDials, currentRate, loadRate]);
   
   const handleRemoveDial = useCallback(() => {
-    if (numDials <= 2) return;
+    if (numDials <= 2) {
+      audioFeedback.playError();
+      return;
+    }
     const newValues = currentRate.values.slice(0, -1);
     loadRate({ ...currentRate, values: newValues });
     setNumDials(numDials - 1);
+    audioFeedback.playClick();
   }, [numDials, currentRate, loadRate]);
   
   return (
@@ -98,6 +115,7 @@ const RateTuner = ({ className = '' }) => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleReset}
+            onMouseEnter={() => audioFeedback.playTick()}
             className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
             title="Reset to defaults"
           >
@@ -105,6 +123,7 @@ const RateTuner = ({ className = '' }) => {
           </button>
           <button
             onClick={handleSave}
+            onMouseEnter={() => audioFeedback.playTick()}
             className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-yellow-400 transition-colors"
             title="Save rate"
           >
@@ -124,8 +143,8 @@ const RateTuner = ({ className = '' }) => {
         />
       </div>
       
-      {/* Dials */}
-      <div className="flex justify-center items-start gap-2 flex-wrap">
+      {/* Dials - Responsive Grid */}
+      <div className="grid grid-cols-3 gap-3 justify-items-center">
         {currentRate.values.slice(0, numDials).map((value, index) => (
           <RateDial
             key={index}
@@ -133,7 +152,7 @@ const RateTuner = ({ className = '' }) => {
             onChange={(val) => handleValueChange(index, val)}
             label={`Dial ${index + 1}`}
             color={COLORS[index % COLORS.length]}
-            size={100}
+            size={90}
           />
         ))}
       </div>
@@ -142,6 +161,7 @@ const RateTuner = ({ className = '' }) => {
       <div className="flex justify-center gap-2">
         <button
           onClick={handleRemoveDial}
+          onMouseEnter={() => audioFeedback.playTick()}
           disabled={numDials <= 2}
           className="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 transition-colors"
         >
@@ -150,6 +170,7 @@ const RateTuner = ({ className = '' }) => {
         <span className="text-xs text-gray-500 self-center">{numDials} dials</span>
         <button
           onClick={handleAddDial}
+          onMouseEnter={() => audioFeedback.playTick()}
           disabled={numDials >= 5}
           className="px-3 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 transition-colors"
         >
@@ -168,7 +189,11 @@ const RateTuner = ({ className = '' }) => {
       {/* Presets */}
       <div>
         <button
-          onClick={() => setShowPresets(!showPresets)}
+          onClick={() => {
+            setShowPresets(!showPresets);
+            audioFeedback.playClick();
+          }}
+          onMouseEnter={() => audioFeedback.playTick()}
           className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
         >
           <span className="flex items-center gap-2">
@@ -183,6 +208,7 @@ const RateTuner = ({ className = '' }) => {
               <button
                 key={preset.id}
                 onClick={() => handlePresetSelect(preset)}
+                onMouseEnter={() => audioFeedback.playTick()}
                 className="flex items-center gap-2 px-3 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-sm text-gray-300 hover:text-white transition-colors text-left"
               >
                 <span>{preset.icon}</span>
@@ -203,7 +229,11 @@ const RateTuner = ({ className = '' }) => {
           <span className="text-sm text-gray-300">Auto-Tune</span>
         </div>
         <button
-          onClick={() => setAutoTune(!autoTune)}
+          onClick={() => {
+            setAutoTune(!autoTune);
+            audioFeedback.playClick();
+          }}
+          onMouseEnter={() => audioFeedback.playTick()}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
             autoTune ? 'bg-purple-600' : 'bg-gray-600'
           }`}
@@ -228,7 +258,11 @@ const RateTuner = ({ className = '' }) => {
         />
         {searchQuery && (
           <button
-            onClick={() => setSearchQuery('')}
+            onClick={() => {
+              setSearchQuery('');
+              audioFeedback.playClick();
+            }}
+            onMouseEnter={() => audioFeedback.playTick()}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
           >
             <X className="w-4 h-4" />
@@ -243,9 +277,10 @@ const RateTuner = ({ className = '' }) => {
             <button
               key={rate.id || i}
               onClick={() => {
-                loadRate(rate);
+                handleLoadRate(rate);
                 setSearchQuery('');
               }}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="w-full flex items-center justify-between px-3 py-2 bg-gray-700/30 hover:bg-gray-600/30 rounded-lg text-sm text-left transition-colors"
             >
               <div>
@@ -261,7 +296,11 @@ const RateTuner = ({ className = '' }) => {
       {/* History toggle */}
       <div>
         <button
-          onClick={() => setShowHistory(!showHistory)}
+          onClick={() => {
+            setShowHistory(!showHistory);
+            audioFeedback.playClick();
+          }}
+          onMouseEnter={() => audioFeedback.playTick()}
           className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
         >
           <span>History ({rateHistory.length})</span>
@@ -275,7 +314,8 @@ const RateTuner = ({ className = '' }) => {
               rateHistory.slice(0, 10).map((rate, i) => (
                 <button
                   key={rate.id || i}
-                  onClick={() => loadRate(rate)}
+                  onClick={() => handleLoadRate(rate)}
+                  onMouseEnter={() => audioFeedback.playTick()}
                   className="w-full flex items-center justify-between px-3 py-2 bg-gray-700/20 hover:bg-gray-600/30 rounded text-xs text-left transition-colors"
                 >
                   <span className="text-gray-300">{rate.name || rate.values.join('-')}</span>
@@ -290,7 +330,11 @@ const RateTuner = ({ className = '' }) => {
       {/* Saved rates */}
       <div>
         <button
-          onClick={() => setShowSaved(!showSaved)}
+          onClick={() => {
+            setShowSaved(!showSaved);
+            audioFeedback.playClick();
+          }}
+          onMouseEnter={() => audioFeedback.playTick()}
           className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
         >
           <span className="flex items-center gap-2">
@@ -307,7 +351,8 @@ const RateTuner = ({ className = '' }) => {
               customRates.map((rate, i) => (
                 <button
                   key={rate.id || i}
-                  onClick={() => loadRate(rate)}
+                  onClick={() => handleLoadRate(rate)}
+                  onMouseEnter={() => audioFeedback.playTick()}
                   className="w-full flex items-center justify-between px-3 py-2 bg-gray-700/20 hover:bg-gray-600/30 rounded text-xs text-left transition-colors"
                 >
                   <div>

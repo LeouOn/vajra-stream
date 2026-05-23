@@ -95,10 +95,6 @@ def start_full_system(backend_port=BACKEND_PORT):
         print(f"  Frontend: port {FRONTEND_PORT}")
         print()
 
-        backend_proc = _popen(
-            [sys.executable, str(SCRIPT_DIR / "run.py"), "serve", "--port", str(backend_port)],
-            cwd=SCRIPT_DIR,
-        )
         if sys.platform == "win32":
             backend_proc = _popen(
                 f'"{sys.executable}" "{SCRIPT_DIR / "run.py"}" serve --port {backend_port}',

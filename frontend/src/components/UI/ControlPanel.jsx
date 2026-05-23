@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Pause, Square, Settings, Volume2 } from 'lucide-react';
+import { audioFeedback } from '../../utils/audioFeedback';
 
 const ControlPanel = ({
   isPlaying,
@@ -28,7 +29,7 @@ const ControlPanel = ({
   const [sessionName, setSessionName] = useState('Healing Session');
 
   // Update local state when props change
-  React.useEffect(() => {
+  useEffect(() => {
     setLocalFrequency(frequency ?? 136.1);
     setLocalVolume(volume ?? 0.8);
     setLocalPrayerBowlMode(prayerBowlMode ?? true);
@@ -37,8 +38,18 @@ const ControlPanel = ({
     setLocalDuration(duration ?? 30);
   }, [frequency, volume, prayerBowlMode, harmonicStrength, modulationDepth, duration]);
 
+  // Play status transition sounds
+  useEffect(() => {
+    if (audioStatus === 'generated') {
+      audioFeedback.playSuccess();
+    } else if (audioStatus === 'error') {
+      audioFeedback.playError();
+    }
+  }, [audioStatus]);
+
   const handleStartSession = async () => {
     if (onStartSession) {
+      audioFeedback.playSuccess();
       await onStartSession({
         name: sessionName,
         intention,
@@ -52,6 +63,7 @@ const ControlPanel = ({
   };
 
   const handleGenerateAudio = async () => {
+    audioFeedback.playClick();
     onSettingsChange({
       frequency: localFrequency,
       volume: localVolume,
@@ -68,6 +80,7 @@ const ControlPanel = ({
   };
 
   const handlePlayAudio = async () => {
+    audioFeedback.playClick();
     const success = await onPlayAudio();
     if (success) {
       console.log('Audio playback started');
@@ -75,6 +88,7 @@ const ControlPanel = ({
   };
 
   const handleStopAudio = () => {
+    audioFeedback.playClick();
     onStopAudio();
     console.log('Audio playback stopped');
   };
@@ -125,6 +139,7 @@ const ControlPanel = ({
       setLocalDuration(preset.duration);
       
       onSettingsChange(preset);
+      audioFeedback.playClick();
       console.log(`Loaded preset: ${presetName}`);
     }
   };
@@ -200,6 +215,7 @@ const ControlPanel = ({
           </div>
           <button
             onClick={handleStartSession}
+            onMouseEnter={() => audioFeedback.playTick()}
             disabled={!intention || !sessionName}
             className={`w-full vajra-button vajra-button-primary flex items-center justify-center text-lg py-4 ${
               !intention || !sessionName ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-purple-500/50'
@@ -217,24 +233,28 @@ const ControlPanel = ({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => loadPreset('om-frequency')}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="vajra-button vajra-button-secondary text-sm hover:shadow-purple-400/30"
             >
               <span className="mr-1">🕉️</span> OM (136.1 Hz)
             </button>
             <button
               onClick={() => loadPreset('heart-chakra')}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="vajra-button vajra-button-secondary text-sm hover:shadow-green-400/30"
             >
               <span className="mr-1">💚</span> Heart (528 Hz)
             </button>
             <button
               onClick={() => loadPreset('earth-resonance')}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="vajra-button vajra-button-secondary text-sm hover:shadow-blue-400/30"
             >
               <span className="mr-1">🌍</span> Earth (7.83 Hz)
             </button>
             <button
               onClick={() => loadPreset('pure-sine')}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="vajra-button vajra-button-secondary text-sm hover:shadow-cyan-400/30"
             >
               <span className="mr-1">〰️</span> Pure Sine
@@ -256,7 +276,12 @@ const ControlPanel = ({
               max="1000"
               step="0.1"
               value={localFrequency}
-              onChange={(e) => setLocalFrequency(parseFloat(e.target.value))}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                setLocalFrequency(val);
+                audioFeedback.playDialAdjust(val, 1, 1000);
+              }}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="mystical-range"
             />
             <div className="flex justify-between text-xs text-purple-400 mt-2">
@@ -277,7 +302,12 @@ const ControlPanel = ({
               max="1"
               step="0.01"
               value={localVolume}
-              onChange={(e) => setLocalVolume(parseFloat(e.target.value))}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                setLocalVolume(val);
+                audioFeedback.playDialAdjust(val, 0, 1);
+              }}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="mystical-range"
             />
           </div>
@@ -294,7 +324,12 @@ const ControlPanel = ({
               max="300"
               step="5"
               value={localDuration}
-              onChange={(e) => setLocalDuration(parseInt(e.target.value))}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                setLocalDuration(val);
+                audioFeedback.playDialAdjust(val, 5, 300);
+              }}
+              onMouseEnter={() => audioFeedback.playTick()}
               className="mystical-range"
             />
             <div className="flex justify-between text-xs text-purple-400 mt-2">
@@ -309,7 +344,11 @@ const ControlPanel = ({
               <input
                 type="checkbox"
                 checked={localPrayerBowlMode}
-                onChange={(e) => setLocalPrayerBowlMode(e.target.checked)}
+                onChange={(e) => {
+                  setLocalPrayerBowlMode(e.target.checked);
+                  audioFeedback.playClick();
+                }}
+                onMouseEnter={() => audioFeedback.playTick()}
                 className="w-5 h-5 rounded text-vajra-cyan focus:ring-vajra-cyan focus:ring-2"
               />
               <span className="text-sm font-medium text-purple-300">Prayer Bowl Mode</span>
@@ -323,7 +362,11 @@ const ControlPanel = ({
         {/* Advanced Settings Toggle */}
         <div className="mt-6 text-center">
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
+            onClick={() => {
+              setShowAdvanced(!showAdvanced);
+              audioFeedback.playClick();
+            }}
+            onMouseEnter={() => audioFeedback.playTick()}
             className="text-sm text-vajra-cyan hover:text-cyan-400 transition-all duration-300 glow-cyan px-4 py-2 rounded-full glassmorphism"
           >
             {showAdvanced ? '▲ Hide' : '▼ Show'} Advanced Settings
@@ -346,7 +389,12 @@ const ControlPanel = ({
                 max="1"
                 step="0.01"
                 value={localHarmonicStrength}
-                onChange={(e) => setLocalHarmonicStrength(parseFloat(e.target.value))}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setLocalHarmonicStrength(val);
+                  audioFeedback.playDialAdjust(val, 0, 1);
+                }}
+                onMouseEnter={() => audioFeedback.playTick()}
                 className="mystical-range"
               />
             </div>
@@ -362,7 +410,12 @@ const ControlPanel = ({
                 max="0.2"
                 step="0.001"
                 value={localModulationDepth}
-                onChange={(e) => setLocalModulationDepth(parseFloat(e.target.value))}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  setLocalModulationDepth(val);
+                  audioFeedback.playDialAdjust(val, 0, 0.2);
+                }}
+                onMouseEnter={() => audioFeedback.playTick()}
                 className="mystical-range"
               />
             </div>
@@ -373,6 +426,7 @@ const ControlPanel = ({
         <div className="space-y-4 mt-8">
           <button
             onClick={handleGenerateAudio}
+            onMouseEnter={() => audioFeedback.playTick()}
             disabled={audioStatus === 'generating'}
             className={`w-full vajra-button vajra-button-primary flex items-center justify-center text-lg py-4 ${
               audioStatus === 'generating' ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-purple-500/50'
@@ -395,6 +449,7 @@ const ControlPanel = ({
           <div className="grid grid-cols-2 gap-4">
             <button
               onClick={handlePlayAudio}
+              onMouseEnter={() => audioFeedback.playTick()}
               disabled={isPlaying || audioStatus === 'generating' || audioStatus !== 'generated'}
               className={`vajra-button vajra-button-success flex items-center justify-center ${
                 isPlaying || audioStatus === 'generating' || audioStatus !== 'generated' ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-green-500/50'
@@ -406,6 +461,7 @@ const ControlPanel = ({
             
             <button
               onClick={handleStopAudio}
+              onMouseEnter={() => audioFeedback.playTick()}
               disabled={!isPlaying}
               className={`vajra-button vajra-button-danger flex items-center justify-center ${
                 !isPlaying ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-red-500/50'

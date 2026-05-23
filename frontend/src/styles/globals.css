@@ -18,10 +18,15 @@
   }
   
   body {
+    @apply font-sans;
     color: var(--foreground);
     background: radial-gradient(ellipse at center, #2a0845 0%, #0a0014 50%, #000000 100%);
     background-attachment: fixed;
     overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6, button {
+    @apply font-serif;
   }
   
   ::-webkit-scrollbar {
@@ -149,6 +154,81 @@
     animation: float 6s ease-in-out infinite;
   }
   
+  /* Cyberdeck game-like overlays */
+  .scanline {
+    background: linear-gradient(
+      to bottom,
+      rgba(255,255,255,0),
+      rgba(255,255,255,0) 50%,
+      rgba(0, 255, 255, 0.1) 50%,
+      rgba(0, 255, 255, 0.1)
+    );
+    background-size: 100% 4px;
+    z-index: 100;
+  }
+  
+  .crt-screen::after {
+    content: " ";
+    display: block;
+    position: fixed;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.015), rgba(0, 0, 255, 0.03));
+    z-index: 99;
+    background-size: 100% 3px, 3px 100%;
+    pointer-events: none;
+    opacity: 0.85;
+    animation: crt-flicker 0.2s infinite;
+  }
+
+  .scanline-sweep {
+    content: " ";
+    display: block;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to bottom, rgba(138, 43, 226, 0) 0%, rgba(138, 43, 226, 0.06) 10%, rgba(0, 255, 255, 0.08) 50%, rgba(138, 43, 226, 0.06) 90%, rgba(138, 43, 226, 0) 100%);
+    z-index: 101;
+    pointer-events: none;
+    animation: scanlines-anim 10s linear infinite;
+  }
+
+  @keyframes scanlines-anim {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+
+  @keyframes crt-flicker {
+    0% { opacity: 0.98; }
+    50% { opacity: 0.96; }
+    100% { opacity: 0.98; }
+  }
+
+  .cyber-grid {
+    background-size: 40px 40px;
+    background-image: 
+      linear-gradient(to right, rgba(138, 43, 226, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(138, 43, 226, 0.06) 1px, transparent 1px);
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .cyber-panel {
+    @apply bg-black/60 backdrop-blur-md border border-purple-500/25 rounded-xl relative overflow-hidden;
+    box-shadow: inset 0 0 15px rgba(138, 43, 226, 0.15), 0 4px 12px rgba(0,0,0,0.5);
+  }
+
+  .cyber-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.35), transparent);
+  }
+
+  .cyber-glow-btn {
+    @apply transition-all duration-300 transform active:scale-95 hover:scale-[1.03] select-none;
+  }
+
   @keyframes pulse-glow {
     0% { box-shadow: 0 0 5px rgba(138, 43, 226, 0.5); }
     50% { box-shadow: 0 0 20px rgba(138, 43, 226, 0.8), 0 0 30px rgba(138, 43, 226, 0.4); }

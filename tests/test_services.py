@@ -25,8 +25,8 @@ class TestVisualizationModule:
 
         viz = VisualizationService()
         status = viz.get_status()
-        assert "rothko_available" in status
-        assert "energetic_viz_available" in status
+        assert "rothko_generator" in status
+        assert "energetic_visualization" in status
 
 
 @pytest.mark.integration

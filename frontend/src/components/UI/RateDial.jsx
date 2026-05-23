@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect, useId } from 'react';
+import { audioFeedback } from '../../utils/audioFeedback';
 
 const SWEEP_DEGREES = 270;
 const START_ANGLE = 225;
@@ -51,9 +52,11 @@ const RateDial = ({
   const handleInteraction = useCallback((clientX, clientY) => {
     if (disabled) return;
     const newValue = computeValueFromPointer(clientX, clientY);
+    const clampedValue = Math.max(min, Math.min(max, newValue));
     if (onChange) {
-      onChange(Math.max(min, Math.min(max, newValue)));
+      onChange(clampedValue);
     }
+    audioFeedback.playDialAdjust(clampedValue, min, max);
   }, [disabled, onChange, computeValueFromPointer, min, max]);
 
   const handleMouseDown = useCallback((e) => {
@@ -77,7 +80,9 @@ const RateDial = ({
     const delta = e.deltaY > 0 ? -1 : 1;
     const step = (max - min) / 100;
     const newValue = Math.max(min, Math.min(max, value + delta * step));
-    if (onChange) onChange(Math.round(newValue));
+    const roundedValue = Math.round(newValue);
+    if (onChange) onChange(roundedValue);
+    audioFeedback.playDialAdjust(roundedValue, min, max);
   }, [disabled, value, min, max, onChange]);
 
   const handleKeyDown = useCallback((e) => {
@@ -100,10 +105,12 @@ const RateDial = ({
         break;
       case 'Home':
         if (onChange) onChange(min);
+        audioFeedback.playDialAdjust(min, min, max);
         e.preventDefault();
         return;
       case 'End':
         if (onChange) onChange(max);
+        audioFeedback.playDialAdjust(max, min, max);
         e.preventDefault();
         return;
       default:
@@ -112,6 +119,7 @@ const RateDial = ({
     e.preventDefault();
     const newValue = Math.max(min, Math.min(max, value + delta));
     if (onChange) onChange(newValue);
+    audioFeedback.playDialAdjust(newValue, min, max);
   }, [disabled, value, min, max, onChange]);
 
   useEffect(() => {
@@ -164,7 +172,7 @@ const RateDial = ({
     });
   }
 
-  const glowRadius = 20 + valueNormalized * 15;
+  const glowRadius = 25 + valueNormalized * 20;
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -175,7 +183,10 @@ const RateDial = ({
         onMouseDown={handleMouseDown}
         onWheel={handleWheel}
         onKeyDown={handleKeyDown}
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => {
+          setHovered(true);
+          audioFeedback.playTick();
+        }}
         onMouseLeave={() => setHovered(false)}
         role="slider"
         aria-valuemin={min}
@@ -203,8 +214,8 @@ const RateDial = ({
           <path
             d={`M ${startX} ${startY} A ${arcR} ${arcR} 0 1 0 ${bgEndX} ${bgEndY}`}
             fill="none"
-            stroke="#374151"
-            strokeWidth={8}
+            stroke="#1f2937"
+            strokeWidth={10}
             strokeLinecap="round"
           />
 
@@ -213,7 +224,7 @@ const RateDial = ({
               d={`M ${startX} ${startY} A ${arcR} ${arcR} 0 ${largeArc} 0 ${activeEndX} ${activeEndY}`}
               fill="none"
               stroke={color}
-              strokeWidth={8}
+              strokeWidth={10}
               strokeLinecap="round"
               filter={`url(#${filterId})`}
             />
@@ -227,7 +238,7 @@ const RateDial = ({
               x2={tick.x2}
               y2={tick.y2}
               stroke={tick.isMajor ? '#6b7280' : '#4b5563'}
-              strokeWidth={tick.isMajor ? 2 : 1}
+              strokeWidth={tick.isMajor ? 2.5 : 1.5}
             />
           ))}
 

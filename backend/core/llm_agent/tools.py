@@ -16,7 +16,11 @@ import requests
 class APIClient:
     """Client for making requests to Vajra Stream API"""
 
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str | None = None):
+        import os
+        if base_url is None:
+            port = os.environ.get("PORT", "8008")
+            base_url = f"http://localhost:{port}"
         self.base_url = base_url
 
     def _get(self, endpoint: str) -> dict[str, Any]:

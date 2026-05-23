@@ -13,6 +13,7 @@ export const useWebSocketStable = (wsUrl = null) => {
   const [error, setError] = useState(null);
   
   const ws = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
   const manualDisconnect = useRef(false);
@@ -34,7 +35,10 @@ export const useWebSocketStable = (wsUrl = null) => {
   // Default WebSocket URL if not provided
   const getDefaultWsUrl = () => {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const frontendHost = window.location.hostname;
+    let frontendHost = window.location.hostname;
+    if (frontendHost === 'localhost' || frontendHost === '::1') {
+      frontendHost = '127.0.0.1';
+    }
     return `${wsProtocol}//${frontendHost}:8008/ws`; // Use stable server port
   };
 
@@ -78,7 +82,7 @@ export const useWebSocketStable = (wsUrl = null) => {
     }
 
     const url = wsUrl || getDefaultWsUrl();
-    console.log(`Connecting to WebSocket (attempt ${reconnectAttempts + 1}):`, url);
+    console.log(`Connecting to WebSocket (attempt ${reconnectAttemptsRef.current + 1}):`, url);
     
     try {
       ws.current = new WebSocket(url);
@@ -96,6 +100,7 @@ export const useWebSocketStable = (wsUrl = null) => {
         console.log('WebSocket connected successfully');
         setIsConnected(true);
         setConnectionStatus('connected');
+        reconnectAttemptsRef.current = 0;
         setReconnectAttempts(0);
         setError(null);
         setLastUpdate(new Date());
@@ -111,10 +116,11 @@ export const useWebSocketStable = (wsUrl = null) => {
         stopHeartbeat();
 
         // Attempt to reconnect if not manually closed and within max attempts
-        if (!manualDisconnect.current && event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
-          const nextAttempt = reconnectAttempts + 1;
+        if (!manualDisconnect.current && event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          const nextAttempt = reconnectAttemptsRef.current + 1;
           const delay = getReconnectDelay(nextAttempt);
           
+          reconnectAttemptsRef.current = nextAttempt;
           setReconnectAttempts(nextAttempt);
           setError(`Connection lost. Reconnecting in ${Math.round(delay / 1000)}s... (attempt ${nextAttempt}/${maxReconnectAttempts})`);
           
@@ -123,7 +129,7 @@ export const useWebSocketStable = (wsUrl = null) => {
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);
-        } else if (reconnectAttempts >= maxReconnectAttempts) {
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
           setError('Failed to reconnect after maximum attempts. Please refresh the page.');
         }
       };
@@ -207,7 +213,7 @@ export const useWebSocketStable = (wsUrl = null) => {
       setConnectionStatus('error');
       setError('Failed to establish connection');
     }
-  }, [wsUrl, reconnectAttempts, startHeartbeat, stopHeartbeat]);
+  }, [wsUrl, startHeartbeat, stopHeartbeat]);
 
   // Disconnect from WebSocket
   const disconnect = useCallback(() => {

@@ -35,7 +35,7 @@ except ImportError as e:
     ENHANCED_MODE = False
 
 
-from backend.app.api.v1.endpoints.sessions import SessionConfig
+from backend.app.api.v1.endpoints.sessions import SessionConfig, AudioConfig
 
 
 class VajraStreamService:

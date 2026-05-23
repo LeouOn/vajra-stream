@@ -12,6 +12,7 @@ export const useWebSocket = () => {
   
   const ws = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const reconnectDelay = 3000; // 3 seconds
 
@@ -20,7 +21,10 @@ export const useWebSocket = () => {
       // Use WebSocket with proper protocol detection
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       // Use the same host as the frontend but connect to backend port
-      const frontendHost = window.location.hostname;
+      let frontendHost = window.location.hostname;
+      if (frontendHost === 'localhost' || frontendHost === '::1') {
+        frontendHost = '127.0.0.1';
+      }
       const wsUrl = `${wsProtocol}//${frontendHost}:8008/ws`;
       
       console.log('Connecting to WebSocket:', wsUrl);
@@ -30,6 +34,7 @@ export const useWebSocket = () => {
         console.log('WebSocket connected');
         setIsConnected(true);
         setConnectionStatus('connected');
+        reconnectAttemptsRef.current = 0;
         setReconnectAttempts(0);
         setLastUpdate(new Date());
       };
@@ -41,11 +46,11 @@ export const useWebSocket = () => {
         setLastUpdate(new Date());
         
         // Attempt to reconnect if not manually closed
-        if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
-          const nextAttempt = reconnectAttempts + 1;
-          setReconnectAttempts(nextAttempt);
+        if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current += 1;
+          setReconnectAttempts(reconnectAttemptsRef.current);
           
-          console.log(`Attempting to reconnect (${nextAttempt}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
+          console.log(`Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${reconnectDelay}ms...`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
@@ -106,7 +111,7 @@ export const useWebSocket = () => {
       console.error('Failed to create WebSocket connection:', error);
       setConnectionStatus('error');
     }
-  }, [reconnectAttempts]);
+  }, []); // Reconnect attempts removed from dependencies
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -121,6 +126,7 @@ export const useWebSocket = () => {
     
     setIsConnected(false);
     setConnectionStatus('disconnected');
+    reconnectAttemptsRef.current = 0;
     setReconnectAttempts(0);
   }, []);
 

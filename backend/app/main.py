@@ -35,6 +35,7 @@ from backend.app.api.v1.endpoints import rng_attunement as rng_endpoint
 from backend.app.api.v1.endpoints import scalar_waves as scalar_endpoint
 from backend.app.api.v1.endpoints import sessions as sessions_endpoint
 from backend.app.api.v1.endpoints import visualization as visualization_endpoint
+from backend.app.api.v1.endpoints import llm as llm_endpoint
 
 # Setup templates
 template_dir = Path(__file__).parent.parent.parent.parent / "templates"
@@ -158,6 +159,7 @@ app.include_router(populations_endpoint.router, prefix="/api/v1", tags=["populat
 app.include_router(automation_endpoint.router, prefix="/api/v1", tags=["automation"])
 app.include_router(dharma_tales_endpoint.router, prefix="/api/v1/dharma", tags=["dharma-tales"])
 app.include_router(personal_healing_endpoint.router, prefix="/api/v1/healing", tags=["healing"])
+app.include_router(llm_endpoint.router, prefix="/api/v1", tags=["llm"])
 
 
 # WebSocket endpoint - Stable implementation
