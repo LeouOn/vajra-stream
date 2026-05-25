@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Zap, RefreshCw, ChevronRight } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 const CHAKRA_LIST = [
   'root', 'sacral', 'solar_plexus', 'heart', 'throat', 'third_eye', 'crown'

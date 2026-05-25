@@ -256,7 +256,7 @@ const SessionManager = ({ sessions, onStartSession, onStopSession, isConnected }
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-2">
                         <div className="bg-gradient-to-r from-vajra-cyan to-vajra-purple h-2 rounded-full animate-pulse" 
-                             style={{ width: '100%' }} />
+                             style={{ width: `${Math.min(100, ((Date.now() / 1000 - (session.start_time || Date.now() / 1000)) / (session.duration || 1)) * 100).toFixed(0)}%` }} />
                       </div>
                     </div>
                   )}

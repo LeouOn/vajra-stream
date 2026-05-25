@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, BookOpen, Heart, RefreshCw, Copy, CheckCircle, Lightbulb, Globe, Orbit } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 const THEME_OPTIONS = [
   { id: 'overcoming', name: 'Overcoming', desc: 'Stories of triumph over difficulties', icon: '🏔️' },

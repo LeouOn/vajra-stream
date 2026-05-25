@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Square, Heart, Sparkles, Users, Clock, SkipForward, Info } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
   // Session state

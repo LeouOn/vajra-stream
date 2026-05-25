@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit2, Trash2, Folder, Globe, AlertCircle, Check, X } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 const PopulationManager = ({ className = '' }) => {
   const [populations, setPopulations] = useState([]);

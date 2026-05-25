@@ -40,12 +40,22 @@ class PrayerWheelService:
             return {"error": "Prayer wheel not available"}
 
         try:
-            result = self.wheel.spin(mantra=mantra, rotations=rotations, speed=speed)
+            # Map rotations and speed to a duration (e.g. 5 seconds for visual spin)
+            duration = max(5, int(rotations * 0.1 / speed))
+            
+            import threading
+            threading.Thread(
+                target=self.wheel.spin,
+                args=(mantra,),
+                kwargs={"duration": duration, "with_audio": True, "with_voice": False}
+            ).start()
+
             return {
                 "status": "success",
                 "mantra": mantra,
                 "rotations": rotations,
-                "merit_generated": result.get("merit", rotations * len(mantra)),
+                "merit_generated": rotations * len(mantra),
+                "duration": duration
             }
         except Exception as e:
             return {"error": str(e)}

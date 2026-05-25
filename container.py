@@ -55,6 +55,9 @@ class Container:
         self._composer = None
         self._healing = None
         self._llm = None
+        self._operator = None
+        self._dharma_tales = None
+        self._tts = None
 
         # Setup event handlers
         self._setup_event_handlers()
@@ -184,6 +187,36 @@ class Container:
             self._llm = LLMService(event_bus=self.event_bus)
         return self._llm
 
+    @property
+    def operator(self) -> "RadionicsOperator":  # noqa: F821
+        """Get radionics operator (LLM-powered)"""
+        if self._operator is None:
+            logger.info("Initializing Radionics Operator...")
+            from modules.radionics_operator import RadionicsOperator
+
+            self._operator = RadionicsOperator(container=self, event_bus=self.event_bus)
+        return self._operator
+
+    @property
+    def dharma_tales(self) -> "DharmaTalesService":  # noqa: F821
+        """Get dharma tales service"""
+        if self._dharma_tales is None:
+            logger.info("Initializing Dharma Tales Service...")
+            from modules.dharma_tales import DharmaTalesService
+
+            self._dharma_tales = DharmaTalesService(event_bus=self.event_bus)
+        return self._dharma_tales
+
+    @property
+    def tts(self) -> "TTSService":  # noqa: F821
+        """Get TTS service"""
+        if self._tts is None:
+            logger.info("Initializing TTS Service...")
+            from modules.tts_integration import TTSService
+
+            self._tts = TTSService(event_bus=self.event_bus)
+        return self._tts
+
     def _setup_event_handlers(self):
         """Wire up event handlers between modules"""
         from modules.interfaces import BlessingGenerated, HealingSessionStarted, ScalarWavesGenerated
@@ -219,6 +252,9 @@ class Container:
         self._composer = None
         self._healing = None
         self._llm = None
+        self._operator = None
+        self._dharma_tales = None
+        self._tts = None
         self.event_bus.clear()
         logger.info("Container reset")
 

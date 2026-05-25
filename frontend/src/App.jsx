@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
-import { useWebSocket } from './hooks/useWebSocket';
+import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
 import { useUIStore } from './stores/uiStore';
 import SacredGeometry from './components/3D/SacredGeometry';
@@ -24,6 +24,8 @@ import RadionicsNarrative from './components/UI/RadionicsNarrative';
 import RateTuner from './components/UI/RateTuner';
 import CrystalProgramming from './components/UI/CrystalProgramming';
 import RadionicsBroadcastPanel from './components/UI/RadionicsBroadcastPanel';
+import RadionicsGlobe from './components/3D/RadionicsGlobe';
+import FrequencyWaterfall from './components/2D/FrequencyWaterfall';
 import Dashboard from './components/UI/Dashboard';
 import LLMInsightsPanel from './components/UI/LLMInsightsPanel';
 import { ToastContainer } from './components/UI/Toast';
@@ -181,12 +183,12 @@ function App() {
       <header className="p-2 md:p-3 z-20 glassmorphism mystical-border relative">
         <div className="max-w-full mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
           
-          {/* Logo & Mobile status */}
+          {/* Logo & status (single indicator for all screen sizes) */}
           <div className="flex items-center space-x-2 md:space-x-3 w-full md:w-auto justify-between md:justify-start">
             <h1 className="text-lg md:text-xl font-bold text-vajra-cyan glow-cyan tracking-wider flex items-center gap-2">
               🔮 Vajra.Stream
             </h1>
-            <div className="md:hidden flex items-center space-x-2 px-2.5 py-1 bg-black/40 border border-white/10 rounded-full select-none">
+            <div className="flex items-center space-x-2 px-2.5 py-1 bg-black/40 border border-white/10 rounded-full select-none">
               <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
               <span className="text-[10px] font-bold font-serif uppercase tracking-wider text-gray-300">
                 {isConnected ? 'LIVE' : 'OFFLINE'}
@@ -279,27 +281,6 @@ function App() {
           
           {/* Desktop Status Indicator & Visualizer Selector */}
           <div className="flex items-center space-x-4 w-full md:w-auto justify-between md:justify-end">
-            <button
-              onClick={() => { setCrtEnabled(prev => !prev); audioFeedback.playClick(); }}
-              onMouseEnter={() => audioFeedback.playTick()}
-              className={`p-2 rounded-lg border transition-all duration-300 flex items-center gap-1.5 ${
-                crtEnabled
-                  ? 'bg-purple-950 border-purple-500 text-vajra-cyan shadow-[0_0_10px_rgba(0,255,255,0.3)]'
-                  : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-              }`}
-              title="Toggle Cyberdeck CRT HUD Overlay"
-            >
-              <Monitor className="w-4 h-4" />
-              <span className="hidden xl:inline text-xs font-semibold">CONSOLE HUD</span>
-            </button>
-
-            <div className="hidden md:flex items-center space-x-2 px-3 py-1 bg-black/40 border border-white/10 rounded-full select-none">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`} />
-              <span className="text-xs font-bold font-serif uppercase tracking-wider text-gray-300">
-                {isConnected ? 'LIVE' : 'OFFLINE'}
-              </span>
-            </div>
-            
             {activeTab === 'visualizers' && (
               <VisualizationSelector
                 currentType={visualizationType}
@@ -346,7 +327,8 @@ function App() {
         {activeTab === 'visualizers' && (
           <div className="flex-1 relative w-full h-full min-h-[500px]">
             {visualizationType === 'sacred-geometry' ? (
-              <Canvas camera={{ position: [0, 0, 20], fov: 60 }} className="w-full h-full">
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-900/50"><div className="text-purple-400 animate-pulse text-sm">Loading Sacred Geometry...</div></div>}>
+              <Canvas key="sacred-geometry" camera={{ position: [0, 0, 20], fov: 60 }} className="w-full h-full">
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
@@ -354,10 +336,12 @@ function App() {
                 <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.5} />
                 <Environment preset="sunset" />
               </Canvas>
+              </Suspense>
             ) : visualizationType === 'radionics' ? (
               <RadionicsVisualization attunedRate={scalarStatus?.rate} isPlaying={isPlaying} />
             ) : visualizationType === 'crystal-grid' ? (
-              <Canvas camera={{ position: [0, -8, 12], fov: 60 }} className="w-full h-full">
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-900/50"><div className="text-cyan-400 animate-pulse text-sm">Loading Crystal Grid...</div></div>}>
+              <Canvas key="crystal-grid" camera={{ position: [0, -8, 12], fov: 60 }} className="w-full h-full">
                 <ambientLight intensity={0.4} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Stars radius={150} depth={60} count={3000} factor={3} saturation={0} fade speed={0.5} />
@@ -373,8 +357,10 @@ function App() {
                 <OrbitControls enableZoom={true} enablePan={true} enableRotate={true} autoRotate={true} autoRotateSpeed={0.3} />
                 <Environment preset="night" />
               </Canvas>
+              </Suspense>
             ) : visualizationType === 'sacred-mandala' ? (
-              <Canvas camera={{ position: [0, 0, 15], fov: 60 }} className="w-full h-full">
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-900/50"><div className="text-amber-400 animate-pulse text-sm">Loading Sacred Mandala...</div></div>}>
+              <Canvas key="sacred-mandala" camera={{ position: [0, 0, 15], fov: 60 }} className="w-full h-full">
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Stars radius={120} depth={50} count={4000} factor={3} saturation={0.1} fade speed={0.8} />
@@ -382,6 +368,7 @@ function App() {
                 <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.4} />
                 <Environment preset="sunset" />
               </Canvas>
+              </Suspense>
             ) : visualizationType === 'audio-spectrum' ? (
               <div className="w-full h-full flex items-center justify-center p-8">
                 <AudioSpectrum spectrum={audioSpectrum} isPlaying={isPlaying} frequency={frequency} />
@@ -403,6 +390,14 @@ function App() {
                 <div className="flex-1 flex items-center justify-center">
                   <ChakraAlignmentStrip />
                 </div>
+              </div>
+            ) : visualizationType === 'globe' ? (
+              <div className="w-full h-full">
+                <RadionicsGlobe disasters={[]} broadcastTargets={Object.values(sessions || {}).filter(s => s.status === 'running').map(s => ({ name: s.name, location: s.intention }))} />
+              </div>
+            ) : visualizationType === 'waterfall' ? (
+              <div className="w-full h-full p-4">
+                <FrequencyWaterfall frequency={frequency} isPlaying={isPlaying} />
               </div>
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -506,13 +501,27 @@ function App() {
             )}
           </div>
           <div className="flex items-center space-x-4">
-            <span>Frequency: <span className="frequency-display text-vajra-cyan font-bold">{frequency.toFixed(1)} Hz</span></span>
+            <button onClick={async () => { if (!isPlaying) { await generateAudio(); await playAudio(); } else { stopAudio(); } }} className="hover:text-white transition-colors">
+              <span>Frequency: <span className="frequency-display text-vajra-cyan font-bold">{frequency.toFixed(1)} Hz</span></span>
+              <span className="ml-1 text-[10px]">{isPlaying ? '⏹' : '▶'}</span>
+            </button>
             <span>Volume: <span className="text-vajra-cyan glow-cyan font-bold">{Math.round(volume * 100)}%</span></span>
             <span>Mode: <span className="text-vajra-purple glow-text font-bold">{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</span></span>
             <div className="flex items-center gap-1">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
               <span className="font-semibold">{isConnected ? 'Connected' : 'Offline'}</span>
             </div>
+            <button
+              onClick={() => { setCrtEnabled(prev => !prev); audioFeedback.playClick(); }}
+              className={`text-[10px] px-2 py-0.5 rounded border transition-all ${
+                crtEnabled
+                  ? 'bg-purple-950 border-purple-500 text-vajra-cyan'
+                  : 'bg-white/5 border-white/10 text-gray-500 hover:text-white'
+              }`}
+              title="Toggle CRT overlay"
+            >
+              📺 HUD
+            </button>
           </div>
         </div>
       </footer>

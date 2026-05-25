@@ -3,7 +3,7 @@ import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, Help
 import DharmaTales from './DharmaTales';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 export default function GrimoirePanel() {
   const [searchQuery, setSearchQuery] = useState('');

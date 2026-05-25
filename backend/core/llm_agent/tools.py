@@ -713,11 +713,55 @@ def get_tool_schemas() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "stop_automation",
+            "description": "Stop the currently running automated blessing rotation and return final statistics",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Automation session ID from start_automation"},
+                },
+                "required": ["session_id"],
+            },
+        },
+        {
+            "name": "pause_automation",
+            "description": "Pause the automated blessing rotation (can be resumed later)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Automation session ID from start_automation"},
+                },
+                "required": ["session_id"],
+            },
+        },
+        {
+            "name": "resume_automation",
+            "description": "Resume a previously paused automated blessing rotation",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Automation session ID from start_automation"},
+                },
+                "required": ["session_id"],
+            },
+        },
+        {
             "name": "get_automation_status",
             "description": "Get current automation status for monitoring. Call every 5-10 seconds for UI updates",
             "parameters": {
                 "type": "object",
                 "properties": {"session_id": {"type": "string", "description": "Automation session ID"}},
+                "required": ["session_id"],
+            },
+        },
+        {
+            "name": "stop_rng_session",
+            "description": "Stop an active RNG attunement session and get final summary statistics",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "RNG session ID to stop"},
+                },
                 "required": ["session_id"],
             },
         },

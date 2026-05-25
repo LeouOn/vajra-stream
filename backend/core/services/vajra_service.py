@@ -4,6 +4,7 @@ Exposes existing Vajra.Stream functionality through web APIs
 """
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -99,8 +100,17 @@ class VajraStreamService:
         self.audio_spectrum: list[float] = []
         self.session_history: list[dict] = []
 
+        # Persistence
+        self._history_path = os.path.join(
+            os.path.expanduser("~"), ".vajra-stream", "session_history.json"
+        )
+        self._load_history()
+
         # Event bus for session events
         self.event_bus = None
+
+        # Background broadcast loop for live radionics + scalar data
+        self._broadcast_task: asyncio.Task | None = None
 
         print("Vajra.Stream Service ready!")
 
@@ -377,8 +387,59 @@ class VajraStreamService:
         except Exception:
             pass  # Non-critical
 
+        # Start live radionics rate + scalar wave broadcast loop
+        self._start_broadcast_loop()
+
         print(f"Session started successfully: {session_id}")
         return True
+
+    def _start_broadcast_loop(self):
+        """Start background loop that broadcasts live radionics rate and scalar wave status."""
+        if self._broadcast_task and not self._broadcast_task.done():
+            return  # Already running
+        self._broadcast_task = asyncio.create_task(self._broadcast_loop())
+
+    async def _broadcast_loop(self):
+        """Periodically emit RADIONICS_RATE_BROADCAST and SCALAR_WAVE_ACTIVE to WebSocket clients."""
+        import random
+        while True:
+            await asyncio.sleep(3)
+            if not self.active_sessions:
+                continue
+
+            try:
+                from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+
+                # Count running sessions
+                running = [s for s in self.active_sessions.values() if s.get("status") == "running"]
+                if not running:
+                    continue
+
+                # Emit SCALAR_WAVE_ACTIVE — scalar waves are active when sessions are running
+                await stable_connection_manager_v2.broadcast({
+                    "type": "SCALAR_WAVE_ACTIVE",
+                    "data": {"active": True, "session_count": len(running)},
+                    "timestamp": time.time(),
+                })
+
+                # Emit RADIONICS_RATE_BROADCAST for each running session
+                for session in running:
+                    cfg = session.get("config")
+                    freq = cfg.audio_config.frequency if cfg else 528.0
+                    # Derive a rate from the carrier frequency (mimics radionics rate attunement)
+                    rate = round((freq % 100) + random.uniform(-2, 2), 2)
+                    await stable_connection_manager_v2.broadcast({
+                        "type": "RADIONICS_RATE_BROADCAST",
+                        "data": {
+                            "rate": rate,
+                            "session_id": session["id"],
+                            "frequency": freq,
+                        },
+                        "timestamp": time.time(),
+                    })
+
+            except Exception:
+                pass  # Non-critical — don't crash the broadcast loop
 
     async def stop_session(self, session_id: str) -> bool:
         """Stop a blessing session"""
@@ -405,9 +466,46 @@ class VajraStreamService:
         # Move to history
         self.session_history.append(session.copy())
         del self.active_sessions[session_id]
+        self._save_history()
 
         print(f"Session stopped: {session_id}")
         return True
+
+    def _load_history(self):
+        """Load session history from JSON file, restoring data across restarts."""
+        try:
+            if os.path.exists(self._history_path):
+                with open(self._history_path, "r", encoding="utf-8") as f:
+                    self.session_history = json.load(f)
+                print(f"Loaded {len(self.session_history)} historical sessions from {self._history_path}")
+        except Exception as e:
+            print(f"Could not load session history: {e}")
+            self.session_history = []
+
+    def _save_history(self):
+        """Persist session history to JSON file."""
+        try:
+            os.makedirs(os.path.dirname(self._history_path), exist_ok=True)
+            # Serialize — strip non-JSON-serializable fields
+            serializable = []
+            for s in self.session_history[-500:]:  # Keep last 500 sessions
+                clean = {}
+                for k, v in s.items():
+                    if k in ("audio_data", "visual_data", "astrology_data"):
+                        clean[k] = "[binary data]" if v else None
+                    elif isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                        clean[k] = v
+                    else:
+                        try:
+                            json.dumps({k: v})
+                            clean[k] = v
+                        except (TypeError, ValueError):
+                            clean[k] = str(v)[:200]
+                serializable.append(clean)
+            with open(self._history_path, "w", encoding="utf-8") as f:
+                json.dump(serializable, f, indent=2, default=str)
+        except Exception as e:
+            print(f"Could not save session history: {e}")
 
     def delete_session(self, session_id: str) -> bool:
         """Delete a session (only if not running)"""

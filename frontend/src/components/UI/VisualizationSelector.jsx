@@ -46,10 +46,16 @@ const VisualizationSelector = ({ currentType, onChange }) => {
       description: 'PRNG-driven scalar noise visualization'
     },
     {
-      id: 'planetary-system',
-      name: 'Planetary System',
+      id: 'globe',
+      name: 'World Globe',
       icon: <Globe className="w-4 h-4" />,
-      description: 'Astrological visualization (coming soon)'
+      description: '3D Earth with live disaster markers and broadcast targets'
+    },
+    {
+      id: 'waterfall',
+      name: 'Frequency Waterfall',
+      icon: <BarChart3 className="w-4 h-4" />,
+      description: 'Real-time frequency spectrum waterfall display'
     },
     {
       id: 'radionics-panel',

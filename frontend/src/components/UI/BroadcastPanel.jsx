@@ -4,7 +4,7 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 export default function BroadcastPanel() {
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
@@ -28,39 +28,42 @@ export default function BroadcastPanel() {
   
   // Latest sigil state
   const [latestSigil, setLatestSigil] = useState(null);
+  const [sigilIntention, setSigilIntention] = useState('');
+  const [isForging, setIsForging] = useState(false);
   
   // Track populations/targets
   const [populations, setPopulations] = useState([]);
   
   const canvasRef = useRef(null);
 
-  // Load target lock on mount, fetch latest sigil & populations
+  // Load target lock and populations on mount — do NOT auto-forge sigils
   useEffect(() => {
-    // Randomize target lock coordinates
     setTargetLock({
       x: 50 + Math.random() * 200,
       y: 40 + Math.random() * 120
     });
-    fetchLatestSigil();
     fetchPopulations();
   }, []);
 
-  const fetchLatestSigil = async () => {
+  const forgeUserSigil = async () => {
+    if (!sigilIntention.trim() || isForging) return;
+    setIsForging(true);
     try {
-      // Find the latest sigil by listing or searching.
-      // For now, since there's no list sigil endpoint, we check if one is saved in storage,
-      // or we can forge a default one if none exists.
       const res = await fetch(`${API_BASE}/sigils/forge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intention: 'Universal Peace & Coherence', kamea: 'saturn' })
+        body: JSON.stringify({ intention: sigilIntention.trim(), kamea: 'saturn' })
       });
       if (res.ok) {
         const data = await res.json();
         setLatestSigil(data.sigil);
+        audioFeedback.playSuccess();
       }
     } catch (e) {
-      console.error("Latest sigil fetch failed:", e);
+      console.error("Sigil forge failed:", e);
+      audioFeedback.playError();
+    } finally {
+      setIsForging(false);
     }
   };
 
@@ -126,13 +129,22 @@ export default function BroadcastPanel() {
       if (!resonantLocked) {
         setResonantLocked(true);
         audioFeedback.playSuccess();
-        // Shift active carrier frequency slightly to align
-        updateSettings({ frequency: Math.round(frequency + (Math.random() * 2 - 1) * 5) });
+        // Shift active carrier frequency to the sacred tone nearest the dimensional average
+        const dimAvg = Object.values(dimensions).reduce((a, b) => a + b, 0) / 5;
+        const sacredFreqs = [136.1, 396, 417, 528, 639, 741, 852, 963];
+        const nearest = sacredFreqs.reduce((prev, curr) =>
+          Math.abs(curr - dimAvg * 7) < Math.abs(prev - dimAvg * 7) ? curr : prev
+        );
+        updateSettings({ frequency: nearest });
       }
     } else {
       if (resonantLocked) {
         setResonantLocked(false);
       }
+      // Smooth frequency shift based on distance to target
+      const freqShift = (1 - dist / maxDist) * 20;
+      const currentFreq = frequency;
+      updateSettings({ frequency: Math.round(currentFreq + freqShift * (Math.random() > 0.5 ? 1 : -1)) });
       // Play a rubbing friction sound
       if (Math.random() < 0.3) {
         audioFeedback.playType();
@@ -414,8 +426,26 @@ export default function BroadcastPanel() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-gray-500 italic text-xs">
-                No active sigil forged. Create one in the Command Center!
+              <div className="space-y-3">
+                <div className="text-center text-gray-500 italic text-xs">
+                  Enter an intention to forge a new sigil
+                </div>
+                <input
+                  type="text"
+                  value={sigilIntention}
+                  onChange={(e) => setSigilIntention(e.target.value)}
+                  placeholder="e.g. Protection & Clarity"
+                  className="w-full bg-gray-800 text-white text-xs px-3 py-2 rounded-lg border border-gray-600 focus:border-purple-500 focus:outline-none placeholder-gray-500"
+                  onKeyDown={(e) => e.key === 'Enter' && sigilIntention.trim() && forgeUserSigil()}
+                />
+                <button
+                  onClick={forgeUserSigil}
+                  disabled={!sigilIntention.trim() || isForging}
+                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2"
+                >
+                  <Gem className="w-3.5 h-3.5" />
+                  {isForging ? 'Forging...' : 'Forge Sigil'}
+                </button>
               </div>
             )}
           </div>

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 const QuantumWaveform = ({ isPlaying, frequency }) => {
   const canvasRef = useRef(null);
@@ -296,7 +296,7 @@ const RichMarkdownRenderer = ({ content }) => {
       const subparts = part.split('`');
       return subparts.map((chunk, idx) => {
         if (idx % 2 === 1) {
-          return <code key={idx} className="bg-black/60 border border-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-xs">{chunk}</code>;
+          return <code key={idx} className="bg-black/60 border border-white/10 px-1.5 py-0.5 rounded text-cyan-300 font-mono text-xs break-all [word-break:break-all] max-w-[200px] inline-block overflow-hidden text-ellipsis align-bottom">{chunk}</code>;
         }
         return chunk;
       });
@@ -450,6 +450,12 @@ export default function CommandCenter({
   ]);
   const [auraCoherence, setAuraCoherence] = useState(35);
   const [astroData, setAstroData] = useState(null);
+  const [includeAstrology, setIncludeAstrology] = useState(true);
+  const [includeAnatomy, setIncludeAnatomy] = useState(true);
+  const [includeHardware, setIncludeHardware] = useState(true);
+  const [debugMode, setDebugMode] = useState(false);
+  const [debugPayload, setDebugPayload] = useState(null);
+  const [activeLogTab, setActiveLogTab] = useState('tools');
   
   useEffect(() => {
     const doFetch = async (lat, lon) => {
@@ -465,7 +471,7 @@ export default function CommandCenter({
           params.append('longitude', lon.toString());
         }
         
-        const res = await fetch(`http://localhost:8008/api/v1/astrology/current?${params.toString()}`);
+        const res = await fetch(`${API_BASE}/astrology/current?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           setAstroData(data.astrology);
@@ -475,20 +481,12 @@ export default function CommandCenter({
       }
     };
 
+    // Default to San Francisco, CA — only use geolocation if user explicitly requests "use my location"
+    const SF_LAT = 37.7749;
+    const SF_LON = -122.4194;
+
     const fetchAstro = async () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            doFetch(position.coords.latitude, position.coords.longitude);
-          },
-          () => {
-            doFetch(null, null);
-          },
-          { timeout: 5000 }
-        );
-      } else {
-        doFetch(null, null);
-      }
+      doFetch(SF_LAT, SF_LON);
     };
     
     fetchAstro();
@@ -583,7 +581,11 @@ export default function CommandCenter({
             role: m.role,
             content: m.content
           })),
-          provider: 'local'
+          provider: 'local',
+          include_astrology: includeAstrology,
+          include_anatomy: includeAnatomy,
+          include_hardware: includeHardware,
+          debug_mode: debugMode
         })
       });
 
@@ -592,6 +594,11 @@ export default function CommandCenter({
       }
 
       const data = await chatResponse.json();
+      if (data.debug_info) {
+        setDebugPayload(data.debug_info);
+      } else {
+        setDebugPayload(null);
+      }
       
       // Process tool calls
       if (data.tool_calls && data.tool_calls.length > 0) {
@@ -722,6 +729,51 @@ export default function CommandCenter({
               {cmd.label}
             </button>
           ))}
+        </div>
+
+        {/* LLM Environmental Context Injection Panel */}
+        <div className="px-4 py-2 border-t border-purple-500/15 bg-black/30 flex flex-wrap items-center gap-4 text-xs font-mono select-none">
+          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Inject Context:</span>
+          
+          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors">
+            <input
+              type="checkbox"
+              checked={includeAstrology}
+              onChange={(e) => { setIncludeAstrology(e.target.checked); audioFeedback.playClick(); }}
+              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="group-hover:text-vajra-cyan transition-colors">🪐 Astrology</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors">
+            <input
+              type="checkbox"
+              checked={includeAnatomy}
+              onChange={(e) => { setIncludeAnatomy(e.target.checked); audioFeedback.playClick(); }}
+              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="group-hover:text-vajra-cyan transition-colors">💚 Chakras/Meridians</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors">
+            <input
+              type="checkbox"
+              checked={includeHardware}
+              onChange={(e) => { setIncludeHardware(e.target.checked); audioFeedback.playClick(); }}
+              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="group-hover:text-vajra-cyan transition-colors">⚙️ System Metrics</span>
+          </label>
+
+          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors border-l border-white/10 pl-4">
+            <input
+              type="checkbox"
+              checked={debugMode}
+              onChange={(e) => { setDebugMode(e.target.checked); audioFeedback.playClick(); }}
+              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="group-hover:text-yellow-400 transition-colors text-yellow-500/95 font-bold">🛠️ Debug Payload</span>
+          </label>
         </div>
 
         {/* Input Bar */}
@@ -925,45 +977,84 @@ export default function CommandCenter({
           )}
         </div>
 
-        {/* Tool Execution Logs (Terminal UI) */}
+        {/* Tool Execution / LLM Debug Logs (Terminal UI) */}
         <div className="flex-1 min-h-[220px] bg-black/60 backdrop-blur-md rounded-xl border border-purple-500/15 p-4 flex flex-col font-mono shadow-2xl">
-          <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-purple-400 animate-pulse" />
-              <span className="text-xs font-bold text-gray-300">TOOL EXECUTION LOG</span>
+          <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
+            <div className="flex gap-2">
+              <button 
+                onClick={() => { setActiveLogTab('tools'); audioFeedback.playClick(); }}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
+                  activeLogTab === 'tools' 
+                    ? 'bg-purple-900 border border-purple-500 text-white' 
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                TOOLS
+              </button>
+              <button 
+                onClick={() => { setActiveLogTab('debug'); audioFeedback.playClick(); }}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
+                  activeLogTab === 'debug' 
+                    ? 'bg-purple-900 border border-purple-500 text-white' 
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                LLM DEBUG
+              </button>
             </div>
-            <button 
-              onClick={() => { setToolLogs([]); audioFeedback.playClick(); }}
-              onMouseEnter={() => audioFeedback.playTick()}
-              className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              CLEAR
-            </button>
+            
+            {activeLogTab === 'tools' ? (
+              <button 
+                onClick={() => { setToolLogs([]); audioFeedback.playClick(); }}
+                onMouseEnter={() => audioFeedback.playTick()}
+                className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors uppercase font-mono"
+              >
+                CLEAR
+              </button>
+            ) : (
+              <button 
+                onClick={() => { setDebugPayload(null); audioFeedback.playClick(); }}
+                onMouseEnter={() => audioFeedback.playTick()}
+                className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors uppercase font-mono"
+              >
+                RESET
+              </button>
+            )}
           </div>
           
-          <div className="flex-1 overflow-y-auto space-y-2 text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
-            {toolLogs.map((log, i) => (
-              <div key={i} className="flex items-start gap-1">
-                <span className="text-gray-600 select-none">[{log.timestamp}]</span>
-                <span className={`font-bold select-none ${
-                  log.type === 'tool' ? 'text-cyan-400' :
-                  log.type === 'llm' ? 'text-purple-400' :
-                  log.type === 'system' ? 'text-yellow-400' : 'text-gray-500'
-                }`}>
-                  {log.type.toUpperCase()}:
-                </span>
-                <span className={`
-                  ${log.status === 'success' ? 'text-green-400' :
-                    log.status === 'error' ? 'text-red-400' :
-                    log.status === 'pending' ? 'text-yellow-400 animate-pulse' : 'text-gray-300'
-                  }
-                `}>
-                  {log.message}
-                </span>
-              </div>
-            ))}
-            <div ref={logEndRef} />
-          </div>
+          {activeLogTab === 'tools' ? (
+            <div className="flex-1 overflow-y-auto space-y-2 text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+              {toolLogs.map((log, i) => (
+                <div key={i} className="flex items-start gap-1">
+                  <span className="text-gray-600 select-none">[{log.timestamp}]</span>
+                  <span className={`font-bold select-none ${
+                    log.type === 'tool' ? 'text-cyan-400' :
+                    log.type === 'llm' ? 'text-purple-400' :
+                    log.type === 'system' ? 'text-yellow-400' : 'text-gray-500'
+                  }`}>
+                    {log.type.toUpperCase()}:
+                  </span>
+                  <span className={`
+                    ${log.status === 'success' ? 'text-green-400' :
+                      log.status === 'error' ? 'text-red-400' :
+                      log.status === 'pending' ? 'text-yellow-400 animate-pulse' : 'text-gray-300'
+                    }
+                  `}>
+                    {log.message}
+                  </span>
+                </div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto text-[10px] font-mono leading-normal text-cyan-300/90 whitespace-pre scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent bg-black/45 p-2 rounded border border-white/5 select-text selection:bg-purple-950/80">
+              {debugPayload ? (
+                JSON.stringify(debugPayload, null, 2)
+              ) : (
+                <span className="text-gray-500 italic">No telemetry data. Enable "Debug Payload" checkbox and submit a query.</span>
+              )}
+            </div>
+          )}
         </div>
 
       </div>

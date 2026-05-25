@@ -340,6 +340,38 @@ async def list_modes():
     ]
 
 
+@router.get("/status")
+async def get_automation_overview():
+    """
+    Get overview of all automation sessions — no session ID required.
+    Returns the first active session's status, or inactive if none running.
+    """
+    scheduler = get_scheduler()
+    active_sessions = [
+        (sid, s) for sid, s in scheduler.sessions.items()
+        if s.status.value == "running"
+    ]
+    if not active_sessions:
+        return {"active": False, "message": "No automation running"}
+
+    sid, session = active_sessions[0]
+    stats = scheduler.get_session_stats(sid)
+    current = scheduler.get_current_status(sid)
+
+    return {
+        "active": True,
+        "session_id": sid,
+        "status": session.status.value,
+        "populations_in_queue": len(session.populations_queue),
+        "cycle_count": session.cycle_count,
+        "current_population": current.get("current_population") if current else None,
+        "progress": current.get("progress_percentage", 0) if current else 0,
+        "elapsed_seconds": current.get("elapsed_seconds", 0) if current else 0,
+        "total_photos_blessed": stats.get("total_photos_blessed", 0),
+        "total_mantras": stats.get("total_mantras", 0),
+    }
+
+
 @router.get("/health")
 async def health_check():
     """Health check endpoint"""

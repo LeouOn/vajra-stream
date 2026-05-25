@@ -39,6 +39,9 @@ from backend.app.api.v1.endpoints import llm as llm_endpoint
 from backend.app.api.v1.endpoints import mops as mops_endpoint
 from backend.app.api.v1.endpoints import sigils as sigils_endpoint
 from backend.app.api.v1.endpoints import divination as divination_endpoint
+from backend.app.api.v1.endpoints import prayer_wheel as prayer_wheel_endpoint
+from backend.app.api.v1.endpoints import time_cycles as time_cycles_endpoint
+from backend.app.api.v1.endpoints import operator as operator_endpoint
 
 
 # Setup templates
@@ -167,6 +170,9 @@ app.include_router(llm_endpoint.router, prefix="/api/v1", tags=["llm"])
 app.include_router(mops_endpoint.router, prefix="/api/v1", tags=["mops"])
 app.include_router(sigils_endpoint.router, prefix="/api/v1", tags=["sigils"])
 app.include_router(divination_endpoint.router, prefix="/api/v1", tags=["divination"])
+app.include_router(prayer_wheel_endpoint.router, prefix="/api/v1", tags=["prayer-wheel"])
+app.include_router(time_cycles_endpoint.router, prefix="/api/v1", tags=["time-cycles"])
+app.include_router(operator_endpoint.router, prefix="/api/v1/operator", tags=["operator"])
 
 
 

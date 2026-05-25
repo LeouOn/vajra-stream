@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 const getOrdinalSuffix = (num) => {
   if (!num) return '';

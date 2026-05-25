@@ -9,12 +9,18 @@ import {
   TrendingUp,
   Play,
   Plus,
-  Settings
+  Settings,
+  Moon
 } from 'lucide-react';
 import TrendsChart from './TrendsChart';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useCrystalStore } from '../../stores/crystalStore';
+import { useRateStore } from '../../stores/rateStore';
+import SessionTimeline from './SessionTimeline';
+import FrequencyWaterfall from '../2D/FrequencyWaterfall';
+import { MiniGlobe } from '../3D/RadionicsGlobe';
 import { CardSkeleton, SessionSkeleton } from './LoadingSkeleton';
 
 const colorMap = {
@@ -45,12 +51,37 @@ const Dashboard = () => {
   const { isPlaying, frequency, playAudio, stopAudio, generateAudio } = useAudioStore();
   const { addToast, setSidebarOpen, setSearchOpen } = useUIStore();
   const [sessionHistory, setSessionHistory] = useState([]);
+  const [quickAstro, setQuickAstro] = useState(null);
+  const [automationStatus, setAutomationStatus] = useState(null);
+
+  const fetchCrystalGrid = useCrystalStore(s => s.fetchCrystalGrid);
+  const getRateCategories = useRateStore(s => s.getRateCategories);
 
   useEffect(() => {
     fetch('/api/v1/sessions/history')
       .then(r => r.json())
       .then(d => setSessionHistory(d.history || []))
       .catch(() => setSessionHistory([]));
+    fetchCrystalGrid();
+    getRateCategories();
+    fetch('/api/v1/astrology/current?latitude=37.7749&longitude=-122.4194')
+      .then(r => r.json())
+      .then(d => setQuickAstro(d.astrology || null))
+      .catch(() => {});
+
+    // Poll automation status
+    const pollAutomation = async () => {
+      try {
+        const res = await fetch('/api/v1/automation/status');
+        if (res.ok) {
+          const data = await res.json();
+          setAutomationStatus(data);
+        }
+      } catch {}
+    };
+    pollAutomation();
+    const interval = setInterval(pollAutomation, 5000);
+    return () => clearInterval(interval);
   }, []);
   
   const activeSessions = Object.values(sessions);
@@ -117,14 +148,26 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 rounded-lg p-6 border border-purple-700/50">
-        <h1 className="text-2xl font-bold text-white mb-2">
-          Welcome to Vajra.Stream
-        </h1>
-        <p className="text-gray-300">
-          Your sacred technology platform for blessing, healing, and transformation
-        </p>
+      {/* Welcome Section with Mini Globe */}
+      <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 rounded-lg border border-purple-700/50 overflow-hidden">
+        <div className="flex flex-col md:flex-row items-center gap-4 p-6">
+          <div className="flex-shrink-0">
+            <MiniGlobe isActive={runningSessions.length > 0} size="small" />
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-2xl font-bold text-white mb-2">
+              Welcome to Vajra.Stream
+            </h1>
+            <p className="text-gray-300">
+              Your sacred technology platform for blessing, healing, and transformation
+            </p>
+            <div className="flex gap-3 mt-3 text-xs">
+              <span className="text-purple-300">🌍 {runningSessions.length > 0 ? 'Blessings Active' : 'Ready'}</span>
+              <span className="text-cyan-300">✨ Golden Light</span>
+              <span className="text-amber-300">🌈 Rainbow Ring</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -251,6 +294,71 @@ const Dashboard = () => {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Automation Status */}
+      {automationStatus && automationStatus.active && (
+        <div className="bg-gradient-to-r from-emerald-900/20 to-cyan-900/20 rounded-lg p-4 border border-emerald-500/20 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-sm font-bold text-emerald-300">Blessing Rotation Active</span>
+            </div>
+            <span className="text-xs text-emerald-400 font-mono">
+              {Math.round(automationStatus.progress || 0)}%
+            </span>
+          </div>
+          {automationStatus.current_population && (
+            <div className="text-xs text-gray-300">
+              Now blessing: <span className="text-emerald-200 font-semibold">{automationStatus.current_population.name}</span>
+              <span className="text-gray-500 mx-1">·</span>
+              <span className="text-gray-500">{automationStatus.current_population.category}</span>
+            </div>
+          )}
+          <div className="w-full bg-gray-700 rounded-full h-1.5">
+            <div className="bg-gradient-to-r from-emerald-500 to-cyan-500 h-1.5 rounded-full transition-all duration-1000"
+              style={{ width: `${Math.round(automationStatus.progress || 0)}%` }} />
+          </div>
+          <div className="flex justify-between text-[10px] text-gray-500">
+            <span>Session: {automationStatus.session_id?.slice(0, 20)}…</span>
+            <span>{automationStatus.populations_in_queue || 0} in queue · Cycle {automationStatus.cycle_count || 0}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Astrology */}
+      {quickAstro && (
+        <div className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 rounded-lg p-4 border border-indigo-500/20">
+          <div className="flex items-center gap-3 text-xs">
+            <Moon className="w-5 h-5 text-cyan-400" />
+            <div>
+              <span className="text-gray-400">Cosmic Context · </span>
+              <span className="text-indigo-300 font-semibold">{quickAstro.moon_phase?.phase_name || '—'}</span>
+              <span className="text-gray-500 mx-1">·</span>
+              <span className="text-purple-300">{quickAstro.planetary_hour || '—'} hour</span>
+              <span className="text-gray-500 mx-1">·</span>
+              <span className="text-gray-400">{quickAstro.day_ruler || '—'} day</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Session Timeline */}
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Clock className="w-5 h-5 text-amber-400" />
+          Session History
+        </h2>
+        <SessionTimeline sessions={sessions} />
+      </div>
+
+      {/* Frequency Waterfall */}
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <Activity className="w-5 h-5 text-cyan-400" />
+          Live Frequency Monitor
+        </h2>
+        <FrequencyWaterfall frequency={frequency} isPlaying={isPlaying} />
       </div>
 
       {/* System Status */}

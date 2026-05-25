@@ -4,8 +4,11 @@ import {
   RefreshCw, Layers, Award, Shield, Cpu, HelpCircle
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
+import ChakraHealing from './ChakraHealing';
+import PrayerWheel from './PrayerWheel';
+import TimeCycles from './TimeCycles';
 
-const API_BASE = 'http://localhost:8008/api/v1';
+import { API_BASE } from '../../utils/api';
 
 export default function OperationsPanel() {
   const [activeSubTab, setActiveSubTab] = useState('divination');
@@ -124,35 +127,67 @@ export default function OperationsPanel() {
     }
   };
 
-  // Run Visual Ritual flow simulation
+  // Run Visual Ritual flow — actually executes each step via API
   const startRitualSequence = async () => {
     if (isRitualRunning) return;
     setIsRitualRunning(true);
-    setActiveStepIndex(0);
     audioFeedback.playSuccess();
     
-    // Reset statuses
+    // Reset all statuses
     setComposerSteps(prev => prev.map(s => ({ ...s, status: 'pending' })));
 
-    for (let i = 0; i < composerSteps.length; i++) {
-      setActiveStepIndex(i);
-      setComposerSteps(prev => {
-        const next = [...prev];
-        next[i].status = 'running';
-        return next;
-      });
+    const executeStep = async (index, action) => {
+      setActiveStepIndex(index);
+      setComposerSteps(prev => { const n = [...prev]; n[index].status = 'running'; return n; });
       audioFeedback.playTelemetry();
-      
-      // Artificial delay representing step execution
-      await new Promise(r => setTimeout(r, 2000));
-      
-      setComposerSteps(prev => {
-        const next = [...prev];
-        next[i].status = 'success';
-        return next;
+
+      try {
+        await action();
+        setComposerSteps(prev => { const n = [...prev]; n[index].status = 'success'; return n; });
+        audioFeedback.playClick();
+      } catch (e) {
+        console.error(`Step ${index + 1} failed:`, e);
+        setComposerSteps(prev => { const n = [...prev]; n[index].status = 'pending'; return n; });
+      }
+    };
+
+    // Step 1: Draw a tarot card for guidance
+    await executeStep(0, async () => {
+      const res = await fetch(`${API_BASE}/divination/tarot/draw`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count: 1 })
       });
-      audioFeedback.playClick();
-    }
+      if (res.ok) {
+        const data = await res.json();
+        setTarotResult(data.cards);
+        setDivinationSystem('tarot');
+      }
+      await new Promise(r => setTimeout(r, 1500));
+    });
+
+    // Step 2: Fetch planetary hour and align
+    await executeStep(1, async () => {
+      await fetchAstrology();
+      await new Promise(r => setTimeout(r, 1000));
+    });
+
+    // Step 3: Forge a sigil for the intention
+    await executeStep(2, async () => {
+      await fetch(`${API_BASE}/sigils/forge`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intention: 'Ritual Sequence Alignment', kamea: 'saturn' })
+      });
+      await new Promise(r => setTimeout(r, 1500));
+    });
+
+    // Step 4: Trigger scalar wave generation
+    await executeStep(3, async () => {
+      await fetch(`${API_BASE}/scalar/generate`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'hybrid', count: 10000, intensity: 0.8 })
+      });
+      await new Promise(r => setTimeout(r, 2000));
+    });
     
     setIsRitualRunning(false);
     setActiveStepIndex(-1);
@@ -163,10 +198,10 @@ export default function OperationsPanel() {
     <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6">
       
       {/* Sub Tabs Selection Header */}
-      <div className="flex border-b border-white/10 gap-4 pb-2">
+      <div className="flex border-b border-white/10 gap-4 pb-2 overflow-x-auto scrollbar-none">
         <button
           onClick={() => { setActiveSubTab('divination'); audioFeedback.playClick(); }}
-          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors ${
+          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
             activeSubTab === 'divination'
               ? 'border-vajra-cyan text-vajra-cyan'
               : 'border-transparent text-gray-400 hover:text-white'
@@ -176,7 +211,7 @@ export default function OperationsPanel() {
         </button>
         <button
           onClick={() => { setActiveSubTab('astrology'); audioFeedback.playClick(); }}
-          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors ${
+          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
             activeSubTab === 'astrology'
               ? 'border-vajra-cyan text-vajra-cyan'
               : 'border-transparent text-gray-400 hover:text-white'
@@ -186,13 +221,43 @@ export default function OperationsPanel() {
         </button>
         <button
           onClick={() => { setActiveSubTab('composer'); audioFeedback.playClick(); }}
-          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors ${
+          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
             activeSubTab === 'composer'
               ? 'border-vajra-cyan text-vajra-cyan'
               : 'border-transparent text-gray-400 hover:text-white'
           }`}
         >
           🌀 Ritual Composer
+        </button>
+        <button
+          onClick={() => { setActiveSubTab('prayer_wheel'); audioFeedback.playClick(); }}
+          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+            activeSubTab === 'prayer_wheel'
+              ? 'border-vajra-cyan text-vajra-cyan'
+              : 'border-transparent text-gray-400 hover:text-white'
+          }`}
+        >
+          🎡 Digital Prayer Wheel
+        </button>
+        <button
+          onClick={() => { setActiveSubTab('chakra'); audioFeedback.playClick(); }}
+          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+            activeSubTab === 'chakra'
+              ? 'border-vajra-cyan text-vajra-cyan'
+              : 'border-transparent text-gray-400 hover:text-white'
+          }`}
+        >
+          💚 Chakra Healing
+        </button>
+        <button
+          onClick={() => { setActiveSubTab('time_cycles'); audioFeedback.playClick(); }}
+          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+            activeSubTab === 'time_cycles'
+              ? 'border-vajra-cyan text-vajra-cyan'
+              : 'border-transparent text-gray-400 hover:text-white'
+          }`}
+        >
+          ⏳ Time Cycle Healing
         </button>
       </div>
 
@@ -255,14 +320,14 @@ export default function OperationsPanel() {
               {tarotResult && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-4">
                   {tarotResult.map((card, idx) => (
-                    <div key={card.id} className="flex flex-col items-center bg-gray-950/40 p-4 rounded-xl border border-white/10 shadow-2xl hover:border-purple-500/20 transition-all duration-300 transform hover:-translate-y-1">
-                      <div className="w-full h-80 flex items-center justify-center relative overflow-hidden rounded-lg">
-                        <div dangerouslySetInnerHTML={{ __html: card.svg }} className="w-full h-full flex justify-center" />
+                    <div key={card.id} className="flex flex-col items-center bg-gray-950/40 p-3 rounded-xl border border-white/10 shadow-2xl hover:border-purple-500/20 transition-all duration-300 transform hover:-translate-y-1">
+                      <div className="w-32 h-48 flex items-center justify-center relative overflow-hidden rounded-lg">
+                        <div dangerouslySetInnerHTML={{ __html: card.svg }} className="w-full h-full flex justify-center [&_svg]:w-full [&_svg]:h-full [&_svg]:max-w-[128px] [&_svg]:max-h-[192px]" />
                       </div>
-                      <div className="text-center mt-3 space-y-1">
-                        <span className="text-xs font-mono font-bold text-gray-500">CARD #{idx+1}</span>
-                        <h4 className="text-sm font-bold text-white">{card.name}</h4>
-                        <p className="text-xs text-purple-300 italic">{card.meaning}</p>
+                      <div className="text-center mt-2 space-y-0.5">
+                        <span className="text-[10px] font-mono font-bold text-gray-500">CARD #{idx+1}</span>
+                        <h4 className="text-xs font-bold text-white">{card.name}</h4>
+                        <p className="text-[10px] text-purple-300 italic leading-tight">{card.meaning}</p>
                       </div>
                     </div>
                   ))}
@@ -552,6 +617,29 @@ export default function OperationsPanel() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ==================== 4. PRAYER WHEEL PANEL ==================== */}
+      {activeSubTab === 'prayer_wheel' && (
+        <div className="space-y-6">
+          <PrayerWheel />
+        </div>
+      )}
+
+      {/* ==================== 5. CHAKRA HEALING PANEL ==================== */}
+      {activeSubTab === 'chakra' && (
+        <div className="space-y-6">
+          <div className="max-w-xl mx-auto">
+            <ChakraHealing className="mystical-border bg-gray-900/60 border-purple-500/30 shadow-2xl text-white" />
+          </div>
+        </div>
+      )}
+
+      {/* ==================== 6. TIME CYCLE HEALING PANEL ==================== */}
+      {activeSubTab === 'time_cycles' && (
+        <div className="space-y-6">
+          <TimeCycles />
         </div>
       )}
     </div>

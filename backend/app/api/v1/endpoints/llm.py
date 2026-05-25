@@ -39,6 +39,10 @@ class ChatRequest(BaseModel):
     api_key: Optional[str] = None
     provider: Optional[str] = "auto"  # 'openai', 'anthropic', 'local', 'auto'
     model: Optional[str] = None
+    include_astrology: Optional[bool] = False
+    include_anatomy: Optional[bool] = False
+    include_hardware: Optional[bool] = False
+    debug_mode: Optional[bool] = False
 
 
 class ToolCallLog(BaseModel):
@@ -52,6 +56,7 @@ class ToolCallLog(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     tool_calls: List[ToolCallLog]
+    debug_info: Optional[dict] = None
 
 
 def format_messages_for_llm(request_messages: List[ChatMessage], default_system_prompt: str):
@@ -286,8 +291,8 @@ async def run_rule_based_fallback(query: str) -> ChatResponse:
             ))
             response_text = (
                 f"🔮 **Vajra.Stream Automation Initiated**\n\n"
-                f"I have successfully activated the automated blessing blessing rotation.\n"
-                f"- **Session ID**: `{res.get('session_id')}`\n"
+                f"I have successfully activated the automated blessing rotation.\n"
+                f"- **Session ID**: `{res.get('session_id', '')[:28]}…`\n"
                 f"- **Populations in queue**: {res.get('populations_in_queue')}\n"
                 f"- **Status**: Continuous rotation started."
             )
@@ -643,6 +648,108 @@ async def run_rule_based_fallback(query: str) -> ChatResponse:
     return ChatResponse(response=response_text, tool_calls=tool_calls)
 
 
+async def compile_astrology_context() -> str:
+    try:
+        from backend.core.services.vajra_service import vajra_service
+        astro_data = await vajra_service._get_astrology_data()
+        if not astro_data:
+            return ""
+
+        lines = [
+            "### Current Astrological & Cosmic Alignment",
+            f"- **Planetary Hour**: {astro_data.get('planetary_hour', 'N/A')}",
+            f"- **Day Ruler**: {astro_data.get('day_planet', 'N/A')} ({astro_data.get('day_of_week', 'N/A')})",
+        ]
+
+        moon = astro_data.get("moon_phase")
+        if moon:
+            lines.append(f"- **Moon Phase**: {moon.get('phase_name', 'N/A')} (Illumination: {moon.get('illumination', 0):.1f}%, Age: {moon.get('age', 0):.1f} days)")
+
+        solar = astro_data.get("solar_terms")
+        if solar:
+            lines.append(f"- **Solar Term**: {solar.get('current_term', 'N/A')}")
+
+        shichen = astro_data.get("chinese_shichen")
+        if shichen:
+            lines.append(f"- **Chinese Shichen**: {shichen.get('shichen_name', 'N/A')} (Branch: {shichen.get('earthly_branch', 'N/A')}, Element: {shichen.get('element', 'N/A')})")
+
+        transits = astro_data.get("transits", [])
+        if transits:
+            lines.append("- **Active Transits**:")
+            for t in transits[:5]:
+                lines.append(f"  - {t.get('planet')} {t.get('aspect')} {t.get('aspecting_planet')} (Orb: {t.get('orb')}°)")
+
+        return "\n".join(lines) + "\n\n"
+    except Exception as e:
+        logger.error(f"Error compiling astrology context: {e}")
+        return "### Astrological Context\nUnavailable.\n\n"
+
+
+def compile_anatomy_context() -> str:
+    try:
+        from modules.personal_healing import PersonalHealingModule
+        phm = PersonalHealingModule()
+
+        lines = [
+            "### Subtle Body & Energetic Anatomy Context",
+            "**Active Chakra Radiance Levels & Solfeggio Correspondence**:"
+        ]
+
+        for name, info in phm.chakra_data.items():
+            freqs = ", ".join(f"{k}: {v}Hz" for k, v in info.get("frequencies", {}).items())
+            lines.append(f"- **{info.get('name')}**:")
+            lines.append(f"  - Sanskrit: {info.get('sanskrit')}")
+            lines.append(f"  - Governs: {info.get('governs')}")
+            lines.append(f"  - Frequencies: {freqs}")
+            lines.append(f"  - Crystals: {', '.join(info.get('crystals', []))}")
+            lines.append(f"  - Affirmations: {'; '.join(info.get('affirmations', []))}")
+
+        lines.append("\n**12 Classical Meridians & Organ Networks**:")
+        for name, info in phm.meridian_data.items():
+            lines.append(f"- **{name.replace('_', ' ').title()} Meridian**: Element: {info.get('element')}, Emotion: {info.get('emotion')}, Frequency: {info.get('frequency')}Hz, Color: {info.get('color')}")
+
+        return "\n".join(lines) + "\n\n"
+    except Exception as e:
+        logger.error(f"Error compiling anatomy context: {e}")
+        return "### Subtle Body Context\nUnavailable.\n\n"
+
+
+def compile_hardware_context() -> str:
+    try:
+        from backend.core.services.vajra_service import vajra_service
+        sys_status = vajra_service.get_system_status()
+        sessions = vajra_service.get_all_sessions()
+
+        lines = [
+            "### Active Hardware & Session Metrics",
+            f"- **WebSocket Clients Connected**: {sys_status.get('websocket_connections', 0)}",
+            f"- **Active Audio Stream**: {'ON' if sys_status.get('streaming_active') else 'OFF'}",
+        ]
+
+        if sessions:
+            lines.append("- **Active Operations Sessions**:")
+            for s_id, s in sessions.items():
+                lines.append(f"  - Session ID `{s_id}`: Name: {s.get('name')}, Type: {s.get('type')}, Status: {s.get('status')}")
+        else:
+            lines.append("- **Active Operations Sessions**: None")
+
+        try:
+            from backend.core.orchestrator_bridge import orchestrator_bridge
+            if hasattr(orchestrator_bridge, 'mops_tracker') and orchestrator_bridge.mops_tracker:
+                stats = orchestrator_bridge.mops_tracker.get_statistics()
+                lines.append("- **Computational Merit Rates (MOPS)**:")
+                lines.append(f"  - Scalar Generation Rate: {stats.get('scalar_pulses', {}).get('10s', 0):,.2f} pulses/sec")
+                lines.append(f"  - Mantra Chanting Rate: {stats.get('mantras', {}).get('10s', 0):,.2f} repetitions/sec")
+                lines.append(f"  - Crystal Charging Rate: {stats.get('crystals', {}).get('10s', 0):,.2f} pulses/sec")
+        except Exception:
+            pass
+
+        return "\n".join(lines) + "\n\n"
+    except Exception as e:
+        logger.error(f"Error compiling hardware/session context: {e}")
+        return "### Hardware & Session Context\nUnavailable.\n\n"
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat_interaction(request: ChatRequest):
     """
@@ -653,20 +760,12 @@ async def chat_interaction(request: ChatRequest):
         raise HTTPException(status_code=400, detail="Message list cannot be empty")
 
     query = request.messages[-1].content
-    
+
     # Retrieve key from request or env
     api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
     provider = request.provider or "auto"
-
-    # If no provider API key and provider isn't local model, use rule-based fallback
-    if not api_key and provider != "local":
-        logger.info("No API keys found. Falling back to rule-based parser.")
-        return await run_rule_based_fallback(query)
-
-    # Convert request messages to format required by standard libraries
-    # Let's support OpenAI or Anthropic tool calling
     tool_schemas = get_tool_schemas()
-    
+
     # Build System Prompt
     system_prompt = (
         "You are the Vajra.Stream AI Operator, a wise assistant designed to control a "
@@ -678,7 +777,43 @@ async def chat_interaction(request: ChatRequest):
         "with deep compassion and wisdom, invoking the digital dharma theme."
     )
 
+    # Dynamic context injection based on request flags
+    context_str = ""
+    if request.include_astrology:
+        context_str += await compile_astrology_context()
+    if request.include_anatomy:
+        context_str += compile_anatomy_context()
+    if request.include_hardware:
+        context_str += compile_hardware_context()
+
+    if context_str:
+        system_prompt += "\n\nCURRENT ENVIRONMENTAL & SYSTEM METRICS:\n" + context_str
+
     tool_logs: List[ToolCallLog] = []
+
+    # Prepare debug payload
+    debug_payload = None
+    if request.debug_mode:
+        debug_payload = {
+            "system_prompt": system_prompt,
+            "messages_sent": [{"role": m.role, "content": m.content} for m in request.messages],
+            "tools_available": [s["name"] for s in tool_schemas],
+            "provider_selected": provider,
+            "model_selected": request.model or "default",
+            "timestamp": time.time(),
+        }
+
+    def wrap_res(res):
+        if isinstance(res, str):
+            res = ChatResponse(response=res, tool_calls=tool_logs)
+        if request.debug_mode:
+            res.debug_info = debug_payload
+        return res
+
+    # If no provider API key and provider isn't local model, use rule-based fallback
+    if not api_key and provider != "local":
+        logger.info("No API keys found. Falling back to rule-based parser.")
+        return wrap_res(await run_rule_based_fallback(query))
 
     # Handle OpenAI Client Tool Calling
     if api_key and (provider == "openai" or (provider == "auto" and os.getenv("OPENAI_API_KEY"))):
@@ -718,7 +853,7 @@ async def chat_interaction(request: ChatRequest):
 
                 # Check if tool calls exist
                 if not msg.tool_calls:
-                    return ChatResponse(response=msg.content or "", tool_calls=tool_logs)
+                    return wrap_res(ChatResponse(response=msg.content or "", tool_calls=tool_logs))
 
                 # Process tool calls
                 for tool_call in msg.tool_calls:
@@ -759,7 +894,7 @@ async def chat_interaction(request: ChatRequest):
             logger.error(f"OpenAI execution failed: {e}. Falling back to rule-based parser.")
             fallback_res = await run_rule_based_fallback(query)
             fallback_res.response = f"*(OpenAI Call Failed: {str(e)} - Switched to Local Interpreter)*\n\n" + fallback_res.response
-            return fallback_res
+            return wrap_res(fallback_res)
 
 
     # Handle LM Studio Local Model Tool Calling
@@ -769,7 +904,7 @@ async def chat_interaction(request: ChatRequest):
             lm_studio_config = {
                 "base_url": os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234"),
                 "api_key": "not-required",
-                "timeout": 10.0,
+                "timeout": float(os.getenv("LM_STUDIO_TIMEOUT", "300")),  # 5 min default — large models need time
             }
             client = openai_lib.OpenAI(
                 api_key=lm_studio_config["api_key"],
@@ -815,7 +950,8 @@ async def chat_interaction(request: ChatRequest):
                         messages=openai_messages,
                         tools=openai_tools if openai_tools else None,
                         tool_choice="auto" if openai_tools else None,
-                        temperature=0.7
+                        temperature=0.7,
+                        timeout=float(os.getenv("LM_STUDIO_TIMEOUT", "300")),
                     )
                     logger.info(f"LM Studio response received, finish_reason: {response.choices[0].finish_reason}")
                 except Exception as timeout_err:
@@ -824,7 +960,7 @@ async def chat_interaction(request: ChatRequest):
                         logger.error(f"LM Studio request timed out: {timeout_err}")
                         fallback_res = await run_rule_based_fallback(query)
                         fallback_res.response = f"*(LM Studio Request Timed Out - Switched to Local Interpreter)*\n\n" + fallback_res.response
-                        return fallback_res
+                        return wrap_res(fallback_res)
                     raise
                 
                 msg = response.choices[0].message
@@ -832,7 +968,7 @@ async def chat_interaction(request: ChatRequest):
 
                 # Check if tool calls exist
                 if not msg.tool_calls:
-                    return ChatResponse(response=msg.content or "", tool_calls=tool_logs)
+                    return wrap_res(ChatResponse(response=msg.content or "", tool_calls=tool_logs))
 
                 # Process tool calls
                 for tool_call in msg.tool_calls:
@@ -880,7 +1016,7 @@ async def chat_interaction(request: ChatRequest):
                 fallback_res.response = f"*(LM Studio Not Available (Connection Refused) - Switched to Local Interpreter)*\n\n" + fallback_res.response
             else:
                 fallback_res.response = f"*(LM Studio Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n" + fallback_res.response
-            return fallback_res
+            return wrap_res(fallback_res)
 
 
     # Handle Anthropic Client Tool Calling
@@ -935,7 +1071,7 @@ async def chat_interaction(request: ChatRequest):
                 if not tool_requests:
                     # Extract final text response
                     text_resp = "".join([b.text for b in response.content if b.type == "text"])
-                    return ChatResponse(response=text_resp, tool_calls=tool_logs)
+                    return wrap_res(ChatResponse(response=text_resp, tool_calls=tool_logs))
 
                 # Process tool calls
                 tool_results_content = []
@@ -976,7 +1112,7 @@ async def chat_interaction(request: ChatRequest):
             logger.error(f"Anthropic execution failed: {e}. Falling back to rule-based parser.")
             fallback_res = await run_rule_based_fallback(query)
             fallback_res.response = f"*(Anthropic Call Failed: {str(e)} - Switched to Local Interpreter)*\n\n" + fallback_res.response
-            return fallback_res
+            return wrap_res(fallback_res)
 
     # Default fallback
-    return await run_rule_based_fallback(query)
+    return wrap_res(await run_rule_based_fallback(query))
