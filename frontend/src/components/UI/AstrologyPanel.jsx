@@ -7,6 +7,13 @@ import { audioFeedback } from '../../utils/audioFeedback';
 
 const API_BASE = 'http://localhost:8008/api/v1';
 
+const getOrdinalSuffix = (num) => {
+  if (!num) return '';
+  const s = ["th", "st", "nd", "rd"];
+  const v = num % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+};
+
 export default function AstrologyPanel() {
   const [loading, setLoading] = useState(false);
   const [liveData, setLiveData] = useState(null);
@@ -27,14 +34,41 @@ export default function AstrologyPanel() {
 
   const fetchLiveAstrology = async () => {
     if (!isLiveMode) return;
-    try {
-      const response = await fetch(`${API_BASE}/astrology/current`);
-      if (response.ok) {
-        const result = await response.json();
-        setLiveData(result.astrology);
+    const doFetch = async (lat, lon) => {
+      try {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const localTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        
+        const params = new URLSearchParams();
+        params.append('datetime_str', localTime);
+        if (lat !== null && lon !== null) {
+          params.append('latitude', lat.toString());
+          params.append('longitude', lon.toString());
+        }
+        
+        const response = await fetch(`${API_BASE}/astrology/current?${params.toString()}`);
+        if (response.ok) {
+          const result = await response.json();
+          setLiveData(result.astrology);
+        }
+      } catch (e) {
+        console.error("Error in live astrology fetch:", e);
       }
-    } catch (e) {
-      console.error("Error fetching live astrology:", e);
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          doFetch(position.coords.latitude, position.coords.longitude);
+        },
+        () => {
+          doFetch(null, null);
+        },
+        { timeout: 5000 }
+      );
+    } else {
+      doFetch(null, null);
     }
   };
 
@@ -54,7 +88,7 @@ export default function AstrologyPanel() {
     audioFeedback.playTelemetry();
     try {
       const query = new URLSearchParams({
-        datetime_str: new Date(birthDate).toISOString(),
+        datetime_str: birthDate,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude)
       }).toString();
@@ -96,11 +130,11 @@ export default function AstrologyPanel() {
   const getElementColorClass = (elementStr) => {
     if (!elementStr) return 'text-gray-400';
     const clean = elementStr.toLowerCase();
-    if (clean.includes('wood')) return 'text-emerald-400';
-    if (clean.includes('fire')) return 'text-rose-500';
-    if (clean.includes('earth')) return 'text-amber-500';
-    if (clean.includes('metal')) return 'text-slate-300';
-    if (clean.includes('water')) return 'text-blue-400';
+    if (clean.includes('wood') || clean.includes('木')) return 'text-emerald-400';
+    if (clean.includes('fire') || clean.includes('火')) return 'text-rose-500';
+    if (clean.includes('earth') || clean.includes('土')) return 'text-amber-500';
+    if (clean.includes('metal') || clean.includes('金')) return 'text-slate-300';
+    if (clean.includes('water') || clean.includes('水')) return 'text-blue-400';
     return 'text-gray-400';
   };
 
@@ -134,10 +168,10 @@ export default function AstrologyPanel() {
   const wuXingCounts = countWuXing();
 
   return (
-    <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6 bg-gray-950/45 scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+    <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6 bg-transparent scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
       
       {/* Header and Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-900/60 border border-white/10 p-5 rounded-2xl shadow-2xl backdrop-blur-md">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-2xl">
         <div>
           <h2 className="text-xl font-bold text-white tracking-wider flex items-center gap-2 font-mono">
             <Compass className="w-6 h-6 text-cyan-400 animate-spin-slow" />
@@ -210,7 +244,7 @@ export default function AstrologyPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Input parameters panel */}
-        <div className="lg:col-span-1 bg-gray-900/40 border border-white/10 p-5 rounded-2xl shadow-xl space-y-4">
+        <div className="lg:col-span-1 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl space-y-4">
           <h3 className="text-sm font-bold text-purple-400 font-mono tracking-wider uppercase flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             NATAL CHART CALCULATOR
@@ -297,7 +331,7 @@ export default function AstrologyPanel() {
         </div>
 
         {/* Current target info display */}
-        <div className="lg:col-span-2 bg-gray-900/40 border border-white/10 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
           <div className="space-y-3">
             <div className="flex justify-between items-start">
               <span className="px-2 py-0.5 bg-purple-950 text-purple-400 border border-purple-500/20 rounded font-mono text-[9px] uppercase font-bold">
@@ -362,13 +396,61 @@ export default function AstrologyPanel() {
 
           {/* WESTERN ASTROLOGY */}
           {(activeSystem === 'all' || activeSystem === 'western') && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-gray-900/30 border border-white/10 p-5 rounded-2xl shadow-xl">
-              <div className="xl:col-span-3 flex justify-between items-center border-b border-white/5 pb-2">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl">
+              <div className="xl:col-span-3 flex justify-between items-center border-b border-purple-500/15 pb-2">
                 <h3 className="text-sm font-bold text-cyan-400 tracking-wider uppercase font-mono flex items-center gap-2">
                   <Sun className="w-4 h-4 animate-spin-slow" />
                   I. Western Tropical Astrology (Transit Wheel)
                 </h3>
-                <span className="text-[9px] text-gray-500 font-mono">TROPICAL / PLACIDUS HOUSES</span>
+                <span className="text-[9px] text-purple-300/80 font-mono">TROPICAL / PLACIDUS HOUSES</span>
+              </div>
+
+              {/* Celestial Trinity (Big Three) */}
+              <div className="xl:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-purple-950/20 backdrop-blur-sm border border-purple-500/20 rounded-2xl flex items-center gap-4 hover:border-purple-500/40 transition-all duration-300">
+                  <div className="p-3 bg-yellow-500/10 rounded-xl text-yellow-400">
+                    <Sun className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-yellow-400 font-mono font-bold tracking-wider block uppercase">☀️ SUN SIGN</span>
+                    <span className="text-base font-bold text-white block mt-0.5">
+                      {activeData.western?.positions?.sun?.sign || 'Unknown'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 block font-mono">
+                      Degree: {activeData.western?.positions?.sun?.degree?.toFixed(2)}° | {activeData.western?.positions?.sun?.house ? `${activeData.western.positions.sun.house}${getOrdinalSuffix(activeData.western.positions.sun.house)} House` : 'No House'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-purple-950/20 backdrop-blur-sm border border-purple-500/20 rounded-2xl flex items-center gap-4 hover:border-purple-500/40 transition-all duration-300">
+                  <div className="p-3 bg-slate-400/10 rounded-xl text-slate-300">
+                    <Moon className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-300 font-mono font-bold tracking-wider block uppercase">🌙 MOON SIGN</span>
+                    <span className="text-base font-bold text-white block mt-0.5">
+                      {activeData.western?.positions?.moon?.sign || 'Unknown'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 block font-mono">
+                      Degree: {activeData.western?.positions?.moon?.degree?.toFixed(2)}° | {activeData.western?.positions?.moon?.house ? `${activeData.western.positions.moon.house}${getOrdinalSuffix(activeData.western.positions.moon.house)} House` : 'No House'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-purple-950/20 backdrop-blur-sm border border-purple-500/20 rounded-2xl flex items-center gap-4 hover:border-purple-500/40 transition-all duration-300">
+                  <div className="p-3 bg-cyan-500/10 rounded-xl text-cyan-400">
+                    <Compass className="w-6 h-6 animate-spin-slow" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-cyan-400 font-mono font-bold tracking-wider block uppercase">🏹 ASCENDANT (RISING)</span>
+                    <span className="text-base font-bold text-white block mt-0.5">
+                      {activeData.western?.positions?.ascendant?.sign || 'Unknown'}
+                    </span>
+                    <span className="text-[10px] text-gray-400 block font-mono">
+                      Degree: {activeData.western?.positions?.ascendant?.degree?.toFixed(2)}° | First House Cusp
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Chart Wheel Visualizer */}
@@ -390,7 +472,9 @@ export default function AstrologyPanel() {
                     return (
                       <div key={planet} className="p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg flex justify-between items-center text-xs transition-colors">
                         <span className="font-semibold text-purple-300">{label}</span>
-                        <span className="text-gray-200">{pos.formatted}</span>
+                        <span className="text-gray-200">
+                          {pos.formatted} {pos.house ? `(${pos.house}${getOrdinalSuffix(pos.house)} House)` : ''}
+                        </span>
                       </div>
                     );
                   })}
@@ -447,13 +531,13 @@ export default function AstrologyPanel() {
 
           {/* VEDIC ASTROLOGY */}
           {(activeSystem === 'all' || activeSystem === 'vedic') && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-gray-900/30 border border-white/10 p-5 rounded-2xl shadow-xl">
-              <div className="xl:col-span-3 flex justify-between items-center border-b border-white/5 pb-2">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl">
+              <div className="xl:col-span-3 flex justify-between items-center border-b border-purple-500/15 pb-2">
                 <h3 className="text-sm font-bold text-cyan-400 tracking-wider uppercase font-mono flex items-center gap-2">
                   <Shield className="w-4 h-4 text-purple-400" />
                   II. Indian Vedic Astrology (Panchang & Kundali)
                 </h3>
-                <span className="text-[9px] text-gray-500 font-mono">SIDEREAL / LAHIRI AYANAMSA</span>
+                <span className="text-[9px] text-purple-300/80 font-mono">SIDEREAL / LAHIRI AYANAMSA</span>
               </div>
 
               {/* Vedic Chart / Kundali */}
@@ -533,7 +617,7 @@ export default function AstrologyPanel() {
                     {Object.entries(activeData.indian?.sidereal_positions || {}).map(([planet, info]) => (
                       <div key={planet} className="p-2 bg-black/25 border border-white/5 rounded-lg flex justify-between items-center">
                         <span className="text-purple-300 font-semibold capitalize">{planet}</span>
-                        <span className="text-gray-300 text-[11px] font-mono">{info.formatted?.split(' ')[0]}</span>
+                        <span className="text-gray-300 text-[11px] font-mono">{info.formatted}</span>
                       </div>
                     ))}
                   </div>
@@ -545,13 +629,13 @@ export default function AstrologyPanel() {
 
           {/* CHINESE ASTROLOGY */}
           {(activeSystem === 'all' || activeSystem === 'chinese') && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-gray-900/30 border border-white/10 p-5 rounded-2xl shadow-xl">
-              <div className="xl:col-span-3 flex justify-between items-center border-b border-white/5 pb-2">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl">
+              <div className="xl:col-span-3 flex justify-between items-center border-b border-purple-500/15 pb-2">
                 <h3 className="text-sm font-bold text-cyan-400 tracking-wider uppercase font-mono flex items-center gap-2">
                   <Compass className="w-4 h-4 text-emerald-400" />
                   III. Chinese Lunisolar Astrology & BaZi
                 </h3>
-                <span className="text-[9px] text-gray-500 font-mono">Bazi Four Pillars / Wu Xing</span>
+                <span className="text-[9px] text-purple-300/80 font-mono">Bazi Four Pillars / Wu Xing</span>
               </div>
 
               {/* BaZi Four Pillars */}
@@ -625,7 +709,7 @@ export default function AstrologyPanel() {
                     </div>
                     <div className="p-3.5 bg-white/5 border border-white/5 rounded-xl flex flex-col justify-between">
                       <span className="text-[9px] text-gray-500 block uppercase font-bold">SOLAR TERM</span>
-                      <span className="font-bold text-white mt-1.5 block truncate">{activeData.chinese?.solar_term?.split(' ')[0]}</span>
+                      <span className="font-bold text-white mt-1.5 block truncate">{activeData.chinese?.solar_term}</span>
                     </div>
                   </div>
                 </div>

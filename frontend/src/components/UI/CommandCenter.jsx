@@ -452,17 +452,45 @@ export default function CommandCenter({
   const [astroData, setAstroData] = useState(null);
   
   useEffect(() => {
-    const fetchAstro = async () => {
+    const doFetch = async (lat, lon) => {
       try {
-        const res = await fetch('http://localhost:8008/api/v1/astrology/current');
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const localTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        
+        const params = new URLSearchParams();
+        params.append('datetime_str', localTime);
+        if (lat !== null && lon !== null) {
+          params.append('latitude', lat.toString());
+          params.append('longitude', lon.toString());
+        }
+        
+        const res = await fetch(`http://localhost:8008/api/v1/astrology/current?${params.toString()}`);
         if (res.ok) {
-          const d = await res.json();
-          setAstroData(d.astrology);
+          const data = await res.json();
+          setAstroData(data.astrology);
         }
       } catch (e) {
         // Ignore
       }
     };
+
+    const fetchAstro = async () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            doFetch(position.coords.latitude, position.coords.longitude);
+          },
+          () => {
+            doFetch(null, null);
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        doFetch(null, null);
+      }
+    };
+    
     fetchAstro();
     const interval = setInterval(fetchAstro, 15000);
     return () => clearInterval(interval);
@@ -624,7 +652,7 @@ export default function CommandCenter({
     <div className="h-full flex flex-col lg:flex-row gap-6 p-4 md:p-6 overflow-hidden">
       
       {/* Left Column: Chat and Commands */}
-      <div className="flex-1 flex flex-col min-h-0 bg-gray-900/60 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden shadow-2xl">
+      <div className="flex-1 flex flex-col min-h-0 bg-black/25 backdrop-blur-md rounded-xl border border-purple-500/15 overflow-hidden shadow-2xl">
         
         {/* Chat Header */}
         <div className="bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-blue-900/40 p-4 border-b border-white/10 flex justify-between items-center">
@@ -656,8 +684,8 @@ export default function CommandCenter({
               <div className={`
                 max-w-[85%] rounded-xl px-4 py-3 shadow-lg
                 ${msg.role === 'user' 
-                  ? 'bg-purple-600/90 text-white rounded-br-none border border-purple-400/20' 
-                  : 'bg-gray-800/80 text-gray-100 rounded-bl-none border border-white/5'
+                  ? 'bg-gradient-to-br from-purple-600/90 to-indigo-700/95 text-white rounded-br-none border border-purple-400/20 shadow-[0_4px_12px_rgba(138,43,226,0.3)]' 
+                  : 'bg-purple-950/25 backdrop-blur-md text-gray-100 rounded-bl-none border border-purple-500/20 shadow-[0_4px_12px_rgba(0,0,0,0.3)]'
                 }
               `}>
                 <div className="markdown-container">
@@ -671,7 +699,7 @@ export default function CommandCenter({
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-gray-800/80 rounded-xl rounded-bl-none px-4 py-3 border border-white/5 shadow-lg flex items-center space-x-2">
+              <div className="bg-purple-950/25 backdrop-blur-md rounded-xl rounded-bl-none px-4 py-3 border border-purple-500/20 shadow-lg flex items-center space-x-2">
                 <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                 <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                 <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -699,7 +727,7 @@ export default function CommandCenter({
         {/* Input Bar */}
         <form 
           onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
-          className="p-4 border-t border-white/10 bg-gray-950/40 flex gap-2"
+          className="p-4 border-t border-purple-500/15 bg-black/40 flex gap-2"
         >
           <input
             type="text"
@@ -710,7 +738,7 @@ export default function CommandCenter({
             }}
             disabled={isLoading}
             placeholder="Instruct the system (e.g. 'start peace session', 'list populations')..."
-            className="flex-1 bg-gray-900/80 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-all font-sans"
+            className="flex-1 bg-black/40 border border-purple-500/25 rounded-lg px-4 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/30 transition-all font-sans"
           />
           <button
             type="submit"
@@ -729,7 +757,7 @@ export default function CommandCenter({
       <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0">
         
         {/* Status Monitors Card */}
-        <div className="bg-gray-900/60 backdrop-blur-md rounded-xl border border-white/10 p-5 flex flex-col shadow-2xl">
+        <div className="bg-black/25 backdrop-blur-md rounded-xl border border-purple-500/15 p-5 flex flex-col shadow-2xl">
           <h3 className="text-sm font-bold text-white mb-4 tracking-wider flex items-center gap-2">
             <Activity className="w-4 h-4 text-purple-400" />
             SYSTEM MONITORS
@@ -837,7 +865,7 @@ export default function CommandCenter({
         </div>
 
         {/* Cosmic Alignment Widget */}
-        <div className="bg-gray-900/60 backdrop-blur-md rounded-xl border border-white/10 p-5 flex flex-col shadow-2xl">
+        <div className="bg-black/25 backdrop-blur-md rounded-xl border border-purple-500/15 p-5 flex flex-col shadow-2xl">
           <h3 className="text-sm font-bold text-white mb-4 tracking-wider flex items-center gap-2">
             <Moon className="w-4 h-4 text-cyan-400" />
             COSMIC ALIGNMENT
@@ -898,7 +926,7 @@ export default function CommandCenter({
         </div>
 
         {/* Tool Execution Logs (Terminal UI) */}
-        <div className="flex-1 min-h-[220px] bg-black/95 rounded-xl border border-white/10 p-4 flex flex-col font-mono shadow-2xl">
+        <div className="flex-1 min-h-[220px] bg-black/60 backdrop-blur-md rounded-xl border border-purple-500/15 p-4 flex flex-col font-mono shadow-2xl">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-purple-400 animate-pulse" />

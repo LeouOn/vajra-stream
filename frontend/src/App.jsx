@@ -168,17 +168,17 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-900 text-white flex flex-col font-sans relative overflow-hidden ${crtEnabled ? 'crt-screen' : ''}`}>
+    <div className={`min-h-screen bg-transparent text-white flex flex-col font-sans relative overflow-hidden ${crtEnabled ? 'crt-screen' : ''}`}>
       {/* Cyberdeck HUD layers */}
       {crtEnabled && <div className="scanline absolute inset-0 pointer-events-none z-[100]" />}
       {crtEnabled && <div className="scanline-sweep" />}
-      <div className="cyber-grid animate-pulse-glow" />
+      <div className="cyber-grid" />
 
       {/* Toast Notifications */}
       <ToastContainer />
       
       {/* Header - Mobile Responsive */}
-      <header className="bg-gray-800 border-b border-gray-700 p-2 md:p-3 z-20 glassmorphism mystical-border relative">
+      <header className="p-2 md:p-3 z-20 glassmorphism mystical-border relative">
         <div className="max-w-full mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
           
           {/* Logo & Mobile status */}
@@ -202,8 +202,8 @@ function App() {
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'command-center'
-                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-gradient-to-r from-purple-600/90 to-indigo-600/90 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)] border border-purple-400/30'
+                    : 'text-gray-400 hover:text-purple-300 hover:bg-purple-900/10'
                 }`}
               >
                 <Command className="w-3.5 h-3.5 text-vajra-purple" />
@@ -215,8 +215,8 @@ function App() {
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'operations'
-                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-gradient-to-r from-purple-600/90 to-indigo-600/90 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)] border border-purple-400/30'
+                    : 'text-gray-400 hover:text-purple-300 hover:bg-purple-900/10'
                 }`}
               >
                 <Compass className="w-3.5 h-3.5 text-vajra-cyan" />
@@ -228,8 +228,8 @@ function App() {
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'astrology'
-                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-gradient-to-r from-purple-600/90 to-indigo-600/90 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)] border border-purple-400/30'
+                    : 'text-gray-400 hover:text-purple-300 hover:bg-purple-900/10'
                 }`}
               >
                 <Clock className="w-3.5 h-3.5 text-vajra-cyan animate-pulse" />
@@ -241,8 +241,8 @@ function App() {
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'broadcast'
-                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-gradient-to-r from-purple-600/90 to-indigo-600/90 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)] border border-purple-400/30'
+                    : 'text-gray-400 hover:text-purple-300 hover:bg-purple-900/10'
                 }`}
               >
                 <Radio className="w-3.5 h-3.5 text-vajra-cyan" />
@@ -254,8 +254,8 @@ function App() {
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'visualizers'
-                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-gradient-to-r from-purple-600/90 to-indigo-600/90 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)] border border-purple-400/30'
+                    : 'text-gray-400 hover:text-purple-300 hover:bg-purple-900/10'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5 text-vajra-purple" />
@@ -267,8 +267,8 @@ function App() {
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'grimoire'
-                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-gradient-to-r from-purple-600/90 to-indigo-600/90 text-white shadow-[0_0_12px_rgba(139,92,246,0.3)] border border-purple-400/30'
+                    : 'text-gray-400 hover:text-purple-300 hover:bg-purple-900/10'
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5 text-vajra-purple" />
@@ -285,7 +285,7 @@ function App() {
               className={`p-2 rounded-lg border transition-all duration-300 flex items-center gap-1.5 ${
                 crtEnabled
                   ? 'bg-purple-950 border-purple-500 text-vajra-cyan shadow-[0_0_10px_rgba(0,255,255,0.3)]'
-                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
               }`}
               title="Toggle Cyberdeck CRT HUD Overlay"
             >
@@ -495,7 +495,7 @@ function App() {
       )}
 
       {/* Footer */}
-      <footer className="bg-gray-800 border-t border-gray-700 px-4 py-2 glassmorphism mystical-border">
+      <footer className="px-4 py-2 glassmorphism mystical-border z-10">
         <div className="max-w-full mx-auto flex flex-col md:flex-row justify-between items-center text-xs text-gray-400 gap-2">
           <div className="text-purple-300 font-semibold flex items-center gap-2">
             <span>Vajra.Stream - Sacred Technology Platform</span>

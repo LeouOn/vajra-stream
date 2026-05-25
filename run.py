@@ -219,6 +219,103 @@ def show_status():
         except ImportError:
             print(f"    [MISSING] {dep}")
 
+def preflight_checks():
+    print("=" * 60)
+    print("  Performing System Pre-Flight Checks...")
+    print("=" * 60)
+    
+    # 1. Git Update Check
+    git_dir = SCRIPT_DIR / ".git"
+    if git_dir.exists():
+        print("Checking for repository updates...")
+        try:
+            # Run git fetch to check for upstream changes
+            # Use a timeout of 3 seconds to avoid hanging if offline
+            res = _cmd(["git", "fetch"], timeout=3, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res.returncode == 0:
+                local_res = _cmd(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
+                local_hash = local_res.stdout.decode().strip() if local_res.returncode == 0 else ""
+                
+                upstream_res = _cmd(["git", "rev-parse", "@{u}"], stdout=subprocess.PIPE)
+                upstream_hash = upstream_res.stdout.decode().strip() if upstream_res.returncode == 0 else ""
+                
+                if local_hash and upstream_hash and local_hash != upstream_hash:
+                    print("[INFO] New repository updates are available.")
+                    print("       Pulling latest changes...")
+                    pull_res = _cmd(["git", "pull"], timeout=10)
+                    if pull_res.returncode == 0:
+                        print("[OK] Repository updated successfully.")
+                    else:
+                        print("[WARN] Failed to pull repository updates. Proceeding with local version.")
+                else:
+                    print("[OK] Repository is up-to-date.")
+            else:
+                print("[INFO] Could not fetch remote repository status. Proceeding offline.")
+        except FileNotFoundError:
+            print("[INFO] Git executable not found in PATH. Skipping git check.")
+        except Exception as e:
+            print(f"[INFO] Skipping git check: {e}")
+    else:
+        print("[INFO] Not a git repository. Skipping git check.")
+
+    # 2. Python Dependency Check
+    req_file = SCRIPT_DIR / "requirements.txt"
+    if req_file.exists():
+        print("Verifying Python dependencies...")
+        try:
+            import importlib.metadata
+            import re
+            
+            missing = []
+            with open(req_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    # Parse package name
+                    match = re.match(r"^([a-zA-Z0-9_\-]+)", line)
+                    if match:
+                        pkg = match.group(1)
+                        try:
+                            importlib.metadata.version(pkg)
+                        except importlib.metadata.PackageNotFoundError:
+                            missing.append(line)
+            
+            if missing:
+                print(f"[WARN] Missing {len(missing)} Python packages (e.g. {', '.join([m.split('>=')[0] for m in missing[:3]])}).")
+                print("       Installing dependencies...")
+                _cmd([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+                print("[OK] Python dependencies installed.")
+            else:
+                print("[OK] Python dependencies are satisfied.")
+        except Exception as e:
+            print(f"[WARN] Error verifying Python dependencies: {e}. Running pip install just in case...")
+            _cmd([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+
+    # 3. Frontend Dependency Check
+    frontend_dir = SCRIPT_DIR / "frontend"
+    if frontend_dir.exists():
+        print("Verifying Frontend dependencies...")
+        node_modules = frontend_dir / "node_modules"
+        if not node_modules.exists():
+            print("[WARN] frontend/node_modules not found.")
+            print("       Running 'npm install' in frontend directory (this may take a minute)...")
+            try:
+                # Run npm install
+                res = _cmd(["npm", "install"], cwd=frontend_dir)
+                if res.returncode == 0:
+                    print("[OK] Frontend dependencies installed successfully.")
+                else:
+                    print("[ERROR] 'npm install' failed. Frontend server may fail to start.")
+            except FileNotFoundError:
+                print("[ERROR] 'npm' command not found. Please install Node.js and npm to run the frontend.")
+            except Exception as e:
+                print(f"[ERROR] Could not run 'npm install': {e}")
+        else:
+            print("[OK] Frontend dependencies are installed.")
+            
+    print("Pre-flight checks complete.\n")
+
 
 def main():
     print_banner()
@@ -264,6 +361,9 @@ Examples:
         return 0
 
     sys.path.insert(0, str(SCRIPT_DIR))
+
+    if args.command in ["serve", "frontend", "full"]:
+        preflight_checks()
 
     if args.command == "install":
         install_dependencies()

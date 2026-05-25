@@ -40,7 +40,13 @@ async def get_current_astrology(datetime_str: str = None, latitude: float = None
                     raise HTTPException(status_code=400, detail="Invalid datetime format. Use ISO format.")
             
             if calc_dt and calc_dt.tzinfo is None:
-                calc_dt = calc_dt.replace(tzinfo=pytz.UTC)
+                if latitude is not None and longitude is not None:
+                    import datetime as dt_mod
+                    offset_hours = round(longitude * 2.0 / 15.0) / 2.0
+                    tz_offset = dt_mod.timezone(dt_mod.timedelta(hours=offset_hours))
+                    calc_dt = calc_dt.replace(tzinfo=tz_offset)
+                else:
+                    calc_dt = calc_dt.replace(tzinfo=pytz.UTC)
 
         location = None
         if latitude is not None and longitude is not None:

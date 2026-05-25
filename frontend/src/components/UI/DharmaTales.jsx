@@ -179,7 +179,7 @@ const DharmaTales = ({ className = '' }) => {
         </h3>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-purple-900/20 text-purple-300/60 hover:text-white transition-colors"
           title={isExpanded ? 'Collapse' : 'Expand'}
         >
           {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -188,44 +188,44 @@ const DharmaTales = ({ className = '' }) => {
       
       {/* Theme Selection */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Theme</label>
+        <label className="block text-xs text-purple-300/80 mb-1 font-medium">Theme</label>
         <select
           value={theme}
           onChange={(e) => setTheme(e.target.value)}
-          className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-purple-500 focus:outline-none"
+          className="w-full bg-black/45 text-white rounded-lg px-3 py-2 text-sm border border-purple-500/20 focus:border-purple-500/60 focus:outline-none transition-all duration-300"
         >
           {(availableThemes.length > 0 ? availableThemes : THEMES).map(t => (
-            <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>
+            <option key={t} value={t} className="bg-gray-950">{t.replace(/_/g, ' ')}</option>
           ))}
         </select>
       </div>
       
       {/* Tradition Selection */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Tradition</label>
+        <label className="block text-xs text-purple-300/80 mb-1 font-medium">Tradition</label>
         <select
           value={tradition}
           onChange={(e) => setTradition(e.target.value)}
-          className="w-full bg-gray-700 text-white rounded-lg px-3 py-2 text-sm border border-gray-600 focus:border-purple-500 focus:outline-none"
+          className="w-full bg-black/45 text-white rounded-lg px-3 py-2 text-sm border border-purple-500/20 focus:border-purple-500/60 focus:outline-none transition-all duration-300"
         >
           {(availableTraditions.length > 0 ? availableTraditions : TRADITIONS).map(t => (
-            <option key={t} value={t}>{t}</option>
+            <option key={t} value={t} className="bg-gray-950">{t}</option>
           ))}
         </select>
       </div>
       
       {/* Length Selection */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Length</label>
+        <label className="block text-xs text-purple-300/80 mb-1 font-medium">Length</label>
         <div className="grid grid-cols-3 gap-2">
           {['short', 'medium', 'long'].map(l => (
             <button
               key={l}
               onClick={() => setLength(l)}
-              className={`px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
+              className={`px-3 py-2 rounded-lg text-sm capitalize transition-all duration-300 border ${
                 length === l
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-700/50 text-gray-400 hover:text-white hover:bg-gray-600/50'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400/20 shadow-md'
+                  : 'bg-purple-950/10 text-purple-300/70 border-purple-500/10 hover:text-white hover:bg-purple-900/20'
               }`}
             >
               {l}
@@ -238,7 +238,7 @@ const DharmaTales = ({ className = '' }) => {
       <button
         onClick={generateTale}
         disabled={isGenerating}
-        className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white rounded-lg px-4 py-3 text-sm flex items-center justify-center gap-2 font-semibold transition-colors"
+        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-lg px-4 py-3 text-sm flex items-center justify-center gap-2 font-semibold transition-all duration-300 shadow-lg hover:shadow-purple-500/20"
       >
         {isGenerating ? (
           <RefreshCw className="w-4 h-4 animate-spin" />
@@ -250,31 +250,31 @@ const DharmaTales = ({ className = '' }) => {
       
       {/* Tale Display */}
       {tale && (
-        <div className="bg-gray-900/50 rounded-lg border border-gray-700 overflow-hidden">
+        <div className="bg-black/20 rounded-lg border border-purple-500/15 overflow-hidden shadow-inner">
           {/* Tale content */}
           <div className={`p-4 ${isExpanded ? '' : 'max-h-60'} overflow-y-auto`}>
-            <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">{tale}</p>
+            <p className="text-sm text-purple-100/90 whitespace-pre-wrap leading-relaxed">{tale}</p>
           </div>
           
           {/* Tale actions */}
-          <div className="flex items-center gap-1 px-3 py-2 border-t border-gray-700 bg-gray-800/50">
+          <div className="flex items-center gap-1 px-3 py-2 border-t border-purple-500/15 bg-black/30">
             <button
               onClick={speakTale}
-              className={`p-2 rounded-lg hover:bg-gray-700 transition-colors ${isSpeaking ? 'text-purple-400' : 'text-gray-400 hover:text-white'}`}
+              className={`p-2 rounded-lg hover:bg-purple-900/20 transition-colors ${isSpeaking ? 'text-purple-400' : 'text-purple-300/60 hover:text-white'}`}
               title={isSpeaking ? 'Stop speaking' : 'Read aloud'}
             >
               {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <button
               onClick={saveTale}
-              className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-yellow-400 transition-colors"
+              className="p-2 rounded-lg hover:bg-purple-900/20 text-purple-300/60 hover:text-yellow-400 transition-colors"
               title="Save tale"
             >
               <Save className="w-4 h-4" />
             </button>
             <button
               onClick={copyToClipboard}
-              className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+              className="p-2 rounded-lg hover:bg-purple-900/20 text-purple-300/60 hover:text-white transition-colors"
               title="Copy to clipboard"
             >
               <Copy className="w-4 h-4" />
@@ -282,7 +282,7 @@ const DharmaTales = ({ className = '' }) => {
             <div className="flex-1" />
             {isSpeaking && (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Speed:</span>
+                <span className="text-xs text-purple-300/60">Speed:</span>
                 <input
                   type="range"
                   min="0.5"
@@ -290,9 +290,9 @@ const DharmaTales = ({ className = '' }) => {
                   step="0.1"
                   value={speechRate}
                   onChange={(e) => setSpeechRate(parseFloat(e.target.value))}
-                  className="w-16 h-1"
+                  className="w-16 h-1 accent-purple-500"
                 />
-                <span className="text-xs text-gray-400 w-6">{speechRate}x</span>
+                <span className="text-xs text-purple-300/80 w-6 font-mono">{speechRate}x</span>
               </div>
             )}
           </div>
