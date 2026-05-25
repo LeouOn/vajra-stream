@@ -204,7 +204,7 @@ class BlessingSlideshowService:
             return hashlib.md5(file_path.encode()).hexdigest()
 
     def scan_directory(
-        self, directory_path: str, recursive: bool = False, deduplicate: bool = True
+        self, directory_path: str | None, recursive: bool = False, deduplicate: bool = True
     ) -> list[PhotoRecord]:
         """
         Scan directory for image files
@@ -217,8 +217,47 @@ class BlessingSlideshowService:
         Returns:
             List of PhotoRecord objects
         """
+        import os
         photos = []
         seen_hashes = set()
+
+        use_fallback = False
+        if not directory_path or not os.path.exists(directory_path):
+            use_fallback = True
+        else:
+            path = Path(directory_path)
+            if path.is_dir():
+                # Check if there are any valid image files
+                files = path.rglob("*") if recursive else path.glob("*")
+                has_images = False
+                for f in files:
+                    if f.is_file() and f.suffix.lower() in self.SUPPORTED_IMAGE_EXTENSIONS:
+                        has_images = True
+                        break
+                if not has_images:
+                    use_fallback = True
+            else:
+                use_fallback = True
+
+        if use_fallback:
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            directory_path = os.path.join(base_dir, "data", "placeholder_photos")
+            os.makedirs(directory_path, exist_ok=True)
+            
+            placeholder_file = os.path.join(directory_path, "default_placeholder.png")
+            if not os.path.exists(placeholder_file):
+                try:
+                    from PIL import Image, ImageDraw
+                    # Create a 400x400 dark neon blue/purple image
+                    img = Image.new("RGB", (400, 400), color=(10, 10, 25))
+                    draw = ImageDraw.Draw(img)
+                    # Draw a glowing yantra/mandala circle in the center
+                    draw.ellipse([50, 50, 350, 350], outline=(138, 43, 226), width=3)
+                    draw.ellipse([100, 100, 300, 300], outline=(0, 245, 255), width=2)
+                    draw.ellipse([150, 150, 250, 250], outline=(255, 0, 128), width=1)
+                    img.save(placeholder_file)
+                except Exception as e:
+                    print(f"Error generating placeholder image: {e}")
 
         path = Path(directory_path)
         if not path.exists() or not path.is_dir():

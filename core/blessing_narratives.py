@@ -449,6 +449,46 @@ class NarrativeTemplateLibrary:
             tags=["hungry_ghost", "nourishment", "generosity", "satisfaction", "liberation"],
         )
 
+    @staticmethod
+    def get_healing_journey_template() -> NarrativeTemplate:
+        """Template for healing journey and restoration"""
+        return NarrativeTemplate(
+            narrative_type=NarrativeType.HEALING_JOURNEY,
+            title="The Path of Restoration and Wholeness",
+            opening=[
+                "In the quiet space of healing, where the noise of the world recedes...",
+                "The weariness of long imbalance, the pain of body and spirit - all began to settle...",
+                "A gentle warmth arose within the center of being, soft as a candle flame but steady...",
+                "As the breath slowed, the armor of resistance began to dissolve, welcoming the healing stream...",
+            ],
+            journey=[
+                "Frequencies of balance washed over the energetic meridians, untangling long-standing blockages.",
+                "With each conscious breath, a vitalizing emerald light expanded from the heart center, nourishing every cell.",
+                "Faint patterns of ancestral strength and resilience emerged to support the physical structure.",
+                "Through deep relaxation, the body remembered its original blueprint of harmony and strength.",
+            ],
+            transformation=[
+                "The realization blossomed: healing is not a destination, but a return to our true nature of wholeness.",
+                "At the intersection of intention and grace, the subtle systems aligned in perfect equilibrium.",
+                "The old weight of distress crumbled, replaced by a radiant flow of pure vitality.",
+                "All tension dissolved into space, leaving only the pristine clarity of the natural state.",
+            ],
+            resolution=[
+                "Now anchored in vitality, physical and energetic systems function in perfect harmony.",
+                "With renewed strength, the path forward becomes clear, vibrant, and filled with purpose.",
+                "From this sanctuary of wellness, a wish arises: may all who suffer find complete healing and peace.",
+                "The vitality remains steady, a protective shield of light that grows stronger day by day.",
+            ],
+            dedication=[
+                "May all beings experiencing illness or imbalance find rapid recovery.",
+                "May all systems of body and mind align with the universal harmony.",
+                "May the energy of health and peace radiate to all corners of the world.",
+                "Tadyatha om bhaisajye bhaisajye mahabhaisajye samudgate svaha",
+            ],
+            tags=["healing", "vitality", "restoration", "alignment", "harmony"],
+        )
+
+
 
 class StoryGenerator:
     """Generates liberation narratives from templates or LLM"""
@@ -517,6 +557,8 @@ class StoryGenerator:
             template = NarrativeTemplateLibrary.get_reconciliation_template()
         elif narrative_type == NarrativeType.HUNGRY_GHOST_NOURISHMENT:
             template = NarrativeTemplateLibrary.get_hungry_ghost_nourishment_template()
+        elif narrative_type == NarrativeType.HEALING_JOURNEY:
+            template = NarrativeTemplateLibrary.get_healing_journey_template()
         else:
             template = NarrativeTemplateLibrary.get_pure_land_arrival_template()
 

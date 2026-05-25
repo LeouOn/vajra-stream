@@ -1,0 +1,230 @@
+{
+  "description": "Global target populations mapped to multidimensional esoteric schemas (astrology, geomancy, archetypes, radionics)",
+  "note": "Preloaded targets for environmental protection, healing, and human well-being, designed to be politically neutral.",
+  "targets": [
+    {
+      "name": "Amazon Rainforest",
+      "category": "land_spirit",
+      "description": "Ecosystem protection and biodiversity restoration of the Amazon Rainforest.",
+      "priority": 8,
+      "latitude": -3.4653,
+      "longitude": -62.2159,
+      "intention": "May the Amazon Rainforest be protected from deforestation, may its diverse species flourish, and may its ecological balance be restored.",
+      "additional_data": {
+        "astrology": {
+          "ruling_planet": "Venus",
+          "zodiac_sign": "Taurus",
+          "element": "Earth",
+          "planetary_alignment": "Venus sextile Neptune"
+        },
+        "geomancy": {
+          "figure": "Albus",
+          "pattern": [2, 2, 1, 2],
+          "translation": "The White",
+          "meaning": "Wisdom, clarity, peace, purification"
+        },
+        "archetype": {
+          "tarot_card": "The Empress",
+          "hebrew_letter": "Daleth",
+          "meaning": "Abundance, creativity, nature, mothering"
+        },
+        "radionics": {
+          "rate": [15, 45, 92],
+          "general_vitality": 850
+        }
+      }
+    },
+    {
+      "name": "Global Hospital Patients",
+      "category": "suffering_unknown",
+      "description": "Recovery and healing support for children and adults in critical care worldwide.",
+      "priority": 9,
+      "latitude": 0.0,
+      "longitude": 0.0,
+      "intention": "May all patients in critical care and hospitals worldwide find comfort, rapid healing, and recovery of physical vitality.",
+      "additional_data": {
+        "astrology": {
+          "ruling_planet": "Moon",
+          "zodiac_sign": "Cancer",
+          "element": "Water",
+          "planetary_alignment": "Moon conjunct Jupiter"
+        },
+        "geomancy": {
+          "figure": "Laetitia",
+          "pattern": [1, 2, 2, 2],
+          "translation": "Joy",
+          "meaning": "Joy, health, expansion, positive news"
+        },
+        "archetype": {
+          "tarot_card": "The High Priestess",
+          "hebrew_letter": "Gimel",
+          "meaning": "Intuition, subconscious, healing, inner secrets"
+        },
+        "radionics": {
+          "rate": [42, 60, 85],
+          "general_vitality": 720
+        }
+      }
+    },
+    {
+      "name": "Sahel Green Wall Initiative",
+      "category": "land_spirit",
+      "description": "Desert reclamation, land restoration, and community resilience across the Sahel region.",
+      "priority": 7,
+      "latitude": 15.0292,
+      "longitude": -0.835,
+      "intention": "May the land restoration efforts across the Sahel succeed, bringing green growth, water abundance, and food security to local communities.",
+      "additional_data": {
+        "astrology": {
+          "ruling_planet": "Saturn",
+          "zodiac_sign": "Capricorn",
+          "element": "Earth",
+          "planetary_alignment": "Saturn trine Sun"
+        },
+        "geomancy": {
+          "figure": "Acquisitio",
+          "pattern": [2, 1, 2, 1],
+          "translation": "Gain",
+          "meaning": "Increase, expansion, success"
+        },
+        "archetype": {
+          "tarot_card": "The Emperor",
+          "hebrew_letter": "Heh",
+          "meaning": "Structure, authority, discipline, strong foundation"
+        },
+        "radionics": {
+          "rate": [28, 55, 94],
+          "general_vitality": 680
+        }
+      }
+    },
+    {
+      "name": "Great Barrier Reef Ecosystem",
+      "category": "land_spirit",
+      "description": "Marine preservation, coral recovery, and ecological protection of the Great Barrier Reef.",
+      "priority": 8,
+      "latitude": -18.2871,
+      "longitude": 147.6992,
+      "intention": "May the oceans be cleansed, the coral reefs heal from bleaching, and the marine life of the Great Barrier Reef thrive in clear waters.",
+      "additional_data": {
+        "astrology": {
+          "ruling_planet": "Neptune",
+          "zodiac_sign": "Pisces",
+          "element": "Water",
+          "planetary_alignment": "Moon trine Neptune"
+        },
+        "geomancy": {
+          "figure": "Populus",
+          "pattern": [2, 2, 2, 2],
+          "translation": "The People",
+          "meaning": "Consensus, flow, gathering, diffusion"
+        },
+        "archetype": {
+          "tarot_card": "The Star",
+          "hebrew_letter": "Tzaddi",
+          "meaning": "Hope, renewal, cosmic inspiration"
+        },
+        "radionics": {
+          "rate": [33, 77, 99],
+          "general_vitality": 790
+        }
+      }
+    },
+    {
+      "name": "Global Communities",
+      "category": "all_sentient_beings",
+      "description": "Nurturing social cohesion, mutual understanding, and regional harmony across all communities.",
+      "priority": 6,
+      "latitude": 0.0,
+      "longitude": 0.0,
+      "intention": "May all communities worldwide experience social cohesion, mutual understanding, and cooperation across cultural divides.",
+      "additional_data": {
+        "astrology": {
+          "ruling_planet": "Jupiter",
+          "zodiac_sign": "Libra",
+          "element": "Air",
+          "planetary_alignment": "Jupiter sextile Venus"
+        },
+        "geomancy": {
+          "figure": "Fortuna Major",
+          "pattern": [2, 2, 1, 1],
+          "translation": "Greater Fortune",
+          "meaning": "Inner victory, supreme success, protection"
+        },
+        "archetype": {
+          "tarot_card": "The Lovers",
+          "hebrew_letter": "Zayin",
+          "meaning": "Alignment of values, choices, harmony"
+        },
+        "radionics": {
+          "rate": [50, 50, 50],
+          "general_vitality": 880
+        }
+      }
+    },
+    {
+      "name": "Refugees & War Victims",
+      "category": "refugee",
+      "description": "Providing safety, sanctuary, and psychological healing to displaced populations and war victims.",
+      "priority": 9,
+      "latitude": 0.0,
+      "longitude": 0.0,
+      "intention": "May all refugees and victims of conflict find safe sanctuary, emotional healing from trauma, and the resources to rebuild their lives in peace.",
+      "additional_data": {
+        "astrology": {
+          "ruling_planet": "Venus",
+          "zodiac_sign": "Leo",
+          "element": "Fire",
+          "planetary_alignment": "Mars conjunct Venus"
+        },
+        "geomancy": {
+          "figure": "Carcer",
+          "pattern": [1, 2, 2, 1],
+          "translation": "Sanctuary",
+          "meaning": "Transmuting restriction and danger into security and safe containment"
+        },
+        "archetype": {
+          "tarot_card": "Strength",
+          "hebrew_letter": "Teth",
+          "meaning": "Inner strength, patience, fortitude, compassion"
+        },
+        "radionics": {
+          "rate": [18, 38, 72],
+          "general_vitality": 550
+        }
+      }
+    },
+    {
+      "name": "World Leaders",
+      "category": "all_sentient_beings",
+      "description": "Inspiring wisdom, clear decision-making, and compassion in global leadership.",
+      "priority": 7,
+      "latitude": 0.0,
+      "longitude": 0.0,
+      "intention": "May global leaders be guided by wisdom, empathy, and clear decision-making to serve the collective well-being of all sentient beings.",
+      "additional_data": {
+        "astrology": {
+          "ruling_planet": "Sun",
+          "zodiac_sign": "Sagittarius",
+          "element": "Fire",
+          "planetary_alignment": "Sun conjunct Jupiter"
+        },
+        "geomancy": {
+          "figure": "Caput Draconis",
+          "pattern": [2, 1, 1, 1],
+          "translation": "Dragon's Head",
+          "meaning": "New beginnings, entry point, spiritual growth"
+        },
+        "archetype": {
+          "tarot_card": "The Magician",
+          "hebrew_letter": "Beth",
+          "meaning": "Willpower, manifestation, clear vision"
+        },
+        "radionics": {
+          "rate": [10, 80, 90],
+          "general_vitality": 620
+        }
+      }
+    }
+  ]
+}

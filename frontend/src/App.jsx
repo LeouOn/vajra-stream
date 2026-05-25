@@ -31,11 +31,15 @@ import { SidebarSection } from './components/UI/SidebarSection';
 import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
 import CommandCenter from './components/UI/CommandCenter';
 import ManualSettingsTab from './components/UI/ManualSettingsTab';
+import OperationsPanel from './components/UI/OperationsPanel';
+import AstrologyPanel from './components/UI/AstrologyPanel';
+import BroadcastPanel from './components/UI/BroadcastPanel';
+import GrimoirePanel from './components/UI/GrimoirePanel';
 import { audioFeedback } from './utils/audioFeedback';
 import {
   Volume2, Clock, Heart, Sparkles, Zap, Users, Radio, BookOpen,
   Sliders, Gem, LayoutDashboard, Search, Command, TrendingUp,
-  ChevronDown, ChevronRight, Monitor
+  ChevronDown, ChevronRight, Monitor, Compass
 } from 'lucide-react';
 
 const VIEWS = {
@@ -48,6 +52,25 @@ function App() {
   const [activeTab, setActiveTab] = useState('command-center');
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const [crtEnabled, setCrtEnabled] = useState(true);
+  const [mopsData, setMopsData] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  useEffect(() => {
+    const fetchMops = async () => {
+      try {
+        const res = await fetch('http://localhost:8008/api/v1/mops/current');
+        if (res.ok) {
+          const data = await res.json();
+          setMopsData(data.mops);
+        }
+      } catch (e) {
+        // Ignore connectivity warnings
+      }
+    };
+    fetchMops();
+    const interval = setInterval(fetchMops, 2000);
+    return () => clearInterval(interval);
+  }, []);
   
   const { 
     audioSpectrum, 
@@ -179,7 +202,7 @@ function App() {
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'command-center'
-                    ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-500/20'
+                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -188,55 +211,68 @@ function App() {
               </button>
               
               <button
+                onClick={() => setActiveTab('operations')}
+                onMouseEnter={() => audioFeedback.playTick()}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'operations'
+                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5 text-vajra-cyan" />
+                <span>Operations</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('astrology')}
+                onMouseEnter={() => audioFeedback.playTick()}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'astrology'
+                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5 text-vajra-cyan animate-pulse" />
+                <span>Cosmic Clock</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('broadcast')}
+                onMouseEnter={() => audioFeedback.playTick()}
+                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === 'broadcast'
+                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5 text-vajra-cyan" />
+                <span>Broadcast</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('visualizers')}
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
                   activeTab === 'visualizers'
-                    ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-500/20'
+                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-vajra-cyan" />
-                <span>Visualizers</span>
+                <Sparkles className="w-3.5 h-3.5 text-vajra-purple" />
+                <span>Visualizer</span>
               </button>
 
               <button
-                onClick={() => setActiveTab('manual')}
+                onClick={() => setActiveTab('grimoire')}
                 onMouseEnter={() => audioFeedback.playTick()}
                 className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'manual'
-                    ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Sliders className="w-3.5 h-3.5 text-vajra-cyan" />
-                <span>Manual Controls</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('targets')}
-                onMouseEnter={() => audioFeedback.playTick()}
-                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'targets'
-                    ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-vajra-cyan" />
-                <span>Targets</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('lore')}
-                onMouseEnter={() => audioFeedback.playTick()}
-                className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'lore'
-                    ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-500/20'
+                  activeTab === 'grimoire'
+                    ? 'bg-purple-600/95 text-white shadow-lg shadow-purple-500/25'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5 text-vajra-purple" />
-                <span>Lore & Wisdom</span>
+                <span>Grimoire</span>
               </button>
             </nav>
           </div>
@@ -286,6 +322,24 @@ function App() {
               scalarStatus={scalarStatus}
               sessions={sessions}
             />
+          </div>
+        )}
+
+        {activeTab === 'operations' && (
+          <div className="flex-1 h-full overflow-hidden">
+            <OperationsPanel />
+          </div>
+        )}
+
+        {activeTab === 'astrology' && (
+          <div className="flex-1 h-full overflow-hidden">
+            <AstrologyPanel />
+          </div>
+        )}
+
+        {activeTab === 'broadcast' && (
+          <div className="flex-1 h-full overflow-hidden">
+            <BroadcastPanel />
           </div>
         )}
         
@@ -350,18 +404,11 @@ function App() {
                   <ChakraAlignmentStrip />
                 </div>
               </div>
-            ) : visualizationType === 'radionics-panel' ? (
+            ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center">
                   <h2 className="text-2xl font-bold mb-4">Radionics Panel</h2>
                   <p className="text-gray-400">Select a geometric viz or wave type in the header dropdown to visualize.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold mb-4">Visualization Coming Soon</h2>
-                  <p className="text-gray-400">This visualization type is under development</p>
                 </div>
               </div>
             )}
@@ -391,90 +438,9 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'manual' && (
+        {activeTab === 'grimoire' && (
           <div className="flex-1 h-full overflow-hidden">
-            <ManualSettingsTab
-              isPlaying={isPlaying}
-              frequency={frequency}
-              volume={volume}
-              prayerBowlMode={prayerBowlMode}
-              harmonicStrength={harmonicStrength}
-              modulationDepth={modulationDepth}
-              duration={duration}
-              updateSettings={updateSettings}
-              generateAudio={handleGenerateAudio}
-              playAudio={handlePlayAudio}
-              stopAudio={handleStopAudio}
-              audioStatus={audioStatus}
-              startSession={startSession}
-              attunedRate={scalarStatus?.rate}
-            />
-          </div>
-        )}
-
-        {activeTab === 'targets' && (
-          <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 bg-gray-900/40 backdrop-blur-md rounded-xl border border-white/10 m-4 shadow-2xl">
-            <div className="bg-gradient-to-r from-teal-900/40 via-blue-900/40 to-cyan-900/40 border border-white/10 rounded-xl p-6 mb-6">
-              <h2 className="text-2xl font-bold text-white tracking-wide flex items-center gap-3">
-                <Users className="w-7 h-7 text-teal-400 animate-pulse" />
-                Broadcast Targets & Population Manager
-              </h2>
-              <p className="text-sm text-teal-200 mt-1">
-                Define individual targets, coordinate locations, or collective groups to direct focal blessings and resonance tuning.
-              </p>
-            </div>
-            <PopulationManager />
-          </div>
-        )}
-
-        {activeTab === 'lore' && (
-          <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6">
-            <div className="bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-blue-900/40 border border-white/10 rounded-xl p-6">
-              <h2 className="text-2xl font-bold text-white tracking-wide flex items-center gap-3">
-                <BookOpen className="w-7 h-7 text-vajra-purple animate-pulse" />
-                Lore, Wisdom & Energetic Alignment
-              </h2>
-              <p className="text-sm text-purple-200 mt-1">
-                Explore spiritual teaching stories, program virtual crystals, attune to quantum RNG, and align subtle energy bodies.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              <div className="bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-2xl">
-                <DharmaTales />
-              </div>
-              
-              <div className="bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-2xl">
-                <RadionicsNarrative />
-              </div>
-              
-              <div className="bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-2xl">
-                <ChakraHealing />
-              </div>
-
-              <div className="bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-2xl flex flex-col justify-between">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-vajra-cyan flex items-center gap-2">
-                    <Gem className="w-5 h-5 text-cyan-400" />
-                    Crystal Grid Programming
-                  </h3>
-                  <p className="text-xs text-gray-400">Calibrate focus crystal nodes with specific intentions, frequencies, and charging structures.</p>
-                  <CrystalProgramming />
-                </div>
-              </div>
-
-              <div className="bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-2xl">
-                <RNGAttunement />
-              </div>
-
-              <div className="bg-gray-900/60 backdrop-blur-md border border-white/10 rounded-xl p-5 shadow-2xl">
-                <h3 className="text-lg font-semibold text-vajra-purple mb-4 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-purple-400" />
-                  Sacred Slideshow & Mantras
-                </h3>
-                <BlessingSlideshow />
-              </div>
-            </div>
+            <GrimoirePanel />
           </div>
         )}
       </main>
@@ -495,6 +461,11 @@ function App() {
               <input
                 autoFocus
                 type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  audioFeedback.playType();
+                }}
                 placeholder="Search commands..."
                 className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-sm"
                 onKeyDown={(e) => {
@@ -525,9 +496,14 @@ function App() {
 
       {/* Footer */}
       <footer className="bg-gray-800 border-t border-gray-700 px-4 py-2 glassmorphism mystical-border">
-        <div className="max-w-full mx-auto flex justify-between items-center text-xs text-gray-400">
-          <div className="text-purple-300 font-semibold">
-            Vajra.Stream - Sacred Technology Platform
+        <div className="max-w-full mx-auto flex flex-col md:flex-row justify-between items-center text-xs text-gray-400 gap-2">
+          <div className="text-purple-300 font-semibold flex items-center gap-2">
+            <span>Vajra.Stream - Sacred Technology Platform</span>
+            {mopsData && (
+              <span className="text-[10px] text-cyan-400 font-mono px-2 py-0.5 bg-cyan-950/40 rounded border border-cyan-800/20 select-none">
+                MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s | Mantra {Math.round(mopsData.mantras?.["10s"] || 0)}/s | Crystals {Math.round(mopsData.crystals?.["10s"] || 0)}/s | Divination {mopsData.divination?.["60s"] || 0}/s
+              </span>
+            )}
           </div>
           <div className="flex items-center space-x-4">
             <span>Frequency: <span className="frequency-display text-vajra-cyan font-bold">{frequency.toFixed(1)} Hz</span></span>

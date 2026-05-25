@@ -16,14 +16,37 @@ router = APIRouter()
 
 
 @router.get("/current")
-async def get_current_astrology():
-    """Get current astrological data"""
+async def get_current_astrology(datetime_str: str = None, latitude: float = None, longitude: float = None):
+    """Get current astrological data or calculate for custom datetime & location"""
     try:
-        logger.info("🌙 Current astrology data request")
+        logger.info(f"🌙 Astrology data request: dt={datetime_str}, lat={latitude}, lon={longitude}")
 
         from backend.core.services.vajra_service import vajra_service
+        from datetime import datetime
+        import pytz
 
-        astrology_data = await vajra_service._get_astrology_data()
+        calc_dt = None
+        if datetime_str:
+            clean_dt = datetime_str
+            if clean_dt.endswith('Z'):
+                clean_dt = clean_dt[:-1] + '+00:00'
+            try:
+                calc_dt = datetime.fromisoformat(clean_dt)
+            except ValueError:
+                try:
+                    from dateutil import parser
+                    calc_dt = parser.parse(datetime_str)
+                except Exception:
+                    raise HTTPException(status_code=400, detail="Invalid datetime format. Use ISO format.")
+            
+            if calc_dt and calc_dt.tzinfo is None:
+                calc_dt = calc_dt.replace(tzinfo=pytz.UTC)
+
+        location = None
+        if latitude is not None and longitude is not None:
+            location = (latitude, longitude)
+
+        astrology_data = await vajra_service._get_astrology_data(dt=calc_dt, location=location)
 
         return {"status": "success", "astrology": astrology_data, "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
@@ -101,30 +124,51 @@ async def get_planetary_hours():
     """Get current planetary hour"""
     try:
         logger.info("🕐 Planetary hours request")
-
-        # Calculate planetary hour
-        now = datetime.datetime.now()
-        day_of_week = now.weekday()  # 0 = Monday, 6 = Sunday
-
-        # Planetary hour correspondence (traditional)
-        planetary_hours = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"]
-
-        # Calculate current hour
-        hour_of_day = now.hour
-        day_planet = planetary_hours[day_of_week]
-        current_planet = planetary_hours[(day_of_week + hour_of_day) % 7]
-
-        return {
-            "status": "success",
-            "current_planetary_hour": current_planet,
-            "day_planet": day_planet,
-            "hour_of_day": hour_of_day,
-            "day_of_week": now.strftime("%A"),
-            "description": _get_planet_description(current_planet),
-            "timestamp": asyncio.get_event_loop().time(),
-        }
+        from backend.core.services.vajra_service import vajra_service
+        astrology_data = await vajra_service._get_astrology_data()
+        hours_data = astrology_data.get("planetary_hours", {})
+        return hours_data
     except Exception as e:
         logger.error(f"❌ Planetary hours error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/western")
+async def get_western_astrology():
+    """Get comprehensive Western astrology data"""
+    try:
+        logger.info("♈ Western astrology request")
+        from backend.core.services.vajra_service import vajra_service
+        astrology_data = await vajra_service._get_astrology_data()
+        return {"status": "success", "western": astrology_data.get("western", {})}
+    except Exception as e:
+        logger.error(f"❌ Western astrology error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/indian")
+async def get_indian_astrology():
+    """Get comprehensive Indian (Vedic) astrology/Panchang data"""
+    try:
+        logger.info("🕉️ Indian astrology request")
+        from backend.core.services.vajra_service import vajra_service
+        astrology_data = await vajra_service._get_astrology_data()
+        return {"status": "success", "indian": astrology_data.get("indian", {})}
+    except Exception as e:
+        logger.error(f"❌ Indian astrology error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/chinese")
+async def get_chinese_astrology():
+    """Get comprehensive Chinese astrology/BaZi data"""
+    try:
+        logger.info("☯️ Chinese astrology request")
+        from backend.core.services.vajra_service import vajra_service
+        astrology_data = await vajra_service._get_astrology_data()
+        return {"status": "success", "chinese": astrology_data.get("chinese", {})}
+    except Exception as e:
+        logger.error(f"❌ Chinese astrology error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

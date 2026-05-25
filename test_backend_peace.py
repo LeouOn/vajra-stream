@@ -16,9 +16,9 @@ url = "http://localhost:8008/api/v1/llm/chat"
 payload = {
     "messages": [
         {"role": "assistant", "content": "I am your AI operator. How shall we direct the intention today?"},
-        {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one "we" to embrace— \n Peace is the garden where all hearts find place."}
+        {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one \"we\" to embrace— \n Peace is the garden where all hearts find place."}
     ],
-    "provider": "local"
+    "provider": "auto"
 }
 
 print("Testing backend with message history and provider=local...")

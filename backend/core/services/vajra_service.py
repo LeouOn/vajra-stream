@@ -14,25 +14,59 @@ import numpy as np
 # Add parent directory to path to import existing modules
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
 
+# Try importing each module individually to make loading resilient
 try:
-    from config.settings import Settings
+    from backend.app.config import Settings
+except ImportError:
+    Settings = None
+
+try:
     from core.astrology import AstrologicalCalculator
+except ImportError:
+    AstrologicalCalculator = None
+
+try:
     from core.audio_generator import ScalarWaveGenerator
+except ImportError:
+    ScalarWaveGenerator = None
+
+try:
     from core.enhanced_audio_generator import EnhancedAudioGenerator, PrayerBowlGenerator
+except ImportError:
+    EnhancedAudioGenerator, PrayerBowlGenerator = None, None
+
+try:
     from core.llm_integration import LLMIntegration
+except ImportError:
+    LLMIntegration = None
+
+try:
     from core.prayer_wheel import PrayerWheel
+except ImportError:
+    PrayerWheel = None
+
+try:
     from core.rothko_generator import RothkoGenerator
+except ImportError:
+    RothkoGenerator = None
+
+try:
     from core.tts_engine import TTSEngine
+except ImportError:
+    TTSEngine = None
+
+try:
     from core.visual_renderer import VisualRenderer
+except ImportError:
+    VisualRenderer = None
+
+try:
     from hardware.crystal_broadcaster import Level2CrystalBroadcaster, Level3CrystalBroadcaster
+except ImportError:
+    Level2CrystalBroadcaster, Level3CrystalBroadcaster = None, None
 
-    ENHANCED_MODE = True
-    print("✅ Enhanced Vajra.Stream modules loaded successfully")
-
-except ImportError as e:
-    print(f"WARNING: Could not load enhanced modules: {e}")
-    print("INFO: Running in basic mode with fallback functionality")
-    ENHANCED_MODE = False
+ENHANCED_MODE = (AstrologicalCalculator is not None)
+print(f"Service running with Astrological Calculations: {AstrologicalCalculator is not None}")
 
 
 from backend.app.api.v1.endpoints.sessions import SessionConfig, AudioConfig
@@ -44,28 +78,20 @@ class VajraStreamService:
     def __init__(self):
         print("Initializing Vajra.Stream Service...")
 
-        if ENHANCED_MODE:
-            try:
-                # Initialize existing modules
-                self.settings = Settings()
-                self.audio_generator = EnhancedAudioGenerator()
-                self.prayer_bowl_generator = PrayerBowlGenerator()
-                self.level2_broadcaster = Level2CrystalBroadcaster()
-                self.level3_broadcaster = Level3CrystalBroadcaster()
-                self.prayer_wheel = PrayerWheel()
-                self.astrology = AstrologicalCalculator()
-                self.llm_integration = LLMIntegration()
-                self.tts_engine = TTSEngine()
-                self.rothko_generator = RothkoGenerator()
-                self.visual_renderer = VisualRenderer()
+        # Initialize existing modules if available
+        self.settings = Settings() if Settings else None
+        self.audio_generator = EnhancedAudioGenerator() if EnhancedAudioGenerator else None
+        self.prayer_bowl_generator = PrayerBowlGenerator() if PrayerBowlGenerator else None
+        self.level2_broadcaster = Level2CrystalBroadcaster() if Level2CrystalBroadcaster else None
+        self.level3_broadcaster = Level3CrystalBroadcaster() if Level3CrystalBroadcaster else None
+        self.prayer_wheel = PrayerWheel() if PrayerWheel else None
+        self.astrology = AstrologicalCalculator() if AstrologicalCalculator else None
+        self.llm_integration = LLMIntegration() if LLMIntegration else None
+        self.tts_engine = TTSEngine() if TTSEngine else None
+        self.rothko_generator = RothkoGenerator() if RothkoGenerator else None
+        self.visual_renderer = VisualRenderer() if VisualRenderer else None
 
-                print("All enhanced modules initialized successfully")
-            except Exception as e:
-                print(f"Error initializing enhanced modules: {e}")
-                print("Falling back to basic functionality")
-                self._initialize_basic_mode()
-        else:
-            self._initialize_basic_mode()
+        print("Service modules initialized successfully")
 
         # Session state
         self.active_sessions: dict[str, dict] = {}
@@ -77,19 +103,6 @@ class VajraStreamService:
         self.event_bus = None
 
         print("Vajra.Stream Service ready!")
-
-    def _initialize_basic_mode(self):
-        """Initialize basic mode functionality"""
-        self.audio_generator = None
-        self.prayer_bowl_generator = None
-        self.level2_broadcaster = None
-        self.level3_broadcaster = None
-        self.prayer_wheel = None
-        self.astrology = None
-        self.llm_integration = None
-        self.tts_engine = None
-        self.rothko_generator = None
-        self.visual_renderer = None
 
     async def generate_prayer_bowl_audio(self, config: AudioConfig) -> np.ndarray:
         """Generate prayer bowl audio using existing enhanced generator"""
@@ -411,27 +424,43 @@ class VajraStreamService:
         print(f"Session deleted: {session_id}")
         return True
 
-    async def _get_astrology_data(self) -> dict:
-        """Get current astrological data"""
+    async def _get_astrology_data(self, dt: datetime = None, location: tuple[float, float] = None) -> dict:
+        """Get astrological data for a given time and location"""
         try:
-            if ENHANCED_MODE and self.astrology:
-                print("Getting astrology data...")
-                moon_phase = self.astrology.get_moon_phase()
-                planetary_positions = self.astrology.get_planetary_positions()
-                auspicious_times = self.astrology.get_auspicious_times()
-
-                return {
-                    "moon_phase": moon_phase,
-                    "planetary_positions": planetary_positions,
-                    "auspicious_times": auspicious_times,
-                    "timestamp": time.time(),
-                }
+            if self.astrology:
+                from datetime import datetime
+                import pytz
+                
+                calc_time = dt if dt is not None else datetime.now(pytz.UTC)
+                calc_loc = location if location is not None else (37.7749, -122.4194)
+                
+                print(f"Getting comprehensive astrology data for dt={calc_time}, loc={calc_loc}...")
+                
+                # Calculate new consolidated astrological data
+                data = self.astrology.get_comprehensive_astrology(calc_time, calc_loc)
+                
+                # Maintain legacy format items at top level for backward compatibility
+                data["moon_phase"] = self.astrology.get_moon_phase(calc_time)
+                data["planetary_positions"] = data["western"]["positions"]
+                
+                # Serialize auspicious times datetime objects to strings
+                ser_auspicious = {}
+                auspicious = self.astrology.calculate_auspicious_times(calc_time, calc_loc)
+                for k, v in auspicious.items():
+                    if isinstance(v, datetime):
+                        ser_auspicious[k] = v.isoformat()
+                    elif isinstance(v, dict):
+                        ser_auspicious[k] = v
+                data["auspicious_times"] = ser_auspicious
+                data["timestamp"] = time.time()
+                
+                return data
             else:
                 # Fallback data
                 return {
-                    "moon_phase": "waxing",
-                    "planetary_positions": {"sun": "aries", "moon": "taurus"},
-                    "auspicious_times": ["morning", "evening"],
+                    "moon_phase": {"phase_name": "waxing", "illumination": 50.0, "phase_angle": 90.0},
+                    "planetary_positions": {"sun": {"formatted": "Aries 0.00°"}},
+                    "auspicious_times": {"sunrise": "morning", "sunset": "evening"},
                     "timestamp": time.time(),
                 }
         except Exception as e:

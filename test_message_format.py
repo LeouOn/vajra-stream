@@ -7,7 +7,7 @@ url = 'http://127.0.0.1:1234/v1/chat/completions'
 # Simulate what the frontend sends with message history
 messages = [
     {"role": "assistant", "content": "I am your AI operator. How shall we direct the intention today?"},
-    {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one "we" to embrace— \n Peace is the garden where all hearts find place."}
+    {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one 'we' to embrace— \n Peace is the garden where all hearts find place."}
 ]
 
 tools = [{
@@ -45,7 +45,7 @@ except Exception as e:
 print("\n" + "="*60)
 print("Testing with only user messages (the fix)...")
 user_only_messages = [
-    {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one "we" to embrace— \n Peace is the garden where all hearts find place."}
+    {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one 'we' to embrace— \n Peace is the garden where all hearts find place."}
 ]
 
 payload2 = {

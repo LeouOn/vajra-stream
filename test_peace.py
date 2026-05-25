@@ -8,7 +8,7 @@ system_prompt = """You are the Vajra.Stream AI Operator, a wise assistant design
 
 messages = [
     {'role': 'system', 'content': system_prompt},
-    {'role': 'user', 'content': "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one "we" to embrace— \n Peace is the garden where all hearts find place."}
+    {'role': 'user', 'content': "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one 'we' to embrace— \n Peace is the garden where all hearts find place."}
 ]
 
 tools = [{

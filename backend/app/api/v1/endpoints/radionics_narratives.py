@@ -63,7 +63,7 @@ def _generate_with_llm(prompt: str, system_prompt: str, max_tokens: int = 500, t
                 "max_tokens": max_tokens,
                 "temperature": temperature,
             },
-            timeout=60,
+            timeout=5.0,
         )
 
         if response.status_code == 200:
@@ -251,11 +251,41 @@ async def generate_narrative(request: NarrativeRequest):
             scalar_mops=ctx_dict.get("scalar_mops", 17.73),
         )
 
-        narrative = _generate_with_llm(prompt=prompt, system_prompt=template["system"], max_tokens=600, temperature=0.8)
+        try:
+            narrative = _generate_with_llm(prompt=prompt, system_prompt=template["system"], max_tokens=600, temperature=0.8)
+            generation_method = "llm"
+        except Exception as e:
+            logger.warning(f"LLM narrative generation failed: {e}. Falling back to template-based narrative.")
+            try:
+                from core.blessing_narratives import StoryGenerator, NarrativeType
+                sg = StoryGenerator(use_llm=False)
+                ntype_map = {
+                    "overcoming": NarrativeType.HELL_LIBERATION,
+                    "transformation": NarrativeType.HEALING_JOURNEY,
+                    "healing": NarrativeType.HEALING_JOURNEY,
+                    "liberation": NarrativeType.HELL_LIBERATION,
+                    "manifestation": NarrativeType.EMPOWERMENT
+                }
+                ntype = ntype_map.get(theme, NarrativeType.HEALING_JOURNEY)
+                story = sg.generate_story(target_name=request.intention, narrative_type=ntype)
+                narrative = f"*(Local Template Fallback)*\n\n{story.story_text}"
+                generation_method = "template"
+            except Exception as ex:
+                logger.error(f"Fallback story generation failed: {ex}")
+                narrative = (
+                    f"*(Local Fallback)*\n\n"
+                    f"Intention: {request.intention}\n"
+                    f"Theme: {theme}\n"
+                    f"Frequency: {ctx_dict.get('frequency_hz')} Hz\n"
+                    f"Chakra: {ctx_dict.get('chakra')}\n"
+                    f"May this intention manifest in perfect balance and alignment for the highest good."
+                )
+                generation_method = "simple"
 
         return {
             "status": "success",
             "narrative": narrative,
+            "generation_method": generation_method,
             "intention": request.intention,
             "theme": theme,
             "length": request.length,
@@ -297,13 +327,20 @@ Generate only the affirmation:"""
         prompt = prompt.replace("{frequency_context}", ctx_dict.get("frequency_context", ""))
         prompt = prompt.replace("{planet_context}", ctx_dict.get("planet_context", ""))
 
-        affirmation = _generate_with_llm(
-            prompt=prompt, system_prompt=AFFIRMATION_SYSTEM, max_tokens=100, temperature=0.9
-        )
+        try:
+            affirmation = _generate_with_llm(
+                prompt=prompt, system_prompt=AFFIRMATION_SYSTEM, max_tokens=100, temperature=0.9
+            )
+            generation_method = "llm"
+        except Exception as e:
+            logger.warning(f"LLM affirmation generation failed: {e}. Falling back to template affirmation.")
+            affirmation = f"I embody the healing frequency of {ctx_dict.get('frequency_hz')}Hz, aligning my energy for the absolute {request.style or 'empowering'} transformation of {request.intention}."
+            generation_method = "template"
 
         return {
             "status": "success",
             "affirmation": affirmation,
+            "generation_method": generation_method,
             "intention": request.intention,
             "style": request.style,
             "radionics": {"frequency_hz": ctx_dict.get("frequency_hz"), "planet": ctx_dict.get("planet")},

@@ -12,7 +12,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from infrastructure.event_bus import DomainEvent
-from modules.blessing_router import BlessingGenerated, BlessingRouted
+from modules.blessing_router import BlessingRouted
+from modules.interfaces import BlessingGenerated
 from modules.crystal import CrystalBroadcastCompleted, CrystalBroadcastStarted
 from scripts.unified_orchestrator import UnifiedOrchestrator
 

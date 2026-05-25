@@ -156,6 +156,9 @@ python-multipart>=0.0.6  # Missing dependency - needed for file uploads
 # Time Zone Support
 pytz>=2023.3  # Missing dependency - needed for timezone handling
 
+# Chinese Lunar Calendar & BaZi
+lunar-python>=1.4.8
+
 # Note: Built-in modules like statistics, uuid, threading, secrets, hashlib, base64,
 # io, tempfile, glob, argparse, sqlite3, json, re, colorsys, enum, dataclasses,
 # collections, datetime, pathlib, os, sys, time, math, random, struct, warnings,

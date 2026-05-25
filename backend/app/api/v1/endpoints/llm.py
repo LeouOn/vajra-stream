@@ -54,7 +54,35 @@ class ChatResponse(BaseModel):
     tool_calls: List[ToolCallLog]
 
 
-def execute_tool_locally(name: str, args: dict) -> Any:
+def format_messages_for_llm(request_messages: List[ChatMessage], default_system_prompt: str):
+    # Find any system messages in request_messages
+    custom_system_parts = []
+    for msg in request_messages:
+        if msg.role == "system":
+            custom_system_parts.append(msg.content)
+            
+    if custom_system_parts:
+        full_system_prompt = f"{default_system_prompt}\n\nContext and details:\n" + "\n".join(custom_system_parts)
+    else:
+        full_system_prompt = default_system_prompt
+        
+    # Get all non-system messages
+    non_system_messages = [msg for msg in request_messages if msg.role != "system"]
+    
+    # Skip any leading assistant messages (e.g. welcome message) to ensure it starts with a user message
+    first_user_idx = 0
+    while first_user_idx < len(non_system_messages) and non_system_messages[first_user_idx].role == "assistant":
+        first_user_idx += 1
+        
+    chat_messages = []
+    for msg in non_system_messages[first_user_idx:]:
+        if msg.role in ("user", "assistant"):
+            chat_messages.append({"role": msg.role, "content": msg.content})
+            
+    return full_system_prompt, chat_messages
+
+
+async def execute_tool_locally(name: str, args: dict) -> Any:
     """Helper to execute a tool function from the tool registry"""
     if name not in TOOL_REGISTRY:
         raise ValueError(f"Tool {name} not found in registry")
@@ -69,7 +97,7 @@ def execute_tool_locally(name: str, args: dict) -> Any:
         active_only = args.get("active_only", False)
         category = args.get("category")
         urgent_only = args.get("urgent_only", False)
-        pops = pm.get_all_populations()
+        pops = [p.to_dict() for p in pm.get_all_populations()]
         if active_only:
             pops = [p for p in pops if p.get("is_active")]
         if category:
@@ -89,11 +117,11 @@ def execute_tool_locally(name: str, args: dict) -> Any:
     elif name == "create_population":
         pm = get_population_manager()
         pop = pm.create_population(**args)
-        return pop
+        return pop.to_dict() if pop else None
     elif name == "update_population":
         pm = get_population_manager()
         pop = pm.update_population(args.get("population_id"), **args)
-        return pop
+        return pop.to_dict() if pop else None
     elif name == "start_automation":
         from backend.core.services.blessing_scheduler import get_scheduler, SchedulerConfig, SchedulerMode
         scheduler = get_scheduler()
@@ -107,8 +135,10 @@ def execute_tool_locally(name: str, args: dict) -> Any:
             only_active=args.get("only_active", True),
             min_priority=args.get("min_priority", 1),
         )
-        result = scheduler.start_automation(config=config)
-        return {"session_id": result.get("session_id"), "populations_in_queue": result.get("populations_in_queue", 0)}
+        session_id = scheduler.start_automation(config=config)
+        session = scheduler.sessions.get(session_id)
+        queue_len = len(session.populations_queue) if session else 0
+        return {"session_id": session_id, "populations_in_queue": queue_len}
     elif name == "stop_automation":
         from backend.core.services.blessing_scheduler import get_scheduler
         scheduler = get_scheduler()
@@ -117,34 +147,125 @@ def execute_tool_locally(name: str, args: dict) -> Any:
     elif name == "get_automation_status":
         from backend.core.services.blessing_scheduler import get_scheduler
         scheduler = get_scheduler()
-        return scheduler.get_status(args.get("session_id"))
+        status_info = scheduler.get_current_status(args.get("session_id"))
+        return status_info if status_info is not None else {}
     elif name == "get_automation_stats":
         from backend.core.services.blessing_scheduler import get_scheduler
         scheduler = get_scheduler()
-        return scheduler.get_stats(args.get("session_id"))
+        return scheduler.get_session_stats(args.get("session_id"))
+    elif name == "pause_automation":
+        from backend.core.services.blessing_scheduler import get_scheduler
+        scheduler = get_scheduler()
+        success = scheduler.pause_automation(args.get("session_id"))
+        return {"success": success, "message": "Automation paused successfully" if success else "Failed to pause automation"}
+    elif name == "resume_automation":
+        from backend.core.services.blessing_scheduler import get_scheduler
+        scheduler = get_scheduler()
+        success = scheduler.resume_automation(args.get("session_id"))
+        return {"success": success, "message": "Automation resumed successfully" if success else "Failed to resume automation"}
     elif name == "create_rng_session":
         from backend.core.services.rng_attunement_service import get_rng_service
         service = get_rng_service()
-        result = service.create_session(
+        session_id = service.create_session(
             session_id=args.get("session_id"),
             baseline_tone_arm=args.get("baseline_tone_arm", 5.0),
             sensitivity=args.get("sensitivity", 1.0),
         )
-        return result
+        return {"session_id": session_id}
     elif name == "get_rng_reading":
         from backend.core.services.rng_attunement_service import get_rng_service
         service = get_rng_service()
-        return service.get_reading(args.get("session_id"))
+        reading = service.get_reading(args.get("session_id"))
+        if reading:
+            return {
+                "timestamp": reading.timestamp,
+                "raw_value": reading.raw_value,
+                "tone_arm": reading.tone_arm,
+                "needle_position": reading.needle_position,
+                "needle_state": reading.needle_state.value if hasattr(reading.needle_state, 'value') else reading.needle_state,
+                "quality": reading.quality.value if hasattr(reading.quality, 'value') else reading.quality,
+                "entropy": reading.entropy,
+                "coherence": reading.coherence,
+                "trend": reading.trend,
+                "floating_needle_score": reading.floating_needle_score,
+            }
+        return {}
     elif name == "stop_rng_session":
         from backend.core.services.rng_attunement_service import get_rng_service
         service = get_rng_service()
-        return service.stop_session(args.get("session_id"))
+        session_id = args.get("session_id")
+        summary = service.get_session_summary(session_id) or {}
+        service.stop_session(session_id)
+        return summary
+    elif name == "create_blessing_slideshow":
+        from backend.core.services.blessing_slideshow_service import get_blessing_slideshow_service, IntentionSet, IntentionType, MantraType
+        service = get_blessing_slideshow_service()
+        intentions = [IntentionType(i) for i in args.get("intentions", ["love", "healing", "peace"])]
+        intention_set = IntentionSet(
+            primary_mantra=MantraType(args.get("mantra", "chenrezig")),
+            intentions=intentions,
+            repetitions_per_photo=args.get("repetitions_per_photo", 108),
+            dedication=args.get("dedication", "May all beings benefit")
+        )
+        session_id = service.create_session(
+            directory_path=args.get("directory_path"),
+            intention_set=intention_set,
+            loop_mode=args.get("loop_mode", True),
+            display_duration_ms=args.get("display_duration_ms", 2000),
+            rng_session_id=args.get("rng_session_id")
+        )
+        session = service.sessions.get(session_id)
+        total_photos = len(session.photos) if session else 0
+        return {"session_id": session_id, "total_photos": total_photos}
+    elif name == "get_current_slide":
+        from backend.core.services.blessing_slideshow_service import get_blessing_slideshow_service
+        service = get_blessing_slideshow_service()
+        slide_info = service.get_current_slide(args.get("session_id"))
+        return slide_info if slide_info is not None else {}
+    elif name == "stop_slideshow":
+        from backend.core.services.blessing_slideshow_service import get_blessing_slideshow_service
+        service = get_blessing_slideshow_service()
+        stats = service.stop_session(args.get("session_id"))
+        return stats
+    elif name == "forge_sigil":
+        from backend.core.services.sigil_service import sigil_service
+        return await sigil_service.forge_sigil(args.get("intention"), args.get("kamea", "saturn"))
+    elif name == "cast_tarot_spread":
+        from backend.core.services.divination_service import divination_service
+        res = divination_service.draw_tarot(args.get("count", 3))
+        return {"cards": res}
+    elif name == "cast_i_ching":
+        from backend.core.services.divination_service import divination_service
+        return divination_service.cast_i_ching()
+    elif name == "cast_geomancy":
+        from backend.core.services.divination_service import divination_service
+        return divination_service.cast_geomancy()
+
+    elif name == "search_grimoire_correspondences":
+        from backend.core.services.grimoire_service import grimoire_service
+        return grimoire_service.search(args.get("query", ""))
+    elif name == "get_planetary_hours_and_transits":
+        from backend.core.services.vajra_service import vajra_service
+        from backend.core.services.grimoire_service import grimoire_service
+        import datetime
+        now = datetime.datetime.now()
+        astro_data = await vajra_service._get_astrology_data()
+        hour_data = grimoire_service.get_planetary_hours(now.hour, now.weekday())
+        return {
+            "astrology": astro_data,
+            "planetary_hour": hour_data,
+            "timestamp": time.time()
+        }
     else:
-        # Fallback: call the tool function directly
+        # Fallback: call the tool function directly (detect if async or sync)
+        import inspect
+        if inspect.iscoroutinefunction(tool_func):
+            return await tool_func(**args)
         return tool_func(**args)
 
 
-def run_rule_based_fallback(query: str) -> ChatResponse:
+
+async def run_rule_based_fallback(query: str) -> ChatResponse:
     """
     Intelligent fallback system that matches natural language commands
     and executes tools directly on the backend.
@@ -156,7 +277,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
     # 1. Start Automation
     if re.search(r"\b(start|begin|activate|turn\s*on|enable)\s*(the\s*)?(automation|scheduler|rotation|cycle)\b", query_lower):
         try:
-            res = execute_tool_locally("start_automation", {})
+            res = await execute_tool_locally("start_automation", {})
             tool_calls.append(ToolCallLog(
                 tool_name="start_automation",
                 arguments={},
@@ -165,7 +286,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
             ))
             response_text = (
                 f"🔮 **Vajra.Stream Automation Initiated**\n\n"
-                f"I have successfully activated the automated blessing rotation.\n"
+                f"I have successfully activated the automated blessing blessing rotation.\n"
                 f"- **Session ID**: `{res.get('session_id')}`\n"
                 f"- **Populations in queue**: {res.get('populations_in_queue')}\n"
                 f"- **Status**: Continuous rotation started."
@@ -186,7 +307,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
             active_sessions = list(scheduler.sessions.keys())
             if active_sessions:
                 session_id = active_sessions[0]
-                res = execute_tool_locally("stop_automation", {"session_id": session_id})
+                res = await execute_tool_locally("stop_automation", {"session_id": session_id})
                 tool_calls.append(ToolCallLog(
                     tool_name="stop_automation",
                     arguments={"session_id": session_id},
@@ -215,7 +336,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
     # 3. List Populations
     elif re.search(r"\b(list|show|view|get)\s*(the\s*)?(populations|targets)\b", query_lower):
         try:
-            res = execute_tool_locally("list_populations", {})
+            res = await execute_tool_locally("list_populations", {})
             tool_calls.append(ToolCallLog(
                 tool_name="list_populations",
                 arguments={},
@@ -244,7 +365,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
     # 4. Get Population Statistics
     elif re.search(r"\b(stats|statistics|overall\s*stats|summary)\s*(of\s*populations|across\s*populations|of\s*blessings)?\b", query_lower):
         try:
-            res = execute_tool_locally("get_population_statistics", {})
+            res = await execute_tool_locally("get_population_statistics", {})
             tool_calls.append(ToolCallLog(
                 tool_name="get_population_statistics",
                 arguments={},
@@ -270,7 +391,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
     # 5. Start RNG Session
     elif re.search(r"\b(start|create|begin|activate)\s*(a\s*)?(rng|random\s*number\s*generator|attunement|needle)\s*(session)?\b", query_lower):
         try:
-            res = execute_tool_locally("create_rng_session", {"baseline_tone_arm": 5.0, "sensitivity": 1.0})
+            res = await execute_tool_locally("create_rng_session", {"baseline_tone_arm": 5.0, "sensitivity": 1.0})
             tool_calls.append(ToolCallLog(
                 tool_name="create_rng_session",
                 arguments={"baseline_tone_arm": 5.0, "sensitivity": 1.0},
@@ -299,7 +420,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
             active_rng = service.get_all_sessions()
             if active_rng:
                 session_id = active_rng[-1]  # Take the last active session
-                res = execute_tool_locally("stop_rng_session", {"session_id": session_id})
+                res = await execute_tool_locally("stop_rng_session", {"session_id": session_id})
                 tool_calls.append(ToolCallLog(
                     tool_name="stop_rng_session",
                     arguments={"session_id": session_id},
@@ -325,7 +446,167 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
             ))
             response_text = f"❌ Failed to stop RNG session: {str(e)}"
 
-    # 7. Predefined Dharma Tales Fallback
+    # 7. Forge Sigil Fallback
+    elif re.search(r"\b(forge|create|make|generate)\s*(a\s*)?sigil\b", query_lower):
+        try:
+            intention = "Divine Alignment"
+            intent_match = re.search(r"\b(for|of|to)\s+(.+)$", query_lower)
+            if intent_match:
+                intention = intent_match.group(2).strip()
+            
+            res = await execute_tool_locally("forge_sigil", {"intention": intention, "kamea": "saturn"})
+            tool_calls.append(ToolCallLog(
+                tool_name="forge_sigil",
+                arguments={"intention": intention, "kamea": "saturn"},
+                status="success",
+                result=res
+            ))
+            response_text = (
+                f"🔮 **Sigil Forged for Intention: '{intention}'**\n\n"
+                f"The intention has been reduced to its core letter components: `{res.get('reduced_letters')}`.\n"
+                f"A neon glowing sigil has been generated on the Saturn magic square (Kamea) and saved.\n\n"
+                f"*(Use the Broadcast tab to transmit this frequency signature!)*"
+            )
+        except Exception as e:
+            tool_calls.append(ToolCallLog(
+                tool_name="forge_sigil",
+                arguments={},
+                status="error",
+                error=str(e)
+            ))
+            response_text = f"❌ Failed to forge sigil: {str(e)}"
+
+    # 8. Cast Tarot Spread Fallback
+    elif re.search(r"\b(draw|cast|get|show)\s*(a\s*)?(tarot|card|spread)\b", query_lower):
+        try:
+            count = 3
+            if "single" in query_lower or "one" in query_lower or "1" in query_lower:
+                count = 1
+            elif "ten" in query_lower or "10" in query_lower or "celtic" in query_lower:
+                count = 10
+                
+            res = await execute_tool_locally("cast_tarot_spread", {"count": count})
+            tool_calls.append(ToolCallLog(
+                tool_name="cast_tarot_spread",
+                arguments={"count": count},
+                status="success",
+                result=res
+            ))
+            
+            response_text = "🔮 **Tarot Spread Drawn**\n\nHere are the cards representing your inquiry:\n\n"
+            for idx, card in enumerate(res.get("cards", [])):
+                orient = " (Reversed)" if card.get("reversed") else ""
+                response_text += (
+                    f"{idx+1}. **{card.get('name')}**{orient}\n"
+                    f"   - *Element*: {card.get('element')} | *Ruler/Correspondence*: {card.get('ruler') or 'N/A'}\n"
+                    f"   - *Guidance*: {card.get('meaning')}\n"
+                )
+        except Exception as e:
+            tool_calls.append(ToolCallLog(
+                tool_name="cast_tarot_spread",
+                arguments={},
+                status="error",
+                error=str(e)
+            ))
+            response_text = f"❌ Failed to draw Tarot cards: {str(e)}"
+
+    # 9. Cast I Ching Fallback
+    elif re.search(r"\b(cast|throw|get|consult)\s*(the\s*)?(i\s*ching|hexagram)\b", query_lower):
+        try:
+            res = await execute_tool_locally("cast_i_ching", {})
+            tool_calls.append(ToolCallLog(
+                tool_name="cast_i_ching",
+                arguments={},
+                status="success",
+                result=res
+            ))
+            primary = res.get("primary", {})
+            relating = res.get("relating", {})
+            lines_str = ", ".join(str(l) for l in res.get("cast_lines", []))
+            
+            response_text = (
+                f"☯️ **I Ching Oracle Consulted**\n\n"
+                f"Lines generated (bottom-to-top): `[{lines_str}]`\n\n"
+                f"**Primary Hexagram**: {primary.get('name')}\n"
+                f"- *Vibe*: {primary.get('meaning')}\n\n"
+            )
+            if res.get("has_changes"):
+                response_text += (
+                    f"**Relating Hexagram** (due to changing lines at {res.get('changing_lines')}): {relating.get('name')}\n"
+                    f"- *Vibe*: {relating.get('meaning')}\n"
+                )
+        except Exception as e:
+            tool_calls.append(ToolCallLog(
+                tool_name="cast_i_ching",
+                arguments={},
+                status="error",
+                error=str(e)
+            ))
+            response_text = f"❌ Failed to cast I Ching: {str(e)}"
+
+    # 10. Cast Geomancy Fallback
+    elif re.search(r"\b(cast|generate|geomancy|geomantic|shield)\b", query_lower):
+        try:
+            res = await execute_tool_locally("cast_geomancy", {})
+            tool_calls.append(ToolCallLog(
+                tool_name="cast_geomancy",
+                arguments={},
+                status="success",
+                result=res
+            ))
+            figs = res.get("figures", {})
+            
+            response_text = (
+                f"👁 **Geomantic Shield Chart Cast**\n\n"
+                f"- **First Mother**: {figs.get('Mother 1', {}).get('name')} ({figs.get('Mother 1', {}).get('translation')})\n"
+                f"- **Second Mother**: {figs.get('Mother 2', {}).get('name')} ({figs.get('Mother 2', {}).get('translation')})\n"
+                f"- **Right Witness**: {figs.get('Right Witness', {}).get('name')} ({figs.get('Right Witness', {}).get('translation')})\n"
+                f"- **Left Witness**: {figs.get('Left Witness', {}).get('name')} ({figs.get('Left Witness', {}).get('translation')})\n"
+                f"- **The Judge**: {figs.get('Judge', {}).get('name')} - *Key*: {figs.get('Judge', {}).get('meaning')}\n"
+            )
+        except Exception as e:
+            tool_calls.append(ToolCallLog(
+                tool_name="cast_geomancy",
+                arguments={},
+                status="error",
+                error=str(e)
+            ))
+            response_text = f"❌ Failed to cast Geomancy chart: {str(e)}"
+
+    # 11. Search Grimoire Fallback
+    elif re.search(r"\b(search|lookup|query|find)\s*(the\s*)?grimoire\s*(for\s+)?(.+)$", query_lower):
+        try:
+            term = re.search(r"\b(search|lookup|query|find)\s*(the\s*)?grimoire\s*(for\s+)?(.+)$", query_lower).group(4).strip()
+            res = await execute_tool_locally("search_grimoire_correspondences", {"query": term})
+            tool_calls.append(ToolCallLog(
+                tool_name="search_grimoire_correspondences",
+                arguments={"query": term},
+                status="success",
+                result=res
+            ))
+            
+            if res:
+                response_text = f"📚 **Grimoire Search Results for '{term}'**\n\n"
+                for item in res[:5]:
+                    response_text += (
+                        f"🪐 **Planet**: {item.get('planet')} | **Metal**: {item.get('metal')}\n"
+                        f"  - **Minerals**: {', '.join(item.get('minerals', []))}\n"
+                        f"  - **Herbs**: {', '.join(item.get('herbs', []))}\n"
+                        f"  - **Rates**: {item.get('rates')} | **Chakra**: {item.get('chakra')}\n"
+                        f"  - **Focus**: {item.get('influence')}\n\n"
+                    )
+            else:
+                response_text = f"ℹ️ No direct correspondences found in the Grimoire library for '{term}'."
+        except Exception as e:
+            tool_calls.append(ToolCallLog(
+                tool_name="search_grimoire_correspondences",
+                arguments={},
+                status="error",
+                error=str(e)
+            ))
+            response_text = f"❌ Failed to search Grimoire: {str(e)}"
+
+    # 12. Predefined Dharma Tales Fallback
     elif re.search(r"\b(tell|generate|show|give|read)\s*(me\s*)?(a\s*)?(dharma\s*tale|teaching|story|wisdom|parable|tale)\b", query_lower):
         parable = (
             "🏯 **Zen Wisdom: A Cup of Tea**\n\n"
@@ -338,7 +619,7 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
         )
         response_text = parable
 
-    # 8. Help / Introduction
+    # 13. Help / Introduction
     else:
         response_text = (
             "👋 **Welcome to the Vajra.Stream AI Command Center!**\n\n"
@@ -350,8 +631,14 @@ def run_rule_based_fallback(query: str) -> ChatResponse:
             "- 📈 `Get statistics` - Displays cumulative counts of photos blessed and mantras chanted.\n"
             "- 🎲 `Start RNG session` - Calibrates and begins tracking quantum entropy & floating needles.\n"
             "- 🛑 `Stop RNG session` - Concludes the active attunement tracker.\n"
+            "- 🔮 `Forge sigil for [intention]` - Generates a vector Kamea sigil pattern.\n"
+            "- 🃏 `Draw tarot cards` - Casts a Tarot spread for your query.\n"
+            "- ☯️ `Cast I Ching` - Casts a hexagram representing the current situation.\n"
+            "- 👁 `Cast geomancy` - Draws a shield chart mapping 16 figures to houses.\n"
+            "- 📚 `Search grimoire for [herbs/crystals/planets]` - Searches correspondences library.\n"
             "- 📚 `Tell me a dharma tale` - Generates a story or parable for your contemplation."
         )
+
 
     return ChatResponse(response=response_text, tool_calls=tool_calls)
 
@@ -374,7 +661,7 @@ async def chat_interaction(request: ChatRequest):
     # If no provider API key and provider isn't local model, use rule-based fallback
     if not api_key and provider != "local":
         logger.info("No API keys found. Falling back to rule-based parser.")
-        return run_rule_based_fallback(query)
+        return await run_rule_based_fallback(query)
 
     # Convert request messages to format required by standard libraries
     # Let's support OpenAI or Anthropic tool calling
@@ -400,9 +687,8 @@ async def chat_interaction(request: ChatRequest):
             client = openai.OpenAI(api_key=api_key)
             
             # Format messages
-            openai_messages = [{"role": "system", "content": system_prompt}]
-            for msg in request.messages:
-                openai_messages.append({"role": msg.role, "content": msg.content})
+            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
+            openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
 
             # Format tools for OpenAI
             openai_tools = []
@@ -440,7 +726,7 @@ async def chat_interaction(request: ChatRequest):
                     args = json.loads(tool_call.function.arguments)
                     
                     try:
-                        result = execute_tool_locally(name, args)
+                        result = await execute_tool_locally(name, args)
                         tool_logs.append(ToolCallLog(
                             tool_name=name,
                             arguments=args,
@@ -471,9 +757,10 @@ async def chat_interaction(request: ChatRequest):
 
         except Exception as e:
             logger.error(f"OpenAI execution failed: {e}. Falling back to rule-based parser.")
-            fallback_res = run_rule_based_fallback(query)
+            fallback_res = await run_rule_based_fallback(query)
             fallback_res.response = f"*(OpenAI Call Failed: {str(e)} - Switched to Local Interpreter)*\n\n" + fallback_res.response
             return fallback_res
+
 
     # Handle LM Studio Local Model Tool Calling
     elif provider == "local" or provider == "lm_studio" or (provider == "auto" and not api_key):
@@ -482,7 +769,7 @@ async def chat_interaction(request: ChatRequest):
             lm_studio_config = {
                 "base_url": os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234"),
                 "api_key": "not-required",
-                "timeout": 300,
+                "timeout": 10.0,
             }
             client = openai_lib.OpenAI(
                 api_key=lm_studio_config["api_key"],
@@ -490,12 +777,9 @@ async def chat_interaction(request: ChatRequest):
                 timeout=lm_studio_config["timeout"]
             )
 
-            # Format messages - LM Studio/Qwen models expect only user messages after system
-            openai_messages = [{"role": "system", "content": system_prompt}]
-            for msg in request.messages:
-                if msg.role == "user":
-                    openai_messages.append({"role": "user", "content": msg.content})
-                # Skip existing assistant messages to avoid confusing the model's Jinja template
+            # Format messages
+            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
+            openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
 
             # Format tools for OpenAI-compatible LM Studio API
             openai_tools = []
@@ -509,8 +793,17 @@ async def chat_interaction(request: ChatRequest):
                     }
                 })
 
-            # Default to qwen model for tool calling
-            model_name = request.model or "openyourmind-qwen3.6-35b-a3b-kuato-dpo-abliterated-uncensored-i1"
+            # Dynamically check for currently loaded model in LM Studio
+            try:
+                models_res = client.models.list()
+                if models_res and models_res.data:
+                    model_name = models_res.data[0].id
+                    logger.info(f"Dynamically detected loaded model: {model_name}")
+                else:
+                    model_name = request.model or "openyourmind-qwen3.6-35b-a3b-kuato-dpo-abliterated-uncensored-i1"
+            except Exception as models_err:
+                logger.error(f"Failed to fetch models from LM Studio: {models_err}")
+                model_name = request.model or "openyourmind-qwen3.6-35b-a3b-kuato-dpo-abliterated-uncensored-i1"
 
             max_turns = 5
             for turn in range(max_turns):
@@ -529,7 +822,7 @@ async def chat_interaction(request: ChatRequest):
                     err_str = str(timeout_err).lower()
                     if "timeout" in err_str or "timed out" in err_str or "timed-out" in err_str:
                         logger.error(f"LM Studio request timed out: {timeout_err}")
-                        fallback_res = run_rule_based_fallback(query)
+                        fallback_res = await run_rule_based_fallback(query)
                         fallback_res.response = f"*(LM Studio Request Timed Out - Switched to Local Interpreter)*\n\n" + fallback_res.response
                         return fallback_res
                     raise
@@ -547,7 +840,7 @@ async def chat_interaction(request: ChatRequest):
                     args = json.loads(tool_call.function.arguments)
                     
                     try:
-                        result = execute_tool_locally(name, args)
+                        result = await execute_tool_locally(name, args)
                         tool_logs.append(ToolCallLog(
                             tool_name=name,
                             arguments=args,
@@ -578,7 +871,7 @@ async def chat_interaction(request: ChatRequest):
         except Exception as e:
             err_str = str(e).lower()
             logger.error(f"LM Studio execution failed: {e}")
-            fallback_res = run_rule_based_fallback(query)
+            fallback_res = await run_rule_based_fallback(query)
             if "jinja" in err_str or "no user query" in err_str or "prompt template" in err_str:
                 fallback_res.response = f"*(LM Studio Prompt Template Error - Check model prompt template settings in LM Studio)*\n\n" + fallback_res.response
             elif "timeout" in err_str or "timed out" in err_str:
@@ -589,6 +882,7 @@ async def chat_interaction(request: ChatRequest):
                 fallback_res.response = f"*(LM Studio Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n" + fallback_res.response
             return fallback_res
 
+
     # Handle Anthropic Client Tool Calling
     elif api_key and (provider == "anthropic" or (provider == "auto" and os.getenv("ANTHROPIC_API_KEY"))):
         try:
@@ -596,9 +890,7 @@ async def chat_interaction(request: ChatRequest):
             client = anthropic.Anthropic(api_key=api_key)
             
             # Format messages for Claude (system is a top-level parameter)
-            claude_messages = []
-            for msg in request.messages:
-                claude_messages.append({"role": msg.role, "content": msg.content})
+            full_system_prompt, claude_messages = format_messages_for_llm(request.messages, system_prompt)
 
             # Format tools for Claude
             claude_tools = []
@@ -614,7 +906,7 @@ async def chat_interaction(request: ChatRequest):
                 logger.info(f"Anthropic turn {turn}...")
                 response = client.messages.create(
                     model=request.model or "claude-3-5-haiku-20241022",
-                    system=system_prompt,
+                    system=full_system_prompt,
                     messages=claude_messages,
                     tools=claude_tools,
                     temperature=0.7,
@@ -652,7 +944,7 @@ async def chat_interaction(request: ChatRequest):
                     args = tool_use.input
                     
                     try:
-                        result = execute_tool_locally(name, args)
+                        result = await execute_tool_locally(name, args)
                         tool_logs.append(ToolCallLog(
                             tool_name=name,
                             arguments=args,
@@ -682,9 +974,9 @@ async def chat_interaction(request: ChatRequest):
 
         except Exception as e:
             logger.error(f"Anthropic execution failed: {e}. Falling back to rule-based parser.")
-            fallback_res = run_rule_based_fallback(query)
+            fallback_res = await run_rule_based_fallback(query)
             fallback_res.response = f"*(Anthropic Call Failed: {str(e)} - Switched to Local Interpreter)*\n\n" + fallback_res.response
             return fallback_res
 
     # Default fallback
-    return run_rule_based_fallback(query)
+    return await run_rule_based_fallback(query)

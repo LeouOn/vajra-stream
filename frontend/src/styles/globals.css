@@ -160,8 +160,8 @@
       to bottom,
       rgba(255,255,255,0),
       rgba(255,255,255,0) 50%,
-      rgba(0, 255, 255, 0.1) 50%,
-      rgba(0, 255, 255, 0.1)
+      rgba(0, 255, 255, 0.03) 50%,
+      rgba(0, 255, 255, 0.03)
     );
     background-size: 100% 4px;
     z-index: 100;
@@ -172,11 +172,11 @@
     display: block;
     position: fixed;
     top: 0; left: 0; bottom: 0; right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.015), rgba(0, 0, 255, 0.03));
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
     z-index: 99;
     background-size: 100% 3px, 3px 100%;
     pointer-events: none;
-    opacity: 0.85;
+    opacity: 0.15;
     animation: crt-flicker 0.2s infinite;
   }
 
@@ -185,7 +185,7 @@
     display: block;
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(to bottom, rgba(138, 43, 226, 0) 0%, rgba(138, 43, 226, 0.06) 10%, rgba(0, 255, 255, 0.08) 50%, rgba(138, 43, 226, 0.06) 90%, rgba(138, 43, 226, 0) 100%);
+    background: linear-gradient(to bottom, rgba(138, 43, 226, 0) 0%, rgba(138, 43, 226, 0.02) 10%, rgba(0, 255, 255, 0.03) 50%, rgba(138, 43, 226, 0.02) 90%, rgba(138, 43, 226, 0) 100%);
     z-index: 101;
     pointer-events: none;
     animation: scanlines-anim 10s linear infinite;

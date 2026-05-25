@@ -448,6 +448,100 @@ def resume_automation(session_id: str) -> dict[str, Any]:
     return client._post(f"/api/v1/automation/{session_id}/resume")
 
 
+
+# ============================================================================
+# MAGICAL & ESOTERIC OPERATIONS TOOLS
+# ============================================================================
+
+def forge_sigil(intention: str, kamea: str = "saturn") -> dict[str, Any]:
+    """
+    Forge a magical visual sigil from an intention statement.
+    Generates both planetary Kamea SVGs and schedules Stable Diffusion generation.
+
+    Args:
+        intention: What the sigil is designed to manifest or bless
+        kamea: Planetary Kamea grid to draw on (saturn, jupiter, mars)
+    """
+    client = get_client()
+    return client._post("/api/v1/sigils/forge", {"intention": intention, "kamea": kamea})
+
+
+def cast_tarot_spread(count: int = 3, question: str = "") -> dict[str, Any]:
+    """
+    Draw Tarot cards from a 78-card deck with full elemental, Hebrew, and planetary correspondences.
+
+    Args:
+        count: Number of cards to draw (1, 3, or 10 for Celtic Cross)
+        question: Question in focus for the Tarot oracle
+    """
+    client = get_client()
+    res = client._post("/api/v1/divination/tarot/draw", {"count": count})
+    if question and "cards" in res:
+        # Request esoteric interpretation
+        interpretation = client._post("/api/v1/divination/interpret", {"system": "Tarot", "question": question, "details": res})
+        res["interpretation"] = interpretation.get("interpretation")
+    return res
+
+
+def cast_i_ching(question: str = "") -> dict[str, Any]:
+    """
+    Cast an I Ching hexagram using traditional yarrow-stalk probability weights.
+    Returns primary/relating hexagrams, changing lines, and meaning interpretation.
+
+    Args:
+        question: The situation or focus query for the hexagram
+    """
+    client = get_client()
+    res = client._post("/api/v1/divination/iching/cast")
+    if question and "cast" in res:
+        interpretation = client._post("/api/v1/divination/interpret", {"system": "I Ching", "question": question, "details": res})
+        res["interpretation"] = interpretation.get("interpretation")
+    return res
+
+
+def cast_geomancy(question: str = "") -> dict[str, Any]:
+    """
+    Cast a Geomantic Shield Chart containing 4 Mothers, 4 Daughters, Nieces, Witnesses, and the Judge.
+    Projects figures into the 12 astrological houses.
+
+    Args:
+        question: Query/trend-check focus
+    """
+    client = get_client()
+    res = client._post("/api/v1/divination/geomancy/shield")
+    if question and "chart" in res:
+        interpretation = client._post("/api/v1/divination/interpret", {"system": "Geomancy", "question": question, "details": res})
+        res["interpretation"] = interpretation.get("interpretation")
+    return res
+
+
+def search_grimoire_correspondences(query: str) -> list[dict[str, Any]]:
+    """
+    Search the Grimoire library for herbs, stones, metals, planets, and rates that match.
+
+    Args:
+        query: Name of herb, crystal, element, or symptom/intention
+    """
+    # Import locally to avoid circular dependency
+    from backend.core.services.grimoire_service import grimoire_service
+    return grimoire_service.search(query)
+
+
+def get_planetary_hours_and_transits() -> dict[str, Any]:
+    """
+    Retrieve current planetary hour, day ruler, auspicious timing guidelines, and transits.
+    """
+    client = get_client()
+    astrology_data = client._get("/api/v1/current")
+    planetary_hours = client._get("/api/v1/planetary-hours")
+    transits = client._get("/api/v1/transits")
+    return {
+        "astrology": astrology_data.get("astrology", {}),
+        "planetary_hours": planetary_hours,
+        "transits": transits.get("transits", [])
+    }
+
+
 # ============================================================================
 # TOOL REGISTRY (for LLM agents)
 # ============================================================================
@@ -469,6 +563,12 @@ TOOL_REGISTRY = {
     "stop_automation": stop_automation,
     "pause_automation": pause_automation,
     "resume_automation": resume_automation,
+    "forge_sigil": forge_sigil,
+    "cast_tarot_spread": cast_tarot_spread,
+    "cast_i_ching": cast_i_ching,
+    "cast_geomancy": cast_geomancy,
+    "search_grimoire_correspondences": search_grimoire_correspondences,
+    "get_planetary_hours_and_transits": get_planetary_hours_and_transits,
 }
 
 
@@ -637,7 +737,70 @@ def get_tool_schemas() -> list[dict[str, Any]]:
             "description": "Get overall statistics across all populations including totals and categories",
             "parameters": {"type": "object", "properties": {}},
         },
+        {
+            "name": "forge_sigil",
+            "description": "Create a graphical, neon-glowing vector sigil on a planetary magic square from an intention.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "intention": {"type": "string", "description": "Clear intention statement (e.g. 'protection and clarity')"},
+                    "kamea": {"type": "string", "enum": ["saturn", "jupiter", "mars"], "description": "Planetary grid context (default saturn)"}
+                },
+                "required": ["intention"]
+            }
+        },
+        {
+            "name": "cast_tarot_spread",
+            "description": "Draw Tarot cards with elemental, Hebrew, and planetary correspondences to answer a question.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "count": {"type": "integer", "description": "Number of cards to draw: 1 (single), 3 (past/present/future), or 10 (Celtic Cross)"},
+                    "question": {"type": "string", "description": "Focus question for oracle interpretation"}
+                }
+            }
+        },
+        {
+            "name": "cast_i_ching",
+            "description": "Cast I Ching hexagrams using traditional yarrow-stalk probabilities, listing primary and relating hexagram meanings.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "The situation or query to interpret"}
+                }
+            }
+        },
+        {
+            "name": "cast_geomancy",
+            "description": "Cast a full 16-figure Geomantic shield chart projected into the 12 astrological houses.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "Query or context for the cast"}
+                }
+            }
+        },
+        {
+            "name": "search_grimoire_correspondences",
+            "description": "Search the Grimoire database for herbs, minerals, metals, planets, chakras, and rates.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The herb, stone, planet, rate, or symptom to lookup"}
+                },
+                "required": ["query"]
+            }
+        },
+        {
+            "name": "get_planetary_hours_and_transits",
+            "description": "Fetch current planetary hours timeline, daily rulers, and planetary transit aspects.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
     ]
+
 
 
 # Example usage for LLM agents
