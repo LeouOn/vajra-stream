@@ -33,7 +33,7 @@ def create_test_populations():
             return manager.create_population(name=name, **kwargs)
 
     # 1. Create/Update California population (preserves unit test expectation)
-    california = get_or_create(
+    get_or_create(
         name="California",
         description="Missing persons from California",
         category=PopulationCategory.MISSING_PERSONS,
@@ -43,7 +43,7 @@ def create_test_populations():
     )
 
     # 2. Create/Update Myanmar population (preserves unit test expectation)
-    myanmar = get_or_create(
+    get_or_create(
         name="Myanmar",
         description="Genocide victims from Myanmar",
         category=PopulationCategory.CONFLICT_ZONES,
@@ -53,7 +53,7 @@ def create_test_populations():
     )
 
     # 3. Create/Update Congo population (preserves unit test expectation)
-    congo = get_or_create(
+    get_or_create(
         name="Congo",
         description="Refugees from Congo",
         category=PopulationCategory.REFUGEES,
@@ -71,29 +71,28 @@ def create_test_populations():
         intentions=["ecological protection", "biodiversity", "healing", "vitality"],
         priority=8,
         tags=["ecological", "rainforest", "astrology-venus", "geomancy-albus", "archetype-empress"],
-        notes=json.dumps({
-            "astrology": {
-                "ruling_planet": "Venus",
-                "zodiac_sign": "Taurus",
-                "element": "Earth",
-                "planetary_alignment": "Venus sextile Neptune"
-            },
-            "geomancy": {
-                "figure": "Albus",
-                "pattern": [2, 2, 1, 2],
-                "translation": "The White",
-                "meaning": "Wisdom, clarity, peace, purification"
-            },
-            "archetype": {
-                "tarot_card": "The Empress",
-                "hebrew_letter": "Daleth",
-                "meaning": "Abundance, creativity, nature, mothering"
-            },
-            "radionics": {
-                "rate": [15, 45, 92],
-                "general_vitality": 850
+        notes=json.dumps(
+            {
+                "astrology": {
+                    "ruling_planet": "Venus",
+                    "zodiac_sign": "Taurus",
+                    "element": "Earth",
+                    "planetary_alignment": "Venus sextile Neptune",
+                },
+                "geomancy": {
+                    "figure": "Albus",
+                    "pattern": [2, 2, 1, 2],
+                    "translation": "The White",
+                    "meaning": "Wisdom, clarity, peace, purification",
+                },
+                "archetype": {
+                    "tarot_card": "The Empress",
+                    "hebrew_letter": "Daleth",
+                    "meaning": "Abundance, creativity, nature, mothering",
+                },
+                "radionics": {"rate": [15, 45, 92], "general_vitality": 850},
             }
-        })
+        ),
     )
 
     # 5. Global Hospital Patients
@@ -105,29 +104,28 @@ def create_test_populations():
         intentions=["recovery", "comfort", "healing", "peace"],
         priority=9,
         tags=["healthcare", "healing", "astrology-moon", "geomancy-laetitia", "archetype-high-priestess"],
-        notes=json.dumps({
-            "astrology": {
-                "ruling_planet": "Moon",
-                "zodiac_sign": "Cancer",
-                "element": "Water",
-                "planetary_alignment": "Moon conjunct Jupiter"
-            },
-            "geomancy": {
-                "figure": "Laetitia",
-                "pattern": [1, 2, 2, 2],
-                "translation": "Joy",
-                "meaning": "Joy, health, expansion, positive news"
-            },
-            "archetype": {
-                "tarot_card": "The High Priestess",
-                "hebrew_letter": "Gimel",
-                "meaning": "Intuition, subconscious, healing, inner secrets"
-            },
-            "radionics": {
-                "rate": [42, 60, 85],
-                "general_vitality": 720
+        notes=json.dumps(
+            {
+                "astrology": {
+                    "ruling_planet": "Moon",
+                    "zodiac_sign": "Cancer",
+                    "element": "Water",
+                    "planetary_alignment": "Moon conjunct Jupiter",
+                },
+                "geomancy": {
+                    "figure": "Laetitia",
+                    "pattern": [1, 2, 2, 2],
+                    "translation": "Joy",
+                    "meaning": "Joy, health, expansion, positive news",
+                },
+                "archetype": {
+                    "tarot_card": "The High Priestess",
+                    "hebrew_letter": "Gimel",
+                    "meaning": "Intuition, subconscious, healing, inner secrets",
+                },
+                "radionics": {"rate": [42, 60, 85], "general_vitality": 720},
             }
-        })
+        ),
     )
 
     # 6. Sahel Green Wall Initiative
@@ -139,29 +137,28 @@ def create_test_populations():
         intentions=["restoration", "growth", "cohesion", "resilience"],
         priority=7,
         tags=["sahel", "ecological", "astrology-saturn", "geomancy-acquisitio", "archetype-emperor"],
-        notes=json.dumps({
-            "astrology": {
-                "ruling_planet": "Saturn",
-                "zodiac_sign": "Capricorn",
-                "element": "Earth",
-                "planetary_alignment": "Saturn trine Sun"
-            },
-            "geomancy": {
-                "figure": "Acquisitio",
-                "pattern": [2, 1, 2, 1],
-                "translation": "Gain",
-                "meaning": "Increase, expansion, success"
-            },
-            "archetype": {
-                "tarot_card": "The Emperor",
-                "hebrew_letter": "Heh",
-                "meaning": "Structure, authority, discipline, strong foundation"
-            },
-            "radionics": {
-                "rate": [28, 55, 94],
-                "general_vitality": 680
+        notes=json.dumps(
+            {
+                "astrology": {
+                    "ruling_planet": "Saturn",
+                    "zodiac_sign": "Capricorn",
+                    "element": "Earth",
+                    "planetary_alignment": "Saturn trine Sun",
+                },
+                "geomancy": {
+                    "figure": "Acquisitio",
+                    "pattern": [2, 1, 2, 1],
+                    "translation": "Gain",
+                    "meaning": "Increase, expansion, success",
+                },
+                "archetype": {
+                    "tarot_card": "The Emperor",
+                    "hebrew_letter": "Heh",
+                    "meaning": "Structure, authority, discipline, strong foundation",
+                },
+                "radionics": {"rate": [28, 55, 94], "general_vitality": 680},
             }
-        })
+        ),
     )
 
     # 7. Great Barrier Reef Ecosystem
@@ -173,29 +170,28 @@ def create_test_populations():
         intentions=["marine restoration", "coral healing", "biodiversity", "protection"],
         priority=8,
         tags=["marine", "reef", "astrology-neptune", "geomancy-populus", "archetype-star"],
-        notes=json.dumps({
-            "astrology": {
-                "ruling_planet": "Neptune",
-                "zodiac_sign": "Pisces",
-                "element": "Water",
-                "planetary_alignment": "Moon trine Neptune"
-            },
-            "geomancy": {
-                "figure": "Populus",
-                "pattern": [2, 2, 2, 2],
-                "translation": "The People",
-                "meaning": "Consensus, flow, gathering, diffusion"
-            },
-            "archetype": {
-                "tarot_card": "The Star",
-                "hebrew_letter": "Tzaddi",
-                "meaning": "Hope, renewal, cosmic inspiration"
-            },
-            "radionics": {
-                "rate": [33, 77, 99],
-                "general_vitality": 790
+        notes=json.dumps(
+            {
+                "astrology": {
+                    "ruling_planet": "Neptune",
+                    "zodiac_sign": "Pisces",
+                    "element": "Water",
+                    "planetary_alignment": "Moon trine Neptune",
+                },
+                "geomancy": {
+                    "figure": "Populus",
+                    "pattern": [2, 2, 2, 2],
+                    "translation": "The People",
+                    "meaning": "Consensus, flow, gathering, diffusion",
+                },
+                "archetype": {
+                    "tarot_card": "The Star",
+                    "hebrew_letter": "Tzaddi",
+                    "meaning": "Hope, renewal, cosmic inspiration",
+                },
+                "radionics": {"rate": [33, 77, 99], "general_vitality": 790},
             }
-        })
+        ),
     )
 
     # 8. Global Communities
@@ -207,29 +203,28 @@ def create_test_populations():
         intentions=["harmony", "cohesion", "mutual understanding", "peace"],
         priority=6,
         tags=["communities", "social", "astrology-jupiter", "geomancy-fortuna-major", "archetype-lovers"],
-        notes=json.dumps({
-            "astrology": {
-                "ruling_planet": "Jupiter",
-                "zodiac_sign": "Libra",
-                "element": "Air",
-                "planetary_alignment": "Jupiter sextile Venus"
-            },
-            "geomancy": {
-                "figure": "Fortuna Major",
-                "pattern": [2, 2, 1, 1],
-                "translation": "Greater Fortune",
-                "meaning": "Inner victory, supreme success, protection"
-            },
-            "archetype": {
-                "tarot_card": "The Lovers",
-                "hebrew_letter": "Zayin",
-                "meaning": "Alignment of values, choices, harmony"
-            },
-            "radionics": {
-                "rate": [50, 50, 50],
-                "general_vitality": 880
+        notes=json.dumps(
+            {
+                "astrology": {
+                    "ruling_planet": "Jupiter",
+                    "zodiac_sign": "Libra",
+                    "element": "Air",
+                    "planetary_alignment": "Jupiter sextile Venus",
+                },
+                "geomancy": {
+                    "figure": "Fortuna Major",
+                    "pattern": [2, 2, 1, 1],
+                    "translation": "Greater Fortune",
+                    "meaning": "Inner victory, supreme success, protection",
+                },
+                "archetype": {
+                    "tarot_card": "The Lovers",
+                    "hebrew_letter": "Zayin",
+                    "meaning": "Alignment of values, choices, harmony",
+                },
+                "radionics": {"rate": [50, 50, 50], "general_vitality": 880},
             }
-        })
+        ),
     )
 
     # 9. Refugees & War Victims
@@ -241,29 +236,28 @@ def create_test_populations():
         intentions=["safety", "shelter", "inner peace", "healing"],
         priority=9,
         tags=["refugees", "humanitarian", "astrology-mars", "geomancy-carcer", "archetype-strength"],
-        notes=json.dumps({
-            "astrology": {
-                "ruling_planet": "Venus",
-                "zodiac_sign": "Leo",
-                "element": "Fire",
-                "planetary_alignment": "Mars conjunct Venus"
-            },
-            "geomancy": {
-                "figure": "Carcer",
-                "pattern": [1, 2, 2, 1],
-                "translation": "Sanctuary",
-                "meaning": "Transmuting restriction and danger into security and safe containment"
-            },
-            "archetype": {
-                "tarot_card": "Strength",
-                "hebrew_letter": "Teth",
-                "meaning": "Inner strength, patience, fortitude, compassion"
-            },
-            "radionics": {
-                "rate": [18, 38, 72],
-                "general_vitality": 550
+        notes=json.dumps(
+            {
+                "astrology": {
+                    "ruling_planet": "Venus",
+                    "zodiac_sign": "Leo",
+                    "element": "Fire",
+                    "planetary_alignment": "Mars conjunct Venus",
+                },
+                "geomancy": {
+                    "figure": "Carcer",
+                    "pattern": [1, 2, 2, 1],
+                    "translation": "Sanctuary",
+                    "meaning": "Transmuting restriction and danger into security and safe containment",
+                },
+                "archetype": {
+                    "tarot_card": "Strength",
+                    "hebrew_letter": "Teth",
+                    "meaning": "Inner strength, patience, fortitude, compassion",
+                },
+                "radionics": {"rate": [18, 38, 72], "general_vitality": 550},
             }
-        })
+        ),
     )
 
     # 10. World Leaders
@@ -275,29 +269,28 @@ def create_test_populations():
         intentions=["wisdom", "clear decision-making", "compassion", "clarity"],
         priority=7,
         tags=["leaders", "decision-making", "astrology-sun", "geomancy-caput-draconis", "archetype-magician"],
-        notes=json.dumps({
-            "astrology": {
-                "ruling_planet": "Sun",
-                "zodiac_sign": "Sagittarius",
-                "element": "Fire",
-                "planetary_alignment": "Sun conjunct Jupiter"
-            },
-            "geomancy": {
-                "figure": "Caput Draconis",
-                "pattern": [2, 1, 1, 1],
-                "translation": "Dragon's Head",
-                "meaning": "New beginnings, entry point, spiritual growth"
-            },
-            "archetype": {
-                "tarot_card": "The Magician",
-                "hebrew_letter": "Beth",
-                "meaning": "Willpower, manifestation, clear vision"
-            },
-            "radionics": {
-                "rate": [10, 80, 90],
-                "general_vitality": 620
+        notes=json.dumps(
+            {
+                "astrology": {
+                    "ruling_planet": "Sun",
+                    "zodiac_sign": "Sagittarius",
+                    "element": "Fire",
+                    "planetary_alignment": "Sun conjunct Jupiter",
+                },
+                "geomancy": {
+                    "figure": "Caput Draconis",
+                    "pattern": [2, 1, 1, 1],
+                    "translation": "Dragon's Head",
+                    "meaning": "New beginnings, entry point, spiritual growth",
+                },
+                "archetype": {
+                    "tarot_card": "The Magician",
+                    "hebrew_letter": "Beth",
+                    "meaning": "Willpower, manifestation, clear vision",
+                },
+                "radionics": {"rate": [10, 80, 90], "general_vitality": 620},
             }
-        })
+        ),
     )
 
     # Get all populations to verify

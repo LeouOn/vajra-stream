@@ -158,7 +158,7 @@ const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }) => {
                     })}
                     className="bg-gray-950/80 p-2.5 rounded-lg border border-white/5 flex flex-col items-center hover:border-purple-500/50 hover:scale-105 cursor-zoom-in transition-all duration-300"
                   >
-                    <div dangerouslySetInnerHTML={{ __html: card.svg }} className="w-20 h-32 flex justify-center" />
+                    <div dangerouslySetInnerHTML={{ __html: card.svg }} className="divination-card-container w-20 h-32 flex justify-center" />
                     <span className="text-[10px] text-gray-400 font-bold mt-2 truncate max-w-full text-center">{card.name}</span>
                     <span className="text-[8px] text-purple-300 italic truncate max-w-full text-center">{card.orientation.toUpperCase()}</span>
                   </div>
@@ -186,7 +186,7 @@ const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }) => {
                 })}
                 className="flex flex-col sm:flex-row gap-4 items-center cursor-zoom-in hover:bg-white/5 p-2 rounded-lg transition-all duration-300"
               >
-                <div dangerouslySetInnerHTML={{ __html: cast.svg }} className="w-full max-w-[200px]" />
+                <div dangerouslySetInnerHTML={{ __html: cast.svg }} className="divination-card-container w-full max-w-[200px]" />
                 <div className="flex-1 text-xs space-y-1.5 text-gray-300">
                   <div>
                     <span className="font-bold text-white block">Primary: {cast.primary?.name}</span>
@@ -453,6 +453,9 @@ export default function CommandCenter({
   const [includeAstrology, setIncludeAstrology] = useState(true);
   const [includeAnatomy, setIncludeAnatomy] = useState(true);
   const [includeHardware, setIncludeHardware] = useState(true);
+  const [availableModels, setAvailableModels] = useState({ local: [], api: [], lm_studio: [] });
+  const [selectedModel, setSelectedModel] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState('local');
   const [debugMode, setDebugMode] = useState(false);
   const [debugPayload, setDebugPayload] = useState(null);
   const [activeLogTab, setActiveLogTab] = useState('tools');
@@ -493,7 +496,37 @@ export default function CommandCenter({
     const interval = setInterval(fetchAstro, 15000);
     return () => clearInterval(interval);
   }, []);
-  
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/llm/models`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'success') {
+            setAvailableModels(data.available || { local: [], api: [], lm_studio: [] });
+            const model = data.default_model || '';
+            setSelectedModel(model);
+            
+            // Auto-detect provider from the selected model
+            if (!model) {
+              setSelectedProvider('lm_studio');
+            } else if (data.available?.lm_studio?.includes(model)) {
+              setSelectedProvider('lm_studio');
+            } else if (data.available?.local?.includes(model)) {
+              setSelectedProvider('local');
+            } else {
+              setSelectedProvider('openai');
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch available models", e);
+      }
+    };
+    fetchModels();
+  }, []);
+
   const messagesEndRef = useRef(null);
   const logEndRef = useRef(null);
 
@@ -581,8 +614,10 @@ export default function CommandCenter({
             role: m.role,
             content: m.content
           })),
-          provider: 'local',
+          provider: selectedProvider,
+          model: selectedModel || null,
           include_astrology: includeAstrology,
+          astrology_data: includeAstrology ? astroData : null,
           include_anatomy: includeAnatomy,
           include_hardware: includeHardware,
           debug_mode: debugMode
@@ -764,6 +799,58 @@ export default function CommandCenter({
             />
             <span className="group-hover:text-vajra-cyan transition-colors">⚙️ System Metrics</span>
           </label>
+
+          <div className="flex items-center gap-1.5 border-l border-white/10 pl-4">
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Model:</span>
+            <select
+              value={`${selectedProvider}:${selectedModel}`}
+              onChange={(e) => {
+                const [provider, model] = e.target.value.split(':');
+                setSelectedProvider(provider);
+                setSelectedModel(model);
+                audioFeedback.playClick();
+              }}
+              className="bg-black/60 border border-purple-500/30 text-purple-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-purple-500/60 max-w-[180px] truncate"
+            >
+              {/* LM Studio models */}
+              {availableModels.lm_studio && availableModels.lm_studio.length > 0 && (
+                <optgroup label="LM Studio (Active)">
+                  {availableModels.lm_studio.map(m => (
+                    <option key={`lm_studio:${m}`} value={`lm_studio:${m}`}>{m}</option>
+                  ))}
+                </optgroup>
+              )}
+              
+              {/* Local GGUF models */}
+              {availableModels.local && availableModels.local.length > 0 && (
+                <optgroup label="Local GGUF">
+                  {availableModels.local.map(m => (
+                    <option key={`local:${m}`} value={`local:${m}`}>{m}</option>
+                  ))}
+                </optgroup>
+              )}
+              
+              {/* API Models if active */}
+              {availableModels.api && availableModels.api.length > 0 && (
+                <optgroup label="API Providers">
+                  {availableModels.api.map(m => {
+                    const providerVal = m.toLowerCase().includes('anthropic') ? 'anthropic' : 'openai';
+                    const defaultName = providerVal === 'anthropic' ? 'claude-3-5-sonnet' : 'gpt-4o-mini';
+                    return (
+                      <option key={`${providerVal}:${defaultName}`} value={`${providerVal}:${defaultName}`}>{m}</option>
+                    );
+                  })}
+                </optgroup>
+              )}
+              
+              {/* Empty state — no models available */}
+              {(!availableModels.lm_studio || availableModels.lm_studio.length === 0) &&
+               (!availableModels.local || availableModels.local.length === 0) &&
+               (!availableModels.api || availableModels.api.length === 0) && (
+                <option value="" disabled>No models — start LM Studio & reload a model</option>
+              )}
+            </select>
+          </div>
 
           <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors border-l border-white/10 pl-4">
             <input

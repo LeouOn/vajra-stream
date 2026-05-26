@@ -84,13 +84,17 @@ def build_frequencies_reference() -> str:
     if solfeggio:
         lines.append("### Solfeggio Frequencies")
         for hz, info in solfeggio.items():
-            lines.append(f"- **{hz} Hz** — {info.get('name', '')} ({info.get('purpose', '')}) → {info.get('chakra', '')} chakra")
+            lines.append(
+                f"- **{hz} Hz** — {info.get('name', '')} ({info.get('purpose', '')}) → {info.get('chakra', '')} chakra"
+            )
 
     planetary = freq_data.get("planetary", {})
     if planetary:
         lines.append("\n### Planetary Frequencies")
         for hz, info in planetary.items():
-            lines.append(f"- **{hz} Hz** — {info.get('name', '')} ({info.get('planet', '')}) — {info.get('purpose', '')}")
+            lines.append(
+                f"- **{hz} Hz** — {info.get('name', '')} ({info.get('planet', '')}) — {info.get('purpose', '')}"
+            )
 
     schumann = freq_data.get("schumann", {})
     if schumann:
@@ -102,7 +106,9 @@ def build_frequencies_reference() -> str:
     if brainwave:
         lines.append("\n### Brainwave States")
         for hz, info in brainwave.items():
-            lines.append(f"- **{hz} Hz** — {info.get('name', '')} ({info.get('state', '')}) — {info.get('purpose', '')}")
+            lines.append(
+                f"- **{hz} Hz** — {info.get('name', '')} ({info.get('state', '')}) — {info.get('purpose', '')}"
+            )
 
     return "\n".join(lines) if lines else "(frequency data unavailable)"
 
@@ -167,11 +173,7 @@ def search_rates(query: str, category: str | None = None) -> list[dict]:
     for db_name, rates in targets.items():
         for rate in rates:
             # Search name, description, and any text fields
-            searchable = " ".join(
-                str(v).lower()
-                for v in rate.values()
-                if isinstance(v, str)
-            )
+            searchable = " ".join(str(v).lower() for v in rate.values() if isinstance(v, str))
             if query_lower in searchable:
                 rate["_source"] = db_name
                 results.append(rate)
@@ -344,11 +346,13 @@ class SessionContext:
 
     def record_event(self, event_type: str, data: dict[str, Any]):
         """Record an event in session history."""
-        self.history.append({
-            "timestamp": datetime.now().isoformat(),
-            "type": event_type,
-            "data": data,
-        })
+        self.history.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "type": event_type,
+                "data": data,
+            }
+        )
         # Keep history bounded
         if len(self.history) > 100:
             self.history = self.history[-50:]

@@ -27,13 +27,11 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from core.context_builder import (
     SessionContext,
     build_intention_analysis_prompt,
-    build_rate_suggestion_prompt,
     build_system_prompt,
     search_rates,
 )
@@ -126,6 +124,7 @@ class ToolDispatcher:
             # ---- Rate Engine ----
             elif tool_name == "text_to_rate":
                 from core.radionics_engine import SignatureCalculator
+
                 calc = SignatureCalculator()
                 rate = calc.text_to_rate(
                     text=arguments.get("text", ""),
@@ -136,6 +135,7 @@ class ToolDispatcher:
 
             elif tool_name == "measure_general_vitality":
                 from core.radionics_engine import GeneralVitalityMeter
+
                 meter = GeneralVitalityMeter()
                 stats = meter.measure_multiple(
                     count=arguments.get("samples", 10),
@@ -154,6 +154,7 @@ class ToolDispatcher:
 
             elif tool_name == "find_balancing_rates":
                 from core.radionics_engine import RadionicsAnalyzer
+
                 analyzer = RadionicsAnalyzer()
                 rates = analyzer.find_balancing_rates(
                     subject=arguments.get("subject", ""),
@@ -166,6 +167,7 @@ class ToolDispatcher:
 
             elif tool_name == "search_knowledge":
                 from core.knowledge_index import search_knowledge as kb_search
+
                 results = kb_search(
                     query=arguments.get("query", ""),
                     top_k=arguments.get("top_k", 5),
@@ -184,6 +186,7 @@ class ToolDispatcher:
 
             elif tool_name == "get_world_context":
                 from core.internet_context import compile_world_context, format_context_for_llm
+
                 ctx = compile_world_context()
                 return {
                     "events_count": len(ctx.events),
@@ -213,6 +216,7 @@ class ToolDispatcher:
             # ---- RNG ----
             elif tool_name == "create_rng_session":
                 from backend.core.services.rng_attunement_service import get_rng_service
+
                 svc = get_rng_service()
                 session_id = svc.create_session(
                     baseline_tone_arm=arguments.get("baseline_tone_arm", 5.0),
@@ -222,6 +226,7 @@ class ToolDispatcher:
 
             elif tool_name == "get_rng_reading":
                 from backend.core.services.rng_attunement_service import get_rng_service
+
                 svc = get_rng_service()
                 reading = svc.get_reading(arguments["session_id"])
                 if reading is None:
@@ -229,7 +234,9 @@ class ToolDispatcher:
                 return {
                     "tone_arm": reading.tone_arm,
                     "needle_position": reading.needle_position,
-                    "needle_state": reading.needle_state.name if hasattr(reading.needle_state, 'name') else str(reading.needle_state),
+                    "needle_state": reading.needle_state.name
+                    if hasattr(reading.needle_state, "name")
+                    else str(reading.needle_state),
                     "floating_needle_score": reading.floating_needle_score,
                     "coherence": reading.coherence,
                     "entropy": reading.entropy,
@@ -237,6 +244,7 @@ class ToolDispatcher:
 
             elif tool_name == "get_rng_summary":
                 from backend.core.services.rng_attunement_service import get_rng_service
+
                 svc = get_rng_service()
                 return svc.get_session_summary(arguments["session_id"])
 
@@ -282,6 +290,7 @@ class ToolDispatcher:
                 if svc is None:
                     return {"error": "Astrology service not available"}
                 from datetime import datetime as dt
+
                 birth_date = dt.fromisoformat(arguments["birth_date"])
                 return svc.calculate_natal_chart(
                     name=arguments.get("name"),
@@ -349,8 +358,9 @@ class ToolDispatcher:
     def _dispatch_web_search(self, query: str, top_k: int = 5) -> dict[str, Any]:
         """Search the web via DuckDuckGo (no API key needed)."""
         try:
-            import urllib.request
             import urllib.parse
+            import urllib.request
+
             url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
             req = urllib.request.Request(url, headers={"User-Agent": "VajraStream/1.0"})
             with urllib.request.urlopen(req, timeout=10) as resp:
@@ -359,15 +369,20 @@ class ToolDispatcher:
             # Simple extraction of result snippets
             results = []
             import re
+
             snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
             for s in snippets[:top_k]:
-                clean = re.sub(r'<[^>]+>', '', s).strip()
+                clean = re.sub(r"<[^>]+>", "", s).strip()
                 if clean:
                     results.append({"snippet": clean[:300]})
 
             if not results:
                 # Fallback: return a note that web search requires network
-                results = [{"snippet": f"Web search for '{query}' — results unavailable (network issue or no results). Try using the local knowledge base via search_knowledge."}]
+                results = [
+                    {
+                        "snippet": f"Web search for '{query}' — results unavailable (network issue or no results). Try using the local knowledge base via search_knowledge."
+                    }
+                ]
 
             return {"query": query, "results": results, "count": len(results)}
         except Exception as e:
@@ -379,15 +394,17 @@ class ToolDispatcher:
             return {"error": "No URL provided"}
         try:
             import urllib.request
+
             req = urllib.request.Request(url, headers={"User-Agent": "VajraStream/1.0"})
             with urllib.request.urlopen(req, timeout=15) as resp:
                 content = resp.read().decode("utf-8", errors="replace")
             # Strip HTML tags for a rough text extraction
             import re
-            text = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL)
-            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
-            text = re.sub(r'<[^>]+>', ' ', text)
-            text = re.sub(r'\s+', ' ', text).strip()
+
+            text = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL)
+            text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
+            text = re.sub(r"<[^>]+>", " ", text)
+            text = re.sub(r"\s+", " ", text).strip()
             return {"url": url, "content": text[:3000], "length": len(text)}
         except Exception as e:
             return {"url": url, "error": str(e)}
@@ -442,7 +459,9 @@ class RadionicsOperator:
         if self._llm is None:
             try:
                 import os
+
                 from core.llm_integration import LLMIntegration
+
                 model_name = os.getenv("LM_STUDIO_ORCHESTRATOR_MODEL")
                 self._llm = LLMIntegration(model_type="auto", model_name=model_name)
                 self._provider = self._llm.model_type
@@ -458,7 +477,9 @@ class RadionicsOperator:
         if self._creative_llm is None:
             try:
                 import os
+
                 from core.llm_integration import LLMIntegration
+
                 creative_model = os.getenv("LM_STUDIO_CREATIVE_MODEL")
                 if creative_model:
                     self._creative_llm = LLMIntegration(model_type="auto", model_name=creative_model)
@@ -512,7 +533,9 @@ class RadionicsOperator:
                 max_tokens=500,
                 temperature=0.3,
             )
-            analysis = self._safe_json_parse(analysis_raw, {"intention": intention, "error": "Failed to parse analysis"})
+            analysis = self._safe_json_parse(
+                analysis_raw, {"intention": intention, "error": "Failed to parse analysis"}
+            )
         except Exception as e:
             logger.warning(f"LLM intention analysis failed: {e}")
             analysis = self._fallback_parse_intention(intention)
@@ -535,14 +558,17 @@ class RadionicsOperator:
         else:
             # Generate rates from intention signature
             from core.radionics_engine import SignatureCalculator
+
             calc = SignatureCalculator()
             sig_rate = calc.text_to_rate(intention, num_dials=3, algorithm="mixed")
-            suggested_rates = [{
-                "values": sig_rate.values,
-                "name": f"Signature: {intention[:30]}",
-                "source": "signature",
-                "reasoning": "Derived from intention text via mixed hash+gematria algorithm",
-            }]
+            suggested_rates = [
+                {
+                    "values": sig_rate.values,
+                    "name": f"Signature: {intention[:30]}",
+                    "source": "signature",
+                    "reasoning": "Derived from intention text via mixed hash+gematria algorithm",
+                }
+            ]
 
         # Step 4: Build recommendations
         result = {
@@ -594,7 +620,8 @@ class RadionicsOperator:
             }
 
         # Fall back to signature-based rate generation
-        from core.radionics_engine import SignatureCalculator, RadionicsAnalyzer
+        from core.radionics_engine import RadionicsAnalyzer, SignatureCalculator
+
         calc = SignatureCalculator()
         sig = calc.text_to_rate(intention_or_condition, num_dials=3, algorithm="mixed")
 
@@ -743,20 +770,20 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         """Get current blessing loop status."""
         return {
             "active": self._blessing_loop_active,
-            "intention": getattr(self, '_blessing_loop_intention', ''),
-            "interval_seconds": getattr(self, '_blessing_loop_interval', 15),
-            "blessings_count": len(self._blessing_stream) if hasattr(self, '_blessing_stream') else 0,
+            "intention": getattr(self, "_blessing_loop_intention", ""),
+            "interval_seconds": getattr(self, "_blessing_loop_interval", 15),
+            "blessings_count": len(self._blessing_stream) if hasattr(self, "_blessing_stream") else 0,
         }
 
     def get_blessing_stream(self, since: int = 0) -> list[dict[str, Any]]:
         """Get blessings generated since the given index."""
-        if not hasattr(self, '_blessing_stream'):
+        if not hasattr(self, "_blessing_stream"):
             return []
         return self._blessing_stream[since:]
 
     def generate_next_blessing(self) -> dict[str, Any] | None:
         """Manually trigger the next blessing generation."""
-        intention = getattr(self, '_blessing_loop_intention', 'all beings')
+        intention = getattr(self, "_blessing_loop_intention", "all beings")
         blessing = self._generate_blessing(intention)
         if blessing:
             self._blessing_stream.append(blessing)
@@ -783,6 +810,7 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         try:
             # Vary the prompt to get unique blessings each time
             import random
+
             styles = ["poetic", "heartfelt", "simple", "traditional", "cosmic"]
             traditions = ["buddhist", "universal", "tibetan", "sufi", "hindu"]
             style = random.choice(styles)
@@ -793,13 +821,13 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
 Style: {style}
 Tradition: {trad}
 Length: 3-5 lines
-Tone: {random.choice(['reverent', 'tender', 'powerful', 'gentle', 'radiant'])}
+Tone: {random.choice(["reverent", "tender", "powerful", "gentle", "radiant"])}
 
 Make this blessing DIFFERENT from standard prayers. Let it be fresh, alive, specific.
 Do not repeat phrases you've used before. Each blessing should feel like a new creation.
 
 Write only the blessing text, no explanation."""
-            
+
             system = build_system_prompt(self._session.to_dict())
             blessing_text = creative.generate(
                 prompt=prompt,
@@ -830,10 +858,10 @@ Write only the blessing text, no explanation."""
             "session": self._session.to_dict(),
             "tools_count": len(RADIONICS_TOOLS),
             "autonomous_mode": self._autonomous_active,
-            "blessing_loop_active": getattr(self, '_blessing_loop_active', False),
+            "blessing_loop_active": getattr(self, "_blessing_loop_active", False),
             "llm_config": {
-                "orchestrator_model": getattr(self.llm, 'model_name', 'auto') if self.llm else 'none',
-                "creative_model": getattr(creative, 'model_name', 'auto') if creative else 'none',
+                "orchestrator_model": getattr(self.llm, "model_name", "auto") if self.llm else "none",
+                "creative_model": getattr(creative, "model_name", "auto") if creative else "none",
                 "dual_llm": self._creative_llm is not None and self._creative_llm is not self._llm,
             },
         }
@@ -920,6 +948,7 @@ Write only the blessing text, no explanation."""
             try:
                 if self._container:
                     from backend.core.services.vajra_service import vajra_service
+
                     session_history = vajra_service.get_session_history()
             except Exception:
                 pass
@@ -936,13 +965,15 @@ Write only the blessing text, no explanation."""
         history_summary = []
         for s in session_history[-50:]:
             cfg = s.get("config", {})
-            history_summary.append({
-                "name": cfg.get("name", s.get("id", "")),
-                "intention": cfg.get("intention", ""),
-                "frequency": cfg.get("audio_config", {}).get("frequency", 0) if isinstance(cfg, dict) else 0,
-                "duration": cfg.get("duration", 0) if isinstance(cfg, dict) else 0,
-                "status": s.get("status", "unknown"),
-            })
+            history_summary.append(
+                {
+                    "name": cfg.get("name", s.get("id", "")),
+                    "intention": cfg.get("intention", ""),
+                    "frequency": cfg.get("audio_config", {}).get("frequency", 0) if isinstance(cfg, dict) else 0,
+                    "duration": cfg.get("duration", 0) if isinstance(cfg, dict) else 0,
+                    "status": s.get("status", "unknown"),
+                }
+            )
 
         if self.llm and (self.llm.client or self.llm.local_model):
             try:
@@ -984,7 +1015,7 @@ Return JSON with:
             # Find the most significant event
             critical = [e for e in ctx.events if e.severity == "critical"]
             high = [e for e in ctx.events if e.severity == "high"]
-            target_events = (critical or high or ctx.events[:3])
+            target_events = critical or high or ctx.events[:3]
 
             for evt in target_events[:1]:
                 suggestion = {
@@ -1000,10 +1031,12 @@ Return JSON with:
                 self._autonomous_suggestions.append(suggestion)
 
                 if self.event_bus:
-                    self.event_bus.publish(OperatorInsightGenerated(
-                        insight_type="autonomous_suggestion",
-                        content=suggestion,
-                    ))
+                    self.event_bus.publish(
+                        OperatorInsightGenerated(
+                            insight_type="autonomous_suggestion",
+                            content=suggestion,
+                        )
+                    )
 
                 return suggestion
 
@@ -1041,11 +1074,13 @@ Return JSON with:
                 func_name = tool_call.function.name
                 func_args = json.loads(tool_call.function.arguments)
                 result = self._dispatcher.dispatch(func_name, func_args)
-                tool_results.append({
-                    "tool": func_name,
-                    "arguments": func_args,
-                    "result": result,
-                })
+                tool_results.append(
+                    {
+                        "tool": func_name,
+                        "arguments": func_args,
+                        "result": result,
+                    }
+                )
 
             return {
                 "reply": f"I've executed {len(tool_results)} tool(s): " + ", ".join(t["tool"] for t in tool_results),
@@ -1077,18 +1112,22 @@ Return JSON with:
                 func_name = block.name
                 func_args = block.input
                 result = self._dispatcher.dispatch(func_name, func_args)
-                tool_results.append({
-                    "tool": func_name,
-                    "arguments": func_args,
-                    "result": result,
-                })
+                tool_results.append(
+                    {
+                        "tool": func_name,
+                        "arguments": func_args,
+                        "result": result,
+                    }
+                )
 
         reply = " ".join(text_parts) if text_parts else ""
 
         if tool_results:
-            reply = (reply + "\n\n" if reply else "") + \
-                    f"I've executed {len(tool_results)} tool(s): " + \
-                    ", ".join(t["tool"] for t in tool_results)
+            reply = (
+                (reply + "\n\n" if reply else "")
+                + f"I've executed {len(tool_results)} tool(s): "
+                + ", ".join(t["tool"] for t in tool_results)
+            )
 
         return {
             "reply": reply.strip() or "(no text response)",
@@ -1112,7 +1151,8 @@ Return JSON with:
         except json.JSONDecodeError:
             # Try to extract JSON object from the text
             import re
-            match = re.search(r'\{.*\}', raw, re.DOTALL)
+
+            match = re.search(r"\{.*\}", raw, re.DOTALL)
             if match:
                 try:
                     return json.loads(match.group(0))
@@ -1130,12 +1170,14 @@ Return JSON with:
 
         return {
             "analysis": analysis,
-            "suggested_rates": [{
-                "values": sig_rate.values,
-                "name": f"Signature: {intention[:30]}",
-                "source": "signature",
-                "reasoning": "Derived from intention text (LLM unavailable — using algorithmic fallback)",
-            }],
+            "suggested_rates": [
+                {
+                    "values": sig_rate.values,
+                    "name": f"Signature: {intention[:30]}",
+                    "source": "signature",
+                    "reasoning": "Derived from intention text (LLM unavailable — using algorithmic fallback)",
+                }
+            ],
             "recommended_frequency": analysis.get("recommended_frequency", 528),
             "recommended_mantra": "compassion",
             "recommended_modalities": ["scalar_waves", "radionics"],
@@ -1146,7 +1188,12 @@ Return JSON with:
     def _fallback_trends(self, history: list[dict]) -> dict[str, Any]:
         """Generate trend analysis without LLM."""
         if not history:
-            return {"analysis": "No data.", "patterns": [], "recommendations": [], "chart_data": {"labels": [], "values": []}}
+            return {
+                "analysis": "No data.",
+                "patterns": [],
+                "recommendations": [],
+                "chart_data": {"labels": [], "values": []},
+            }
 
         freqs = [h.get("frequency", 0) for h in history if h.get("frequency")]
         durations = [h.get("duration", 0) for h in history if h.get("duration")]
@@ -1158,7 +1205,11 @@ Return JSON with:
         return {
             "analysis": f"Across {len(history)} sessions, {most_freq}Hz was the most-used frequency. Average session duration: {avg_dur:.0f}s.",
             "patterns": [f"Frequency {most_freq}Hz dominates", f"Average duration {avg_dur:.0f}s"],
-            "recommendations": ["Try varying frequencies more", "Consider longer sessions for deeper effects", "Track intention themes over time"],
+            "recommendations": [
+                "Try varying frequencies more",
+                "Consider longer sessions for deeper effects",
+                "Track intention themes over time",
+            ],
             "chart_data": {"labels": names[-10:], "values": durations[-10:]},
             "most_used_frequency": most_freq,
             "most_common_intention_theme": "healing",
@@ -1169,23 +1220,55 @@ Return JSON with:
         """Keyword-based intention parsing (no LLM required)."""
         low = intention.lower()
         chakra_map = {
-            "root": "muladhara", "ground": "muladhara", "survival": "muladhara", "security": "muladhara",
-            "sacral": "svadhisthana", "creativity": "svadhisthana", "emotion": "svadhisthana",
-            "solar": "manipura", "power": "manipura", "confidence": "manipura", "will": "manipura",
-            "heart": "anahata", "love": "anahata", "grief": "anahata", "compassion": "anahata",
-            "throat": "vishuddha", "express": "vishuddha", "speak": "vishuddha", "truth": "vishuddha",
-            "third eye": "ajna", "intuition": "ajna", "clarity": "ajna", "vision": "ajna",
-            "crown": "sahasrara", "spirit": "sahasrara", "connect": "sahasrara", "divine": "sahasrara",
+            "root": "muladhara",
+            "ground": "muladhara",
+            "survival": "muladhara",
+            "security": "muladhara",
+            "sacral": "svadhisthana",
+            "creativity": "svadhisthana",
+            "emotion": "svadhisthana",
+            "solar": "manipura",
+            "power": "manipura",
+            "confidence": "manipura",
+            "will": "manipura",
+            "heart": "anahata",
+            "love": "anahata",
+            "grief": "anahata",
+            "compassion": "anahata",
+            "throat": "vishuddha",
+            "express": "vishuddha",
+            "speak": "vishuddha",
+            "truth": "vishuddha",
+            "third eye": "ajna",
+            "intuition": "ajna",
+            "clarity": "ajna",
+            "vision": "ajna",
+            "crown": "sahasrara",
+            "spirit": "sahasrara",
+            "connect": "sahasrara",
+            "divine": "sahasrara",
         }
 
         freq_map = {
-            "fear": 396, "guilt": 396, "liberation": 396,
-            "change": 417, "trauma": 417,
-            "heal": 528, "dna": 528, "love": 528, "repair": 528,
-            "relationship": 639, "connection": 639,
-            "intuition": 741, "express": 741, "awaken": 741,
-            "spirit": 852, "order": 852,
-            "divine": 963, "unity": 963, "oneness": 963,
+            "fear": 396,
+            "guilt": 396,
+            "liberation": 396,
+            "change": 417,
+            "trauma": 417,
+            "heal": 528,
+            "dna": 528,
+            "love": 528,
+            "repair": 528,
+            "relationship": 639,
+            "connection": 639,
+            "intuition": 741,
+            "express": 741,
+            "awaken": 741,
+            "spirit": 852,
+            "order": 852,
+            "divine": 963,
+            "unity": 963,
+            "oneness": 963,
         }
 
         best_chakra = "anahata"
@@ -1228,9 +1311,13 @@ Return JSON with:
         if rng:
             needle = rng.get("state", "")
             if needle == "floating":
-                parts.append("RNG shows floating needle — this indicates a release point. Good time to conclude or shift intention.")
+                parts.append(
+                    "RNG shows floating needle — this indicates a release point. Good time to conclude or shift intention."
+                )
             elif needle == "rock_slam":
-                parts.append("RNG shows rock slam — heavy charge detected. Continue broadcasting, the resistance is processing.")
+                parts.append(
+                    "RNG shows rock slam — heavy charge detected. Continue broadcasting, the resistance is processing."
+                )
             elif needle == "rising":
                 parts.append("RNG needle rising — energy is building. Continue the current rate configuration.")
 

@@ -1,17 +1,23 @@
-import pytest
 from datetime import datetime
+
+import pytest
 import pytz
 from fastapi.testclient import TestClient
+
 from core.astrology import AstrologicalCalculator
+
 
 @pytest.fixture
 def client():
     from backend.app.main import app
+
     return TestClient(app)
+
 
 @pytest.fixture
 def calculator():
     return AstrologicalCalculator()
+
 
 @pytest.mark.unit
 class TestAstrologyCalculator:
@@ -36,17 +42,17 @@ class TestAstrologyCalculator:
         dt = datetime(2026, 5, 24, 19, 29, 45, tzinfo=pytz.UTC)
         location = (37.7749, -122.4194)
         data = calculator.get_western_astrology(dt, location)
-        
+
         assert "positions" in data
         assert "elements" in data
         assert "modalities" in data
         assert "aspects" in data
-        
+
         # Check Ascendant and Midheaven are calculated when location is provided
         assert "ascendant" in data["positions"]
         assert "midheaven" in data["positions"]
         assert isinstance(data["positions"]["ascendant"]["longitude"], float)
-        
+
         # Check aspects list structure
         if len(data["aspects"]) > 0:
             asp = data["aspects"][0]
@@ -59,11 +65,11 @@ class TestAstrologyCalculator:
         dt = datetime(2026, 5, 24, 19, 29, 45, tzinfo=pytz.UTC)
         location = (37.7749, -122.4194)
         data = calculator.get_indian_astrology(dt, location)
-        
+
         assert "ayanamsa" in data
         assert "sidereal_positions" in data
         assert "panchanga" in data
-        
+
         # Check Grahas are present
         grahas = data["sidereal_positions"]
         assert "ascendant" in grahas
@@ -71,7 +77,7 @@ class TestAstrologyCalculator:
         assert "moon" in grahas
         assert "rahu" in grahas
         assert "ketu" in grahas
-        
+
         # Check Panchanga limbs
         panch = data["panchanga"]
         assert "tithi" in panch
@@ -79,7 +85,7 @@ class TestAstrologyCalculator:
         assert "yoga" in panch
         assert "karana" in panch
         assert "vara" in panch
-        
+
         assert "name" in panch["tithi"]
         assert "progress" in panch["tithi"]
         assert "name" in panch["nakshatra"]
@@ -87,13 +93,13 @@ class TestAstrologyCalculator:
     def test_chinese_astrology(self, calculator):
         dt = datetime(2026, 5, 24, 19, 29, 45, tzinfo=pytz.UTC)
         data = calculator.get_chinese_astrology(dt)
-        
+
         assert "lunar_date" in data
         assert "zodiac_animal" in data
         assert "bazi" in data
         assert "shichen" in data
         assert "solar_term" in data
-        
+
         assert "year" in data["bazi"]
         assert "month" in data["bazi"]
         assert "day" in data["bazi"]
@@ -104,7 +110,7 @@ class TestAstrologyCalculator:
         dt = datetime(2026, 5, 24, 19, 29, 45, tzinfo=pytz.UTC)
         location = (37.7749, -122.4194)
         data = calculator.calculate_exact_planetary_hours(dt, location)
-        
+
         assert data["status"] == "success"
         assert "current_planetary_hour" in data
         assert "day_planet" in data
@@ -116,13 +122,14 @@ class TestAstrologyCalculator:
         dt = datetime(2026, 5, 24, 19, 29, 45, tzinfo=pytz.UTC)
         location = (37.7749, -122.4194)
         data = calculator.get_comprehensive_astrology(dt, location)
-        
+
         assert "datetime" in data
         assert "location" in data
         assert "western" in data
         assert "indian" in data
         assert "chinese" in data
         assert "planetary_hours" in data
+
 
 @pytest.mark.integration
 class TestAstrologyAPI:
@@ -139,16 +146,12 @@ class TestAstrologyAPI:
     def test_api_current_natal_calculation(self, client):
         # Calculate custom chart for birth time: 1990-06-15T08:30:00
         # Location: London (51.5074, -0.1278)
-        params = {
-            "datetime_str": "1990-06-15T08:30:00",
-            "latitude": 51.5074,
-            "longitude": -0.1278
-        }
+        params = {"datetime_str": "1990-06-15T08:30:00", "latitude": 51.5074, "longitude": -0.1278}
         response = client.get("/api/v1/astrology/current", params=params)
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        
+
         # Verify custom time and location are reflected in payload
         astro = data["astrology"]
         assert "1990-06-15" in astro["datetime"]

@@ -8,7 +8,7 @@ import json
 import os
 import sys
 import time
-from dataclasses import dataclass
+from datetime import datetime
 
 import numpy as np
 
@@ -66,11 +66,11 @@ try:
 except ImportError:
     Level2CrystalBroadcaster, Level3CrystalBroadcaster = None, None
 
-ENHANCED_MODE = (AstrologicalCalculator is not None)
+ENHANCED_MODE = AstrologicalCalculator is not None
 print(f"Service running with Astrological Calculations: {AstrologicalCalculator is not None}")
 
 
-from backend.app.api.v1.endpoints.sessions import SessionConfig, AudioConfig
+from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
 
 
 class VajraStreamService:
@@ -101,9 +101,7 @@ class VajraStreamService:
         self.session_history: list[dict] = []
 
         # Persistence
-        self._history_path = os.path.join(
-            os.path.expanduser("~"), ".vajra-stream", "session_history.json"
-        )
+        self._history_path = os.path.join(os.path.expanduser("~"), ".vajra-stream", "session_history.json")
         self._load_history()
 
         # Event bus for session events
@@ -322,15 +320,18 @@ class VajraStreamService:
             session_data["astrology_data"] = await self._get_astrology_data()
 
         from modules.interfaces import SessionCreated
+
         if self.event_bus:
             try:
-                self.event_bus.publish(SessionCreated(
-                    session_id=session_id,
-                    name=name,
-                    intention=intention,
-                    duration=duration,
-                    audio_frequency=audio_frequency,
-                ))
+                self.event_bus.publish(
+                    SessionCreated(
+                        session_id=session_id,
+                        name=name,
+                        intention=intention,
+                        duration=duration,
+                        audio_frequency=audio_frequency,
+                    )
+                )
             except Exception:
                 pass
 
@@ -361,29 +362,37 @@ class VajraStreamService:
         if session["config"].visuals_enabled:
             session["visual_data"] = await self._generate_visuals(audio_data)
 
-        from modules.interfaces import SessionStarted, BroadcastStarted
+        from modules.interfaces import BroadcastStarted, SessionStarted
+
         if self.event_bus:
             try:
                 self.event_bus.publish(SessionStarted(session_id=session_id, name=session["config"].name))
             except Exception:
                 pass
             try:
-                self.event_bus.publish(BroadcastStarted(
-                    session_id=session_id,
-                    hardware_level=2 if session["config"].hardware_enabled else 0,
-                    frequencies=[session["config"].audio_config.frequency],
-                ))
+                self.event_bus.publish(
+                    BroadcastStarted(
+                        session_id=session_id,
+                        hardware_level=2 if session["config"].hardware_enabled else 0,
+                        frequencies=[session["config"].audio_config.frequency],
+                    )
+                )
             except Exception:
                 pass
 
         # Notify via WebSocket that broadcast started
         try:
             from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
-            asyncio.create_task(stable_connection_manager_v2.broadcast({
-                "type": "CRYSTAL_BROADCAST_STARTED",
-                "session_id": session_id,
-                "timestamp": time.time(),
-            }))
+
+            asyncio.create_task(
+                stable_connection_manager_v2.broadcast(
+                    {
+                        "type": "CRYSTAL_BROADCAST_STARTED",
+                        "session_id": session_id,
+                        "timestamp": time.time(),
+                    }
+                )
+            )
         except Exception:
             pass  # Non-critical
 
@@ -402,6 +411,7 @@ class VajraStreamService:
     async def _broadcast_loop(self):
         """Periodically emit RADIONICS_RATE_BROADCAST and SCALAR_WAVE_ACTIVE to WebSocket clients."""
         import random
+
         while True:
             await asyncio.sleep(3)
             if not self.active_sessions:
@@ -416,11 +426,13 @@ class VajraStreamService:
                     continue
 
                 # Emit SCALAR_WAVE_ACTIVE — scalar waves are active when sessions are running
-                await stable_connection_manager_v2.broadcast({
-                    "type": "SCALAR_WAVE_ACTIVE",
-                    "data": {"active": True, "session_count": len(running)},
-                    "timestamp": time.time(),
-                })
+                await stable_connection_manager_v2.broadcast(
+                    {
+                        "type": "SCALAR_WAVE_ACTIVE",
+                        "data": {"active": True, "session_count": len(running)},
+                        "timestamp": time.time(),
+                    }
+                )
 
                 # Emit RADIONICS_RATE_BROADCAST for each running session
                 for session in running:
@@ -428,15 +440,17 @@ class VajraStreamService:
                     freq = cfg.audio_config.frequency if cfg else 528.0
                     # Derive a rate from the carrier frequency (mimics radionics rate attunement)
                     rate = round((freq % 100) + random.uniform(-2, 2), 2)
-                    await stable_connection_manager_v2.broadcast({
-                        "type": "RADIONICS_RATE_BROADCAST",
-                        "data": {
-                            "rate": rate,
-                            "session_id": session["id"],
-                            "frequency": freq,
-                        },
-                        "timestamp": time.time(),
-                    })
+                    await stable_connection_manager_v2.broadcast(
+                        {
+                            "type": "RADIONICS_RATE_BROADCAST",
+                            "data": {
+                                "rate": rate,
+                                "session_id": session["id"],
+                                "frequency": freq,
+                            },
+                            "timestamp": time.time(),
+                        }
+                    )
 
             except Exception:
                 pass  # Non-critical — don't crash the broadcast loop
@@ -452,14 +466,17 @@ class VajraStreamService:
         session["end_time"] = time.time()
 
         from modules.interfaces import SessionStopped
+
         runtime = time.time() - session["start_time"] if session.get("start_time") else 0
         if self.event_bus:
             try:
-                self.event_bus.publish(SessionStopped(
-                    session_id=session_id,
-                    name=session["config"].name,
-                    runtime_seconds=runtime,
-                ))
+                self.event_bus.publish(
+                    SessionStopped(
+                        session_id=session_id,
+                        name=session["config"].name,
+                        runtime_seconds=runtime,
+                    )
+                )
             except Exception:
                 pass
 
@@ -475,7 +492,7 @@ class VajraStreamService:
         """Load session history from JSON file, restoring data across restarts."""
         try:
             if os.path.exists(self._history_path):
-                with open(self._history_path, "r", encoding="utf-8") as f:
+                with open(self._history_path, encoding="utf-8") as f:
                     self.session_history = json.load(f)
                 print(f"Loaded {len(self.session_history)} historical sessions from {self._history_path}")
         except Exception as e:
@@ -526,21 +543,20 @@ class VajraStreamService:
         """Get astrological data for a given time and location"""
         try:
             if self.astrology:
-                from datetime import datetime
                 import pytz
-                
+
                 calc_time = dt if dt is not None else datetime.now(pytz.UTC)
                 calc_loc = location if location is not None else (37.7749, -122.4194)
-                
+
                 print(f"Getting comprehensive astrology data for dt={calc_time}, loc={calc_loc}...")
-                
+
                 # Calculate new consolidated astrological data
                 data = self.astrology.get_comprehensive_astrology(calc_time, calc_loc)
-                
+
                 # Maintain legacy format items at top level for backward compatibility
                 data["moon_phase"] = self.astrology.get_moon_phase(calc_time)
                 data["planetary_positions"] = data["western"]["positions"]
-                
+
                 # Serialize auspicious times datetime objects to strings
                 ser_auspicious = {}
                 auspicious = self.astrology.calculate_auspicious_times(calc_time, calc_loc)
@@ -551,7 +567,7 @@ class VajraStreamService:
                         ser_auspicious[k] = v
                 data["auspicious_times"] = ser_auspicious
                 data["timestamp"] = time.time()
-                
+
                 return data
             else:
                 # Fallback data

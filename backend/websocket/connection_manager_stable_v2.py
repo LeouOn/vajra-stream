@@ -255,14 +255,16 @@ class StableConnectionManagerV2:
             # Check for running sessions and send session_update messages
             for session_id, session in sessions.items():
                 if session.get("status") == "running":
-                    await self.broadcast({
-                        "type": "session_update",
-                        "data": {
-                            "id": session_id,
-                            "status": "running",
-                            "name": getattr(session.get("config", {}), "name", str(session.get("config", {}))),
+                    await self.broadcast(
+                        {
+                            "type": "session_update",
+                            "data": {
+                                "id": session_id,
+                                "status": "running",
+                                "name": getattr(session.get("config", {}), "name", str(session.get("config", {}))),
+                            },
                         }
-                    })
+                    )
 
         except Exception as e:
             logger.error(f"Error in send_safe_realtime_data: {e}")

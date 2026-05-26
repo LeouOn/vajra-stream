@@ -48,23 +48,48 @@ class LLMIntegration:
             self._initialize_anthropic()
 
     def _initialize_auto(self):
-        """Try local first, fall back to API"""
+        """Try LM Studio first, then local GGUF, then fall back to API"""
         print("Auto-detecting available LLM...")
 
-        # Try local first
+        # 1. Try LM Studio (OpenAI-compatible server)
+        lm_studio_url = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234")
+        try:
+            import json
+            import urllib.request
+
+            req = urllib.request.Request(f"{lm_studio_url}/v1/models")
+            with urllib.request.urlopen(req, timeout=1.5) as response:
+                if response.status == 200:
+                    models_data = json.loads(response.read().decode())
+                    models = [m["id"] for m in models_data.get("data", [])]
+                    if models:
+                        from openai import OpenAI
+
+                        self.client = OpenAI(base_url=f"{lm_studio_url}/v1", api_key="lm-studio")
+                        self.model_type = "openai"
+                        self.model_name = self.model_name or models[0]
+                        print(f"[OK] Using LM Studio model: {self.model_name}")
+                        return
+                    else:
+                        print("[INFO] LM Studio reachable but no model loaded — will try other backends")
+        except Exception:
+            # LM Studio check failed
+            pass
+
+        # 2. Try local GGUF
         try:
             self._initialize_local()
             if self.local_model:
-                print(f"✓ Using local model: {self.model_name}")
+                print(f"[OK] Using local model: {self.model_name}")
                 return
         except Exception as e:
             print(f"  Local model not available: {e}")
 
-        # Fall back to API
+        # 3. Fall back to API
         if os.getenv("ANTHROPIC_API_KEY"):
             try:
                 self._initialize_anthropic()
-                print("✓ Using Anthropic API")
+                print("[OK] Using Anthropic API")
                 return
             except:
                 pass
@@ -72,12 +97,12 @@ class LLMIntegration:
         if os.getenv("OPENAI_API_KEY"):
             try:
                 self._initialize_openai()
-                print("✓ Using OpenAI API")
+                print("[OK] Using OpenAI API")
                 return
             except:
                 pass
 
-        print("⚠ No LLM available. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, or add GGUF models to ./models/")
+        print("[WARN] No LLM available. Set ANTHROPIC_API_KEY or OPENAI_API_KEY, or add GGUF models to ./models/")
 
     def _initialize_local(self):
         """Initialize local GGUF model"""
@@ -156,7 +181,12 @@ class LLMIntegration:
             self.model_name = "claude-3-5-haiku-20241022"  # Default to Haiku
 
     def generate(
-        self, prompt: str, system_prompt: str | None = None, max_tokens: int = 1000, temperature: float = 0.7
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+        max_tokens: int = 1000,
+        temperature: float = 0.7,
+        model: str | None = None,
     ) -> str:
         """
         Generate text from prompt
@@ -166,13 +196,14 @@ class LLMIntegration:
             system_prompt: System instructions
             max_tokens: Maximum response length
             temperature: Creativity (0-1)
+            model: Override model name for this call (LM Studio, OpenAI, Anthropic)
         """
         if self.model_type == "local":
             return self._generate_local(prompt, system_prompt, max_tokens, temperature)
         elif self.model_type == "openai":
-            return self._generate_openai(prompt, system_prompt, max_tokens, temperature)
+            return self._generate_openai(prompt, system_prompt, max_tokens, temperature, model)
         elif self.model_type == "anthropic":
-            return self._generate_anthropic(prompt, system_prompt, max_tokens, temperature)
+            return self._generate_anthropic(prompt, system_prompt, max_tokens, temperature, model)
         else:
             return "No LLM initialized. Please configure an API key or local model."
 
@@ -191,8 +222,15 @@ class LLMIntegration:
 
         return response["choices"][0]["text"].strip()
 
-    def _generate_openai(self, prompt: str, system_prompt: str | None, max_tokens: int, temperature: float) -> str:
-        """Generate using OpenAI API"""
+    def _generate_openai(
+        self,
+        prompt: str,
+        system_prompt: str | None,
+        max_tokens: int,
+        temperature: float,
+        model: str | None = None,
+    ) -> str:
+        """Generate using OpenAI API (or LM Studio compatible)"""
         messages = []
 
         if system_prompt:
@@ -201,15 +239,25 @@ class LLMIntegration:
         messages.append({"role": "user", "content": prompt})
 
         response = self.client.chat.completions.create(
-            model=self.model_name, messages=messages, max_tokens=max_tokens, temperature=temperature
+            model=model or self.model_name,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
         )
 
         return response.choices[0].message.content
 
-    def _generate_anthropic(self, prompt: str, system_prompt: str | None, max_tokens: int, temperature: float) -> str:
+    def _generate_anthropic(
+        self,
+        prompt: str,
+        system_prompt: str | None,
+        max_tokens: int,
+        temperature: float,
+        model: str | None = None,
+    ) -> str:
         """Generate using Anthropic API"""
         kwargs = {
-            "model": self.model_name,
+            "model": model or self.model_name,
             "max_tokens": max_tokens,
             "temperature": temperature,
             "messages": [{"role": "user", "content": prompt}],
@@ -393,9 +441,9 @@ if __name__ == "__main__":
         print(f"\n{teaching}\n")
 
         print("=" * 60)
-        print("\n✓ LLM integration test complete")
+        print("\n[OK] LLM integration test complete")
     else:
-        print("\nℹ No LLM available for content generation test")
+        print("\n[INFO] No LLM available for content generation test")
         print("  To enable:")
         print("  - Add GGUF models to ./models/ directory")
         print("  - OR set ANTHROPIC_API_KEY environment variable")

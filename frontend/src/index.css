@@ -201,3 +201,12 @@
     @apply p-3;
   }
 }
+
+/* Auto-scale SVG elements for Tarot and I-Ching */
+.divination-card-container svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: block;
+}

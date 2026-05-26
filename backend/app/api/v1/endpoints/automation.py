@@ -347,10 +347,7 @@ async def get_automation_overview():
     Returns the first active session's status, or inactive if none running.
     """
     scheduler = get_scheduler()
-    active_sessions = [
-        (sid, s) for sid, s in scheduler.sessions.items()
-        if s.status.value == "running"
-    ]
+    active_sessions = [(sid, s) for sid, s in scheduler.sessions.items() if s.status.value == "running"]
     if not active_sessions:
         return {"active": False, "message": "No automation running"}
 

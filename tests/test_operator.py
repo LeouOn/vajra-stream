@@ -4,33 +4,41 @@ Tests for RadionicsOperator — all methods tested via fallback paths (no LLM re
 These tests verify the operator's logic, dispatch, and fallback behavior.
 """
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture
 def operator():
     """Create a RadionicsOperator without LLM or container."""
     from modules.radionics_operator import RadionicsOperator
-    op = RadionicsOperator()  # No LLM, no container — tests fallback paths
+
+    op = RadionicsOperator(llm=MagicMock())  # Mock LLM to force fallback paths
+    op._llm.client = None
+    op._llm.local_model = None
     return op
 
 
 @pytest.fixture
 def operator_with_container():
     """Create an operator with a container for dispatch tests."""
-    from modules.radionics_operator import RadionicsOperator
     from container import Container
+    from modules.radionics_operator import RadionicsOperator
+
     c = Container()
     c._initialized = False
     c.__init__()
-    op = RadionicsOperator(container=c, event_bus=c.event_bus)
+    op = RadionicsOperator(container=c, event_bus=c.event_bus, llm=MagicMock())
+    op._llm.client = None
+    op._llm.local_model = None
     return op
 
 
 # ============================================================================
 # Intention Analysis
 # ============================================================================
+
 
 class TestIntentionAnalysis:
     def test_analyze_healing_intention(self, operator):
@@ -59,6 +67,7 @@ class TestIntentionAnalysis:
 # Rate Suggestions
 # ============================================================================
 
+
 class TestRateSuggestions:
     def test_suggest_rates_returns_signature(self, operator):
         result = operator.suggest_rates("chronic pain")
@@ -75,6 +84,7 @@ class TestRateSuggestions:
 # ============================================================================
 # Insights
 # ============================================================================
+
 
 class TestInsights:
     def test_insight_empty_state(self, operator):
@@ -101,6 +111,7 @@ class TestInsights:
 # Trend Analysis
 # ============================================================================
 
+
 class TestTrendAnalysis:
     def test_trends_no_data(self, operator):
         result = operator.analyze_trends([])
@@ -123,6 +134,7 @@ class TestTrendAnalysis:
 # ============================================================================
 # Blessing Loop
 # ============================================================================
+
 
 class TestBlessingLoop:
     def test_start_blessing_loop(self, operator_with_container):
@@ -169,6 +181,7 @@ class TestBlessingLoop:
 # Autonomous Mode
 # ============================================================================
 
+
 class TestAutonomousMode:
     def test_start_autonomous(self, operator):
         result = operator.start_autonomous_mode(interval_seconds=60)
@@ -188,13 +201,15 @@ class TestAutonomousMode:
 
     def test_approve_dismiss_suggestions(self, operator):
         operator.start_autonomous_mode(60)
-        operator._autonomous_suggestions = [{
-            "title": "Test Suggestion",
-            "target": "Test",
-            "action": "broadcast_healing",
-            "frequency": 528,
-            "duration_minutes": 30,
-        }]
+        operator._autonomous_suggestions = [
+            {
+                "title": "Test Suggestion",
+                "target": "Test",
+                "action": "broadcast_healing",
+                "frequency": 528,
+                "duration_minutes": 30,
+            }
+        ]
         approved = operator.approve_suggestion(0)
         assert approved["status"] in ("executed", "error")
 
@@ -206,6 +221,7 @@ class TestAutonomousMode:
 # ============================================================================
 # Tool Dispatcher
 # ============================================================================
+
 
 class TestToolDispatcher:
     def test_dispatch_get_chakra_info(self, operator_with_container):
@@ -263,6 +279,7 @@ class TestToolDispatcher:
 # Operator Status
 # ============================================================================
 
+
 class TestOperatorStatus:
     def test_status_no_llm(self, operator):
         status = operator.get_status()
@@ -282,9 +299,11 @@ class TestOperatorStatus:
 # World Context (network-disabled fallback)
 # ============================================================================
 
+
 class TestWorldContext:
     def test_context_compilation_fallback(self):
         from core.internet_context import compile_world_context
+
         ctx = compile_world_context(include_disasters=False, include_headlines=False, include_astrology=False)
         assert ctx.events == []
         assert ctx.disasters == []
@@ -293,6 +312,7 @@ class TestWorldContext:
 
     def test_context_formatting(self):
         from core.internet_context import compile_world_context, format_context_for_llm
+
         ctx = compile_world_context(include_disasters=False, include_headlines=False)
         formatted = format_context_for_llm(ctx)
         assert isinstance(formatted, str)
@@ -308,9 +328,11 @@ class TestWorldContext:
 # Knowledge Index
 # ============================================================================
 
+
 class TestKnowledgeIndex:
     def test_index_builds(self):
         from core.knowledge_index import get_knowledge_index
+
         idx = get_knowledge_index()
         stats = idx.get_stats()
         assert stats["total_chunks"] > 0
@@ -318,6 +340,7 @@ class TestKnowledgeIndex:
 
     def test_search_finds_results(self):
         from core.knowledge_index import search_knowledge
+
         results = search_knowledge("heart", top_k=3)
         assert len(results) > 0
         assert "text" in results[0]
@@ -325,5 +348,6 @@ class TestKnowledgeIndex:
 
     def test_search_category_filter(self):
         from core.knowledge_index import search_knowledge
+
         results = search_knowledge("om", top_k=3, category="mantra")
         assert len(results) >= 0  # May or may not find, but shouldn't error

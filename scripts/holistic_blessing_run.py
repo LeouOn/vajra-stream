@@ -12,7 +12,6 @@ Demonstrates the integration of:
 
 import json
 import logging
-import os
 import sys
 import time
 from pathlib import Path
@@ -28,17 +27,17 @@ logger = logging.getLogger("HolisticBlessing")
 # Configure console encoding for Windows
 if sys.platform == "win32":
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 # Core imports
 from backend.core.services.population_manager import get_population_manager
-from core.radionics_engine import RadionicsAnalyzer, RadionicsRate
-from core.compassionate_blessings import BlessingDatabase
+from core.radionics_engine import RadionicsAnalyzer
 from infrastructure.event_bus import DomainEvent
-from modules.blessing_router import BlessingRouted, TargetSpecification, TargetType
-from modules.interfaces import BlessingGenerated
+from modules.blessing_router import BlessingRouted
 from modules.crystal import CrystalBroadcastCompleted, CrystalBroadcastStarted
+from modules.interfaces import BlessingGenerated
 from scripts.unified_orchestrator import UnifiedOrchestrator
 
 
@@ -90,7 +89,7 @@ def main():
         "Great Barrier Reef Ecosystem",
         "Global Communities",
         "Refugees & War Victims",
-        "World Leaders"
+        "World Leaders",
     ]
     global_targets = [p for p in all_pops if p.name in global_names]
 
@@ -102,7 +101,7 @@ def main():
         print(f"Category:    {pop.category.value}")
         print(f"Description: {pop.description}")
         print(f"Intentions:  {', '.join(pop.intentions)}")
-        
+
         # Parse notes JSON to extract esoteric mappings
         esoteric = {}
         if pop.notes:
@@ -114,16 +113,20 @@ def main():
         # Display Esoteric Mappings
         if esoteric:
             print("\n🔮 Multi-Dimensional Esoteric Coordinates:")
-            
+
             # Astrology
             astro = esoteric.get("astrology", {})
-            print(f"  [Astrology] Ruling Planet: {astro.get('ruling_planet')} | Sign: {astro.get('zodiac_sign')} | Element: {astro.get('element')}")
+            print(
+                f"  [Astrology] Ruling Planet: {astro.get('ruling_planet')} | Sign: {astro.get('zodiac_sign')} | Element: {astro.get('element')}"
+            )
             print(f"              Alignment:     {astro.get('planetary_alignment')}")
 
             # Geomancy
             geom = esoteric.get("geomancy", {})
-            pattern_str = "".join("*" if x == 1 else "**" for x in geom.get("pattern", []))
-            print(f"  [Geomancy]  Figure: {geom.get('figure')} ({geom.get('translation')}) | Pattern: {geom.get('pattern')} | Element: {geom.get('element', 'Spirit')}")
+            "".join("*" if x == 1 else "**" for x in geom.get("pattern", []))
+            print(
+                f"  [Geomancy]  Figure: {geom.get('figure')} ({geom.get('translation')}) | Pattern: {geom.get('pattern')} | Element: {geom.get('element', 'Spirit')}"
+            )
             print(f"              Meaning: {geom.get('meaning')}")
 
             # Archetype
@@ -133,17 +136,22 @@ def main():
 
             # Radionics Rate
             rad = esoteric.get("radionics", {})
-            print(f"  [Radionics] Rate:   {'-'.join(map(str, rad.get('rate', [])))} | Baseline Vitality: {rad.get('general_vitality')}/1000")
+            print(
+                f"  [Radionics] Rate:   {'-'.join(map(str, rad.get('rate', [])))} | Baseline Vitality: {rad.get('general_vitality')}/1000"
+            )
 
         # 4. Perform Real-Time Radionics Analysis
         print("\n📊 Running Real-Time Radionics Scan...")
-        
+
         # Measure baseline General Vitality using the analyzer
-        gv = analyzer.gv_meter.measure(pop.name, context={
-            "moon_phase": "Full Moon",
-            "hour": 5, # Brahma Muhurta hour
-            "intention_length": len(pop.description)
-        })
+        gv = analyzer.gv_meter.measure(
+            pop.name,
+            context={
+                "moon_phase": "Full Moon",
+                "hour": 5,  # Brahma Muhurta hour
+                "intention_length": len(pop.description),
+            },
+        )
         print(f"  Measured General Vitality: {gv:.1f}/1000 ({analyzer.gv_meter.interpret_gv(gv)})")
 
         # Generate balancing rates
@@ -154,7 +162,7 @@ def main():
 
         # 5. Broadcast Intention via Unified System
         print("\n📡 Initiating Alchemical Broadcast Session...")
-        
+
         targets_spec = [
             {
                 "type": "location" if "Ecosystem" in pop.name or "Rainforest" in pop.name else "individual",
@@ -162,8 +170,8 @@ def main():
                 "metadata": {
                     "astrology": esoteric.get("astrology", {}),
                     "geomancy": esoteric.get("geomancy", {}),
-                    "radionics_rate": esoteric.get("radionics", {}).get("rate", [])
-                }
+                    "radionics_rate": esoteric.get("radionics", {}).get("rate", []),
+                },
             }
         ]
 
@@ -173,10 +181,10 @@ def main():
             intention=f"Healing, Harmony, and Elevation for {pop.name}",
             targets=targets_spec,
             modalities=["crystal"],
-            duration=2
+            duration=2,
         )
         print(f"  Unified Session Activated: {session_id}")
-        
+
         # Small wait buffer to simulate broadcasting process
         time.sleep(3)
 

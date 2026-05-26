@@ -49,8 +49,10 @@ class OrchestratorBridge:
         """Handle session started event - trigger crystal broadcast as background task"""
         try:
             import threading
+
             crystal = self.orchestrator.services.get("crystal")
             if crystal and event.session_id:
+
                 def run_broadcast():
                     try:
                         crystal.broadcast_intention(
@@ -60,6 +62,7 @@ class OrchestratorBridge:
                         )
                     except Exception as e:
                         logger.error(f"Crystal broadcast error: {e}")
+
                 threading.Thread(target=run_broadcast, daemon=True).start()
         except Exception as e:
             logger.error(f"Error handling SessionStarted: {e}")

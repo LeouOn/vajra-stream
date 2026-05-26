@@ -34,6 +34,7 @@ class HardwareManager:
     def crystal_service(self):
         if self._crystal_service is None:
             from modules.crystal import CrystalService
+
             self._crystal_service = CrystalService(event_bus=self.event_bus)
         return self._crystal_service
 
@@ -42,6 +43,7 @@ class HardwareManager:
         if self._level2 is None:
             try:
                 from hardware.crystal_broadcaster import Level2CrystalBroadcaster
+
                 self._level2 = Level2CrystalBroadcaster()
             except ImportError:
                 self._level2 = None
@@ -52,6 +54,7 @@ class HardwareManager:
         if self._level3 is None:
             try:
                 from hardware.crystal_broadcaster import Level3CrystalBroadcaster
+
                 self._level3 = Level3CrystalBroadcaster()
             except ImportError:
                 self._level3 = None

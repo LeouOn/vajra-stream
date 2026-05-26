@@ -21,27 +21,31 @@ async def get_current_astrology(datetime_str: str = None, latitude: float = None
     try:
         logger.info(f"🌙 Astrology data request: dt={datetime_str}, lat={latitude}, lon={longitude}")
 
-        from backend.core.services.vajra_service import vajra_service
         from datetime import datetime
+
         import pytz
+
+        from backend.core.services.vajra_service import vajra_service
 
         calc_dt = None
         if datetime_str:
             clean_dt = datetime_str
-            if clean_dt.endswith('Z'):
-                clean_dt = clean_dt[:-1] + '+00:00'
+            if clean_dt.endswith("Z"):
+                clean_dt = clean_dt[:-1] + "+00:00"
             try:
                 calc_dt = datetime.fromisoformat(clean_dt)
             except ValueError:
                 try:
                     from dateutil import parser
+
                     calc_dt = parser.parse(datetime_str)
                 except Exception:
                     raise HTTPException(status_code=400, detail="Invalid datetime format. Use ISO format.")
-            
+
             if calc_dt and calc_dt.tzinfo is None:
                 if latitude is not None and longitude is not None:
                     import datetime as dt_mod
+
                     offset_hours = round(longitude * 2.0 / 15.0) / 2.0
                     tz_offset = dt_mod.timezone(dt_mod.timedelta(hours=offset_hours))
                     calc_dt = calc_dt.replace(tzinfo=tz_offset)
@@ -131,6 +135,7 @@ async def get_planetary_hours():
     try:
         logger.info("🕐 Planetary hours request")
         from backend.core.services.vajra_service import vajra_service
+
         astrology_data = await vajra_service._get_astrology_data()
         hours_data = astrology_data.get("planetary_hours", {})
         return hours_data
@@ -145,6 +150,7 @@ async def get_western_astrology():
     try:
         logger.info("♈ Western astrology request")
         from backend.core.services.vajra_service import vajra_service
+
         astrology_data = await vajra_service._get_astrology_data()
         return {"status": "success", "western": astrology_data.get("western", {})}
     except Exception as e:
@@ -158,6 +164,7 @@ async def get_indian_astrology():
     try:
         logger.info("🕉️ Indian astrology request")
         from backend.core.services.vajra_service import vajra_service
+
         astrology_data = await vajra_service._get_astrology_data()
         return {"status": "success", "indian": astrology_data.get("indian", {})}
     except Exception as e:
@@ -171,6 +178,7 @@ async def get_chinese_astrology():
     try:
         logger.info("☯️ Chinese astrology request")
         from backend.core.services.vajra_service import vajra_service
+
         astrology_data = await vajra_service._get_astrology_data()
         return {"status": "success", "chinese": astrology_data.get("chinese", {})}
     except Exception as e:

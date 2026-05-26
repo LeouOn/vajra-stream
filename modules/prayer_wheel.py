@@ -42,12 +42,13 @@ class PrayerWheelService:
         try:
             # Map rotations and speed to a duration (e.g. 5 seconds for visual spin)
             duration = max(5, int(rotations * 0.1 / speed))
-            
+
             import threading
+
             threading.Thread(
                 target=self.wheel.spin,
                 args=(mantra,),
-                kwargs={"duration": duration, "with_audio": True, "with_voice": False}
+                kwargs={"duration": duration, "with_audio": True, "with_voice": False},
             ).start()
 
             return {
@@ -55,7 +56,7 @@ class PrayerWheelService:
                 "mantra": mantra,
                 "rotations": rotations,
                 "merit_generated": rotations * len(mantra),
-                "duration": duration
+                "duration": duration,
             }
         except Exception as e:
             return {"error": str(e)}

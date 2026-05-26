@@ -1,30 +1,36 @@
 """Test LM Studio with message history format"""
+
 import json
 import urllib.request
 
-url = 'http://127.0.0.1:1234/v1/chat/completions'
+url = "http://127.0.0.1:1234/v1/chat/completions"
 
 # Simulate what the frontend sends with message history
 messages = [
     {"role": "assistant", "content": "I am your AI operator. How shall we direct the intention today?"},
-    {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one 'we' to embrace— \n Peace is the garden where all hearts find place."}
+    {
+        "role": "user",
+        "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one 'we' to embrace— \n Peace is the garden where all hearts find place.",
+    },
 ]
 
-tools = [{
-    "type": "function",
-    "function": {
-        "name": "list_populations",
-        "description": "List all populations",
-        "parameters": {"type": "object", "properties": {}, "required": []}
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_populations",
+            "description": "List all populations",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
     }
-}]
+]
 
 payload = {
     "model": "openyourmind-qwen3.6-35b-a3b-kuato-dpo-abliterated-uncensored-i1",
     "messages": messages,
     "tools": tools,
     "tool_choice": "auto",
-    "max_tokens": 300
+    "max_tokens": 1000,
 }
 
 data = json.dumps(payload).encode("utf-8")
@@ -42,10 +48,13 @@ except Exception as e:
     print(f"Error: {type(e).__name__}: {e}")
 
 # Now test with only user messages (the fix)
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Testing with only user messages (the fix)...")
 user_only_messages = [
-    {"role": "user", "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one 'we' to embrace— \n Peace is the garden where all hearts find place."}
+    {
+        "role": "user",
+        "content": "Let's build the cool stuff that hatred can't shake, \n Turn strangers to neighbors for everyone's sake. \n One earth, one family, one 'we' to embrace— \n Peace is the garden where all hearts find place.",
+    }
 ]
 
 payload2 = {
@@ -53,7 +62,7 @@ payload2 = {
     "messages": user_only_messages,
     "tools": tools,
     "tool_choice": "auto",
-    "max_tokens": 300
+    "max_tokens": 1000,
 }
 
 data2 = json.dumps(payload2).encode("utf-8")

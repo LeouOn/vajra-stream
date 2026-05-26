@@ -252,19 +252,22 @@ async def generate_narrative(request: NarrativeRequest):
         )
 
         try:
-            narrative = _generate_with_llm(prompt=prompt, system_prompt=template["system"], max_tokens=600, temperature=0.8)
+            narrative = _generate_with_llm(
+                prompt=prompt, system_prompt=template["system"], max_tokens=600, temperature=0.8
+            )
             generation_method = "llm"
         except Exception as e:
             logger.warning(f"LLM narrative generation failed: {e}. Falling back to template-based narrative.")
             try:
-                from core.blessing_narratives import StoryGenerator, NarrativeType
+                from core.blessing_narratives import NarrativeType, StoryGenerator
+
                 sg = StoryGenerator(use_llm=False)
                 ntype_map = {
                     "overcoming": NarrativeType.HELL_LIBERATION,
                     "transformation": NarrativeType.HEALING_JOURNEY,
                     "healing": NarrativeType.HEALING_JOURNEY,
                     "liberation": NarrativeType.HELL_LIBERATION,
-                    "manifestation": NarrativeType.EMPOWERMENT
+                    "manifestation": NarrativeType.EMPOWERMENT,
                 }
                 ntype = ntype_map.get(theme, NarrativeType.HEALING_JOURNEY)
                 story = sg.generate_story(target_name=request.intention, narrative_type=ntype)
@@ -315,8 +318,8 @@ async def generate_affirmation(request: AffirmationRequest):
         prompt = f"""Create a powerful affirmation for: {request.intention}
 
 Style: {request.style}
-{frequency_context}
-{planet_context}
+{{frequency_context}}
+{{planet_context}}
 
 Format: 1-2 clear sentences in present tense, starting with "I" or "I am"
 

@@ -20,29 +20,7 @@ from backend.websocket.connection_manager_stable_v2 import stable_connection_man
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from backend.app.api.v1.endpoints import anatomy as anatomy_endpoint
-from backend.app.api.v1.endpoints import astrology as astrology_endpoint
-from backend.app.api.v1.endpoints import audio as audio_endpoint
-from backend.app.api.v1.endpoints import automation as automation_endpoint
-from backend.app.api.v1.endpoints import blessing_slideshow as slideshow_endpoint
-from backend.app.api.v1.endpoints import blessings as blessings_endpoint
-from backend.app.api.v1.endpoints import dharma_tales as dharma_tales_endpoint
-from backend.app.api.v1.endpoints import personal_healing as personal_healing_endpoint
-from backend.app.api.v1.endpoints import populations as populations_endpoint
-from backend.app.api.v1.endpoints import radionics as radionics_endpoint
-from backend.app.api.v1.endpoints import radionics_narratives as radionics_narratives_endpoint
-from backend.app.api.v1.endpoints import rng_attunement as rng_endpoint
-from backend.app.api.v1.endpoints import scalar_waves as scalar_endpoint
-from backend.app.api.v1.endpoints import sessions as sessions_endpoint
-from backend.app.api.v1.endpoints import visualization as visualization_endpoint
-from backend.app.api.v1.endpoints import llm as llm_endpoint
-from backend.app.api.v1.endpoints import mops as mops_endpoint
-from backend.app.api.v1.endpoints import sigils as sigils_endpoint
-from backend.app.api.v1.endpoints import divination as divination_endpoint
-from backend.app.api.v1.endpoints import prayer_wheel as prayer_wheel_endpoint
-from backend.app.api.v1.endpoints import time_cycles as time_cycles_endpoint
-from backend.app.api.v1.endpoints import operator as operator_endpoint
-
+from backend.app.api.v1.api import api_router
 
 # Setup templates
 template_dir = Path(__file__).parent.parent.parent.parent / "templates"
@@ -148,32 +126,8 @@ async def websocket_stats():
     return stable_connection_manager_v2.get_connection_stats()
 
 
-# Include routers
-app.include_router(audio_endpoint.router, prefix="/api/v1/audio", tags=["audio"])
-app.include_router(sessions_endpoint.router, prefix="/api/v1/sessions", tags=["sessions"])
-app.include_router(astrology_endpoint.router, prefix="/api/v1/astrology", tags=["astrology"])
-
-# Terra MOPS and Healing System routers
-app.include_router(scalar_endpoint.router, prefix="/api/v1/scalar", tags=["scalar-waves"])
-app.include_router(radionics_endpoint.router, prefix="/api/v1/radionics", tags=["radionics"])
-app.include_router(radionics_narratives_endpoint.router, prefix="/api/v1/radionics", tags=["radionics-narratives"])
-app.include_router(anatomy_endpoint.router, prefix="/api/v1/anatomy", tags=["anatomy"])
-app.include_router(blessings_endpoint.router, prefix="/api/v1/blessings", tags=["blessings"])
-app.include_router(visualization_endpoint.router, prefix="/api/v1/visualization", tags=["visualization"])
-app.include_router(rng_endpoint.router, prefix="/api/v1", tags=["rng-attunement"])
-app.include_router(slideshow_endpoint.router, prefix="/api/v1", tags=["blessing-slideshow"])
-app.include_router(populations_endpoint.router, prefix="/api/v1", tags=["populations"])
-app.include_router(automation_endpoint.router, prefix="/api/v1", tags=["automation"])
-app.include_router(dharma_tales_endpoint.router, prefix="/api/v1/dharma", tags=["dharma-tales"])
-app.include_router(personal_healing_endpoint.router, prefix="/api/v1/healing", tags=["healing"])
-app.include_router(llm_endpoint.router, prefix="/api/v1", tags=["llm"])
-app.include_router(mops_endpoint.router, prefix="/api/v1", tags=["mops"])
-app.include_router(sigils_endpoint.router, prefix="/api/v1", tags=["sigils"])
-app.include_router(divination_endpoint.router, prefix="/api/v1", tags=["divination"])
-app.include_router(prayer_wheel_endpoint.router, prefix="/api/v1", tags=["prayer-wheel"])
-app.include_router(time_cycles_endpoint.router, prefix="/api/v1", tags=["time-cycles"])
-app.include_router(operator_endpoint.router, prefix="/api/v1/operator", tags=["operator"])
-
+# Include central API router
+app.include_router(api_router, prefix="/api/v1")
 
 
 # WebSocket endpoint - Stable implementation

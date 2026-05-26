@@ -61,6 +61,7 @@ class WaveManager:
     def scalar_service(self):
         if self._scalar_service is None:
             from modules.scalar_waves import ScalarWaveService
+
             self._scalar_service = ScalarWaveService(event_bus=self.event_bus)
         return self._scalar_service
 

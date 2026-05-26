@@ -145,6 +145,7 @@ async def stream_insights():
     """
     import asyncio
     import json as json_mod
+
     from starlette.responses import StreamingResponse
 
     from container import container
@@ -193,6 +194,7 @@ class SuggestionActionRequest(BaseModel):
 async def start_autonomous(request: AutonomousStartRequest):
     """Start autonomous radionics operation — the operator monitors world events and proposes actions."""
     from container import container
+
     try:
         operator = container.operator
         return operator.start_autonomous_mode(request.interval_seconds)
@@ -204,6 +206,7 @@ async def start_autonomous(request: AutonomousStartRequest):
 async def stop_autonomous():
     """Stop autonomous operation."""
     from container import container
+
     try:
         operator = container.operator
         return operator.stop_autonomous_mode()
@@ -215,6 +218,7 @@ async def stop_autonomous():
 async def get_autonomous_status():
     """Get current autonomous mode status and pending suggestions."""
     from container import container
+
     try:
         operator = container.operator
         return operator.get_autonomous_status()
@@ -226,6 +230,7 @@ async def get_autonomous_status():
 async def get_suggestions():
     """Get pending autonomous suggestions awaiting user approval."""
     from container import container
+
     try:
         operator = container.operator
         return {"suggestions": operator.get_autonomous_suggestions()}
@@ -237,6 +242,7 @@ async def get_suggestions():
 async def approve_suggestion(request: SuggestionActionRequest):
     """Approve and execute an autonomous suggestion."""
     from container import container
+
     try:
         operator = container.operator
         return operator.approve_suggestion(request.index)
@@ -248,6 +254,7 @@ async def approve_suggestion(request: SuggestionActionRequest):
 async def dismiss_suggestion(request: SuggestionActionRequest):
     """Dismiss an autonomous suggestion without executing."""
     from container import container
+
     try:
         operator = container.operator
         return operator.dismiss_suggestion(request.index)
@@ -264,6 +271,7 @@ async def dismiss_suggestion(request: SuggestionActionRequest):
 async def get_trends():
     """Generate trend analysis from session history using the LLM."""
     from container import container
+
     try:
         operator = container.operator
         return operator.analyze_trends()
@@ -280,12 +288,16 @@ async def get_trends():
 async def get_world_context():
     """Get real-time world context — active disasters, crises, astrological transits."""
     from core.internet_context import compile_world_context
+
     try:
         ctx = compile_world_context()
         return {
             "events_count": len(ctx.events),
             "disasters": ctx.disasters[:10],
-            "events": [{"title": e.title, "type": e.event_type, "severity": e.severity, "location": e.location} for e in ctx.events[:15]],
+            "events": [
+                {"title": e.title, "type": e.event_type, "severity": e.severity, "location": e.location}
+                for e in ctx.events[:15]
+            ],
             "planetary_hour": ctx.planetary_hour,
             "day_ruler": ctx.day_ruler,
             "summary": ctx.summary,
@@ -309,6 +321,7 @@ class BlessingLoopStartRequest(BaseModel):
 async def start_blessing_loop(request: BlessingLoopStartRequest):
     """Start a continuous loop of LLM-generated unique blessings."""
     from container import container
+
     try:
         operator = container.operator
         return operator.start_blessing_loop(request.intention, request.interval_seconds)
@@ -320,6 +333,7 @@ async def start_blessing_loop(request: BlessingLoopStartRequest):
 async def stop_blessing_loop():
     """Stop the blessing loop and return collected blessings."""
     from container import container
+
     try:
         operator = container.operator
         return operator.stop_blessing_loop()
@@ -331,6 +345,7 @@ async def stop_blessing_loop():
 async def get_blessing_loop_status():
     """Get current blessing loop status."""
     from container import container
+
     try:
         operator = container.operator
         return operator.get_blessing_loop_status()
@@ -342,6 +357,7 @@ async def get_blessing_loop_status():
 async def get_blessing_stream(since: int = 0):
     """Get blessings generated since the given index."""
     from container import container
+
     try:
         operator = container.operator
         return {"blessings": operator.get_blessing_stream(since), "since": since}
@@ -353,6 +369,7 @@ async def get_blessing_stream(since: int = 0):
 async def generate_next():
     """Manually trigger the next blessing generation."""
     from container import container
+
     try:
         operator = container.operator
         blessing = operator.generate_next_blessing()
@@ -370,18 +387,19 @@ async def generate_next():
 async def get_llm_config():
     """Get current LLM role assignments and model names."""
     from container import container
+
     try:
         operator = container.operator
         creative = operator.creative_llm
         return {
             "orchestrator": {
-                "model": getattr(operator.llm, 'model_name', 'auto') if operator.llm else 'none',
-                "provider": operator.llm.model_type if operator.llm else 'none',
+                "model": getattr(operator.llm, "model_name", "auto") if operator.llm else "none",
+                "provider": operator.llm.model_type if operator.llm else "none",
                 "available": bool(operator.llm and (operator.llm.client or operator.llm.local_model)),
             },
             "creative": {
-                "model": getattr(creative, 'model_name', 'auto') if creative else 'none',
-                "provider": creative.model_type if creative else 'none',
+                "model": getattr(creative, "model_name", "auto") if creative else "none",
+                "provider": creative.model_type if creative else "none",
                 "available": bool(creative and (creative.client or creative.local_model)),
             },
             "dual_llm_active": operator._creative_llm is not None and operator._creative_llm is not operator._llm,

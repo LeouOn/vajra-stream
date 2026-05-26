@@ -218,6 +218,7 @@ class BlessingSlideshowService:
             List of PhotoRecord objects
         """
         import os
+
         photos = []
         seen_hashes = set()
 
@@ -243,11 +244,12 @@ class BlessingSlideshowService:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
             directory_path = os.path.join(base_dir, "data", "placeholder_photos")
             os.makedirs(directory_path, exist_ok=True)
-            
+
             placeholder_file = os.path.join(directory_path, "default_placeholder.png")
             if not os.path.exists(placeholder_file):
                 try:
                     from PIL import Image, ImageDraw
+
                     # Create a 400x400 dark neon blue/purple image
                     img = Image.new("RGB", (400, 400), color=(10, 10, 25))
                     draw = ImageDraw.Draw(img)

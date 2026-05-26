@@ -20,12 +20,11 @@ class TTSService:
     def narrator(self):
         if self._narrator is None:
             from core.tts_integration import TTSNarrator
+
             self._narrator = TTSNarrator(engine=self._engine_type)
         return self._narrator
 
-    def generate_audio(
-        self, text: str, output_file: str = "/tmp/vajra_tts.mp3", slow: bool = False
-    ) -> dict[str, Any]:
+    def generate_audio(self, text: str, output_file: str = "/tmp/vajra_tts.mp3", slow: bool = False) -> dict[str, Any]:
         """Generate audio from text."""
         from core.tts_integration import SpeakingRate
 
@@ -33,9 +32,7 @@ class TTSService:
         path = self.narrator.generate_audio(text=text, output_file=output_file, rate=rate)
         return {"output_file": path, "text_length": len(text)}
 
-    def narrate_story(
-        self, story: Any, output_file: str = "/tmp/vajra_story.mp3", slow: bool = True
-    ) -> dict[str, Any]:
+    def narrate_story(self, story: Any, output_file: str = "/tmp/vajra_story.mp3", slow: bool = True) -> dict[str, Any]:
         """Narrate a blessing story."""
         from core.tts_integration import SpeakingRate
 
@@ -47,14 +44,10 @@ class TTSService:
         self, mantra: str = "Om Mani Padme Hum", repetitions: int = 21, output_file: str = "/tmp/vajra_mantra.mp3"
     ) -> dict[str, Any]:
         """Generate mantra repetition audio."""
-        path = self.narrator.generate_mantra_audio(
-            mantra=mantra, repetitions=repetitions, output_file=output_file
-        )
+        path = self.narrator.generate_mantra_audio(mantra=mantra, repetitions=repetitions, output_file=output_file)
         return {"output_file": path, "mantra": mantra, "repetitions": repetitions}
 
-    def guided_meditation(
-        self, script: str, output_file: str = "/tmp/vajra_meditation.mp3"
-    ) -> dict[str, Any]:
+    def guided_meditation(self, script: str, output_file: str = "/tmp/vajra_meditation.mp3") -> dict[str, Any]:
         """Generate guided meditation audio."""
         path = self.narrator.guided_meditation(script=script, output_file=output_file)
         return {"output_file": path, "script_length": len(script)}

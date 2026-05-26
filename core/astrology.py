@@ -6,8 +6,10 @@ Uses Swiss Ephemeris and lunar-python for precise, offline-first calculations.
 
 import math
 from datetime import datetime, timedelta
+
 import pytz
 import swisseph as swe
+
 
 class AstrologicalCalculator:
     """
@@ -36,22 +38,32 @@ class AstrologicalCalculator:
 
         # Zodiac signs (Western Tropical)
         self.SIGNS = [
-            "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-            "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+            "Aries",
+            "Taurus",
+            "Gemini",
+            "Cancer",
+            "Leo",
+            "Virgo",
+            "Libra",
+            "Scorpio",
+            "Sagittarius",
+            "Capricorn",
+            "Aquarius",
+            "Pisces",
         ]
-        
+
         # Chaldean planetary hour order (descending speed)
         self.CHALDEAN_ORDER = ["Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"]
-        
+
         # Mapping weekdays (Monday=0 to Sunday=6) to their traditional rulers
         self.WEEKDAY_RULERS = {
-            0: "Moon",      # Monday
-            1: "Mars",      # Tuesday
-            2: "Mercury",   # Wednesday
-            3: "Jupiter",   # Thursday
-            4: "Venus",     # Friday
-            5: "Saturn",    # Saturday
-            6: "Sun"        # Sunday
+            0: "Moon",  # Monday
+            1: "Mars",  # Tuesday
+            2: "Mercury",  # Wednesday
+            3: "Jupiter",  # Thursday
+            4: "Venus",  # Friday
+            5: "Saturn",  # Saturday
+            6: "Sun",  # Sunday
         }
 
     def get_julian_day(self, dt: datetime) -> float:
@@ -61,8 +73,7 @@ class AstrologicalCalculator:
         else:
             dt_utc = dt
         return swe.julday(
-            dt_utc.year, dt_utc.month, dt_utc.day,
-            dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0
+            dt_utc.year, dt_utc.month, dt_utc.day, dt_utc.hour + dt_utc.minute / 60.0 + dt_utc.second / 3600.0
         )
 
     def _get_house_from_cusps(self, lon: float, cusps) -> int:
@@ -73,7 +84,7 @@ class AstrologicalCalculator:
             if c2 > c1:
                 if c1 <= lon < c2:
                     return i + 1
-            else: # wraps around 360
+            else:  # wraps around 360
                 if lon >= c1 or lon < c2:
                     return i + 1
         return 1
@@ -110,7 +121,7 @@ class AstrologicalCalculator:
         Calculate Western astrology elements: Tropical positions, Aspects, and Elemental Balance.
         """
         positions = self.get_planetary_positions(dt, location)
-        
+
         # Calculate Ascendant and MC for Western
         jd = self.get_julian_day(dt)
         cusps = None
@@ -138,84 +149,110 @@ class AstrologicalCalculator:
                 info["house"] = self._get_house_from_cusps(info["longitude"], cusps)
             else:
                 info["house"] = None
-        
+
         # 1. Elements and Modalities
         elements = {"Fire": 0, "Earth": 0, "Air": 0, "Water": 0}
         modalities = {"Cardinal": 0, "Fixed": 0, "Mutable": 0}
-        
+
         element_map = {
-            "Aries": "Fire", "Leo": "Fire", "Sagittarius": "Fire",
-            "Taurus": "Earth", "Virgo": "Earth", "Capricorn": "Earth",
-            "Gemini": "Air", "Libra": "Air", "Aquarius": "Air",
-            "Cancer": "Water", "Scorpio": "Water", "Pisces": "Water"
+            "Aries": "Fire",
+            "Leo": "Fire",
+            "Sagittarius": "Fire",
+            "Taurus": "Earth",
+            "Virgo": "Earth",
+            "Capricorn": "Earth",
+            "Gemini": "Air",
+            "Libra": "Air",
+            "Aquarius": "Air",
+            "Cancer": "Water",
+            "Scorpio": "Water",
+            "Pisces": "Water",
         }
-        
+
         modality_map = {
-            "Aries": "Cardinal", "Cancer": "Cardinal", "Libra": "Cardinal", "Capricorn": "Cardinal",
-            "Taurus": "Fixed", "Leo": "Fixed", "Scorpio": "Fixed", "Aquarius": "Fixed",
-            "Gemini": "Mutable", "Virgo": "Mutable", "Sagittarius": "Mutable", "Pisces": "Mutable"
+            "Aries": "Cardinal",
+            "Cancer": "Cardinal",
+            "Libra": "Cardinal",
+            "Capricorn": "Cardinal",
+            "Taurus": "Fixed",
+            "Leo": "Fixed",
+            "Scorpio": "Fixed",
+            "Aquarius": "Fixed",
+            "Gemini": "Mutable",
+            "Virgo": "Mutable",
+            "Sagittarius": "Mutable",
+            "Pisces": "Mutable",
         }
-        
+
         # Weighting: Sun, Moon (3 points); personal planets (2 points); outer planets (1 point)
         weights = {
-            "sun": 3, "moon": 3,
-            "mercury": 2, "venus": 2, "mars": 2,
-            "jupiter": 1, "saturn": 1, "uranus": 1, "neptune": 1, "pluto": 1
+            "sun": 3,
+            "moon": 3,
+            "mercury": 2,
+            "venus": 2,
+            "mars": 2,
+            "jupiter": 1,
+            "saturn": 1,
+            "uranus": 1,
+            "neptune": 1,
+            "pluto": 1,
         }
-        
+
         for planet, info in positions.items():
             if planet in weights:
                 weight = weights[planet]
                 sign = info["sign"]
                 elements[element_map[sign]] += weight
                 modalities[modality_map[sign]] += weight
- 
+
         # 2. Aspect calculations
         aspects = []
         planet_names = [p for p in positions.keys() if p not in ["ascendant", "midheaven"]]
-        
+
         aspect_types = [
             {"name": "Conjunction", "angle": 0, "orb": 8},
             {"name": "Sextile", "angle": 60, "orb": 6},
             {"name": "Square", "angle": 90, "orb": 8},
             {"name": "Trine", "angle": 120, "orb": 8},
-            {"name": "Opposition", "angle": 180, "orb": 8}
+            {"name": "Opposition", "angle": 180, "orb": 8},
         ]
-        
+
         for i in range(len(planet_names)):
             for j in range(i + 1, len(planet_names)):
                 p1 = planet_names[i]
                 p2 = planet_names[j]
-                
+
                 # Filter outer planet minor relationships to avoid clutter
                 if p1 in ["uranus", "neptune", "pluto"] and p2 in ["uranus", "neptune", "pluto"]:
                     continue
-                
+
                 lon1 = positions[p1]["longitude"]
                 lon2 = positions[p2]["longitude"]
-                
+
                 diff = abs(lon1 - lon2) % 360
                 distance = min(diff, 360 - diff)
-                
+
                 for asp in aspect_types:
                     if abs(distance - asp["angle"]) <= asp["orb"]:
                         exactness = 1 - (abs(distance - asp["angle"]) / asp["orb"])
-                        aspects.append({
-                            "planet1": p1,
-                            "planet2": p2,
-                            "aspect": asp["name"],
-                            "angle": distance,
-                            "exactness": exactness,
-                            "description": f"{p1.title()} {asp['name']} {p2.title()} (Orb: {abs(distance - asp['angle']):.2f}°)"
-                        })
-                        
+                        aspects.append(
+                            {
+                                "planet1": p1,
+                                "planet2": p2,
+                                "aspect": asp["name"],
+                                "angle": distance,
+                                "exactness": exactness,
+                                "description": f"{p1.title()} {asp['name']} {p2.title()} (Orb: {abs(distance - asp['angle']):.2f}°)",
+                            }
+                        )
+
         return {
             "positions": positions,
             "elements": elements,
             "modalities": modalities,
             "dominant_element": max(elements, key=elements.get),
             "dominant_modality": max(modalities, key=modalities.get),
-            "aspects": aspects
+            "aspects": aspects,
         }
 
     # =========================================================================
@@ -227,21 +264,30 @@ class AstrologicalCalculator:
         Calculate Indian (Vedic) astrology: Sidereal positions and Panchanga elements.
         """
         jd = self.get_julian_day(dt)
-        
+
         # Calculate Ayanamsa (precession offset for Lahiri)
         swe.set_sid_mode(swe.SIDM_LAHIRI)
         ayanamsa = swe.get_ayanamsa_ut(jd)
-        
+
         # Sanskrit Zodiac Signs (Rashis)
         rashis = [
-            "Mesha (Aries)", "Vrishabha (Taurus)", "Mithuna (Gemini)", "Karka (Cancer)",
-            "Simha (Leo)", "Kanya (Virgo)", "Tula (Libra)", "Vrischika (Scorpio)",
-            "Dhanu (Sagittarius)", "Makara (Capricorn)", "Kumbha (Aquarius)", "Meena (Pisces)"
+            "Mesha (Aries)",
+            "Vrishabha (Taurus)",
+            "Mithuna (Gemini)",
+            "Karka (Cancer)",
+            "Simha (Leo)",
+            "Kanya (Virgo)",
+            "Tula (Libra)",
+            "Vrischika (Scorpio)",
+            "Dhanu (Sagittarius)",
+            "Makara (Capricorn)",
+            "Kumbha (Aquarius)",
+            "Meena (Pisces)",
         ]
 
         # Calculate all planetary sidereal positions
         sidereal_positions = {}
-        
+
         # Calculate Ascendant (Lagna)
         if location:
             lat, lon = location
@@ -255,7 +301,7 @@ class AstrologicalCalculator:
                 "rashi_name": rashis[asc_rashi_idx].split(" ")[0],
                 "rashi_number": asc_rashi_idx + 1,
                 "degree": sidereal_asc % 30,
-                "formatted": f"{rashis[asc_rashi_idx]} {sidereal_asc % 30:.2f}°"
+                "formatted": f"{rashis[asc_rashi_idx]} {sidereal_asc % 30:.2f}°",
             }
         else:
             # Fallback if no location
@@ -266,7 +312,7 @@ class AstrologicalCalculator:
                 "rashi_name": rashis[0].split(" ")[0],
                 "rashi_number": 1,
                 "degree": 0.0,
-                "formatted": f"{rashis[0]} 0.00°"
+                "formatted": f"{rashis[0]} 0.00°",
             }
 
         # Calculate standard planets
@@ -274,21 +320,21 @@ class AstrologicalCalculator:
             result = swe.calc_ut(jd, planet_id, swe.FLG_SIDEREAL)
             sidereal_lon = result[0][0]
             rashi_idx = int(sidereal_lon / 30) % 12
-            
+
             # Map name for front-end (mean node is Rahu)
             key_name = name
             if name == "north_node":
                 key_name = "rahu"
-                
+
             sidereal_positions[key_name] = {
                 "longitude": sidereal_lon,
                 "rashi": rashis[rashi_idx],
                 "rashi_name": rashis[rashi_idx].split(" ")[0],
                 "rashi_number": rashi_idx + 1,
                 "degree": sidereal_lon % 30,
-                "formatted": f"{rashis[rashi_idx]} {sidereal_lon % 30:.2f}°"
+                "formatted": f"{rashis[rashi_idx]} {sidereal_lon % 30:.2f}°",
             }
-            
+
         # Add Ketu (opposite Rahu)
         if "rahu" in sidereal_positions:
             rahu_lon = sidereal_positions["rahu"]["longitude"]
@@ -300,7 +346,7 @@ class AstrologicalCalculator:
                 "rashi_name": rashis[ketu_rashi_idx].split(" ")[0],
                 "rashi_number": ketu_rashi_idx + 1,
                 "degree": ketu_lon % 30,
-                "formatted": f"{rashis[ketu_rashi_idx]} {ketu_lon % 30:.2f}°"
+                "formatted": f"{rashis[ketu_rashi_idx]} {ketu_lon % 30:.2f}°",
             }
 
         # Retrieve Sun and Moon for legacy/internal references
@@ -310,58 +356,128 @@ class AstrologicalCalculator:
         moon_pos_result = swe.calc_ut(jd, swe.MOON)
         tropical_sun_lon = sun_pos_result[0][0]
         tropical_moon_lon = moon_pos_result[0][0]
-        
+
         # 1. Tithi (Lunar Day)
         # Difference in longitude: Moon - Sun
         diff_lon = (tropical_moon_lon - tropical_sun_lon) % 360
         tithi_val = diff_lon / 12
         tithi_num = int(tithi_val) + 1
         tithi_progress = tithi_val % 1
-        
+
         tithi_names = [
-            "Prathama", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shasthi", "Saptami", "Ashtami",
-            "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima/Amavasya"
+            "Prathama",
+            "Dwitiya",
+            "Tritiya",
+            "Chaturthi",
+            "Panchami",
+            "Shasthi",
+            "Saptami",
+            "Ashtami",
+            "Navami",
+            "Dashami",
+            "Ekadashi",
+            "Dwadashi",
+            "Trayodashi",
+            "Chaturdashi",
+            "Purnima/Amavasya",
         ]
         paksha = "Shukla (Waxing)" if tithi_num <= 15 else "Krishna (Waning)"
         norm_tithi = tithi_num if tithi_num <= 15 else tithi_num - 15
         tithi_name = tithi_names[norm_tithi - 1]
-        
+
         if tithi_num == 15:
             tithi_name = "Purnima (Full Moon)"
         elif tithi_num == 30:
             tithi_name = "Amavasya (New Moon)"
- 
+
         # 2. Nakshatra (Lunar Mansion)
         nakshatra_val = sidereal_moon_lon / (360 / 27)
         nakshatra_num = int(nakshatra_val) + 1
         nakshatra_progress = nakshatra_val % 1
-        
+
         nakshatras = [
-            "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
-            "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
-            "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
+            "Ashwini",
+            "Bharani",
+            "Krittika",
+            "Rohini",
+            "Mrigashira",
+            "Ardra",
+            "Punarvasu",
+            "Pushya",
+            "Ashlesha",
+            "Magha",
+            "Purva Phalguni",
+            "Uttara Phalguni",
+            "Hasta",
+            "Chitra",
+            "Swati",
+            "Vishakha",
+            "Anuradha",
+            "Jyeshtha",
+            "Mula",
+            "Purva Ashadha",
+            "Uttara Ashadha",
+            "Shravana",
+            "Dhanishta",
+            "Shatabhisha",
+            "Purva Bhadrapada",
+            "Uttara Bhadrapada",
+            "Revati",
         ]
         nakshatra_name = nakshatras[(nakshatra_num - 1) % 27]
- 
+
         # 3. Yoga
         yoga_val = (sidereal_sun_lon + sidereal_moon_lon) % 360 / (360 / 27)
         yoga_num = int(yoga_val) + 1
         yoga_progress = yoga_val % 1
-        
+
         yogas = [
-            "Vishkumbha", "Priti", "Ayushman", "Saubhagya", "Shobhana", "Atiganda", "Sukarma", "Dhriti", "Shula",
-            "Ganda", "Vridhi", "Dhruva", "Vyaghata", "Harshana", "Vajra", "Siddhi", "Vyatipata", "Variyan", "Parigha",
-            "Shiva", "Siddha", "Sadhya", "Shubha", "Shukla", "Brahma", "Indra", "Vaidhriti"
+            "Vishkumbha",
+            "Priti",
+            "Ayushman",
+            "Saubhagya",
+            "Shobhana",
+            "Atiganda",
+            "Sukarma",
+            "Dhriti",
+            "Shula",
+            "Ganda",
+            "Vridhi",
+            "Dhruva",
+            "Vyaghata",
+            "Harshana",
+            "Vajra",
+            "Siddhi",
+            "Vyatipata",
+            "Variyan",
+            "Parigha",
+            "Shiva",
+            "Siddha",
+            "Sadhya",
+            "Shubha",
+            "Shukla",
+            "Brahma",
+            "Indra",
+            "Vaidhriti",
         ]
         yoga_name = yogas[(yoga_num - 1) % 27]
- 
+
         # 4. Karana
         karana_val = diff_lon / 6
         karana_num = int(karana_val) + 1
-        
+
         karana_names = [
-            "Bava", "Balava", "Kaulava", "Taitila", "Gara", "Vanija", "Vishti (Bhadra)",
-            "Shakuni", "Chatushpada", "Naga", "Kintughna"
+            "Bava",
+            "Balava",
+            "Kaulava",
+            "Taitila",
+            "Gara",
+            "Vanija",
+            "Vishti (Bhadra)",
+            "Shakuni",
+            "Chatushpada",
+            "Naga",
+            "Kintughna",
         ]
         if karana_num == 1:
             karana_name = "Kintughna"
@@ -371,54 +487,40 @@ class AstrologicalCalculator:
         else:
             cycle_idx = (karana_num - 2) % 7
             karana_name = karana_names[cycle_idx]
- 
+
         # 5. Vara (Solar day starting at sunrise)
         local_date = dt
         sunrise_today = None
         if location:
             times = self.calculate_auspicious_times(local_date, location)
             sunrise_today = times.get("sunrise")
-            
+
         if sunrise_today and local_date < sunrise_today:
             vara_idx = (local_date.weekday() - 1) % 7
         else:
             vara_idx = local_date.weekday()
-            
+
         vara_names = [
-            "Somavara (Monday)", "Mangalavara (Tuesday)", "Budhavara (Wednesday)",
-            "Guruvara (Thursday)", "Sukravara (Friday)", "Sanivara (Saturday)", "Ravivara (Sunday)"
+            "Somavara (Monday)",
+            "Mangalavara (Tuesday)",
+            "Budhavara (Wednesday)",
+            "Guruvara (Thursday)",
+            "Sukravara (Friday)",
+            "Sanivara (Saturday)",
+            "Ravivara (Sunday)",
         ]
         vara_name = vara_names[vara_idx]
- 
+
         return {
             "ayanamsa": ayanamsa,
             "sidereal_positions": sidereal_positions,
             "panchanga": {
-                "tithi": {
-                    "number": tithi_num,
-                    "name": tithi_name,
-                    "paksha": paksha,
-                    "progress": tithi_progress
-                },
-                "nakshatra": {
-                    "number": nakshatra_num,
-                    "name": nakshatra_name,
-                    "progress": nakshatra_progress
-                },
-                "yoga": {
-                    "number": yoga_num,
-                    "name": yoga_name,
-                    "progress": yoga_progress
-                },
-                "karana": {
-                    "number": karana_num,
-                    "name": karana_name
-                },
-                "vara": {
-                    "name": vara_name,
-                    "index": vara_idx
-                }
-            }
+                "tithi": {"number": tithi_num, "name": tithi_name, "paksha": paksha, "progress": tithi_progress},
+                "nakshatra": {"number": nakshatra_num, "name": nakshatra_name, "progress": nakshatra_progress},
+                "yoga": {"number": yoga_num, "name": yoga_name, "progress": yoga_progress},
+                "karana": {"number": karana_num, "name": karana_name},
+                "vara": {"name": vara_name, "index": vara_idx},
+            },
         }
 
     # =========================================================================
@@ -431,47 +533,89 @@ class AstrologicalCalculator:
         Returns Lunar Date, Sheng Xiao (Zodiac), BaZi, and Shichen.
         """
         try:
-            from lunar_python import Solar, Lunar
-            
+            from lunar_python import Lunar, Solar
+
             # Convert timezone to China Standard Time (UTC+8) which Chinese calendar uses
             dt_china = dt.astimezone(pytz.timezone("Asia/Shanghai"))
-            
+
             solar_c = Solar.fromYmdHms(
-                dt_china.year, dt_china.month, dt_china.day,
-                dt_china.hour, dt_china.minute, dt_china.second
+                dt_china.year, dt_china.month, dt_china.day, dt_china.hour, dt_china.minute, dt_china.second
             )
             lunar_c = solar_c.getLunar()
-            
+
             is_leap = lunar_c.getMonth() < 0
             month_num = abs(lunar_c.getMonth())
-            
+
             bazi = lunar_c.getEightChar()
-            
+
             # Translation mappings for English display & frontend compatibility
             stems_translation = {
-                "甲": "Jia", "乙": "Yi", "丙": "Bing", "丁": "Ding", "戊": "Wu",
-                "己": "Ji", "庚": "Geng", "辛": "Xin", "壬": "Ren", "癸": "Gui"
+                "甲": "Jia",
+                "乙": "Yi",
+                "丙": "Bing",
+                "丁": "Ding",
+                "戊": "Wu",
+                "己": "Ji",
+                "庚": "Geng",
+                "辛": "Xin",
+                "壬": "Ren",
+                "癸": "Gui",
             }
             branches_translation = {
-                "子": "Zi-Rat", "丑": "Chou-Ox", "寅": "Yin-Tiger", "卯": "Mao-Rabbit",
-                "辰": "Chen-Dragon", "巳": "Si-Snake", "午": "Wu-Horse", "未": "Wei-Goat",
-                "申": "Shen-Monkey", "酉": "You-Rooster", "戌": "Xu-Dog", "亥": "Hai-Pig"
+                "子": "Zi-Rat",
+                "丑": "Chou-Ox",
+                "寅": "Yin-Tiger",
+                "卯": "Mao-Rabbit",
+                "辰": "Chen-Dragon",
+                "巳": "Si-Snake",
+                "午": "Wu-Horse",
+                "未": "Wei-Goat",
+                "申": "Shen-Monkey",
+                "酉": "You-Rooster",
+                "戌": "Xu-Dog",
+                "亥": "Hai-Pig",
             }
             animals_translation = {
-                "鼠": "Rat", "牛": "Ox", "虎": "Tiger", "兔": "Rabbit", "龙": "Dragon", "蛇": "Snake",
-                "马": "Horse", "羊": "Goat", "猴": "Monkey", "鸡": "Rooster", "狗": "Dog", "猪": "Pig"
+                "鼠": "Rat",
+                "牛": "Ox",
+                "虎": "Tiger",
+                "兔": "Rabbit",
+                "龙": "Dragon",
+                "蛇": "Snake",
+                "马": "Horse",
+                "羊": "Goat",
+                "猴": "Monkey",
+                "鸡": "Rooster",
+                "狗": "Dog",
+                "猪": "Pig",
             }
             solar_terms_translation = {
-                "春分": "Chunfen (Spring Equinox)", "清明": "Qingming", "谷雨": "Guyu",
-                "立夏": "Lixia (Start of Summer)", "小满": "Xiaoman", "芒种": "Mangzhong",
-                "夏至": "Xiazhi (Summer Solstice)", "小暑": "Xiaoshu", "大暑": "Dashu",
-                "立秋": "Liqiu (Start of Autumn)", "处暑": "Chushu", "白露": "Bailu",
-                "秋分": "Qiufen (Autumn Equinox)", "寒露": "Hanlu", "霜降": "Shuangjiang",
-                "立冬": "Lidong (Start of Winter)", "小雪": "Xiaoxue", "大雪": "Daxue",
-                "冬至": "Dongzhi (Winter Solstice)", "小寒": "Xiaohan", "大寒": "Dahan",
-                "立春": "Lichun (Start of Spring)", "雨水": "Yushui", "惊蛰": "Jingzhe"
+                "春分": "Chunfen (Spring Equinox)",
+                "清明": "Qingming",
+                "谷雨": "Guyu",
+                "立夏": "Lixia (Start of Summer)",
+                "小满": "Xiaoman",
+                "芒种": "Mangzhong",
+                "夏至": "Xiazhi (Summer Solstice)",
+                "小暑": "Xiaoshu",
+                "大暑": "Dashu",
+                "立秋": "Liqiu (Start of Autumn)",
+                "处暑": "Chushu",
+                "白露": "Bailu",
+                "秋分": "Qiufen (Autumn Equinox)",
+                "寒露": "Hanlu",
+                "霜降": "Shuangjiang",
+                "立冬": "Lidong (Start of Winter)",
+                "小雪": "Xiaoxue",
+                "大雪": "Daxue",
+                "冬至": "Dongzhi (Winter Solstice)",
+                "小寒": "Xiaohan",
+                "大寒": "Dahan",
+                "立春": "Lichun (Start of Spring)",
+                "雨水": "Yushui",
+                "惊蛰": "Jingzhe",
             }
-            
+
             def translate_pillar(pillar_str, wuxing_str):
                 if len(pillar_str) >= 2:
                     s = pillar_str[0]
@@ -480,93 +624,126 @@ class AstrologicalCalculator:
                     trans_b = branches_translation.get(b, b)
                     return f"{pillar_str}/{trans_s}-{trans_b} ({wuxing_str})"
                 return f"{pillar_str} ({wuxing_str})"
-            
+
             # Earthly branches corresponding to Shichen
             shichen_branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
             shichen_names = [
-                "Zi (Rat)", "Chou (Ox)", "Yin (Tiger)", "Mao (Rabbit)", "Chen (Dragon)", "Si (Snake)",
-                "Wu (Horse)", "Wei (Goat)", "Shen (Monkey)", "You (Rooster)", "Xu (Dog)", "Hai (Pig)"
+                "Zi (Rat)",
+                "Chou (Ox)",
+                "Yin (Tiger)",
+                "Mao (Rabbit)",
+                "Chen (Dragon)",
+                "Si (Snake)",
+                "Wu (Horse)",
+                "Wei (Goat)",
+                "Shen (Monkey)",
+                "You (Rooster)",
+                "Xu (Dog)",
+                "Hai (Pig)",
             ]
-            
+
             # Shichen hour branch index based on local hour
             local_hour = dt.hour
             shichen_idx = ((local_hour + 1) // 2) % 12
-            
+
             jieqi = lunar_c.getJieQi()
             translated_jieqi = f"{solar_terms_translation.get(jieqi, jieqi)} / {jieqi}" if jieqi else "None"
-            
+
             zodiac_char = lunar_c.getYearShengXiao()
             zodiac_animal = f"{zodiac_char} / {animals_translation.get(zodiac_char, zodiac_char)}"
-            
+
             return {
                 "lunar_date": {
                     "year": lunar_c.getYear(),
                     "month": month_num,
                     "day": lunar_c.getDay(),
                     "is_leap": is_leap,
-                    "formatted": lunar_c.toFullString()
+                    "formatted": lunar_c.toFullString(),
                 },
                 "zodiac_animal": zodiac_animal,
                 "bazi": {
                     "year": translate_pillar(bazi.getYear(), bazi.getYearWuXing()),
                     "month": translate_pillar(bazi.getMonth(), bazi.getMonthWuXing()),
                     "day": translate_pillar(bazi.getDay(), bazi.getDayWuXing()),
-                    "hour": translate_pillar(bazi.getTime(), bazi.getTimeWuXing())
+                    "hour": translate_pillar(bazi.getTime(), bazi.getTimeWuXing()),
                 },
                 "shichen": {
                     "branch": shichen_branches[shichen_idx],
                     "name": shichen_names[shichen_idx],
-                    "index": shichen_idx
+                    "index": shichen_idx,
                 },
-                "solar_term": translated_jieqi
+                "solar_term": translated_jieqi,
             }
         except ImportError:
             # Fallback in case dependencies are not installed
             # Calculate simple mathematical stem/branch approximation using Julian Date
             jd = self.get_julian_day(dt)
             stems = ["Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui"]
-            branches = ["Zi (Rat)", "Chou (Ox)", "Yin (Tiger)", "Mao (Rabbit)", "Chen (Dragon)", "Si (Snake)",
-                        "Wu (Horse)", "Wei (Goat)", "Shen (Monkey)", "You (Rooster)", "Xu (Dog)", "Hai (Pig)"]
-            
+            branches = [
+                "Zi (Rat)",
+                "Chou (Ox)",
+                "Yin (Tiger)",
+                "Mao (Rabbit)",
+                "Chen (Dragon)",
+                "Si (Snake)",
+                "Wu (Horse)",
+                "Wei (Goat)",
+                "Shen (Monkey)",
+                "You (Rooster)",
+                "Xu (Dog)",
+                "Hai (Pig)",
+            ]
+
             # Stems and branches relative offset
             year_offset = (dt.year - 4) % 60
             year_stem = stems[year_offset % 10]
             year_branch = branches[year_offset % 12]
-            
+
             # Approximate Solar Term based on Sun longitude
             # Solar terms are every 15 degrees of sun longitude starting from 0 (Spring Equinox)
             sun_pos, _ = swe.calc_ut(jd, swe.SUN)
             sun_lon = sun_pos[0]
-            
+
             solar_terms = [
-                "Chunfen (Spring Equinox)", "Qingming", "Guyu", "Lixia (Start of Summer)", "Xiaoman", "Mangzhong",
-                "Xiazhi (Summer Solstice)", "Xiaoshu", "Dashu", "Liqiu (Start of Autumn)", "Chushu", "Bailu",
-                "Qiufen (Autumn Equinox)", "Hanlu", "Shuangjiang", "Lidong (Start of Winter)", "Xiaoxue", "Daxue",
-                "Dongzhi (Winter Solstice)", "Xiaohan", "Dahan", "Lichun (Start of Spring)", "Yushui", "Jingzhe"
+                "Chunfen (Spring Equinox)",
+                "Qingming",
+                "Guyu",
+                "Lixia (Start of Summer)",
+                "Xiaoman",
+                "Mangzhong",
+                "Xiazhi (Summer Solstice)",
+                "Xiaoshu",
+                "Dashu",
+                "Liqiu (Start of Autumn)",
+                "Chushu",
+                "Bailu",
+                "Qiufen (Autumn Equinox)",
+                "Hanlu",
+                "Shuangjiang",
+                "Lidong (Start of Winter)",
+                "Xiaoxue",
+                "Daxue",
+                "Dongzhi (Winter Solstice)",
+                "Xiaohan",
+                "Dahan",
+                "Lichun (Start of Spring)",
+                "Yushui",
+                "Jingzhe",
             ]
             term_idx = int(sun_lon / 15) % 24
-            
+
             return {
                 "lunar_date": {
                     "year": dt.year,
                     "month": 1,
                     "day": 1,
                     "is_leap": False,
-                    "formatted": f"Approximate Year {dt.year} (Offline Fallback)"
+                    "formatted": f"Approximate Year {dt.year} (Offline Fallback)",
                 },
                 "zodiac_animal": branches[(dt.year - 4) % 12].split()[0],
-                "bazi": {
-                    "year": f"{year_stem}-{year_branch}",
-                    "month": "Unknown",
-                    "day": "Unknown",
-                    "hour": "Unknown"
-                },
-                "shichen": {
-                    "branch": "Unknown",
-                    "name": "Unknown",
-                    "index": 0
-                },
-                "solar_term": solar_terms[term_idx]
+                "bazi": {"year": f"{year_stem}-{year_branch}", "month": "Unknown", "day": "Unknown", "hour": "Unknown"},
+                "shichen": {"branch": "Unknown", "name": "Unknown", "index": 0},
+                "solar_term": solar_terms[term_idx],
             }
 
     # =========================================================================
@@ -616,19 +793,43 @@ class AstrologicalCalculator:
         Calculate current Nakshatra (lunar mansion)
         """
         jd = self.get_julian_day(dt)
-        
+
         swe.set_sid_mode(swe.SIDM_LAHIRI)
-        ayanamsa = swe.get_ayanamsa_ut(jd)
-        
+        swe.get_ayanamsa_ut(jd)
+
         result = swe.calc_ut(jd, swe.MOON, swe.FLG_SIDEREAL)
         sidereal_moon_pos = result[0][0]
 
         nakshatra_num = int(sidereal_moon_pos / (360 / 27))
 
         NAKSHATRAS = [
-            "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
-            "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
-            "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati"
+            "Ashwini",
+            "Bharani",
+            "Krittika",
+            "Rohini",
+            "Mrigashira",
+            "Ardra",
+            "Punarvasu",
+            "Pushya",
+            "Ashlesha",
+            "Magha",
+            "Purva Phalguni",
+            "Uttara Phalguni",
+            "Hasta",
+            "Chitra",
+            "Swati",
+            "Vishakha",
+            "Anuradha",
+            "Jyeshtha",
+            "Mula",
+            "Purva Ashadha",
+            "Uttara Ashadha",
+            "Shravana",
+            "Dhanishta",
+            "Shatabhisha",
+            "Purva Bhadrapada",
+            "Uttara Bhadrapada",
+            "Revati",
         ]
 
         return {"number": nakshatra_num + 1, "name": NAKSHATRAS[nakshatra_num % 27], "moon_position": sidereal_moon_pos}
@@ -648,7 +849,9 @@ class AstrologicalCalculator:
         def jd_to_datetime(jd_time):
             result = swe.revjul(jd_time)
             # Create UTC timezone aware object
-            dt_utc = datetime(result[0], result[1], result[2], int(result[3]), int((result[3] % 1) * 60), tzinfo=pytz.UTC)
+            dt_utc = datetime(
+                result[0], result[1], result[2], int(result[3]), int((result[3] % 1) * 60), tzinfo=pytz.UTC
+            )
             # Convert to local timezone of the input date
             if date.tzinfo:
                 return dt_utc.astimezone(date.tzinfo)
@@ -682,24 +885,24 @@ class AstrologicalCalculator:
         times = self.calculate_auspicious_times(dt, location)
         sunrise = times.get("sunrise")
         sunset = times.get("sunset")
-        
+
         if not sunrise or not sunset:
             # Fallback if polar day/night where sunrise/sunset doesn't occur
             return {"current_planetary_hour": "Sun", "is_daytime": True, "description": "Polar day/night fallback"}
-            
+
         # Determine day of week ruler (traditional weekday begins at sunrise)
         if dt < sunrise:
             # Before sunrise, we use previous day's weekday ruler
             logical_date = dt - timedelta(days=1)
         else:
             logical_date = dt
-            
-        weekday_idx = logical_date.weekday() # Monday=0
+
+        weekday_idx = logical_date.weekday()  # Monday=0
         day_ruler = self.WEEKDAY_RULERS[weekday_idx]
-        
+
         # Determine if it is currently daytime or nighttime
         is_daytime = sunrise <= dt < sunset
-        
+
         if is_daytime:
             # Day hours: split sunrise to sunset into 12 periods
             hour_duration = (sunset - sunrise) / 12
@@ -713,7 +916,7 @@ class AstrologicalCalculator:
             # Find next sunrise
             next_day_times = self.calculate_auspicious_times(dt + timedelta(days=1), location)
             next_sunrise = next_day_times.get("sunrise")
-            
+
             if dt >= sunset:
                 prev_sunset = sunset
             else:
@@ -721,7 +924,7 @@ class AstrologicalCalculator:
                 prev_day_times = self.calculate_auspicious_times(dt - timedelta(days=1), location)
                 prev_sunset = prev_day_times.get("sunset")
                 next_sunrise = sunrise
-                
+
             hour_duration = (next_sunrise - prev_sunset) / 12
             seconds_elapsed = (dt - prev_sunset).total_seconds()
             hour_idx = min(int(seconds_elapsed / hour_duration.total_seconds()), 11)
@@ -731,13 +934,13 @@ class AstrologicalCalculator:
 
         # Calculate Chaldean order starting index
         start_ruler_idx = self.CHALDEAN_ORDER.index(day_ruler)
-        
+
         # Calculate hourly rulers
         day_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + i) % 7] for i in range(12)]
         night_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + 12 + i) % 7] for i in range(12)]
-        
+
         current_ruler = day_rulers[hour_idx] if is_daytime else night_rulers[hour_idx]
-        
+
         descriptions = {
             "Sun": "Vitality, consciousness, identity, career and leadership.",
             "Moon": "Emotions, intuition, subconscious habits, nurturing.",
@@ -745,14 +948,14 @@ class AstrologicalCalculator:
             "Venus": "Love, arts, relationship harmony, beauty and comfort.",
             "Mars": "Action, courage, conflict resolution, physical exertion.",
             "Jupiter": "Expansion, wisdom teachings, abundance, spirituality.",
-            "Saturn": "Discipline, structural building, boundaries, karmic meditation."
+            "Saturn": "Discipline, structural building, boundaries, karmic meditation.",
         }
-        
+
         return {
             "status": "success",
             "current_planetary_hour": current_ruler,
             "day_planet": day_ruler,
-            "hour_index": hour_idx + 1, # 1-12
+            "hour_index": hour_idx + 1,  # 1-12
             "is_daytime": is_daytime,
             "time_remaining_seconds": int(time_remaining.total_seconds()),
             "start_time": start_time.isoformat(),
@@ -761,7 +964,7 @@ class AstrologicalCalculator:
             "day_rulers": day_rulers,
             "night_rulers": night_rulers,
             "day_of_week": dt.strftime("%A"),
-            "hour_of_day": dt.hour
+            "hour_of_day": dt.hour,
         }
 
     def get_current_energetics(self, dt: datetime = None, location: tuple[float, float] = None) -> dict:
@@ -792,22 +995,22 @@ class AstrologicalCalculator:
             dt = datetime.now(pytz.UTC)
         if dt.tzinfo is None:
             dt = pytz.UTC.localize(dt)
-            
+
         # Default to San Francisco coordinates if location is not provided
         loc = location if location else (37.7749, -122.4194)
-        
+
         western = self.get_western_astrology(dt, loc)
         indian = self.get_indian_astrology(dt, loc)
         chinese = self.get_chinese_astrology(dt)
         planetary_hours = self.calculate_exact_planetary_hours(dt, loc)
-        
+
         return {
             "datetime": dt.isoformat(),
             "location": {"latitude": loc[0], "longitude": loc[1]},
             "western": western,
             "indian": indian,
             "chinese": chinese,
-            "planetary_hours": planetary_hours
+            "planetary_hours": planetary_hours,
         }
 
     def recommend_frequencies_for_time(self, dt: datetime = None) -> list[float]:
@@ -866,9 +1069,23 @@ class AstrologicalCalculator:
 
         return events
 
+    def calculate_chart(self, date: datetime, lat: float, lon: float, name: str = "") -> dict:
+        """Compatibility wrapper for OutlookGenerator."""
+        return self.get_comprehensive_astrology(date, (lat, lon))
+
+    def get_transits(self, natal_chart: dict = None, transit_date: datetime = None) -> list[dict]:
+        """Compatibility wrapper for OutlookGenerator transit aspects."""
+        if natal_chart and "western" in natal_chart:
+            return natal_chart["western"].get("aspects", [])
+        return []
+
+
+AstrologyEngine = AstrologicalCalculator
+
 if __name__ == "__main__":
     import sys
-    sys.stdout.reconfigure(encoding='utf-8')
+
+    sys.stdout.reconfigure(encoding="utf-8")
     astro = AstrologicalCalculator()
     now = datetime.now(pytz.UTC)
     sf = (37.7749, -122.4194)

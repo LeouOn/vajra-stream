@@ -13,9 +13,7 @@ Data sources (all free, no API keys required):
 - Optional: NewsAPI / RSS feeds for current events
 """
 
-import json
 import logging
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -27,11 +25,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class WorldEvent:
     """A significant world event that might warrant radionics attention."""
+
     title: str
     description: str
     location: str = ""
     event_type: str = "general"  # disaster, conflict, humanitarian, celestial
-    severity: str = "medium"     # low, medium, high, critical
+    severity: str = "medium"  # low, medium, high, critical
     source: str = ""
     date: str = ""
     url: str = ""
@@ -43,6 +42,7 @@ class WorldEvent:
 @dataclass
 class InternetContext:
     """Compiled world context for LLM injection."""
+
     events: list[WorldEvent] = field(default_factory=list)
     disasters: list[dict[str, Any]] = field(default_factory=list)
     astro_transits: dict[str, Any] = field(default_factory=dict)
@@ -64,7 +64,9 @@ class InternetContext:
             lines.append(f"- Day Ruler: {self.day_ruler}")
             moon = self.astro_transits.get("moon_phase", {})
             if moon:
-                lines.append(f"- Moon: {moon.get('phase_name', 'unknown')} ({moon.get('illumination', '?')}% illuminated)")
+                lines.append(
+                    f"- Moon: {moon.get('phase_name', 'unknown')} ({moon.get('illumination', '?')}% illuminated)"
+                )
             lines.append("")
 
         if self.events:
@@ -97,6 +99,7 @@ def _safe_http_get(url: str, timeout: float = 10.0) -> str | None:
     """Fetch a URL, returning None on any error."""
     try:
         import urllib.request
+
         req = urllib.request.Request(url, headers={"User-Agent": "VajraStream/1.0"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read().decode("utf-8", errors="replace")
@@ -138,12 +141,14 @@ def fetch_gdacs_disasters() -> list[dict[str, Any]]:
                 elif "green" in title_lower:
                     severity = "low"
 
-                disasters.append({
-                    "title": title,
-                    "description": description[:200] if description else "",
-                    "severity": severity,
-                    "source": "GDACS",
-                })
+                disasters.append(
+                    {
+                        "title": title,
+                        "description": description[:200] if description else "",
+                        "severity": severity,
+                        "source": "GDACS",
+                    }
+                )
     except ElementTree.ParseError:
         pass
 
@@ -170,11 +175,13 @@ def fetch_reliefweb_headlines() -> list[dict[str, Any]]:
                     description = (child.text or "").strip()
 
             if title:
-                headlines.append({
-                    "title": title,
-                    "description": description[:200] if description else "",
-                    "source": "ReliefWeb",
-                })
+                headlines.append(
+                    {
+                        "title": title,
+                        "description": description[:200] if description else "",
+                        "source": "ReliefWeb",
+                    }
+                )
     except ElementTree.ParseError:
         pass
 
@@ -185,6 +192,7 @@ def fetch_astro_context() -> dict[str, Any]:
     """Get current astrological context from local astrology service."""
     try:
         from core.astrology import AstrologyEngine
+
         engine = AstrologyEngine()
         now = datetime.now()
 
@@ -243,13 +251,15 @@ def compile_world_context(
             disasters = fetch_gdacs_disasters()
             context.disasters = disasters
             for d in disasters:
-                events.append(WorldEvent(
-                    title=d.get("title", ""),
-                    description=d.get("description", ""),
-                    event_type="disaster",
-                    severity=d.get("severity", "medium"),
-                    source=d.get("source", "GDACS"),
-                ))
+                events.append(
+                    WorldEvent(
+                        title=d.get("title", ""),
+                        description=d.get("description", ""),
+                        event_type="disaster",
+                        severity=d.get("severity", "medium"),
+                        source=d.get("source", "GDACS"),
+                    )
+                )
         except Exception as e:
             logger.debug(f"GDACS fetch failed: {e}")
 
@@ -258,13 +268,15 @@ def compile_world_context(
         try:
             headlines = fetch_reliefweb_headlines()
             for h in headlines:
-                events.append(WorldEvent(
-                    title=h.get("title", ""),
-                    description=h.get("description", ""),
-                    event_type="humanitarian",
-                    severity="medium",
-                    source=h.get("source", "ReliefWeb"),
-                ))
+                events.append(
+                    WorldEvent(
+                        title=h.get("title", ""),
+                        description=h.get("description", ""),
+                        event_type="humanitarian",
+                        severity="medium",
+                        source=h.get("source", "ReliefWeb"),
+                    )
+                )
         except Exception as e:
             logger.debug(f"ReliefWeb fetch failed: {e}")
 

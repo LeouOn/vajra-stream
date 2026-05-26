@@ -50,6 +50,7 @@ class BlessingGenerated(DomainEvent):
 @dataclass
 class SessionCreated(DomainEvent):
     """Event: A blessing session has been created"""
+
     session_id: str
     name: str
     intention: str
@@ -60,6 +61,7 @@ class SessionCreated(DomainEvent):
 @dataclass
 class SessionStarted(DomainEvent):
     """Event: A session has started broadcasting"""
+
     session_id: str
     name: str
 
@@ -67,6 +69,7 @@ class SessionStarted(DomainEvent):
 @dataclass
 class SessionStopped(DomainEvent):
     """Event: A session has been stopped"""
+
     session_id: str
     name: str
     runtime_seconds: float
@@ -75,6 +78,7 @@ class SessionStopped(DomainEvent):
 @dataclass
 class BroadcastStarted(DomainEvent):
     """Event: Crystal/radionics broadcast has started"""
+
     session_id: str
     hardware_level: int
     frequencies: list[float]
@@ -83,6 +87,7 @@ class BroadcastStarted(DomainEvent):
 @dataclass
 class BroadcastStopped(DomainEvent):
     """Event: Crystal/radionics broadcast has stopped"""
+
     session_id: str
     actual_runtime: float
 

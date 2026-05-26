@@ -9,12 +9,11 @@ Launches a temporary backend server and exercises:
 """
 
 import json
-import os
 import subprocess
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Add project root to path
@@ -24,8 +23,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # Configure console encoding for Windows
 if sys.platform == "win32":
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
 
 PORT = 8012
@@ -62,7 +62,7 @@ def main():
         [sys.executable, "run.py", "serve", "--port", str(PORT)],
         cwd=str(PROJECT_ROOT),
         shell=True if sys.platform == "win32" else False,
-        creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
+        creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0,
     )
 
     # Wait for server to boot up
@@ -78,10 +78,7 @@ def main():
 
         # Test 2: Chat command - list populations
         print_title("Test 2: Chat command 'list populations'")
-        payload = {
-            "messages": [{"role": "user", "content": "list populations"}],
-            "provider": "auto"
-        }
+        payload = {"messages": [{"role": "user", "content": "list populations"}], "provider": "auto"}
         status, res = post_json("/api/v1/llm/chat", payload)
         print(f"   Status: {status}")
         print(f"   Response:\n{res.get('response')[:300]}...\n")
@@ -93,7 +90,7 @@ def main():
         print_title("Test 3: Chat command 'forge sigil for Refugees & War Victims'")
         payload = {
             "messages": [{"role": "user", "content": "forge sigil for Refugees & War Victims"}],
-            "provider": "auto"
+            "provider": "auto",
         }
         status, res = post_json("/api/v1/llm/chat", payload)
         print(f"   Status: {status}")
@@ -104,10 +101,7 @@ def main():
 
         # Test 4: Chat command - cast geomancy
         print_title("Test 4: Chat command 'cast geomancy'")
-        payload = {
-            "messages": [{"role": "user", "content": "cast geomancy"}],
-            "provider": "auto"
-        }
+        payload = {"messages": [{"role": "user", "content": "cast geomancy"}], "provider": "auto"}
         status, res = post_json("/api/v1/llm/chat", payload)
         print(f"   Status: {status}")
         print(f"   Response:\n{res.get('response')[:400]}...\n")
@@ -117,13 +111,10 @@ def main():
 
         # Test 5: Global Intention Narrative - world peace
         print_title("Test 5: Global Intention Narrative: 'world peace'")
-        payload = {
-            "intention": "world peace",
-            "theme": "manifestation"
-        }
+        payload = {"intention": "world peace", "theme": "manifestation"}
         status, res = post_json("/api/v1/radionics/narrative/global-intention", payload)
         print(f"   Status: {status}")
-        print(f"   Matched Radionics Data:")
+        print("   Matched Radionics Data:")
         rd = res.get("radionics_data", {})
         print(f"     - Planet:     {rd.get('planetary_planets')} ({rd.get('planetary_frequency')} Hz)")
         print(f"     - Solfeggio:  {rd.get('solfeggio_name')}")
@@ -135,13 +126,10 @@ def main():
 
         # Test 6: Global Intention Narrative - reforestation the world (Amazon)
         print_title("Test 6: Global Intention Narrative: 'reforestation the world'")
-        payload = {
-            "intention": "reforestation the world",
-            "theme": "healing"
-        }
+        payload = {"intention": "reforestation the world", "theme": "healing"}
         status, res = post_json("/api/v1/radionics/narrative/global-intention", payload)
         print(f"   Status: {status}")
-        print(f"   Matched Radionics Data:")
+        print("   Matched Radionics Data:")
         rd = res.get("radionics_data", {})
         print(f"     - Planet:     {rd.get('planetary_planets')} ({rd.get('planetary_frequency')} Hz)")
         print(f"     - Solfeggio:  {rd.get('solfeggio_name')}")

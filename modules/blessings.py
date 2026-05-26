@@ -11,7 +11,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from infrastructure.event_bus import EnhancedEventBus
 from modules.interfaces import BlessingGenerated, BlessingGenerator, EventBus
 
 
@@ -344,10 +343,7 @@ class BlessingService(BlessingGenerator):
             "total_mantras": total_mantras,
             "method": method,
             "targets_count": len(targets),
-            "allocation": {
-                tid: count
-                for tid, count in allocation.items()
-            },
+            "allocation": {tid: count for tid, count in allocation.items()},
         }
 
     # ------------------------------------------------------------------

@@ -1,0 +1,88 @@
+{
+  "buddhas_of_the_fortunate_eon": [
+    {
+      "name": "Krakucchanda",
+      "qualities": "The first Buddha of the Bhadrakalpa. Overcame the afflictions of the early age.",
+      "element": "Earth"
+    },
+    {
+      "name": "Kanakamuni",
+      "qualities": "The second Buddha. Golden sage who taught the perfection of giving.",
+      "element": "Water"
+    },
+    {
+      "name": "Kasyapa",
+      "qualities": "The third Buddha. Taught pure discipline and luminous awareness.",
+      "element": "Fire"
+    },
+    {
+      "name": "Shakyamuni",
+      "qualities": "The fourth Buddha. The historical Buddha who taught the Middle Way and the Four Noble Truths.",
+      "element": "Wind"
+    },
+    {
+      "name": "Maitreya",
+      "qualities": "The fifth and future Buddha. The embodiment of loving-kindness (Maitri).",
+      "element": "Space"
+    }
+  ],
+  "arya_sanghata_sutra": {
+    "description": "A deeply transformative Mahayana sutra. Hearing it cleanses eons of negative karma and aligns the listener with the Bodhisattva path.",
+    "key_figures": ["Shakyamuni Buddha", "Sarvashura (Bodhisattva)"],
+    "themes": ["Karma purification", "The nature of arising and passing", "Inconceivable merit"]
+  },
+  "sutra_of_golden_light": {
+    "description": "A sutra focused on the protection of nations, the confession of faults, and the profound nature of emptiness.",
+    "key_figures": [
+      {
+        "name": "Sarasvati",
+        "role": "Goddess of eloquence, memory, and wisdom."
+      },
+      {
+        "name": "Sri (Lakshmi)",
+        "role": "Goddess of wealth, prosperity, and merit."
+      },
+      {
+        "name": "Drdha",
+        "role": "Earth Goddess who sustains the land."
+      },
+      {
+        "name": "The Four Heavenly Kings",
+        "role": "Protectors of the dharma in the four directions."
+      }
+    ],
+    "themes": ["Protection", "Healing", "Confession", "Emptiness"]
+  },
+  "yidams_and_mantras": [
+    {
+      "name": "Chenrezig (Avalokiteshvara)",
+      "description": "The Buddha of infinite compassion.",
+      "dharani_mantra": "Om Mani Padme Hum",
+      "purpose": "To awaken compassion and heal the heart."
+    },
+    {
+      "name": "Green Tara",
+      "description": "The mother of all Buddhas, swiftly acting to remove fear and obstacles.",
+      "dharani_mantra": "Om Tare Tuttare Ture Soha",
+      "purpose": "Victory from difficulty, swift protection, overcoming fear."
+    },
+    {
+      "name": "Medicine Buddha (Bhaisajyaguru)",
+      "description": "The supreme healer whose lapis lazuli light cures all physical and mental illnesses.",
+      "dharani_mantra": "Tayata Om Bekandze Bekandze Maha Bekandze Radza Samudgate Soha",
+      "purpose": "Healing, purification of disease."
+    },
+    {
+      "name": "Vajrasattva",
+      "description": "The principle of purity, used for clearing karmic obscurations.",
+      "dharani_mantra": "Om Vajrasattva Samaya Manu Palaya... (100 Syllable Mantra)",
+      "purpose": "Deep karmic purification."
+    },
+    {
+      "name": "Manjushri",
+      "description": "The embodiment of transcendent wisdom.",
+      "dharani_mantra": "Om Ah Ra Pa Tsa Na Dhi",
+      "purpose": "Cutting through delusion, gaining profound insight."
+    }
+  ]
+}

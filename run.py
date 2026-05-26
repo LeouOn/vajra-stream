@@ -219,44 +219,46 @@ def show_status():
         except ImportError:
             print(f"    [MISSING] {dep}")
 
+
 def preflight_checks():
     print("=" * 60)
     print("  Performing System Pre-Flight Checks...")
     print("=" * 60)
-    
+
     # 1. Git Update Check
-    git_dir = SCRIPT_DIR / ".git"
-    if git_dir.exists():
-        print("Checking for repository updates...")
-        try:
-            # Run git fetch to check for upstream changes
-            # Use a timeout of 3 seconds to avoid hanging if offline
-            res = _cmd(["git", "fetch"], timeout=3, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if res.returncode == 0:
-                local_res = _cmd(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
-                local_hash = local_res.stdout.decode().strip() if local_res.returncode == 0 else ""
-                
-                upstream_res = _cmd(["git", "rev-parse", "@{u}"], stdout=subprocess.PIPE)
-                upstream_hash = upstream_res.stdout.decode().strip() if upstream_res.returncode == 0 else ""
-                
-                if local_hash and upstream_hash and local_hash != upstream_hash:
-                    print("[INFO] New repository updates are available.")
-                    print("       Pulling latest changes...")
-                    pull_res = _cmd(["git", "pull"], timeout=10)
-                    if pull_res.returncode == 0:
-                        print("[OK] Repository updated successfully.")
-                    else:
-                        print("[WARN] Failed to pull repository updates. Proceeding with local version.")
-                else:
-                    print("[OK] Repository is up-to-date.")
-            else:
-                print("[INFO] Could not fetch remote repository status. Proceeding offline.")
-        except FileNotFoundError:
-            print("[INFO] Git executable not found in PATH. Skipping git check.")
-        except Exception as e:
-            print(f"[INFO] Skipping git check: {e}")
-    else:
-        print("[INFO] Not a git repository. Skipping git check.")
+    # Disabled, update manually instead.
+    # git_dir = SCRIPT_DIR / ".git"
+    # if git_dir.exists():
+    #     print("Checking for repository updates...")
+    #     try:
+    #         # Run git fetch to check for upstream changes
+    #         # Use a timeout of 3 seconds to avoid hanging if offline
+    #         res = _cmd(["git", "fetch"], timeout=3, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #         if res.returncode == 0:
+    #             local_res = _cmd(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
+    #             local_hash = local_res.stdout.decode().strip() if local_res.returncode == 0 else ""
+
+    #             upstream_res = _cmd(["git", "rev-parse", "@{u}"], stdout=subprocess.PIPE)
+    #             upstream_hash = upstream_res.stdout.decode().strip() if upstream_res.returncode == 0 else ""
+
+    #             if local_hash and upstream_hash and local_hash != upstream_hash:
+    #                 print("[INFO] New repository updates are available.")
+    #                 print("       Pulling latest changes...")
+    #                 pull_res = _cmd(["git", "pull"], timeout=10)
+    #                 if pull_res.returncode == 0:
+    #                     print("[OK] Repository updated successfully.")
+    #                 else:
+    #                     print("[WARN] Failed to pull repository updates. Proceeding with local version.")
+    #             else:
+    #                 print("[OK] Repository is up-to-date.")
+    #         else:
+    #             print("[INFO] Could not fetch remote repository status. Proceeding offline.")
+    #     except FileNotFoundError:
+    #         print("[INFO] Git executable not found in PATH. Skipping git check.")
+    #     except Exception as e:
+    #         print(f"[INFO] Skipping git check: {e}")
+    # else:
+    #     print("[INFO] Not a git repository. Skipping git check.")
 
     # 2. Python Dependency Check
     req_file = SCRIPT_DIR / "requirements.txt"
@@ -265,9 +267,9 @@ def preflight_checks():
         try:
             import importlib.metadata
             import re
-            
+
             missing = []
-            with open(req_file, "r", encoding="utf-8") as f:
+            with open(req_file, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith("#"):
@@ -280,9 +282,11 @@ def preflight_checks():
                             importlib.metadata.version(pkg)
                         except importlib.metadata.PackageNotFoundError:
                             missing.append(line)
-            
+
             if missing:
-                print(f"[WARN] Missing {len(missing)} Python packages (e.g. {', '.join([m.split('>=')[0] for m in missing[:3]])}).")
+                print(
+                    f"[WARN] Missing {len(missing)} Python packages (e.g. {', '.join([m.split('>=')[0] for m in missing[:3]])})."
+                )
                 print("       Installing dependencies...")
                 _cmd([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
                 print("[OK] Python dependencies installed.")
@@ -313,7 +317,7 @@ def preflight_checks():
                 print(f"[ERROR] Could not run 'npm install': {e}")
         else:
             print("[OK] Frontend dependencies are installed.")
-            
+
     print("Pre-flight checks complete.\n")
 
 

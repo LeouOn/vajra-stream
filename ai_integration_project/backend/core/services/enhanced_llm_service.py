@@ -191,9 +191,9 @@ class EnhancedLLMService:
         """Create default configuration file"""
         default_config = {
             "z_ai_glm": {
-                "model_name": "glm-4.6",
+                "model_name": "glm-5.1",
                 "api_endpoint": "https://api.z-ai.com/v1/chat/completions",
-                "max_tokens": 4096,
+                "max_tokens": 8000,
                 "temperature": 0.7,
                 "system_prompt": """You are a wise dharma teacher versed in Buddhist philosophy,
 meditation practices, and contemplative traditions. You speak with clarity, compassion, and depth.
@@ -204,9 +204,10 @@ You draw from Theravada, Mahayana, and Vajrayana traditions as appropriate.""",
                 "base_url": "http://127.0.0.1:1234",
                 "timeout": 30,
                 "max_retries": 3,
-                "max_tokens": 4096,
+                "max_tokens": 8000,
                 "temperature": 0.7,
                 "preferred_models": [
+                    # TODO add latest Qwen 3.6 and Qwopus models
                     "openai_gpt-oss-120b-neo-imatrix",
                     "aquif-3.5-max-42b-a3b-i1",
                     "nvidia_qwen3-nemotron-32b-rlbff",
@@ -217,14 +218,14 @@ You draw from Theravada, Mahayana, and Vajrayana traditions as appropriate.""",
                     "provider": "openai",
                     "model": "gpt-4o-mini",
                     "api_key": "${OPENAI_API_KEY}",
-                    "max_tokens": 4096,
+                    "max_tokens": 8000,
                     "temperature": 0.7,
                 },
                 {
                     "provider": "anthropic",
                     "model": "claude-3-5-haiku-20241022",
                     "api_key": "${ANTHROPIC_API_KEY}",
-                    "max_tokens": 4096,
+                    "max_tokens": 8000,
                     "temperature": 0.7,
                 },
             ],

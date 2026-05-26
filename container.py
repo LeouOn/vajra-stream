@@ -58,6 +58,7 @@ class Container:
         self._operator = None
         self._dharma_tales = None
         self._tts = None
+        self._outlook = None
 
         # Setup event handlers
         self._setup_event_handlers()
@@ -208,6 +209,17 @@ class Container:
         return self._dharma_tales
 
     @property
+    def outlook(self) -> "OutlookService":  # noqa: F821
+        """Get outlook service"""
+        if self._outlook is None:
+            logger.info("Initializing Outlook Service...")
+            from modules.outlook import OutlookService
+
+            self._outlook = OutlookService(event_bus=self.event_bus)
+            self._outlook.initialize(self)
+        return self._outlook
+
+    @property
     def tts(self) -> "TTSService":  # noqa: F821
         """Get TTS service"""
         if self._tts is None:
@@ -255,6 +267,7 @@ class Container:
         self._operator = None
         self._dharma_tales = None
         self._tts = None
+        self._outlook = None
         self.event_bus.clear()
         logger.info("Container reset")
 

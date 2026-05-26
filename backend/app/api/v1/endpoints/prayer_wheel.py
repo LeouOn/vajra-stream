@@ -3,9 +3,10 @@ Digital Prayer Wheel API Endpoints for Vajra.Stream
 """
 
 import logging
-from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+
 from container import container
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class SpinRequest(BaseModel):
 
 
 class ContinuousRequest(BaseModel):
-    mantras: List[str] = Field(["Om Mani Padme Hum"], description="List of mantras to spin")
+    mantras: list[str] = Field(["Om Mani Padme Hum"], description="List of mantras to spin")
     duration_minutes: int = Field(60, description="Duration in minutes")
 
 
@@ -57,9 +58,7 @@ async def spin_wheel(request: SpinRequest):
     """Spin the digital prayer wheel"""
     try:
         result = container.prayer_wheel.spin_wheel(
-            mantra=request.mantra,
-            rotations=request.rotations,
-            speed=request.speed
+            mantra=request.mantra, rotations=request.rotations, speed=request.speed
         )
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
@@ -74,8 +73,7 @@ async def continuous_spinning(request: ContinuousRequest):
     """Start continuous prayer wheel spinning"""
     try:
         result = container.prayer_wheel.continuous_spinning(
-            mantras=request.mantras,
-            duration_minutes=request.duration_minutes
+            mantras=request.mantras, duration_minutes=request.duration_minutes
         )
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
@@ -90,9 +88,7 @@ async def generate_prayer(request: GeneratePrayerRequest):
     """Generate a prayer based on intention"""
     try:
         prayer = container.prayer_wheel.generate_prayer(
-            intention=request.intention,
-            use_llm=request.use_llm,
-            tradition=request.tradition
+            intention=request.intention, use_llm=request.use_llm, tradition=request.tradition
         )
         return {"prayer": prayer}
     except Exception as e:

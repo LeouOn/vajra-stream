@@ -4,9 +4,10 @@ Time Cycle Broadcaster API Endpoints for Vajra.Stream
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+
 from container import container
 
 logger = logging.getLogger(__name__)
@@ -16,15 +17,15 @@ router = APIRouter(prefix="/time-cycles", tags=["time-cycles"])
 
 class TimeBroadcastRequest(BaseModel):
     event_id: str = Field(..., description="ID of the historical event")
-    target_date: Optional[str] = Field(None, description="Target date in YYYY-MM-DD format (uses event default if None)")
+    target_date: str | None = Field(None, description="Target date in YYYY-MM-DD format (uses event default if None)")
     duration_seconds: int = Field(60, description="Duration of the broadcast in seconds")
     create_visualization: bool = Field(True, description="Whether to generate a daily Rothko visualization")
 
 
 class RunCycleRequest(BaseModel):
     event_id: str = Field(..., description="ID of the historical event")
-    start_date: Optional[str] = Field(None, description="Override start date YYYY-MM-DD")
-    end_date: Optional[str] = Field(None, description="Override end date YYYY-MM-DD")
+    start_date: str | None = Field(None, description="Override start date YYYY-MM-DD")
+    end_date: str | None = Field(None, description="Override end date YYYY-MM-DD")
     step_days: int = Field(1, description="Step size in days between broadcasts")
     duration_per_day: int = Field(10, description="Duration per simulated day in seconds")
     create_visualizations: bool = Field(True, description="Whether to create visual representations")
@@ -75,7 +76,7 @@ async def broadcast_to_date(request: TimeBroadcastRequest):
             event=event,
             date=date_val,
             duration_seconds=request.duration_seconds,
-            create_visualization=request.create_visualization
+            create_visualization=request.create_visualization,
         )
         return result
     except Exception as e:
@@ -102,7 +103,7 @@ async def run_cycle(request: RunCycleRequest):
             end_date=request.end_date,
             step_days=request.step_days,
             duration_per_day=request.duration_per_day,
-            create_visualizations=request.create_visualizations
+            create_visualizations=request.create_visualizations,
         )
         return {"status": "success", "results": results}
     except Exception as e:

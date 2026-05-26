@@ -3,22 +3,27 @@ Divination Suite API Endpoints (Tarot, I Ching, Geomancy)
 """
 
 import asyncio
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
+
 from backend.core.services.divination_service import divination_service
-from backend.core.services.mops_engine import mops_engine
 from backend.core.services.grimoire_service import grimoire_service
+from backend.core.services.mops_engine import mops_engine
 
 router = APIRouter(prefix="/divination", tags=["divination"])
 
+
 class DrawTarotRequest(BaseModel):
-    count: Optional[int] = 3
+    count: int | None = 3
+
 
 class InterpretRequest(BaseModel):
     system: str = "Tarot"
     question: str
-    details: Dict[str, Any]
+    details: dict[str, Any]
+
 
 @router.post("/tarot/draw")
 async def draw_tarot(payload: DrawTarotRequest):
@@ -26,16 +31,12 @@ async def draw_tarot(payload: DrawTarotRequest):
     try:
         # Increment MOPS for divination
         mops_engine.record_event("divination", 500)
-        
+
         cards = divination_service.draw_tarot(payload.count)
-        return {
-            "status": "success",
-            "cards": cards,
-            "count": len(cards),
-            "timestamp": asyncio.get_event_loop().time()
-        }
+        return {"status": "success", "cards": cards, "count": len(cards), "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/iching/cast")
 async def cast_iching():
@@ -43,15 +44,12 @@ async def cast_iching():
     try:
         # Increment MOPS for divination
         mops_engine.record_event("divination", 500)
-        
+
         result = divination_service.cast_i_ching()
-        return {
-            "status": "success",
-            "cast": result,
-            "timestamp": asyncio.get_event_loop().time()
-        }
+        return {"status": "success", "cast": result, "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/geomancy/shield")
 async def cast_geomancy():
@@ -59,15 +57,12 @@ async def cast_geomancy():
     try:
         # Increment MOPS for divination
         mops_engine.record_event("divination", 500)
-        
+
         result = divination_service.cast_geomancy()
-        return {
-            "status": "success",
-            "chart": result,
-            "timestamp": asyncio.get_event_loop().time()
-        }
+        return {"status": "success", "chart": result, "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/interpret")
 async def interpret_divination(payload: InterpretRequest):
@@ -80,31 +75,23 @@ async def interpret_divination(payload: InterpretRequest):
             f"Reading details: {payload.details}\n\n"
             f"Explain the correspondences, astrological rulers, and elemental flows with compassion and wisdom."
         )
-        
+
         # Route to local/cloud chat endpoint logic
-        from backend.app.api.v1.endpoints.llm import chat_interaction, ChatRequest, ChatMessage
-        chat_req = ChatRequest(
-            messages=[ChatMessage(role="user", content=prompt)],
-            provider="auto"
-        )
-        
+        from backend.app.api.v1.endpoints.llm import ChatMessage, ChatRequest, chat_interaction
+
+        chat_req = ChatRequest(messages=[ChatMessage(role="user", content=prompt)], provider="auto")
+
         response = await chat_interaction(chat_req)
-        return {
-            "status": "success",
-            "interpretation": response.response,
-            "timestamp": asyncio.get_event_loop().time()
-        }
+        return {"status": "success", "interpretation": response.response, "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/grimoire/search")
 async def search_grimoire(query: str):
     """Search correspondences grimoire"""
     try:
         results = grimoire_service.search(query)
-        return {
-            "status": "success",
-            "results": results
-        }
+        return {"status": "success", "results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

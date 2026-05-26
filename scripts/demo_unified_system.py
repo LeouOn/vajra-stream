@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from infrastructure.event_bus import DomainEvent
 from modules.blessing_router import BlessingRouted
-from modules.interfaces import BlessingGenerated
 from modules.crystal import CrystalBroadcastCompleted, CrystalBroadcastStarted
+from modules.interfaces import BlessingGenerated
 from scripts.unified_orchestrator import UnifiedOrchestrator
 
 # Configure logging to show what's happening

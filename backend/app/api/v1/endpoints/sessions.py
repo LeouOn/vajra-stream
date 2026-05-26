@@ -45,7 +45,7 @@ class SessionConfig(BaseModel):
             prayer_bowl_mode=True,
             harmonic_strength=0.3,
             modulation_depth=0.05,
-            envelope_type="prayer_bowl"
+            envelope_type="prayer_bowl",
         )
 
     @property

@@ -18,6 +18,7 @@ class APIClient:
 
     def __init__(self, base_url: str | None = None):
         import os
+
         if base_url is None:
             port = os.environ.get("PORT", "8008")
             base_url = f"http://localhost:{port}"
@@ -448,10 +449,10 @@ def resume_automation(session_id: str) -> dict[str, Any]:
     return client._post(f"/api/v1/automation/{session_id}/resume")
 
 
-
 # ============================================================================
 # MAGICAL & ESOTERIC OPERATIONS TOOLS
 # ============================================================================
+
 
 def forge_sigil(intention: str, kamea: str = "saturn") -> dict[str, Any]:
     """
@@ -478,7 +479,9 @@ def cast_tarot_spread(count: int = 3, question: str = "") -> dict[str, Any]:
     res = client._post("/api/v1/divination/tarot/draw", {"count": count})
     if question and "cards" in res:
         # Request esoteric interpretation
-        interpretation = client._post("/api/v1/divination/interpret", {"system": "Tarot", "question": question, "details": res})
+        interpretation = client._post(
+            "/api/v1/divination/interpret", {"system": "Tarot", "question": question, "details": res}
+        )
         res["interpretation"] = interpretation.get("interpretation")
     return res
 
@@ -494,7 +497,9 @@ def cast_i_ching(question: str = "") -> dict[str, Any]:
     client = get_client()
     res = client._post("/api/v1/divination/iching/cast")
     if question and "cast" in res:
-        interpretation = client._post("/api/v1/divination/interpret", {"system": "I Ching", "question": question, "details": res})
+        interpretation = client._post(
+            "/api/v1/divination/interpret", {"system": "I Ching", "question": question, "details": res}
+        )
         res["interpretation"] = interpretation.get("interpretation")
     return res
 
@@ -510,7 +515,9 @@ def cast_geomancy(question: str = "") -> dict[str, Any]:
     client = get_client()
     res = client._post("/api/v1/divination/geomancy/shield")
     if question and "chart" in res:
-        interpretation = client._post("/api/v1/divination/interpret", {"system": "Geomancy", "question": question, "details": res})
+        interpretation = client._post(
+            "/api/v1/divination/interpret", {"system": "Geomancy", "question": question, "details": res}
+        )
         res["interpretation"] = interpretation.get("interpretation")
     return res
 
@@ -524,6 +531,7 @@ def search_grimoire_correspondences(query: str) -> list[dict[str, Any]]:
     """
     # Import locally to avoid circular dependency
     from backend.core.services.grimoire_service import grimoire_service
+
     return grimoire_service.search(query)
 
 
@@ -538,8 +546,288 @@ def get_planetary_hours_and_transits() -> dict[str, Any]:
     return {
         "astrology": astrology_data.get("astrology", {}),
         "planetary_hours": planetary_hours,
-        "transits": transits.get("transits", [])
+        "transits": transits.get("transits", []),
     }
+
+
+# ============================================================================
+# NARRATIVE GENERATION AND OUTLOOK TOOLS
+# ============================================================================
+
+
+def generate_single_outlook(
+    lat: float = 34.0522,
+    lon: float = -118.2437,
+    languages: list[str] = None,
+    genre: str = "healing",
+    custom_context: str | None = None,
+    realm_id: str | None = None,
+    population_ids: list[str] | None = None,
+    character_ids: list[str] | None = None,
+    excluded_forces: list[str] | None = None,
+    include_dialogue: bool = False,
+) -> dict[str, Any]:
+    """
+    Generate a single-pass sutra-style blessing and narrative outlook.
+
+    Args:
+        lat: Target latitude
+        lon: Target longitude
+        languages: List of languages to weave (English, Sanskrit, Tibetan, etc.)
+        genre: Genre of blessing (healing, victory, alchemist, fun_parable, dharani)
+        custom_context: Optional user aspiration text
+        realm_id: Setting or realm ID
+        population_ids: Target populations receiving the blessing
+        character_ids: Narrative characters present in the scene
+        excluded_forces: Negative forces to exclude or pacify
+        include_dialogue: Weave spoken dialogue between characters if True
+    """
+    if languages is None:
+        languages = ["English"]
+    client = get_client()
+    return client._post(
+        "/api/v1/outlook/generate_single",
+        {
+            "lat": lat,
+            "lon": lon,
+            "languages": languages,
+            "genre": genre,
+            "custom_context": custom_context,
+            "realm_id": realm_id,
+            "population_ids": population_ids,
+            "character_ids": character_ids,
+            "excluded_forces": excluded_forces,
+            "include_dialogue": include_dialogue,
+        },
+    )
+
+
+def generate_epic_outlook(
+    lat: float = 34.0522,
+    lon: float = -118.2437,
+    languages: list[str] = None,
+    genre: str = "alchemist",
+    stages: int = 9,
+    custom_context: str | None = None,
+    realm_id: str | None = None,
+    population_ids: list[str] | None = None,
+    character_ids: list[str] | None = None,
+    excluded_forces: list[str] | None = None,
+    include_dialogue: bool = False,
+) -> dict[str, Any]:
+    """
+    Generate a multi-stage epic narrative blessing cycle.
+
+    Args:
+        lat: Target latitude
+        lon: Target longitude
+        languages: Languages to weave
+        genre: Genre of blessing
+        stages: Number of stages to generate (default 9)
+        custom_context: Optional custom context
+        realm_id: Setting or realm ID
+        population_ids: Beneficiary populations
+        character_ids: Present characters
+        excluded_forces: Excluded forces list
+        include_dialogue: Include direct dialogue if True
+    """
+    if languages is None:
+        languages = ["English"]
+    client = get_client()
+    return client._post(
+        "/api/v1/outlook/generate_epic",
+        {
+            "lat": lat,
+            "lon": lon,
+            "languages": languages,
+            "genre": genre,
+            "stages": stages,
+            "custom_context": custom_context,
+            "realm_id": realm_id,
+            "population_ids": population_ids,
+            "character_ids": character_ids,
+            "excluded_forces": excluded_forces,
+            "include_dialogue": include_dialogue,
+        },
+    )
+
+
+def list_narrative_locations() -> list[dict[str, Any]]:
+    """
+    List all active locations and metaphysical realms.
+    """
+    client = get_client()
+    return client._get("/api/v1/outlook/locations")
+
+
+def create_narrative_location(
+    name: str,
+    description: str,
+    location_type: str,
+    source_type: str = "manual",
+    is_metaphysical: bool = False,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    celestial_coordinates: str | None = None,
+    dimension_frequency: float | None = None,
+    realm_governor: str | None = None,
+    astrological_anchor: str | None = None,
+    elemental_affinity: str | None = None,
+    priority: int = 5,
+) -> dict[str, Any]:
+    """
+    Create a new location or metaphysical realm setting.
+
+    Args:
+        name: Name of location or realm
+        description: Visionary description of setting
+        location_type: earthly_sacred, metaphysical_realm, cosmic_anchor, historical_academy, custom
+        source_type: manual, generated, mythology, geographic
+        is_metaphysical: Set True for metaphysical dimensions with frequencies
+        latitude: Latitude for earthly sacred sites
+        longitude: Longitude for earthly sacred sites
+        celestial_coordinates: Celestial/star coords (metaphysical only)
+        dimension_frequency: Vibrational frequency in Hz (metaphysical only)
+        realm_governor: Ruler or deity of the setting
+        astrological_anchor: Astrological anchor lines
+        elemental_affinity: Primary element (Fire, Water, etc.)
+        priority: Priority weighting (1-10)
+    """
+    client = get_client()
+    return client._post(
+        "/api/v1/outlook/locations",
+        {
+            "name": name,
+            "description": description,
+            "location_type": location_type,
+            "source_type": source_type,
+            "is_metaphysical": is_metaphysical,
+            "latitude": latitude,
+            "longitude": longitude,
+            "celestial_coordinates": celestial_coordinates,
+            "dimension_frequency": dimension_frequency,
+            "realm_governor": realm_governor,
+            "astrological_anchor": astrological_anchor,
+            "elemental_affinity": elemental_affinity,
+            "priority": priority,
+        },
+    )
+
+
+def list_narrative_characters() -> list[dict[str, Any]]:
+    """
+    List all active narrative characters and archetypes.
+    """
+    client = get_client()
+    return client._get("/api/v1/outlook/characters")
+
+
+def create_narrative_character(
+    name: str,
+    role: str,
+    description: str,
+    source_type: str = "manual",
+    dialogue_style: str = "cryptic and profound",
+    associated_realms: list[str] = None,
+    mantra_preference: str | None = None,
+    elemental_anchor: str = "space",
+    priority: int = 5,
+) -> dict[str, Any]:
+    """
+    Create a new narrative character archetype.
+
+    Args:
+        name: Character name
+        role: master, student, alchemist, hero, deity, guardian, custom
+        description: Archetypal description
+        source_type: manual, generated, mythology, historical
+        dialogue_style: Description of dialogue pattern
+        associated_realms: Realm IDs frequented
+        mantra_preference: Prefered mantra key
+        elemental_anchor: earth, water, fire, air, space, aether
+        priority: Priority weighting (1-10)
+    """
+    client = get_client()
+    return client._post(
+        "/api/v1/outlook/characters",
+        {
+            "name": name,
+            "role": role,
+            "description": description,
+            "source_type": source_type,
+            "dialogue_style": dialogue_style,
+            "associated_realms": associated_realms or [],
+            "mantra_preference": mantra_preference,
+            "elemental_anchor": elemental_anchor,
+            "priority": priority,
+        },
+    )
+
+
+def start_narrative_loop(
+    interval_minutes: int = 15,
+    lat: float = 34.0522,
+    lon: float = -118.2437,
+    languages: list[str] = None,
+    genre: str = "healing",
+    custom_context: str | None = None,
+    realm_id: str | None = None,
+    population_ids: list[str] | None = None,
+    character_ids: list[str] | None = None,
+    excluded_forces: list[str] | None = None,
+    include_dialogue: bool = False,
+) -> dict[str, Any]:
+    """
+    Start the continuous background narrative transmission loop.
+
+    Args:
+        interval_minutes: Minutes between generation cycles (1-1440)
+        lat: Target latitude
+        lon: Target longitude
+        languages: Languages to weave
+        genre: Genre of narrative
+        custom_context: User custom aspiration notes
+        realm_id: Setting or realm ID
+        population_ids: List of target population IDs
+        character_ids: List of character IDs present
+        excluded_forces: Negative forces to exclude
+        include_dialogue: Include spoken dialogue between characters if True
+    """
+    if languages is None:
+        languages = ["English"]
+    client = get_client()
+    return client._post(
+        "/api/v1/outlook/loop/start",
+        {
+            "interval_minutes": interval_minutes,
+            "lat": lat,
+            "lon": lon,
+            "languages": languages,
+            "genre": genre,
+            "custom_context": custom_context,
+            "realm_id": realm_id,
+            "population_ids": population_ids,
+            "character_ids": character_ids,
+            "excluded_forces": excluded_forces,
+            "include_dialogue": include_dialogue,
+        },
+    )
+
+
+def stop_narrative_loop() -> dict[str, Any]:
+    """
+    Stop the active background narrative transmission loop.
+    """
+    client = get_client()
+    return client._post("/api/v1/outlook/loop/stop")
+
+
+def get_narrative_loop_status() -> dict[str, Any]:
+    """
+    Check active background narrative loop state, configuration, and last generated draft.
+    """
+    client = get_client()
+    return client._get("/api/v1/outlook/loop/status")
 
 
 # ============================================================================
@@ -569,6 +857,15 @@ TOOL_REGISTRY = {
     "cast_geomancy": cast_geomancy,
     "search_grimoire_correspondences": search_grimoire_correspondences,
     "get_planetary_hours_and_transits": get_planetary_hours_and_transits,
+    "generate_single_outlook": generate_single_outlook,
+    "generate_epic_outlook": generate_epic_outlook,
+    "list_narrative_locations": list_narrative_locations,
+    "create_narrative_location": create_narrative_location,
+    "list_narrative_characters": list_narrative_characters,
+    "create_narrative_character": create_narrative_character,
+    "start_narrative_loop": start_narrative_loop,
+    "stop_narrative_loop": stop_narrative_loop,
+    "get_narrative_loop_status": get_narrative_loop_status,
 }
 
 
@@ -787,11 +1084,18 @@ def get_tool_schemas() -> list[dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "intention": {"type": "string", "description": "Clear intention statement (e.g. 'protection and clarity')"},
-                    "kamea": {"type": "string", "enum": ["saturn", "jupiter", "mars"], "description": "Planetary grid context (default saturn)"}
+                    "intention": {
+                        "type": "string",
+                        "description": "Clear intention statement (e.g. 'protection and clarity')",
+                    },
+                    "kamea": {
+                        "type": "string",
+                        "enum": ["saturn", "jupiter", "mars"],
+                        "description": "Planetary grid context (default saturn)",
+                    },
                 },
-                "required": ["intention"]
-            }
+                "required": ["intention"],
+            },
         },
         {
             "name": "cast_tarot_spread",
@@ -799,30 +1103,29 @@ def get_tool_schemas() -> list[dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "count": {"type": "integer", "description": "Number of cards to draw: 1 (single), 3 (past/present/future), or 10 (Celtic Cross)"},
-                    "question": {"type": "string", "description": "Focus question for oracle interpretation"}
-                }
-            }
+                    "count": {
+                        "type": "integer",
+                        "description": "Number of cards to draw: 1 (single), 3 (past/present/future), or 10 (Celtic Cross)",
+                    },
+                    "question": {"type": "string", "description": "Focus question for oracle interpretation"},
+                },
+            },
         },
         {
             "name": "cast_i_ching",
             "description": "Cast I Ching hexagrams using traditional yarrow-stalk probabilities, listing primary and relating hexagram meanings.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "question": {"type": "string", "description": "The situation or query to interpret"}
-                }
-            }
+                "properties": {"question": {"type": "string", "description": "The situation or query to interpret"}},
+            },
         },
         {
             "name": "cast_geomancy",
             "description": "Cast a full 16-figure Geomantic shield chart projected into the 12 astrological houses.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "question": {"type": "string", "description": "Query or context for the cast"}
-                }
-            }
+                "properties": {"question": {"type": "string", "description": "Query or context for the cast"}},
+            },
         },
         {
             "name": "search_grimoire_correspondences",
@@ -832,19 +1135,207 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                 "properties": {
                     "query": {"type": "string", "description": "The herb, stone, planet, rate, or symptom to lookup"}
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         },
         {
             "name": "get_planetary_hours_and_transits",
             "description": "Fetch current planetary hours timeline, daily rulers, and planetary transit aspects.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "generate_single_outlook",
+            "description": "Generate a single-pass sutra-style blessing and narrative outlook weaving astrology, divination, and realms.",
             "parameters": {
                 "type": "object",
-                "properties": {}
-            }
-        }
+                "properties": {
+                    "lat": {"type": "number", "description": "Target latitude"},
+                    "lon": {"type": "number", "description": "Target longitude"},
+                    "languages": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Languages to weave (English, Sanskrit, Tibetan, Chinese, Latin, Greek, Hebrew)",
+                    },
+                    "genre": {
+                        "type": "string",
+                        "enum": ["healing", "victory", "alchemist", "fun_parable", "dharani"],
+                        "description": "Blessing genre",
+                    },
+                    "custom_context": {"type": "string", "description": "Custom aspirations or intention text"},
+                    "realm_id": {"type": "string", "description": "Location or realm ID from list_narrative_locations"},
+                    "population_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Target population IDs",
+                    },
+                    "character_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Characters present in narrative",
+                    },
+                    "excluded_forces": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Negative forces to pacify",
+                    },
+                    "include_dialogue": {
+                        "type": "boolean",
+                        "description": "Whether to include active dialogue between characters",
+                    },
+                },
+            },
+        },
+        {
+            "name": "generate_epic_outlook",
+            "description": "Generate a multi-stage epic narrative blessing cycle over an extended arc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "lat": {"type": "number", "description": "Target latitude"},
+                    "lon": {"type": "number", "description": "Target longitude"},
+                    "languages": {"type": "array", "items": {"type": "string"}, "description": "Languages to weave"},
+                    "genre": {
+                        "type": "string",
+                        "enum": ["healing", "victory", "alchemist", "fun_parable", "dharani"],
+                        "description": "Blessing genre",
+                    },
+                    "stages": {"type": "integer", "description": "Number of stages to generate (default 9)"},
+                    "custom_context": {"type": "string", "description": "Custom aspirations or intention text"},
+                    "realm_id": {"type": "string", "description": "Location or realm ID"},
+                    "population_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Target population IDs",
+                    },
+                    "character_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Characters present in narrative",
+                    },
+                    "excluded_forces": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Negative forces to pacify",
+                    },
+                    "include_dialogue": {
+                        "type": "boolean",
+                        "description": "Whether to include active dialogue between characters",
+                    },
+                },
+            },
+        },
+        {
+            "name": "list_narrative_locations",
+            "description": "List all active settings, earthly sacred sites, and metaphysical realms.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "create_narrative_location",
+            "description": "Define a new location or metaphysical realm setting for narrative blessings.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Name of location or realm"},
+                    "description": {"type": "string", "description": "Visionary description"},
+                    "location_type": {
+                        "type": "string",
+                        "enum": [
+                            "earthly_sacred",
+                            "metaphysical_realm",
+                            "cosmic_anchor",
+                            "historical_academy",
+                            "custom",
+                        ],
+                    },
+                    "source_type": {"type": "string", "enum": ["manual", "generated", "mythology", "geographic"]},
+                    "is_metaphysical": {"type": "boolean", "description": "Set True for metaphysical realms"},
+                    "latitude": {"type": "number", "description": "Latitude (for earthly location)"},
+                    "longitude": {"type": "number", "description": "Longitude (for earthly location)"},
+                    "celestial_coordinates": {"type": "string", "description": "Star coordinates (metaphysical only)"},
+                    "dimension_frequency": {
+                        "type": "number",
+                        "description": "Vibrational frequency in Hz (metaphysical only)",
+                    },
+                    "realm_governor": {"type": "string", "description": "Deity/guardian ruler"},
+                    "astrological_anchor": {"type": "string", "description": "Planetary line anchor"},
+                    "elemental_affinity": {"type": "string", "description": "Element (Fire, Water, etc.)"},
+                },
+                "required": ["name", "description", "location_type"],
+            },
+        },
+        {
+            "name": "list_narrative_characters",
+            "description": "List all active narrative character personalities and spiritual archetypes.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "create_narrative_character",
+            "description": "Create a new character archetype to weave into dialogue parables.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Character name"},
+                    "role": {
+                        "type": "string",
+                        "enum": ["master", "student", "alchemist", "hero", "deity", "guardian", "custom"],
+                    },
+                    "description": {"type": "string", "description": "Biography description"},
+                    "dialogue_style": {"type": "string", "description": "Description of speaking style (e.g. koans)"},
+                    "associated_realms": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Realm IDs frequented",
+                    },
+                    "mantra_preference": {"type": "string", "description": "Preferred mantra key"},
+                    "elemental_anchor": {"type": "string", "description": "Element key (space, fire, earth, etc.)"},
+                },
+                "required": ["name", "role", "description"],
+            },
+        },
+        {
+            "name": "start_narrative_loop",
+            "description": "Start continuous background narrative generation broadcasting on cycles.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "interval_minutes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "description": "Minutes per cycle",
+                    },
+                    "lat": {"type": "number", "description": "Target latitude"},
+                    "lon": {"type": "number", "description": "Target longitude"},
+                    "languages": {"type": "array", "items": {"type": "string"}, "description": "Languages to weave"},
+                    "genre": {
+                        "type": "string",
+                        "enum": ["healing", "victory", "alchemist", "fun_parable", "dharani"],
+                        "description": "Blessing genre",
+                    },
+                    "custom_context": {"type": "string", "description": "Custom intentions"},
+                    "realm_id": {"type": "string", "description": "Realm ID"},
+                    "population_ids": {"type": "array", "items": {"type": "string"}, "description": "Population IDs"},
+                    "character_ids": {"type": "array", "items": {"type": "string"}, "description": "Character IDs"},
+                    "excluded_forces": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Negative forces to pacify",
+                    },
+                    "include_dialogue": {"type": "boolean", "description": "Include dialogue if True"},
+                },
+            },
+        },
+        {
+            "name": "stop_narrative_loop",
+            "description": "Stop the continuous background narrative loop.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "get_narrative_loop_status",
+            "description": "Check configuration and status of the continuous narrative broadcast loop.",
+            "parameters": {"type": "object", "properties": {}},
+        },
     ]
-
 
 
 # Example usage for LLM agents

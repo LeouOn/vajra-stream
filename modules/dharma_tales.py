@@ -19,6 +19,7 @@ class DharmaTalesService:
     def generator(self):
         if self._generator is None:
             from core.dharma_tales import DharmaTalesGenerator
+
             self._generator = DharmaTalesGenerator()
         return self._generator
 
@@ -26,9 +27,7 @@ class DharmaTalesService:
         self, theme: str | None = None, tradition: str | None = None, length: str = "medium", use_llm: bool = False
     ) -> dict[str, Any]:
         """Generate a dharma teaching tale."""
-        tale_text = self.generator.generate_tale(
-            theme=theme, tradition=tradition, length=length, use_llm=use_llm
-        )
+        tale_text = self.generator.generate_tale(theme=theme, tradition=tradition, length=length, use_llm=use_llm)
         return {
             "tale": tale_text,
             "theme": theme or "random",

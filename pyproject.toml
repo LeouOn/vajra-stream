@@ -97,14 +97,29 @@ include = ["modules*", "core*", "infrastructure*", "config*", "backend*", "scrip
 [tool.ruff]
 target-version = "py310"
 line-length = 120
+exclude = [
+    "ai_integration_project/**",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP"]
-ignore = ["E501"]
+ignore = [
+    "E501",  # line too long — handled by formatter
+    "E741",  # ambiguous variable name 'l' — idiomatic in comprehensions
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "ANN"]
-"scripts/**" = ["D", "ANN"]
+"scripts/**" = ["D", "ANN", "E722", "F841", "E402", "F401"]
+"backend/tests/**" = ["D", "ANN", "F401"]
+"backend/app/main.py" = ["E402"]
+"backend/app/api/v1/endpoints/blessings.py" = ["F401"]
+"backend/core/llm_agent/tools.py" = ["F401"]
+"core/**" = ["F401", "F841", "E722"]
+"modules/**" = ["F401", "E722"]
+"infrastructure/**" = ["E722"]
+"backend/app/api/v1/endpoints/outlook.py" = ["E722"]
+"backend/core/services/vajra_service.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

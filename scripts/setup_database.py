@@ -165,6 +165,24 @@ def create_database(db_path="vajra_stream.db"):
         )
     """)
 
+    # Outlook narratives tracking
+    cursor.execute("""
+        CREATE TABLE outlook_narratives (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            genre TEXT,
+            languages TEXT,
+            lat REAL,
+            lon REAL,
+            date_generated TIMESTAMP,
+            content TEXT,
+            astrology_context TEXT,
+            divination_context TEXT,
+            divination_raw TEXT,
+            entities_invoked TEXT
+        )
+    """)
+
     # User preferences table
     cursor.execute("""
         CREATE TABLE user_preferences (

@@ -322,7 +322,7 @@ export default function OperationsPanel() {
                   {tarotResult.map((card, idx) => (
                     <div key={card.id} className="flex flex-col items-center bg-gray-950/40 p-3 rounded-xl border border-white/10 shadow-2xl hover:border-purple-500/20 transition-all duration-300 transform hover:-translate-y-1">
                       <div className="w-32 h-48 flex items-center justify-center relative overflow-hidden rounded-lg">
-                        <div dangerouslySetInnerHTML={{ __html: card.svg }} className="w-full h-full flex justify-center [&_svg]:w-full [&_svg]:h-full [&_svg]:max-w-[128px] [&_svg]:max-h-[192px]" />
+                        <div dangerouslySetInnerHTML={{ __html: card.svg }} className="divination-card-container w-full h-full flex justify-center" />
                       </div>
                       <div className="text-center mt-2 space-y-0.5">
                         <span className="text-[10px] font-mono font-bold text-gray-500">CARD #{idx+1}</span>

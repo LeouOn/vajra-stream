@@ -90,6 +90,160 @@
       "chakra": "crown"
     }
   },
+  "chinese_buddhist": {
+    "great_compassion": {
+      "name": "Da Bei Zhou — Great Compassion Mantra",
+      "chinese": "南無喝囉怛那哆囉夜耶 南無阿唎耶 婆盧羯帝爍缽囉耶 菩提薩埵婆耶 摩訶薩埵婆耶 摩訶迦盧尼迦耶 唵",
+      "pinyin": "Ná Mó Hē Là Dá Nà Duō Là Yè Yē...",
+      "tradition": "Guanyin / Avalokiteshvara",
+      "meaning": "Homage to the Three Jewels, homage to the noble Avalokiteshvara, the great compassionate one",
+      "purpose": "Great compassion, protection from all danger, purification of heavy karma",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "cundi_dharani": {
+      "name": "Cundi Dharani — Zhunti Shen Zhou",
+      "chinese": "稽首皈依蘇悉帝 頭面頂禮七俱胝 我今稱讚大準提 唯願慈悲垂加護",
+      "pinyin": "Ná Mó Sà Duō Nán, Sān Miǎo Sān Pú Tuó, Jù Zhī Nán, Dá Zhí Tuō, Ǎn, Zhé Lì Zhǔ Lì Zhǔn Tí Suō Pó Hē",
+      "tradition": "Cundi Bodhisattva",
+      "meaning": "Homage to the Seven Billion Buddhas, invocation of Cundi's purifying light",
+      "purpose": "Wisdom, purification, wish-fulfillment, spiritual accomplishment",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "amituofo_nianfo": {
+      "name": "Namo Amituofo — Nianfo",
+      "chinese": "南無阿彌陀佛",
+      "pinyin": "Ná Mó Ā Mí Tuó Fó",
+      "tradition": "Pure Land (Jingtu)",
+      "meaning": "Homage to Amitabha Buddha / I take refuge in the Buddha of Infinite Light",
+      "purpose": "Rebirth in the Pure Land, peace of mind, liberation at death",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "shurangama_mantra": {
+      "name": "Leng Yan Zhou — Shurangama Mantra (opening)",
+      "chinese": "南無薩怛他 蘇伽多耶 阿囉訶帝 三藐三菩陀寫",
+      "pinyin": "Ná Mó Sà Dá Tuō, Sū Qié Duō Yē, Ā Là Hē Dì, Sān Miǎo Sān Pú Tuó Xiě",
+      "tradition": "Shurangama Sutra",
+      "meaning": "Homage to the Thus Come Ones, the Worthy Ones, of Perfect Enlightenment",
+      "purpose": "Protection from demons, dispelling negative forces, stabilizing meditation",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "guanyin_heart": {
+      "name": "Guanyin Heart — Xin Jing invocation",
+      "chinese": "揭諦揭諦 波羅揭諦 波羅僧揭諦 菩提薩婆訶",
+      "pinyin": "Jiē Dì Jiē Dì, Bō Luó Jiē Dì, Bō Luó Sēng Jiē Dì, Pú Tí Sà Pó Hē",
+      "tradition": "Heart Sutra (Chinese)",
+      "meaning": "Gone, gone, gone beyond, gone completely beyond — Enlightenment, hail",
+      "purpose": "Transcendence, liberation from suffering, realization of emptiness",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "ksitigarbha": {
+      "name": "Ksitigarbha Bodhisattva invocation",
+      "chinese": "南無地藏王菩薩",
+      "pinyin": "Ná Mó Dì Zàng Wáng Pú Sà",
+      "tradition": "Ksitigarbha (Dizang)",
+      "meaning": "Homage to Ksitigarbha Bodhisattva, Savior of Hell Beings",
+      "purpose": "Ancestral liberation, protection for the deceased, grounding, earth healing",
+      "times": 108,
+      "chakra": "root"
+    },
+    "gratitude_repentance": {
+      "name": "Chinese Buddhist Repentance Verse",
+      "chinese": "往昔所造諸惡業 皆有無始貪瞋癡 從身語意之所生 一切我今皆懺悔",
+      "pinyin": "Wǎng Xī Suǒ Zào Zhū È Yè, Jiē Yóu Wú Shǐ Tān Chēn Chī, Cóng Shēn Yǔ Yì Zhī Suǒ Shēng, Yī Qiè Wǒ Jīn Jiē Chàn Huǐ",
+      "tradition": "Mahayana Repentance",
+      "meaning": "For all the negative deeds I've created in the past, born of beginningless greed, anger, and ignorance — I now repent of them all",
+      "purpose": "Confession, karmic purification, renewal",
+      "times": 108,
+      "chakra": "heart"
+    },
+    "dedication_merit": {
+      "name": "Mahayana Merit Dedication",
+      "chinese": "願以此功德 莊嚴佛淨土 上報四重恩 下濟三途苦",
+      "pinyin": "Yuàn Yǐ Cǐ Gōng Dé, Zhuāng Yán Fó Jìng Tǔ, Shàng Bào Sì Chóng ēn, Xià Jì Sān Tú Kǔ",
+      "tradition": "Chinese Mahayana",
+      "meaning": "By this merit, may the Buddha land be adorned; repaying the four kinds of kindness above, relieving the three lower realms below",
+      "purpose": "Merit dedication, gratitude, liberation of suffering beings",
+      "times": 108,
+      "chakra": "crown"
+    }
+  },
+  "taoist": {
+    "golden_light": {
+      "name": "Jin Guang Shen Zhou — Golden Light Spirit Spell",
+      "chinese": "天地玄宗 萬炁本根 廣修萬劫 證吾神通",
+      "pinyin": "Tiān Dì Xuán Zōng, Wàn Qì Běn Gēn, Guǎng Xiū Wàn Jié, Zhèng Wú Shén Tōng",
+      "tradition": "Taoist (Zhengyi)",
+      "meaning": "Heaven and Earth, the mystic source, root of all qi — cultivate through myriad kalpas to realize my spiritual power",
+      "purpose": "Protection from negative forces, spiritual empowerment, exorcism",
+      "times": 108,
+      "chakra": "solar_plexus"
+    },
+    "tai_shang": {
+      "name": "Tai Shang Lao Jun Qing Jing Jing — Scripture of Clarity and Stillness",
+      "chinese": "大道無形 生育天地 大道無情 運行日月 大道無名 長養萬物",
+      "pinyin": "Dà Dào Wú Xíng, Shēng Yù Tiān Dì, Dà Dào Wú Qíng, Yùn Xíng Rì Yuè, Dà Dào Wú Míng, Zhǎng Yǎng Wàn Wù",
+      "tradition": "Taoist (Quanzhen)",
+      "meaning": "The Great Dao has no form — yet it births Heaven and Earth; the Great Dao has no emotion — yet it moves sun and moon; the Great Dao has no name — yet it nourishes all things",
+      "purpose": "Inner stillness, returning to the Source, clarity of mind",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "dou_mu": {
+      "name": "Dou Mu Yuan Jun — Dipper Mother invocation",
+      "chinese": "稽首皈命 中天星主 北斗九皇 延生度厄 大聖北斗七元君",
+      "pinyin": "Qǐ Shǒu Guī Mìng, Zhōng Tiān Xīng Zhǔ, Běi Dǒu Jiǔ Huáng, Yán Shēng Dù È",
+      "tradition": "Taoist (Dou Mu / Big Dipper)",
+      "meaning": "I bow and take refuge in the Star Lord of Central Heaven, the Nine Sovereigns of the Northern Dipper — extend life and deliver from calamity",
+      "purpose": "Longevity, protection from disaster, stellar blessings, fate correction",
+      "times": 108,
+      "chakra": "third_eye"
+    },
+    "three_purities": {
+      "name": "San Qing invocation — Three Pure Ones",
+      "chinese": "無上玉清元始天尊 無上上清靈寶天尊 無上太清道德天尊",
+      "pinyin": "Wú Shàng Yù Qīng Yuán Shǐ Tiān Zūn, Wú Shàng Shàng Qīng Líng Bǎo Tiān Zūn, Wú Shàng Tài Qīng Dào Dé Tiān Zūn",
+      "tradition": "Taoist (San Qing)",
+      "meaning": "Supreme Jade Purity — Celestial Venerable of Primordial Beginning; Supreme Upper Purity — Celestial Venerable of Numinous Treasure; Supreme Great Purity — Celestial Venerable of Dao and Virtue",
+      "purpose": "Connection to the Tao, ultimate blessing, cosmic alignment",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "eight_trigrams": {
+      "name": "Ba Gua protection incantation",
+      "chinese": "乾元亨利貞 坤厚載物 震起驚雷 巽隨風行",
+      "pinyin": "Qián Yuán Hēng Lì Zhēn, Kūn Hòu Zài Wù, Zhèn Qǐ Jīng Léi, Xùn Suí Fēng Xíng",
+      "tradition": "Taoist (Yijing / Ba Gua)",
+      "meaning": "Heaven — primordial, prosperous, beneficial, steadfast; Earth — thick and bearing all; Thunder — rising with startling force; Wind — following and penetrating",
+      "purpose": "Harmonic protection, elemental balance, divination alignment",
+      "times": 108,
+      "chakra": "solar_plexus"
+    },
+    "neidan_verse": {
+      "name": "Neidan Inner Alchemy Meditation",
+      "chinese": "煉精化炁 煉炁化神 煉神還虛 煉虛合道",
+      "pinyin": "Liàn Jīng Huà Qì, Liàn Qì Huà Shén, Liàn Shén Huán Xū, Liàn Xū Hé Dào",
+      "tradition": "Taoist Neidan (Inner Alchemy)",
+      "meaning": "Refine essence into qi, refine qi into spirit, refine spirit into emptiness, refine emptiness to merge with the Dao",
+      "purpose": "Inner transformation, spiritual alchemy, immortality cultivation",
+      "times": 108,
+      "chakra": "crown"
+    },
+    "taiji_chant": {
+      "name": "Taiji — Wuji unity chant",
+      "chinese": "無極生太極 太極生兩儀 兩儀生四象 四象生八卦",
+      "pinyin": "Wú Jí Shēng Tài Jí, Tài Jí Shēng Liǎng Yí, Liǎng Yí Shēng Sì Xiàng, Sì Xiàng Shēng Bā Guà",
+      "tradition": "Taoist (Yijing cosmology)",
+      "meaning": "From the limitless Wuji arises Taiji; Taiji gives birth to the Two Modes; Two Modes birth the Four Symbols; Four Symbols birth the Eight Trigrams",
+      "purpose": "Cosmic harmony, creation alignment, unity with the Dao",
+      "times": 108,
+      "chakra": "crown"
+    }
+  },
   "hindu": {
     "om": {
       "name": "Om",

@@ -489,7 +489,6 @@ class NarrativeTemplateLibrary:
         )
 
 
-
 class StoryGenerator:
     """Generates liberation narratives from templates or LLM"""
 
