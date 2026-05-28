@@ -8,12 +8,21 @@ import asyncio
 import json
 import logging
 import uuid
+import os
+from pathlib import Path
 from datetime import datetime
 from typing import Any
 
 from modules.interfaces import BlessingGenerated, EventBus
 
 logger = logging.getLogger(__name__)
+
+def get_project_root() -> Path:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists() or (parent / "vajra_stream.db").exists():
+            return parent
+    return current.parent
 
 
 class OutlookService:
@@ -73,6 +82,8 @@ class OutlookService:
         include_astrology: bool = True,
         include_tarot: bool = True,
         include_iching: bool = True,
+        randomize_realm: bool = False,
+        randomize_characters: bool = False,
     ) -> dict[str, Any]:
         """Generate a single-pass narrative outlook."""
         if languages is None:
@@ -94,6 +105,8 @@ class OutlookService:
             include_astrology=include_astrology,
             include_tarot=include_tarot,
             include_iching=include_iching,
+            randomize_realm=randomize_realm,
+            randomize_characters=randomize_characters,
         )
 
         if self.event_bus:
@@ -126,6 +139,8 @@ class OutlookService:
         include_astrology: bool = True,
         include_tarot: bool = True,
         include_iching: bool = True,
+        randomize_realm: bool = False,
+        randomize_characters: bool = False,
     ) -> dict[str, Any]:
         """Generate an epic multi-stage narrative outlook."""
         if languages is None:
@@ -148,6 +163,8 @@ class OutlookService:
             include_astrology=include_astrology,
             include_tarot=include_tarot,
             include_iching=include_iching,
+            randomize_realm=randomize_realm,
+            randomize_characters=randomize_characters,
         )
 
         if self.event_bus:
@@ -230,6 +247,12 @@ class OutlookService:
                             character_ids=config.get("character_ids"),
                             excluded_forces=config.get("excluded_forces"),
                             include_dialogue=config.get("include_dialogue", False),
+                            model=config.get("model"),
+                            include_astrology=config.get("include_astrology", True),
+                            include_tarot=config.get("include_tarot", True),
+                            include_iching=config.get("include_iching", True),
+                            randomize_realm=config.get("randomize_realm", False),
+                            randomize_characters=config.get("randomize_characters", False),
                         ),
                     )
 
@@ -244,10 +267,7 @@ class OutlookService:
 
                         db_path = settings.DATABASE_URL.replace("sqlite:///", "")
                         if not os.path.isabs(db_path):
-                            from pathlib import Path
-
-                            root_dir = Path(__file__).parent.parent.parent
-                            db_path = str((root_dir / db_path).resolve())
+                            db_path = str((get_project_root() / db_path).resolve())
 
                         conn = sqlite3.connect(db_path)
                         cursor = conn.cursor()

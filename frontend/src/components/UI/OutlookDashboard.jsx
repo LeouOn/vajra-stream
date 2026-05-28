@@ -76,6 +76,8 @@ export default function OutlookDashboard() {
   // Model selection states
   const [outlookModels, setOutlookModels] = useState({ lm_studio: [], local: [], api: [] });
   const [selectedModel, setSelectedModel] = useState('');
+  const [randomizeRealm, setRandomizeRealm] = useState(false);
+  const [randomizeCharacters, setRandomizeCharacters] = useState(false);
 
   // Divination source toggles (all ON by default)
   const [includeAstrology, setIncludeAstrology] = useState(true);
@@ -307,6 +309,8 @@ export default function OutlookDashboard() {
         include_astrology: includeAstrology,
         include_tarot: includeTarot,
         include_iching: includeIching,
+        randomize_realm: randomizeRealm,
+        randomize_characters: randomizeCharacters,
       };
 
       if (isEpic) {
@@ -371,7 +375,13 @@ export default function OutlookDashboard() {
         character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
         excluded_forces: excludedForcesText ? excludedForcesText.split(',').map(s => s.trim()) : null,
         include_dialogue: includeDialogue,
-        loop_mode: loopMode
+        loop_mode: loopMode,
+        model: selectedModel || null,
+        include_astrology: includeAstrology,
+        include_tarot: includeTarot,
+        include_iching: includeIching,
+        randomize_realm: randomizeRealm,
+        randomize_characters: randomizeCharacters,
       };
 
       const res = await fetch(`${API_BASE}/outlook/loop/start`, {
@@ -639,16 +649,28 @@ export default function OutlookDashboard() {
 
               {/* Active Location/Realm Selection */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-gray-400 flex items-center gap-1">
-                  <Globe className="w-3.5 h-3.5 text-vajra-cyan" />
-                  Realm / Setting
-                </label>
+                <div className="flex justify-between items-center">
+                  <label className="block text-xs font-semibold text-gray-400 flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5 text-vajra-cyan" />
+                    Realm / Setting
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-gray-400 hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={randomizeRealm}
+                      onChange={(e) => { setRandomizeRealm(e.target.checked); audioFeedback.playClick(); }}
+                      className="w-3 h-3 rounded border-white/10 bg-black/40 text-vajra-cyan focus:ring-0"
+                    />
+                    Randomize
+                  </label>
+                </div>
                 <select
                   value={selectedRealmId}
                   onChange={(e) => { setSelectedRealmId(e.target.value); audioFeedback.playClick(); }}
-                  className="w-full bg-black/40 text-white rounded px-2.5 py-1.5 text-xs border border-white/10 focus:border-vajra-cyan outline-none font-mono"
+                  disabled={randomizeRealm}
+                  className="w-full bg-black/40 text-white rounded px-2.5 py-1.5 text-xs border border-white/10 focus:border-vajra-cyan outline-none font-mono disabled:opacity-40"
                 >
-                  <option value="">-- Dynamic Map Coordinates --</option>
+                  <option value="">{randomizeRealm ? "-- Selected at Random --" : "-- Dynamic Map Coordinates --"}</option>
                   {realms.map(r => (
                     <option key={r.id} value={r.id}>{r.name} ({r.is_metaphysical ? 'Metaphysical' : 'Earthly'})</option>
                   ))}
@@ -666,7 +688,7 @@ export default function OutlookDashboard() {
                       step="0.0001"
                       value={lat}
                       onChange={(e) => setLat(e.target.value)}
-                      disabled={!!selectedRealmId && !(realms.find(r => r.id === selectedRealmId)?.is_metaphysical)}
+                      disabled={randomizeRealm || (!!selectedRealmId && !(realms.find(r => r.id === selectedRealmId)?.is_metaphysical))}
                       className="w-full bg-black/40 text-white rounded px-2.5 py-1.5 pl-10 text-xs border border-white/10 focus:border-vajra-cyan outline-none font-mono disabled:opacity-40"
                     />
                   </div>
@@ -677,7 +699,7 @@ export default function OutlookDashboard() {
                       step="0.0001"
                       value={lon}
                       onChange={(e) => setLon(e.target.value)}
-                      disabled={!!selectedRealmId && !(realms.find(r => r.id === selectedRealmId)?.is_metaphysical)}
+                      disabled={randomizeRealm || (!!selectedRealmId && !(realms.find(r => r.id === selectedRealmId)?.is_metaphysical))}
                       className="w-full bg-black/40 text-white rounded px-2.5 py-1.5 pl-10 text-xs border border-white/10 focus:border-vajra-cyan outline-none font-mono disabled:opacity-40"
                     />
                   </div>
@@ -821,21 +843,32 @@ export default function OutlookDashboard() {
 
               {/* Characters — collapsible */}
               <div className="border-t border-white/5 pt-3">
-                <button
-                  onClick={() => { setShowCharsSection(!showCharsSection); audioFeedback.playClick(); }}
-                  className="w-full flex items-center justify-between text-xs font-semibold text-gray-400 hover:text-white transition-colors"
-                >
-                  <span className="flex items-center gap-1">
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={() => { setShowCharsSection(!showCharsSection); audioFeedback.playClick(); }}
+                    className="flex-1 flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-white transition-colors text-left"
+                  >
                     <Shield className="w-3.5 h-3.5 text-purple-400" />
                     Characters & Heroes
-                    {selectedCharIds.length > 0 && (
-                      <span className="text-[10px] text-purple-400 font-mono ml-1">({selectedCharIds.length})</span>
+                    {!randomizeCharacters && selectedCharIds.length > 0 && (
+                      <span className="text-[10px] text-purple-400 font-mono">({selectedCharIds.length})</span>
                     )}
-                  </span>
-                  <span className={`transform transition-transform ${showCharsSection ? 'rotate-90' : ''}`}>▶</span>
-                </button>
+                    {randomizeCharacters && (
+                      <span className="text-[10px] text-purple-400 font-mono font-bold">(Random 2-3)</span>
+                    )}
+                  </button>
+                  <label className="flex items-center gap-1 cursor-pointer select-none text-[10px] text-gray-400 hover:text-white">
+                    <input
+                      type="checkbox"
+                      checked={randomizeCharacters}
+                      onChange={(e) => { setRandomizeCharacters(e.target.checked); audioFeedback.playClick(); }}
+                      className="w-3 h-3 rounded border-white/10 bg-black/40 text-vajra-cyan focus:ring-0"
+                    />
+                    Randomize
+                  </label>
+                </div>
                 {showCharsSection && (
-                  <div className="space-y-1.5 mt-2">
+                  <div className={`space-y-1.5 mt-2 transition-opacity duration-300 ${randomizeCharacters ? 'opacity-30 pointer-events-none' : ''}`}>
                     {/* Quick action buttons per tradition */}
                     <div className="flex gap-1 flex-wrap">
                       {[['All', null], ['☯️', 'taoist'], ['📿', 'buddhist'], ['🏮', 'folk'], ['🪐', 'creation']].map(([label, tag]) => {

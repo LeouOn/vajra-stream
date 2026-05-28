@@ -238,14 +238,29 @@ class LLMIntegration:
 
         messages.append({"role": "user", "content": prompt})
 
-        response = self.client.chat.completions.create(
-            model=model or self.model_name,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-
-        return response.choices[0].message.content
+        target_model = model or self.model_name
+        try:
+            response = self.client.chat.completions.create(
+                model=target_model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            if model and model != self.model_name:
+                print(f"[WARN] Failed to generate with model '{model}': {e}. Falling back to default '{self.model_name}'...")
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                    )
+                    return response.choices[0].message.content
+                except Exception as fallback_err:
+                    print(f"[ERROR] Fallback to default model '{self.model_name}' also failed: {fallback_err}")
+            raise e
 
     def _generate_anthropic(
         self,
@@ -266,9 +281,19 @@ class LLMIntegration:
         if system_prompt:
             kwargs["system"] = system_prompt
 
-        response = self.client.messages.create(**kwargs)
-
-        return response.content[0].text
+        try:
+            response = self.client.messages.create(**kwargs)
+            return response.content[0].text
+        except Exception as e:
+            if model and model != self.model_name:
+                print(f"[WARN] Failed to generate with model '{model}': {e}. Falling back to default '{self.model_name}'...")
+                kwargs["model"] = self.model_name
+                try:
+                    response = self.client.messages.create(**kwargs)
+                    return response.content[0].text
+                except Exception as fallback_err:
+                    print(f"[ERROR] Fallback to default model '{self.model_name}' also failed: {fallback_err}")
+            raise e
 
     def list_available_models(self) -> dict[str, list[str]]:
         """List all available models"""

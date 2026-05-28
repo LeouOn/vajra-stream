@@ -257,10 +257,23 @@ class OutlookGenerator:
         include_astrology: bool = True,
         include_tarot: bool = True,
         include_iching: bool = True,
+        randomize_realm: bool = False,
+        randomize_characters: bool = False,
     ) -> dict[str, Any]:
         """
         Generates a dense, 300-3000 token single-pass narrative outlook.
         """
+        if randomize_realm and get_location_manager:
+            active_locs = get_location_manager().get_active_locations()
+            if active_locs:
+                realm_id = random.choice(active_locs).id
+
+        if randomize_characters and get_character_manager:
+            active_chars = get_character_manager().get_active_characters()
+            if active_chars:
+                k = min(random.randint(2, 3), len(active_chars))
+                chosen = random.sample(active_chars, k)
+                character_ids = [c.id for c in chosen]
         if realm_id and get_location_manager:
             loc = get_location_manager().get_location(realm_id)
             if loc:
@@ -391,10 +404,23 @@ Length: 3-5 paragraphs of dense, visionary prose.
         include_astrology: bool = True,
         include_tarot: bool = True,
         include_iching: bool = True,
+        randomize_realm: bool = False,
+        randomize_characters: bool = False,
     ) -> dict[str, Any]:
         """
         Orchestrates a multi-stage (e.g. 9-12 stages) epic narrative outlook.
         """
+        if randomize_realm and get_location_manager:
+            active_locs = get_location_manager().get_active_locations()
+            if active_locs:
+                realm_id = random.choice(active_locs).id
+
+        if randomize_characters and get_character_manager:
+            active_chars = get_character_manager().get_active_characters()
+            if active_chars:
+                k = min(random.randint(2, 3), len(active_chars))
+                chosen = random.sample(active_chars, k)
+                character_ids = [c.id for c in chosen]
         if realm_id and get_location_manager:
             loc = get_location_manager().get_location(realm_id)
             if loc:

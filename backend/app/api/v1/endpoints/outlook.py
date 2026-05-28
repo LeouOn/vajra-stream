@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -15,6 +16,14 @@ from backend.core.services.location_manager import LocationSourceType, LocationT
 from container import container
 
 router = APIRouter()
+
+
+def get_project_root() -> Path:
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / "pyproject.toml").exists() or (parent / "vajra_stream.db").exists():
+            return parent
+    return current.parent
 
 
 class OutlookRequest(BaseModel):
@@ -31,12 +40,9 @@ class OutlookRequest(BaseModel):
     character_ids: list[str] | None = Field(default=None, description="Characters present in the narrative")
     excluded_forces: list[str] | None = Field(default=None, description="Negative forces to pacify")
     include_dialogue: bool = Field(default=False, description="Whether to include active dialogue")
-    model: str | None = Field(default=None, description="LLM model name override (e.g., LM Studio model ID)")
-    include_astrology: bool = Field(
-        default=True, description="Include full astrological chart context in the narrative"
-    )
-    include_tarot: bool = Field(default=True, description="Include Tarot oracle card draw in the narrative")
-    include_iching: bool = Field(default=True, description="Include I Ching hexagram cast in the narrative")
+    model: str | None = Field(default=None, description="Selected LLM model for generation")
+    randomize_realm: bool = Field(default=False, description="Whether to select a random active setting/realm")
+    randomize_characters: bool = Field(default=False, description="Whether to select 2-3 random active characters")
 
 
 class EpicOutlookRequest(OutlookRequest):
@@ -46,10 +52,7 @@ class EpicOutlookRequest(OutlookRequest):
 def get_db_connection():
     db_path = settings.DATABASE_URL.replace("sqlite:///", "")
     if not os.path.isabs(db_path):
-        from pathlib import Path
-
-        root_dir = Path(__file__).parent.parent.parent.parent
-        db_path = str((root_dir / db_path).resolve())
+        db_path = str((get_project_root() / db_path).resolve())
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
@@ -105,9 +108,8 @@ async def generate_single(request: OutlookRequest):
             excluded_forces=request.excluded_forces,
             include_dialogue=request.include_dialogue,
             model=request.model,
-            include_astrology=request.include_astrology,
-            include_tarot=request.include_tarot,
-            include_iching=request.include_iching,
+            randomize_realm=request.randomize_realm,
+            randomize_characters=request.randomize_characters
         )
 
         # Save to database
@@ -166,9 +168,8 @@ async def generate_epic(request: EpicOutlookRequest):
             excluded_forces=request.excluded_forces,
             include_dialogue=request.include_dialogue,
             model=request.model,
-            include_astrology=request.include_astrology,
-            include_tarot=request.include_tarot,
-            include_iching=request.include_iching,
+            randomize_realm=request.randomize_realm,
+            randomize_characters=request.randomize_characters
         )
 
         # Save to database
@@ -415,6 +416,12 @@ class LoopStartRequest(BaseModel):
     excluded_forces: list[str] | None = None
     include_dialogue: bool = False
     loop_mode: str | None = "sequential_delay"  # "sequential_delay" or "consecutive"
+    model: str | None = None
+    include_astrology: bool = True
+    include_tarot: bool = True
+    include_iching: bool = True
+    randomize_realm: bool = False
+    randomize_characters: bool = False
 
 
 @router.post("/loop/start", summary="Start background narrative loop")
@@ -432,6 +439,12 @@ async def start_loop(req: LoopStartRequest):
         excluded_forces=req.excluded_forces,
         include_dialogue=req.include_dialogue,
         loop_mode=req.loop_mode,
+        model=req.model,
+        include_astrology=req.include_astrology,
+        include_tarot=req.include_tarot,
+        include_iching=req.include_iching,
+        randomize_realm=req.randomize_realm,
+        randomize_characters=req.randomize_characters
     )
     if not success:
         raise HTTPException(status_code=400, detail="Loop already running or failed to start")
