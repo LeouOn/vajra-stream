@@ -188,11 +188,11 @@ python scripts/blessing_manager.py add \
 
 # Add spiritual beings
 python scripts/blessing_manager.py add \
-  --name "Spirits at Hiroshima" \
+  --name "Spirits at sites of historical conflict" \
   --category hungry_ghost \
-  --lat 34.3853 --lon 132.4553 \
-  --date "1945-08-06 08:15" \
-  --description "All beings who perished in atomic bombing" \
+  --lat 0.0 --lon 0.0 \
+  --date "0500-06-15 12:00" \
+  --description "All beings affected by conflict across time" \
   --priority 10
 ```
 
@@ -447,7 +447,7 @@ Om Mani Padme Hum
 Based on Buddhist cosmology and indigenous traditions:
 
 - Hungry Ghosts in Preta Realm
-- Spirits at Sites of Mass Suffering (Hiroshima, Holocaust sites, etc.)
+- Spirits at Sites of Historical Suffering
 - Land Spirits at Destroyed Sacred Sites
 - Spirits of Slaughtered Animals
 - Ghosts of the Forgotten Dead (mass graves, unmarked graves)
@@ -570,12 +570,12 @@ if target.coordinates:
 For beings with known dates/locations (e.g., spirits at historical sites):
 
 ```bash
-# Broadcast to spirits at Hiroshima
+# Broadcast through a symbolic time cycle
 python scripts/radionics_operation.py --to-time \
-  --intention "Liberation and peace for all who perished" \
-  --year 1945 --month 8 --day 6 --hour 8 --minute 15 \
-  --latitude 34.3853 --longitude 132.4553 \
-  --location-name "Hiroshima" \
+  --intention "Liberation and peace for all who suffered" \
+  --year 500 --month 6 --day 15 --hour 12 --minute 0 \
+  --latitude 0.0 --longitude 0.0 \
+  --location-name "The World" \
   --duration 1800
 ```
 

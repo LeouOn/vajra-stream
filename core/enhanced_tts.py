@@ -15,7 +15,18 @@ from typing import Any
 
 
 class TTSProvider:
-    """Base class for TTS providers"""
+    """Abstract base for text-to-speech providers.
+
+    Defines the interface that all TTS backends must implement:
+    availability checking, blocking speech, and audio file generation.
+    Concrete providers (:class:`ElevenLabsTTS`, :class:`OpenAITTS`,
+    :class:`EdgeTTS`, :class:`Pyttsx3TTS`) inherit from this.
+
+    Attributes:
+        name: Human-readable provider name.
+        available: Whether the provider passed its availability check.
+        error_msg: Reason for unavailability (None if available).
+    """
 
     def __init__(self, name: str):
         self.name = name
@@ -36,7 +47,17 @@ class TTSProvider:
 
 
 class ElevenLabsTTS(TTSProvider):
-    """ElevenLabs API - Premium cloud TTS with very natural voices"""
+    """ElevenLabs cloud TTS — premium neural voices via REST API.
+
+    Requires ``ELEVENLABS_API_KEY`` environment variable and the ``elevenlabs``
+    Python package. Provides the most natural-sounding voices in the system.
+
+    Attributes:
+        api_key: API key from environment.
+        client: Initialised after availability check.
+        generate_func: Reference to ``elevenlabs.generate``.
+        voices_func: Reference to ``elevenlabs.voices``.
+    """
 
     def __init__(self):
         super().__init__("ElevenLabs")
@@ -250,11 +271,17 @@ class GoogleCloudTTS(TTSProvider):
 
 
 class OpenAITTS(TTSProvider):
-    """OpenAI TTS - Latest TTS from OpenAI"""
+    """OpenAI TTS — works with OpenAI and any OpenAI-compatible TTS endpoint.
+
+    Uses ``OPENAI_API_KEY``. Optionally set ``OPENAI_BASE_URL`` to point at
+    DeepSeek or another compatible TTS API. Default TTS model is ``tts-1``
+    with voice ``nova``.
+    """
 
     def __init__(self):
         super().__init__("OpenAI TTS")
         self.api_key = os.getenv("OPENAI_API_KEY")
+        self.base_url = os.getenv("OPENAI_BASE_URL")
         self.client = None
         self.available = self.check_availability()
 
@@ -266,7 +293,10 @@ class OpenAITTS(TTSProvider):
         try:
             from openai import OpenAI
 
-            self.client = OpenAI(api_key=self.api_key)
+            kwargs = {"api_key": self.api_key}
+            if self.base_url:
+                kwargs["base_url"] = self.base_url
+            self.client = OpenAI(**kwargs)
             return True
         except ImportError:
             self.error_msg = "openai package not installed (pip install openai)"

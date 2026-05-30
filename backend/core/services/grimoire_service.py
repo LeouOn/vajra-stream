@@ -1,5 +1,10 @@
 """
-Grimoire & Correspondence Database Service
+Grimoire & Correspondence Database — esoteric reference data service.
+
+Manages a structured database of magical correspondences including planetary
+associations, elemental attributes, colour symbolism, herbal and crystal
+references, and ritual timing data. Used by the radionics operator and
+outlook generator to enrich context with traditional esoteric knowledge.
 """
 
 from typing import Any

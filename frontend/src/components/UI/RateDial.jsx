@@ -1,3 +1,9 @@
+/**
+ * Rate Dial — interactive SVG radionics rate knob (0–100).
+ * Draggable dial with haptic audio feedback and value label.
+ * @component
+ * @param {{ value, onChange, label, min, max, step, size }} props
+ */
 import React, { useRef, useState, useCallback, useEffect, useId } from 'react';
 import { audioFeedback } from '../../utils/audioFeedback';
 

@@ -1,3 +1,9 @@
+/**
+ * Frequency Waterfall — scrolling frequency-over-time heatmap.
+ * Canvas-based waterfall display showing frequency intensity
+ * history as a descending colour-mapped spectrogram.
+ * @component
+ */
 import React, { useRef, useEffect } from 'react';
 import { Activity } from 'lucide-react';
 

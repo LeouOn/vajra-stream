@@ -1,3 +1,12 @@
+/**
+ * Dashboard — system overview and real-time metrics display.
+ *
+ * Shows high-level Vajra.Stream status: active sessions, MOPS throughput,
+ * WebSocket connection state, RNG coherence, current astrological
+ * conditions, and recent blessing activity. Serves as the landing page.
+ *
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, 

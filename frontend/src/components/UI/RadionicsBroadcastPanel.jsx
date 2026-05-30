@@ -1,3 +1,9 @@
+/**
+ * Radionics Broadcast Panel — scalar-radionics broadcast controls.
+ * Intention, target, frequency, intensity configuration with
+ * real-time MOPS throughput and broadcast status.
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { Radio, Play, Pause, Square } from 'lucide-react';
 import { useWebSocket } from '../../hooks/useWebSocket';

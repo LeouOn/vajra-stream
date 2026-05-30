@@ -3,7 +3,6 @@ Orchestrator Bridge
 Singleton bridge to expose the UnifiedOrchestrator to the FastAPI application.
 """
 
-import asyncio
 import logging
 
 from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
@@ -67,7 +66,7 @@ class OrchestratorBridge:
         except Exception as e:
             logger.error(f"Error handling SessionStarted: {e}")
 
-    def _forward_event_to_websocket(self, event):
+    async def _forward_event_to_websocket(self, event):
         """Forward domain events to WebSocket clients"""
         try:
             # Convert event to dict for JSON serialization
@@ -77,15 +76,8 @@ class OrchestratorBridge:
                 "data": {k: v for k, v in event.__dict__.items() if not k.startswith("_")},
             }
 
-            # Use asyncio.create_task to run async broadcast from sync callback
-            try:
-                loop = asyncio.get_running_loop()
-                # logger.info(f"Forwarding event to websocket: {event.__class__.__name__}")
-                loop.create_task(stable_connection_manager_v2.broadcast(event_data))
-            except RuntimeError:
-                # If no running loop (e.g. during startup/shutdown), skip
-                logger.warning("No running loop to forward event")
-                pass
+            # We can directly await now because EventBus handles coroutines!
+            await stable_connection_manager_v2.broadcast(event_data)
 
         except Exception as e:
             logger.error(f"Error forwarding event to WebSocket: {e}")

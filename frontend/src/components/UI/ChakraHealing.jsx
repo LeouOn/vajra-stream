@@ -1,5 +1,11 @@
+/**
+ * Chakra Healing — targeted chakra healing session UI.
+ * Select a chakra, set intention, configure frequencies/duration,
+ * and start a prayer-bowl healing broadcast.
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
-import { Heart, Zap, RefreshCw, ChevronRight } from 'lucide-react';
+import { Heart, Zap, RefreshCw, ChevronRight, Play, Square } from 'lucide-react';
 
 import { API_BASE } from '../../utils/api';
 
@@ -22,6 +28,8 @@ const ChakraHealing = ({ className = '' }) => {
   const [sequence, setSequence] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [chakraInfo, setChakraInfo] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingChakra, setPlayingChakra] = useState(null);
 
   useEffect(() => {
     loadChakras();
@@ -70,6 +78,41 @@ const ChakraHealing = ({ className = '' }) => {
       console.error('Failed to create sequence:', error);
     }
     setIsLoading(false);
+  };
+
+  const playChakraAudio = async (chakraName) => {
+    setIsPlaying(true);
+    setPlayingChakra(chakraName);
+    try {
+      // 1. Generate the tone in the backend
+      const genResponse = await fetch(`${API_BASE}/audio/generate_chakra`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chakra_name: chakraName, duration: 30.0 })
+      });
+      if (genResponse.ok) {
+        // 2. Play it on the hardware
+        await fetch(`${API_BASE}/audio/play`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hardware_level: 2 })
+        });
+      }
+    } catch (error) {
+      console.error('Failed to play chakra audio:', error);
+      setIsPlaying(false);
+      setPlayingChakra(null);
+    }
+  };
+
+  const stopAudio = async () => {
+    try {
+      await fetch(`${API_BASE}/audio/stop`, { method: 'POST' });
+    } catch (e) {
+      console.error('Failed to stop audio', e);
+    }
+    setIsPlaying(false);
+    setPlayingChakra(null);
   };
 
   const getChakraColor = (chakraName) => {
@@ -145,6 +188,23 @@ const ChakraHealing = ({ className = '' }) => {
               <span className="text-gray-500">Frequency:</span>
               <span className="ml-1 text-white">{chakraInfo.frequencies?.root} Hz</span>
             </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            {!isPlaying ? (
+              <button 
+                onClick={() => playChakraAudio(selectedChakra)}
+                className="flex items-center gap-1 bg-green-600/30 hover:bg-green-600/50 text-green-400 px-3 py-1.5 rounded text-xs transition-colors"
+              >
+                <Play className="w-3 h-3" /> Play Tone
+              </button>
+            ) : (
+              <button 
+                onClick={stopAudio}
+                className="flex items-center gap-1 bg-red-600/30 hover:bg-red-600/50 text-red-400 px-3 py-1.5 rounded text-xs transition-colors"
+              >
+                <Square className="w-3 h-3" /> Stop
+              </button>
+            )}
           </div>
         </div>
       )}

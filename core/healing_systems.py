@@ -1,14 +1,43 @@
 """
-Vajra.Stream - Integrated Healing Systems Module
-Combines Vedic (chakras/nadis), Chinese (meridians/acupoints), and Tibetan (channels/winds) healing systems
-For physical, energetic, and spiritual healing work
+Integrated Healing Systems — Vedic, Chinese, and Tibetan healing frameworks.
+
+Provides data models and protocol generation across three traditional systems:
+- **ChakraSystem** — 7-chakra Vedic/Tantric model with frequencies, mantras,
+  physical/emotional correspondences, and condition mapping.
+- **MeridianSystem** — 12 primary TCM meridians + 8 extraordinary vessels,
+  Chinese Medicine Clock, and acupoint framework.
+- **TibetanChannelSystem** — Tsa/Lung/Thigle subtle body model (channels,
+  winds, drops).
+
+These are primarily **data/knowledge classes** — the class structure is complete
+but many fields (deities, gemstones, full acupoint lists, detailed protocols)
+are marked for offline research completion per the development roadmap.
+
+Exports:
+    ChakraSystem, MeridianSystem, TibetanChannelSystem — individual system models.
+    IntegratedHealingProtocol — cross-system protocol generator.
+
+Typical usage:
+    >>> chakra_sys = ChakraSystem()
+    >>> protocol = chakra_sys.get_healing_protocol("anahata")
+    >>> print(protocol["frequencies"])  # [639]
 """
 
 
 class ChakraSystem:
-    """
-    Vedic/Tantric chakra system (7 or 8 chakras)
-    Based on classical texts and modern interpretations
+    """Vedic/Tantric 7-chakra model with healing correspondences.
+
+    Each chakra stores: location, element, colour, seed mantra (bija),
+    petal count, Solfeggio frequency, physical/emotional associations,
+    imbalance indicators, and healing practices. Fields marked ``None``
+    (deities, gems, additional sounds) are pending offline research.
+
+    Key methods:
+        :meth:`get_chakra_for_condition` — map a condition name to relevant chakras.
+        :meth:`get_healing_protocol` — return frequencies, mantra, colour, and practices.
+
+    Attributes:
+        chakras: Dict keyed by Sanskrit name (``"muladhara"`` through ``"sahasrara"``).
     """
 
     def __init__(self):
@@ -227,9 +256,15 @@ class ChakraSystem:
 
 
 class MeridianSystem:
-    """
-    Traditional Chinese Medicine meridian system
-    12 primary meridians + 8 extraordinary vessels
+    """Chinese Medicine meridian framework (12 primary + 8 extraordinary vessels).
+
+    Currently partially populated — first 4 of 12 primary meridians have full
+    data; the remaining 8 are stubs marked for offline completion. Includes
+    the Chinese Medicine Clock via :meth:`get_meridian_for_time`.
+
+    Attributes:
+        primary_meridians: Dict of 12 meridian entries (Lung through Liver).
+        extraordinary_vessels: Dict of 8 extraordinary vessel entries.
     """
 
     def __init__(self):
@@ -384,9 +419,16 @@ class MeridianSystem:
 
 
 class TibetanChannelSystem:
-    """
-    Tibetan Buddhist subtle body system
-    Channels (tsa), winds (lung), drops (thigle)
+    """Tibetan Buddhist subtle body model — Tsa / Lung / Thigle.
+
+    Models the three main channels (central/uma, right/roma, left/kyangma),
+    the channel wheels (chakras in Tibetan tradition with different petal
+    counts than Vedic), and the five winds (prana-vayus).
+
+    Attributes:
+        main_channels: Central, right, and left channel descriptions.
+        channel_wheels: Crown, throat, heart, and navel wheel details.
+        five_winds: The five prana-vayu functions.
     """
 
     def __init__(self):
@@ -446,8 +488,16 @@ class TibetanChannelSystem:
 
 
 class IntegratedHealingProtocol:
-    """
-    Integrates all three systems for comprehensive healing
+    """Cross-system protocol generator combining all three healing models.
+
+    Aggregates chakra, meridian, and Tibetan system data to produce unified
+    healing protocols for a given condition. Also generates session plans
+    with phased timing (opening → main practice → closing).
+
+    Attributes:
+        chakra_system: :class:`ChakraSystem` instance.
+        meridian_system: :class:`MeridianSystem` instance.
+        tibetan_system: :class:`TibetanChannelSystem` instance.
     """
 
     def __init__(self):

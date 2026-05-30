@@ -1,3 +1,9 @@
+/**
+ * Time Cycles — planetary hour, moon phase, and meridian clock.
+ * Shows current astrological timing and dharma calendar events
+ * for session scheduling recommendations.
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { HelpCircle, Play, RefreshCw, Compass, Moon, Sun, Clock, Calendar, Check, AlertTriangle } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -78,7 +84,7 @@ export default function TimeCycles() {
     setProgressPercent(0);
     audioFeedback.playSuccess();
 
-    addBroadcastLog(`Starting temporal healing cycle for: "${event.name}"`, 'success');
+    addBroadcastLog(`Starting symbolic healing cycle for: "${event.name}"`, 'success');
     addBroadcastLog(`Period: ${event.start_date} to ${event.end_date}. Step size: ${stepDays} day(s).`, 'info');
 
     // Parse dates
@@ -155,14 +161,14 @@ export default function TimeCycles() {
         <div className="space-y-4">
           <div>
             <h3 className="text-md font-bold text-vajra-cyan glow-cyan flex items-center gap-2">
-              ⏳ Historical Suffering Cycles
+              ⏳ Archetypal Healing Cycles
             </h3>
-            <p className="text-xs text-gray-400">Select temporal epoch target for blessing work</p>
+            <p className="text-xs text-gray-400">Select a symbolic cycle for compassionate dedication</p>
           </div>
 
           {/* Event dropdown */}
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400 block">Historical Period</label>
+            <label className="text-xs text-gray-400 block">Archetypal Cycle</label>
             <select
               value={selectedEventId}
               onChange={(e) => { setSelectedEventId(e.target.value); audioFeedback.playClick(); }}
@@ -179,7 +185,7 @@ export default function TimeCycles() {
             <div className="bg-white/5 border border-white/5 p-3 rounded-lg space-y-2 text-xs">
               <div className="flex justify-between items-center border-b border-white/5 pb-1.5 text-[10px]">
                 <span className="text-gray-500 font-mono">ID: {activeEvent.id.toUpperCase()}</span>
-                <span className="text-red-400 font-bold uppercase font-mono">Deaths: {activeEvent.estimated_deaths.toLocaleString()}</span>
+                <span className="text-purple-300 font-bold uppercase font-mono">Archetype</span>
               </div>
               <p className="text-gray-300 leading-normal">{activeEvent.description}</p>
               <div className="pt-2 flex justify-between gap-4 text-[10px] text-gray-400 font-mono">
@@ -244,7 +250,7 @@ export default function TimeCycles() {
           className="w-full py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded font-bold text-xs shadow flex items-center justify-center gap-2 disabled:bg-gray-800 disabled:from-gray-800 disabled:to-gray-800"
         >
           <Play className="w-3.5 h-3.5" />
-          {isRunning ? 'Temporal Broadcast Running...' : 'Execute Time Broadcast'}
+          {isRunning ? 'Broadcast Running...' : 'Begin Symbolic Cycle'}
         </button>
       </div>
 
@@ -253,16 +259,16 @@ export default function TimeCycles() {
         
         {/* Progress Grid */}
         <div className="space-y-3">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Temporal Coherence Status</span>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Symbolic Cycle Status</span>
           
           <div className="p-4 bg-black/60 border border-white/5 rounded-xl space-y-4 shadow-inner">
             <div className="flex justify-between items-center text-xs">
               <div>
-                <span className="text-[10px] text-gray-500 font-mono block">CURRENT TEMPORAL NODE</span>
+                <span className="text-[10px] text-gray-500 font-mono block">CURRENT SYMBOLIC NODE</span>
                 <span className="text-base font-bold text-white font-mono">{currentDate || "IDLE"}</span>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-gray-500 font-mono block">TOTAL DEDICATED MANTRAS</span>
+                <span className="text-[10px] text-gray-500 font-mono block">DEDICATIONS OFFERED</span>
                 <span className="text-base font-bold text-cyan-300 font-mono">{totalMantrasSent}</span>
               </div>
             </div>

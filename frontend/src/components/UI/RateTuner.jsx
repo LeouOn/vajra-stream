@@ -1,3 +1,9 @@
+/**
+ * Rate Tuner — multi-dial radionics rate configuration panel.
+ * Combines RateDial components with presets, custom saving,
+ * broadcasting, and live analysis feedback.
+ * @component
+ */
 import React, { useState, useCallback } from 'react';
 import { Sliders, Save, RotateCcw, Search, Star, Play, Square, Zap, ChevronDown, X, Bookmark } from 'lucide-react';
 import RateDial from './RateDial';

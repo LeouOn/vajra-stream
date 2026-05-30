@@ -1,5 +1,10 @@
 """
-Divination Suite Service (Tarot, I Ching, Geomancy)
+Divination Suite Service — Tarot, I Ching, and Geomancy readings.
+
+Provides a unified interface for three divination systems:
+- **Tarot** — 78-card Rider-Waite-Smith deck with spreads and interpretations.
+- **I Ching** — 64 hexagrams with changing lines and classical commentary.
+- **Geomancy** — 16 figures derived from random seed generation.
 """
 
 import random

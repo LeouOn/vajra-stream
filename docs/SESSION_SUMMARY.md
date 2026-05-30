@@ -172,7 +172,7 @@ python scripts/scalar_wave_benchmark.py --all --duration 5
 python core/integrated_scalar_radionics.py --healing "Person" --duration 10
 
 # Liberation protocol
-python core/integrated_scalar_radionics.py --liberation "Holocaust" --souls 11000000
+python core/integrated_scalar_radionics.py --liberation "Those who suffered in times of war"
 
 # Generate visualizations
 python core/meridian_visualization.py

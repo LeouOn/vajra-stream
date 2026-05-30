@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Time Cycle Broadcaster - Systematic Blessings Through Historical Periods
+Time Cycle Broadcaster - Symbolic Healing Through Archetypal Cycles
 
-Sends healing, blessings, and compassionate energy to historical periods
-of mass suffering, cycling day by day through difficult times.
+Sends healing, blessings, and compassionate energy through symbolic
+time cycles, dedicating compassion day by day across archetypal
+human experiences of suffering.
 
 Integrates:
-- Radionics broadcasting to specific times/places
+- Radionics broadcasting to symbolic times/places
 - Astrocartography for planetary positions
 - Blessing dedications for populations
 - Visualizations showing daily progress
@@ -55,9 +56,9 @@ except ImportError:
 
 class TimeCycleBroadcaster:
     """
-    Broadcast healing energy through historical time periods.
+    Broadcast healing energy through archetypal time cycles.
 
-    Systematically sends blessings to periods of mass suffering,
+    Systematically sends blessings through symbolic time periods,
     day by day, with integrated visualizations and radionics.
     """
 
@@ -86,18 +87,18 @@ class TimeCycleBroadcaster:
                 return json.load(f)
         except FileNotFoundError:
             print(f"Warning: Events file not found: {self.events_file}")
-            return {"historical_suffering_periods": []}
+            return {"archetypal_healing_cycles": []}
 
     def get_event_by_id(self, event_id: str) -> dict | None:
         """Get event by ID"""
-        for event in self.events.get("historical_suffering_periods", []):
+        for event in self.events.get("archetypal_healing_cycles", []):
             if event["id"] == event_id:
                 return event
         return None
 
     def list_events(self) -> list[dict]:
-        """List all available events"""
-        return self.events.get("historical_suffering_periods", [])
+        """List all available archetypal cycles"""
+        return self.events.get("archetypal_healing_cycles", [])
 
     def parse_date(self, date_str: str) -> datetime:
         """Parse date string to datetime"""
@@ -451,8 +452,7 @@ class TimeCycleBroadcaster:
         print(f"Total days to process: {total_days}")
         print(f"Step: Every {step_days} day(s)")
         print(f"Duration per day: {duration_per_day} seconds")
-        print(f"Estimated deaths: {event['estimated_deaths']:,}")
-        print(f"Population affected: {event['population_affected']}")
+        print(f"Scope: {event['population_affected']}")
         print(f"{'=' * 70}\n")
 
         results = []
@@ -481,7 +481,7 @@ class TimeCycleBroadcaster:
         print(f"Event: {event['name']}")
         print(f"Days processed: {len(results)}")
         print(f"Total mantras dedicated: {len(results) * 108}")
-        print(f"\nMay all {event['estimated_deaths']:,} souls find peace.")
+        print("\nMay all beings touched by this archetype find peace.")
         print("May healing reach across time to all who suffered.")
         print("May this work benefit all beings.")
         print(f"{'=' * 70}\n")
@@ -520,25 +520,24 @@ class TimeCycleBroadcaster:
 
 
 def list_all_events():
-    """List all available historical events"""
+    """List all available archetypal healing cycles"""
     broadcaster = TimeCycleBroadcaster()
     events = broadcaster.list_events()
 
     print(f"\n{'=' * 70}")
-    print("AVAILABLE HISTORICAL EVENTS FOR HEALING WORK")
+    print("AVAILABLE ARCHETYPAL HEALING CYCLES")
     print(f"{'=' * 70}\n")
 
     for event in events:
         print(f"ID: {event['id']}")
         print(f"Name: {event['name']}")
         print(f"Period: {event['start_date']} to {event['end_date']}")
-        print(f"Deaths: {event['estimated_deaths']:,}")
         print(f"Description: {event['description']}")
-        print(f"Suggestion: {event.get('daily_cycle_suggestion', 'N/A')}")
+        print(f"Suggestion: {event.get('daily_cycle_suggestion', 'Sample any span of days.')}")
         print(f"{'-' * 70}\n")
 
 
-def run_quick_test(event_id: str = "rwandan_genocide", num_days: int = 3):
+def run_quick_test(event_id: str = "archetype-universal", num_days: int = 3):
     """
     Quick test of time cycle system.
 
@@ -557,24 +556,24 @@ def run_quick_test(event_id: str = "rwandan_genocide", num_days: int = 3):
 
 # Example usage
 if __name__ == "__main__":
-    print("Time Cycle Broadcaster - Systematic Healing Through History\n")
+    print("Time Cycle Broadcaster - Symbolic Healing Through Archetypes\n")
 
     # List available events
     list_all_events()
 
     # Run a quick test
     print("\n" + "=" * 70)
-    print("Running sample 3-day cycle for Rwandan Genocide...")
+    print("Running sample 3-day cycle for The Great Healing...")
     print("=" * 70 + "\n")
 
-    run_quick_test(event_id="rwandan_genocide", num_days=3)
+    run_quick_test(event_id="archetype-universal", num_days=3)
 
     print("\n" + "=" * 70)
     print("✨ Time Cycle Broadcaster Ready")
     print("=" * 70)
     print("\nTo run full cycles:")
     print("  broadcaster = TimeCycleBroadcaster()")
-    print("  broadcaster.run_daily_cycle('holocaust', max_days=7)")
+    print("  broadcaster.run_daily_cycle('archetype-universal', max_days=7)")
     print("\nMay all beings be free from suffering.")
     print("May healing reach across time and space.")
     print("Om Mani Padme Hum 🙏")

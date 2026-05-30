@@ -1,3 +1,12 @@
+/**
+ * Crystal Grid 3D Visualization — sacred geometry crystal arrangement.
+ *
+ * Renders a 3D crystal grid using React Three Fiber with configurable
+ * geometry (hexagon, double-hexagon), crystal placement, energy field
+ * visualisation, and intention display. Responds to crystalStore state.
+ *
+ * @component
+ */
 import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';

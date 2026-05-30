@@ -1,9 +1,24 @@
+/**
+ * Astrology Panel — Western, Vedic, and Chinese astrology display.
+ *
+ * Renders comprehensive astrological data including planetary positions,
+ * aspects, elemental balance, Vedic panchanga (tithi, nakshatra, yoga,
+ * karana), Chinese BaZi pillars and sheng xiao, and Chaldean planetary
+ * hours. Supports location-aware calculations with auto-detection.
+ *
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { 
   Compass, Moon, Sun, Shield, Sparkles, Activity, 
   RotateCw, RefreshCw, Layers, Award, Info, Calendar, MapPin, User, Clock, ChevronRight
 } from 'lucide-react';
+import { Card, Row, Col, Tag, Progress, Statistic, Button, Space, Segmented, Input, Descriptions } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useAudioStore } from '../../stores/audioStore';
+import SacredMandala from '../3D/SacredMandala';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Stars, Environment } from '@react-three/drei';
 
 import { API_BASE } from '../../utils/api';
 
@@ -15,6 +30,7 @@ const getOrdinalSuffix = (num) => {
 };
 
 export default function AstrologyPanel() {
+  const { isPlaying, frequency } = useAudioStore();
   const [loading, setLoading] = useState(false);
   const [liveData, setLiveData] = useState(null);
   const [customData, setCustomData] = useState(null);
@@ -168,226 +184,224 @@ export default function AstrologyPanel() {
   const wuXingCounts = countWuXing();
 
   return (
-    <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6 bg-transparent scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+    <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6 bg-transparent">
       
       {/* Header and Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-2xl">
-        <div>
-          <h2 className="text-xl font-bold text-white tracking-wider flex items-center gap-2 font-mono">
-            <Compass className="w-6 h-6 text-cyan-400 animate-spin-slow" />
-            <span className="glow-text text-cyan-300">Cosmic Clockwork System</span>
-          </h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Precision planetary transits, sidereal Indian Rashi Kundali grids, and BaZi Wu Xing pillars.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Live vs Static indicator */}
-          <div className="flex items-center bg-black/60 border border-white/10 rounded-lg p-1">
-            <button
-              onClick={handleResetToLive}
-              className={`px-3 py-1 rounded text-xs font-mono font-semibold uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5 ${
-                isLiveMode
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <div className={`w-2 h-2 rounded-full ${isLiveMode ? 'bg-green-500 animate-pulse' : 'bg-gray-600'}`} />
-              LIVE
-            </button>
-            <button
-              onClick={() => setIsLiveMode(false)}
-              className={`px-3 py-1 rounded text-xs font-mono font-semibold uppercase tracking-wider transition-all duration-300 ${
-                !isLiveMode
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              STATIC / NATAL
-            </button>
-          </div>
-
-          {/* System filter buttons */}
-          <div className="flex bg-black/40 border border-white/10 rounded-lg p-1">
-            {['all', 'western', 'vedic', 'chinese'].map((sys) => (
-              <button
-                key={sys}
-                onClick={() => { setActiveSystem(sys); audioFeedback.playClick(); }}
-                className={`px-3 py-1 rounded text-xs font-mono uppercase tracking-wider transition-all duration-300 ${
-                  activeSystem === sys
-                    ? 'bg-cyan-600 text-white shadow-md'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {sys}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => {
-              audioFeedback.playTelemetry();
-              if (isLiveMode) fetchLiveAstrology();
-              else handleCalculateCustom();
-            }}
-            disabled={loading}
-            className="p-2 bg-white/5 border border-white/10 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg transition-colors"
-            title="Recalculate ephemeris"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      <Card 
+        className="bg-gray-900/80 border-purple-500/20"
+        styles={{ body: { padding: '20px' } }}
+      >
+        <Row justify="space-between" align="middle" gutter={[16, 16]}>
+          <Col xs={24} md={14}>
+            <Space align="start" size={12}>
+              <Compass className="w-6 h-6 text-cyan-400" style={{ animation: 'spin 8s linear infinite' }} />
+              <div>
+                <h2 className="text-xl font-bold text-cyan-300 tracking-wider font-mono" style={{ margin: 0 }}>
+                  Cosmic Clockwork System
+                </h2>
+                <p className="text-xs text-gray-400 mt-1" style={{ margin: 0 }}>
+                  Precision planetary transits, sidereal Indian Rashi Kundali grids, and BaZi Wu Xing pillars.
+                </p>
+              </div>
+            </Space>
+          </Col>
+          <Col xs={24} md={10}>
+            <Space wrap size={8} style={{ justifyContent: 'flex-end', width: '100%' }}>
+              <Segmented
+                size="small"
+                value={isLiveMode ? 'live' : 'static'}
+                onChange={(val) => {
+                  if (val === 'live') handleResetToLive();
+                  else setIsLiveMode(false);
+                }}
+                options={[
+                  { label: '🔴 LIVE', value: 'live' },
+                  { label: 'STATIC / NATAL', value: 'static' }
+                ]}
+              />
+              <Segmented
+                size="small"
+                value={activeSystem}
+                onChange={(val) => { setActiveSystem(val); audioFeedback.playClick(); }}
+                options={[
+                  { label: 'All', value: 'all' },
+                  { label: 'Western', value: 'western' },
+                  { label: 'Vedic', value: 'vedic' },
+                  { label: 'Chinese', value: 'chinese' }
+                ]}
+              />
+              <Button
+                size="small"
+                icon={<RefreshCw className={loading ? 'animate-spin' : ''} style={{ width: 14, height: 14 }} />}
+                onClick={() => {
+                  audioFeedback.playTelemetry();
+                  if (isLiveMode) fetchLiveAstrology();
+                  else handleCalculateCustom();
+                }}
+                disabled={loading}
+                type="default"
+                ghost
+              />
+            </Space>
+          </Col>
+        </Row>
+      </Card>
 
       {/* Natal/Custom Calculator Input Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Input parameters panel */}
-        <div className="lg:col-span-1 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl space-y-4">
-          <h3 className="text-sm font-bold text-purple-400 font-mono tracking-wider uppercase flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            NATAL CHART CALCULATOR
-          </h3>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={8}>
+          <Card
+            title={<span className="text-purple-400 font-mono text-xs tracking-wider uppercase"><Calendar className="w-4 h-4 inline mr-2" />NATAL CHART CALCULATOR</span>}
+            className="bg-gray-900/80 border-purple-500/20"
+            styles={{ body: { padding: '16px' } }}
+          >
+            <form onSubmit={handleCalculateCustom}>
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <div>
+                  <label className="text-gray-400 text-xs font-semibold block mb-1"><Clock className="w-3 h-3 text-cyan-400 inline mr-1" />Event Date & Time (Local)</label>
+                  <Input
+                    type="datetime-local"
+                    value={birthDate}
+                    onChange={(e) => { setBirthDate(e.target.value); audioFeedback.playType(); }}
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <label className="text-gray-400 text-xs font-semibold block mb-1"><MapPin className="w-3 h-3 text-rose-400 inline mr-1" />Latitude</label>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={latitude}
+                      onChange={(e) => { setLatitude(e.target.value); audioFeedback.playType(); }}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="37.7749"
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <label className="text-gray-400 text-xs font-semibold block mb-1"><MapPin className="w-3 h-3 text-rose-400 inline mr-1" />Longitude</label>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={longitude}
+                      onChange={(e) => { setLongitude(e.target.value); audioFeedback.playType(); }}
+                      className="bg-gray-800 border-gray-700 text-white"
+                      placeholder="-122.4194"
+                    />
+                  </Col>
+                </Row>
+                <div>
+                  <span className="text-[10px] text-gray-500 block uppercase font-bold mb-1">Quick Presets</span>
+                  <Space wrap size={4}>
+                    {[
+                      { name: 'San Francisco', lat: '37.7749', lon: '-122.4194' },
+                      { name: 'London', lat: '51.5074', lon: '-0.1278' },
+                      { name: 'New Delhi', lat: '28.6139', lon: '77.2090' },
+                      { name: 'Beijing', lat: '39.9042', lon: '116.4074' },
+                      { name: 'Tokyo', lat: '35.6762', lon: '139.6503' }
+                    ].map((p) => (
+                      <Button
+                        key={p.name}
+                        size="small"
+                        type="default"
+                        ghost
+                        onClick={() => setLocationPreset(p.lat, p.lon, p.name)}
+                        style={{ fontSize: '9px', padding: '0 6px' }}
+                      >
+                        {p.name}
+                      </Button>
+                    ))}
+                  </Space>
+                </div>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  block
+                  icon={<Compass style={{ width: 14, height: 14 }} />}
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', border: 'none' }}
+                >
+                  Calculate Natal Chart
+                </Button>
+              </Space>
+            </form>
+          </Card>
+        </Col>
 
-          <form onSubmit={handleCalculateCustom} className="space-y-4 text-xs font-mono">
-            {/* Datetime input */}
-            <div className="space-y-1">
-              <label className="text-gray-400 block font-semibold flex items-center gap-1.5">
-                <Clock className="w-3 h-3 text-cyan-400" /> Event Date & Time (Local)
-              </label>
-              <input
-                type="datetime-local"
-                value={birthDate}
-                onChange={(e) => { setBirthDate(e.target.value); audioFeedback.playType(); }}
-                className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-              />
-            </div>
+        <Col xs={24} lg={16}>
+          <Card
+            className="bg-gray-900/80 border-purple-500/20"
+            styles={{ body: { padding: '20px' } }}
+          >
+            <Row justify="space-between" align="top" style={{ marginBottom: 16 }}>
+              <Col>
+                <Tag color="purple" className="font-mono text-[9px]">ACTIVE FRAME</Tag>
+              </Col>
+              <Col>
+                <span className="text-[10px] text-gray-500 font-mono">COORD MODE: GEOCENTRIC</span>
+              </Col>
+            </Row>
 
-            {/* Coordinates */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-gray-400 block font-semibold flex items-center gap-1.5">
-                  <MapPin className="w-3 h-3 text-rose-400" /> Latitude
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={latitude}
-                  onChange={(e) => { setLatitude(e.target.value); audioFeedback.playType(); }}
-                  className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-                  placeholder="37.7749"
-                />
-              </div>
+            <h3 className="text-xl font-bold text-white tracking-wide font-mono" style={{ margin: '0 0 4px 0' }}>
+              {isLiveMode ? '🪐 LIVE CELESTIAL TRANSITS' : '🔮 NATAL DETAILS'}
+            </h3>
+            <p className="text-xs text-gray-400 font-mono" style={{ margin: '0 0 16px 0' }}>
+              Time: {activeData ? new Date(activeData.datetime).toLocaleString() : 'Loading...'}
+            </p>
 
-              <div className="space-y-1">
-                <label className="text-gray-400 block font-semibold flex items-center gap-1.5">
-                  <MapPin className="w-3 h-3 text-rose-400" /> Longitude
-                </label>
-                <input
-                  type="number"
-                  step="0.0001"
-                  value={longitude}
-                  onChange={(e) => { setLongitude(e.target.value); audioFeedback.playType(); }}
-                  className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
-                  placeholder="-122.4194"
-                />
-              </div>
-            </div>
+            <Row gutter={[12, 12]}>
+              <Col xs={12} sm={6}>
+                <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
+                  <Statistic
+                    title={<span className="text-[9px] text-gray-500 font-mono">PLANETARY HOUR</span>}
+                    value={activeData?.planetary_hours?.current_planetary_hour || '—'}
+                    valueStyle={{ color: '#facc15', fontSize: '14px', fontWeight: 'bold' }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={12} sm={6}>
+                <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
+                  <Statistic
+                    title={<span className="text-[9px] text-gray-500 font-mono">VEDIC TITHI</span>}
+                    value={activeData?.indian?.panchanga?.tithi?.name || '—'}
+                    valueStyle={{ color: '#c084fc', fontSize: '14px', fontWeight: 'bold' }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={12} sm={6}>
+                <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
+                  <Statistic
+                    title={<span className="text-[9px] text-gray-500 font-mono">CHINESE BAZI YEAR</span>}
+                    value={activeData?.chinese?.bazi?.year?.split(' ')[0] || '—'}
+                    valueStyle={{ color: '#34d399', fontSize: '14px', fontWeight: 'bold' }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={12} sm={6}>
+                <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
+                  <Statistic
+                    title={<span className="text-[9px] text-gray-500 font-mono">MOON ILLUMINATION</span>}
+                    value={activeData?.moon_phase?.illumination?.toFixed(1) + '%' || '—'}
+                    valueStyle={{ color: '#22d3ee', fontSize: '14px', fontWeight: 'bold' }}
+                  />
+                </Card>
+              </Col>
+            </Row>
 
-            {/* Location Presets */}
-            <div className="space-y-1.5 pt-1">
-              <span className="text-[10px] text-gray-500 block uppercase font-bold">Quick Presets</span>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { name: 'San Francisco', lat: '37.7749', lon: '-122.4194' },
-                  { name: 'London', lat: '51.5074', lon: '-0.1278' },
-                  { name: 'New Delhi', lat: '28.6139', lon: '77.2090' },
-                  { name: 'Beijing', lat: '39.9042', lon: '116.4074' },
-                  { name: 'Tokyo', lat: '35.6762', lon: '139.6503' }
-                ].map((p) => (
-                  <button
-                    key={p.name}
-                    type="button"
-                    onClick={() => setLocationPreset(p.lat, p.lon, p.name)}
-                    className="px-2 py-1 bg-black/45 hover:bg-cyan-500/10 border border-white/5 hover:border-cyan-500/30 rounded text-[9px] text-gray-400 hover:text-white transition-all"
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-lg transition-all font-semibold flex items-center justify-center gap-1.5 shadow-lg border border-purple-500/20"
-            >
-              <Compass className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Calculate Natal Chart
-            </button>
-          </form>
-        </div>
-
-        {/* Current target info display */}
-        <div className="lg:col-span-2 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex justify-between items-start">
-              <span className="px-2 py-0.5 bg-purple-950 text-purple-400 border border-purple-500/20 rounded font-mono text-[9px] uppercase font-bold">
-                ACTIVE FRAME
-              </span>
-              <span className="text-[10px] text-gray-500 font-mono">
-                COORD MODE: GEOCENTRIC
-              </span>
-            </div>
-
-            <div className="space-y-1">
-              <h3 className="text-xl font-bold text-white tracking-wide font-mono">
-                {isLiveMode ? '🪐 LIVE CELESTIAL TRANSITS' : `🔮 NATAL DETAILS`}
-              </h3>
-              <p className="text-xs text-gray-400 font-mono">
-                Time: {activeData ? new Date(activeData.datetime).toLocaleString() : 'Loading...'}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono pt-2">
-              <div className="p-2.5 bg-black/40 border border-white/5 rounded-xl">
-                <span className="text-[9px] text-gray-500 block">PLANETARY HOUR</span>
-                <span className="font-bold text-yellow-400 mt-1 block">
-                  {activeData?.planetary_hours?.current_planetary_hour}
-                </span>
-              </div>
-              <div className="p-2.5 bg-black/40 border border-white/5 rounded-xl">
-                <span className="text-[9px] text-gray-500 block">VEDIC TITHI</span>
-                <span className="font-bold text-purple-400 mt-1 block truncate">
-                  {activeData?.indian?.panchanga?.tithi?.name}
-                </span>
-              </div>
-              <div className="p-2.5 bg-black/40 border border-white/5 rounded-xl">
-                <span className="text-[9px] text-gray-500 block">CHINESE BAZI YEAR</span>
-                <span className="font-bold text-emerald-400 mt-1 block truncate">
-                  {activeData?.chinese?.bazi?.year?.split(' ')[0]}
-                </span>
-              </div>
-              <div className="p-2.5 bg-black/40 border border-white/5 rounded-xl">
-                <span className="text-[9px] text-gray-500 block">MOON ILLUMINATION</span>
-                <span className="font-bold text-cyan-400 mt-1 block">
-                  {activeData?.moon_phase?.illumination?.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-white/5 pt-3 mt-4 text-[10px] text-gray-500 font-mono flex items-center justify-between">
-            <span>Ephemeris: SwissEph v2.10 Offline</span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-              Tuned and aligned
-            </span>
-          </div>
-        </div>
-      </div>
+            <Row justify="space-between" align="middle" style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <Col>
+                <span className="text-[10px] text-gray-500 font-mono">Ephemeris: SwissEph v2.10 Offline</span>
+              </Col>
+              <Col>
+                <Space size={4}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" style={{ display: 'inline-block', animation: 'ping 1.5s ease-in-out infinite' }} />
+                  <span className="text-[10px] text-gray-500 font-mono">Tuned and aligned</span>
+                </Space>
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+      </Row>
 
       {activeData ? (
         <div className="space-y-6">
@@ -396,160 +410,177 @@ export default function AstrologyPanel() {
 
           {/* WESTERN ASTROLOGY */}
           {(activeSystem === 'all' || activeSystem === 'western') && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl">
-              <div className="xl:col-span-3 flex justify-between items-center border-b border-purple-500/15 pb-2">
-                <h3 className="text-sm font-bold text-cyan-400 tracking-wider uppercase font-mono flex items-center gap-2">
-                  <Sun className="w-4 h-4 animate-spin-slow" />
-                  I. Western Tropical Astrology (Transit Wheel)
-                </h3>
-                <span className="text-[9px] text-purple-300/80 font-mono">TROPICAL / PLACIDUS HOUSES</span>
-              </div>
+            <Card
+              title={<span className="text-cyan-400 font-mono text-xs tracking-wider uppercase"><Sun className="w-4 h-4 inline mr-2" />I. Western Tropical Astrology (Transit Wheel)</span>}
+              extra={<Tag color="purple" className="font-mono text-[9px]">TROPICAL / PLACIDUS HOUSES</Tag>}
+              className="bg-gray-900/80 border-purple-500/20"
+              styles={{ body: { padding: '20px' } }}
+            >
 
               {/* Celestial Trinity (Big Three) */}
-              <div className="xl:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-purple-950/20 backdrop-blur-sm border border-purple-500/20 rounded-2xl flex items-center gap-4 hover:border-purple-500/40 transition-all duration-300">
-                  <div className="p-3 bg-yellow-500/10 rounded-xl text-yellow-400">
-                    <Sun className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-yellow-400 font-mono font-bold tracking-wider block uppercase">☀️ SUN SIGN</span>
-                    <span className="text-base font-bold text-white block mt-0.5">
-                      {activeData.western?.positions?.sun?.sign || 'Unknown'}
-                    </span>
-                    <span className="text-[10px] text-gray-400 block font-mono">
-                      Degree: {activeData.western?.positions?.sun?.degree?.toFixed(2)}° | {activeData.western?.positions?.sun?.house ? `${activeData.western.positions.sun.house}${getOrdinalSuffix(activeData.western.positions.sun.house)} House` : 'No House'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-purple-950/20 backdrop-blur-sm border border-purple-500/20 rounded-2xl flex items-center gap-4 hover:border-purple-500/40 transition-all duration-300">
-                  <div className="p-3 bg-slate-400/10 rounded-xl text-slate-300">
-                    <Moon className="w-6 h-6 animate-pulse" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-300 font-mono font-bold tracking-wider block uppercase">🌙 MOON SIGN</span>
-                    <span className="text-base font-bold text-white block mt-0.5">
-                      {activeData.western?.positions?.moon?.sign || 'Unknown'}
-                    </span>
-                    <span className="text-[10px] text-gray-400 block font-mono">
-                      Degree: {activeData.western?.positions?.moon?.degree?.toFixed(2)}° | {activeData.western?.positions?.moon?.house ? `${activeData.western.positions.moon.house}${getOrdinalSuffix(activeData.western.positions.moon.house)} House` : 'No House'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-purple-950/20 backdrop-blur-sm border border-purple-500/20 rounded-2xl flex items-center gap-4 hover:border-purple-500/40 transition-all duration-300">
-                  <div className="p-3 bg-cyan-500/10 rounded-xl text-cyan-400">
-                    <Compass className="w-6 h-6 animate-spin-slow" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-cyan-400 font-mono font-bold tracking-wider block uppercase">🏹 ASCENDANT (RISING)</span>
-                    <span className="text-base font-bold text-white block mt-0.5">
-                      {activeData.western?.positions?.ascendant?.sign || 'Unknown'}
-                    </span>
-                    <span className="text-[10px] text-gray-400 block font-mono">
-                      Degree: {activeData.western?.positions?.ascendant?.degree?.toFixed(2)}° | First House Cusp
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Chart Wheel Visualizer */}
-              <div className="flex flex-col items-center justify-center p-4 bg-black/55 border border-white/5 rounded-xl min-h-[350px]">
-                <h4 className="text-[10px] font-bold text-gray-500 mb-4 font-mono tracking-widest uppercase">
-                  ASTROLOGICAL TRANSIT WHEEL (ASC ROTATED)
-                </h4>
-                <WesternChartWheel positions={activeData.western?.positions} aspects={activeData.western?.aspects} />
-              </div>
-
-              {/* Positions and Details */}
-              <div className="space-y-4 font-mono">
-                <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">
-                  PLANETARY COORDINATES
-                </h4>
-                <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
-                  {Object.entries(activeData.western?.positions || {}).map(([planet, pos]) => {
-                    const label = planet.replace('_', ' ').toUpperCase();
-                    return (
-                      <div key={planet} className="p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg flex justify-between items-center text-xs transition-colors">
-                        <span className="font-semibold text-purple-300">{label}</span>
-                        <span className="text-gray-200">
-                          {pos.formatted} {pos.house ? `(${pos.house}${getOrdinalSuffix(pos.house)} House)` : ''}
-                        </span>
+              <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+                <Col xs={24} md={8}>
+                  <Card size="small" className="bg-purple-950/20 border-purple-500/20 hover:border-purple-500/40" styles={{ body: { padding: '12px' } }}>
+                    <Space align="start" size={12}>
+                      <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400"><Sun className="w-5 h-5" /></div>
+                      <div>
+                        <span className="text-[10px] text-yellow-400 font-mono font-bold tracking-wider block uppercase">☀️ SUN SIGN</span>
+                        <span className="text-base font-bold text-white block mt-0.5">{activeData.western?.positions?.sun?.sign || 'Unknown'}</span>
+                        <span className="text-[10px] text-gray-400 block font-mono">Degree: {activeData.western?.positions?.sun?.degree?.toFixed(2)}° | {activeData.western?.positions?.sun?.house ? `${activeData.western.positions.sun.house}${getOrdinalSuffix(activeData.western.positions.sun.house)} House` : 'No House'}</span>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    </Space>
+                  </Card>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Card size="small" className="bg-purple-950/20 border-purple-500/20 hover:border-purple-500/40" styles={{ body: { padding: '12px' } }}>
+                    <Space align="start" size={12}>
+                      <div className="p-2 bg-slate-400/10 rounded-lg text-slate-300"><Moon className="w-5 h-5" /></div>
+                      <div>
+                        <span className="text-[10px] text-slate-300 font-mono font-bold tracking-wider block uppercase">🌙 MOON SIGN</span>
+                        <span className="text-base font-bold text-white block mt-0.5">{activeData.western?.positions?.moon?.sign || 'Unknown'}</span>
+                        <span className="text-[10px] text-gray-400 block font-mono">Degree: {activeData.western?.positions?.moon?.degree?.toFixed(2)}° | {activeData.western?.positions?.moon?.house ? `${activeData.western.positions.moon.house}${getOrdinalSuffix(activeData.western.positions.moon.house)} House` : 'No House'}</span>
+                      </div>
+                    </Space>
+                  </Card>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Card size="small" className="bg-purple-950/20 border-purple-500/20 hover:border-purple-500/40" styles={{ body: { padding: '12px' } }}>
+                    <Space align="start" size={12}>
+                      <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400"><Compass className="w-5 h-5" /></div>
+                      <div>
+                        <span className="text-[10px] text-cyan-400 font-mono font-bold tracking-wider block uppercase">🏹 ASCENDANT (RISING)</span>
+                        <span className="text-base font-bold text-white block mt-0.5">{activeData.western?.positions?.ascendant?.sign || 'Unknown'}</span>
+                        <span className="text-[10px] text-gray-400 block font-mono">Degree: {activeData.western?.positions?.ascendant?.degree?.toFixed(2)}° | First House Cusp</span>
+                      </div>
+                    </Space>
+                  </Card>
+                </Col>
+              </Row>
 
-              {/* Aspects and Elemental Balance */}
-              <div className="space-y-4 font-mono">
-                <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">
-                  ELEMENTS & ACTIVE ASPECTS
-                </h4>
-                
-                {/* Element gauges */}
-                <div className="grid grid-cols-4 gap-2 text-center text-xs bg-black/45 p-3 rounded-xl border border-white/5">
-                  {Object.entries(activeData.western?.elements || {}).map(([elem, weight]) => {
-                    let color = 'text-gray-400';
-                    if (elem === 'Fire') color = 'text-rose-400';
-                    else if (elem === 'Earth') color = 'text-amber-400';
-                    else if (elem === 'Air') color = 'text-sky-400';
-                    else if (elem === 'Water') color = 'text-emerald-400';
+              <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
+                <Col xs={24} xl={8}>
+                  {/* Chart Wheel Visualizer */}
+                  <div className="flex flex-col items-center justify-center p-4 bg-black/55 border border-white/5 rounded-xl min-h-[350px]">
+                    <h4 className="text-[10px] font-bold text-gray-500 mb-4 font-mono tracking-widest uppercase">
+                      ASTROLOGICAL TRANSIT WHEEL (ASC ROTATED)
+                    </h4>
+                    <WesternChartWheel positions={activeData.western?.positions} aspects={activeData.western?.aspects} />
+                  </div>
+                </Col>
+                <Col xs={24} xl={8}>
+                  {/* Positions and Details */}
+                  <div className="space-y-4 font-mono">
+                    <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">
+                      PLANETARY COORDINATES
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
+                      {Object.entries(activeData.western?.positions || {}).map(([planet, pos]) => {
+                        const label = planet.replace('_', ' ').toUpperCase();
+                        return (
+                          <div key={planet} className="p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg flex justify-between items-center text-xs transition-colors">
+                            <span className="font-semibold text-purple-300">{label}</span>
+                            <span className="text-gray-200">
+                              {pos.formatted} {pos.house ? `(${pos.house}${getOrdinalSuffix(pos.house)} House)` : ''}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </Col>
+                <Col xs={24} xl={8}>
+                  {/* Aspects and Elemental Balance */}
+                  <div className="space-y-4 font-mono">
+                    <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">
+                      ELEMENTS & ACTIVE ASPECTS
+                    </h4>
                     
-                    return (
-                      <div key={elem}>
-                        <span className="text-[9px] text-gray-500 font-mono block leading-none">{elem.toUpperCase()}</span>
-                        <span className={`font-bold mt-1.5 block ${color}`}>{weight} pts</span>
-                      </div>
-                    );
-                  })}
-                </div>
+                    {/* Element gauges */}
+                    <div className="grid grid-cols-4 gap-2 text-center text-xs bg-black/45 p-3 rounded-xl border border-white/5">
+                      {Object.entries(activeData.western?.elements || {}).map(([elem, weight]) => {
+                        let color = 'text-gray-400';
+                        if (elem === 'Fire') color = 'text-rose-400';
+                        else if (elem === 'Earth') color = 'text-amber-400';
+                        else if (elem === 'Air') color = 'text-sky-400';
+                        else if (elem === 'Water') color = 'text-emerald-400';
+                        
+                        return (
+                          <div key={elem}>
+                            <span className="text-[9px] text-gray-500 font-mono block leading-none">{elem.toUpperCase()}</span>
+                            <span className={`font-bold mt-1.5 block ${color}`}>{weight} pts</span>
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                {/* Aspect scrolling block */}
-                <div className="bg-black/45 border border-white/5 rounded-xl p-3 max-h-[195px] overflow-y-auto space-y-2">
-                  <span className="text-[9px] text-gray-500 font-mono block mb-1">ACTIVE TRANSIT ASPECTS</span>
-                  {activeData.western?.aspects && activeData.western.aspects.length > 0 ? (
-                    activeData.western.aspects.map((asp, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-[10px] p-2 bg-white/5 border border-white/5 rounded-lg">
-                        <span className="font-medium text-gray-300">{asp.description}</span>
-                        <span className={`px-2 py-0.2 rounded-full font-mono text-[8px] uppercase ${
-                          asp.aspect === 'Conjunction' || asp.aspect === 'Trine' || asp.aspect === 'Sextile' 
-                            ? 'bg-blue-950/70 text-blue-300 border border-blue-800/30' 
-                            : 'bg-rose-950/70 text-rose-300 border border-rose-800/30'
-                        }`}>
-                          {asp.aspect}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-xs text-gray-500 italic py-2 text-center">No active aspects in orb</div>
-                  )}
-                </div>
-              </div>
-            </div>
+                    {/* Aspect scrolling block */}
+                    <div className="bg-black/45 border border-white/5 rounded-xl p-3 max-h-[195px] overflow-y-auto space-y-2">
+                      <span className="text-[9px] text-gray-500 font-mono block mb-1">ACTIVE TRANSIT ASPECTS</span>
+                      {activeData.western?.aspects && activeData.western.aspects.length > 0 ? (
+                        activeData.western.aspects.map((asp, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-[10px] p-2 bg-white/5 border border-white/5 rounded-lg">
+                            <span className="font-medium text-gray-300">{asp.description}</span>
+                            <Tag color={asp.aspect === 'Conjunction' || asp.aspect === 'Trine' || asp.aspect === 'Sextile' ? 'blue' : 'red'} className="font-mono text-[8px]">
+                              {asp.aspect}
+                            </Tag>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-gray-500 italic py-2 text-center">No active aspects in orb</div>
+                      )}
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+          )}
+
+          {/* Sacred Mandala — Planetary Resonance Visualization */}
+          {(activeSystem === 'all' || activeSystem === 'western') && (
+            <Card
+              title={<span className="text-purple-400 font-mono text-xs tracking-wider uppercase">🌀 Sacred Mandala — Planetary Resonance Field</span>}
+              className="bg-gray-900/80 border-purple-500/20"
+              styles={{ body: { padding: '0', height: '360px' } }}
+            >
+              <Canvas camera={{ position: [0, 0, 12], fov: 55 }}>
+                <ambientLight intensity={0.4} />
+                <pointLight position={[10, 10, 10]} intensity={0.8} />
+                <Stars radius={100} depth={40} count={3000} factor={3} saturation={0.1} fade speed={0.6} />
+                <SacredMandala
+                  isPlaying={isPlaying}
+                  frequency={frequency}
+                  pattern="sri-yantra"
+                  chakra="third-eye"
+                  complexity="medium"
+                />
+                <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.3} />
+                <Environment preset="sunset" />
+              </Canvas>
+            </Card>
           )}
 
           {/* VEDIC ASTROLOGY */}
           {(activeSystem === 'all' || activeSystem === 'vedic') && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl">
-              <div className="xl:col-span-3 flex justify-between items-center border-b border-purple-500/15 pb-2">
-                <h3 className="text-sm font-bold text-cyan-400 tracking-wider uppercase font-mono flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-purple-400" />
-                  II. Indian Vedic Astrology (Panchang & Kundali)
-                </h3>
-                <span className="text-[9px] text-purple-300/80 font-mono">SIDEREAL / LAHIRI AYANAMSA</span>
-              </div>
+            <Card
+              title={<span className="text-cyan-400 font-mono text-xs tracking-wider uppercase"><Shield className="w-4 h-4 inline mr-2 text-purple-400" />II. Indian Vedic Astrology (Panchang & Kundali)</span>}
+              extra={<Tag color="purple" className="font-mono text-[9px]">SIDEREAL / LAHIRI AYANAMSA</Tag>}
+              className="bg-gray-900/80 border-purple-500/20"
+              styles={{ body: { padding: '20px' } }}
+            >
 
-              {/* Vedic Chart / Kundali */}
-              <div className="flex flex-col items-center justify-center p-4 bg-black/55 border border-white/5 rounded-xl min-h-[350px]">
-                <h4 className="text-[10px] font-bold text-gray-500 mb-4 font-mono tracking-widest uppercase">
-                  NORTH INDIAN RASHI KUNDALI
-                </h4>
-                <VedicKundali siderealPositions={activeData.indian?.sidereal_positions} />
-              </div>
-
-              {/* Panchanga Elements */}
-              <div className="space-y-4 xl:col-span-2 font-mono">
+              <Row gutter={[16, 16]}>
+                <Col xs={24} xl={12}>
+                  {/* Vedic Chart / Kundali */}
+                  <div className="flex flex-col items-center justify-center p-4 bg-black/55 border border-white/5 rounded-xl min-h-[350px]">
+                    <h4 className="text-[10px] font-bold text-gray-500 mb-4 font-mono tracking-widest uppercase">
+                      NORTH INDIAN RASHI KUNDALI
+                    </h4>
+                    <VedicKundali siderealPositions={activeData.indian?.sidereal_positions} />
+                  </div>
+                </Col>
+                <Col xs={24} xl={12}>
+                  {/* Panchanga Elements */}
+                  <div className="space-y-4 font-mono">
                 <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">
                   PANCHA MAHABHUTA / FIVE LIMBS OF TIME
                 </h4>
@@ -623,20 +654,20 @@ export default function AstrologyPanel() {
                   </div>
                 </div>
 
-              </div>
-            </div>
+                </div>
+              </Col>
+            </Row>
+            </Card>
           )}
 
           {/* CHINESE ASTROLOGY */}
           {(activeSystem === 'all' || activeSystem === 'chinese') && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 bg-black/25 backdrop-blur-md border border-purple-500/15 p-5 rounded-2xl shadow-xl">
-              <div className="xl:col-span-3 flex justify-between items-center border-b border-purple-500/15 pb-2">
-                <h3 className="text-sm font-bold text-cyan-400 tracking-wider uppercase font-mono flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-emerald-400" />
-                  III. Chinese Lunisolar Astrology & BaZi
-                </h3>
-                <span className="text-[9px] text-purple-300/80 font-mono">Bazi Four Pillars / Wu Xing</span>
-              </div>
+            <Card
+              title={<span className="text-cyan-400 font-mono text-xs tracking-wider uppercase"><Compass className="w-4 h-4 inline mr-2 text-emerald-400" />III. Chinese Lunisolar Astrology & BaZi</span>}
+              extra={<Tag color="purple" className="font-mono text-[9px]">Bazi Four Pillars / Wu Xing</Tag>}
+              className="bg-gray-900/80 border-purple-500/20"
+              styles={{ body: { padding: '20px' } }}
+            >
 
               {/* BaZi Four Pillars */}
               <div className="xl:col-span-2 space-y-4">
@@ -714,7 +745,7 @@ export default function AstrologyPanel() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
         </div>

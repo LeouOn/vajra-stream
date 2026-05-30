@@ -1,3 +1,8 @@
+/**
+ * Sidebar Section — collapsible navigation section wrapper.
+ * Accordion-style with title, icon, collapse toggle, and children.
+ * @component
+ */
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 

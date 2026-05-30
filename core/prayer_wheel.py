@@ -1,7 +1,23 @@
 """
-Vajra.Stream - Digital Prayer Wheel
-Continuous generation and emanation of prayers, mantras, and aspirations
-Combines ancient prayer wheel technology with modern LLM and audio systems
+Digital Prayer Wheel — continuous prayer/mantra generation and broadcasting.
+
+Models the traditional Tibetan prayer wheel as a software system: prayers,
+mantras, and aspirations are generated (via LLM or traditional library) and
+broadcast through audio frequency carriers and/or text-to-speech.
+
+Supports several modes:
+- Single prayer spin (:meth:`PrayerWheel.spin`)
+- Continuous 24/7 rotation (:meth:`PrayerWheel.continuous_rotation`)
+- Mantra accumulation (108-repetition mala cycles)
+- Traditional prayer cycles (Four Immeasurables, Bodhisattva Vows, dedications)
+
+Dependencies:
+    Optional: :class:`~core.llm_integration.LLMIntegration` for AI-generated prayers,
+    :class:`~core.audio_generator.ScalarWaveGenerator` for carrier frequencies,
+    :class:`~core.tts_engine.TTSEngine` for spoken recitation.
+
+Exports:
+    PrayerWheel — main digital prayer wheel class.
 """
 
 import json
@@ -11,9 +27,24 @@ from datetime import datetime
 
 
 class PrayerWheel:
-    """
-    Digital prayer wheel - generates and broadcasts prayers continuously
-    Like a traditional Tibetan prayer wheel, but powered by AI and frequency generation
+    """Digital prayer wheel — AI-powered prayer generation and broadcasting.
+
+    Combines a library of traditional mantras and aspirations with optional
+    LLM-generated fresh prayers, audio frequency carrier waves, and TTS
+    voice recitation. Tracks session statistics (rotations, prayers generated).
+
+    All three integrations (LLM, audio, TTS) are optional — the wheel falls
+    back to template-based traditional prayers when LLM is unavailable,
+    and silent operation when audio/TTS are absent.
+
+    Attributes:
+        llm: Optional :class:`~core.llm_integration.LLMIntegration` instance.
+        audio: Optional :class:`~core.audio_generator.ScalarWaveGenerator` instance.
+        tts: Optional :class:`~core.tts_engine.TTSEngine` instance.
+        traditional_prayers: Dict of mantra/aspiration/dedication/vow libraries.
+        rotations: Total prayer wheel rotations in this session.
+        prayers_generated: Count of prayers produced (LLM or traditional).
+        session_start: Datetime the current session began.
     """
 
     def __init__(self, llm_integration=None, audio_generator=None, tts_engine=None):

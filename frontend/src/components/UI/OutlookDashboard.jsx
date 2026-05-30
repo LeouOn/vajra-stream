@@ -1,3 +1,13 @@
+/**
+ * Outlook Dashboard — personalised astrological outlook and narrative generator.
+ *
+ * Combines birth chart analysis, current transits, divination results, and
+ * AI-generated healing narratives into a single dashboard. Users can view
+ * their daily outlook, generate sutra-style blessings, and explore past
+ * outlooks. The largest frontend component (~1800 lines).
+ *
+ * @component
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Sparkles, BookOpen, Compass, Moon, Sun, RefreshCw, Copy, CheckCircle, 
@@ -5,10 +15,13 @@ import {
   Plus, Edit2, Trash2, Shield, Settings, Play, Square, Check, X,
   Search, Filter, ArrowUpDown
 } from 'lucide-react';
+import { Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag, Segmented, Row, Col, Space, Slider, Checkbox, Modal, Badge } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useAudioStore } from '../../stores/audioStore';
 import { API_BASE } from '../../utils/api';
 import EpicStoryViewer from './EpicStoryViewer';
+import RothkoGenerator from '../2D/RothkoGenerator';
 
 const GENRES = [
   { id: 'healing', name: 'Healing', desc: 'Sutra of restoration, pacifying sickness & anxiety', icon: '🌿' },
@@ -29,6 +42,7 @@ const LANGUAGES = [
 ];
 
 export default function OutlookDashboard() {
+  const { isPlaying } = useAudioStore();
   const [dashboardTab, setDashboardTab] = useState('generator'); // generator, universe
   const [universeSubTab, setUniverseSubTab] = useState('realms'); // realms, characters, populations
 
@@ -561,44 +575,42 @@ export default function OutlookDashboard() {
 
   return (
     <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6">
-      {/* Header Tabs */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-white/10 pb-4 gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-vajra-cyan glow-cyan tracking-wider flex items-center gap-2">
-            <Compass className="w-6 h-6 animate-pulse text-vajra-cyan" />
-            Narrative Generation & Outlook
-          </h2>
-          <p className="text-xs text-gray-400 mt-1">
-            Construct localized, sutra-style blessing cycles based on high-entropy oracles, planetary lines, and active entity grids.
-          </p>
-        </div>
+      {/* Header */}
+      <Card className="bg-gray-900/80 border-purple-500/20" styles={{ body: { padding: '16px 20px' } }}>
+        <Row justify="space-between" align="middle">
+          <Col>
+            <Space size={12}>
+              <Compass className="w-6 h-6 text-cyan-400" style={{ animation: 'pulse 2s ease-in-out infinite' }} />
+              <div>
+                <h2 className="text-xl font-bold text-cyan-300 tracking-wider" style={{ margin: 0 }}>Narrative Generation & Outlook</h2>
+                <p className="text-xs text-gray-400" style={{ margin: 0 }}>Construct localized, sutra-style blessing cycles based on high-entropy oracles, planetary lines, and active entity grids.</p>
+              </div>
+            </Space>
+          </Col>
+          <Col>
+            <Segmented
+              value={dashboardTab}
+              onChange={(val) => { setDashboardTab(val); audioFeedback.playClick(); }}
+              options={[
+                { label: <span><Sparkles className="w-3 h-3 inline mr-1" />Generator</span>, value: 'generator' },
+                { label: <span><Layers className="w-3 h-3 inline mr-1" />Universe Manager</span>, value: 'universe' }
+              ]}
+            />
+          </Col>
+        </Row>
+      </Card>
 
-        {/* Tab Toggle */}
-        <div className="flex bg-gray-900/60 p-1 rounded-lg border border-white/5 self-end md:self-auto">
-          <button
-            onClick={() => { setDashboardTab('generator'); audioFeedback.playClick(); }}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-              dashboardTab === 'generator'
-                ? 'bg-gradient-to-r from-cyan-600/90 to-blue-600/90 text-white shadow'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 inline mr-1" />
-            Generator
-          </button>
-          <button
-            onClick={() => { setDashboardTab('universe'); audioFeedback.playClick(); }}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-              dashboardTab === 'universe'
-                ? 'bg-gradient-to-r from-cyan-600/90 to-blue-600/90 text-white shadow'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 inline mr-1" />
-            Universe Manager
-          </button>
-        </div>
-      </div>
+      {/* Ambient Color-Field Meditation Panel */}
+      <Card
+        className="bg-gray-900/80 border-purple-500/20"
+        styles={{ body: { padding: '0', height: '120px', overflow: 'hidden' } }}
+      >
+        <RothkoGenerator
+          isPlaying={isPlaying}
+          palette="compassion"
+          transitionSpeed={60}
+        />
+      </Card>
 
       {dashboardTab === 'generator' ? (
         // ==========================================
@@ -607,18 +619,12 @@ export default function OutlookDashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
           {/* Left Controls column */}
           <div className="space-y-6">
-            <div className="bg-gray-950/40 p-5 rounded-xl border border-white/5 space-y-5">
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
-                  Transmission Settings
-                </h3>
-                {loopActive && (
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
-                  </span>
-                )}
-              </div>
+            <Card
+              title={<span className="text-white font-mono text-xs uppercase tracking-wider">Transmission Settings</span>}
+              extra={loopActive && <Badge status="processing" color="cyan" />}
+              className="bg-gray-900/80 border-purple-500/20"
+              styles={{ body: { padding: '16px' } }}
+            >
 
               {/* Selected Summary Bar */}
               {(selectedRealmId || selectedCharIds.length > 0 || selectedPopIds.length > 0) && (
@@ -745,43 +751,22 @@ export default function OutlookDashboard() {
               </div>
 
               {/* Divination Source Toggles */}
-              <div className="border-t border-white/5 pt-3 space-y-2">
-                <label className="block text-xs font-semibold text-gray-400">Oracle Sources</label>
-                <div className="flex flex-col gap-1.5">
-                  <label className="flex items-center justify-between cursor-pointer select-none">
-                    <span className="text-[11px] text-gray-300 flex items-center gap-1.5">
-                      <span className="text-xs">🌟</span> Astrology Chart
-                    </span>
-                    <button
-                      onClick={() => { setIncludeAstrology(!includeAstrology); audioFeedback.playClick(); }}
-                      className={`w-9 h-5 rounded-full transition-all relative ${includeAstrology ? 'bg-amber-600' : 'bg-gray-700'}`}
-                    >
-                      <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-all ${includeAstrology ? 'left-5' : 'left-0.5'}`} />
-                    </button>
-                  </label>
-                  <label className="flex items-center justify-between cursor-pointer select-none">
-                    <span className="text-[11px] text-gray-300 flex items-center gap-1.5">
-                      <span className="text-xs">🃏</span> Tarot Oracle
-                    </span>
-                    <button
-                      onClick={() => { setIncludeTarot(!includeTarot); audioFeedback.playClick(); }}
-                      className={`w-9 h-5 rounded-full transition-all relative ${includeTarot ? 'bg-purple-600' : 'bg-gray-700'}`}
-                    >
-                      <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-all ${includeTarot ? 'left-5' : 'left-0.5'}`} />
-                    </button>
-                  </label>
-                  <label className="flex items-center justify-between cursor-pointer select-none">
-                    <span className="text-[11px] text-gray-300 flex items-center gap-1.5">
-                      <span className="text-xs">☯️</span> I Ching Hexagram
-                    </span>
-                    <button
-                      onClick={() => { setIncludeIching(!includeIching); audioFeedback.playClick(); }}
-                      className={`w-9 h-5 rounded-full transition-all relative ${includeIching ? 'bg-cyan-600' : 'bg-gray-700'}`}
-                    >
-                      <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-all ${includeIching ? 'left-5' : 'left-0.5'}`} />
-                    </button>
-                  </label>
-                </div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 12 }}>
+                <span className="text-xs font-semibold text-gray-400 block mb-2">Oracle Sources</span>
+                <Space direction="vertical" size={4}>
+                  <Space size={8}>
+                    <Switch size="small" checked={includeAstrology} onChange={(v) => { setIncludeAstrology(v); audioFeedback.playClick(); }} />
+                    <span className="text-[11px] text-gray-300">🌟 Astrology Chart</span>
+                  </Space>
+                  <Space size={8}>
+                    <Switch size="small" checked={includeTarot} onChange={(v) => { setIncludeTarot(v); audioFeedback.playClick(); }} />
+                    <span className="text-[11px] text-gray-300">🃏 Tarot Oracle</span>
+                  </Space>
+                  <Space size={8}>
+                    <Switch size="small" checked={includeIching} onChange={(v) => { setIncludeIching(v); audioFeedback.playClick(); }} />
+                    <span className="text-[11px] text-gray-300">☯️ I Ching</span>
+                  </Space>
+                </Space>
               </div>
 
               {/* Weave Languages */}
@@ -822,17 +807,39 @@ export default function OutlookDashboard() {
                 >
                   <option value="">Auto-detect (default)</option>
                   {outlookModels.lm_studio && outlookModels.lm_studio.length > 0 && (
-                    <optgroup label="LM Studio (Loaded)">
+                    <optgroup label="LM Studio (Local Network)">
                       {outlookModels.lm_studio.map(m => (
-                        <option key={`outlook-lm-${m}`} value={m}>{m}</option>
+                        <option key={`outlook-lm-${m}`} value={`lm_studio:${m}`}>{m}</option>
                       ))}
                     </optgroup>
                   )}
                   {outlookModels.local && outlookModels.local.length > 0 && (
                     <optgroup label="Local GGUF">
                       {outlookModels.local.map(m => (
-                        <option key={`outlook-local-${m}`} value={m}>{m}</option>
+                        <option key={`outlook-local-${m}`} value={`local:${m}`}>{m}</option>
                       ))}
+                    </optgroup>
+                  )}
+                  {outlookModels.api && outlookModels.api.length > 0 && (
+                    <optgroup label="API Providers">
+                      {outlookModels.api.map(m => {
+                        let providerVal = 'openai';
+                        let defaultName = 'gpt-4o-mini';
+                        if (m.toLowerCase().includes('deepseek')) {
+                          providerVal = 'deepseek';
+                          const match = m.match(/\(([^)]+)\)/);
+                          defaultName = match ? match[1] : 'deepseek-chat';
+                        } else if (m.toLowerCase().includes('anthropic')) {
+                          providerVal = 'anthropic';
+                          defaultName = 'claude-3-5-haiku-20241022';
+                        } else if (m.toLowerCase().includes('openai')) {
+                          providerVal = 'openai';
+                          defaultName = 'gpt-4o-mini';
+                        }
+                        return (
+                          <option key={`outlook-api-${providerVal}-${defaultName}`} value={`${providerVal}:${defaultName}`}>{m}</option>
+                        );
+                      })}
                     </optgroup>
                   )}
                 </select>
@@ -1051,7 +1058,7 @@ export default function OutlookDashboard() {
                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 animate-pulse" />}
                 {loading ? 'Decrypting Transmissions...' : 'Initiate Narrative Stream'}
               </button>
-            </div>
+          </Card>
 
             {/* Loop settings panel */}
             <div className="bg-gray-950/40 p-5 rounded-xl border border-white/5 space-y-4">

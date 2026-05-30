@@ -1,3 +1,10 @@
+/**
+ * Session Timeline — chronological session history visualisation.
+ * Horizontal timeline with colour-coded modality indicators and
+ * expandable session detail cards.
+ * @component
+ * @param {{ sessions }} props
+ */
 import React, { useState, useEffect } from 'react';
 import { Clock, Zap, Heart, Shield, Sparkles } from 'lucide-react';
 import { API_BASE } from '../../utils/api';

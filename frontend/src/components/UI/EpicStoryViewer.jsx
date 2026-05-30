@@ -1,3 +1,10 @@
+/**
+ * Epic Story Viewer — immersive liberation narrative display.
+ * Cinematic reading mode for Blessing Narratives stories with
+ * chapter navigation and dedication display.
+ * @component
+ * @param {{ story }} props
+ */
 import React, { useState } from 'react';
 import { BookOpen, Sparkles, Compass, Moon, Sun, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 

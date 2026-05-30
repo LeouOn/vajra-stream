@@ -1,3 +1,8 @@
+/**
+ * Loading Skeleton — placeholder components for loading states.
+ * Exports CardSkeleton, ListSkeleton, TableSkeleton,
+ * SessionSkeleton, and DharmaTaleSkeleton variants.
+ */
 import React from 'react';
 
 export const LoadingSkeleton = ({ 

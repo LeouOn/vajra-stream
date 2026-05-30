@@ -1,3 +1,13 @@
+/**
+ * LLM Insights Panel — AI-generated spiritual guidance interface.
+ *
+ * Chat-style panel for interacting with the LLM backend. Supports
+ * sending queries about spiritual practice, receiving dharma teachings,
+ * generating affirmations, and reviewing past insights. Includes
+ * provider selection and model status display.
+ *
+ * @component
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles, Send, Loader2, Info, Lightbulb, TrendingUp, Settings,

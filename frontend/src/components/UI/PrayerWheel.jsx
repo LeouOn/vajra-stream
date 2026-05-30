@@ -1,3 +1,9 @@
+/**
+ * Prayer Wheel — digital Tibetan prayer wheel interface.
+ * Intention input, mantra selection, rotation tracking, TTS toggle,
+ * frequency control, and continuous/interval mode switching.
+ * @component
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { HelpCircle, Play, RefreshCw, Award, Heart, Check, BookOpen } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';

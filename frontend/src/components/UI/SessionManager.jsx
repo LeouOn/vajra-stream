@@ -1,3 +1,9 @@
+/**
+ * Session Manager — healing/blessing session list and controls.
+ * Create, pause, resume, and stop sessions. Shows duration,
+ * intention, modalities, and blessing counts.
+ * @component
+ */
 import React, { useState } from 'react';
 import { Play, Square, Plus, Clock, Zap, Heart } from 'lucide-react';
 

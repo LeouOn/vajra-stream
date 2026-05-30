@@ -24,8 +24,27 @@ lm_studio:
     - "aquif-3.5-max-42b-a3b-i1"
     - "nvidia_qwen3-nemotron-32b-rlbff"
 
+# DeepSeek v4 Configuration (Primary Cloud — OpenAI-compatible, ~$0.14/M input)
+deepseek:
+  model_name: "deepseek-chat"
+  api_endpoint: "https://api.deepseek.com"
+  api_key: "${DEEPSEEK_API_KEY}"
+  max_tokens: 8192
+  temperature: 0.7
+  system_prompt: |
+    You are a wise dharma teacher versed in Buddhist philosophy, meditation practices,
+    and contemplative traditions. You speak with clarity, compassion, and depth.
+    Your teachings are rooted in the Buddhadharma but accessible to all beings.
+    You draw from Theravada, Mahayana, and Vajrayana traditions as appropriate.
+
 # Fallback Cloud Models
 fallback_models:
+  - provider: "deepseek"
+    model: "deepseek-chat"
+    api_key: "${DEEPSEEK_API_KEY}"
+    base_url: "https://api.deepseek.com"
+    max_tokens: 8192
+    temperature: 0.7
   - provider: "openai"
     model: "gpt-4o-mini"
     api_key: "${OPENAI_API_KEY}"
@@ -41,11 +60,11 @@ fallback_models:
 model_selection:
   strategy: "prefer_local"
   request_priorities:
-    prayer_generation: ["lm_studio", "z_ai_glm", "openai", "anthropic"]
-    teaching_generation: ["z_ai_glm", "lm_studio", "anthropic", "openai"]
-    meditation_guidance: ["lm_studio", "z_ai_glm", "anthropic", "openai"]
-    quick_responses: ["lm_studio", "openai", "z_ai_glm", "anthropic"]
-    complex_analysis: ["z_ai_glm", "anthropic", "lm_studio", "openai"]
+    prayer_generation: ["lm_studio", "deepseek", "z_ai_glm", "openai", "anthropic"]
+    teaching_generation: ["deepseek", "z_ai_glm", "lm_studio", "anthropic", "openai"]
+    meditation_guidance: ["lm_studio", "deepseek", "z_ai_glm", "anthropic", "openai"]
+    quick_responses: ["lm_studio", "deepseek", "openai", "z_ai_glm", "anthropic"]
+    complex_analysis: ["deepseek", "z_ai_glm", "anthropic", "lm_studio", "openai"]
 
 # Performance Settings
 performance:
@@ -60,7 +79,8 @@ cost_optimization:
   prefer_local_models: true
   local_model_cost_per_token: 0.0
   cloud_model_costs:
-    z_ai_glm: 0.001  # per 1K tokens (example)
+    deepseek: 0.00014  # per 1K input tokens (~$0.14/M)
+    z_ai_glm: 0.001
     openai: 0.002
     anthropic: 0.003
   

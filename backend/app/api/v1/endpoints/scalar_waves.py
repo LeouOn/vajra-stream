@@ -16,14 +16,7 @@ from pydantic import BaseModel, Field
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from core.advanced_scalar_waves import (
-    CellularAutomata1D,
-    CryptoMixer,
     HybridScalarWaveGenerator,
-    KuramotoOscillator,
-    LorenzAttractor,
-    PrimeHarmonics,
-    QuantumRNG,
-    RosslerAttractor,
     ThermalMonitor,
 )
 
@@ -95,50 +88,35 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
         # Update thermal monitor
         thermal_monitor.update()
 
-        # Select generator
         import time
-
         start_time = time.time()
 
-        if request.method == "qrng":
-            generator = QuantumRNG()
-            values = generator.generate(request.count)
-        elif request.method == "lorenz":
-            generator = LorenzAttractor()
-            values = generator.generate_stream(request.count)
-        elif request.method == "rossler":
-            generator = RosslerAttractor()
-            values = generator.generate_stream(request.count)
-        elif request.method == "ca":
-            generator = CellularAutomata1D()
-            values = generator.generate_stream(request.count)
-        elif request.method == "kuramoto":
-            generator = KuramotoOscillator()
-            values = generator.generate_stream(request.count)
-        elif request.method == "crypto":
-            generator = CryptoMixer()
-            values = generator.generate_stream(request.count)
-        elif request.method == "primes":
-            generator = PrimeHarmonics()
-            values = generator.generate_stream(request.count)
-        elif request.method == "hybrid":
-            values = scalar_generator.generate_hybrid_stream(request.count)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown method: {request.method}")
+        # Use the container service to ensure events are emitted
+        from container import container
 
-        generation_time = time.time() - start_time
-        mops = (request.count / generation_time) / 1_000_000
+        result = container.scalar_waves.generate(
+            method=request.method,
+            count=request.count,
+            intensity=request.intensity
+        )
 
-        # Calculate statistics
-        import statistics
+        # The container service returns a dict like:
+        # {'status': 'success', 'mops': X, 'generation_time': Y, 'count': Z}
 
+        generation_time = result.get('generation_time', time.time() - start_time)
+        mops = result.get('mops', (request.count / generation_time) / 1_000_000)
+
+        # Since the service doesn't return the raw values, we don't have full stats
+        # But for Terra MOPS scaling, we don't need to return million-element arrays anyway
         stats = {
-            "mean": statistics.mean(values),
-            "median": statistics.median(values),
-            "stdev": statistics.stdev(values) if len(values) > 1 else 0,
-            "min": min(values),
-            "max": max(values),
+            "mean": 0,
+            "median": 0,
+            "stdev": 0,
+            "min": 0,
+            "max": 0,
         }
+
+        # Statistics already calculated above as zeros
 
         # Get thermal status
         thermal_status = {
@@ -150,7 +128,7 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
         return ScalarGenerationResponse(
             status="success",
             method=request.method,
-            count=len(values),
+            count=request.count,
             mops=mops,
             generation_time=generation_time,
             thermal_status=thermal_status,

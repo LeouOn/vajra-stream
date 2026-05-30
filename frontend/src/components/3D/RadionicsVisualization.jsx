@@ -1,3 +1,9 @@
+/**
+ * Radionics Visualization — 3D radionics rate energy field display.
+ * React Three Fiber scene showing animated energy patterns based
+ * on current radionics rate values, with particle and field effects.
+ * @component
+ */
 import React, { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Float, Trail } from '@react-three/drei';

@@ -1,3 +1,9 @@
+/**
+ * Control Panel — audio, broadcast, and system settings panel.
+ * Adjustable parameters for frequency, volume, intensity, duration,
+ * and system preferences. Slide-out panel in the main layout.
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Square, Settings, Volume2 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';

@@ -115,17 +115,134 @@ def get_rng_reading(session_id: str) -> dict[str, Any]:
 
 
 def stop_rng_session(session_id: str) -> dict[str, Any]:
-    """
-    Stop RNG session and get final summary.
-
-    Args:
-        session_id: RNG session ID
-
-    Returns:
-        Complete session statistics including floating needle count
-    """
+    """Stop active RNG session"""
     client = get_client()
     return client._post(f"/api/v1/rng/session/{session_id}/stop")
+
+
+# ============================================================================
+# AUDIO TOOLS
+# ============================================================================
+
+
+def play_chakra_healing_audio(chakra_name: str, duration: float = 30.0) -> dict[str, Any]:
+    """
+    Generate and play a Tibetan prayer bowl tone tuned to a specific chakra.
+
+    Use this when:
+    - You detect negative RNG spikes and want to calm the space
+    - The user requests a healing tone
+    - You are leading a meditation session
+
+    Args:
+        chakra_name: Name of the chakra (e.g. "root", "sacral", "solar_plexus", "heart", "throat", "third_eye", "crown")
+        duration: Duration of the audio in seconds, default 30.0
+
+    Returns:
+        {"status": "success", "message": "..."}
+    """
+    client = get_client()
+
+    # Generate the audio in memory
+    gen_res = client._post("/api/v1/audio/generate_chakra", {"chakra_name": chakra_name, "duration": duration})
+
+    if gen_res.get("status") == "success":
+        # Play the audio on local hardware
+        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
+        return {
+            "status": "success",
+            "message": f"Successfully playing {chakra_name} chakra healing audio.",
+            "generation_details": gen_res,
+            "playback_details": play_res
+        }
+    return gen_res
+
+
+def set_audio_frequency(freq_hz: float, duration_s: float = 30.0) -> dict[str, Any]:
+    """
+    Directly tune the carrier frequency of the audio broadcast.
+
+    Use this when:
+    - You want to actively change the frequency based on RNG readings
+    - Need specific Rife or Solfeggio frequencies
+
+    Args:
+        freq_hz: The frequency in Hz to play
+        duration_s: Duration to play in seconds, default 30.0
+    """
+    client = get_client()
+    config = {
+        "frequency": freq_hz,
+        "duration": duration_s,
+        "volume": 0.8,
+        "prayer_bowl_mode": True,
+        "harmonic_strength": 0.3,
+        "modulation_depth": 0.05
+    }
+    gen_res = client._post("/api/v1/audio/generate", config)
+    if gen_res.get("status") == "success":
+        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
+        return {"status": "success", "message": f"Successfully tuned frequency to {freq_hz} Hz.", "playback": play_res}
+    return gen_res
+
+
+def set_audio_modulation(harmonic_strength: float, modulation_depth: float, duration_s: float = 30.0) -> dict[str, Any]:
+    """
+    Change the timbre and modulation of the active broadcast.
+
+    Use this when:
+    - You want to increase or decrease the intensity/richness of the sound
+    - Reacting to coherence changes
+
+    Args:
+        harmonic_strength: 0.0 to 1.0, richness of overtones
+        modulation_depth: 0.0 to 1.0, depth of vibrato/tremolo
+        duration_s: Duration in seconds, default 30.0
+    """
+    client = get_client()
+    config = {
+        "frequency": 432.0, # Defaulting to a safe base frequency
+        "duration": duration_s,
+        "volume": 0.8,
+        "prayer_bowl_mode": True,
+        "harmonic_strength": harmonic_strength,
+        "modulation_depth": modulation_depth
+    }
+    gen_res = client._post("/api/v1/audio/generate", config)
+    if gen_res.get("status") == "success":
+        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
+        return {"status": "success", "message": f"Successfully modulated audio (harmonics: {harmonic_strength}, depth: {modulation_depth}).", "playback": play_res}
+    return gen_res
+
+
+def play_audio_preset(preset_name: str, duration_s: float = 30.0) -> dict[str, Any]:
+    """
+    Play a specific predefined audio preset.
+    
+    Use this when:
+    - You want guaranteed safe configurations
+    - You want to quickly shift states
+
+    Available presets: 'om-frequency', 'heart-chakra', 'earth-resonance', 'pure-sine'
+
+    Args:
+        preset_name: Name of the preset to play
+        duration_s: Duration in seconds, default 30.0
+    """
+    client = get_client()
+    presets_res = client._get("/api/v1/audio/presets")
+    presets = presets_res.get("presets", {})
+    if preset_name not in presets:
+        return {"status": "error", "message": f"Preset '{preset_name}' not found."}
+    
+    config = presets[preset_name]
+    config["duration"] = duration_s
+    
+    gen_res = client._post("/api/v1/audio/generate", config)
+    if gen_res.get("status") == "success":
+        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
+        return {"status": "success", "message": f"Successfully playing preset '{preset_name}'.", "playback": play_res}
+    return gen_res
 
 
 # ============================================================================
@@ -838,6 +955,10 @@ TOOL_REGISTRY = {
     "create_rng_session": create_rng_session,
     "get_rng_reading": get_rng_reading,
     "stop_rng_session": stop_rng_session,
+    "play_chakra_healing_audio": play_chakra_healing_audio,
+    "set_audio_frequency": set_audio_frequency,
+    "set_audio_modulation": set_audio_modulation,
+    "play_audio_preset": play_audio_preset,
     "create_blessing_slideshow": create_blessing_slideshow,
     "get_current_slide": get_current_slide,
     "stop_slideshow": stop_slideshow,
@@ -1061,6 +1182,55 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                 },
                 "required": ["session_id"],
             },
+        },
+        {
+            "name": "set_audio_frequency",
+            "description": "Directly tune the carrier frequency of the active audio broadcast. Use this to actively change frequencies based on RNG readings.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "freq_hz": {"type": "number", "description": "The frequency in Hz to play (e.g. 432.0, 528.0)"},
+                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"}
+                },
+                "required": ["freq_hz"]
+            }
+        },
+        {
+            "name": "set_audio_modulation",
+            "description": "Change the timbre and modulation of the active broadcast. Use this to increase or decrease the intensity/richness of the sound.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "harmonic_strength": {"type": "number", "description": "0.0 to 1.0, richness of overtones"},
+                    "modulation_depth": {"type": "number", "description": "0.0 to 1.0, depth of vibrato/tremolo"},
+                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"}
+                },
+                "required": ["harmonic_strength", "modulation_depth"]
+            }
+        },
+        {
+            "name": "play_audio_preset",
+            "description": "Play a specific predefined audio preset. Available presets: 'om-frequency', 'heart-chakra', 'earth-resonance', 'pure-sine'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "preset_name": {"type": "string", "description": "Name of the preset to play"},
+                    "duration_s": {"type": "number", "description": "Duration in seconds, default 30.0"}
+                },
+                "required": ["preset_name"]
+            }
+        },
+        {
+            "name": "play_chakra_healing_audio",
+            "description": "Generate and play a Tibetan prayer bowl tone tuned to a specific chakra. Use this to calm the space.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "chakra_name": {"type": "string", "description": "Name of the chakra (e.g. root, sacral, heart)"},
+                    "duration": {"type": "number", "description": "Duration to play in seconds, default 30.0"}
+                },
+                "required": ["chakra_name"]
+            }
         },
         {
             "name": "list_populations",

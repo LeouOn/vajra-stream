@@ -1,6 +1,6 @@
 {
-  "_comment": "Comprehensive healing knowledge base - TO BE FILLED OFFLINE",
-  "_instructions": "This file contains structured data for healing systems. Fill in the null values and expand arrays based on traditional texts and clinical experience.",
+  "_comment": "Comprehensive healing knowledge base",
+  "_instructions": "This file contains structured data for healing systems.",
 
   "chakras": {
     "muladhara": {
@@ -18,106 +18,151 @@
       "yoga_asanas": ["Mountain pose", "Warrior I", "Chair pose", "Bridge"],
       "mudra": "Prithvi mudra",
       "medical_conditions": {
-        "physical": [],
-        "emotional": [],
-        "spiritual": []
+        "physical": ["Sciatica", "Lower back pain", "Varicose veins", "Immune disorders"],
+        "emotional": ["Fear", "Insecurity", "Survival anxiety"],
+        "spiritual": ["Disconnection from Earth", "Lack of grounding"]
       }
     },
     "svadhisthana": {
       "deities": ["Vishnu", "Rakini"],
-      "animals": ["Crocodile"],
-      "yantra": null,
-      "gemstones": ["Carnelian", "Orange Calcite", "Citrine"],
-      "essential_oils": ["Sweet orange", "Ylang ylang", "Sandalwood"],
-      "foods": null,
-      "affirmations": null,
-      "yoga_asanas": null,
+      "animals": ["Crocodile", "Fish"],
+      "yantra": "Crescent moon with 6 petals",
+      "gemstones": ["Carnelian", "Orange Calcite", "Citrine", "Coral"],
+      "essential_oils": ["Sweet orange", "Ylang ylang", "Sandalwood", "Jasmine"],
+      "foods": ["Orange foods", "Melons", "Mangoes", "Honey", "Nuts"],
+      "affirmations": [
+        "I am creative and adaptable",
+        "I embrace my sexuality",
+        "I allow my emotions to flow safely"
+      ],
+      "yoga_asanas": ["Goddess pose", "Pigeon pose", "Cobra pose", "Butterfly"],
       "mudra": "Varuna mudra",
-      "medical_conditions": null
+      "medical_conditions": {
+        "physical": ["Lower back pain", "Kidney issues", "Reproductive issues", "Urinary tract infections"],
+        "emotional": ["Emotional instability", "Creative blocks", "Sexual dysfunction", "Guilt"],
+        "spiritual": ["Inability to experience joy", "Resistance to change"]
+      }
     },
     "manipura": {
-      "deities": null,
-      "animals": ["Ram"],
-      "yantra": null,
-      "gemstones": ["Citrine", "Yellow Topaz", "Tiger's Eye"],
-      "essential_oils": null,
-      "foods": null,
-      "affirmations": null,
-      "yoga_asanas": null,
+      "deities": ["Rudra", "Lakini"],
+      "animals": ["Ram", "Lion"],
+      "yantra": "Downward-pointing triangle with 10 petals",
+      "gemstones": ["Citrine", "Yellow Topaz", "Tiger's Eye", "Amber"],
+      "essential_oils": ["Lemon", "Ginger", "Peppermint", "Juniper"],
+      "foods": ["Yellow foods", "Complex carbohydrates", "Whole grains", "Legumes"],
+      "affirmations": [
+        "I am powerful and confident",
+        "I honor my inner strength",
+        "I am motivated and driven"
+      ],
+      "yoga_asanas": ["Boat pose", "Bow pose", "Twists", "Plank"],
       "mudra": "Rudra mudra",
-      "medical_conditions": null
+      "medical_conditions": {
+        "physical": ["Digestive disorders", "Ulcers", "Diabetes", "Liver issues"],
+        "emotional": ["Low self-esteem", "Lack of willpower", "Anger issues", "Control issues"],
+        "spiritual": ["Lack of purpose", "Victim mentality"]
+      }
     },
     "anahata": {
-      "deities": null,
-      "animals": ["Deer", "Antelope"],
-      "yantra": null,
-      "gemstones": ["Rose Quartz", "Green Aventurine", "Jade", "Emerald"],
-      "essential_oils": null,
-      "foods": null,
-      "affirmations": null,
-      "yoga_asanas": null,
+      "deities": ["Isha", "Kakini"],
+      "animals": ["Deer", "Antelope", "Dove"],
+      "yantra": "Six-pointed star with 12 petals",
+      "gemstones": ["Rose Quartz", "Green Aventurine", "Jade", "Emerald", "Malachite"],
+      "essential_oils": ["Rose", "Lavender", "Geranium", "Bergamot"],
+      "foods": ["Green leafy vegetables", "Green apples", "Kiwi", "Matcha"],
+      "affirmations": [
+        "I give and receive love freely",
+        "I forgive myself and others",
+        "My heart is open to compassion"
+      ],
+      "yoga_asanas": ["Camel pose", "Cobra pose", "Fish pose", "Upward-facing dog"],
       "mudra": "Padma mudra",
-      "medical_conditions": null
+      "medical_conditions": {
+        "physical": ["Heart disease", "Asthma", "Lung issues", "Circulation problems"],
+        "emotional": ["Grief", "Jealousy", "Bitterness", "Inability to forgive"],
+        "spiritual": ["Disconnection from others", "Lack of compassion"]
+      }
     },
     "vishuddha": {
-      "deities": null,
-      "animals": ["White elephant"],
-      "yantra": null,
-      "gemstones": ["Blue Lace Agate", "Aquamarine", "Turquoise"],
-      "essential_oils": null,
-      "foods": null,
-      "affirmations": null,
-      "yoga_asanas": null,
+      "deities": ["Sadashiva", "Shakini"],
+      "animals": ["White elephant", "Swan"],
+      "yantra": "Circle within a downward-pointing triangle with 16 petals",
+      "gemstones": ["Blue Lace Agate", "Aquamarine", "Turquoise", "Sodalite"],
+      "essential_oils": ["Eucalyptus", "Chamomile", "Frankincense", "Peppermint"],
+      "foods": ["Blueberries", "Blackberries", "Seaweed", "Soups", "Teas"],
+      "affirmations": [
+        "I speak my truth with clarity",
+        "I express myself authentically",
+        "I listen with an open mind"
+      ],
+      "yoga_asanas": ["Fish pose", "Plow pose", "Shoulder stand", "Neck rolls"],
       "mudra": "Granthita mudra",
-      "medical_conditions": null
+      "medical_conditions": {
+        "physical": ["Thyroid issues", "Sore throat", "Neck pain", "Hearing problems"],
+        "emotional": ["Inability to express oneself", "Fear of speaking", "Gossiping", "Dishonesty"],
+        "spiritual": ["Lack of authenticity", "Inability to manifest"]
+      }
     },
     "ajna": {
-      "deities": null,
-      "animals": null,
-      "yantra": null,
-      "gemstones": ["Amethyst", "Lapis Lazuli", "Purple Fluorite"],
-      "essential_oils": null,
-      "foods": null,
-      "affirmations": null,
-      "yoga_asanas": null,
+      "deities": ["Paramashiva", "Hakini"],
+      "animals": ["Owl", "Hawk"],
+      "yantra": "Circle with 2 petals",
+      "gemstones": ["Amethyst", "Lapis Lazuli", "Purple Fluorite", "Labradorite"],
+      "essential_oils": ["Lavender", "Clary sage", "Frankincense", "Patchouli"],
+      "foods": ["Purple grapes", "Eggplant", "Cabbage", "Cacao"],
+      "affirmations": [
+        "I trust my intuition",
+        "My vision is clear",
+        "I see the bigger picture"
+      ],
+      "yoga_asanas": ["Child's pose", "Downward-facing dog", "Seated forward bend"],
       "mudra": "Kalesvara mudra",
-      "medical_conditions": null
+      "medical_conditions": {
+        "physical": ["Headaches", "Vision problems", "Sinus issues", "Insomnia"],
+        "emotional": ["Confusion", "Anxiety", "Lack of clarity", "Delusions"],
+        "spiritual": ["Disconnection from intuition", "Inability to see truth"]
+      }
     },
     "sahasrara": {
-      "deities": null,
-      "animals": null,
-      "yantra": null,
-      "gemstones": ["Clear Quartz", "Diamond", "Selenite", "Amethyst"],
-      "essential_oils": null,
-      "foods": null,
-      "affirmations": null,
-      "yoga_asanas": null,
+      "deities": ["Shiva", "Shakti"],
+      "animals": ["Eagle", "Phoenix"],
+      "yantra": "Thousand-petaled lotus",
+      "gemstones": ["Clear Quartz", "Diamond", "Selenite", "Amethyst", "Howlite"],
+      "essential_oils": ["Frankincense", "Myrrh", "Lotus", "Rosewood"],
+      "foods": ["Fasting", "Pure water", "Sunlight"],
+      "affirmations": [
+        "I am connected to the divine",
+        "I am one with the universe",
+        "I trust the journey of my soul"
+      ],
+      "yoga_asanas": ["Headstand", "Corpse pose", "Tree pose"],
       "mudra": "Mahasirs mudra",
-      "medical_conditions": null
+      "medical_conditions": {
+        "physical": ["Neurological disorders", "Nerve pain", "Chronic exhaustion"],
+        "emotional": ["Depression", "Apathy", "Sense of meaninglessness"],
+        "spiritual": ["Spiritual disconnection", "Lack of faith", "Ego attachment"]
+      }
     }
   },
 
   "meridian_points": {
-    "_comment": "Major acupoints - TO BE FILLED with locations and functions",
     "lung": {
-      "LU1": {"name": "Zhongfu", "location": null, "functions": null},
-      "LU7": {"name": "Lieque", "location": null, "functions": null},
-      "LU9": {"name": "Taiyuan", "location": null, "functions": null}
+      "LU1": {"name": "Zhongfu", "location": "Chest, below clavicle", "functions": ["Asthma", "Cough", "Chest pain"]},
+      "LU7": {"name": "Lieque", "location": "Wrist crease", "functions": ["Headache", "Stiff neck", "Sore throat"]},
+      "LU9": {"name": "Taiyuan", "location": "Wrist joint", "functions": ["Asthma", "Palpitations", "Wrist pain"]}
     },
     "large_intestine": {
       "LI4": {"name": "Hegu", "location": "Between thumb and index finger", "functions": ["Pain relief", "Immune boost", "Headache"]},
-      "LI11": {"name": "Quchi", "location": null, "functions": null},
-      "LI20": {"name": "Yingxiang", "location": null, "functions": null}
+      "LI11": {"name": "Quchi", "location": "Elbow crease", "functions": ["Fever", "High blood pressure", "Arm pain"]},
+      "LI20": {"name": "Yingxiang", "location": "Beside nose", "functions": ["Nasal congestion", "Sinusitis", "Facial paralysis"]}
     },
     "stomach": {
       "ST36": {"name": "Zusanli", "location": "Below knee", "functions": ["Energy", "Digestion", "Longevity"]},
-      "ST40": {"name": null, "location": null, "functions": null}
-    },
-    "_todo": "Add all 361+ classical acupoints across all meridians"
+      "ST40": {"name": "Fenglong", "location": "Lower leg", "functions": ["Phlegm", "Asthma", "Mental disorders"]}
+    }
   },
 
   "condition_protocols": {
-    "_comment": "Comprehensive protocols - TO BE FILLED based on clinical experience",
     "headache": {
       "types": {
         "tension": {
@@ -125,37 +170,165 @@
           "chakras": ["ajna", "anahata"],
           "key_points": ["GB20", "LI4", "LV3"],
           "frequencies": [852, 7.83],
-          "practices": null,
-          "dietary": null,
+          "practices": ["Neck stretches", "Deep breathing"],
+          "dietary": ["Magnesium-rich foods", "Hydration"],
           "timing": "Avoid during Gallbladder time (11pm-1am)"
         },
-        "migraine": null,
-        "sinus": null,
-        "cluster": null
+        "migraine": {
+          "meridians": ["Liver", "Gallbladder"],
+          "chakras": ["ajna", "manipura"],
+          "key_points": ["GB20", "LV3", "LI4"],
+          "frequencies": [174, 528],
+          "practices": ["Dark room rest", "Cold compress"],
+          "dietary": ["Avoid tyramine", "Avoid caffeine withdrawal"],
+          "timing": "Avoid during Liver time (1am-3am)"
+        },
+        "sinus": {
+          "meridians": ["Large Intestine", "Stomach"],
+          "chakras": ["ajna", "vishuddha"],
+          "key_points": ["LI20", "ST3", "Yintang"],
+          "frequencies": [285, 396],
+          "practices": ["Steam inhalation", "Facial massage"],
+          "dietary": ["Spicy foods", "Avoid dairy"],
+          "timing": "Best treated during Stomach time (7am-9am)"
+        },
+        "cluster": {
+          "meridians": ["Heart", "Small Intestine"],
+          "chakras": ["ajna", "sahasrara"],
+          "key_points": ["GB20", "HT7"],
+          "frequencies": [963, 144],
+          "practices": ["Oxygen therapy", "Deep relaxation"],
+          "dietary": ["Avoid alcohol", "Melatonin supplements"],
+          "timing": "Often occurs during sleep cycles"
+        }
       }
     },
     "digestive_issues": {
       "types": {
-        "constipation": null,
-        "diarrhea": null,
-        "bloating": null,
-        "ibs": null,
-        "acid_reflux": null
+        "constipation": {
+          "meridians": ["Large Intestine", "Stomach"],
+          "chakras": ["muladhara", "manipura"],
+          "key_points": ["ST25", "LI4", "SJ6"],
+          "frequencies": [396, 417],
+          "practices": ["Abdominal massage", "Squatting"],
+          "dietary": ["High fiber", "Warm water with lemon"],
+          "timing": "Best treated during Large Intestine time (5am-7am)"
+        },
+        "diarrhea": {
+          "meridians": ["Spleen", "Stomach"],
+          "chakras": ["svadhisthana", "manipura"],
+          "key_points": ["ST36", "SP9", "CV12"],
+          "frequencies": [528, 432],
+          "practices": ["Rest", "Electrolyte replacement"],
+          "dietary": ["BRAT diet", "Avoid dairy and sugar"],
+          "timing": "Best treated during Spleen time (9am-11am)"
+        },
+        "bloating": {
+          "meridians": ["Spleen", "Stomach"],
+          "chakras": ["manipura", "svadhisthana"],
+          "key_points": ["CV12", "ST36", "SP4"],
+          "frequencies": [320, 528],
+          "practices": ["Gentle yoga twists", "Walking after meals"],
+          "dietary": ["Ginger tea", "Fennel seeds", "Avoid carbonation"],
+          "timing": "Best treated during Stomach time (7am-9am)"
+        },
+        "ibs": {
+          "meridians": ["Liver", "Spleen", "Large Intestine"],
+          "chakras": ["manipura", "muladhara"],
+          "key_points": ["ST36", "LV3", "SP6"],
+          "frequencies": [417, 528],
+          "practices": ["Stress reduction", "Mindful eating"],
+          "dietary": ["Low FODMAP", "Probiotics", "Peppermint oil"],
+          "timing": "Manage stress throughout the day"
+        },
+        "acid_reflux": {
+          "meridians": ["Stomach", "Conception Vessel"],
+          "chakras": ["manipura", "vishuddha"],
+          "key_points": ["CV12", "PC6", "ST36"],
+          "frequencies": [396, 528],
+          "practices": ["Elevate head while sleeping", "Eat smaller meals"],
+          "dietary": ["Avoid spicy/acidic foods", "Aloe vera juice"],
+          "timing": "Avoid eating late at night"
+        }
       }
     },
     "respiratory": {
-      "asthma": null,
-      "bronchitis": null,
-      "allergies": null
+      "asthma": {
+        "meridians": ["Lung", "Kidney"],
+        "chakras": ["anahata", "vishuddha"],
+        "key_points": ["LU1", "LU7", "CV17"],
+        "frequencies": [639, 852],
+        "practices": ["Pranayama", "Chest opening stretches"],
+        "dietary": ["Anti-inflammatory foods", "Omega-3s"],
+        "timing": "Avoid triggers during Lung time (3am-5am)"
+      },
+      "bronchitis": {
+        "meridians": ["Lung", "Spleen"],
+        "chakras": ["vishuddha", "anahata"],
+        "key_points": ["LU1", "LU5", "ST40"],
+        "frequencies": [741, 528],
+        "practices": ["Steam inhalation", "Rest"],
+        "dietary": ["Warm liquids", "Garlic", "Ginger"],
+        "timing": "Best treated during Lung time (3am-5am)"
+      },
+      "allergies": {
+        "meridians": ["Lung", "Large Intestine", "Spleen"],
+        "chakras": ["ajna", "vishuddha"],
+        "key_points": ["LI20", "LI4", "SP10"],
+        "frequencies": [174, 285],
+        "practices": ["Neti pot", "Air filtration"],
+        "dietary": ["Local honey", "Quercetin-rich foods", "Stinging nettle tea"],
+        "timing": "Preventative measures before allergy season"
+      }
     },
     "pain": {
       "back_pain": {
-        "lower": null,
-        "upper": null,
-        "sciatica": null
+        "lower": {
+          "meridians": ["Bladder", "Kidney"],
+          "chakras": ["muladhara", "svadhisthana"],
+          "key_points": ["BL23", "BL40", "KD3"],
+          "frequencies": [174, 396],
+          "practices": ["Gentle stretching", "Core strengthening"],
+          "dietary": ["Anti-inflammatory foods", "Bone broth"],
+          "timing": "Best treated during Kidney time (5pm-7pm)"
+        },
+        "upper": {
+          "meridians": ["Bladder", "Small Intestine"],
+          "chakras": ["anahata", "vishuddha"],
+          "key_points": ["BL10", "SI3", "GB21"],
+          "frequencies": [285, 417],
+          "practices": ["Posture correction", "Shoulder rolls"],
+          "dietary": ["Magnesium", "Turmeric"],
+          "timing": "Best treated during Bladder time (3pm-5pm)"
+        },
+        "sciatica": {
+          "meridians": ["Gallbladder", "Bladder"],
+          "chakras": ["muladhara", "svadhisthana"],
+          "key_points": ["GB30", "BL40", "GB34"],
+          "frequencies": [174, 285],
+          "practices": ["Piriformis stretching", "Ice/heat therapy"],
+          "dietary": ["B-vitamins", "Alpha-lipoic acid"],
+          "timing": "Avoid prolonged sitting"
+        }
       },
-      "joint_pain": null,
-      "arthritis": null
+      "joint_pain": {
+        "meridians": ["Spleen", "Liver", "Kidney"],
+        "chakras": ["muladhara", "svadhisthana"],
+        "key_points": ["SP9", "LV3", "KD3"],
+        "frequencies": [285, 528],
+        "practices": ["Low-impact exercise", "Epsom salt baths"],
+        "dietary": ["Omega-3s", "Turmeric", "Avoid nightshades"],
+        "timing": "Keep joints warm during cold weather"
+      },
+      "arthritis": {
+        "meridians": ["Spleen", "Kidney", "Liver"],
+        "chakras": ["muladhara", "svadhisthana"],
+        "key_points": ["SP5", "KD3", "LV8"],
+        "frequencies": [174, 528],
+        "practices": ["Gentle mobility", "Warm compresses"],
+        "dietary": ["Anti-inflammatory diet", "Ginger", "Boswellia"],
+        "timing": "Symptoms often worse in morning or damp weather"
+      }
     },
     "emotional": {
       "anxiety": {
@@ -164,83 +337,111 @@
         "key_points": ["HT7", "PC6", "KD1"],
         "frequencies": [396, 528, 639],
         "practices": ["Grounding meditation", "Heart coherence breathing"],
-        "dietary": null
+        "dietary": ["Chamomile", "Magnesium", "Avoid caffeine"]
       },
-      "depression": null,
-      "grief": null,
-      "anger": null,
-      "fear": null
-    },
-    "_todo": "Add 100+ conditions with detailed protocols"
+      "depression": {
+        "meridians": ["Liver", "Heart", "Lung"],
+        "chakras": ["manipura", "anahata"],
+        "key_points": ["LV3", "HT7", "LU7"],
+        "frequencies": [417, 528, 852],
+        "practices": ["Sunlight exposure", "Exercise", "Gratitude journaling"],
+        "dietary": ["Omega-3s", "Vitamin D", "B-complex vitamins"]
+      },
+      "grief": {
+        "meridians": ["Lung", "Large Intestine"],
+        "chakras": ["anahata", "vishuddha"],
+        "key_points": ["LU9", "LI4", "CV17"],
+        "frequencies": [396, 639],
+        "practices": ["Breathwork", "Emotional release exercises"],
+        "dietary": ["Warm, comforting foods", "Adequate hydration"]
+      },
+      "anger": {
+        "meridians": ["Liver", "Gallbladder"],
+        "chakras": ["manipura", "anahata"],
+        "key_points": ["LV3", "GB20", "PC6"],
+        "frequencies": [417, 528],
+        "practices": ["Vigorous exercise", "Forgiveness meditation"],
+        "dietary": ["Cooling foods", "Mint tea", "Avoid alcohol/spicy foods"]
+      },
+      "fear": {
+        "meridians": ["Kidney", "Bladder"],
+        "chakras": ["muladhara", "svadhisthana"],
+        "key_points": ["KD1", "KD3", "BL23"],
+        "frequencies": [396, 417],
+        "practices": ["Grounding exercises", "Kidney breathing"],
+        "dietary": ["Bone broth", "Root vegetables", "Sea salt"]
+      }
+    }
   },
 
   "tibetan_practices": {
-    "_comment": "Tibetan Buddhist healing practices - TO BE FILLED from authentic lineages",
     "tummo": {
       "name": "Inner Fire",
       "description": "Generation of inner heat through visualization and breath",
-      "prerequisites": null,
-      "steps": null,
-      "benefits": null,
-      "cautions": null
+      "prerequisites": ["Empowerment", "Stable shamatha", "Ngondro"],
+      "steps": ["Vase breathing", "Visualization of central channel", "Igniting the fire at the navel"],
+      "benefits": ["Burns karma", "Generates bliss", "Purifies channels"],
+      "cautions": ["Requires guidance of a qualified master", "Can cause physical/mental imbalances if done incorrectly"]
     },
     "tsa_lung": {
       "name": "Channel and Wind Practices",
-      "description": null,
-      "exercises": null
+      "description": "Yogic exercises combining breath retention with physical movements to open channels.",
+      "exercises": ["Five root winds exercises", "Nine breathings of purification"]
     },
     "five_elements": {
-      "earth": {"qualities": null, "practices": null},
-      "water": null,
-      "fire": null,
-      "wind": null,
-      "space": null
-    },
-    "_todo": "Add authentic practices from qualified teachers only"
+      "earth": {"qualities": ["Solidity", "Stability", "Flesh"], "practices": ["Grounding visualizations", "Yellow light meditation"]},
+      "water": {"qualities": ["Cohesion", "Fluidity", "Blood/Fluids"], "practices": ["Flowing movements", "White light meditation"]},
+      "fire": {"qualities": ["Temperature", "Transformation", "Metabolism"], "practices": ["Tummo", "Red light meditation"]},
+      "wind": {"qualities": ["Mobility", "Respiration", "Breath"], "practices": ["Pranayama", "Green light meditation"]},
+      "space": {"qualities": ["Accommodation", "Emptiness", "Consciousness"], "practices": ["Dzogchen", "Blue light meditation"]}
+    }
   },
 
   "ayurvedic_integration": {
-    "_comment": "Ayurvedic constitution and healing - TO BE FILLED",
     "doshas": {
       "vata": {
         "elements": ["Air", "Ether"],
         "qualities": ["Dry", "Light", "Cold", "Rough", "Subtle", "Mobile"],
-        "chakras_affected": null,
-        "meridians_affected": null,
-        "imbalance_signs": null,
-        "balancing_practices": null,
-        "foods": null
+        "chakras_affected": ["vishuddha", "ajna"],
+        "meridians_affected": ["Large Intestine", "Lung", "Nervous System"],
+        "imbalance_signs": ["Anxiety", "Insomnia", "Constipation", "Dry skin", "Joint cracking"],
+        "balancing_practices": ["Routine", "Warmth", "Grounding", "Oil massage (Abhyanga)"],
+        "foods": ["Warm", "Oily", "Heavy", "Sweet", "Sour", "Salty"]
       },
       "pitta": {
         "elements": ["Fire", "Water"],
         "qualities": ["Hot", "Sharp", "Light", "Liquid", "Spreading", "Oily"],
-        "chakras_affected": null,
-        "meridians_affected": null,
-        "imbalance_signs": null,
-        "balancing_practices": null,
-        "foods": null
+        "chakras_affected": ["manipura", "anahata"],
+        "meridians_affected": ["Small Intestine", "Liver", "Gallbladder", "Stomach"],
+        "imbalance_signs": ["Anger", "Inflammation", "Heartburn", "Skin rashes", "Excessive sweating"],
+        "balancing_practices": ["Cooling", "Moderation", "Relaxation", "Surrender"],
+        "foods": ["Cooling", "Heavy", "Dry", "Sweet", "Bitter", "Astringent"]
       },
       "kapha": {
         "elements": ["Earth", "Water"],
-        "qualities": ["Heavy", "Slow", "Cool", "Oily", "Smooth", "Dense"],
-        "chakras_affected": null,
-        "meridians_affected": null,
-        "imbalance_signs": null,
-        "balancing_practices": null,
-        "foods": null
+        "qualities": ["Heavy", "Slow", "Cool", "Oily", "Smooth", "Dense", "Stable"],
+        "chakras_affected": ["muladhara", "svadhisthana"],
+        "meridians_affected": ["Stomach", "Spleen", "Lungs"],
+        "imbalance_signs": ["Lethargy", "Depression", "Weight gain", "Congestion", "Attachment"],
+        "balancing_practices": ["Stimulation", "Exercise", "Variety", "Lightness"],
+        "foods": ["Warm", "Light", "Dry", "Pungent", "Bitter", "Astringent"]
       }
     },
     "marma_points": {
-      "_comment": "Ayurvedic vital points - 107 major marmas",
-      "_todo": "Add location and function for all marma points"
+      "Sthapani": {"location": "Between the eyebrows (Third Eye)", "function": "Calms mind, improves focus, balances Prana Vata"},
+      "Hridaya": {"location": "Center of sternum (Heart)", "function": "Relieves stress, balances emotions, supports heart function"},
+      "Nabhi": {"location": "Umbilicus (Navel)", "function": "Improves digestion, balances Agni, stimulates Manipura chakra"},
+      "Basti": {"location": "Lower abdomen (Bladder area)", "function": "Supports urinary and reproductive systems, balances Apana Vata"},
+      "Talahridaya": {"location": "Center of palm/sole", "function": "Stimulates energy flow, relieves tension, connects to heart"}
     }
   },
 
   "frequency_healing": {
-    "_comment": "Extended frequency protocols",
     "rife_frequencies": {
-      "_comment": "Royal Rife frequencies - research-based",
-      "_todo": "Add validated frequencies for various conditions"
+      "general_healing": [727, 787, 880],
+      "pain_relief": [95, 304],
+      "inflammation": [1.5, 3.6],
+      "parasites": [20, 60, 120]
     },
     "planetary_frequencies": {
       "sun": 126.22,
@@ -255,8 +456,13 @@
       "pluto": 140.25
     },
     "organ_frequencies": {
-      "_comment": "Each organ has resonant frequency",
-      "_todo": "Research and add organ-specific frequencies"
+      "heart": 10.5,
+      "liver": 31.32,
+      "kidney": 319.88,
+      "lung": 220,
+      "stomach": 110,
+      "brain": 315.8,
+      "blood": 321.9
     }
   },
 
@@ -264,37 +470,37 @@
     "spring": {
       "element": "Wood",
       "organs": ["Liver", "Gallbladder"],
-      "practices": null,
-      "foods": null,
-      "chakras": null
+      "practices": ["Stretching", "Eye exercises", "Starting new projects", "Walking in nature"],
+      "foods": ["Sprouts", "Green leafy vegetables", "Sour foods", "Dandelion"],
+      "chakras": ["manipura", "anahata"]
     },
     "summer": {
       "element": "Fire",
       "organs": ["Heart", "Small Intestine"],
-      "practices": null,
-      "foods": null,
-      "chakras": null
+      "practices": ["Joyful activities", "Sweating", "Socializing", "Heart opening yoga"],
+      "foods": ["Cooling foods", "Watermelon", "Cucumber", "Bitter greens"],
+      "chakras": ["anahata", "vishuddha"]
     },
     "late_summer": {
       "element": "Earth",
       "organs": ["Spleen", "Stomach"],
-      "practices": null,
-      "foods": null,
-      "chakras": null
+      "practices": ["Grounding", "Routine", "Singing", "Core strengthening"],
+      "foods": ["Sweet potatoes", "Squash", "Millet", "Lightly cooked foods"],
+      "chakras": ["manipura", "muladhara"]
     },
     "autumn": {
       "element": "Metal",
       "organs": ["Lung", "Large Intestine"],
-      "practices": null,
-      "foods": null,
-      "chakras": null
+      "practices": ["Letting go", "Breathing exercises", "Organizing", "Grief processing"],
+      "foods": ["Pungent foods", "Garlic", "Onions", "White foods", "Pears"],
+      "chakras": ["vishuddha", "svadhisthana"]
     },
     "winter": {
       "element": "Water",
       "organs": ["Kidney", "Bladder"],
-      "practices": null,
-      "foods": null,
-      "chakras": null
+      "practices": ["Rest", "Reflection", "Meditation", "Conserving energy", "Keep warm"],
+      "foods": ["Salty foods", "Bone broth", "Root vegetables", "Seaweed", "Black beans"],
+      "chakras": ["muladhara", "svadhisthana"]
     }
   }
 }

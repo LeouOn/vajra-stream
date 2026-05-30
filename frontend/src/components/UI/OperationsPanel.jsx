@@ -1,16 +1,25 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * Operations Panel — multi-system orchestration dashboard.
+ * Unified view for audio, blessings, crystals, RNG, and sessions.
+ * @component
+ */
+import React, { useState } from 'react';
 import { 
-  Sparkles, Compass, Moon, Sun, ArrowRight, Zap, Play, Check, 
+  Sparkles, Compass, ArrowRight, Zap, Play, Check, 
   RefreshCw, Layers, Award, Shield, Cpu, HelpCircle
 } from 'lucide-react';
+import { Card, Tag } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useAudioStore } from '../../stores/audioStore';
 import ChakraHealing from './ChakraHealing';
 import PrayerWheel from './PrayerWheel';
 import TimeCycles from './TimeCycles';
+import ChakraBodyMap from '../2D/ChakraBodyMap';
 
 import { API_BASE } from '../../utils/api';
 
 export default function OperationsPanel() {
+  const { updateSettings } = useAudioStore();
   const [activeSubTab, setActiveSubTab] = useState('divination');
   const [divinationSystem, setDivinationSystem] = useState('tarot');
   
@@ -21,11 +30,6 @@ export default function OperationsPanel() {
   const [geomancyResult, setGeomancyResult] = useState(null);
   const [loading, setLoading] = useState(false);
   
-  // Astrology state
-  const [astrologyData, setAstrologyData] = useState(null);
-  const [planetaryHours, setPlanetaryHours] = useState(null);
-  const [transits, setTransits] = useState([]);
-  
   // Ritual composer state
   const [composerSteps, setComposerSteps] = useState([
     { id: 'step_1', label: 'Oracle Divination Draw', status: 'pending', description: 'Consult the high-entropy RNG system for guidance' },
@@ -35,11 +39,6 @@ export default function OperationsPanel() {
   ]);
   const [isRitualRunning, setIsRitualRunning] = useState(false);
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
-
-  // Fetch Astrology Data on Mount
-  useEffect(() => {
-    fetchAstrology();
-  }, []);
 
   const fetchAstrology = async () => {
     try {
@@ -210,16 +209,6 @@ export default function OperationsPanel() {
           🔮 Divination Suite
         </button>
         <button
-          onClick={() => { setActiveSubTab('astrology'); audioFeedback.playClick(); }}
-          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
-            activeSubTab === 'astrology'
-              ? 'border-vajra-cyan text-vajra-cyan'
-              : 'border-transparent text-gray-400 hover:text-white'
-          }`}
-        >
-          🪐 Astrology & Transits
-        </button>
-        <button
           onClick={() => { setActiveSubTab('composer'); audioFeedback.playClick(); }}
           className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
             activeSubTab === 'composer'
@@ -318,18 +307,22 @@ export default function OperationsPanel() {
               </div>
 
               {tarotResult && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 pt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-4">
                   {tarotResult.map((card, idx) => (
-                    <div key={card.id} className="flex flex-col items-center bg-gray-950/40 p-3 rounded-xl border border-white/10 shadow-2xl hover:border-purple-500/20 transition-all duration-300 transform hover:-translate-y-1">
-                      <div className="w-32 h-48 flex items-center justify-center relative overflow-hidden rounded-lg">
+                    <Card
+                      key={card.id}
+                      hoverable
+                      size="small"
+                      className="text-center bg-gray-950/60 border-white/10 hover:border-purple-500/40 transition-all duration-300"
+                      styles={{ body: { padding: '12px 8px' } }}
+                    >
+                      <div className="w-20 h-32 mx-auto flex items-center justify-center relative overflow-hidden rounded-lg mb-2">
                         <div dangerouslySetInnerHTML={{ __html: card.svg }} className="divination-card-container w-full h-full flex justify-center" />
                       </div>
-                      <div className="text-center mt-2 space-y-0.5">
-                        <span className="text-[10px] font-mono font-bold text-gray-500">CARD #{idx+1}</span>
-                        <h4 className="text-xs font-bold text-white">{card.name}</h4>
-                        <p className="text-[10px] text-purple-300 italic leading-tight">{card.meaning}</p>
-                      </div>
-                    </div>
+                      <Tag color="purple" className="text-[9px] mb-1">CARD #{idx+1}</Tag>
+                      <h4 className="text-xs font-bold text-white mb-0.5">{card.name}</h4>
+                      <p className="text-[10px] text-purple-300/80 italic leading-tight line-clamp-2">{card.meaning}</p>
+                    </Card>
                   ))}
                 </div>
               )}
@@ -442,112 +435,7 @@ export default function OperationsPanel() {
         </div>
       )}
 
-      {/* ==================== 2. ASTROLOGY PANEL ==================== */}
-      {activeSubTab === 'astrology' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Active Planetary Hour */}
-          <div className="bg-gray-950/40 p-5 rounded-xl border border-white/10 flex flex-col justify-between space-y-4">
-            <div>
-              <h3 className="text-md font-bold text-white flex items-center gap-2">
-                <Sun className="w-5 h-5 text-yellow-500" />
-                Planetary Hour Timeline
-              </h3>
-              <p className="text-xs text-gray-400 mt-0.5">Traditional Chaldean order hourly energetic rulers.</p>
-            </div>
-
-            {planetaryHours ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-yellow-950/20 border border-yellow-500/20 rounded-xl flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-yellow-400 font-mono tracking-widest block uppercase">CURRENT HOUR RULER</span>
-                    <span className="text-xl font-bold text-white mt-1 block">{planetaryHours.current_planetary_hour}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-gray-400 font-mono block">DAY OF THE WEEK</span>
-                    <span className="text-sm font-semibold text-gray-300 block">{planetaryHours.day_of_week} (Day of {planetaryHours.day_planet})</span>
-                  </div>
-                </div>
-
-                <div className="text-xs space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Ruler Influence:</span>
-                    <span className="text-gray-200 font-medium">{planetaryHours.description}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Local Hour Index:</span>
-                    <span className="text-gray-200 font-mono">{planetaryHours.hour_of_day}:00</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-xs text-gray-500 italic">Calculating planetary hours ephemeris...</div>
-            )}
-          </div>
-
-          {/* Lunar Phase Status */}
-          <div className="bg-gray-950/40 p-5 rounded-xl border border-white/10 space-y-4">
-            <div>
-              <h3 className="text-md font-bold text-white flex items-center gap-2">
-                <Moon className="w-5 h-5 text-cyan-400" />
-                Lunar Coherence Ring
-              </h3>
-              <p className="text-xs text-gray-400 mt-0.5">Lunar phase aspecting, nakshatras and daily tides.</p>
-            </div>
-
-            {astrologyData?.moon_phase ? (
-              <div className="flex items-center gap-6">
-                <div className="relative w-24 h-24 rounded-full bg-black/60 border border-white/5 flex items-center justify-center overflow-hidden">
-                  {/* Neon moon crescent simulation using CSS borders */}
-                  <div className="absolute w-20 h-20 rounded-full border-r-4 border-cyan-400/30 animate-pulse" />
-                  <div className="absolute w-16 h-16 rounded-full border-r-4 border-cyan-300" />
-                  <div className="text-xs text-cyan-300 font-bold select-none">{Math.round(astrologyData.moon_phase.illumination)}%</div>
-                </div>
-
-                <div className="flex-1 space-y-1.5 text-xs">
-                  <div>
-                    <span className="text-gray-500 block leading-none">PHASE NAME</span>
-                    <span className="font-bold text-white mt-0.5 block">{astrologyData.moon_phase.phase_name}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 block leading-none">ANGLE DEGREE</span>
-                    <span className="font-mono text-gray-300 block">{astrologyData.moon_phase.phase_angle.toFixed(1)}°</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-xs text-gray-500 italic">Calculating lunar illumination cycle...</div>
-            )}
-          </div>
-
-          {/* Current Transits aspects */}
-          <div className="bg-gray-950/40 p-5 rounded-xl border border-white/10 lg:col-span-2 space-y-4">
-            <h3 className="text-md font-bold text-white">Active Planetary Transits & Aspect Triggers</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {transits.length > 0 ? (
-                transits.map((transit, idx) => (
-                  <div key={idx} className="p-3 bg-white/5 border border-white/5 rounded-lg flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-purple-300">{transit.planet}</span>
-                        <span className="text-[9px] bg-purple-950 text-purple-400 px-1.5 py-0.2 rounded border border-purple-500/20 uppercase font-mono">{transit.type}</span>
-                      </div>
-                      <p className="text-[10px] text-gray-400 mt-2">{transit.influence}</p>
-                    </div>
-                    {transit.aspecting_planet && (
-                      <span className="text-[9px] font-mono text-cyan-400 mt-2 block">Aspect: {transit.aspecting_planet} (Orb: {transit.orb}°)</span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-xs text-gray-500 italic col-span-3 text-center py-6">No transit aspects retrieved. Running ephemeris sync.</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== 3. RITUAL COMPOSER ==================== */}
+      {/* ==================== 2. RITUAL COMPOSER ==================== */}
       {activeSubTab === 'composer' && (
         <div className="space-y-6">
           <div className="bg-gray-800/40 border border-white/5 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -630,8 +518,20 @@ export default function OperationsPanel() {
       {/* ==================== 5. CHAKRA HEALING PANEL ==================== */}
       {activeSubTab === 'chakra' && (
         <div className="space-y-6">
-          <div className="max-w-xl mx-auto">
-            <ChakraHealing className="mystical-border bg-gray-900/60 border-purple-500/30 shadow-2xl text-white" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="max-w-xl mx-auto w-full">
+              <ChakraHealing className="mystical-border bg-gray-900/60 border-purple-500/30 shadow-2xl text-white" />
+            </div>
+            <div className="bg-gray-950/60 rounded-xl border border-white/10 p-4 flex items-center justify-center">
+              <ChakraBodyMap
+                height={400}
+                onSelectChakra={(chakra) => {
+                  if (chakra.frequency) {
+                    updateSettings({ frequency: chakra.frequency });
+                  }
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

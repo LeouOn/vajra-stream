@@ -1,3 +1,9 @@
+/**
+ * Crystal Programming — crystal grid intention-setting interface.
+ * Configure grid geometry, assign mantras, program intentions,
+ * and visualise energy fields in the 3D crystal grid.
+ * @component
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Gem, Sparkles, CheckCircle, Play, Square } from 'lucide-react';
 import { useCrystalStore } from '../../stores/crystalStore';

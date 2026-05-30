@@ -9,7 +9,6 @@ def event_bus():
     yield bus
     bus.clear()
 
-
 @pytest.fixture
 def fresh_container():
     from container import Container
@@ -20,13 +19,11 @@ def fresh_container():
     yield c
     c.reset()
 
-
 @pytest.fixture
 def tmp_output_dir(tmp_path):
     out = tmp_path / "output"
     out.mkdir()
     return out
-
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "unit: fast isolated tests")

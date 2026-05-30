@@ -1,3 +1,9 @@
+/**
+ * Live Wave Visualizer — real-time audio waveform oscilloscope.
+ * Renders the live audio waveform from WebSocket spectrum data
+ * as an animated SVG path.
+ * @component
+ */
 import React, { useRef, useEffect, useState } from 'react';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAudioStore } from '../../stores/audioStore';

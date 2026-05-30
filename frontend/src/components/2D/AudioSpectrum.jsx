@@ -1,3 +1,8 @@
+/**
+ * Audio Spectrum — real-time frequency spectrum bar visualisation.
+ * Canvas-based FFT display reacting to live audio data from WebSocket.
+ * @component
+ */
 import React, { useEffect, useRef, useState } from 'react';
 
 const AudioSpectrum = ({ spectrum, isPlaying, frequency }) => {

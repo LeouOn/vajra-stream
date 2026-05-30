@@ -1,3 +1,9 @@
+/**
+ * Radionics Narrative — AI healing/liberation narrative generator.
+ * Generates stories with blessing target context and narrative type
+ * selection (pure land, hell liberation, empowerment, etc.).
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { Sparkles, BookOpen, Heart, RefreshCw, Copy, CheckCircle, Lightbulb, Globe, Orbit } from 'lucide-react';
 

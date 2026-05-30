@@ -9,7 +9,7 @@ Usage:
     python tts_narrator.py --story path/to/story.txt --output blessing.mp3
     python tts_narrator.py --mantra "Om Mani Padme Hum" --count 108
     python tts_narrator.py --meditate --chakra sahasrara --duration 10
-    python tts_narrator.py --commemorate --event holocaust --date 1945-01-27
+    python tts_narrator.py --commemorate --event archetype-war --date 0500-06-15
 """
 
 import argparse
@@ -286,7 +286,7 @@ Examples:
   %(prog)s --meditate --chakra sahasrara --duration 10 --output crown_meditation.mp3
 
   # Commemorate historical event
-  %(prog)s --commemorate --event holocaust --date 1945-01-27 --output liberation_auschwitz.mp3
+  %(prog)s --commemorate --event archetype-war --date 0500-06-15 --output symbolic_remembrance.mp3
 
   # Quick TTS
   %(prog)s --quick --text "May all beings be free from suffering" --output blessing.mp3

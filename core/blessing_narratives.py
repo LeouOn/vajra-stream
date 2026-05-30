@@ -1,16 +1,29 @@
 #!/usr/bin/env python3
 """
-Blessing Narratives - Story Generation for Liberation and Transformation
+Blessing Narratives — story generation for liberation and transformation.
 
-Generates blissful stories about:
-- Alternate possibilities and pure land arrivals
-- Liberation from suffering realms (hell, hungry ghost, etc.)
-- Empowerment of the powerless
-- Healing and transformation for both victims and perpetrators
-- Sacred narratives of compassion in action
+Generates vivid, compassionate narratives to visualize and energise
+healing intentions for beings in suffering. Supports 10 narrative types
+(pure land arrivals, hell liberation, empowerment, reconciliation,
+hungry ghost nourishment, healing journeys, etc.) and 10 pure land traditions
+(Sukhavati, Shambhala, Universal Light, Nature Paradise, etc.).
 
-This module provides both template-based and LLM-generated narratives
-to help visualize and energize compassionate intentions.
+Two generation backends:
+- **Template engine** — pre-authored narrative fragments randomly combined
+  using :class:`NarrativeTemplateLibrary` for offline, deterministic output.
+- **LLM backend** — creative generation via :class:`StoryGenerator` when
+  an LLM client is available.
+
+Dependencies:
+    Optional: :class:`~core.compassionate_blessings.BlessingTarget` and
+    :class:`~core.llm_integration.LLMClient` for enhanced targeting and generation.
+
+Exports:
+    NarrativeType, PureLandTradition — enums for story types and pure lands.
+    NarrativeTemplate, GeneratedStory — data classes.
+    PureLandDescriptions, NarrativeTemplateLibrary — static content providers.
+    StoryGenerator — main generation engine.
+    StoryExporter — markdown/JSON export utilities.
 """
 
 import json
@@ -28,7 +41,7 @@ except ImportError:
     HAS_BLESSINGS = False
 
 try:
-    from core.llm_integration import ConversationManager, LLMClient
+    from core.llm_integration import LLMIntegration
 
     HAS_LLM = True
 except ImportError:
@@ -490,7 +503,17 @@ class NarrativeTemplateLibrary:
 
 
 class StoryGenerator:
-    """Generates liberation narratives from templates or LLM"""
+    """Generate liberation/healing narratives from templates or LLM.
+
+    The main entry point for narrative generation. Supports batch generation
+    for multiple targets, automatic fallback from LLM to template when the
+    LLM is unavailable, and custom context injection.
+
+    Attributes:
+        use_llm: Whether LLM generation is active (may be downgraded if init fails).
+        llm_provider: Provider identifier (e.g. ``"ollama"``).
+        llm_client: Initialised :class:`~core.llm_integration.LLMClient` or None.
+    """
 
     def __init__(self, use_llm: bool = False, llm_provider: str = "ollama"):
         """
@@ -506,7 +529,7 @@ class StoryGenerator:
 
         if use_llm and HAS_LLM:
             try:
-                self.llm_client = LLMClient(provider=llm_provider)
+                self.llm_client = LLMIntegration(model_type="auto")
             except Exception as e:
                 print(f"Warning: Could not initialize LLM client: {e}")
                 self.use_llm = False
@@ -750,7 +773,11 @@ class StoryGenerator:
 
 
 class StoryExporter:
-    """Export stories in various formats"""
+    """Static utility for exporting :class:`GeneratedStory` objects.
+
+    Supports individual story export as Markdown or JSON, and bulk export
+    of collections to a directory with an auto-generated index.
+    """
 
     @staticmethod
     def export_as_markdown(story: GeneratedStory, filepath: str):

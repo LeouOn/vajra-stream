@@ -38,8 +38,33 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
-    class Config:
-        env_file = ".env"
+    # LLM API Keys (optional — used by core/llm_integration.py)
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = ""
+    OPENAI_MODEL: str = ""
+    ANTHROPIC_API_KEY: str = ""
+    LM_STUDIO_BASE_URL: str = "http://127.0.0.1:1234"
+
+    # TTS API Keys (optional)
+    ELEVENLABS_API_KEY: str = ""
+    AZURE_SPEECH_KEY: str = ""
+    AZURE_SPEECH_REGION: str = ""
+    GOOGLE_APPLICATION_CREDENTIALS: str = ""
+
+    # Usage Tracking
+    LLM_USAGE_TRACKING: str = "true"
+    LLM_USAGE_LOG_PATH: str = "./logs/llm_usage.jsonl"
+
+    # ComfyUI
+    COMFYUI_BASE_URL: str = "http://127.0.0.1:8188"
+
+    model_config = {
+        "env_file": ".env",
+        "extra": "ignore",  # Allow extra env vars not defined here
+    }
 
 
 settings = Settings()

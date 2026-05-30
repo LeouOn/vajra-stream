@@ -1,6 +1,22 @@
 """
-Enhanced Audio Generator for Vajra.Stream
-Creates beautiful, natural prayer bowl sounds with LFO modulation
+Enhanced Audio Generator — rich prayer bowl synthesis with LFO modulation.
+
+Extends the audio synthesis capabilities of :mod:`core.audio_generator` with
+additional features: natural LFO breathing modulation, chakra-specific healing
+tones, and a dedicated 5-channel blessing generator that layers Earth resonance,
+OM frequency, and Solfeggio tones with prayer bowl synthesis.
+
+Dependencies:
+    numpy, scipy, sounddevice — required at import time.
+    config.settings.PRAYER_BOWL_CONFIG — ADSR, harmonic, and modulation parameters.
+
+Exports:
+    EnhancedAudioGenerator — main synthesis class (aliased as ``PrayerBowlGenerator``).
+
+Typical usage:
+    >>> gen = EnhancedAudioGenerator()
+    >>> wave = gen.generate_chakra_healing("heart", duration=300)
+    >>> gen.play(wave)
 """
 
 import logging
@@ -31,14 +47,21 @@ logger = logging.getLogger(__name__)
 
 
 class EnhancedAudioGenerator:
-    """
-    Enhanced audio generator with natural LFO modulation and beautiful prayer bowl synthesis
+    """Enhanced audio synthesis with prayer bowl tones and LFO modulation.
+
+    Builds on :class:`~core.audio_generator.ScalarWaveGenerator` concepts but is a
+    standalone implementation with richer ADSR envelope handling (reading config
+    for attack/decay/sustain/release), breathing LFO, dedicated chakra healing
+    tones, and a 5-channel blessing preset.
+
+    Attributes:
+        sample_rate: Audio sample rate in Hz (default 44100).
     """
 
-    def __init__(self, sample_rate=44100):
-        self.sample_rate = sample_rate
+    def __init__(self, sample_rate: int = 44100) -> None:
+        self.sample_rate: int = sample_rate
 
-    def generate_prayer_bowl_tone(self, frequency, duration=60, pure_sine=False):
+    def generate_prayer_bowl_tone(self, frequency: float, duration: int = 60, pure_sine: bool = False) -> "np.ndarray":
         """
         Generate prayer bowl synthesis with rich harmonics and natural modulation
 
@@ -138,22 +161,28 @@ class EnhancedAudioGenerator:
         # Mix vibrato signal with original
         wave = 0.7 * wave + 0.3 * wave_with_vibrato
 
-        # Normalize
-        wave = wave / np.max(np.abs(wave))
+        # Normalize but significantly reduce overall volume for a quiet, ambient drone
+        max_val = np.max(np.abs(wave))
+        if max_val > 0:
+            wave = (wave / max_val) * 0.3  # Reduced to 30% peak amplitude
 
         return wave
 
-    def layer_frequencies(self, frequency_list, duration=60, pure_sine=False):
-        """
-        Layer multiple frequencies together
+    def layer_frequencies(self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False) -> "np.ndarray":
+        """Layer multiple frequencies together into a single waveform.
+
+        Each frequency in the list is generated as a prayer bowl tone (or pure
+        sine if ``pure_sine=True``), scaled by its amplitude, and summed.
+        The result is normalised.
 
         Args:
-            frequency_list: [(freq, amplitude), ...]
-            duration: Duration in seconds
-            pure_sine: If True, use simple sine waves
+            frequency_list: List of ``(freq_hz, amplitude)`` tuples.
+            duration: Length in seconds (default 60).
+            pure_sine: If True, use simple sine waves; otherwise use
+                prayer bowl synthesis (default False).
 
         Returns:
-            numpy array: Layered audio
+            numpy.ndarray: Normalised mono layered waveform.
         """
         t = np.linspace(0, duration, int(self.sample_rate * duration))
         wave = np.zeros_like(t)
@@ -173,16 +202,24 @@ class EnhancedAudioGenerator:
 
         return wave
 
-    def generate_chakra_healing(self, chakra="heart", duration=300):
-        """
-        Generate focused healing for specific chakra with prayer bowl synthesis
+    def generate_chakra_healing(self, chakra: str = "heart", duration: int = 300) -> "np.ndarray":
+        """Generate a focused healing tone for a specific chakra.
+
+        Combines the chakra's associated Solfeggio frequency as a prayer bowl
+        tone with the Schumann resonance (7.83 Hz) at 30% amplitude as a
+        supporting grounding frequency.
+
+        Chakra–frequency mapping:
+            root (396), sacral (417), solar_plexus (528), heart (639),
+            throat (741), third_eye (852), crown (963).
 
         Args:
-            chakra: Chakra name
-            duration: Duration in seconds
+            chakra: Chakra name (``"root"``, ``"heart"``, ``"crown"``, etc.).
+                Defaults to ``"heart"``.
+            duration: Length in seconds (default 300).
 
         Returns:
-            numpy array: Healing audio
+            numpy.ndarray: Normalised mono healing waveform.
         """
         chakra_frequencies = {
             "root": 396,
@@ -202,22 +239,33 @@ class EnhancedAudioGenerator:
         # Add Schumann resonance as supporting frequency
         schumann = self.generate_prayer_bowl_tone(7.83, duration, pure_sine=False)
 
-        # Combine and normalize
+        # Combine and normalize, keeping amplitude quiet
         healing = primary + 0.3 * schumann
-        healing = healing / np.max(np.abs(healing))
+        max_val = np.max(np.abs(healing))
+        if max_val > 0:
+            healing = (healing / max_val) * 0.3
 
         return healing
 
-    def generate_5_channel_blessing(self, intention, duration=300):
-        """
-        Generate 5 simultaneous frequencies for blessing
+    def generate_5_channel_blessing(self, intention: str, duration: int = 300) -> "np.ndarray":
+        """Generate a 5-frequency blessing broadcast.
+
+        Layers five frequencies chosen for holistic effect:
+        - 7.83 Hz (Schumann / Earth resonance, amplitude 0.3)
+        - 136.1 Hz (OM / Earth year, amplitude 0.3)
+        - 528 Hz (DNA healing / love, amplitude 0.4)
+        - 639 Hz (relationships / connection, amplitude 0.3)
+        - 741 Hz (intuition / awakening, amplitude 0.3)
+
+        Each tone uses prayer bowl synthesis for rich harmonic texture.
 
         Args:
-            intention: Intention text (affects frequency modulation)
-            duration: Duration in seconds
+            intention: Free-form intention string (currently informational;
+                frequency selection is fixed in this version).
+            duration: Length in seconds (default 300).
 
         Returns:
-            numpy array: Blessing audio
+            numpy.ndarray: Normalised mono blessing waveform.
         """
         # 5 frequencies - each chosen for specific purpose
         frequencies = [
@@ -230,13 +278,17 @@ class EnhancedAudioGenerator:
 
         return self.layer_frequencies(frequencies, duration, pure_sine=False)
 
-    def play(self, wave, loop=False):
-        """
-        Play generated audio using sounddevice
+    def play(self, wave: "np.ndarray", loop: bool = False) -> None:
+        """Play a generated waveform through the default audio device.
+
+        Blocks until playback completes (calls ``sd.wait()`` internally).
 
         Args:
-            wave: numpy array audio data
-            loop: If True, loop the audio
+            wave: numpy array from any generation method.
+            loop: If True, loop playback indefinitely.
+
+        Raises:
+            Prints error message to stdout on playback failure (does not raise).
         """
         try:
             if loop:

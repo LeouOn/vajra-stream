@@ -1,13 +1,42 @@
 """
-Vajra.Stream - Dharma Tales Generator
-AI-powered teaching stories and parables
+Dharma Tales Generator — AI-powered Buddhist teaching stories and parables.
+
+Generates narrative teaching tales using either an LLM backend or a built-in
+template engine. Supports 8 narrative traditions (Theravada, Mahayana,
+Vajrayana, Zen, Taoist, Sufi, Hindu, Christian mystical), 10 spiritual themes
+(impermanence, compassion, emptiness, etc.), and 10 archetypal characters.
+
+Offers three generation modes:
+- :meth:`DharmaTalesGenerator.generate_tale` — full teaching tale.
+- :meth:`DharmaTalesGenerator.generate_parable` — very short 3-5 sentence parable.
+- :meth:`DharmaTalesGenerator.generate_teaching_story` — character-driven story with arc.
+
+When no LLM is available, falls back to a template-based system with
+pre-authored narrative elements that are randomly combined.
+
+Dependencies:
+    Optional: :class:`~core.llm_integration.LLMIntegration` for richer generation.
+
+Exports:
+    DharmaTalesGenerator — main story generator class.
+    create_dharma_tales_generator — factory function.
 """
 
 
 class DharmaTalesGenerator:
-    """
-    Generate dharma teaching stories and parables using LLM
-    Each tale teaches a principle through narrative
+    """Generate dharma teaching stories using LLM or template engine.
+
+    Maintains libraries of archetypes, themes, traditions, and traditional
+    tales (Lotus Sutra, Majjhima Nikaya, Zen koans, etc.). When an LLM is
+    provided, generates creative, variable stories; otherwise falls back to
+    pre-authored template combinations.
+
+    Attributes:
+        llm: Optional :class:`~core.llm_integration.LLMIntegration` instance.
+        traditional_tales: Dict of canonical Buddhist teaching stories.
+        archetypes: List of 10 character archetypes for stories.
+        themes: List of 10 spiritual themes.
+        traditions: List of 8 narrative traditions.
     """
 
     def __init__(self, llm_integration=None):

@@ -1,9 +1,19 @@
 """
-Radionics Tool Schemas
-Typed tool definitions in OpenAI function-calling format for all Vajra.Stream services.
+Radionics Tool Schemas — OpenAI function-calling tool definitions for Vajra.Stream.
 
-These schemas enable LLMs (OpenAI, Anthropic, local GGUF) to call radionics operations
-as tools — selecting rates, broadcasting healing, interpreting RNG readings, and more.
+Defines a complete registry of typed tool schemas that enable LLMs to invoke
+Vajra.Stream operations as structured function calls. Covers:
+- Radionics broadcasting (healing, liberation, analysis, RNG interpretation)
+- Affirmation and intention generation
+- Context retrieval (knowledge index, internet news, session state)
+- Outlook generation and astrological analysis
+
+Each tool includes a JSON Schema ``parameters`` block compatible with OpenAI's
+function-calling API, Anthropic's tool-use, and llama-cpp-python's grammar mode.
+
+Exports:
+    RADIONICS_TOOLS — the full list of tool definitions.
+    get_tool_by_name — lookup utility.
 """
 
 from typing import Any

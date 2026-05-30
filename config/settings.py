@@ -13,10 +13,10 @@ PURE_SINE_MODE = False  # Set to True for original simple sine waves
 PRAYER_BOWL_HARMONICS = True  # Enable complex harmonic series
 PRAYER_BOWL_ENVELOPES = True  # Enable ADSR envelopes for natural sound
 PRAYER_BOWL_MODULATION = True  # Enable subtle tremolo and vibrato effects
-PRAYER_BOWL_ATTACK = 1.5  # Attack time in seconds (slow like struck bowl)
-PRAYER_BOWL_DECAY = 0.8  # Decay time in seconds
-PRAYER_BOWL_SUSTAIN = 0.6  # Sustain level (0.0 - 1.0)
-PRAYER_BOWL_RELEASE = 2.0  # Release time in seconds (long fade)
+PRAYER_BOWL_ATTACK = 4.0  # Attack time in seconds (slower swell)
+PRAYER_BOWL_DECAY = 2.0  # Decay time in seconds
+PRAYER_BOWL_SUSTAIN = 0.4  # Sustain level (quieter)
+PRAYER_BOWL_RELEASE = 5.0  # Release time in seconds (long natural fade)
 
 # Hardware Configuration
 HARDWARE_LEVEL = 2  # 2 = passive crystals, 3 = amplified
@@ -48,7 +48,7 @@ GENERATED_CONTENT_PATH = "./generated/"
 SESSION_LOGS_PATH = "./logs/"
 
 # Safety
-MAX_VOLUME = 0.8  # Maximum audio volume (0.0 - 1.0)
+MAX_VOLUME = 0.5  # Maximum audio volume (0.0 - 1.0) - Quieter is better
 WARNING_ENABLED = True  # Warn before amplified mode
 
 # Prayer Bowl Configuration

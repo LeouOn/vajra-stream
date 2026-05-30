@@ -1,17 +1,16 @@
 import sys
-import os
 
 project_root = r"c:\Users\llama\OneDrive\proj\vajra-stream"
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-import asyncio
 from fastapi.testclient import TestClient
+
 
 def main():
     from backend.app.main import app
     client = TestClient(app)
-    
+
     # Check models list
     print("Fetching models list...")
     res = client.get("/api/v1/llm/models")

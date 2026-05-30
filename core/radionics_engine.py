@@ -24,15 +24,20 @@ import numpy as np
 
 
 class RadionicsRate:
-    """
-    Represents a radionics rate - typically a set of numerical values
-    that represent a specific energy signature, condition, or remedy.
+    """A radionics rate — a numerical signature for an energy pattern, condition, or remedy.
 
-    Traditional radionics uses various rate systems:
-    - Single value (0-1000)
-    - Two-dial (e.g., 45-72)
-    - Three-dial (e.g., 9-49-84)
-    - Multi-dial systems
+    Rates are the fundamental unit of radionics analysis. They can be single,
+    dual, triple, or multi-dial values that represent specific energetic
+    signatures. This class provides serialisation (``to_dict`` / ``from_dict``)
+    for persistence and comparison operators for rate matching.
+
+    Attributes:
+        values: List of integer dial values (e.g. ``[45, 72]``).
+        name: Human-readable label.
+        description: What this rate represents.
+        category: Grouping (``"remedy"``, ``"condition"``, ``"organ"``, etc.).
+        potency: Measured resonance strength (0.0–1.0).
+        timestamp: When this rate was created/measured.
     """
 
     def __init__(

@@ -1012,10 +1012,17 @@ async def chat_interaction(request: ChatRequest):
         raise HTTPException(status_code=400, detail="Message list cannot be empty")
 
     query = request.messages[-1].content
+    provider = request.provider
+
+    if provider == "auto" and request.model:
+        if request.model.startswith("lm_studio:"):
+            provider = "lm_studio"
+        elif request.model.startswith("local:"):
+            provider = "local"
 
     # Retrieve key from request or env
-    api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
-    provider = request.provider or "auto"
+    api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+    provider = provider or "auto"
     tool_schemas = get_tool_schemas()
 
     # Build System Prompt
@@ -1178,6 +1185,9 @@ async def chat_interaction(request: ChatRequest):
 
             # Dynamically check for currently loaded model in LM Studio
             model_name = request.model
+            if model_name and model_name.startswith("lm_studio:"):
+                model_name = model_name.replace("lm_studio:", "", 1)
+
             if not model_name:
                 try:
                     models_res = client.models.list()
@@ -1279,6 +1289,90 @@ async def chat_interaction(request: ChatRequest):
                     f"*(LM Studio Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n"
                     + fallback_res.response
                 )
+            return wrap_res(fallback_res)
+
+    # Handle DeepSeek Client Tool Calling
+    elif api_key and (provider == "deepseek" or (provider == "auto" and os.getenv("DEEPSEEK_API_KEY") and not os.getenv("OPENAI_API_KEY"))):
+        try:
+            import openai as openai_lib
+            # For DeepSeek, we use the OpenAI client with custom base URL
+            client = openai_lib.OpenAI(
+                api_key=api_key,
+                base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+            )
+
+            # Format tools if provided
+            openai_tools = []
+            for t in tool_schemas:
+                openai_tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "description": t["description"],
+                        "parameters": t["parameters"]
+                    }
+                })
+
+            # Format messages
+            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
+            openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+
+            model_name = request.model or "deepseek-chat"
+            max_turns = 5
+
+            for turn in range(max_turns):
+                logger.info(f"DeepSeek turn {turn}...")
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=openai_messages,
+                    tools=openai_tools if openai_tools else None,
+                    tool_choice="auto" if openai_tools else None,
+                    temperature=0.7,
+                )
+
+                msg = response.choices[0].message
+                openai_messages.append(msg)
+
+                if not msg.tool_calls:
+                    response_text = msg.content
+                    break
+
+                # Process tool calls
+                for tc in msg.tool_calls:
+                    name = tc.function.name
+                    args = json.loads(tc.function.arguments)
+
+                    try:
+                        result = await execute_tool_locally(name, args)
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
+                        openai_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": name,
+                            "content": json.dumps(result)
+                        })
+                    except Exception as ex:
+                        logger.error(f"Error executing tool {name}: {ex}")
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
+                        openai_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": name,
+                            "content": json.dumps({"error": str(ex)})
+                        })
+            else:
+                # If we exit the loop without breaking, we hit max_turns
+                response_text = "*(DeepSeek reached maximum reasoning turns without finishing.)*"
+
+            return wrap_res(ChatResponse(response=response_text or "", tool_calls=tool_logs))
+        except Exception as e:
+            err_str = str(e).lower()
+            logger.error(f"DeepSeek execution failed: {e}. Falling back to rule-based parser.")
+            fallback_res = await run_rule_based_fallback(query)
+            fallback_res.response = (
+                f"*(DeepSeek Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n"
+                + fallback_res.response
+            )
             return wrap_res(fallback_res)
 
     # Handle Anthropic Client Tool Calling
@@ -1395,14 +1489,14 @@ async def list_models():
         # Determine the default selected model — prefer loaded LM Studio model
         default_model = ""
         if lm_studio_models:
-            default_model = lm_studio_models[0]
+            default_model = f"lm_studio:{lm_studio_models[0]}"
         elif available.get("local"):
-            default_model = available["local"][0]
+            default_model = f"local:{available['local'][0]}"
 
         return {
             "status": "success",
             "available": {
-                "local": available.get("local", []),
+                "local": [f"local:{m}" for m in available.get("local", [])],
                 "api": available.get("api", []),
                 "lm_studio": lm_studio_models,
             },

@@ -1,3 +1,12 @@
+/**
+ * Sacred Mandala Generator — 3D Sri Yantra and sacred geometry patterns.
+ *
+ * Renders advanced sacred geometry (Sri Yantra, Metatron's Cube, Merkaba)
+ * as interactive 3D scenes using React Three Fiber with rotation,
+ * audio-reactivity, and configurable colour/intensity parameters.
+ *
+ * @component
+ */
 import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';

@@ -1,3 +1,9 @@
+/**
+ * Status Indicator — WebSocket, MOPS, and RNG health badges.
+ * Colour-coded indicator dots with tooltips for connection
+ * status, throughput, coherence, and broadcast state.
+ * @component
+ */
 import React from 'react';
 import { Wifi, WifiOff, Activity, Volume2, Clock, Zap, Gem } from 'lucide-react';
 

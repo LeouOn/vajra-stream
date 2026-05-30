@@ -156,6 +156,29 @@ class VajraStreamService:
             # Return fallback audio
             return self._generate_fallback_audio(config)
 
+    async def generate_chakra_audio(self, chakra_name: str, duration: float = 30.0) -> np.ndarray:
+        """Generate specialized chakra healing audio"""
+        try:
+            print(f"Generating chakra audio for: {chakra_name}")
+            if hasattr(self, 'audio_generator') and self.audio_generator:
+                audio_data = self.audio_generator.generate_chakra_healing(chakra_name, duration)
+                self.current_audio_data = audio_data
+                self._update_audio_spectrum(audio_data)
+                return audio_data
+            else:
+                # Fallback to base configuration if enhanced generator not found
+                # Basic frequency mapping fallback
+                freqs = {
+                    "root": 396.0, "sacral": 417.0, "solar_plexus": 528.0,
+                    "heart": 639.0, "throat": 741.0, "third_eye": 852.0, "crown": 963.0
+                }
+                config = AudioConfig(frequency=freqs.get(chakra_name.lower(), 528.0), duration=duration)
+                return await self.generate_prayer_bowl_audio(config)
+        except Exception as e:
+            print(f"Error generating chakra audio: {e}")
+            config = AudioConfig(duration=duration)
+            return self._generate_fallback_audio(config)
+
     def _generate_fallback_audio(self, config: AudioConfig) -> np.ndarray:
         """Generate fallback audio in case of errors"""
         sample_rate = 44100
@@ -409,8 +432,11 @@ class VajraStreamService:
         self._broadcast_task = asyncio.create_task(self._broadcast_loop())
 
     async def _broadcast_loop(self):
-        """Periodically emit RADIONICS_RATE_BROADCAST and SCALAR_WAVE_ACTIVE to WebSocket clients."""
+        """Periodically emit RADIONICS_RATE_BROADCAST and SCALAR_WAVE_ACTIVE to WebSocket clients, and publish RNGReadingEvent."""
         import random
+        from backend.core.services.rng_attunement_service import get_rng_service
+        from modules.interfaces import RNGReadingEvent
+        import uuid
 
         while True:
             await asyncio.sleep(3)
@@ -425,7 +451,7 @@ class VajraStreamService:
                 if not running:
                     continue
 
-                # Emit SCALAR_WAVE_ACTIVE — scalar waves are active when sessions are running
+                # Emit SCALAR_WAVE_ACTIVE
                 await stable_connection_manager_v2.broadcast(
                     {
                         "type": "SCALAR_WAVE_ACTIVE",
@@ -434,11 +460,44 @@ class VajraStreamService:
                     }
                 )
 
+                # Get latest RNG data to publish an event
+                rng_service = get_rng_service()
+                rng_sessions = rng_service.get_all_sessions()
+                if rng_sessions:
+                    summary = rng_service.get_session_summary(rng_sessions[-1])
+                    if summary and self.event_bus:
+                        # Publish DomainEvent for the Autonomous Agent
+                        event = RNGReadingEvent(
+                            timestamp=datetime.now(),
+                            event_id=str(uuid.uuid4()),
+                            session_id=rng_sessions[-1],
+                            coherence=summary.get('avg_coherence', 0.5),
+                            entropy=summary.get('avg_entropy', 0.5),
+                            floating_needle_score=summary.get('floating_needle_count', 0.0)
+                        )
+                        try:
+                            self.event_bus.publish(event)
+                            
+                            # Also broadcast to frontend WebSockets for the UI
+                            await stable_connection_manager_v2.broadcast(
+                                {
+                                    "type": "RNG_READING",
+                                    "data": {
+                                        "coherence": event.coherence,
+                                        "entropy": event.entropy,
+                                        "floating_needle_score": event.floating_needle_score,
+                                        "session_id": event.session_id
+                                    },
+                                    "timestamp": time.time(),
+                                }
+                            )
+                        except Exception as e:
+                            print(f"Error publishing RNGReadingEvent: {e}")
+
                 # Emit RADIONICS_RATE_BROADCAST for each running session
                 for session in running:
                     cfg = session.get("config")
-                    freq = cfg.audio_config.frequency if cfg else 528.0
-                    # Derive a rate from the carrier frequency (mimics radionics rate attunement)
+                    freq = getattr(getattr(cfg, 'audio_config', None), 'frequency', 528.0)
                     rate = round((freq % 100) + random.uniform(-2, 2), 2)
                     await stable_connection_manager_v2.broadcast(
                         {
@@ -452,8 +511,8 @@ class VajraStreamService:
                         }
                     )
 
-            except Exception:
-                pass  # Non-critical — don't crash the broadcast loop
+            except Exception as e:
+                print(f"Error in broadcast loop: {e}")
 
     async def stop_session(self, session_id: str) -> bool:
         """Stop a blessing session"""

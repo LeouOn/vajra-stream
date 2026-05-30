@@ -1,3 +1,9 @@
+/**
+ * Toast — auto-dismissing notification toasts.
+ * Supports info, success, warning, and error types with optional
+ * action buttons. Positioned top-right. Managed by UI Store.
+ * @component
+ */
 import React, { useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';

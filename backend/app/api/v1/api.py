@@ -39,7 +39,7 @@ api_router.include_router(blessings_endpoint.router, prefix="/blessings", tags=[
 api_router.include_router(visualization_endpoint.router, prefix="/visualization", tags=["visualization"])
 api_router.include_router(rng_endpoint.router, tags=["rng-attunement"])
 api_router.include_router(slideshow_endpoint.router, tags=["blessing-slideshow"])
-api_router.include_router(populations_endpoint.router, tags=["populations"])
+api_router.include_router(populations_endpoint.router, prefix="/populations", tags=["populations"])
 api_router.include_router(automation_endpoint.router, tags=["automation"])
 api_router.include_router(dharma_tales_endpoint.router, prefix="/dharma", tags=["dharma-tales"])
 api_router.include_router(personal_healing_endpoint.router, prefix="/healing", tags=["healing"])

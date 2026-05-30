@@ -70,8 +70,20 @@ class BroadcastConfiguration:
 
 
 class IntegratedScalarRadionicsBroadcaster:
-    """
-    Integrated broadcaster combining scalar waves and radionics.
+    """Combined scalar-wave + radionics broadcasting engine.
+
+    Integrates :class:`~core.advanced_scalar_waves.HybridScalarWaveGenerator`
+    for MOPS-scale scalar wave generation with :class:`~core.compassionate_blessings.BlessingDatabase`
+    for targeted blessing allocation, and optional :class:`~core.energetic_anatomy.EnergeticAnatomyDatabase`
+    for meridian/chakra-aware broadcasts.
+
+    All subsystems are optional — the broadcaster degrades gracefully when
+    dependencies are missing (pure-Python fallback).
+
+    Attributes:
+        scalar_gen: :class:`HybridScalarWaveGenerator` or None.
+        blessing_db: :class:`BlessingDatabase` or None.
+        anatomy_db: :class:`EnergeticAnatomyDatabase` or None.
     """
 
     def __init__(self):
@@ -443,8 +455,8 @@ Examples:
   # Healing protocol (10 minutes)
   %(prog)s --healing "Person Name" --duration 10
 
-  # Liberation protocol for historical event
-  %(prog)s --liberation "Holocaust" --souls 11000000
+  # Liberation protocol
+  %(prog)s --liberation "Those who suffered in times of war" --souls 0
 
   # Empowerment protocol
   %(prog)s --empowerment "All Beings in Difficulty"

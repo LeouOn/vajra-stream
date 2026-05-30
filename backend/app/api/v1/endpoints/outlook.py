@@ -1,3 +1,11 @@
+"""
+Outlook API — narrative healing and astrological outlook endpoints.
+
+Exposes REST endpoints for generating personalised healing narratives,
+sutra-style blessings, and astrological outlooks for individuals based
+on their birth chart, current transits, and divination results.
+"""
+
 import json
 import os
 import sqlite3
@@ -465,3 +473,135 @@ async def stop_loop():
 @router.get("/loop/status", summary="Get background narrative loop status")
 async def get_loop_status():
     return container.outlook.get_loop_status()
+
+
+# ----------------- NARRATIVES IMPORT/EXPORT -----------------
+class OutlookNarrativeImportSchema(BaseModel):
+    type: str
+    genre: str | None = None
+    languages: list[str] | str | None = None
+    lat: float | None = None
+    lon: float | None = None
+    date_generated: str | None = None
+    content: str | dict | list | None = None
+    astrology_context: str | None = None
+    divination_context: str | None = None
+    divination_raw: dict | list | str | None = None
+    entities_invoked: str | None = None
+
+
+@router.get("/export", summary="Export all outlook narratives")
+async def export_narratives():
+    """Export all generated outlook narratives from the database as a JSON list."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked
+            FROM outlook_narratives
+            ORDER BY date_generated DESC
+            """
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        narratives = []
+        for row in rows:
+            langs = []
+            if row["languages"]:
+                try:
+                    langs = json.loads(row["languages"])
+                except Exception:
+                    langs = [row["languages"]]
+
+            content_val = row["content"]
+            if row["type"] == "epic" and content_val:
+                try:
+                    content_val = json.loads(content_val)
+                except Exception:
+                    pass
+
+            div_raw = {}
+            if row["divination_raw"]:
+                try:
+                    div_raw = json.loads(row["divination_raw"])
+                except Exception:
+                    pass
+
+            narratives.append(
+                {
+                    "type": row["type"],
+                    "genre": row["genre"],
+                    "languages": langs,
+                    "lat": row["lat"],
+                    "lon": row["lon"],
+                    "date_generated": row["date_generated"],
+                    "content": content_val,
+                    "astrology_context": row["astrology_context"],
+                    "divination_context": row["divination_context"],
+                    "divination_raw": div_raw,
+                    "entities_invoked": row["entities_invoked"],
+                }
+            )
+        return {"status": "success", "narratives": narratives}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/import", summary="Import outlook narratives")
+async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
+    """Import a list of generated outlook narratives into the database."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        count = 0
+        for n in narratives:
+            # Normalize languages to text
+            langs_val = ""
+            if isinstance(n.languages, list):
+                langs_val = json.dumps(n.languages)
+            elif isinstance(n.languages, str):
+                langs_val = n.languages
+
+            # Normalize content to text
+            content_val = ""
+            if isinstance(n.content, (dict, list)):
+                content_val = json.dumps(n.content)
+            elif isinstance(n.content, str):
+                content_val = n.content
+
+            # Normalize divination_raw
+            div_raw_val = ""
+            if isinstance(n.divination_raw, (dict, list)):
+                div_raw_val = json.dumps(n.divination_raw)
+            elif isinstance(n.divination_raw, str):
+                div_raw_val = n.divination_raw
+
+            cursor.execute(
+                """
+                INSERT INTO outlook_narratives
+                (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    n.type,
+                    n.genre,
+                    langs_val,
+                    n.lat,
+                    n.lon,
+                    n.date_generated,
+                    content_val,
+                    n.astrology_context,
+                    n.divination_context,
+                    div_raw_val,
+                    n.entities_invoked,
+                ),
+            )
+            count += 1
+        conn.commit()
+        conn.close()
+        return {"status": "success", "imported": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

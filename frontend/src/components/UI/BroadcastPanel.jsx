@@ -1,8 +1,19 @@
+/**
+ * Broadcast Panel — scalar wave and radionics broadcast controls.
+ *
+ * Provides the UI for starting, stopping, and configuring healing
+ * broadcasts. Controls frequency selection, intensity, crystal grid
+ * routing, and real-time broadcast status monitoring via WebSocket.
+ *
+ * @component
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity } from 'lucide-react';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
+import RateDial from './RateDial';
+import { MiniGlobe } from '../3D/RadionicsGlobe';
 
 import { API_BASE } from '../../utils/api';
 
@@ -202,6 +213,33 @@ export default function BroadcastPanel() {
         </p>
       </div>
 
+      {/* Broadcast Globe Visualization */}
+      <div className="bg-gray-900/60 backdrop-blur-md rounded-xl border border-white/10 p-4 flex flex-col lg:flex-row items-center gap-4">
+        <div className="flex-shrink-0">
+          <MiniGlobe isActive={Object.values(sessions || {}).some(s => s.status === 'running')} size="small" />
+        </div>
+        <div className="flex-1 space-y-2 text-center lg:text-left">
+          <h3 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 justify-center lg:justify-start">
+            <Target className="w-4 h-4 text-cyan-400" />
+            GLOBAL BROADCAST COVERAGE
+          </h3>
+          <p className="text-xs text-gray-400">
+            Active blessings radiating to {Object.values(sessions || {}).filter(s => s.status === 'running').length} target locations.
+            Each pulse represents coherent scalar-wave intention propagating through the planetary field.
+          </p>
+          <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+            {Object.values(sessions || {}).filter(s => s.status === 'running').slice(0, 5).map(s => (
+              <span key={s.id} className="text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-500/20 px-2 py-0.5 rounded-full font-mono">
+                {s.name || s.intention || 'Active Target'}
+              </span>
+            ))}
+            {Object.values(sessions || {}).filter(s => s.status === 'running').length === 0 && (
+              <span className="text-[10px] text-gray-500 italic">No active broadcast targets — start a session to see it on the globe</span>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* ================= COLUMN 1: CONTROLS & RADAR ================= */}
@@ -213,29 +251,24 @@ export default function BroadcastPanel() {
               DIMENSIONAL RESONANCE AXES
             </h3>
             
-            {/* Sliders */}
-            <div className="space-y-3">
+            {/* Dials */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 place-items-center">
               {[
-                { key: 'd1', name: 'D1: Physical', color: 'text-teal-400' },
-                { key: 'd2', name: 'D2: Astral', color: 'text-indigo-400' },
-                { key: 'd3', name: 'D3: Mental', color: 'text-purple-400' },
-                { key: 'd4', name: 'D4: Causal', color: 'text-pink-400' },
-                { key: 'd5', name: 'D5: Spiritual', color: 'text-cyan-400' },
+                { key: 'd1', name: 'D1: Physical', color: '#2dd4bf' },
+                { key: 'd2', name: 'D2: Astral', color: '#818cf8' },
+                { key: 'd3', name: 'D3: Mental', color: '#c084fc' },
+                { key: 'd4', name: 'D4: Causal', color: '#f472b6' },
+                { key: 'd5', name: 'D5: Spiritual', color: '#22d3ee' },
               ].map(({ key, name, color }) => (
-                <div key={key} className="space-y-1">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className={color}>{name}</span>
-                    <span className="font-mono text-gray-300">{dimensions[key].toFixed(1)}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="0.5"
+                <div key={key} className="flex flex-col items-center">
+                  <RateDial
                     value={dimensions[key]}
-                    onChange={(e) => handleDimensionChange(key, e.target.value)}
-                    className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                    onChange={(val) => handleDimensionChange(key, val)}
+                    color={color}
+                    size={80}
+                    label={name}
                   />
+                  <div className="text-[10px] font-bold tracking-wider mt-3" style={{ color }}>{name}</div>
                 </div>
               ))}
             </div>

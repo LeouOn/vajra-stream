@@ -195,7 +195,7 @@ async def stop_session(session_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    return {"message": "Session stopped successfully", "session_id": session_id}
+    return {"status": "success", "message": "Session stopped successfully", "session_id": session_id}
 
 
 @router.get("/sessions", response_model=list[str])

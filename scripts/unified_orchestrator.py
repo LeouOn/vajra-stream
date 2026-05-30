@@ -26,6 +26,7 @@ except ImportError:
 
     sys.path.append(str(Path(__file__).parent.parent / "config"))
     import settings
+from backend.core.llm_agent.autonomous_agent import AutonomousAgent
 from modules.audio import AudioService
 from modules.blessing_router import BlessingRouter, DeliveryMethod, TargetSpecification, TargetType
 from modules.crystal import CrystalService
@@ -86,6 +87,7 @@ class UnifiedOrchestrator:
         self.services["audio"] = AudioService(self.event_bus)
         self.services["healing"] = HealingService(self.event_bus)
         self.services["visualization"] = VisualizationService(self.event_bus)
+        self.services["autonomous_agent"] = AutonomousAgent(self.event_bus)
 
         logger.info(f"Initialized {len(self.services)} services: {list(self.services.keys())}")
 

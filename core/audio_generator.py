@@ -1,6 +1,25 @@
 """
-Vajra.Stream Audio Generator
-Scalar wave and frequency generation for blessing/healing broadcasts
+Vajra.Stream Audio Generator — scalar wave and frequency synthesis for blessing/healing broadcasts.
+
+Provides the foundational audio synthesis engine for the entire Vajra.Stream system.
+Generates Schumann resonances, Solfeggio tones, binaural beats, OM frequency (136.1 Hz),
+intention-modulated carrier waves, and multi-frequency layered prayer bowl tones
+with natural ADSR envelopes, tremolo, and vibrato.
+
+Dependencies:
+    numpy, scipy, sounddevice — all required at import time.
+    config.settings.PRAYER_BOWL_CONFIG — optional; falls back gracefully if config
+        module is not on sys.path.
+
+Exports:
+    ScalarWaveGenerator — main synthesis class.
+    BLESSING_FREQUENCIES — dictionary of named frequency constants.
+    INTENTION_TO_FREQUENCY — mapping of intention keywords to frequency lists.
+
+Typical usage:
+    >>> gen = ScalarWaveGenerator()
+    >>> wave = gen.generate_prayer_bowl_tone(528, duration=60)
+    >>> gen.play(wave)
 """
 
 import logging
@@ -32,17 +51,36 @@ logger = logging.getLogger(__name__)
 
 
 class ScalarWaveGenerator:
-    """
-    Generate biologically-active frequency patterns
-    Supports Schumann resonance, Solfeggio tones, planetary frequencies
+    """Primary audio synthesis engine for Vajra.Stream.
+
+    Generates biologically-active frequency patterns used throughout the system:
+    Schumann resonances (Earth's electromagnetic heartbeat), Solfeggio sacred tones,
+    binaural beats for brainwave entrainment, planetary frequencies, and rich
+    prayer-bowl synthesis with harmonic overtones, ADSR envelopes, tremolo, and vibrato.
+
+    All generation methods return numpy float64 arrays at ``self.sample_rate`` (default 44100 Hz).
+    Use :meth:`play` to send audio to the default sound device, or pass the arrays
+    to hardware broadcasters (e.g. :class:`~hardware.crystal_broadcaster.Level2CrystalBroadcaster`).
+
+    Attributes:
+        sample_rate: Audio sample rate in Hz (default 44100).
     """
 
-    def __init__(self, sample_rate=44100):
-        self.sample_rate = sample_rate
+    def __init__(self, sample_rate: int = 44100) -> None:
+        self.sample_rate: int = sample_rate
 
-    def generate_schumann_resonance(self, duration=60):
-        """
-        Earth's fundamental frequency: 7.83 Hz with harmonics
+    def generate_schumann_resonance(self, duration: int = 60) -> "np.ndarray":
+        """Generate Earth's Schumann resonance at 7.83 Hz with natural harmonics.
+
+        The fundamental (7.83 Hz) is combined with its first four harmonics
+        (14.3, 20.8, 27.3, 33.8 Hz) at decreasing amplitudes to mimic the
+        naturally-occurring atmospheric resonance.
+
+        Args:
+            duration: Length of the generated waveform in seconds (default 60).
+
+        Returns:
+            numpy.ndarray: Normalised mono waveform (float64, shape ``(n_samples,)``).
         """
         t = np.linspace(0, duration, int(self.sample_rate * duration))
 
@@ -63,10 +101,26 @@ class ScalarWaveGenerator:
 
         return wave
 
-    def generate_solfeggio_tone(self, frequency, duration=60):
-        """
-        Solfeggio frequencies: 396, 417, 528, 639, 741, 852 Hz
-        528 Hz is "DNA repair" / "love frequency"
+    def generate_solfeggio_tone(self, frequency: float, duration: int = 60) -> "np.ndarray":
+        """Generate a pure Solfeggio sacred tone with subtle amplitude modulation.
+
+        Common Solfeggio frequencies:
+        - 396 Hz — liberating guilt and fear
+        - 417 Hz — undoing situations and facilitating change
+        - 528 Hz — transformation, miracles, "DNA repair / love frequency"
+        - 639 Hz — connecting relationships
+        - 741 Hz — awakening intuition
+        - 852 Hz — returning to spiritual order
+
+        A slow 0.1 Hz amplitude modulation (10% depth) is applied to give the
+        tone a living, breathing quality.
+
+        Args:
+            frequency: Base frequency in Hz (e.g. 528).
+            duration: Length in seconds (default 60).
+
+        Returns:
+            numpy.ndarray: Normalised mono waveform.
         """
         t = np.linspace(0, duration, int(self.sample_rate * duration))
 
@@ -81,10 +135,28 @@ class ScalarWaveGenerator:
 
         return wave
 
-    def generate_binaural_beat(self, base_freq, beat_freq, duration=60):
-        """
-        Binaural beats for brainwave entrainment
-        beat_freq: 4-8 Hz (theta), 8-12 Hz (alpha), etc.
+    def generate_binaural_beat(self, base_freq: float, beat_freq: float, duration: int = 60) -> "np.ndarray":
+        """Generate binaural beats for brainwave entrainment.
+
+        Produces a stereo signal where the left channel carries ``base_freq``
+        and the right channel carries ``base_freq + beat_freq``. When listened
+        to with headphones the brain perceives the difference frequency as a
+        pulse that can guide brainwave states.
+
+        Common beat-frequency ranges:
+        - 0.5–4 Hz — delta (deep sleep)
+        - 4–8 Hz — theta (meditation, creativity)
+        - 8–12 Hz — alpha (relaxed alertness)
+        - 12–30 Hz — beta (active thinking)
+        - 30+ Hz — gamma (insight, integration)
+
+        Args:
+            base_freq: Carrier frequency in Hz (e.g. 200).
+            beat_freq: Difference frequency in Hz (e.g. 6 for theta).
+            duration: Length in seconds (default 60).
+
+        Returns:
+            numpy.ndarray: Stereo waveform (float64, shape ``(n_samples, 2)``).
         """
         t = np.linspace(0, duration, int(self.sample_rate * duration))
 
@@ -99,15 +171,36 @@ class ScalarWaveGenerator:
 
         return stereo
 
-    def generate_om_frequency(self, duration=60):
-        """
-        136.1 Hz - "OM" frequency (C# based on Earth year)
+    def generate_om_frequency(self, duration: int = 60) -> "np.ndarray":
+        """Generate the OM frequency (136.1 Hz).
+
+        136.1 Hz corresponds to the orbital period of Earth around the Sun
+        (calculated as an audible octave) and is traditionally associated with
+        the primordial sound "OM". This is a convenience wrapper around
+        :meth:`generate_solfeggio_tone`.
+
+        Args:
+            duration: Length in seconds (default 60).
+
+        Returns:
+            numpy.ndarray: Normalised mono waveform.
         """
         return self.generate_solfeggio_tone(136.1, duration)
 
-    def generate_intention_carrier(self, intention_text, base_freq=432, duration=60):
-        """
-        Create a carrier wave modulated by intention
+    def generate_intention_carrier(self, intention_text: str, base_freq: float = 432, duration: int = 60) -> "np.ndarray":
+        """Create a carrier wave uniquely modulated by the user's intention text.
+
+        Hashes ``intention_text`` into a deterministic but unique random seed,
+        then generates a smooth low-frequency modulation pattern (3rd-order
+        Butterworth low-pass at 0.01 × Nyquist) applied to a 432 Hz carrier.
+
+        Args:
+            intention_text: Free-form intention string (e.g. "May all beings be happy").
+            base_freq: Carrier frequency in Hz (default 432, "natural tuning").
+            duration: Length in seconds (default 60).
+
+        Returns:
+            numpy.ndarray: Normalised mono waveform with intention modulation.
         """
         t = np.linspace(0, duration, int(self.sample_rate * duration))
 
@@ -128,11 +221,21 @@ class ScalarWaveGenerator:
 
         return wave
 
-    def layer_frequencies(self, frequency_list, duration=60, pure_sine=False):
-        """
-        Layer multiple frequencies together
-        frequency_list: [(freq, amplitude), ...]
-        pure_sine: If True, use simple sine waves instead of prayer bowl synthesis
+    def layer_frequencies(self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False) -> "np.ndarray":
+        """Layer multiple frequencies together into a single waveform.
+
+        Each frequency is generated independently (as a prayer bowl tone or
+        pure sine, depending on ``pure_sine``), scaled by its amplitude, and
+        summed. The result is normalised to avoid clipping.
+
+        Args:
+            frequency_list: List of ``(freq_hz, amplitude)`` tuples.
+            duration: Length in seconds (default 60).
+            pure_sine: If True, use simple sine waves; if False (default),
+                use prayer bowl synthesis for each tone.
+
+        Returns:
+            numpy.ndarray: Normalised mono layered waveform.
         """
         if pure_sine:
             # Original implementation for backward compatibility
@@ -159,7 +262,7 @@ class ScalarWaveGenerator:
 
             return wave
 
-    def generate_prayer_bowl_tone(self, frequency, duration=60, pure_sine=False):
+    def generate_prayer_bowl_tone(self, frequency: float, duration: int = 60, pure_sine: bool = False) -> "np.ndarray":
         """
         Generate prayer bowl synthesis with rich harmonics or pure sine wave
 
@@ -191,14 +294,14 @@ class ScalarWaveGenerator:
         for i, ratio in enumerate(PRAYER_BOWL_CONFIG["inharmonic_partials"]):
             inharmonic_freq = frequency * ratio
             # Lower amplitude for metallic character
-            amplitude = 0.3 / (i + 1)
+            amplitude = 0.08 / (i + 1)  # Made significantly quieter for a softer ambient sound
             wave += amplitude * np.sin(2 * np.pi * inharmonic_freq * t)
 
         # Apply ADSR envelope for natural bowl sound
-        attack_time = 1.5  # seconds
-        decay_time = 0.8
-        sustain_level = 0.6
-        release_time = 2.0
+        attack_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_ATTACK', 4.0)  # seconds
+        decay_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_DECAY', 2.0)
+        sustain_level = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_SUSTAIN', 0.4)
+        release_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_RELEASE', 5.0)
 
         attack_samples = int(attack_time * self.sample_rate)
         decay_samples = int(decay_time * self.sample_rate)
@@ -246,7 +349,7 @@ class ScalarWaveGenerator:
 
         for i, ratio in enumerate(PRAYER_BOWL_CONFIG["inharmonic_partials"]):
             inharmonic_freq = frequency * ratio
-            amplitude = 0.3 / (i + 1)
+            amplitude = 0.08 / (i + 1)
             wave_with_vibrato += amplitude * np.sin(2 * np.pi * inharmonic_freq * t + vibrato_phase)
 
         # Mix vibrato signal with original
@@ -257,9 +360,14 @@ class ScalarWaveGenerator:
 
         return wave
 
-    def play(self, wave, loop=False, blocking=True):
-        """
-        Play generated wave
+    def play(self, wave: "np.ndarray", loop: bool = False, blocking: bool = True) -> None:
+        """Play a generated waveform through the default audio device.
+
+        Args:
+            wave: numpy array from any generation method.
+            loop: If True, loop playback indefinitely.
+            blocking: If True (default), block until playback finishes;
+                if False, return immediately (background playback).
         """
         if loop:
             sd.play(wave, samplerate=self.sample_rate, loop=True)
@@ -269,10 +377,8 @@ class ScalarWaveGenerator:
         if blocking:
             sd.wait()
 
-    def stop(self):
-        """
-        Stop playback
-        """
+    def stop(self) -> None:
+        """Stop any currently-playing audio on the default device."""
         sd.stop()
 
 

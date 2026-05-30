@@ -6,18 +6,16 @@
 
 const DEFAULT_PORT = '8008';
 
-function resolveApiBase() {
+function resolveApiBase(): string {
   if (typeof window !== 'undefined' && window.location) {
-    const { protocol, hostname, port } = window.location;
-    // If served from the backend port or a custom port, use that origin
-    const origin = port ? `${protocol}//${hostname}:${port}` : `${protocol}//${hostname}`;
-    return `${origin}/api/v1`;
+    const { protocol, hostname } = window.location;
+    const resolvedHostname = hostname === '::1' || hostname === 'localhost' ? '127.0.0.1' : hostname;
+    return `${protocol}//${resolvedHostname}:${DEFAULT_PORT}/api/v1`;
   }
-  // Fallback for SSR / non-browser contexts
-  return `http://localhost:${DEFAULT_PORT}/api/v1`;
+  return `http://127.0.0.1:${DEFAULT_PORT}/api/v1`;
 }
 
-function resolveWsUrl() {
+function resolveWsUrl(): string {
   if (typeof window !== 'undefined' && window.location) {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const hostname = window.location.hostname === '::1' ? '127.0.0.1' : window.location.hostname;
@@ -27,6 +25,6 @@ function resolveWsUrl() {
   return `ws://127.0.0.1:${DEFAULT_PORT}/ws`;
 }
 
-export const API_BASE = resolveApiBase();
-export const WS_URL = resolveWsUrl();
-export const BACKEND_PORT = DEFAULT_PORT;
+export const API_BASE: string = resolveApiBase();
+export const WS_URL: string = resolveWsUrl();
+export const BACKEND_PORT: string = DEFAULT_PORT;

@@ -1,3 +1,9 @@
+/**
+ * Radionics Globe — 3D Earth with astrological and blessing overlays.
+ * React Three Fiber scene displaying a globe with planetary line
+ * projections, blessing target markers, and energy emanation effects.
+ * @component
+ */
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';

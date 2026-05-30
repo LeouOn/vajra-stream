@@ -1,3 +1,0 @@
-"""
-Vajra Stream Test Suite
-"""

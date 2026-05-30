@@ -1,3 +1,10 @@
+/**
+ * Rate Store — Zustand state for radionics rate tuning.
+ *
+ * Tracks the current rate dial values, preset library (healing,
+ * liberation, empowerment, peace, love, wisdom, balance), custom
+ * rate history, and broadcast session state. Persisted to localStorage.
+ */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 

@@ -138,7 +138,25 @@ class EnhancedEventBus:
 
         for handler in unique_handlers:
             try:
-                handler(processed_event)
+                import asyncio
+                import inspect
+
+                if inspect.iscoroutinefunction(handler):
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(handler(processed_event))
+                    except RuntimeError:
+                        # No running loop, run it using asyncio.run
+                        # Note: this blocks the sync publish!
+                        asyncio.run(handler(processed_event))
+                else:
+                    result = handler(processed_event)
+                    if inspect.isawaitable(result):
+                        try:
+                            loop = asyncio.get_running_loop()
+                            loop.create_task(result)
+                        except RuntimeError:
+                            asyncio.run(result)
             except Exception as e:
                 logger.error(f"Error in handler {handler.__name__}: {e}", exc_info=True)
 

@@ -1,48 +1,83 @@
+/**
+ * useWebSocketStable — production-grade WebSocket hook with heartbeat.
+ *
+ * More robust WebSocket hook. Adds configurable WebSocket URL, heartbeat/ping
+ * interval, connection statistics tracking, manual disconnect flag (to suppress
+ * reconnect after intentional close), and error state.
+ *
+ * The canonical WebSocket hook — imported as `useWebSocket` by most components.
+ *
+ * @param wsUrl — Optional WebSocket endpoint URL (defaults to auto-detected backend).
+ */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type {
+  WSMessage,
+  CrystalStatus,
+  ScalarStatus,
+  WSConnectionState,
+  ApiResponse,
+} from '../types';
 
-export const useWebSocketStable = (wsUrl = null) => {
+export interface UseWebSocketStableReturn {
+  isConnected: boolean;
+  audioSpectrum: number[];
+  sessions: Record<string, unknown>;
+  connectionStatus: WSConnectionState;
+  lastUpdate: Date | null;
+  reconnectAttempts: number;
+  crystalStatus: CrystalStatus;
+  scalarStatus: ScalarStatus;
+  connectionStats: Record<string, unknown>;
+  rngData: Record<string, unknown> | null;
+  error: string | null;
+  startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
+  stopSession: (sessionId: string) => Promise<ApiResponse>;
+  sendMessage: (message: Record<string, unknown>) => boolean;
+  connect: () => void;
+  disconnect: () => void;
+  getConnectionStats: () => Promise<Record<string, unknown> | null>;
+  clearError: () => void;
+}
+
+export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketStableReturn => {
   const [isConnected, setIsConnected] = useState(false);
-  const [audioSpectrum, setAudioSpectrum] = useState([]);
-  const [sessions, setSessions] = useState({});
-  const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [audioSpectrum, setAudioSpectrum] = useState<number[]>([]);
+  const [sessions, setSessions] = useState<Record<string, unknown>>({});
+  const [connectionStatus, setConnectionStatus] = useState<WSConnectionState>('disconnected');
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const [crystalStatus, setCrystalStatus] = useState({ active: false, intention: '' });
-  const [scalarStatus, setScalarStatus] = useState({ active: false, rate: 0 });
-  const [connectionStats, setConnectionStats] = useState({});
-  const [error, setError] = useState(null);
-  
-  const ws = useRef(null);
-  const reconnectAttemptsRef = useRef(0);
-  const reconnectTimeoutRef = useRef(null);
-  const heartbeatIntervalRef = useRef(null);
-  const manualDisconnect = useRef(false);
-  
-  // Configuration
-  const maxReconnectAttempts = 10;
-  const baseReconnectDelay = 1000; // 1 second
-  const maxReconnectDelay = 30000; // 30 seconds
-  const heartbeatInterval = 30000; // 30 seconds
-  const connectionTimeout = 10000; // 10 seconds
+  const [crystalStatus, setCrystalStatus] = useState<CrystalStatus>({ active: false, intention: '' });
+  const [scalarStatus, setScalarStatus] = useState<ScalarStatus>({ active: false, rate: 0 });
+  const [connectionStats, setConnectionStats] = useState<Record<string, unknown>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [rngData, setRngData] = useState<Record<string, unknown> | null>(null);
 
-  // Calculate exponential backoff delay
-  const getReconnectDelay = (attempt) => {
+  const ws = useRef<WebSocket | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const manualDisconnect = useRef(false);
+
+  const maxReconnectAttempts = 10;
+  const baseReconnectDelay = 1000;
+  const maxReconnectDelay = 30000;
+  const heartbeatInterval = 30000;
+  const connectionTimeout = 10000;
+
+  const getReconnectDelay = (attempt: number): number => {
     const delay = Math.min(baseReconnectDelay * Math.pow(2, attempt), maxReconnectDelay);
-    // Add jitter to prevent thundering herd
     return delay + Math.random() * 1000;
   };
 
-  // Default WebSocket URL if not provided
-  const getDefaultWsUrl = () => {
+  const getDefaultWsUrl = (): string => {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     let frontendHost = window.location.hostname;
     if (frontendHost === 'localhost' || frontendHost === '::1') {
       frontendHost = '127.0.0.1';
     }
-    return `${wsProtocol}//${frontendHost}:8008/ws`; // Use stable server port
+    return `${wsProtocol}//${frontendHost}:8008/ws`;
   };
 
-  // Clear all timers
   const clearTimers = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
@@ -54,12 +89,9 @@ export const useWebSocketStable = (wsUrl = null) => {
     }
   }, []);
 
-  // Start heartbeat
   const startHeartbeat = useCallback(() => {
-    if (heartbeatIntervalRef.current) {
-      clearInterval(heartbeatIntervalRef.current);
-    }
-    
+    if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+
     heartbeatIntervalRef.current = setInterval(() => {
       if (ws.current && ws.current.readyState === WebSocket.OPEN) {
         ws.current.send(JSON.stringify({ type: 'ping' }));
@@ -67,7 +99,6 @@ export const useWebSocketStable = (wsUrl = null) => {
     }, heartbeatInterval);
   }, []);
 
-  // Stop heartbeat
   const stopHeartbeat = useCallback(() => {
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current);
@@ -75,21 +106,17 @@ export const useWebSocketStable = (wsUrl = null) => {
     }
   }, []);
 
-  // Connect to WebSocket
   const connect = useCallback(() => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      return;
-    }
+    if (ws.current?.readyState === WebSocket.OPEN) return;
 
     const url = wsUrl || getDefaultWsUrl();
     console.log(`Connecting to WebSocket (attempt ${reconnectAttemptsRef.current + 1}):`, url);
-    
+
     try {
       ws.current = new WebSocket(url);
-      
-      // Connection timeout
+
       const timeoutId = setTimeout(() => {
-        if (ws.current && ws.current.readyState === WebSocket.CONNECTING) {
+        if (ws.current?.readyState === WebSocket.CONNECTING) {
           ws.current.close();
           console.log('WebSocket connection timeout');
         }
@@ -107,7 +134,7 @@ export const useWebSocketStable = (wsUrl = null) => {
         startHeartbeat();
       };
 
-      ws.current.onclose = (event) => {
+      ws.current.onclose = (event: CloseEvent) => {
         clearTimeout(timeoutId);
         console.log('WebSocket disconnected:', event.code, event.reason);
         setIsConnected(false);
@@ -115,37 +142,34 @@ export const useWebSocketStable = (wsUrl = null) => {
         setLastUpdate(new Date());
         stopHeartbeat();
 
-        // Attempt to reconnect if not manually closed and within max attempts
         if (!manualDisconnect.current && event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
           const nextAttempt = reconnectAttemptsRef.current + 1;
           const delay = getReconnectDelay(nextAttempt);
-          
+
           reconnectAttemptsRef.current = nextAttempt;
           setReconnectAttempts(nextAttempt);
           setError(`Connection lost. Reconnecting in ${Math.round(delay / 1000)}s... (attempt ${nextAttempt}/${maxReconnectAttempts})`);
-          
+
           console.log(`Attempting to reconnect (${nextAttempt}/${maxReconnectAttempts}) in ${Math.round(delay)}ms...`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, delay);
+
+          reconnectTimeoutRef.current = setTimeout(() => connect(), delay);
         } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
           setError('Failed to reconnect after maximum attempts. Please refresh the page.');
         }
       };
 
-      ws.current.onerror = (errorEvent) => {
+      ws.current.onerror = (_event: Event) => {
         clearTimeout(timeoutId);
-        console.error('WebSocket error:', errorEvent);
+        console.error('WebSocket error:', _event);
         setConnectionStatus('error');
         setError('Connection error occurred');
         setLastUpdate(new Date());
       };
 
-      ws.current.onmessage = (event) => {
+      ws.current.onmessage = (event: MessageEvent) => {
         try {
-          const data = JSON.parse(event.data);
-          
+          const data: WSMessage = JSON.parse(event.data as string);
+
           switch (data.type) {
             case 'realtime_data':
               setAudioSpectrum(data.audio_spectrum || []);
@@ -156,28 +180,22 @@ export const useWebSocketStable = (wsUrl = null) => {
               setAudioSpectrum(data.data || []);
               break;
             case 'session_update':
-              setSessions(prev => ({
-                ...prev,
-                [data.data.id]: data.data
-              }));
+              setSessions(prev => ({ ...prev, [data.data.id]: data.data }));
               break;
             case 'connection_status':
-              setConnectionStatus(data.status);
-              if (data.connection_id) {
-                console.log('Connection ID:', data.connection_id);
-              }
+              setConnectionStatus(data.status as WSConnectionState);
+              if (data.connection_id) console.log('Connection ID:', data.connection_id);
               break;
             case 'heartbeat':
-              // Update connection stats if available
               if (data.active_connections !== undefined) {
-                setConnectionStats(prev => ({
-                  ...prev,
-                  active_connections: data.active_connections
-                }));
+                setConnectionStats(prev => ({ ...prev, active_connections: data.active_connections }));
               }
               break;
             case 'pong':
-              // Heartbeat response received
+            case 'ping':
+              break;
+            case 'RNG_READING':
+              setRngData(data.data);
               break;
             case 'BLESSING_STARTED':
               console.log('Blessing started:', data.data);
@@ -195,142 +213,108 @@ export const useWebSocketStable = (wsUrl = null) => {
               console.error('Server error:', data.message);
               setError(data.message);
               break;
-            case 'ping':
-              // Respond to server ping
-              sendMessage({ type: 'pong' });
-              break;
             default:
               console.log('Unknown WebSocket message type:', data.type);
           }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+        } catch (err) {
+          console.error('Error parsing WebSocket message:', err);
           setError('Error processing server message');
         }
       };
-
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
+    } catch (err) {
+      console.error('Failed to create WebSocket connection:', err);
       setConnectionStatus('error');
       setError('Failed to establish connection');
     }
   }, [wsUrl, startHeartbeat, stopHeartbeat]);
 
-  // Disconnect from WebSocket
   const disconnect = useCallback(() => {
     manualDisconnect.current = true;
     clearTimers();
-    
+
     if (ws.current) {
       ws.current.close(1000, 'Manual disconnect');
       ws.current = null;
     }
-    
+
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setReconnectAttempts(0);
     setError(null);
   }, [clearTimers]);
 
-  // Send message to WebSocket
-  const sendMessage = useCallback((message) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+  const sendMessage = useCallback((message: Record<string, unknown>): boolean => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
       try {
         ws.current.send(JSON.stringify(message));
         return true;
-      } catch (error) {
-        console.error('Error sending WebSocket message:', error);
+      } catch (err) {
+        console.error('Error sending WebSocket message:', err);
         setError('Failed to send message');
         return false;
       }
-    } else {
-      console.warn('WebSocket not connected, cannot send message');
-      return false;
     }
+    console.warn('WebSocket not connected, cannot send message');
+    return false;
   }, []);
 
-  // Start session
-  const startSession = useCallback(async (sessionConfig) => {
+  const startSession = useCallback(async (sessionConfig: Record<string, unknown>): Promise<ApiResponse> => {
     try {
       const response = await fetch('/api/v1/sessions/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sessionConfig),
       });
-      
-      const result = await response.json();
-      
-      if (result.status === 'success') {
-        // Start the session
-        const startResponse = await fetch(`/api/v1/sessions/${result.session_id}/start`, {
-          method: 'POST',
-        });
-        
-        const startResult = await startResponse.json();
-        
+      const result: ApiResponse = await response.json();
+
+      if (result.status === 'success' && result.session_id) {
+        const startResponse = await fetch(`/api/v1/sessions/${result.session_id}/start`, { method: 'POST' });
+        const startResult: ApiResponse = await startResponse.json();
         if (startResult.status === 'success') {
           console.log('Session started successfully:', result.session_id);
         }
       }
-      
       return result;
-    } catch (error) {
-      console.error('Error starting session:', error);
+    } catch (err) {
+      console.error('Error starting session:', err);
       setError('Failed to start session');
-      throw error;
+      throw err;
     }
   }, []);
 
-  // Stop session
-  const stopSession = useCallback(async (sessionId) => {
+  const stopSession = useCallback(async (sessionId: string): Promise<ApiResponse> => {
     try {
-      const response = await fetch(`/api/v1/sessions/${sessionId}/stop`, {
-        method: 'POST',
-      });
-      
-      const result = await response.json();
-      
-      if (result.status === 'success') {
-        console.log('Session stopped successfully:', sessionId);
-      }
-      
+      const response = await fetch(`/api/v1/sessions/${sessionId}/stop`, { method: 'POST' });
+      const result: ApiResponse = await response.json();
+      if (result.status === 'success') console.log('Session stopped:', sessionId);
       return result;
-    } catch (error) {
-      console.error('Error stopping session:', error);
+    } catch (err) {
+      console.error('Error stopping session:', err);
       setError('Failed to stop session');
-      throw error;
+      throw err;
     }
   }, []);
 
-  // Get connection statistics
-  const getConnectionStats = useCallback(async () => {
+  const getConnectionStats = useCallback(async (): Promise<Record<string, unknown> | null> => {
     try {
       const response = await fetch('/ws-stats');
-      const stats = await response.json();
+      const stats: Record<string, unknown> = await response.json();
       setConnectionStats(stats);
       return stats;
-    } catch (error) {
-      console.error('Error getting connection stats:', error);
+    } catch (err) {
+      console.error('Error getting connection stats:', err);
       return null;
     }
   }, []);
 
-  // Initialize connection on mount
   useEffect(() => {
     manualDisconnect.current = false;
     connect();
-    
-    return () => {
-      disconnect();
-    };
+    return () => { disconnect(); };
   }, [connect, disconnect]);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      clearTimers();
-    };
+    return () => { clearTimers(); };
   }, [clearTimers]);
 
   return {
@@ -343,6 +327,7 @@ export const useWebSocketStable = (wsUrl = null) => {
     crystalStatus,
     scalarStatus,
     connectionStats,
+    rngData,
     error,
     startSession,
     stopSession,
@@ -350,6 +335,6 @@ export const useWebSocketStable = (wsUrl = null) => {
     connect,
     disconnect,
     getConnectionStats,
-    clearError: () => setError(null)
+    clearError: () => setError(null),
   };
 };

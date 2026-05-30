@@ -1,3 +1,10 @@
+/**
+ * Crystal Store — Zustand state for crystal grid configuration.
+ *
+ * Manages crystal inventory, active grid geometry (type, radius,
+ * crystal count), programming intentions, and energy-field toggles
+ * for the 3D crystal grid visualisation. Persisted to localStorage.
+ */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 

@@ -1,3 +1,10 @@
+/**
+ * Manual Settings Tab — advanced low-level configuration panel.
+ * Tabbed interface for audio, broadcast, WebSocket, and API
+ * settings not exposed through the standard Control Panel.
+ * @component
+ * @param {{ activeTab, setActiveTab }} props
+ */
 import React from 'react';
 import ControlPanel from './ControlPanel';
 import RateTuner from './RateTuner';

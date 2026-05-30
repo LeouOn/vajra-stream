@@ -1,3 +1,12 @@
+/**
+ * Dharma Tales — AI-generated Buddhist teaching stories viewer.
+ *
+ * Displays AI-generated parables, teaching tales, and traditional
+ * Buddhist stories. Supports TTS narration, tale saving, theme/
+ * tradition selection, and full-screen immersive reading mode.
+ *
+ * @component
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BookOpen, Sparkles, RefreshCw, Volume2, VolumeX, Save, ChevronDown, Trash2, Copy, Maximize2, Minimize2 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';

@@ -139,12 +139,12 @@ python scripts/radionics_operation.py --to-time \
   --duration 600
 
 # Broadcast to significant historical event
-# Example: Hiroshima, August 6, 1945
+# Example: symbolic date for a time of war
 python scripts/radionics_operation.py --to-time \
   --intention "Healing and peace for all affected souls" \
-  --year 1945 --month 8 --day 6 --hour 8 --minute 15 \
-  --latitude 34.4 --longitude 132.5 \
-  --location-name "Hiroshima" \
+  --year 500 --month 6 --day 15 --hour 12 --minute 0 \
+  --latitude 0.0 --longitude 0.0 \
+  --location-name "The World" \
   --duration 1800
 
 # Work with ancient sacred site

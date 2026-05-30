@@ -44,7 +44,13 @@ except ImportError:
 
 
 class WaveMethod(Enum):
-    """Available scalar wave generation methods"""
+    """Available scalar wave generation methods.
+
+    Seven distinct computational approaches for generating non-deterministic
+    scalar wave values, each with different entropy characteristics:
+    quantum RNG, chaotic attractors, cellular automata, neural oscillators,
+    cryptographic hashing, prime harmonics, and hybrid synthesis.
+    """
 
     QUANTUM_RNG = "quantum_rng"
     CHAOTIC_ATTRACTOR = "chaotic_attractor"

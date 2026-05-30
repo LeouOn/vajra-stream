@@ -7,13 +7,14 @@ Supports background broadcast loops.
 import asyncio
 import json
 import logging
-import uuid
 import os
-from pathlib import Path
+import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from modules.interfaces import BlessingGenerated, EventBus
+from backend.core.services.rng_attunement_service import get_rng_service
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,17 @@ class OutlookService:
         if languages is None:
             languages = ["English"]
 
+        sensor_context = None
+        try:
+            rng = get_rng_service()
+            sessions = rng.get_all_sessions()
+            if sessions:
+                summary = rng.get_session_summary(sessions[-1])
+                if summary:
+                    sensor_context = f"Entropy: {summary.get('avg_entropy', 0):.2f}, Coherence: {summary.get('avg_coherence', 0):.2f}, Floating Needles: {summary.get('floating_needle_count', 0)}"
+        except Exception as e:
+            logger.error(f"Failed to gather sensor context for single outlook: {e}")
+
         result = self.generator.generate_single_outlook(
             lat=lat,
             lon=lon,
@@ -107,6 +119,7 @@ class OutlookService:
             include_iching=include_iching,
             randomize_realm=randomize_realm,
             randomize_characters=randomize_characters,
+            sensor_context=sensor_context,
         )
 
         if self.event_bus:
@@ -146,6 +159,17 @@ class OutlookService:
         if languages is None:
             languages = ["English"]
 
+        sensor_context = None
+        try:
+            rng = get_rng_service()
+            sessions = rng.get_all_sessions()
+            if sessions:
+                summary = rng.get_session_summary(sessions[-1])
+                if summary:
+                    sensor_context = f"Entropy: {summary.get('avg_entropy', 0):.2f}, Coherence: {summary.get('avg_coherence', 0):.2f}, Floating Needles: {summary.get('floating_needle_count', 0)}"
+        except Exception as e:
+            logger.error(f"Failed to gather sensor context for epic outlook: {e}")
+
         result = self.generator.generate_epic_outlook(
             lat=lat,
             lon=lon,
@@ -165,6 +189,7 @@ class OutlookService:
             include_iching=include_iching,
             randomize_realm=randomize_realm,
             randomize_characters=randomize_characters,
+            sensor_context=sensor_context,
         )
 
         if self.event_bus:

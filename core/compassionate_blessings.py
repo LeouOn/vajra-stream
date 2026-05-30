@@ -1,18 +1,29 @@
 """
-Compassionate Blessing System
+Compassionate Blessing System — targeted intention/blessing infrastructure.
 
-Framework for directing healing intentions to marginalized, suffering,
-forgotten, and lost beings through precise astrocartographic and radionics
-targeting.
+Provides the data model, persistence, and allocation algorithms for directing
+healing intentions to specific beings or populations. Integrates astrocartographic
+coordinates, radionics rates, and temporal/spatial targeting for precise
+blessing transmission.
 
-This system honors:
-- Tibetan Buddhist dedication practices
-- Modern databases of those in need
-- Astrological timing for optimal blessing transmission
-- Technological bodhisattva activity
+Key components:
+- :class:`BlessingTarget` — dataclass representing an individual or group
+  with identity, location, temporal data, and blessing tracking.
+- :class:`BlessingDatabase` — SQLite-backed CRUD for targets, sessions, and dedications.
+- :class:`BlessingAllocator` — three allocation strategies: equitable, urgent,
+  and priority-weighted.
+- :class:`BlessingCoordinate` / :class:`GeoCoordinate` — multi-dimensional
+  targeting (Julian day, lat/lon, natal chart, radionics rates).
 
-"May this work ripen as the cause for their ultimate enlightenment
-and the enlightenment of all beings."
+Dependencies:
+    sqlite3, hashlib (stdlib).
+    Optional: :class:`~core.astrocartography.CalendarConverter` for date conversion.
+
+Exports:
+    BlessingCategory, MantraType — enums.
+    GeoCoordinate, BlessingCoordinate, BlessingTarget — data classes.
+    BlessingDatabase, BlessingAllocator — core services.
+    create_target — convenience factory function.
 """
 
 import hashlib
@@ -244,10 +255,19 @@ class BlessingTarget:
 
 
 class BlessingDatabase:
-    """
-    Database for managing blessing targets.
+    """SQLite-backed database for blessing targets, sessions, and dedications.
 
-    Sacred data handling with encryption and respect.
+    Manages three tables:
+    - ``blessing_targets`` — individuals/groups receiving blessings.
+    - ``blessing_sessions`` — recorded practice sessions.
+    - ``mantra_dedications`` — per-target dedication counts linked to sessions.
+
+    All JSON-serialisable fields (coordinates, additional data, dedication
+    sessions) are stored as TEXT columns. Thread-safe for single-writer usage;
+    not designed for concurrent access.
+
+    Attributes:
+        db_path: Path to the SQLite file (default ``"vajra_stream.db"``).
     """
 
     def __init__(self, db_path: str = "vajra_stream.db"):
@@ -542,14 +562,12 @@ class BlessingDatabase:
 
 
 class BlessingAllocator:
-    """
-    Algorithms for allocating blessing energy across targets.
+    """Static methods for distributing mantra/blessing counts across targets.
 
-    Different methods for different purposes:
-    - Equitable: Everyone receives equally
-    - Urgent: Priority to those waiting longest
-    - Astrological: Based on current transits
-    - Weighted: Based on suffering intensity/priority
+    Three allocation strategies (all return ``{identifier: count}`` dicts):
+    - :meth:`allocate_equitable` — equal shares with remainder distribution.
+    - :meth:`allocate_urgent` — weighted by ``days_waiting × priority``.
+    - :meth:`allocate_weighted` — proportionally to target priority (1–10).
     """
 
     @staticmethod

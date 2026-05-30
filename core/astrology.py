@@ -12,9 +12,25 @@ import swisseph as swe
 
 
 class AstrologicalCalculator:
-    """
-    Calculate astrological data for timing practices.
-    Supports Western (Tropical), Indian (Sidereal/Panchang), and Chinese (Lunisolar/BaZi) systems.
+    """Comprehensive astrological calculator for three major traditions.
+
+    Supports Western Tropical, Indian Vedic (Sidereal/Panchanga), and Chinese
+    Lunisolar (BaZi/Sheng Xiao) systems. Uses Swiss Ephemeris (swisseph) for
+    precise planetary calculations and lunar-python for Chinese calendar data.
+
+    All datetime arguments should be timezone-aware (``pytz.UTC`` or local tz).
+    Location tuples are ``(latitude, longitude)`` in decimal degrees.
+
+    Key methods:
+        :meth:`get_comprehensive_astrology` — one-call consolidation of all three systems.
+        :meth:`calculate_exact_planetary_hours` — Chaldean planetary hours.
+        :meth:`recommend_frequencies_for_time` — audio frequencies for current energetics.
+
+    Attributes:
+        PLANETS: Dict mapping planet names to Swiss Ephemeris constants.
+        SIGNS: List of 12 Western zodiac sign names.
+        CHALDEAN_ORDER: Traditional planetary hour sequence.
+        WEEKDAY_RULERS: Mapping of weekday index (Mon=0) to ruling planet.
     """
 
     def __init__(self):
@@ -67,7 +83,17 @@ class AstrologicalCalculator:
         }
 
     def get_julian_day(self, dt: datetime) -> float:
-        """Convert datetime (naive or timezone-aware) to Julian Day number in UT"""
+        """Convert a datetime to a Swiss Ephemeris Julian Day number.
+
+        Timezone-aware datetimes are converted to UTC first; naive datetimes
+        are treated as UTC.
+
+        Args:
+            dt: Datetime to convert (naive or tz-aware).
+
+        Returns:
+            float: Julian Day number suitable for ``swe.julday`` / ``swe.calc_ut``.
+        """
         if dt.tzinfo is not None:
             dt_utc = dt.astimezone(pytz.UTC)
         else:
@@ -94,8 +120,18 @@ class AstrologicalCalculator:
     # =========================================================================
 
     def get_planetary_positions(self, dt: datetime, location: tuple[float, float] = None) -> dict:
-        """
-        Get tropical positions of all planets at given time.
+        """Calculate tropical (Western) positions of all planets.
+
+        Returns longitude, sign, degree-in-sign, and a formatted string
+        for each planet in ``self.PLANETS``.
+
+        Args:
+            dt: Datetime for the calculation.
+            location: Optional ``(latitude, longitude)`` tuple (currently unused
+                for planetary positions but accepted for API compatibility).
+
+        Returns:
+            dict: ``{planet_name: {longitude, sign, degree, formatted}, ...}``
         """
         jd = self.get_julian_day(dt)
         positions = {}
@@ -751,9 +787,17 @@ class AstrologicalCalculator:
     # =========================================================================
 
     def get_moon_phase(self, dt: datetime) -> dict:
-        """
-        Calculate current moon phase.
-        Returns phase name, illumination, and angle.
+        """Calculate the current moon phase.
+
+        Computes the angular separation between Sun and Moon and derives
+        phase name, percent illumination, and boolean flags for new/full moon.
+
+        Args:
+            dt: Datetime for the calculation.
+
+        Returns:
+            dict: ``{phase_name, illumination (0-100), phase_angle (0-360),
+            is_new_moon, is_full_moon}``
         """
         jd = self.get_julian_day(dt)
 
@@ -789,8 +833,16 @@ class AstrologicalCalculator:
         }
 
     def get_lunar_mansion(self, dt: datetime) -> dict:
-        """
-        Calculate current Nakshatra (lunar mansion)
+        """Calculate the current Nakshatra (Vedic lunar mansion).
+
+        Uses Lahiri ayanamsa for the sidereal Moon position, then maps it
+        to one of the 27 traditional nakshatras.
+
+        Args:
+            dt: Datetime for the calculation.
+
+        Returns:
+            dict: ``{number (1-27), name, moon_position (sidereal degrees)}``
         """
         jd = self.get_julian_day(dt)
 
@@ -835,9 +887,18 @@ class AstrologicalCalculator:
         return {"number": nakshatra_num + 1, "name": NAKSHATRAS[nakshatra_num % 27], "moon_position": sidereal_moon_pos}
 
     def calculate_auspicious_times(self, date: datetime, location: tuple[float, float]) -> dict:
-        """
-        Calculate sunrise, sunset, noon, and Brahma Muhurta.
-        location: (latitude, longitude)
+        """Calculate sunrise, sunset, solar noon, and Brahma Muhurta.
+
+        Brahma Muhurta is the 96-minute period before sunrise, traditionally
+        considered the most auspicious time for meditation and spiritual practice.
+
+        Args:
+            date: Datetime for the calculation.
+            location: ``(latitude, longitude)`` tuple in decimal degrees.
+
+        Returns:
+            dict: ``{sunrise, sunset, noon, brahma_muhurta, location}``.
+                Times are timezone-aware datetimes (or None for polar regions).
         """
         lat, lon = location
         jd = self.get_julian_day(date)
@@ -968,9 +1029,18 @@ class AstrologicalCalculator:
         }
 
     def get_current_energetics(self, dt: datetime = None, location: tuple[float, float] = None) -> dict:
-        """
-        Comprehensive reading of current astrological energetics.
-        Legacy method updated to include standard responses.
+        """Quick snapshot of current astrological energetics.
+
+        Aggregates moon phase, lunar mansion, planetary positions, and
+        (if location is provided) auspicious times into a single dict.
+
+        Args:
+            dt: Datetime (defaults to ``datetime.now(pytz.UTC)``).
+            location: Optional ``(latitude, longitude)`` tuple.
+
+        Returns:
+            dict: ``{datetime, moon_phase, lunar_mansion, planetary_positions,
+            [auspicious_times]}``
         """
         if dt is None:
             dt = datetime.now(pytz.UTC)
@@ -988,8 +1058,18 @@ class AstrologicalCalculator:
         return result
 
     def get_comprehensive_astrology(self, dt: datetime = None, location: tuple[float, float] = None) -> dict:
-        """
-        Compute consolidated astrology across Western, Indian, and Chinese systems.
+        """Compute consolidated astrology across all three systems.
+
+        This is the primary entry point — it aggregates Western, Indian (Vedic),
+        Chinese, and planetary hour data into one response dict.
+
+        Args:
+            dt: Datetime (defaults to now in UTC; naive datetimes are localised to UTC).
+            location: ``(latitude, longitude)`` tuple (defaults to San Francisco
+                if not provided).
+
+        Returns:
+            dict: ``{datetime, location, western, indian, chinese, planetary_hours}``
         """
         if dt is None:
             dt = datetime.now(pytz.UTC)
@@ -1014,8 +1094,19 @@ class AstrologicalCalculator:
         }
 
     def recommend_frequencies_for_time(self, dt: datetime = None) -> list[float]:
-        """
-        Recommend audio frequencies based on current astrological conditions.
+        """Recommend audio frequencies based on current astrological conditions.
+
+        Always includes Schumann (7.83 Hz) and OM (136.1 Hz). Adds:
+        - Full moon: Moon frequency (210.42) + connection (639).
+        - New moon: release (396) + new beginnings (417).
+        - Otherwise: transformation (528).
+        - Venus/Jupiter at critical degrees: adds planetary frequencies.
+
+        Args:
+            dt: Datetime (defaults to now in UTC).
+
+        Returns:
+            list[float]: Up to 7 recommended frequencies.
         """
         if dt is None:
             dt = datetime.now(pytz.UTC)
@@ -1047,8 +1138,16 @@ class AstrologicalCalculator:
         return frequencies[:7]  # Return up to 7 frequencies
 
     def get_dharma_calendar_events(self, dt: datetime) -> list[str]:
-        """
-        Check for significant dharma calendar dates.
+        """Check for significant dharma calendar events.
+
+        Detects full moons, new moons, and eclipse proximity (Sun within
+        10° of the lunar nodes).
+
+        Args:
+            dt: Datetime to check.
+
+        Returns:
+            list[str]: Human-readable event descriptions (may be empty).
         """
         events = []
         moon_phase = self.get_moon_phase(dt)
@@ -1070,11 +1169,34 @@ class AstrologicalCalculator:
         return events
 
     def calculate_chart(self, date: datetime, lat: float, lon: float, name: str = "") -> dict:
-        """Compatibility wrapper for OutlookGenerator."""
+        """Compatibility wrapper for :class:`~core.outlook_generator.OutlookGenerator`.
+
+        Delegates to :meth:`get_comprehensive_astrology`.
+
+        Args:
+            date: Datetime for the chart.
+            lat: Latitude in decimal degrees.
+            lon: Longitude in decimal degrees.
+            name: Optional chart name (unused; accepted for API compatibility).
+
+        Returns:
+            dict: Same as :meth:`get_comprehensive_astrology`.
+        """
         return self.get_comprehensive_astrology(date, (lat, lon))
 
     def get_transits(self, natal_chart: dict = None, transit_date: datetime = None) -> list[dict]:
-        """Compatibility wrapper for OutlookGenerator transit aspects."""
+        """Compatibility wrapper for :class:`~core.outlook_generator.OutlookGenerator`.
+
+        Extracts aspects from a natal chart's Western astrology data.
+
+        Args:
+            natal_chart: Dict with a ``"western"`` key (as returned by
+                :meth:`get_comprehensive_astrology`).
+            transit_date: Unused; accepted for API compatibility.
+
+        Returns:
+            list[dict]: Aspect list from the natal chart, or empty list.
+        """
         if natal_chart and "western" in natal_chart:
             return natal_chart["western"].get("aspects", [])
         return []

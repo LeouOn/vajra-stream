@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Time Cycle Healer - CLI for Running Historical Healing Cycles
+Time Cycle Healer - CLI for Running Symbolic Healing Cycles
 
 Easy-to-use command-line tool for sending blessings and healing
-to historical periods of mass suffering.
+through archetypal time cycles.
 
 Usage:
     python time_cycle_healer.py --list
-    python time_cycle_healer.py --event holocaust --days 7
-    python time_cycle_healer.py --event cambodian_genocide --full-cycle
-    python time_cycle_healer.py --event rwandan_genocide --test
+    python time_cycle_healer.py --event archetype-war --days 7
+    python time_cycle_healer.py --event archetype-universal --full-cycle
+    python time_cycle_healer.py --event archetype-universal --test
 """
 
 import argparse
@@ -23,7 +23,7 @@ from core.time_cycle_broadcaster import TimeCycleBroadcaster, list_all_events, r
 
 
 class TimeCycleHealerCLI:
-    """Command-line interface for time cycle healing"""
+    """Command-line interface for archetypal time cycle healing"""
 
     def __init__(self):
         self.broadcaster = TimeCycleBroadcaster()
@@ -44,8 +44,7 @@ class TimeCycleHealerCLI:
         print(f"{'=' * 70}\n")
 
         print(f"Period: {event['start_date']} to {event['end_date']}")
-        print(f"Estimated Deaths: {event['estimated_deaths']:,}")
-        print(f"Population Affected: {event['population_affected']}")
+        print(f"Scope: {event['population_affected']}")
         print("\nDescription:")
         print(f"  {event['description']}")
         print("\nBlessing Focus:")
@@ -126,27 +125,27 @@ class TimeCycleHealerCLI:
     def run(self):
         """Main entry point"""
         parser = argparse.ArgumentParser(
-            description="Time Cycle Healer - Send blessings to historical periods of suffering",
+            description="Time Cycle Healer - Send blessings through archetypal time cycles",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             epilog="""
 Examples:
-  # List all available events
+  # List all available archetypal cycles
   %(prog)s --list
 
-  # Get detailed info about an event
-  %(prog)s --info --event holocaust
+  # Get detailed info about a cycle
+  %(prog)s --info --event archetype-war
 
   # Run a quick 3-day test
-  %(prog)s --test --event rwandan_genocide
+  %(prog)s --test --event archetype-universal
 
   # Run a 7-day healing cycle
-  %(prog)s --run --event cambodian_genocide --days 7
+  %(prog)s --run --event archetype-famine --days 7
 
   # Run full cycle (WARNING: can be very long!)
-  %(prog)s --run --event holocaust --full-cycle
+  %(prog)s --run --event archetype-universal --full-cycle
 
   # Run without creating visualizations
-  %(prog)s --run --event wwi --days 10 --no-viz
+  %(prog)s --run --event archetype-war --days 10 --no-viz
 
 May all beings be free from suffering.
 Om Mani Padme Hum 🙏
@@ -160,7 +159,7 @@ Om Mani Padme Hum 🙏
         parser.add_argument("--run", action="store_true", help="Run a healing cycle")
 
         # Event selection
-        parser.add_argument("--event", type=str, help="Event ID (e.g., holocaust, rwandan_genocide)")
+        parser.add_argument("--event", type=str, help="Event ID (e.g., archetype-war, archetype-universal)")
 
         # Cycle parameters
         parser.add_argument("--days", type=int, help="Number of days to process (default: 7)")

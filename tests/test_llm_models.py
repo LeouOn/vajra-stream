@@ -31,5 +31,5 @@ def test_models_endpoint(client):
             data = response.json()
             assert data.get("status") == "success"
             assert data.get("available", {}).get("lm_studio") == ["lm-studio-model-1"]
-            assert data.get("available", {}).get("local") == ["test-model.gguf"]
-            assert data.get("default_model") == "lm-studio-model-1"
+            assert data.get("available", {}).get("local") == ["local:test-model.gguf"]
+            assert data.get("default_model") == "lm_studio:lm-studio-model-1"

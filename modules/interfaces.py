@@ -92,6 +92,15 @@ class BroadcastStopped(DomainEvent):
     actual_runtime: float
 
 
+@dataclass
+class RNGReadingEvent(DomainEvent):
+    """Event: Significant RNG Reading captured"""
+
+    session_id: str
+    coherence: float
+    entropy: float
+    floating_needle_score: float
+
 # ============================================================================
 # Module Interfaces (Ports)
 # ============================================================================

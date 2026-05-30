@@ -1,5 +1,10 @@
 """
-Sigil Forging & Generator Service
+Sigil Forging & Generator Service — intention-to-symbol encoding.
+
+Transforms written intentions into abstract visual sigils using
+multiple encoding methods (word-grid, planetary kamea, automated
+drawing). Supports intention charging, sigil activation, and
+persistent storage with metadata tracking.
 """
 
 import base64

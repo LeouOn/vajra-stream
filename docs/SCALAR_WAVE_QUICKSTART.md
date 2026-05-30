@@ -273,8 +273,8 @@ from core.time_cycle_broadcaster import TimeCycleBroadcaster
 broadcaster = TimeCycleBroadcaster()
 generator = HybridScalarWaveGenerator()
 
-# Broadcast to historical event
-event = broadcaster.get_event_by_id("holocaust")
+# Broadcast to symbolic cycle
+event = broadcaster.get_event_by_id("archetype-war")
 
 # Generate intense field during broadcast
 for day in range(108):  # 108-day cycle

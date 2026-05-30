@@ -1,3 +1,23 @@
+"""
+Outlook Generator — narrative healing and sutra-style blessing orchestration.
+
+Generates personalised healing narratives, astrological outlooks, and
+compassionate blessings for individuals based on their birth chart, current
+transits, and divination results. Integrates with the backend's character
+manager, location manager, population manager, and divination service to
+produce context-rich, spiritually-grounded narratives.
+
+Dependencies:
+    Optional (gracefully degraded): :class:`~core.astrology.AstrologyEngine`,
+    :mod:`backend.core.services.divination_service`,
+    :mod:`backend.core.services.character_manager`,
+    :mod:`backend.core.services.location_manager`,
+    :mod:`backend.core.services.population_manager`.
+
+Exports:
+    OutlookGenerator — main narrative generation class.
+"""
+
 import json
 import os
 import random
@@ -259,6 +279,7 @@ class OutlookGenerator:
         include_iching: bool = True,
         randomize_realm: bool = False,
         randomize_characters: bool = False,
+        sensor_context: str | None = None,
     ) -> dict[str, Any]:
         """
         Generates a dense, 300-3000 token single-pass narrative outlook.
@@ -331,6 +352,9 @@ class OutlookGenerator:
         if excluded_forces:
             detailed_context.append(f"Negative Forces to exclude/pacify: {', '.join(excluded_forces)}")
 
+        if sensor_context:
+            detailed_context.append(f"Quantum Sensor Field / Attunement: {sensor_context}")
+
         if custom_context:
             detailed_context.append(f"Additional Intentions / Aspiration Context: {custom_context}")
 
@@ -363,6 +387,7 @@ Length: 3-5 paragraphs of dense, visionary prose.
         # Debug: log the full prompt for verification
         self._debug_log_prompt(prompt, genre, lat, lon)
 
+        print(f"[DEBUG generate_single_outlook] model={model!r}, self.llm={type(self.llm).__name__ if self.llm else 'None'}")
         if self.llm:
             result = self.llm.generate(
                 prompt=prompt,
@@ -371,6 +396,8 @@ Length: 3-5 paragraphs of dense, visionary prose.
                 temperature=0.8,
                 model=model,
             )
+            if result and "No LLM initialized" in result:
+                result = f"LLM unavailable. Fallback Generation:\n\n{entity_context}\n{astro_context}\n{divination_context}\n\nMay this transmission bring peace."
         else:
             result = f"LLM unavailable. Fallback Generation:\n\n{entity_context}\n{astro_context}\n{divination_context}\n\nMay this transmission bring peace."
 
@@ -406,6 +433,7 @@ Length: 3-5 paragraphs of dense, visionary prose.
         include_iching: bool = True,
         randomize_realm: bool = False,
         randomize_characters: bool = False,
+        sensor_context: str | None = None,
     ) -> dict[str, Any]:
         """
         Orchestrates a multi-stage (e.g. 9-12 stages) epic narrative outlook.
@@ -478,6 +506,9 @@ Length: 3-5 paragraphs of dense, visionary prose.
         if excluded_forces:
             detailed_context.append(f"Negative Forces to exclude/pacify: {', '.join(excluded_forces)}")
 
+        if sensor_context:
+            detailed_context.append(f"Quantum Sensor Field / Attunement: {sensor_context}")
+
         if custom_context:
             detailed_context.append(f"Additional Intentions / Aspiration Context: {custom_context}")
 
@@ -488,6 +519,8 @@ Length: 3-5 paragraphs of dense, visionary prose.
 
         if not self.llm:
             return {"status": "error", "message": "LLM required for epic generation"}
+        
+        is_fallback = False
 
         # Stage 1: Invocation
         prompt_1 = f"""Start an epic {stages}-part sutra/tale in the '{genre}' style.
@@ -507,6 +540,10 @@ Oracle: {divination_context}"""
         prompt_1 += "\n\nWrite Chapter 1: The Invocation and the Setting of the Stage. Establish the cosmic weather and call upon the entities. End with a cliffhanger or mystery."
 
         chap_1 = self.llm.generate(prompt_1, max_tokens=1000, model=model)
+        if chap_1 and "No LLM initialized" in chap_1:
+            is_fallback = True
+            chap_1 = f"LLM unavailable. Fallback Epic Stage 1:\n\n{entity_context}\n{astro_context}\n{divination_context}"
+            
         epic_narrative.append({"chapter": 1, "title": "The Invocation", "content": chap_1})
 
         # Final chapter
@@ -520,7 +557,13 @@ Seal the dharani, resolve the oracle's prophecy ({divination_context}), and show
         if include_dialogue and character_ids:
             prompt_final += "\n\nCRITICAL INSTRUCTION: Include direct dialogue between the present characters. Write spoken lines that reflect their specific Dialogue Styles."
 
-        chap_final = self.llm.generate(prompt_final, max_tokens=1500, model=model)
+        if is_fallback:
+            chap_final = f"LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
+        else:
+            chap_final = self.llm.generate(prompt_final, max_tokens=1500, model=model)
+            if chap_final and "No LLM initialized" in chap_final:
+                chap_final = f"LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
+                
         epic_narrative.append({"chapter": stages, "title": "The Sealing", "content": chap_final})
 
         return {

@@ -1,3 +1,9 @@
+/**
+ * Grimoire Panel — esoteric correspondence reference browser.
+ * Displays planetary, elemental, colour, herbal, and crystal
+ * correspondences from the Grimoire service.
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, HelpCircle, ArrowRight } from 'lucide-react';
 import DharmaTales from './DharmaTales';

@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
-from datetime import datetime
+
 
 @pytest.fixture
 def client():
@@ -112,7 +113,7 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
     mock_realm = MagicMock()
     mock_realm.id = "mock_realm_id"
     mock_realm.is_metaphysical = True
-    
+
     mock_char = MagicMock()
     mock_char.id = "mock_char_id"
 
@@ -120,7 +121,7 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
          patch("core.outlook_generator.get_character_manager") as mock_cm, \
          patch("core.outlook_generator.random.choice") as mock_choice, \
          patch("core.outlook_generator.random.sample") as mock_sample:
-         
+
         mock_lm.return_value.get_active_locations.return_value = [mock_realm]
         mock_cm.return_value.get_active_characters.return_value = [mock_char]
         mock_choice.return_value = mock_realm

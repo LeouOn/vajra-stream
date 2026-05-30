@@ -5,6 +5,9 @@ import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
 
+// Ant Design
+import { ConfigProvider, theme } from 'antd';
+
 import SacredGeometry from './components/3D/SacredGeometry';
 import CrystalGrid from './components/3D/CrystalGrid';
 import SacredMandala from './components/3D/SacredMandala';
@@ -14,6 +17,8 @@ import LiveWaveVisualizer from './components/2D/LiveWaveVisualizer';
 import ScalarWaveVisualizer from './components/2D/ScalarWaveVisualizer';
 import RadionicsGlobe from './components/3D/RadionicsGlobe';
 import FrequencyWaterfall from './components/2D/FrequencyWaterfall';
+import RothkoGenerator from './components/2D/RothkoGenerator';
+import ChakraBodyMap from './components/2D/ChakraBodyMap';
 
 import MainLayout from './components/Layout/MainLayout';
 import CommandCenter from './components/UI/CommandCenter';
@@ -28,7 +33,6 @@ import { audioFeedback } from './utils/audioFeedback';
 
 function AppContent() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
-  const [crtEnabled, setCrtEnabled] = useState(true);
   const [mopsData, setMopsData] = useState(null);
   const location = useLocation();
   const activeTab = location.pathname.split('/')[1] || 'command-center';
@@ -104,8 +108,6 @@ function AppContent() {
 
   return (
     <MainLayout
-      crtEnabled={crtEnabled}
-      setCrtEnabled={setCrtEnabled}
       isConnected={isConnected}
       isPlaying={isPlaying}
       frequency={frequency}
@@ -164,6 +166,24 @@ function AppContent() {
           </div>
         } />
         
+        <Route path="/meditation" element={
+          <div className="fixed inset-0 z-50 bg-black">
+            <RothkoGenerator
+              audioSpectrum={audioSpectrum}
+              isPlaying={isPlaying}
+              palette="compassion"
+              transitionSpeed={30}
+              fullscreen
+            />
+            <button
+              onClick={() => window.history.back()}
+              className="absolute top-4 right-4 z-50 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white px-4 py-2 rounded-lg text-sm backdrop-blur-sm transition-colors"
+            >
+              Exit Meditation
+            </button>
+          </div>
+        } />
+
         <Route path="/visualizers" element={
           <div className="flex-1 relative w-full h-full min-h-[500px]">
             {visualizationType === 'sacred-geometry' ? (
@@ -172,7 +192,14 @@ function AppContent() {
                   <ambientLight intensity={0.5} />
                   <pointLight position={[10, 10, 10]} intensity={1} />
                   <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-                  <SacredGeometry audioSpectrum={audioSpectrum} isPlaying={isPlaying} frequency={frequency} />
+                  <SacredGeometry
+                    audioSpectrum={audioSpectrum}
+                    isPlaying={isPlaying}
+                    frequency={frequency}
+                    pattern="flower-of-life"
+                    colorTheme="cyan-gold"
+                    particleCount={200}
+                  />
                   <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.5} />
                   <Environment preset="sunset" />
                 </Canvas>
@@ -225,11 +252,41 @@ function AppContent() {
               <div className="w-full h-full overflow-auto p-6 bg-gray-900">
                 <Dashboard />
               </div>
+            ) : visualizationType === 'rothko' ? (
+              <div className="w-full h-full">
+                <RothkoGenerator
+                  audioSpectrum={audioSpectrum}
+                  isPlaying={isPlaying}
+                  palette="compassion"
+                  transitionSpeed={30}
+                />
+              </div>
+            ) : visualizationType === 'chakra-body' ? (
+              <div className="w-full h-full flex items-center justify-center bg-gray-950 p-8">
+                <ChakraBodyMap
+                  audioSpectrum={audioSpectrum}
+                  isPlaying={isPlaying}
+                  height={450}
+                  onSelectChakra={(chakra) => {
+                    updateSettings({ frequency: chakra.frequency });
+                  }}
+                />
+              </div>
             ) : visualizationType === 'chakra-trend' ? (
-              <div className="w-full h-full flex flex-col">
+              <div className="w-full h-full flex flex-col bg-gray-950">
                 <div className="flex-1 flex items-center justify-center">
-                  <ChakraAlignmentStrip />
+                  <ChakraBodyMap
+                    audioSpectrum={audioSpectrum}
+                    isPlaying={isPlaying}
+                    height={350}
+                  />
                 </div>
+                <ChakraAlignmentStrip
+                  activeChakras={Object.values(sessions || {}).filter(s => s.status === 'running').flatMap(s => s.config?.chakras_enabled || [])}
+                  onSelectChakra={(chakra) => {
+                    updateSettings({ frequency: chakra.frequency });
+                  }}
+                />
               </div>
             ) : visualizationType === 'globe' ? (
               <div className="w-full h-full">
@@ -279,9 +336,19 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: '#8b5cf6', // vajra-purple
+          colorInfo: '#06b6d4', // vajra-cyan
+        },
+      }}
+    >
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </ConfigProvider>
   );
 }
 

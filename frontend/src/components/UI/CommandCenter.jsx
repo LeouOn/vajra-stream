@@ -1,89 +1,26 @@
+/**
+ * Command Center — primary operator console for Vajra.Stream.
+ *
+ * Central hub for issuing text commands to the unified orchestrator.
+ * Features a terminal-style input with command history, live WebSocket
+ * status feed, MOPS throughput display, and quick-action buttons for
+ * common radionics and blessing operations. The largest UI component
+ * (~1300 lines) — serves as the primary interaction surface.
+ *
+ * @component
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, Terminal, Cpu, Activity, Wifi, AlertTriangle, 
   Sparkles, Shield, Compass, BookOpen, Clock, Play, Square, X, Moon, Sun
 } from 'lucide-react';
+import { Card, Input, Button, Select, Switch, Tag, Modal, Tabs, Badge, Space, Statistic } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 import { API_BASE } from '../../utils/api';
-
-const QuantumWaveform = ({ isPlaying, frequency }) => {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let animationId;
-    let phase = 0;
-
-    const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      const width = canvas.width;
-      const height = canvas.height;
-      const midY = height / 2;
-      
-      // Draw grid lines inside the mini-visualizer
-      ctx.strokeStyle = 'rgba(138, 43, 226, 0.1)';
-      ctx.lineWidth = 1;
-      // horizontal mid line
-      ctx.beginPath();
-      ctx.moveTo(0, midY);
-      ctx.lineTo(width, midY);
-      ctx.stroke();
-      
-      // Draw wave
-      const amplitude = isPlaying ? 12 : 3;
-      const speed = isPlaying ? 0.15 : 0.03;
-      const wavelength = isPlaying ? 25 : 60;
-      
-      ctx.beginPath();
-      ctx.lineWidth = isPlaying ? 2 : 1;
-      ctx.strokeStyle = isPlaying ? 'rgba(0, 255, 255, 0.85)' : 'rgba(138, 43, 226, 0.4)';
-      
-      if (isPlaying) {
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = 'rgba(0, 255, 255, 0.6)';
-      } else {
-        ctx.shadowBlur = 0;
-      }
-      
-      for (let x = 0; x < width; x++) {
-        const y = midY + Math.sin(x / wavelength + phase) * amplitude * Math.cos(x / (wavelength * 2.5) + phase * 0.5);
-        if (x === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
-      ctx.stroke();
-      
-      ctx.shadowBlur = 0;
-      ctx.font = '8px monospace';
-      ctx.fillStyle = isPlaying ? '#00f5ff' : '#8a2be2';
-      ctx.fillText(isPlaying ? `CARRIER ACTIVE: ${frequency.toFixed(1)}Hz` : 'CARRIER STANDBY', 6, height - 6);
-      
-      phase += speed;
-      animationId = requestAnimationFrame(render);
-    };
-
-    render();
-    
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, [isPlaying, frequency]);
-
-  return (
-    <canvas 
-      ref={canvasRef} 
-      width={280} 
-      height={64} 
-      className="w-full bg-black/75 rounded-lg border border-purple-500/20 shadow-inner"
-    />
-  );
-};
+import ScalarWaveVisualizer from '../2D/ScalarWaveVisualizer';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { AttunementChart } from './AttunementChart';
 
 const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }) => {
   if (!toolCalls || toolCalls.length === 0) return null;
@@ -455,7 +392,6 @@ export default function CommandCenter({
   const [includeHardware, setIncludeHardware] = useState(true);
   const [availableModels, setAvailableModels] = useState({ local: [], api: [], lm_studio: [] });
   const [selectedModel, setSelectedModel] = useState('');
-  const [selectedProvider, setSelectedProvider] = useState('local');
   const [debugMode, setDebugMode] = useState(false);
   const [debugPayload, setDebugPayload] = useState(null);
   const [activeLogTab, setActiveLogTab] = useState('tools');
@@ -507,17 +443,6 @@ export default function CommandCenter({
             setAvailableModels(data.available || { local: [], api: [], lm_studio: [] });
             const model = data.default_model || '';
             setSelectedModel(model);
-            
-            // Auto-detect provider from the selected model
-            if (!model) {
-              setSelectedProvider('lm_studio');
-            } else if (data.available?.lm_studio?.includes(model)) {
-              setSelectedProvider('lm_studio');
-            } else if (data.available?.local?.includes(model)) {
-              setSelectedProvider('local');
-            } else {
-              setSelectedProvider('openai');
-            }
           }
         }
       } catch (e) {
@@ -614,7 +539,7 @@ export default function CommandCenter({
             role: m.role,
             content: m.content
           })),
-          provider: selectedProvider,
+          provider: "auto",
           model: selectedModel || null,
           include_astrology: includeAstrology,
           astrology_data: includeAstrology ? astroData : null,
@@ -694,26 +619,20 @@ export default function CommandCenter({
     <div className="h-full flex flex-col lg:flex-row gap-6 p-4 md:p-6 overflow-hidden">
       
       {/* Left Column: Chat and Commands */}
-      <div className="flex-1 flex flex-col min-h-0 bg-black/25 backdrop-blur-md rounded-xl border border-purple-500/15 overflow-hidden shadow-2xl">
+      <Card className="flex-1 flex flex-col min-h-0 bg-gray-900/80 border-purple-500/20 overflow-hidden" styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', flex: 1 } }}>
         
         {/* Chat Header */}
         <div className="bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-blue-900/40 p-4 border-b border-white/10 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-3 h-3 bg-purple-500 rounded-full animate-ping absolute" />
-              <div className="w-3 h-3 bg-purple-600 rounded-full relative" />
-            </div>
+          <Space size={12}>
+            <Badge status="processing" color="purple" />
             <div>
-              <h2 className="text-lg font-bold text-white tracking-wide">AI Command Center</h2>
-              <p className="text-xs text-purple-300">Vajra.Stream Digital Operator v1.2</p>
+              <h2 className="text-lg font-bold text-white tracking-wide" style={{ margin: 0 }}>AI Command Center</h2>
+              <p className="text-xs text-purple-300" style={{ margin: 0 }}>Vajra.Stream Digital Operator v1.2</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs px-2.5 py-1 bg-purple-950/80 border border-purple-500/30 text-purple-300 rounded-full flex items-center gap-1.5 font-mono">
-              <Cpu className="w-3 h-3 text-purple-400" />
-              LLM AGENT ACTIVE
-            </span>
-          </div>
+          </Space>
+          <Tag color="purple" icon={<Cpu style={{ width: 12, height: 12 }} />} className="font-mono text-[10px]">
+            LLM AGENT ACTIVE
+          </Tag>
         </div>
 
         {/* Chat Messages */}
@@ -752,162 +671,145 @@ export default function CommandCenter({
         </div>
 
         {/* Quick Suggestion Chips */}
-        <div className="px-4 py-2 bg-gray-950/20 border-t border-white/5 flex gap-2 overflow-x-auto scrollbar-none whitespace-nowrap">
-          {quickCommands.map((cmd) => (
-            <button
-              key={cmd.label}
-              disabled={isLoading}
-              onClick={() => handleSendMessage(cmd.text)}
-              onMouseEnter={() => audioFeedback.playTick()}
-              className="px-3 py-1.5 bg-purple-900/20 hover:bg-purple-800/40 border border-purple-500/20 rounded-full text-xs font-semibold text-purple-300 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95"
-            >
-              {cmd.label}
-            </button>
-          ))}
+        <div className="px-4 py-2 bg-gray-950/20 border-t border-white/5 overflow-x-auto">
+          <Space wrap size={[4, 4]}>
+            {quickCommands.map((cmd) => (
+              <Button
+                key={cmd.label}
+                size="small"
+                type="default"
+                ghost
+                disabled={isLoading}
+                onClick={() => handleSendMessage(cmd.text)}
+                style={{ fontSize: '11px', borderRadius: '12px' }}
+              >
+                {cmd.label}
+              </Button>
+            ))}
+          </Space>
         </div>
 
         {/* LLM Environmental Context Injection Panel */}
         <div className="px-4 py-2 border-t border-purple-500/15 bg-black/30 flex flex-wrap items-center gap-4 text-xs font-mono select-none">
           <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Inject Context:</span>
           
-          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors">
-            <input
-              type="checkbox"
-              checked={includeAstrology}
-              onChange={(e) => { setIncludeAstrology(e.target.checked); audioFeedback.playClick(); }}
-              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
-            />
-            <span className="group-hover:text-vajra-cyan transition-colors">🪐 Astrology</span>
-          </label>
+          <Space size={8} wrap>
+            <Space size={4}>
+              <Switch size="small" checked={includeAstrology} onChange={(v) => { setIncludeAstrology(v); audioFeedback.playClick(); }} />
+              <span className="text-gray-400 text-[11px]">🪐 Astrology</span>
+            </Space>
+            <Space size={4}>
+              <Switch size="small" checked={includeAnatomy} onChange={(v) => { setIncludeAnatomy(v); audioFeedback.playClick(); }} />
+              <span className="text-gray-400 text-[11px]">💚 Chakras</span>
+            </Space>
+            <Space size={4}>
+              <Switch size="small" checked={includeHardware} onChange={(v) => { setIncludeHardware(v); audioFeedback.playClick(); }} />
+              <span className="text-gray-400 text-[11px]">⚙️ Metrics</span>
+            </Space>
+          </Space>
 
-          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors">
-            <input
-              type="checkbox"
-              checked={includeAnatomy}
-              onChange={(e) => { setIncludeAnatomy(e.target.checked); audioFeedback.playClick(); }}
-              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
-            />
-            <span className="group-hover:text-vajra-cyan transition-colors">💚 Chakras/Meridians</span>
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors">
-            <input
-              type="checkbox"
-              checked={includeHardware}
-              onChange={(e) => { setIncludeHardware(e.target.checked); audioFeedback.playClick(); }}
-              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
-            />
-            <span className="group-hover:text-vajra-cyan transition-colors">⚙️ System Metrics</span>
-          </label>
-
-          <div className="flex items-center gap-1.5 border-l border-white/10 pl-4">
+          <Space size={4} style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Model:</span>
-            <select
-              value={`${selectedProvider}:${selectedModel}`}
-              onChange={(e) => {
-                const [provider, model] = e.target.value.split(':');
-                setSelectedProvider(provider);
-                setSelectedModel(model);
-                audioFeedback.playClick();
-              }}
-              className="bg-black/60 border border-purple-500/30 text-purple-300 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-purple-500/60 max-w-[180px] truncate"
+            <Select
+              size="small"
+              value={selectedModel || undefined}
+              onChange={(val) => { setSelectedModel(val); audioFeedback.playClick(); }}
+              style={{ minWidth: 160, fontSize: '11px' }}
+              className="font-mono"
+              dropdownStyle={{ minWidth: 220 }}
+              placeholder="Select model..."
             >
-              {/* LM Studio models */}
               {availableModels.lm_studio && availableModels.lm_studio.length > 0 && (
-                <optgroup label="LM Studio (Active)">
+                <Select.OptGroup label="LM Studio (Active)">
                   {availableModels.lm_studio.map(m => (
-                    <option key={`lm_studio:${m}`} value={`lm_studio:${m}`}>{m}</option>
+                    <Select.Option key={`lm_studio:${m}`} value={`lm_studio:${m}`}>{m}</Select.Option>
                   ))}
-                </optgroup>
+                </Select.OptGroup>
               )}
-              
-              {/* Local GGUF models */}
               {availableModels.local && availableModels.local.length > 0 && (
-                <optgroup label="Local GGUF">
+                <Select.OptGroup label="Local GGUF">
                   {availableModels.local.map(m => (
-                    <option key={`local:${m}`} value={`local:${m}`}>{m}</option>
+                    <Select.Option key={`local:${m}`} value={`local:${m}`}>{m}</Select.Option>
                   ))}
-                </optgroup>
+                </Select.OptGroup>
               )}
-              
-              {/* API Models if active */}
               {availableModels.api && availableModels.api.length > 0 && (
-                <optgroup label="API Providers">
+                <Select.OptGroup label="API Providers">
                   {availableModels.api.map(m => {
-                    const providerVal = m.toLowerCase().includes('anthropic') ? 'anthropic' : 'openai';
-                    const defaultName = providerVal === 'anthropic' ? 'claude-3-5-sonnet' : 'gpt-4o-mini';
+                    let providerVal = 'openai';
+                    let defaultName = 'gpt-4o-mini';
+                    if (m.toLowerCase().includes('deepseek')) {
+                      providerVal = 'deepseek';
+                      const match = m.match(/\(([^)]+)\)/);
+                      defaultName = match ? match[1] : 'deepseek-chat';
+                    } else if (m.toLowerCase().includes('anthropic')) {
+                      providerVal = 'anthropic';
+                      defaultName = 'claude-3-5-haiku-20241022';
+                    } else if (m.toLowerCase().includes('openai')) {
+                      providerVal = 'openai';
+                      defaultName = 'gpt-4o-mini';
+                    }
                     return (
-                      <option key={`${providerVal}:${defaultName}`} value={`${providerVal}:${defaultName}`}>{m}</option>
+                      <Select.Option key={`${providerVal}:${defaultName}`} value={`${providerVal}:${defaultName}`}>{m}</Select.Option>
                     );
                   })}
-                </optgroup>
+                </Select.OptGroup>
               )}
-              
-              {/* Empty state — no models available */}
-              {(!availableModels.lm_studio || availableModels.lm_studio.length === 0) &&
-               (!availableModels.local || availableModels.local.length === 0) &&
-               (!availableModels.api || availableModels.api.length === 0) && (
-                <option value="" disabled>No models — start LM Studio & reload a model</option>
-              )}
-            </select>
-          </div>
+            </Select>
+          </Space>
 
-          <label className="flex items-center gap-2 cursor-pointer group text-gray-400 hover:text-white transition-colors border-l border-white/10 pl-4">
-            <input
-              type="checkbox"
-              checked={debugMode}
-              onChange={(e) => { setDebugMode(e.target.checked); audioFeedback.playClick(); }}
-              className="rounded border-purple-500/30 bg-black/60 text-purple-600 focus:ring-0 focus:ring-offset-0"
-            />
-            <span className="group-hover:text-yellow-400 transition-colors text-yellow-500/95 font-bold">🛠️ Debug Payload</span>
-          </label>
+          <Space size={4} style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>
+            <Switch size="small" checked={debugMode} onChange={(v) => { setDebugMode(v); audioFeedback.playClick(); }} />
+            <span className="text-yellow-500/95 font-bold text-[11px]">🛠️ Debug</span>
+          </Space>
         </div>
 
         {/* Input Bar */}
         <form 
           onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
-          className="p-4 border-t border-purple-500/15 bg-black/40 flex gap-2"
+          className="p-4 border-t border-purple-500/15 bg-black/40"
         >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              audioFeedback.playType();
-            }}
-            disabled={isLoading}
-            placeholder="Instruct the system (e.g. 'start peace session', 'list populations')..."
-            className="flex-1 bg-black/40 border border-purple-500/25 rounded-lg px-4 py-2.5 text-sm text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/60 focus:ring-1 focus:ring-purple-500/30 transition-all font-sans"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            onMouseEnter={() => audioFeedback.playTick()}
-            className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-lg transition-all duration-300 flex items-center justify-center shadow-md font-semibold text-sm gap-2"
-          >
-            <Send className="w-4 h-4" />
-            Send
-          </button>
+          <Space.Compact style={{ width: '100%' }}>
+            <Input
+              value={input}
+              onChange={(e) => { setInput(e.target.value); audioFeedback.playType(); }}
+              disabled={isLoading}
+              placeholder="Instruct the system..."
+              className="bg-gray-900 border-purple-500/30 text-white placeholder:text-purple-300/40"
+              style={{ flex: 1 }}
+            />
+            <Button
+              type="primary"
+              htmlType="submit"
+              disabled={isLoading || !input.trim()}
+              icon={<Send style={{ width: 16, height: 16 }} />}
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', border: 'none', display: 'flex', alignItems: 'center' }}
+            >
+              Send
+            </Button>
+          </Space.Compact>
         </form>
 
-      </div>
+      </Card>
 
       {/* Right Column: Status & Tool execution logs */}
       <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0">
         
         {/* Status Monitors Card */}
-        <div className="bg-black/25 backdrop-blur-md rounded-xl border border-purple-500/15 p-5 flex flex-col shadow-2xl">
-          <h3 className="text-sm font-bold text-white mb-4 tracking-wider flex items-center gap-2">
-            <Activity className="w-4 h-4 text-purple-400" />
-            SYSTEM MONITORS
-          </h3>
+        <Card
+          title={<span className="text-white text-sm tracking-wider font-bold"><Activity className="w-4 h-4 text-purple-400 inline mr-2" />SYSTEM MONITORS</span>}
+          className="bg-gray-900/80 border-purple-500/20"
+          styles={{ body: { padding: '16px' } }}
+        >
           
           <div className="space-y-4">
             
-            {/* Quantum Resonance Carrier Oscilloscope */}
+            {/* Scalar Wave Interference Visualizer */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-gray-400 font-medium">Quantum Resonance Carrier</span>
-              <QuantumWaveform isPlaying={isPlaying} frequency={frequency} />
+              <span className="text-xs text-gray-400 font-medium">Scalar Wave Field</span>
+              <div className="h-20">
+                <ScalarWaveVisualizer />
+              </div>
             </div>
 
             {/* Aura Field Coherence VU Meter */}
@@ -934,6 +836,11 @@ export default function CommandCenter({
                 <span>CALIBRATED (1.0)</span>
                 <span>PEAK</span>
               </div>
+            </div>
+
+            {/* Live Attunement Metrics Chart */}
+            <div className="mt-2">
+              <AttunementChart />
             </div>
 
             {/* Connection Status */}
@@ -999,16 +906,16 @@ export default function CommandCenter({
                 <div className="text-xs text-gray-500 italic">No operations active</div>
               )}
             </div>
-
           </div>
-        </div>
+
+        </Card>
 
         {/* Cosmic Alignment Widget */}
-        <div className="bg-black/25 backdrop-blur-md rounded-xl border border-purple-500/15 p-5 flex flex-col shadow-2xl">
-          <h3 className="text-sm font-bold text-white mb-4 tracking-wider flex items-center gap-2">
-            <Moon className="w-4 h-4 text-cyan-400" />
-            COSMIC ALIGNMENT
-          </h3>
+        <Card
+          title={<span className="text-white text-sm tracking-wider font-bold"><Moon className="w-4 h-4 text-cyan-400 inline mr-2" />COSMIC ALIGNMENT</span>}
+          className="bg-gray-900/80 border-purple-500/20"
+          styles={{ body: { padding: '16px' } }}
+        >
 
           {astroData ? (
             <div className="space-y-4 text-xs">
@@ -1062,52 +969,32 @@ export default function CommandCenter({
           ) : (
             <div className="text-xs text-gray-500 italic py-2 text-center">Tuning astronomical clocks...</div>
           )}
-        </div>
+        </Card>
 
         {/* Tool Execution / LLM Debug Logs (Terminal UI) */}
-        <div className="flex-1 min-h-[220px] bg-black/60 backdrop-blur-md rounded-xl border border-purple-500/15 p-4 flex flex-col font-mono shadow-2xl">
-          <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
-            <div className="flex gap-2">
-              <button 
-                onClick={() => { setActiveLogTab('tools'); audioFeedback.playClick(); }}
-                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
-                  activeLogTab === 'tools' 
-                    ? 'bg-purple-900 border border-purple-500 text-white' 
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                TOOLS
-              </button>
-              <button 
-                onClick={() => { setActiveLogTab('debug'); audioFeedback.playClick(); }}
-                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
-                  activeLogTab === 'debug' 
-                    ? 'bg-purple-900 border border-purple-500 text-white' 
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                LLM DEBUG
-              </button>
-            </div>
-            
-            {activeLogTab === 'tools' ? (
-              <button 
-                onClick={() => { setToolLogs([]); audioFeedback.playClick(); }}
-                onMouseEnter={() => audioFeedback.playTick()}
-                className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors uppercase font-mono"
-              >
-                CLEAR
-              </button>
+        <Card
+          className="flex-1 min-h-[220px] bg-gray-900/80 border-purple-500/20 font-mono"
+          styles={{ body: { padding: '12px', display: 'flex', flexDirection: 'column', flex: 1 } }}
+          title={
+            <Tabs
+              size="small"
+              activeKey={activeLogTab}
+              onChange={(key) => { setActiveLogTab(key); audioFeedback.playClick(); }}
+              style={{ marginBottom: 0 }}
+              items={[
+                { key: 'tools', label: 'TOOLS' },
+                { key: 'debug', label: 'LLM DEBUG' }
+              ]}
+            />
+          }
+          extra={
+            activeLogTab === 'tools' ? (
+              <Button size="small" type="text" onClick={() => { setToolLogs([]); audioFeedback.playClick(); }} style={{ color: '#9ca3af', fontSize: '10px' }}>CLEAR</Button>
             ) : (
-              <button 
-                onClick={() => { setDebugPayload(null); audioFeedback.playClick(); }}
-                onMouseEnter={() => audioFeedback.playTick()}
-                className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors uppercase font-mono"
-              >
-                RESET
-              </button>
-            )}
-          </div>
+              <Button size="small" type="text" onClick={() => { setDebugPayload(null); audioFeedback.playClick(); }} style={{ color: '#9ca3af', fontSize: '10px' }}>RESET</Button>
+            )
+          }
+        >
           
           {activeLogTab === 'tools' ? (
             <div className="flex-1 overflow-y-auto space-y-2 text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
@@ -1142,28 +1029,21 @@ export default function CommandCenter({
               )}
             </div>
           )}
-        </div>
+        </Card>
 
       </div>
 
-      {/* Zoom Modal Overlay */}
-      {activeZoomItem && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md transition-all duration-300 animate-fade-in"
-          onClick={() => setActiveZoomItem(null)}
-        >
-          <div 
-            className="relative w-full max-w-3xl bg-gray-950/95 border border-purple-500/35 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row gap-6 shadow-[0_0_50px_rgba(168,85,247,0.4)] animate-scale-in max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button 
-              onClick={() => setActiveZoomItem(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
+      {/* Zoom Modal */}
+      <Modal
+        open={!!activeZoomItem}
+        onCancel={() => setActiveZoomItem(null)}
+        footer={null}
+        width={800}
+        centered
+        styles={{ body: { padding: '24px', background: '#0a0a0a', display: 'flex', gap: '24px', maxHeight: '80vh', overflowY: 'auto' } }}
+      >
+        {activeZoomItem && (
+          <>
             {/* Left: Graphic Container */}
             <div className="flex-1 flex items-center justify-center bg-gray-900/60 rounded-xl p-4 border border-white/5 min-h-[300px]">
               {activeZoomItem.type === 'sigil' && activeZoomItem.svg && (
@@ -1173,7 +1053,7 @@ export default function CommandCenter({
                 <img src={activeZoomItem.ai_image} alt={activeZoomItem.title} className="w-full max-w-[280px] object-contain rounded-xl shadow-lg border border-purple-500/20" />
               )}
               {activeZoomItem.type === 'tarot' && activeZoomItem.svg && (
-                <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[220px] h-full flex items-center justify-center shadow-lg" />
+                <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[160px] h-full flex items-center justify-center shadow-lg" />
               )}
               {activeZoomItem.type === 'iching' && activeZoomItem.svg && (
                 <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[320px] h-full flex items-center justify-center shadow-lg" />
@@ -1310,9 +1190,9 @@ export default function CommandCenter({
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
     </div>
   );

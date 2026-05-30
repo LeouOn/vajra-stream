@@ -1,6 +1,16 @@
-"""Vajra.Stream Simple Visual Renderer
-Basic visualizations without OpenCV dependency
 """
+Simple Visual Renderer — dependency-free ASCII/terminal visualisations.
+
+Provides contemplative sacred-geometry displays using only the Python standard
+library (math, time). Renders rotating mandala petals, intention text overlays,
+and timestamp-driven animations in a terminal-friendly ASCII grid. Intended for
+environments where OpenCV / PIL are unavailable.
+
+Exports:
+    SimpleVisualRenderer — main renderer class.
+"""
+
+from __future__ import annotations
 
 import math
 import time
@@ -12,11 +22,11 @@ class SimpleVisualRenderer:
     Creates contemplative displays with sacred geometry
     """
 
-    def __init__(self, width=1920, height=1080):
-        self.width = width
-        self.height = height
+    def __init__(self, width: int = 1920, height: int = 1080) -> None:
+        self.width: int = width
+        self.height: int = height
 
-    def render_frame(self, intention=None, timestamp=None):
+    def render_frame(self, intention: str | None = None, timestamp: float | None = None) -> list[list[str]]:
         """
         Render a simple frame with text and basic shapes
         """
@@ -81,7 +91,7 @@ class SimpleVisualRenderer:
         # Convert frame to string
         return ["".join(row) for row in frame]
 
-    def display_frame(self, frame):
+    def display_frame(self, frame: list[list[str]]) -> None:
         """
         Display frame using console/terminal output
         """
@@ -97,7 +107,7 @@ class SimpleVisualRenderer:
 
         print("=" * 60)
 
-    def animate_mandala(self, duration_seconds=60, intention="peace"):
+    def animate_mandala(self, duration_seconds: int = 60, intention: str = "peace") -> None:
         """
         Simple mandala animation with configurable parameters
         """
@@ -112,7 +122,7 @@ class SimpleVisualRenderer:
         print(f"\nAnimation complete. Intention: {intention}")
         print("May this practice benefit all beings.")
 
-    def animate_flower_of_life(self, duration_seconds=60, intention="growth"):
+    def animate_flower_of_life(self, duration_seconds: int = 60, intention: str = "growth") -> None:
         """
         Flower of life animation
         """
@@ -127,7 +137,7 @@ class SimpleVisualRenderer:
         print(f"\nAnimation complete. Intention: {intention}")
         print("May this practice benefit all beings. 🙏")
 
-    def animate_concentric_circles(self, duration_seconds=60, intention="unity"):
+    def animate_concentric_circles(self, duration_seconds: int = 60, intention: str = "unity") -> None:
         """
         Concentric circles animation
         """

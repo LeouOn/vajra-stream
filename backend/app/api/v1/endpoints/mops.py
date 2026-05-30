@@ -1,5 +1,9 @@
 """
-MOPS Telemetry API Endpoints
+MOPS Telemetry API — real-time scalar wave performance endpoints.
+
+Exposes REST and WebSocket endpoints for monitoring MOPS throughput,
+scalar wave generation metrics, thermal state, and system load
+from the Terra MOPS engine.
 """
 
 import asyncio

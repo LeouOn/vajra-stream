@@ -1,3 +1,9 @@
+/**
+ * World Context Panel — real-world event and crisis monitor.
+ * Displays GDACS disasters, ReliefWeb crises, and RSS news for
+ * blessing targeting. Create populations from current events.
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { Globe, AlertTriangle, Heart, Moon, Sun, Compass, RefreshCw, Loader2, Radio } from 'lucide-react';
 import { API_BASE } from '../../utils/api';

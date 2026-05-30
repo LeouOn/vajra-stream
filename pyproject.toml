@@ -141,7 +141,7 @@ module = ["modules.*", "core.*", "backend.*", "infrastructure.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["backend/tests", "tests"]
 markers = [
     "unit: fast isolated tests",
     "integration: tests that wire multiple modules together",
@@ -151,5 +151,5 @@ asyncio_mode = "auto"
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["modules", "core", "infrastructure", "config"]
+source = ["modules", "core", "infrastructure", "config", "backend"]
 omit = ["tests/*", "scripts/*", "frontend/*"]

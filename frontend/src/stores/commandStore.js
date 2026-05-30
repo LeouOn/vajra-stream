@@ -1,3 +1,10 @@
+/**
+ * Command Store — Zustand state for the command palette and terminal history.
+ *
+ * Maintains a registry of available commands (audio, sessions, radionics,
+ * crystals, navigation, UI), a history stack for the CommandCenter terminal,
+ * and command execution status. Persisted to localStorage.
+ */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 

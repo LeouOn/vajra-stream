@@ -1,3 +1,9 @@
+/**
+ * Trends Chart — blessing and session analytics chart.
+ * SVG line/bar chart for historical blessing counts, session
+ * durations, and RNG coherence trends.
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Sparkles, Loader2 } from 'lucide-react';

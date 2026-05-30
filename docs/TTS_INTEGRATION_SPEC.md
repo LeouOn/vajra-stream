@@ -260,7 +260,7 @@ narrator.commemorate_event(
 ```python
 narrator.broadcast_intention(
     intention="May all beings find peace and liberation",
-    target="Auschwitz, Poland, June 22, 1941",
+    target="A time of war, June 15, 0500",
     repetitions=3,
     voice='intention_speaker'
 )
@@ -296,7 +296,6 @@ narrator.broadcast_intention(
 - Sanskrit (for mantras)
 - Tibetan (for Tibetan practices)
 - Pali (for Theravada mantras)
-- Hebrew (for Jewish prayers in Holocaust context)
 - Chinese (for Chinese practices)
 
 **Implementation**: Use multi-lingual TTS or language-specific engines
@@ -376,8 +375,8 @@ from core.tts_integration import TTSNarrator
 broadcaster = TimeCycleBroadcaster()
 narrator = TTSNarrator()
 
-event = broadcaster.get_event_by_id('rwandan_genocide')
-date = datetime(1994, 4, 7)
+event = broadcaster.get_event_by_id('archetype-war')
+date = datetime(500, 6, 15)
 
 # Generate spoken commemoration
 commemoration_text = f"""

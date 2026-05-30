@@ -24,6 +24,11 @@ class AudioConfig(BaseModel):
     modulation_depth: float = 0.05
 
 
+class ChakraRequest(BaseModel):
+    chakra_name: str
+    duration: float = 30.0
+
+
 class PlayRequest(BaseModel):
     hardware_level: int = 2
 
@@ -80,6 +85,40 @@ async def generate_audio(config: AudioConfig, background_tasks: BackgroundTasks)
 
     except Exception as e:
         logger.error(f"❌ Audio generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/generate_chakra")
+async def generate_chakra(request: ChakraRequest, background_tasks: BackgroundTasks):
+    """Generate prayer bowl audio for a specific chakra"""
+    try:
+        logger.info(f"🎵 Chakra audio generation request: {request.chakra_name}, {request.duration}s")
+
+        from backend.core.services.vajra_service import vajra_service
+
+        logger.info("🔄 Starting chakra audio generation...")
+        try:
+            audio_data = await vajra_service.generate_chakra_audio(request.chakra_name, request.duration)
+            logger.info(
+                f"✅ Chakra audio generation completed successfully: {len(audio_data) if audio_data is not None else 0} samples"
+            )
+        except Exception as e:
+            logger.error(f"❌ Chakra audio generation failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Chakra audio generation failed: {str(e)}")
+
+        return {
+            "status": "success",
+            "message": f"Chakra audio generation completed for {request.chakra_name}",
+            "config": {
+                "chakra_name": request.chakra_name,
+                "duration": request.duration,
+            },
+            "audio_generated": True,
+            "samples": len(vajra_service.current_audio_data) if vajra_service.current_audio_data is not None else 0,
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Chakra audio generation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

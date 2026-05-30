@@ -1,5 +1,11 @@
 """
-Vajra.Stream MOPS (Magical Operations Per Second) Telemetry Engine
+MOPS Telemetry Engine — Magical Operations Per Second tracking.
+
+Monitors and reports computational throughput of scalar wave generation,
+RNG entropy production, and blessing broadcast operations. Provides
+real-time metrics for the dashboard and performance tuning.
+
+MOPS = 1,000,000,000,000 (one trillion) operations per second (Terra MOPS target).
 """
 
 import threading
