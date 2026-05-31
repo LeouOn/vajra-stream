@@ -60,11 +60,30 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to start streaming: {e}")
         logger.error(traceback.format_exc())
 
+    # Start Autonomous Operator Daemon
+    try:
+        from container import container
+        print("Starting Autonomous Radionics Operator daemon...")
+        container.operator.start_autonomous_mode(interval_seconds=60)
+        print("Autonomous Radionics Operator daemon activated successfully on startup")
+    except Exception as e:
+        print(f"Failed to start Autonomous Operator daemon: {e}")
+        logger.error(f"Failed to start Autonomous Operator daemon: {e}")
+
     yield
 
     # Shutdown
     print("Vajra.Stream API shutting down...")
     stable_connection_manager_v2.stop_realtime_streaming()
+
+    # Stop Autonomous Operator Daemon
+    try:
+        from container import container
+        print("Stopping Autonomous Radionics Operator daemon...")
+        container.operator.stop_autonomous_mode()
+        print("Autonomous Radionics Operator daemon stopped")
+    except Exception as e:
+        print(f"Failed to stop Autonomous Operator daemon: {e}")
 
     if streaming_task:
         streaming_task.cancel()

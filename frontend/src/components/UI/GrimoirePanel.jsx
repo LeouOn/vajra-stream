@@ -5,7 +5,7 @@
  * @component
  */
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, HelpCircle, ArrowRight } from 'lucide-react';
+import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, HelpCircle, ArrowRight, Clock } from 'lucide-react';
 import DharmaTales from './DharmaTales';
 import { audioFeedback } from '../../utils/audioFeedback';
 
@@ -156,41 +156,109 @@ export default function GrimoirePanel() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     
-                    {/* Minerals / Herbs */}
-                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5">
-                      <span className="text-[10px] font-mono text-gray-400 block uppercase">Sacred Minerals & Stones</span>
+                    {/* Minerals & Crystals */}
+                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5 hover:border-purple-500/20 transition-colors">
+                      <span className="text-[10px] font-mono text-gray-400 block uppercase flex items-center gap-1.5">
+                        💎 Sacred Minerals & Crystals
+                      </span>
                       <ul className="list-disc pl-4 space-y-1.5 text-gray-200">
                         {activePlanetDetails.minerals?.map(m => <li key={m}>{m}</li>)}
                         {(!activePlanetDetails.minerals || activePlanetDetails.minerals.length === 0) && <li className="text-gray-500 italic">None catalogued</li>}
                       </ul>
+                      {/* Crystal grid recommendation */}
+                      {activePlanetDetails.minerals?.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-white/5">
+                          <span className="text-[8px] text-purple-400/70 uppercase tracking-wider">Grid Layout</span>
+                          <p className="text-[9px] text-gray-400 mt-0.5">
+                            Arrange in a {activePlanetDetails.planet?.toLowerCase() === 'moon' ? 'crescent' : 'hexagonal'} pattern during {activePlanetDetails.planet} hour for maximum resonance.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5">
-                      <span className="text-[10px] font-mono text-gray-400 block uppercase">Aligned Herbs & Resins</span>
+                    {/* Herbs & Resins */}
+                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5 hover:border-emerald-500/20 transition-colors">
+                      <span className="text-[10px] font-mono text-gray-400 block uppercase flex items-center gap-1.5">
+                        🌿 Aligned Herbs & Resins
+                      </span>
                       <ul className="list-disc pl-4 space-y-1.5 text-gray-200">
                         {activePlanetDetails.herbs?.map(h => <li key={h}>{h}</li>)}
                         {(!activePlanetDetails.herbs || activePlanetDetails.herbs.length === 0) && <li className="text-gray-500 italic">None catalogued</li>}
                       </ul>
+                      {/* Ritual use hint */}
+                      {activePlanetDetails.herbs?.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-white/5">
+                          <span className="text-[8px] text-emerald-400/70 uppercase tracking-wider">Ritual Use</span>
+                          <p className="text-[9px] text-gray-400 mt-0.5">
+                            Burn as offering or infuse in anointing oil before {activePlanetDetails.planet} hour operations.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Rates & Archetypes */}
-                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5">
-                      <span className="text-[10px] font-mono text-gray-400 block uppercase">Radionics Tuning Rates</span>
+                    {/* Radionics Rates */}
+                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5 hover:border-cyan-500/20 transition-colors">
+                      <span className="text-[10px] font-mono text-gray-400 block uppercase flex items-center gap-1.5">
+                        ⚡ Radionics Tuning Rates
+                      </span>
                       <div className="flex gap-2 flex-wrap mt-1">
                         {activePlanetDetails.rates?.map(r => (
-                          <span key={r} className="px-2 py-0.5 bg-cyan-950 text-cyan-400 border border-cyan-500/20 rounded font-mono text-xs font-bold">
+                          <span key={r} className="px-2 py-0.5 bg-cyan-950 text-cyan-400 border border-cyan-500/20 rounded font-mono text-xs font-bold hover:bg-cyan-900 hover:border-cyan-400/40 transition-colors cursor-default">
                             {r}
                           </span>
                         ))}
                         {(!activePlanetDetails.rates || activePlanetDetails.rates.length === 0) && <span className="text-gray-500 italic">None calibrated</span>}
                       </div>
+                      {/* Rate usage guidance */}
+                      {activePlanetDetails.rates?.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-white/5">
+                          <span className="text-[8px] text-cyan-400/70 uppercase tracking-wider">Broadcast Guidance</span>
+                          <p className="text-[9px] text-gray-400 mt-0.5">
+                            Set dials to these rates during {activePlanetDetails.planet} planetary hours for amplified resonance.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5">
-                      <span className="text-[10px] font-mono text-gray-400 block uppercase">Linked Alchemical Metal</span>
-                      <span className="text-sm font-bold text-white block mt-1">{activePlanetDetails.metal || 'N/A'}</span>
+                    {/* Alchemical Metal + Element */}
+                    <div className="space-y-3 bg-white/5 p-3.5 rounded-lg border border-white/5 hover:border-amber-500/20 transition-colors">
+                      <span className="text-[10px] font-mono text-gray-400 block uppercase flex items-center gap-1.5">
+                        ⚗️ Alchemical Correspondences
+                      </span>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-[8px] text-gray-500 uppercase">Linked Metal</span>
+                          <span className="text-sm font-bold text-white block mt-0.5">{activePlanetDetails.metal || 'N/A'}</span>
+                        </div>
+                        {activePlanetDetails.element && (
+                          <div>
+                            <span className="text-[8px] text-gray-500 uppercase">Element</span>
+                            <span className="text-sm font-bold text-amber-300 block mt-0.5">{activePlanetDetails.element}</span>
+                          </div>
+                        )}
+                        {activePlanetDetails.chakra && (
+                          <div>
+                            <span className="text-[8px] text-gray-500 uppercase">Chakra Resonance</span>
+                            <span className="text-sm font-bold text-purple-300 block mt-0.5">{activePlanetDetails.chakra}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
+                  </div>
+
+                  {/* Ritual Timing Recommendation */}
+                  <div className="bg-gradient-to-r from-purple-950/20 to-indigo-950/20 rounded-lg border border-purple-500/15 p-3.5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="w-3.5 h-3.5 text-purple-400" />
+                      <span className="text-[10px] font-mono text-purple-300 uppercase tracking-wider">Ritual Timing</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 leading-relaxed">
+                      For optimal {activePlanetDetails.planet} operations, work during the {activePlanetDetails.planet} planetary hour
+                      {activePlanetDetails.day ? ` on ${activePlanetDetails.day}` : ''}.
+                      {activePlanetDetails.moon_phase ? ` The ${activePlanetDetails.moon_phase} Moon phase amplifies results.` : ''}
+                      {!activePlanetDetails.day && !activePlanetDetails.moon_phase && ' Use the planetary hours calculator in the Cosmic Clock tab to find the next auspicious window.'}
+                    </p>
                   </div>
                 </div>
               ) : (

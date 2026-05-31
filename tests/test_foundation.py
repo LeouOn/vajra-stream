@@ -1,6 +1,6 @@
 import pytest
 
-from config.enhanced_settings import EnhancedConfig
+import config.settings as settings
 from infrastructure.event_bus import DomainEvent, EnhancedEventBus
 from modules.blessing_router import BlessingRouted, BlessingRouter, DeliveryMethod, TargetSpecification, TargetType
 from modules.crystal import CrystalBroadcastCompleted, CrystalBroadcastStarted, CrystalService
@@ -84,6 +84,5 @@ class TestEnhancedScalarWaves:
 @pytest.mark.unit
 class TestConfiguration:
     def test_default_config(self):
-        config = EnhancedConfig("test")
-        assert config.get("audio.sample_rate") == 44100
-        assert config.get("hardware.level") in [2, 3]
+        assert settings.SAMPLE_RATE == 44100
+        assert settings.HARDWARE_LEVEL in [2, 3]

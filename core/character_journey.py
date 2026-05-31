@@ -147,12 +147,32 @@ class CharacterJourney:
             "first_stage": STAGE_CONFIG[0]["name"],
         }
 
+    def _broadcast_ws(self, event_type: str, data: dict):
+        """Broadcast a journey event to all WebSocket clients."""
+        try:
+            import asyncio
+            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            payload = {"type": event_type, "data": data, "timestamp": time.time()}
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.ensure_future(stable_connection_manager_v2.broadcast(payload))
+            except RuntimeError:
+                pass
+        except Exception:
+            pass
+
     def advance(self) -> dict[str, Any]:
         """Advance through one complete stage (all 4 phases)."""
         if self.is_complete:
             return {"status": "complete", "message": "Journey already completed"}
 
         stage_cfg = STAGE_CONFIG[self._current_stage_index]
+        # Broadcast stage start
+        self._broadcast_ws("JOURNEY_STAGE_STARTED", {
+            "stage": stage_cfg["stage"].value, "name": stage_cfg["name"],
+            "character": self._character.to_dict() if hasattr(self._character, 'to_dict') and self._character else {},
+        })
         # Part 2: The World Reacts Model (Astrological Reactivity)
         from core.auspicious_timing import check_auspicious_window
         window = check_auspicious_window("wisdom")
@@ -222,6 +242,16 @@ class CharacterJourney:
 
         if self.is_complete:
             self._journey_completed = datetime.now().isoformat()
+            self._broadcast_ws("JOURNEY_COMPLETED", {
+                "total_stages": len(STAGE_CONFIG), "total_blessings": self._total_blessings,
+                "character": self._character.to_dict() if hasattr(self._character, 'to_dict') and self._character else {},
+            })
+        else:
+            self._broadcast_ws("JOURNEY_STAGE_COMPLETED", {
+                "stage": result["stage"], "name": result["name"],
+                "blessings_count": result["blessings_count"],
+                "next_stage": STAGE_CONFIG[self._current_stage_index]["name"] if self._current_stage_index < len(STAGE_CONFIG) else None,
+            })
 
         return result
 

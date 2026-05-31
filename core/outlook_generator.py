@@ -139,6 +139,8 @@ class OutlookGenerator:
     def _gather_astrology_context(self, lat: float, lon: float, date: datetime = None) -> str:
         if not self.astro_engine:
             return "Astrological alignment: The stars dance in unknown but auspicious patterns."
+        if not hasattr(self.astro_engine, 'calculate_chart'):
+            return "Astrological alignment: The celestial calculator is currently unavailable."
         try:
             target_date = date or datetime.now()
             chart = self.astro_engine.calculate_chart(target_date, lat, lon)

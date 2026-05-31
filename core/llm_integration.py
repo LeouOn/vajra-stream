@@ -690,12 +690,20 @@ class LLMIntegration:
                 )
                 msg = response.choices[0].message
                 result = msg.content or ""
-                msg_dump = msg.model_dump()
-                reasoning = msg_dump.get("reasoning_content", "")
-                if not result and reasoning:
-                    result = "<thought>\n" + reasoning + "\n</thought>\n"
-                elif reasoning:
-                    result = "<thought>\n" + reasoning + "\n</thought>\n\n" + result
+                
+                reasoning = ""
+                if hasattr(msg, "model_dump"):
+                    try:
+                        msg_dump = msg.model_dump()
+                        if isinstance(msg_dump, dict):
+                            reasoning = msg_dump.get("reasoning_content", "")
+                    except Exception:
+                        pass
+                if isinstance(reasoning, str) and reasoning:
+                    if not result:
+                        result = "<thought>\n" + reasoning + "\n</thought>\n"
+                    else:
+                        result = "<thought>\n" + reasoning + "\n</thought>\n\n" + result
                 return result
             except Exception as e:
                 return f"LM Studio generation failed: {e}"
@@ -749,12 +757,20 @@ class LLMIntegration:
             )
             msg = response.choices[0].message
             result = msg.content or ""
-            msg_dump = msg.model_dump()
-            reasoning = msg_dump.get("reasoning_content", "")
-            if not result and reasoning:
-                result = "<thought>\n" + reasoning + "\n</thought>\n"
-            elif reasoning:
-                result = "<thought>\n" + reasoning + "\n</thought>\n\n" + result
+            
+            reasoning = ""
+            if hasattr(msg, "model_dump"):
+                try:
+                    msg_dump = msg.model_dump()
+                    if isinstance(msg_dump, dict):
+                        reasoning = msg_dump.get("reasoning_content", "")
+                except Exception:
+                    pass
+            if isinstance(reasoning, str) and reasoning:
+                if not result:
+                    result = "<thought>\n" + reasoning + "\n</thought>\n"
+                else:
+                    result = "<thought>\n" + reasoning + "\n</thought>\n\n" + result
         except Exception as e:
             success = False
             if model and model != self.model_name:
@@ -769,12 +785,20 @@ class LLMIntegration:
                     )
                     msg2 = response.choices[0].message
                     result = msg2.content or ""
-                    msg2_dump = msg2.model_dump()
-                    reasoning2 = msg2_dump.get("reasoning_content", "")
-                    if not result and reasoning2:
-                        result = "<thought>\n" + reasoning2 + "\n</thought>\n"
-                    elif reasoning2:
-                        result = "<thought>\n" + reasoning2 + "\n</thought>\n\n" + result
+                    
+                    reasoning2 = ""
+                    if hasattr(msg2, "model_dump"):
+                        try:
+                            msg2_dump = msg2.model_dump()
+                            if isinstance(msg2_dump, dict):
+                                reasoning2 = msg2_dump.get("reasoning_content", "")
+                        except Exception:
+                            pass
+                    if isinstance(reasoning2, str) and reasoning2:
+                        if not result:
+                            result = "<thought>\n" + reasoning2 + "\n</thought>\n"
+                        else:
+                            result = "<thought>\n" + reasoning2 + "\n</thought>\n\n" + result
                     success = True
                 except Exception as fallback_err:
                     print(f"[ERROR] Fallback also failed: {fallback_err}")

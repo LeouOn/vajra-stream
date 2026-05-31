@@ -100,7 +100,7 @@ python scripts/run_blessing.py --intention "Your prayer here" --duration 600
 
 ### ✅ Complete Documentation
 - `README.md` - Full project overview
-- `GITHUB_SETUP.md` - Upload to GitHub instructions
+- `docs/DEVELOPMENT.md` - Developer workflow and GitHub setup instructions
 
 ### ✅ Knowledge Base
 - `knowledge/frequencies.json` - Frequency library
@@ -141,7 +141,7 @@ python scripts/run_blessing.py --level 3
 
 ## Uploading to GitHub (Preserve Your Work)
 
-Follow instructions in `GITHUB_SETUP.md`:
+Follow instructions in `docs/DEVELOPMENT.md`:
 
 ```bash
 git init

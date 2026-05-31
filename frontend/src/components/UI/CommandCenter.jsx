@@ -21,6 +21,9 @@ import { API_BASE } from '../../utils/api';
 import ScalarWaveVisualizer from '../2D/ScalarWaveVisualizer';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { AttunementChart } from './AttunementChart';
+import SakaDawaBanner from './SakaDawaBanner';
+import JourneyCard from './JourneyCard';
+import BuddhaContemplationWidget from './BuddhaContemplationWidget';
 
 const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }) => {
   if (!toolCalls || toolCalls.length === 0) return null;
@@ -367,7 +370,9 @@ export default function CommandCenter({
   frequency, 
   crystalStatus, 
   scalarStatus,
-  sessions
+  sessions,
+  buddhaStatus,
+  sakaDawa
 }) {
   const [activeZoomItem, setActiveZoomItem] = useState(null);
   const [messages, setMessages] = useState([
@@ -452,6 +457,24 @@ export default function CommandCenter({
     fetchModels();
   }, []);
 
+  // Ref to hold latest handleSendMessage (avoids stale closure in event listener)
+  const handleSendMessageRef = useRef(handleSendMessage);
+  handleSendMessageRef.current = handleSendMessage;
+
+  // Listen for vajra:quick-command custom events (fired by SakaDawaBanner, etc.)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.command) {
+        setInput(e.detail.command);
+        setTimeout(() => {
+          handleSendMessageRef.current(e.detail.command);
+        }, 200);
+      }
+    };
+    window.addEventListener('vajra:quick-command', handler);
+    return () => window.removeEventListener('vajra:quick-command', handler);
+  }, []);
+
   const messagesEndRef = useRef(null);
   const logEndRef = useRef(null);
 
@@ -516,7 +539,7 @@ export default function CommandCenter({
     ]);
   };
 
-  const handleSendMessage = async (textToSend) => {
+  async function handleSendMessage(textToSend) {
     const text = textToSend || input;
     if (!text.trim()) return;
 
@@ -616,9 +639,13 @@ export default function CommandCenter({
   ];
 
   return (
-    <div className="h-full flex flex-col lg:flex-row gap-6 p-4 md:p-6 overflow-hidden">
-      
-      {/* Left Column: Chat and Commands */}
+    <div className="h-full flex flex-col gap-4 p-4 md:p-6 overflow-hidden">
+      {/* Saka Dawa Banner */}
+      <SakaDawaBanner sakaDawa={sakaDawa} />
+
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+        
+        {/* Left Column: Chat and Commands */}
       <Card className="flex-1 flex flex-col min-h-0 bg-gray-900/80 border-purple-500/20 overflow-hidden" styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', flex: 1 } }}>
         
         {/* Chat Header */}
@@ -793,7 +820,13 @@ export default function CommandCenter({
       </Card>
 
       {/* Right Column: Status & Tool execution logs */}
-      <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0">
+      <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+        
+        {/* Journey Card (Epic Multi-Stage Journey) */}
+        <JourneyCard />
+
+        {/* Buddha Contemplation Widget */}
+        <BuddhaContemplationWidget buddhaStatus={buddhaStatus} />
         
         {/* Status Monitors Card */}
         <Card
@@ -1032,6 +1065,7 @@ export default function CommandCenter({
         </Card>
 
       </div>
+    </div>
 
       {/* Zoom Modal */}
       <Modal

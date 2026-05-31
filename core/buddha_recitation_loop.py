@@ -107,6 +107,11 @@ class BuddhaRecitationLoop:
             started_at=datetime.now().isoformat(),
         )
 
+        # Broadcast WS event
+        self._broadcast_ws("BUDDHA_RECITATION_STARTED", {
+            "intention": intention, "total_buddhas": len(self._buddhas),
+        })
+
         # Initialize TTS if not explicitly disabled
         if self._tts is None:
             try:
@@ -119,9 +124,25 @@ class BuddhaRecitationLoop:
         asyncio.create_task(self._run_loop(interval_seconds, dedication_interval, mala_cycles))
         return self.state
 
+    def _broadcast_ws(self, event_type: str, data: dict):
+        """Broadcast a recitation event to all WebSocket clients."""
+        try:
+            import asyncio
+            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            payload = {"type": event_type, "data": data, "timestamp": __import__('time').time()}
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.ensure_future(stable_connection_manager_v2.broadcast(payload))
+            except RuntimeError:
+                pass
+        except Exception:
+            pass
+
     def stop(self) -> RecitationState:
         """Stop the recitation loop."""
         self.state.running = False
+        self._broadcast_ws("BUDDHA_RECITATION_STOPPED", self.get_status())
         return self.state
 
     def get_status(self) -> dict[str, Any]:
@@ -173,6 +194,10 @@ class BuddhaRecitationLoop:
                         cb(buddha, self.state)
                     except Exception:
                         pass
+
+                # Broadcast to WebSocket (throttled: every 3rd name to avoid flooding)
+                if self.state.total_recited % 3 == 0:
+                    self._broadcast_ws("BUDDHA_NAME_RECITED", self.get_status())
 
                 # Dedication interval
                 if self.state.mala_count > 0 and self.state.mala_count % dedication_interval == 0:

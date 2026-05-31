@@ -292,6 +292,94 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         astro_data = await vajra_service._get_astrology_data()
         hour_data = grimoire_service.get_planetary_hours(now.hour, now.weekday())
         return {"astrology": astro_data, "planetary_hour": hour_data, "timestamp": time.time()}
+    elif name == "get_random_buddha":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        category = args.get("category")
+        b = svc.random_buddha(category=category)
+        narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
+        return {
+            "buddha": {
+                "name_chinese": b.name_chinese, "name_pinyin": b.name_pinyin,
+                "name_sanskrit": b.name_sanskrit, "category": b.category,
+                "meaning": b.meaning, "realm": b.realm, "light": b.light,
+            },
+            "narrative": narrative.get("narrative", ""),
+        }
+    elif name == "generate_buddha_narrative":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        return svc.generate_buddha_narrative(
+            buddha_name=args.get("buddha_name", ""),
+            depth=args.get("depth", "contemplation"),
+        )
+    elif name == "get_88_buddhas_liturgy":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        return svc.get_confession_sequence()
+    elif name == "recite_buddha_name":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        b = svc.get_buddha_by_name(args.get("buddha_name", ""))
+        if not b:
+            return {"error": f"Buddha not found: {args.get('buddha_name')}"}
+        return {"buddha": b.name_chinese, "pinyin": b.name_pinyin,
+                "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS."}
+    elif name == "start_buddha_recitation":
+        import asyncio
+        from core.buddha_recitation_loop import get_recitation_loop
+        loop = get_recitation_loop()
+        if loop.state.running:
+            return {"status": "already_running"}
+        intention = args.get("intention", "愿一切众生离苦得乐")
+        interval = args.get("interval_seconds", 3.0)
+        mala_cycles = args.get("mala_cycles")
+        try:
+            running_loop = asyncio.get_event_loop()
+            if running_loop.is_running():
+                running_loop.create_task(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+            else:
+                asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+        except RuntimeError:
+            asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+        return loop.get_status()
+    elif name == "stop_buddha_recitation":
+        from core.buddha_recitation_loop import get_recitation_loop
+        loop = get_recitation_loop()
+        loop.stop()
+        return loop.get_status()
+    elif name == "get_buddha_recitation_status":
+        from core.buddha_recitation_loop import get_recitation_loop
+        return get_recitation_loop().get_status()
+    elif name == "check_saka_dawa":
+        from datetime import datetime as dt
+        from core.models.practice import Practice
+        practices = Practice.get_default_practices()
+        saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
+        if not saka_dawa:
+            return {"error": "Saka Dawa practice not found"}
+        now = dt.now()
+        in_window = now.month in (5, 6)
+        return {
+            "in_saka_dawa_window": in_window, "current_month": now.month,
+            "practice": {"id": saka_dawa.id, "name": saka_dawa.name, "genre": saka_dawa.genre,
+                         "merit_multiplier": saka_dawa.merit_multiplier,
+                         "blessing_prompt": saka_dawa.base_prompt_template},
+            "message": "Saka Dawa is ACTIVE — 100,000x merit!" if in_window else "Not in Saka Dawa window.",
+        }
+    elif name == "check_auspicious_timing":
+        from core.auspicious_timing import check_auspicious_window
+        return check_auspicious_window(args.get("genre", "healing")).to_dict()
+    elif name == "generate_character":
+        from core.character_generator import CharacterGenerator
+        gen = CharacterGenerator()
+        sheet = gen.generate(use_llm=False)
+        return sheet.to_dict()
+    elif name == "start_character_journey" or name == "advance_journey" or name == "get_journey_status" or name == "run_full_journey":
+        from modules.radionics_operator import ToolDispatcher
+        from container import container
+        disp = ToolDispatcher(container)
+        return disp.dispatch(name, args)
     else:
         # Fallback: call the tool function directly (detect if async or sync)
         import inspect

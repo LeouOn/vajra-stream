@@ -470,3 +470,50 @@ def get_all_windows() -> dict[str, dict[str, Any]]:
     if _timing_instance is None:
         _timing_instance = AuspiciousTiming()
     return _timing_instance.get_all_genre_windows()
+
+
+def check_saka_dawa(target_date: datetime = None) -> dict[str, Any]:
+    """
+    Check if a given date falls within the Saka Dawa month (4th Tibetan lunar month).
+    We use the Chinese lunar calendar via lunar_python as a close proxy for the 
+    Tibetan lunar calendar. The 15th day (full moon) is Saka Dawa Duchen.
+    """
+    try:
+        from lunar_python import Lunar, Solar
+    except ImportError:
+        # Fallback if library missing
+        return {
+            "is_saka_dawa": False,
+            "multiplier": 1,
+            "current_date": target_date.isoformat() if target_date else datetime.now().isoformat(),
+            "error": "lunar_python not installed"
+        }
+    
+    dt = target_date or datetime.now()
+    solar = Solar.fromYmd(dt.year, dt.month, dt.day)
+    lunar = Lunar.fromSolar(solar)
+    
+    lunar_month = lunar.getMonth()
+    lunar_day = lunar.getDay()
+    
+    # 4th Lunar month is Saga Dawa
+    # Month > 0 handles leap months in lunar calendar logic
+    is_saka_dawa = (abs(lunar_month) == 4)
+    is_duchen = is_saka_dawa and (lunar_day == 15)
+    
+    # Merit multiplier rules
+    multiplier = 1
+    if is_duchen:
+        multiplier = 100000
+    elif is_saka_dawa:
+        multiplier = 10000
+        
+    return {
+        "is_saka_dawa": is_saka_dawa,
+        "multiplier": multiplier,
+        "current_date": dt.isoformat(),
+        "is_duchen": is_duchen,
+        "lunar_month": lunar_month,
+        "lunar_day": lunar_day
+    }
+

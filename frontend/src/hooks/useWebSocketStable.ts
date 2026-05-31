@@ -16,6 +16,8 @@ import type {
   ScalarStatus,
   WSConnectionState,
   ApiResponse,
+  RecitationStatus,
+  SakaDawaResult,
 } from '../types';
 
 export interface UseWebSocketStableReturn {
@@ -29,6 +31,8 @@ export interface UseWebSocketStableReturn {
   scalarStatus: ScalarStatus;
   connectionStats: Record<string, unknown>;
   rngData: Record<string, unknown> | null;
+  buddhaStatus: RecitationStatus | null;
+  sakaDawa: SakaDawaResult | null;
   error: string | null;
   startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
   stopSession: (sessionId: string) => Promise<ApiResponse>;
@@ -51,6 +55,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
   const [connectionStats, setConnectionStats] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
   const [rngData, setRngData] = useState<Record<string, unknown> | null>(null);
+  const [buddhaStatus, setBuddhaStatus] = useState<RecitationStatus | null>(null);
+  const [sakaDawa, setSakaDawa] = useState<SakaDawaResult | null>(null);
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -197,6 +203,12 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'RNG_READING':
               setRngData(data.data);
               break;
+            case 'BUDDHA_RECITATION_UPDATE':
+              setBuddhaStatus(data.data as RecitationStatus);
+              break;
+            case 'SAKA_DAWA_CHECK':
+              setSakaDawa(data.data as SakaDawaResult);
+              break;
             case 'BLESSING_STARTED':
               console.log('Blessing started:', data.data);
               break;
@@ -208,6 +220,16 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
               break;
             case 'SCALAR_WAVE_ACTIVE':
               setScalarStatus(prev => ({ ...prev, active: data.data.active }));
+              break;
+            case 'JOURNEY_STAGE_STARTED':
+            case 'JOURNEY_STAGE_COMPLETED':
+            case 'JOURNEY_COMPLETED':
+              console.log(`Journey event: ${data.type}`, data.data);
+              break;
+            case 'BUDDHA_RECITATION_STARTED':
+            case 'BUDDHA_NAME_RECITED':
+            case 'BUDDHA_RECITATION_STOPPED':
+              console.log(`Recitation event: ${data.type}`, data.data);
               break;
             case 'error':
               console.error('Server error:', data.message);
@@ -328,6 +350,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     scalarStatus,
     connectionStats,
     rngData,
+    buddhaStatus,
+    sakaDawa,
     error,
     startSession,
     stopSession,

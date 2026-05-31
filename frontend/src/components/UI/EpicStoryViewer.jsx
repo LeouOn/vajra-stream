@@ -31,7 +31,7 @@ export default function EpicStoryViewer({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
       <style>{`
         .svg-container svg,
-        [dangerouslySetInnerHTML] svg {
+        .divination-card-container svg {
           width: 100% !important;
           height: 100% !important;
           max-width: 100% !important;

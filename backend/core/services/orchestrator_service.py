@@ -41,6 +41,10 @@ class OrchestratorService:
         # For our local location or a default global location (e.g., Mount Kailash)
         lat, lon = 31.0651, 81.3129
         
+        # Guard: engine may be None if AstrologyEngine import failed
+        if self.astro_engine.engine is None:
+            logger.warning("AstrologyEngine unavailable — skipping planetary hour check")
+            return
         chart = self.astro_engine.engine.calculate_chart(now, lat, lon)
         planetary_hours = chart.get("planetary_hours", {})
         current_hour = planetary_hours.get("current_hour", {}).get("planet", "Unknown")

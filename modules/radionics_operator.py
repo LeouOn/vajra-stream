@@ -23,6 +23,7 @@ Architecture:
          └─→ return structured analysis + rate suggestions
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -91,10 +92,130 @@ class ToolDispatcher:
 
     def dispatch(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Dispatch a tool call to the appropriate service and return the result."""
-        if self._container is None:
-            return {"error": "No container set — services unavailable"}
 
         try:
+            # ---- 88 Buddhas & Saka Dawa (no container needed) ----
+            if tool_name == "get_random_buddha":
+                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+                svc = get_eighty_eight_buddhas()
+                category = arguments.get("category")
+                b = svc.random_buddha(category=category)
+                narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
+                return {
+                    "buddha": {
+                        "name_chinese": b.name_chinese,
+                        "name_pinyin": b.name_pinyin,
+                        "name_sanskrit": b.name_sanskrit,
+                        "category": b.category,
+                        "meaning": b.meaning,
+                        "realm": b.realm,
+                        "light": b.light,
+                    },
+                    "narrative": narrative.get("narrative", ""),
+                }
+
+            elif tool_name == "generate_buddha_narrative":
+                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+                svc = get_eighty_eight_buddhas()
+                result = svc.generate_buddha_narrative(
+                    buddha_name=arguments.get("buddha_name", ""),
+                    depth=arguments.get("depth", "contemplation"),
+                )
+                return result
+
+            elif tool_name == "get_88_buddhas_liturgy":
+                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+                svc = get_eighty_eight_buddhas()
+                return svc.get_confession_sequence()
+
+            elif tool_name == "recite_buddha_name":
+                buddha_name = arguments.get("buddha_name", "")
+                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+                svc = get_eighty_eight_buddhas()
+                b = svc.get_buddha_by_name(buddha_name)
+                if not b:
+                    return {"error": f"Buddha not found: {buddha_name}"}
+                return {
+                    "buddha": b.name_chinese,
+                    "pinyin": b.name_pinyin,
+                    "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS. Use start_buddha_recitation for continuous playback.",
+                }
+
+            elif tool_name == "start_buddha_recitation":
+                from core.buddha_recitation_loop import get_recitation_loop
+                loop = get_recitation_loop()
+                if loop.state.running:
+                    return {"status": "already_running", "message": "Recitation loop already active."}
+                import asyncio
+                intention = arguments.get("intention", "愿一切众生离苦得乐")
+                interval = arguments.get("interval_seconds", 3.0)
+                mala_cycles = arguments.get("mala_cycles")
+                try:
+                    running_loop = asyncio.get_event_loop()
+                    if running_loop.is_running():
+                        running_loop.create_task(loop.start(
+                            intention=intention,
+                            interval_seconds=interval,
+                            mala_cycles=mala_cycles,
+                        ))
+                    else:
+                        asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+                except RuntimeError:
+                    asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+                return loop.get_status()
+
+            elif tool_name == "stop_buddha_recitation":
+                from core.buddha_recitation_loop import get_recitation_loop
+                loop = get_recitation_loop()
+                loop.stop()
+                return loop.get_status()
+
+            elif tool_name == "get_buddha_recitation_status":
+                from core.buddha_recitation_loop import get_recitation_loop
+                loop = get_recitation_loop()
+                return loop.get_status()
+
+            elif tool_name == "check_saka_dawa":
+                from core.models.practice import Practice
+                from datetime import datetime
+                practices = Practice.get_default_practices()
+                saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
+                if not saka_dawa:
+                    return {"error": "Saka Dawa practice not found"}
+                now = datetime.now()
+                in_window = now.month in (5, 6)
+                return {
+                    "in_saka_dawa_window": in_window,
+                    "current_month": now.month,
+                    "saka_dawa_months": [5, 6],
+                    "practice": {
+                        "id": saka_dawa.id,
+                        "name": saka_dawa.name,
+                        "tradition": saka_dawa.tradition,
+                        "description": saka_dawa.description,
+                        "genre": saka_dawa.genre,
+                        "merit_multiplier": saka_dawa.merit_multiplier,
+                        "blessing_prompt": saka_dawa.base_prompt_template,
+                        "preferred_hours": saka_dawa.preferred_planetary_hours,
+                    },
+                    "message": (
+                        "We ARE in the Saka Dawa holy month — the 4th Tibetan month where merit is multiplied 100,000 times! "
+                        "All compassionate practices are profoundly amplified."
+                        if in_window else
+                        "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
+                        "Consider timing your major practice for that period when merit multiplies 100,000x."
+                    ),
+                    "suggested_action": (
+                        "Perform the Saka Dawa Blessing — generate the epic three-part sutra now while the cosmic multiplier is active!"
+                        if in_window else
+                        "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
+                    ),
+                }
+
+            # ---- Container-required guard ----
+            if self._container is None:
+                return {"error": "No container set — services unavailable"}
+
             # ---- Radionics ----
             if tool_name == "broadcast_healing":
                 svc = self._container.radionics
@@ -484,6 +605,8 @@ class RadionicsOperator:
         self._blessing_loop_intention = ""
         self._blessing_loop_interval = 15.0
         self._blessing_stream: list[dict[str, Any]] = []
+        self._autonomous_task: asyncio.Task | None = None
+        self._blessing_loop_task: asyncio.Task | None = None
 
     @property
     def llm(self):
@@ -795,6 +918,14 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
 
         self._session.record_event("blessing_loop_started", {"intention": intention})
 
+        # Start the background daemon loop
+        try:
+            loop = asyncio.get_running_loop()
+            self._blessing_loop_task = loop.create_task(self._run_blessing_loop())
+            logger.info("Blessing loop background daemon task scheduled successfully.")
+        except RuntimeError:
+            logger.info("No running event loop found, background blessing loop not scheduled (normal in tests).")
+
         return {
             "status": "started",
             "intention": intention,
@@ -803,9 +934,30 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
             "first_blessing": blessing,
         }
 
+    async def _run_blessing_loop(self):
+        """Run blessing generation periodically in the background."""
+        logger.info("Blessing loop background task started.")
+        while self._blessing_loop_active:
+            try:
+                await asyncio.sleep(self._blessing_loop_interval)
+                if not self._blessing_loop_active:
+                    break
+                logger.info("Generating next blessing in background loop...")
+                # Run blessing generation in a thread since it can involve synchronous fallback API calls
+                await asyncio.to_thread(self.generate_next_blessing)
+            except asyncio.CancelledError:
+                logger.info("Blessing loop background task cancelled.")
+                break
+            except Exception as e:
+                logger.error(f"Error in blessing loop cycle: {e}")
+
     def stop_blessing_loop(self) -> dict[str, Any]:
         """Stop the blessing loop and return collected blessings."""
         self._blessing_loop_active = False
+        if self._blessing_loop_task:
+            self._blessing_loop_task.cancel()
+            self._blessing_loop_task = None
+            logger.info("Blessing loop background task cancelled.")
         count = len(self._blessing_stream)
         self._session.record_event("blessing_loop_stopped", {"count": count})
         return {
@@ -835,7 +987,20 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         blessing = self._generate_blessing(intention)
         if blessing:
             self._blessing_stream.append(blessing)
+            try:
+                from modules.interfaces import BlessingGenerated
+                if self.event_bus:
+                    self.event_bus.publish(BlessingGenerated(
+                        timestamp=datetime.now(),
+                        event_id=str(uuid.uuid4()),
+                        target_name=intention,
+                        blessing_text=blessing.get("text", "")[:500],
+                        tradition=blessing.get("tradition", "Universal")
+                    ))
+            except Exception as e:
+                logger.error(f"Error publishing BlessingGenerated event: {e}")
         return blessing
+
 
     def _generate_blessing(self, intention: str) -> dict[str, Any] | None:
         """Generate a single unique blessing using the creative LLM."""
@@ -982,6 +1147,15 @@ Write only the blessing text, no explanation."""
 
         # Run first cycle immediately
         suggestion = self._autonomous_cycle()
+
+        # Start the background daemon loop
+        try:
+            loop = asyncio.get_running_loop()
+            self._autonomous_task = loop.create_task(self._run_autonomous_loop())
+            logger.info("Autonomous operator background daemon task scheduled successfully.")
+        except RuntimeError:
+            logger.info("No running event loop found, background autonomous operator loop not scheduled (normal in tests).")
+
         return {
             "status": "started",
             "interval_seconds": interval_seconds,
@@ -989,9 +1163,40 @@ Write only the blessing text, no explanation."""
             "first_suggestion": suggestion,
         }
 
+    async def _run_autonomous_loop(self):
+        """Run autonomous operator actions and journey progression periodically in the background."""
+        logger.info("Autonomous operator background task started.")
+        while self._autonomous_active:
+            try:
+                await asyncio.sleep(self._autonomous_interval)
+                if not self._autonomous_active:
+                    break
+
+                # If there is an active journey, advance it!
+                if hasattr(self, "_active_journey") and self._active_journey is not None:
+                    if self._active_journey.is_complete:
+                        logger.info("Active character journey is complete. Harvesting outcomes...")
+                        await asyncio.to_thread(self.harvest_journey)
+                    else:
+                        logger.info("Advancing active character journey automatically...")
+                        await asyncio.to_thread(self.advance_journey)
+                else:
+                    # Otherwise, run a new autonomous cycle to check astrological transits and start new journeys
+                    logger.info("Executing autonomous operator cycle...")
+                    await asyncio.to_thread(self._autonomous_cycle)
+            except asyncio.CancelledError:
+                logger.info("Autonomous operator background task cancelled.")
+                break
+            except Exception as e:
+                logger.error(f"Error in autonomous operator cycle: {e}")
+
     def stop_autonomous_mode(self) -> dict[str, Any]:
         """Stop autonomous operation."""
         self._autonomous_active = False
+        if self._autonomous_task:
+            self._autonomous_task.cancel()
+            self._autonomous_task = None
+            logger.info("Autonomous operator background task cancelled.")
         self._session.record_event("autonomous_stopped", {})
         return {
             "status": "stopped",
