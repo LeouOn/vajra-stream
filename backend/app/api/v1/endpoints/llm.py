@@ -22,6 +22,7 @@ from backend.core.llm_agent.tools import TOOL_REGISTRY, get_tool_schemas
 from backend.core.services.blessing_scheduler import get_scheduler
 from backend.core.services.population_manager import get_population_manager
 from backend.core.services.rng_attunement_service import get_rng_service
+from backend.app.api.v1.endpoints.agent_suggestions import log_failed_tool_call, FailedToolCallSchema
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -1069,8 +1070,8 @@ async def chat_interaction(request: ChatRequest):
             res.debug_info = debug_payload
         return res
 
-    # If no provider API key and provider isn't local model, use rule-based fallback
-    if not api_key and provider != "local":
+    # If no provider API key and provider isn't local or lm_studio, use rule-based fallback
+    if not api_key and provider not in ("local", "lm_studio"):
         logger.info("No API keys found. Falling back to rule-based parser.")
         return wrap_res(await run_rule_based_fallback(query))
 
@@ -1256,6 +1257,10 @@ async def chat_interaction(request: ChatRequest):
                         )
                     except Exception as ex:
                         logger.error(f"Error executing tool {name}: {ex}")
+                        try:
+                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
+                        except Exception as log_ex:
+                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
                         tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
                         openai_messages.append(
                             {
@@ -1353,6 +1358,10 @@ async def chat_interaction(request: ChatRequest):
                         })
                     except Exception as ex:
                         logger.error(f"Error executing tool {name}: {ex}")
+                        try:
+                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
+                        except Exception as log_ex:
+                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
                         tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
                         openai_messages.append({
                             "role": "tool",
@@ -1439,6 +1448,10 @@ async def chat_interaction(request: ChatRequest):
                         )
                     except Exception as ex:
                         logger.error(f"Error executing Anthropic tool {name}: {ex}")
+                        try:
+                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
+                        except Exception as log_ex:
+                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
                         tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
                         tool_results_content.append(
                             {

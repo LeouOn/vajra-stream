@@ -308,6 +308,65 @@ async def get_world_context():
 
 
 # ============================================================================
+# Agentic Character Journey
+# ============================================================================
+
+
+@router.post("/journey/generate-character", summary="Generate an RNG-seeded character")
+async def generate_character():
+    from container import container
+    try:
+        return container.operator.generate_character(use_llm=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/journey/start", summary="Start a character journey arc")
+async def start_journey():
+    from container import container
+    try:
+        return container.operator.start_character_journey()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/journey/advance", summary="Advance journey by one stage")
+async def advance_journey():
+    from container import container
+    try:
+        return container.operator.advance_journey()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/journey/status", summary="Get journey status")
+async def journey_status():
+    from container import container
+    try:
+        return container.operator.get_journey_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/journey/harvest", summary="Complete and harvest journey")
+async def harvest_journey():
+    from container import container
+    try:
+        return container.operator.harvest_journey()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/journey/run-full", summary="Run full 6-stage journey")
+async def run_full_journey():
+    from container import container
+    try:
+        return container.operator.run_full_journey()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
 # LLM Blessing Loop
 # ============================================================================
 

@@ -37,8 +37,7 @@ def test_outlook_generate_single_with_lm_studio_default():
         "custom_context": "test initialization",
         "include_astrology": False,
         "include_tarot": False,
-        "include_iching": False,
-        "model": "darwin-4b-genesis-i1"
+        "include_iching": False
     }
 
     response = client.post("/api/v1/outlook/generate_single", json=payload)

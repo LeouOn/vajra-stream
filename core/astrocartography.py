@@ -33,7 +33,6 @@ PLANETS = {
     "neptune": swe.NEPTUNE,
     "pluto": swe.PLUTO,
     "north_node": swe.TRUE_NODE,
-    "chiron": swe.CHIRON,
 }
 
 PLANET_NAMES = {v: k for k, v in PLANETS.items()}
@@ -734,6 +733,53 @@ def find_power_places(
         planets = list(PLANETS.keys())
 
     return calc.find_optimal_locations(year, month, day, hour, minute, planets)
+
+
+class AstrocartographyAnalyzer:
+    """Compatibility analyzer that uses AstrocartographyCalculator and LocalSpaceCalculator"""
+
+    def __init__(self):
+        self.calculator = AstrocartographyCalculator()
+        self.local_space = LocalSpaceCalculator()
+        self.historical = HistoricalChartCalculator()
+
+    def analyze_location(self, chart: dict, lat: float, lon: float) -> dict:
+        dt_str = chart.get("datetime")
+        from datetime import datetime
+        try:
+            dt = datetime.fromisoformat(dt_str)
+        except Exception:
+            dt = datetime.now()
+
+        # Calculate planetary lines
+        lines = self.calculator.calculate_planetary_lines(dt.year, dt.month, dt.day, dt.hour, dt.minute)
+
+        # Calculate local space directions
+        local_space_data = self.local_space.calculate_local_space(
+            dt.year, dt.month, dt.day, dt.hour, dt.minute, lat, lon
+        )
+
+        return {
+            "planetary_lines": lines,
+            "local_space": local_space_data,
+            "location": {"latitude": lat, "longitude": lon}
+        }
+
+    def find_power_places(self, chart: dict, intention: str = "general") -> list:
+        dt_str = chart.get("datetime")
+        from datetime import datetime
+        try:
+            dt = datetime.fromisoformat(dt_str)
+        except Exception:
+            dt = datetime.now()
+
+        focus = "benefic"
+        if intention in ("career", "success", "work"):
+            focus = "career"
+        elif intention in ("all", "comprehensive"):
+            focus = "all"
+
+        return find_power_places(dt.year, dt.month, dt.day, dt.hour, dt.minute, focus=focus)
 
 
 if __name__ == "__main__":

@@ -438,10 +438,17 @@ class VajraStreamService:
         from modules.interfaces import RNGReadingEvent
         import uuid
 
+        idle_count = 0
         while True:
             await asyncio.sleep(3)
-            if not self.active_sessions:
+            running = [s for s in self.active_sessions.values() if s.get("status") == "running"]
+            if not running:
+                idle_count += 1
+                if idle_count > 10:
+                    self._broadcast_task = None
+                    return
                 continue
+            idle_count = 0
 
             try:
                 from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2

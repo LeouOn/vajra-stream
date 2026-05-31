@@ -19,6 +19,10 @@ import { useAudioStore } from '../../stores/audioStore';
 import SacredMandala from '../3D/SacredMandala';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
+import TransitTimeline from './TransitTimeline';
+import DailyHoroscope from './DailyHoroscope';
+import VedicPanchanga from './VedicPanchanga';
+import ChineseBaZi from './ChineseBaZi';
 
 import { API_BASE } from '../../utils/api';
 
@@ -28,6 +32,56 @@ const getOrdinalSuffix = (num) => {
   const v = num % 100;
   return s[(v - 20) % 10] || s[v] || s[0];
 };
+
+// Mini Solar System Orrery — CSS-only animated planet positions
+const PLANET_RINGS = [
+  { name: 'Mercury', radius: 28, color: '#b0b0b0', size: 3, speed: 4.15 },
+  { name: 'Venus', radius: 44, color: '#f5c542', size: 4, speed: 1.62 },
+  { name: 'Earth', radius: 60, color: '#22d3ee', size: 4, speed: 1.0 },
+  { name: 'Mars', radius: 78, color: '#ef4444', size: 3.5, speed: 0.53 },
+  { name: 'Jupiter', radius: 104, color: '#f59e0b', size: 7, speed: 0.084 },
+  { name: 'Saturn', radius: 130, color: '#e2c97e', size: 6, speed: 0.034 },
+];
+
+function MiniOrrery({ positions }) {
+  if (!positions) return null;
+  return (
+    <div className="relative" style={{ width: 280, height: 280 }}>
+      {/* Sun center */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-300 to-orange-500 shadow-[0_0_30px_rgba(251,191,36,0.5)] z-10" />
+      
+      {PLANET_RINGS.map((ring) => {
+        const pos = positions?.[ring.name.toLowerCase()];
+        const absLon = pos?.longitude || 0;
+        const retrograde = pos?.retrograde || false;
+        const angleRad = (absLon - 90) * (Math.PI / 180);
+        const cx = 140;
+        const cy = 140;
+        const px = cx + ring.radius * Math.cos(angleRad);
+        const py = cy + ring.radius * Math.sin(angleRad);
+        
+        return (
+          <React.Fragment key={ring.name}>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/5"
+              style={{ width: ring.radius * 2, height: ring.radius * 2 }} />
+            <div className="absolute rounded-full transition-all duration-1000"
+              style={{
+                width: ring.size + (retrograde ? 1 : 0), height: ring.size + (retrograde ? 1 : 0),
+                backgroundColor: ring.color,
+                left: px - ring.size/2, top: py - ring.size/2,
+                boxShadow: `0 0 ${ring.size*2}px ${ring.color}80`,
+                opacity: retrograde ? 0.6 : 1,
+              }} />
+            <span className="absolute text-[7px] font-mono"
+              style={{ left: px + ring.size + 2, top: py - 4, color: retrograde ? '#fca5a5' : '#6b7280' }}>
+              {ring.name}{retrograde ? ' ℞' : ''}
+            </span>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AstrologyPanel() {
   const { isPlaying, frequency } = useAudioStore();
@@ -186,66 +240,37 @@ export default function AstrologyPanel() {
   return (
     <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6 bg-transparent">
       
-      {/* Header and Controls */}
-      <Card 
-        className="bg-gray-900/80 border-purple-500/20"
-        styles={{ body: { padding: '20px' } }}
-      >
-        <Row justify="space-between" align="middle" gutter={[16, 16]}>
-          <Col xs={24} md={14}>
-            <Space align="start" size={12}>
-              <Compass className="w-6 h-6 text-cyan-400" style={{ animation: 'spin 8s linear infinite' }} />
-              <div>
-                <h2 className="text-xl font-bold text-cyan-300 tracking-wider font-mono" style={{ margin: 0 }}>
-                  Cosmic Clockwork System
-                </h2>
-                <p className="text-xs text-gray-400 mt-1" style={{ margin: 0 }}>
-                  Precision planetary transits, sidereal Indian Rashi Kundali grids, and BaZi Wu Xing pillars.
-                </p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-indigo-900/30 via-purple-900/30 to-cyan-900/30 rounded-xl p-5 border border-purple-500/20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDE2OCw4NSwyNDcsMC4xKSIvPjwvc3ZnPg==')] opacity-30" />
+        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.3)]">
+                <Compass className="w-5 h-5 text-white animate-spin" style={{ animationDuration: '12s' }} />
               </div>
-            </Space>
-          </Col>
-          <Col xs={24} md={10}>
-            <Space wrap size={8} style={{ justifyContent: 'flex-end', width: '100%' }}>
-              <Segmented
-                size="small"
-                value={isLiveMode ? 'live' : 'static'}
-                onChange={(val) => {
-                  if (val === 'live') handleResetToLive();
-                  else setIsLiveMode(false);
-                }}
-                options={[
-                  { label: '🔴 LIVE', value: 'live' },
-                  { label: 'STATIC / NATAL', value: 'static' }
-                ]}
-              />
-              <Segmented
-                size="small"
-                value={activeSystem}
-                onChange={(val) => { setActiveSystem(val); audioFeedback.playClick(); }}
-                options={[
-                  { label: 'All', value: 'all' },
-                  { label: 'Western', value: 'western' },
-                  { label: 'Vedic', value: 'vedic' },
-                  { label: 'Chinese', value: 'chinese' }
-                ]}
-              />
-              <Button
-                size="small"
-                icon={<RefreshCw className={loading ? 'animate-spin' : ''} style={{ width: 14, height: 14 }} />}
-                onClick={() => {
-                  audioFeedback.playTelemetry();
-                  if (isLiveMode) fetchLiveAstrology();
-                  else handleCalculateCustom();
-                }}
-                disabled={loading}
-                type="default"
-                ghost
-              />
-            </Space>
-          </Col>
-        </Row>
-      </Card>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white tracking-wide">Cosmic Clockwork</h2>
+              <p className="text-xs text-gray-400">Tropical · Sidereal · BaZi — Swiss Ephemeris v2.10</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['all','western','vedic','chinese'].map(sys => (
+              <button key={sys} onClick={() => setActiveSystem(sys)} className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider border transition-all ${
+                activeSystem === sys ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_8px_rgba(168,85,247,0.3)]' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
+              }`}>{sys}</button>
+            ))}
+            <button onClick={handleResetToLive} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
+              isLiveMode ? 'bg-green-600 border-green-400 text-white animate-pulse' : 'bg-white/5 border-white/10 text-gray-400'
+            }`}>🔴 LIVE</button>
+            <button onClick={() => isLiveMode ? fetchLiveAstrology() : handleCalculateCustom()} className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Natal/Custom Calculator Input Panel */}
       <Row gutter={[16, 16]}>
@@ -404,7 +429,29 @@ export default function AstrologyPanel() {
       </Row>
 
       {activeData ? (
-        <div className="space-y-6">
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          
+          {/* Daily Horoscope */}
+          <DailyHoroscope astrologyData={activeData} />
+
+          {/* Orrery + Transit Timeline */}
+          <Row gutter={[16, 16]}>
+            <Col xs={24} lg={8}>
+              <Card
+                size="small"
+                className="bg-gray-900/80 border-purple-500/20"
+                styles={{ body: { padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' } }}
+              >
+                <MiniOrrery positions={activeData.western?.positions} />
+                <div className="text-center text-[10px] text-gray-500 font-mono mt-2">
+                  {new Date(activeData.datetime).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </div>
+              </Card>
+            </Col>
+            <Col xs={24} lg={16}>
+              <TransitTimeline />
+            </Col>
+          </Row>
           
           {/* ===================== SYSTEM SECTIONS ===================== */}
 
@@ -417,16 +464,16 @@ export default function AstrologyPanel() {
               styles={{ body: { padding: '20px' } }}
             >
 
-              {/* Celestial Trinity (Big Three) */}
+              {/* Celestial Trinity */}
               <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
                 <Col xs={24} md={8}>
                   <Card size="small" className="bg-purple-950/20 border-purple-500/20 hover:border-purple-500/40" styles={{ body: { padding: '12px' } }}>
                     <Space align="start" size={12}>
                       <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-400"><Sun className="w-5 h-5" /></div>
                       <div>
-                        <span className="text-[10px] text-yellow-400 font-mono font-bold tracking-wider block uppercase">☀️ SUN SIGN</span>
-                        <span className="text-base font-bold text-white block mt-0.5">{activeData.western?.positions?.sun?.sign || 'Unknown'}</span>
-                        <span className="text-[10px] text-gray-400 block font-mono">Degree: {activeData.western?.positions?.sun?.degree?.toFixed(2)}° | {activeData.western?.positions?.sun?.house ? `${activeData.western.positions.sun.house}${getOrdinalSuffix(activeData.western.positions.sun.house)} House` : 'No House'}</span>
+                        <Tag color="gold" className="text-[8px] font-mono mb-1">SUN SIGN</Tag>
+                        <div className="text-base font-bold text-white">{activeData.western?.positions?.sun?.sign || 'Unknown'}</div>
+                        <span className="text-[10px] text-gray-400 font-mono">{activeData.western?.positions?.sun?.degree?.toFixed(2)}° · H{activeData.western?.positions?.sun?.house || '?'}</span>
                       </div>
                     </Space>
                   </Card>
@@ -436,9 +483,9 @@ export default function AstrologyPanel() {
                     <Space align="start" size={12}>
                       <div className="p-2 bg-slate-400/10 rounded-lg text-slate-300"><Moon className="w-5 h-5" /></div>
                       <div>
-                        <span className="text-[10px] text-slate-300 font-mono font-bold tracking-wider block uppercase">🌙 MOON SIGN</span>
-                        <span className="text-base font-bold text-white block mt-0.5">{activeData.western?.positions?.moon?.sign || 'Unknown'}</span>
-                        <span className="text-[10px] text-gray-400 block font-mono">Degree: {activeData.western?.positions?.moon?.degree?.toFixed(2)}° | {activeData.western?.positions?.moon?.house ? `${activeData.western.positions.moon.house}${getOrdinalSuffix(activeData.western.positions.moon.house)} House` : 'No House'}</span>
+                        <Tag color="geekblue" className="text-[8px] font-mono mb-1">MOON SIGN</Tag>
+                        <div className="text-base font-bold text-white">{activeData.western?.positions?.moon?.sign || 'Unknown'}</div>
+                        <span className="text-[10px] text-gray-400 font-mono">{activeData.western?.positions?.moon?.degree?.toFixed(2)}° · H{activeData.western?.positions?.moon?.house || '?'}</span>
                       </div>
                     </Space>
                   </Card>
@@ -448,9 +495,9 @@ export default function AstrologyPanel() {
                     <Space align="start" size={12}>
                       <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400"><Compass className="w-5 h-5" /></div>
                       <div>
-                        <span className="text-[10px] text-cyan-400 font-mono font-bold tracking-wider block uppercase">🏹 ASCENDANT (RISING)</span>
-                        <span className="text-base font-bold text-white block mt-0.5">{activeData.western?.positions?.ascendant?.sign || 'Unknown'}</span>
-                        <span className="text-[10px] text-gray-400 block font-mono">Degree: {activeData.western?.positions?.ascendant?.degree?.toFixed(2)}° | First House Cusp</span>
+                        <Tag color="cyan" className="text-[8px] font-mono mb-1">ASCENDANT</Tag>
+                        <div className="text-base font-bold text-white">{activeData.western?.positions?.ascendant?.sign || 'Unknown'}</div>
+                        <span className="text-[10px] text-gray-400 font-mono">{activeData.western?.positions?.ascendant?.degree?.toFixed(2)}° · H1 Cusp</span>
                       </div>
                     </Space>
                   </Card>
@@ -468,20 +515,24 @@ export default function AstrologyPanel() {
                   </div>
                 </Col>
                 <Col xs={24} xl={8}>
-                  {/* Positions and Details */}
                   <div className="space-y-4 font-mono">
-                    <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">
+                    <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-0">
                       PLANETARY COORDINATES
                     </h4>
-                    <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
+                    <div className="grid grid-cols-1 gap-1.5 max-h-[300px] overflow-y-auto pr-1">
                       {Object.entries(activeData.western?.positions || {}).map(([planet, pos]) => {
                         const label = planet.replace('_', ' ').toUpperCase();
+                        const isRetrograde = pos?.retrograde;
                         return (
-                          <div key={planet} className="p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg flex justify-between items-center text-xs transition-colors">
-                            <span className="font-semibold text-purple-300">{label}</span>
-                            <span className="text-gray-200">
-                              {pos.formatted} {pos.house ? `(${pos.house}${getOrdinalSuffix(pos.house)} House)` : ''}
-                            </span>
+                          <div key={planet} className="flex items-center justify-between px-2 py-1.5 bg-white/3 hover:bg-white/8 rounded-md transition-colors text-[11px] border border-white/5">
+                            <Space size={8}>
+                              <span className="font-semibold capitalize text-slate-300">{planet.replace('_',' ')}</span>
+                              {isRetrograde && <Tag color="red" className="text-[8px] leading-none">℞</Tag>}
+                            </Space>
+                            <Space size={4}>
+                              <span className="text-slate-200">{pos.formatted}</span>
+                              {pos.house && <Tag className="text-[8px] font-mono" color="purple">H{pos.house}</Tag>}
+                            </Space>
                           </div>
                         );
                       })}
@@ -532,7 +583,55 @@ export default function AstrologyPanel() {
                   </div>
                 </Col>
               </Row>
+
+              {/* Houses — Where the Planets Are */}
+              <Card
+                size="small"
+                title={<span className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">🏠 PLANETARY HOUSES</span>}
+                extra={<Tag color="purple" className="text-[8px] font-mono">PLACIDUS SYSTEM</Tag>}
+                className="mt-4 bg-black/30 border-white/5"
+                styles={{ body: { padding: '12px' } }}
+              >
+                <Row gutter={[8, 8]}>
+                  {(() => {
+                    const houses = {};
+                    Object.entries(activeData.western?.positions || {}).forEach(([planet, pos]) => {
+                      if (['ascendant','midheaven'].includes(planet)) return;
+                      const h = pos.house || 0;
+                      if (!houses[h]) houses[h] = [];
+                      houses[h].push({ name: planet, retrograde: pos.retrograde });
+                    });
+                    return Array.from({length:12},(_,i)=>i+1).map(hNum => {
+                      const planets = houses[hNum] || [];
+                      const isAsc = activeData.western?.positions?.ascendant?.house === hNum;
+                      return (
+                        <Col xs={6} sm={4} md={3} lg={2} key={hNum}>
+                          <div className={`text-center p-2 rounded-lg border ${planets.length ? 'bg-purple-500/5 border-purple-500/15' : 'bg-white/2 border-white/5'} ${isAsc ? 'ring-1 ring-cyan-500/30' : ''}`}>
+                            <div className="text-[9px] font-mono text-slate-500 mb-1">{hNum}{getOrdinalSuffix(hNum)}</div>
+                            {planets.length ? planets.map((p,i) => (
+                              <div key={i} className="text-[10px] font-medium text-white capitalize leading-tight">
+                                {p.name.replace('_',' ')}{p.retrograde?' ℞':''}
+                              </div>
+                            )) : <div className="text-[10px] text-slate-700">—</div>}
+                            {isAsc && <div className="text-[8px] text-cyan-500 font-bold mt-0.5">ASC</div>}
+                          </div>
+                        </Col>
+                      );
+                    });
+                  })()}
+                </Row>
+              </Card>
             </Card>
+          )}
+
+          {/* VEDIC ASTROLOGY */}
+          {(activeSystem === 'all' || activeSystem === 'vedic') && (
+            <VedicPanchanga indianData={activeData.indian} />
+          )}
+
+          {/* CHINESE ASTROLOGY */}
+          {(activeSystem === 'all' || activeSystem === 'chinese') && (
+            <ChineseBaZi chineseData={activeData.chinese} />
           )}
 
           {/* Sacred Mandala — Planetary Resonance Visualization */}
@@ -748,7 +847,7 @@ export default function AstrologyPanel() {
             </Card>
           )}
 
-        </div>
+        </Space>
       ) : (
         <div className="bg-gray-900/60 p-8 border border-white/5 rounded-xl text-center italic text-gray-400 font-mono text-xs">
           Computing ephemeris coordinates from planetary databases...

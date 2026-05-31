@@ -348,12 +348,50 @@ class ToolDispatcher:
                     experience_level=arguments.get("experience_level", "beginner"),
                 )
 
+            # ---- Agentic Timing & Journey ----
+            elif tool_name == "check_auspicious_timing":
+                from core.auspicious_timing import check_auspicious_window
+                window = check_auspicious_window(arguments.get("genre", "healing"))
+                return window.to_dict()
+
+            elif tool_name == "get_all_genre_windows":
+                from core.auspicious_timing import get_all_windows
+                return {"windows": get_all_windows()}
+
+            elif tool_name == "get_current_conditions":
+                from core.auspicious_timing import AuspiciousTiming
+                t = AuspiciousTiming()
+                return t.get_current_conditions()
+
+            elif tool_name == "generate_character":
+                return self._dispatch_operator("generate_character", {})
+
+            elif tool_name == "start_character_journey":
+                return self._dispatch_operator("start_character_journey", {})
+
+            elif tool_name == "advance_journey":
+                return self._dispatch_operator("advance_journey", {})
+
+            elif tool_name == "get_journey_status":
+                return self._dispatch_operator("get_journey_status", {})
+
+            elif tool_name == "run_full_journey":
+                return self._dispatch_operator("run_full_journey", {})
+
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
 
         except Exception as e:
             logger.error(f"Tool dispatch error for {tool_name}: {e}")
             return {"error": str(e)}
+
+    def _dispatch_operator(self, method: str, args: dict) -> dict[str, Any]:
+        """Delegate to the RadionicsOperator's own methods for agentic operations."""
+        if self._container:
+            op = getattr(self._container, 'operator', None)
+            if op and hasattr(op, method):
+                return getattr(op, method)(**args)
+        return {"error": f"Operator method {method} unavailable"}
 
     def _dispatch_web_search(self, query: str, top_k: int = 5) -> dict[str, Any]:
         """Search the web via DuckDuckGo (no API key needed)."""
@@ -498,6 +536,14 @@ class RadionicsOperator:
         self._container = container
         self._dispatcher.set_container(container)
 
+    def _refresh_astrology_context(self):
+        """Auto-populate planetary_context with current transits."""
+        try:
+            from core.context_builder import format_astrology_for_llm
+            self._session.planetary_context = format_astrology_for_llm()
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -519,6 +565,7 @@ class RadionicsOperator:
         if self.llm is None or (not self.llm.client and not self.llm.local_model):
             return self._fallback_analysis(intention)
 
+        self._refresh_astrology_context()
         self._session.update(intention=intention)
         self._session.record_event("analyze_intention", {"intention": intention})
 
@@ -704,6 +751,7 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         if self.llm is None:
             return {"reply": "LLM not available. Please configure an API key or local model.", "type": "error"}
 
+        self._refresh_astrology_context()
         system_prompt = build_system_prompt(self._session.to_dict())
         tools = get_tools_for_provider(self._provider)
 
@@ -859,12 +907,62 @@ Write only the blessing text, no explanation."""
             "tools_count": len(RADIONICS_TOOLS),
             "autonomous_mode": self._autonomous_active,
             "blessing_loop_active": getattr(self, "_blessing_loop_active", False),
+            "journey_active": hasattr(self, "_active_journey") and self._active_journey is not None,
             "llm_config": {
                 "orchestrator_model": getattr(self.llm, "model_name", "auto") if self.llm else "none",
                 "creative_model": getattr(creative, "model_name", "auto") if creative else "none",
                 "dual_llm": self._creative_llm is not None and self._creative_llm is not self._llm,
             },
         }
+
+    # ------------------------------------------------------------------
+    # Agentic Character Journey
+    # ------------------------------------------------------------------
+
+    def generate_character(self, use_llm: bool = True) -> dict[str, Any]:
+        from core.character_generator import CharacterGenerator
+        gen = CharacterGenerator()
+        sheet = gen.generate(use_llm=use_llm, operator=self)
+        return {"character": sheet.to_dict(), "backstory": sheet.backstory, "prompt_context": sheet.to_prompt_context()}
+
+    def start_character_journey(self, character: dict[str, Any] | None = None) -> dict[str, Any]:
+        from core.character_generator import CharacterSheet
+        from core.character_journey import CharacterJourney
+        if character is None:
+            generated = self.generate_character()
+            character = generated["character"]
+        sheet = CharacterSheet(name=character.get("name",""), element={"name":character.get("element",""),"quality":character.get("element_quality",""),"color":character.get("element_color","")}, role={"name":character.get("role",""),"icon":character.get("role_icon",""),"mantra":character.get("role_mantra",""),"virtue":character.get("role_virtue","")}, frequency=character.get("frequency",528), origin=character.get("origin",""), quest=character.get("quest",""), sigil_seed=character.get("sigil_seed",""), backstory=character.get("backstory",""))
+        self._active_journey = CharacterJourney(self)
+        return self._active_journey.begin(sheet)
+
+    def advance_journey(self) -> dict[str, Any]:
+        if not hasattr(self, "_active_journey") or self._active_journey is None:
+            return {"error": "No active journey"}
+        if self._active_journey.is_complete:
+            return {"status": "complete", "harvest": self._active_journey.harvest()}
+        return self._active_journey.advance()
+
+    def get_journey_status(self) -> dict[str, Any]:
+        if not hasattr(self, "_active_journey") or self._active_journey is None:
+            return {"active": False}
+        return {"active": True, "is_complete": self._active_journey.is_complete, "current_stage": self._active_journey.current_stage.value if self._active_journey.current_stage else None, "stage_index": self._active_journey._current_stage_index, "stages_total": 6, "stage_results": self._active_journey._stage_results}
+
+    def harvest_journey(self) -> dict[str, Any]:
+        if not hasattr(self, "_active_journey") or self._active_journey is None:
+            return {"error": "No active journey"}
+        result = self._active_journey.harvest()
+        self._active_journey = None
+        return result
+
+    def run_full_journey(self, character: dict[str, Any] | None = None) -> dict[str, Any]:
+        from core.character_generator import CharacterSheet
+        from core.character_journey import CharacterJourney
+        if character is None:
+            generated = self.generate_character()
+            character = generated["character"]
+        sheet = CharacterSheet(name=character.get("name",""), element={"name":character.get("element",""),"quality":character.get("element_quality",""),"color":character.get("element_color","")}, role={"name":character.get("role",""),"icon":character.get("role_icon",""),"mantra":character.get("role_mantra",""),"virtue":character.get("role_virtue","")}, frequency=character.get("frequency",528), origin=character.get("origin",""), quest=character.get("quest",""), sigil_seed=character.get("sigil_seed",""), backstory=character.get("backstory",""))
+        journey = CharacterJourney(self)
+        return journey.run_full_journey(sheet, self)
 
     # ------------------------------------------------------------------
     # Autonomous Operator Mode
@@ -1004,45 +1102,47 @@ Return JSON with:
     # ------------------------------------------------------------------
 
     def _autonomous_cycle(self) -> dict[str, Any] | None:
-        """Run one autonomous cycle: check world → identify needs → propose."""
+        """Run one autonomous cycle: check transits → find green windows → auto-launch journeys."""
         try:
-            from core.internet_context import compile_world_context
+            from core.auspicious_timing import get_all_windows
+            from core.character_generator import CharacterGenerator
 
-            ctx = compile_world_context()
-            if not ctx.events:
+            windows = get_all_windows()
+            green = {g: w for g, w in windows.items() if w.get("go") and w.get("quality") in ("excellent", "good")}
+            if not green:
                 return None
 
-            # Find the most significant event
-            critical = [e for e in ctx.events if e.severity == "critical"]
-            high = [e for e in ctx.events if e.severity == "high"]
-            target_events = critical or high or ctx.events[:3]
+            best_genre = next(iter(green))
+            for g in ["healing", "compassion", "wisdom", "protection"]:
+                if g in green and green[g]["quality"] == "excellent":
+                    best_genre = g
+                    break
 
-            for evt in target_events[:1]:
-                suggestion = {
-                    "title": f"Respond to: {evt.title[:80]}",
-                    "target": evt.location or evt.title[:60],
-                    "action": "broadcast_healing",
-                    "frequency": 528 if evt.event_type == "disaster" else 639,
-                    "duration_minutes": 30,
-                    "mantra": "compassion",
-                    "reasoning": f"World event detected ({evt.event_type}, severity: {evt.severity}). {evt.description[:100]}",
-                    "timestamp": datetime.now().isoformat(),
-                }
-                self._autonomous_suggestions.append(suggestion)
+            window = green[best_genre]
+            gen = CharacterGenerator()
+            sheet = gen.generate(use_llm=False)
+            self.start_character_journey(sheet.to_dict())
 
-                if self.event_bus:
-                    self.event_bus.publish(
-                        OperatorInsightGenerated(
-                            insight_type="autonomous_suggestion",
-                            content=suggestion,
-                        )
-                    )
-
-                return suggestion
-
+            suggestion = {
+                "title": f"Auto-Journey: {sheet.name} the {sheet.element.get('name','')} {sheet.role.get('name','')}",
+                "target": sheet.name,
+                "action": "character_journey",
+                "genre": best_genre,
+                "frequency": sheet.frequency,
+                "mantra": sheet.role.get("mantra", "compassion"),
+                "reasoning": f"Green window for {best_genre} ({window.get('quality')}). Character: {sheet.backstory[:100]}",
+                "character": sheet.to_dict(),
+                "timestamp": datetime.now().isoformat(),
+            }
+            self._autonomous_suggestions.append(suggestion)
+            if self.event_bus:
+                self.event_bus.publish(OperatorInsightGenerated(
+                    insight_type="autonomous_journey_launched",
+                    content=suggestion,
+                ))
+            return suggestion
         except Exception as e:
             logger.warning(f"Autonomous cycle failed: {e}")
-
         return None
 
     # ------------------------------------------------------------------

@@ -189,3 +189,42 @@ class TestAstrologyAPI:
         # Returns raw dict
         assert "current_planetary_hour" in data
         assert "day_planet" in data
+
+
+@pytest.mark.unit
+class TestAstrologyService:
+    def test_astrology_service_methods(self):
+        from modules.astrology import AstrologyService
+        
+        svc = AstrologyService()
+        
+        # Test get_status
+        status = svc.get_status()
+        assert status["astrology_engine"] is True
+        assert status["astrocartography"] is True
+        
+        # Test get_planetary_positions
+        positions = svc.get_planetary_positions()
+        assert positions["status"] == "success"
+        assert "positions" in positions
+        
+        # Test calculate_natal_chart
+        dt = datetime(1990, 6, 15, 8, 30)
+        chart = svc.calculate_natal_chart(dt, 51.5074, -0.1278)
+        assert chart["status"] == "success"
+        assert "chart" in chart
+        
+        # Test get_current_transits
+        transits = svc.get_current_transits(chart["chart"])
+        assert transits["status"] == "success"
+        assert "transits" in transits
+        
+        # Test analyze_location_energy
+        analysis = svc.analyze_location_energy(chart["chart"], 37.7749, -122.4194)
+        assert analysis["status"] == "success"
+        assert "analysis" in analysis
+        
+        # Test find_power_places
+        places = svc.find_power_places(chart["chart"], "benefic")
+        assert places["status"] == "success"
+        assert "power_places" in places

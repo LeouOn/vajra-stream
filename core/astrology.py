@@ -139,15 +139,20 @@ class AstrologicalCalculator:
         for name, planet_id in self.PLANETS.items():
             result = swe.calc_ut(jd, planet_id)
             longitude = result[0][0]
+            speed = result[0][3]  # degrees per day — negative = retrograde
 
             sign_num = int(longitude / 30) % 12
             degree_in_sign = longitude % 30
+
+            retrograde = speed < 0
 
             positions[name] = {
                 "longitude": longitude,
                 "sign": self.SIGNS[sign_num],
                 "degree": degree_in_sign,
-                "formatted": f"{self.SIGNS[sign_num]} {degree_in_sign:.2f}°",
+                "formatted": f"{self.SIGNS[sign_num]} {degree_in_sign:.2f}°{' ℞' if retrograde else ''}",
+                "retrograde": retrograde,
+                "speed": round(speed, 4),
             }
 
         return positions

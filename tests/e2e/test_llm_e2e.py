@@ -10,8 +10,8 @@ from backend.app.main import app
 client = TestClient(app)
 
 @pytest.mark.skipif(
-    not os.getenv("RUN_LIVE_LLM_TESTS"),
-    reason="Requires valid API key and RUN_LIVE_LLM_TESTS env var"
+    not os.getenv("RUN_LIVE_LLM_TESTS") or not os.getenv("DEEPSEEK_API_KEY"),
+    reason="Requires valid DEEPSEEK_API_KEY and RUN_LIVE_LLM_TESTS env var"
 )
 def test_live_deepseek_api():
     """
@@ -51,8 +51,7 @@ def test_live_local_model():
     """
     payload = {
         "messages": [{"role": "user", "content": "Reply with exactly the word 'SUCCESS' and nothing else. Do not use any tools."}],
-        "provider": "lm_studio",
-        "model": "darwin-4b-genesis-i1"
+        "provider": "lm_studio"
     }
 
     response = client.post("/api/v1/llm/chat", json=payload)

@@ -202,7 +202,63 @@ class PrayerWheel:
             self.audio.stop()
 
         self.rotations += 1
-        print(f"\n✓ Rotation complete (Total rotations: {self.rotations})")
+        print(f"\n[OK] Rotation complete (Total rotations: {self.rotations})")
+
+    def continuous_spin(self, mantras: list[str], duration_minutes: int = 60) -> dict:
+        """Start continuous spinning of selected mantras in a background thread.
+        
+        Args:
+            mantras: List of mantras to cycle through
+            duration_minutes: Duration to run in minutes
+        """
+        import threading
+        import uuid
+        
+        session_id = f"pw_session_{uuid.uuid4().hex[:8]}"
+        
+        if not hasattr(self, "_active_spins"):
+            self._active_spins = {}
+            
+        stop_event = threading.Event()
+        
+        def spin_loop():
+            start_time = time.time()
+            end_time = start_time + (duration_minutes * 60)
+            
+            self.session_start = datetime.now()
+            
+            try:
+                while not stop_event.is_set() and time.time() < end_time:
+                    for mantra in mantras:
+                        if stop_event.is_set():
+                            break
+                        # Recite each mantra with 5s duration
+                        # Don't throw if sounddevice is not available in test/virtual env
+                        try:
+                            self.spin(mantra, duration=5, with_audio=True, with_voice=False)
+                        except Exception as e:
+                            print(f"Error during loop spin: {e}")
+                            time.sleep(5)
+                        time.sleep(1)
+            except Exception as e:
+                print(f"Error in continuous spin loop: {e}")
+            finally:
+                self._end_session()
+                if session_id in self._active_spins:
+                    del self._active_spins[session_id]
+                    
+        thread = threading.Thread(target=spin_loop)
+        thread.daemon = True
+        thread.start()
+        
+        self._active_spins[session_id] = {
+            "thread": thread,
+            "stop_event": stop_event,
+            "mantras": mantras,
+            "started_at": datetime.now().isoformat()
+        }
+        
+        return {"session_id": session_id, "status": "running"}
 
     def continuous_rotation(
         self,
@@ -291,7 +347,7 @@ class PrayerWheel:
 
                 # Progress indicator
                 if (i + 1) % 27 == 0:  # Quarter mala
-                    print(f"  ✓ {i + 1} recitations complete")
+                    print(f"  [OK] {i + 1} recitations complete")
 
         except KeyboardInterrupt:
             print(f"\n\nMantra accumulation paused at {i + 1} recitations")
@@ -402,7 +458,7 @@ if __name__ == "__main__":
         print(f"   {intention.title()}: {prayer}")
 
     print("\n" + "=" * 60)
-    print("✓ Prayer Wheel test complete")
+    print("[OK] Prayer Wheel test complete")
     print("\nTo test with audio and voice:")
     print("  - Uncomment audio tests above")
     print("  - Add TTS engine")

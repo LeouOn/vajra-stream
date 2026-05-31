@@ -49,6 +49,7 @@ class OutlookRequest(BaseModel):
     excluded_forces: list[str] | None = Field(default=None, description="Negative forces to pacify")
     include_dialogue: bool = Field(default=False, description="Whether to include active dialogue")
     model: str | None = Field(default=None, description="Selected LLM model for generation")
+    include_geomancy: bool = Field(default=True, description="Whether to include geomancy in the divination context")
     randomize_realm: bool = Field(default=False, description="Whether to select a random active setting/realm")
     randomize_characters: bool = Field(default=False, description="Whether to select 2-3 random active characters")
 
@@ -116,6 +117,7 @@ async def generate_single(request: OutlookRequest):
             excluded_forces=request.excluded_forces,
             include_dialogue=request.include_dialogue,
             model=request.model,
+            include_geomancy=request.include_geomancy,
             randomize_realm=request.randomize_realm,
             randomize_characters=request.randomize_characters
         )
@@ -176,6 +178,7 @@ async def generate_epic(request: EpicOutlookRequest):
             excluded_forces=request.excluded_forces,
             include_dialogue=request.include_dialogue,
             model=request.model,
+            include_geomancy=request.include_geomancy,
             randomize_realm=request.randomize_realm,
             randomize_characters=request.randomize_characters
         )
@@ -428,6 +431,8 @@ class LoopStartRequest(BaseModel):
     include_astrology: bool = True
     include_tarot: bool = True
     include_iching: bool = True
+    include_geomancy: bool = True
+    cycle_genres: bool = False
     randomize_realm: bool = False
     randomize_characters: bool = False
 
@@ -451,6 +456,8 @@ async def start_loop(req: LoopStartRequest):
         include_astrology=req.include_astrology,
         include_tarot=req.include_tarot,
         include_iching=req.include_iching,
+        include_geomancy=req.include_geomancy,
+        cycle_genres=req.cycle_genres,
         randomize_realm=req.randomize_realm,
         randomize_characters=req.randomize_characters
     )

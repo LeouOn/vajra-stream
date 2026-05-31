@@ -654,6 +654,83 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
         },
     },
     # ------------------------------------------------------------------
+    # Agentic Journey & Timing
+    # ------------------------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "check_auspicious_timing",
+            "description": "Check if the current planetary hour, tithi, and nakshatra are favorable for a specific ritual genre. Returns go/no-go with quality rating and wait time if blocked. Genres: healing, victory, wisdom, purification, compassion, prosperity, protection, creativity.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "genre": {
+                        "type": "string",
+                        "enum": ["healing", "victory", "wisdom", "purification", "compassion", "prosperity", "protection", "creativity"],
+                        "description": "The ritual genre to check timing for.",
+                    },
+                },
+                "required": ["genre"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_all_genre_windows",
+            "description": "Get auspicious timing windows for all ritual genres at once. Use this to find which genre is most favorable right now.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_conditions",
+            "description": "Get current planetary conditions — hour ruler, tithi, nakshatra, moon phase. Use before launching rituals to understand the energetic landscape.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_character",
+            "description": "Generate an RNG-seeded character for ritual work — element, role, frequency, stats, backstory. Each character is unique. Use when starting a new character journey arc.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "start_character_journey",
+            "description": "Begin a 6-stage character journey arc (Initiation→Training→Working→Overcoming→Utopia→Multiverse) for a generated or provided character.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "advance_journey",
+            "description": "Advance the active character journey by one complete stage. Each stage generates blessings, attunes rates, and applies stat growth.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_journey_status",
+            "description": "Get current character journey status — stage, progress, stage results.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_full_journey",
+            "description": "Generate a character and run all 6 stages of the journey arc synchronously. Returns complete harvest results.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    # ------------------------------------------------------------------
     # Prayer / Dharma Content
     # ------------------------------------------------------------------
     {
@@ -719,6 +796,15 @@ TOOL_HANDLERS: dict[str, str] = {
     "generate_prayer": "llm.generate_prayer",
     "generate_teaching": "llm.generate_teaching",
     "generate_meditation_script": "llm.generate_meditation_script",
+    # Agentic journey tools
+    "check_auspicious_timing": "timing.check",
+    "get_all_genre_windows": "timing.all_windows",
+    "get_current_conditions": "timing.conditions",
+    "generate_character": "journey.generate_character",
+    "start_character_journey": "journey.start",
+    "advance_journey": "journey.advance",
+    "get_journey_status": "journey.status",
+    "run_full_journey": "journey.run_full",
 }
 
 

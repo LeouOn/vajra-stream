@@ -25,6 +25,9 @@ from .tools import (
     resume_automation,
     # Automation Tools
     start_automation,
+    list_narrative_locations,
+    start_narrative_loop,
+    stop_narrative_loop,
     stop_automation,
     stop_rng_session,
     stop_slideshow,

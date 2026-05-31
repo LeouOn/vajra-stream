@@ -13,6 +13,7 @@ import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import ChakraHealing from './ChakraHealing';
 import PrayerWheel from './PrayerWheel';
+import DharaniReciter from './DharaniReciter';
 import TimeCycles from './TimeCycles';
 import ChakraBodyMap from '../2D/ChakraBodyMap';
 
@@ -28,6 +29,7 @@ export default function OperationsPanel() {
   const [tarotResult, setTarotResult] = useState(null);
   const [ichingResult, setIchingResult] = useState(null);
   const [geomancyResult, setGeomancyResult] = useState(null);
+  const [geoBalance, setGeoBalance] = useState(null);
   const [loading, setLoading] = useState(false);
   
   // Ritual composer state
@@ -116,6 +118,11 @@ export default function OperationsPanel() {
       if (response.ok) {
         const data = await response.json();
         setGeomancyResult(data.chart);
+        // Also fetch elemental balance comparison
+        try {
+          const balRes = await fetch(`${API_BASE}/divination/geomancy/elemental-balance`);
+          if (balRes.ok) setGeoBalance(await balRes.json());
+        } catch {}
         audioFeedback.playSuccess();
       }
     } catch (e) {
@@ -227,6 +234,16 @@ export default function OperationsPanel() {
           }`}
         >
           🎡 Digital Prayer Wheel
+        </button>
+        <button
+          onClick={() => { setActiveSubTab('dharani'); audioFeedback.playClick(); }}
+          className={`pb-2 px-1 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+            activeSubTab === 'dharani'
+              ? 'border-vajra-cyan text-vajra-cyan'
+              : 'border-transparent text-gray-400 hover:text-white'
+          }`}
+        >
+          📿 Dharani Recitation
         </button>
         <button
           onClick={() => { setActiveSubTab('chakra'); audioFeedback.playClick(); }}
@@ -403,31 +420,64 @@ export default function OperationsPanel() {
               </div>
 
               {geomancyResult && (
-                <div className="flex flex-col xl:flex-row gap-6 pt-4">
-                  {/* Visual Shield Chart SVG */}
-                  <div className="bg-gray-950/40 p-4 rounded-xl border border-white/10 flex justify-center items-center flex-1">
-                    <div dangerouslySetInnerHTML={{ __html: geomancyResult.svg }} className="w-full max-w-lg" />
+                <div className="space-y-4 pt-4">
+                  <div className="flex flex-col xl:flex-row gap-6">
+                    <div className="bg-gray-950/40 p-4 rounded-xl border border-white/10 flex justify-center items-center flex-1">
+                      <div dangerouslySetInnerHTML={{ __html: geomancyResult.svg }} className="w-full max-w-lg" />
+                    </div>
+                    <div className="w-full xl:w-80 bg-gray-950/60 p-4 rounded-xl border border-white/10 max-h-[400px] overflow-y-auto space-y-3">
+                      <h4 className="text-xs font-bold font-mono text-gray-400 tracking-wider">RESOLVED FIGURES</h4>
+                      {['Mother 1', 'Daughter 1', 'Niece 1', 'Right Witness', 'Left Witness', 'Judge'].map(key => {
+                        const fig = geomancyResult.figures[key];
+                        if (!fig) return null;
+                        return (
+                          <div key={key} className="flex justify-between items-center p-2.5 bg-white/5 border border-white/5 rounded-lg text-xs">
+                            <div>
+                              <span className="text-[10px] text-gray-500 font-mono block leading-none">{key.toUpperCase()}</span>
+                              <span className="font-bold text-white mt-0.5 block">{fig.name} ({fig.translation})</span>
+                            </div>
+                            <span className="text-[10px] bg-yellow-950/40 text-yellow-300 border border-yellow-500/20 px-2 py-0.5 rounded uppercase">
+                              {fig.element}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Interpretive sidebar figures */}
-                  <div className="w-full xl:w-80 bg-gray-950/60 p-4 rounded-xl border border-white/10 max-h-[400px] overflow-y-auto space-y-3">
-                    <h4 className="text-xs font-bold font-mono text-gray-400 tracking-wider">RESOLVED FIGURES</h4>
-                    {['Mother 1', 'Daughter 1', 'Niece 1', 'Right Witness', 'Left Witness', 'Judge'].map(key => {
-                      const fig = geomancyResult.figures[key];
-                      if (!fig) return null;
-                      return (
-                        <div key={key} className="flex justify-between items-center p-2.5 bg-white/5 border border-white/5 rounded-lg text-xs">
-                          <div>
-                            <span className="text-[10px] text-gray-500 font-mono block leading-none">{key.toUpperCase()}</span>
-                            <span className="font-bold text-white mt-0.5 block">{fig.name} ({fig.translation})</span>
-                          </div>
-                          <span className="text-[10px] bg-yellow-950/40 text-yellow-300 border border-yellow-500/20 px-2 py-0.5 rounded uppercase">
-                            {fig.element}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {/* Elemental Balance Comparison */}
+                  {geoBalance && (
+                    <div className="bg-gray-950/60 rounded-xl border border-purple-500/15 p-4">
+                      <h4 className="text-xs font-bold font-mono text-gray-400 tracking-wider mb-3">
+                        ELEMENTAL BALANCE — Shield vs. Sky
+                      </h4>
+                      <div className="grid grid-cols-4 gap-3 mb-3">
+                        {['Fire','Water','Air','Earth'].map(elem => {
+                          const geo = geoBalance.geomancy_elements?.[elem] || 0;
+                          const west = geoBalance.western_elements?.[elem] || 0;
+                          const colors = {Fire:'text-rose-400',Water:'text-blue-400',Air:'text-cyan-400',Earth:'text-amber-400'};
+                          return (
+                            <div key={elem} className="text-center">
+                              <div className={`text-xs font-bold ${colors[elem]}`}>{elem}</div>
+                              <div className="flex justify-center gap-1 text-[10px] mt-1">
+                                <span className="text-yellow-400">{geo}</span>
+                                <span className="text-gray-600">|</span>
+                                <span className="text-purple-300">{west}</span>
+                              </div>
+                              <div className="text-[9px] text-gray-500">shield | sky</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between text-xs border-t border-white/5 pt-3">
+                        <span className="text-gray-400">Harmony: <span className={
+                          geoBalance.harmony_score > 0.7 ? 'text-green-400' :
+                          geoBalance.harmony_score > 0.4 ? 'text-yellow-400' : 'text-red-400'
+                        }>{Math.round(geoBalance.harmony_score * 100)}% {geoBalance.harmony_quality}</span></span>
+                        <span className="text-gray-500">Judge: <span className="text-white font-bold">{geoBalance.judge?.name}</span> — {geoBalance.judge?.meaning?.slice(0,40)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -508,10 +558,17 @@ export default function OperationsPanel() {
         </div>
       )}
 
-      {/* ==================== 4. PRAYER WHEEL PANEL ==================== */}
+      {/* ==================== PRAYER WHEEL PANEL ==================== */}
       {activeSubTab === 'prayer_wheel' && (
         <div className="space-y-6">
           <PrayerWheel />
+        </div>
+      )}
+
+      {/* ==================== DHARANI RECITER ==================== */}
+      {activeSubTab === 'dharani' && (
+        <div className="space-y-6">
+          <DharaniReciter />
         </div>
       )}
 

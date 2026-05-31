@@ -299,8 +299,78 @@ function RainbowRing({ radius = 2.25, isActive = false }) {
   );
 }
 
+// ─── Aspect Colors ───
+const ASPECT_COLORS = {
+  Conjunction: '#ffd700', Trine: '#22d3ee', Sextile: '#a855f7',
+  Square: '#ef4444', Opposition: '#f97316',
+};
+const ASPECT_GLOW = {
+  Conjunction: 'rgba(255,215,0,0.3)', Trine: 'rgba(34,211,238,0.25)',
+  Sextile: 'rgba(168,85,247,0.2)', Square: 'rgba(239,68,68,0.3)',
+  Opposition: 'rgba(249,115,22,0.25)',
+};
+
+// Great-circle arc between two points on a sphere
+function AspectLine({ start, end, color, aspectType, exactness = 0.5 }) {
+  const points = useMemo(() => {
+    const mid = new THREE.Vector3().addVectors(start, end).normalize().multiplyScalar(2.25 + exactness * 0.3);
+    const curve = new THREE.QuadraticBezierCurve3(
+      start.clone().normalize().multiplyScalar(2.08),
+      mid,
+      end.clone().normalize().multiplyScalar(2.08),
+    );
+    return curve.getPoints(40);
+  }, [start, end, exactness]);
+
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry().setFromPoints(points);
+    return g;
+  }, [points]);
+
+  return (
+    <line geometry={geo}>
+      <lineBasicMaterial color={color} transparent opacity={0.3 + exactness * 0.4} linewidth={1} depthWrite={false} />
+    </line>
+  );
+}
+
+function AspectLines({ planetPositions, aspects }) {
+  if (!planetPositions || !aspects?.length) return null;
+
+  const lines = aspects.slice(0, 8).map((asp, i) => {
+    const p1 = planetPositions[asp.planet1];
+    const p2 = planetPositions[asp.planet2];
+    if (!p1 || !p2) return null;
+    const [lat1, lon1] = planetToLatLon(p1.longitude);
+    const [lat2, lon2] = planetToLatLon(p2.longitude);
+    const start = latLonToVec3(lat1, lon1);
+    const end = latLonToVec3(lat2, lon2);
+    const color = ASPECT_COLORS[asp.aspect] || '#94a3b8';
+    return (
+      <AspectLine key={i} start={start} end={end} color={color} aspectType={asp.aspect} exactness={asp.exactness || 0.5} />
+    );
+  });
+
+  return <group>{lines}</group>;
+}
+
+// ─── Planet Colors ───
+const PLANET_COLORS = {
+  sun: '#fbbf24', moon: '#e2e8f0', mercury: '#94a3b8', venus: '#f472b6',
+  mars: '#ef4444', jupiter: '#f59e0b', saturn: '#e2c97e',
+  uranus: '#22d3ee', neptune: '#3b82f6', pluto: '#a78bfa',
+  north_node: '#c084fc',
+};
+
+// Ecliptic longitude → sub-planetary point on globe
+function planetToLatLon(eclipticLongitude) {
+  const lon = eclipticLongitude - 180; // 0° Aries → prime meridian, going east
+  const lat = 23.44 * Math.sin(eclipticLongitude * (Math.PI / 180)); // obliquity projection
+  return [lat, lon];
+}
+
 // ─── Globe Content ───
-function GlobeContent({ disasters, broadcastTargets, onLocationClick, showBlessings = true }) {
+function GlobeContent({ disasters, broadcastTargets, onLocationClick, showBlessings = true, planetPositions, aspects }) {
   const groupRef = useRef();
 
   useFrame((_, delta) => {
@@ -322,6 +392,7 @@ function GlobeContent({ disasters, broadcastTargets, onLocationClick, showBlessi
           size: d.severity === 'critical' ? 0.07 : 0.05,
           pulseSpeed: d.severity === 'critical' ? 3 : 2,
           label: d.title?.slice(0, 30) || '',
+          isDisaster: true,
         });
       }
     });
@@ -338,12 +409,26 @@ function GlobeContent({ disasters, broadcastTargets, onLocationClick, showBlessi
         });
       }
     });
+    // Planet markers
+    if (planetPositions) {
+      Object.entries(planetPositions).forEach(([name, pos]) => {
+        if (['ascendant', 'midheaven'].includes(name)) return;
+        const [lat, lon] = planetToLatLon(pos.longitude || 0);
+        markers.push({
+          pos: latLonToVec3(lat, lon),
+          color: PLANET_COLORS[name] || '#ffffff',
+          size: name === 'sun' ? 0.08 : name === 'moon' ? 0.07 : 0.045,
+          pulseSpeed: name === 'sun' ? 1 : name === 'moon' ? 2 : 1.5,
+          label: `${name} ${pos.sign || ''} ${pos.retrograde ? '℞' : ''}`,
+          isPlanet: true,
+        });
+      });
+    }
     return markers;
-  }, [disasters, broadcastTargets]);
+  }, [disasters, broadcastTargets, planetPositions]);
 
   return (
     <group ref={groupRef}>
-      {/* Earth sphere */}
       <mesh>
         <sphereGeometry args={[2, 64, 64]} />
         <meshStandardMaterial map={earthTex} roughness={0.7} metalness={0.1} />
@@ -352,6 +437,7 @@ function GlobeContent({ disasters, broadcastTargets, onLocationClick, showBlessi
       <Atmosphere />
       {showBlessings && <BlessingRays isActive={(broadcastTargets || []).length > 0} />}
       {showBlessings && <RainbowRing isActive={(broadcastTargets || []).length > 0} />}
+      <AspectLines planetPositions={planetPositions} aspects={aspects} />
       {markerData.map((m, i) => (
         <Marker key={i} position={m.pos} color={m.color} size={m.size} pulseSpeed={m.pulseSpeed} />
       ))}
@@ -378,6 +464,8 @@ export function MiniGlobe({ isActive = false, size = 'small' }) {
 // ─── Main Component ───
 export default function RadionicsGlobe({ disasters, broadcastTargets }) {
   const [worldData, setWorldData] = useState({ disasters: [], events: [] });
+  const [planetPositions, setPlanetPositions] = useState(null);
+  const [aspects, setAspects] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -385,14 +473,23 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }) {
         const res = await fetch(`${API_BASE}/operator/world-context`);
         if (res.ok) {
           const data = await res.json();
-          setWorldData({
-            disasters: data.disasters || [],
-            events: data.events || [],
-          });
+          setWorldData({ disasters: data.disasters || [], events: data.events || [] });
+        }
+      } catch {}
+    };
+    const fetchAstro = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/astrology/current?latitude=37.7749&longitude=-122.4194`);
+        if (res.ok) {
+          const data = await res.json();
+          const western = data.astrology?.western;
+          setPlanetPositions(western?.positions || null);
+          setAspects(western?.aspects || []);
         }
       } catch {}
     };
     fetchData();
+    fetchAstro();
     const interval = setInterval(fetchData, 120000);
     return () => clearInterval(interval);
   }, []);
@@ -409,6 +506,8 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }) {
         <GlobeContent
           disasters={allDisasters}
           broadcastTargets={allTargets}
+          planetPositions={planetPositions}
+          aspects={aspects}
         />
         <OrbitControls
           enableZoom={true}
@@ -426,6 +525,11 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }) {
         <div className="bg-black/60 px-2 py-1 rounded border border-cyan-500/20 text-cyan-400">
           {allTargets.length} targets
         </div>
+        {planetPositions && (
+          <div className="bg-black/60 px-2 py-1 rounded border border-yellow-500/20 text-yellow-400">
+            {Object.values(planetPositions).filter(p => p.retrograde).length} ℞
+          </div>
+        )}
       </div>
     </div>
   );

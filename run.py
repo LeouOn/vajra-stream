@@ -301,8 +301,27 @@ def preflight_checks():
     if frontend_dir.exists():
         print("Verifying Frontend dependencies...")
         node_modules = frontend_dir / "node_modules"
-        if not node_modules.exists():
-            print("[WARN] frontend/node_modules not found.")
+        
+        missing_deps = []
+        if node_modules.exists():
+            pkg_file = frontend_dir / "package.json"
+            if pkg_file.exists():
+                try:
+                    import json
+                    with open(pkg_file, encoding="utf-8") as f:
+                        pkg_data = json.load(f)
+                    all_deps = list(pkg_data.get("dependencies", {}).keys()) + list(pkg_data.get("devDependencies", {}).keys())
+                    for dep in all_deps:
+                        if not (node_modules / dep).exists():
+                            missing_deps.append(dep)
+                except Exception as e:
+                    print(f"[WARN] Error reading package.json: {e}")
+
+        if not node_modules.exists() or missing_deps:
+            if missing_deps:
+                print(f"[WARN] Missing {len(missing_deps)} frontend dependencies: {', '.join(missing_deps[:5])}...")
+            else:
+                print("[WARN] frontend/node_modules not found.")
             print("       Running 'npm install' in frontend directory (this may take a minute)...")
             try:
                 # Run npm install

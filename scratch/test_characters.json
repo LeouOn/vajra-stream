@@ -1,0 +1,138 @@
+{
+  "version": "1.0",
+  "last_updated": 1780188876.7910435,
+  "characters": [
+    {
+      "id": "char_zhao_master",
+      "name": "Zen Master Zhao",
+      "role": "master",
+      "description": "An enigmatic Zen master who teaches through paradox, koans, and sudden silent gestures.",
+      "source_type": "historical",
+      "dialogue_style": "Enigmatic zen riddles (Koans) and sharp, paradoxical remarks",
+      "associated_realms": [
+        "loc_sukhavati",
+        "loc_bodh_gaya"
+      ],
+      "mantra_preference": "om_mani_padme_hum",
+      "elemental_anchor": "space",
+      "grounding_sense": "",
+      "channeling_state": "",
+      "anchoring_ritual": "",
+      "priority": 6,
+      "is_active": true,
+      "exp": 250,
+      "level": 2,
+      "energy": 100,
+      "state": "Idle",
+      "added_time": 1780188457.7895744,
+      "last_used_time": null,
+      "total_narratives_featured": 0,
+      "history_log": [
+        "Reached Level 2!",
+        "Performed The Invincible Adamantine Shield during Unknown hour. Score: 5/10."
+      ],
+      "relics": [],
+      "tags": [],
+      "notes": "Classic Zen teacher archetype."
+    },
+    {
+      "id": "char_hermes_alchemist",
+      "name": "Alchemist Hermes",
+      "role": "alchemist",
+      "description": "A master of hermetic arts and chemical transmutations, carrying the caduceus.",
+      "source_type": "mythology",
+      "dialogue_style": "Esoteric, verbose analogies about base metals, sulfur, and salt",
+      "associated_realms": [
+        "loc_alexandria",
+        "loc_meru"
+      ],
+      "mantra_preference": "custom",
+      "elemental_anchor": "fire",
+      "grounding_sense": "",
+      "channeling_state": "",
+      "anchoring_ritual": "",
+      "priority": 5,
+      "is_active": true,
+      "exp": 250,
+      "level": 2,
+      "energy": 100,
+      "state": "Idle",
+      "added_time": 1780188457.7895796,
+      "last_used_time": null,
+      "total_narratives_featured": 0,
+      "history_log": [
+        "Reached Level 2!",
+        "Performed The Invincible Adamantine Shield during Unknown hour. Score: 5/10."
+      ],
+      "relics": [],
+      "tags": [],
+      "notes": "Guide for alchemical parables."
+    },
+    {
+      "id": "char_chenrezig_deity",
+      "name": "Bodhisattva Chenrezig",
+      "role": "deity",
+      "description": "The multi-armed Lord of Universal Compassion, radiating white light of empathy.",
+      "source_type": "mythology",
+      "dialogue_style": "Serene, highly compassionate, speaking of ultimate liberation and selflessness",
+      "associated_realms": [
+        "loc_sukhavati",
+        "loc_kailash",
+        "loc_bodh_gaya"
+      ],
+      "mantra_preference": "om_mani_padme_hum",
+      "elemental_anchor": "aether",
+      "grounding_sense": "",
+      "channeling_state": "",
+      "anchoring_ritual": "",
+      "priority": 8,
+      "is_active": true,
+      "exp": 250,
+      "level": 2,
+      "energy": 100,
+      "state": "Idle",
+      "added_time": 1780188457.7895825,
+      "last_used_time": null,
+      "total_narratives_featured": 0,
+      "history_log": [
+        "Reached Level 2!",
+        "Performed The Invincible Adamantine Shield during Unknown hour. Score: 5/10."
+      ],
+      "relics": [],
+      "tags": [],
+      "notes": "Invocational deity of mercy."
+    },
+    {
+      "id": "char_suchandra_hero",
+      "name": "King Suchandra",
+      "role": "hero",
+      "description": "The first Dharma King of Shambhala who requested and received the Kalachakra teachings.",
+      "source_type": "historical",
+      "dialogue_style": "Regal, righteous, commanding yet spiritually wise and precise",
+      "associated_realms": [
+        "loc_shambhala"
+      ],
+      "mantra_preference": "custom",
+      "elemental_anchor": "earth",
+      "grounding_sense": "",
+      "channeling_state": "",
+      "anchoring_ritual": "",
+      "priority": 6,
+      "is_active": true,
+      "exp": 250,
+      "level": 2,
+      "energy": 100,
+      "state": "Idle",
+      "added_time": 1780188457.7895844,
+      "last_used_time": null,
+      "total_narratives_featured": 0,
+      "history_log": [
+        "Reached Level 2!",
+        "Performed The Invincible Adamantine Shield during Unknown hour. Score: 5/10."
+      ],
+      "relics": [],
+      "tags": [],
+      "notes": "Ruler of Shambhala."
+    }
+  ]
+}

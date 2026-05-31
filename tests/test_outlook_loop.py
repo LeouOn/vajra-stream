@@ -61,6 +61,7 @@ def test_outlook_request_parameters(client):
                 excluded_forces=None,
                 include_dialogue=False,
                 model="test-model-123",
+                include_geomancy=True,
                 randomize_realm=True,
                 randomize_characters=True
             )
@@ -104,6 +105,8 @@ def test_loop_start_parameters(client):
             include_astrology=False,
             include_tarot=False,
             include_iching=False,
+            include_geomancy=True,
+            cycle_genres=False,
             randomize_realm=True,
             randomize_characters=True
         )

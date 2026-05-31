@@ -950,7 +950,29 @@ def get_narrative_loop_status() -> dict[str, Any]:
 # ============================================================================
 # TOOL REGISTRY (for LLM agents)
 # ============================================================================
+def add_agent_suggestion(agent_id: str, intention: str, missing_tools: str, context: str) -> dict[str, Any]:
+    """
+    Log an intentional path or suggestion for a task the agent wanted to do but couldn't.
+    Use this when you lack the tools, permissions, or system capabilities to complete a requested or inferred task.
 
+    Args:
+        agent_id: Identifier for the current agent (e.g. 'llm_agent_1')
+        intention: What you intended to do
+        missing_tools: The specific tools or capabilities you needed
+        context: Why you wanted to do it
+    """
+    client = get_client()
+    return client._post(
+        "/api/v1/agent_suggestions/intentional_paths",
+        {
+            "agent_id": agent_id,
+            "intention": intention,
+            "missing_tools": missing_tools,
+            "context": context
+        }
+    )
+
+# Registry of all available tools
 TOOL_REGISTRY = {
     "create_rng_session": create_rng_session,
     "get_rng_reading": get_rng_reading,
@@ -987,6 +1009,7 @@ TOOL_REGISTRY = {
     "start_narrative_loop": start_narrative_loop,
     "stop_narrative_loop": stop_narrative_loop,
     "get_narrative_loop_status": get_narrative_loop_status,
+    "add_agent_suggestion": add_agent_suggestion,
 }
 
 
@@ -1504,6 +1527,20 @@ def get_tool_schemas() -> list[dict[str, Any]]:
             "name": "get_narrative_loop_status",
             "description": "Check configuration and status of the continuous narrative broadcast loop.",
             "parameters": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "add_agent_suggestion",
+            "description": "Log an intentional path or suggestion for a task the agent wanted to do but couldn't because of missing capabilities or permissions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "agent_id": {"type": "string", "description": "Identifier for the current agent"},
+                    "intention": {"type": "string", "description": "What you intended to do"},
+                    "missing_tools": {"type": "string", "description": "The specific tools or capabilities you needed"},
+                    "context": {"type": "string", "description": "Why you wanted to do it"},
+                },
+                "required": ["agent_id", "intention", "missing_tools", "context"],
+            },
         },
     ]
 

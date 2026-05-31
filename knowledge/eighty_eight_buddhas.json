@@ -1,0 +1,706 @@
+[
+  {
+    "id": "buddha_01", "index": 1, "group": "fifty_three",
+    "chinese": "南無普光佛", "pinyin": "Námó Pǔ Guāng Fó",
+    "sanskrit": "Namo Samanta-prabhāya Tathāgatāya",
+    "translation": "Homage to the Universally Radiant Buddha",
+    "meaning": "One whose wisdom light illuminates all directions universally",
+    "quality": "radiant wisdom", "element": "Fire", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_02", "index": 2, "group": "fifty_three",
+    "chinese": "南無普明佛", "pinyin": "Námó Pǔ Míng Fó",
+    "sanskrit": "Namo Samanta-bhāsāya Tathāgatāya",
+    "translation": "Homage to the Universally Bright Buddha",
+    "meaning": "One who sheds brilliant light upon all beings without discrimination",
+    "quality": "illuminating brightness", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_03", "index": 3, "group": "fifty_three",
+    "chinese": "南無普淨佛", "pinyin": "Námó Pǔ Jìng Fó",
+    "sanskrit": "Namo Samanta-śuddhāya Tathāgatāya",
+    "translation": "Homage to the Universally Pure Buddha",
+    "meaning": "One whose body, speech, and mind are completely purified",
+    "quality": "universal purity", "element": "Water", "chakra": "heart"
+  },
+  {
+    "id": "buddha_04", "index": 4, "group": "fifty_three",
+    "chinese": "南無多摩羅跋栴檀香佛", "pinyin": "Námó Duō Mó Luó Bá Zhān Tán Xiāng Fó",
+    "sanskrit": "Namo Tamāla-patra-candana-gandhāya Tathāgatāya",
+    "translation": "Homage to the Tamala-leaf Sandalwood Fragrance Buddha",
+    "meaning": "One whose virtue spreads like the fragrance of sandalwood, benefiting all",
+    "quality": "fragrant virtue", "element": "Earth", "chakra": "heart"
+  },
+  {
+    "id": "buddha_05", "index": 5, "group": "fifty_three",
+    "chinese": "南無栴檀光佛", "pinyin": "Námó Zhān Tán Guāng Fó",
+    "sanskrit": "Namo Candana-prabhāya Tathāgatāya",
+    "translation": "Homage to the Sandalwood Light Buddha",
+    "meaning": "One whose radiance carries the purifying quality of sandalwood",
+    "quality": "purifying radiance", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_06", "index": 6, "group": "fifty_three",
+    "chinese": "南無摩尼幢佛", "pinyin": "Námó Mó Ní Chuáng Fó",
+    "sanskrit": "Namo Maṇi-dhvajāya Tathāgatāya",
+    "translation": "Homage to the Jewel Banner Buddha",
+    "meaning": "One whose teachings stand like a jeweled banner, visible to all",
+    "quality": "jewel-like teaching", "element": "Metal", "chakra": "throat"
+  },
+  {
+    "id": "buddha_07", "index": 7, "group": "fifty_three",
+    "chinese": "南無歡喜藏摩尼寶積佛", "pinyin": "Námó Huān Xǐ Cáng Mó Ní Bǎo Jī Fó",
+    "sanskrit": "Namo Ratnākara-maṇi-kuṭāya Tathāgatāya",
+    "translation": "Homage to the Joyful Treasury of Jewels Buddha",
+    "meaning": "One who stores and freely gives the jewel of Dharma joy",
+    "quality": "joyful abundance", "element": "Earth", "chakra": "sacral"
+  },
+  {
+    "id": "buddha_08", "index": 8, "group": "fifty_three",
+    "chinese": "南無一切世間樂見上大精進佛", "pinyin": "Námó Yī Qiè Shì Jiān Lè Jiàn Shàng Dà Jīng Jìn Fó",
+    "sanskrit": "Namo Sarva-loka-priya-darśanāya Vīryottamāya Tathāgatāya",
+    "translation": "Homage to the Buddha Whom All Worlds Delight to See, Supreme in Vigor",
+    "meaning": "One whose joyous effort inspires all beings who behold him",
+    "quality": "joyous diligence", "element": "Fire", "chakra": "solar_plexus"
+  },
+  {
+    "id": "buddha_09", "index": 9, "group": "fifty_three",
+    "chinese": "南無摩尼幢燈光佛", "pinyin": "Námó Mó Ní Chuáng Dēng Guāng Fó",
+    "sanskrit": "Namo Maṇi-dhvaja-pradīpāya Tathāgatāya",
+    "translation": "Homage to the Jewel Banner Lamp Light Buddha",
+    "meaning": "One whose jewel banner shines like a lamp dispelling darkness",
+    "quality": "guiding light", "element": "Fire", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_10", "index": 10, "group": "fifty_three",
+    "chinese": "南無慧炬照佛", "pinyin": "Námó Huì Jù Zhào Fó",
+    "sanskrit": "Namo Jñānolkāya Tathāgatāya",
+    "translation": "Homage to the Wisdom Torch Illuminating Buddha",
+    "meaning": "One whose wisdom burns like a torch, revealing the true nature of reality",
+    "quality": "wisdom illumination", "element": "Fire", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_11", "index": 11, "group": "fifty_three",
+    "chinese": "南無海德光明佛", "pinyin": "Námó Hǎi Dé Guāng Míng Fó",
+    "sanskrit": "Namo Sāgara-guṇa-prabhāya Tathāgatāya",
+    "translation": "Homage to the Ocean-Virtue Bright Light Buddha",
+    "meaning": "One whose virtue is vast as the ocean and radiant as light",
+    "quality": "oceanic virtue", "element": "Water", "chakra": "sacral"
+  },
+  {
+    "id": "buddha_12", "index": 12, "group": "fifty_three",
+    "chinese": "南無金剛牢強普散金光佛", "pinyin": "Námó Jīn Gāng Láo Qiáng Pǔ Sàn Jīn Guāng Fó",
+    "sanskrit": "Namo Vajra-dṛḍha-samanta-spharaṇāya Tathāgatāya",
+    "translation": "Homage to the Vajra-Firm, Universally Diffusing Golden Light Buddha",
+    "meaning": "One whose vajra-firm radiance of golden light pervades everywhere",
+    "quality": "indestructible radiance", "element": "Metal", "chakra": "crown"
+  },
+  {
+    "id": "buddha_13", "index": 13, "group": "fifty_three",
+    "chinese": "南無大強精進勇猛佛", "pinyin": "Námó Dà Qiáng Jīng Jìn Yǒng Měng Fó",
+    "sanskrit": "Namo Mahā-vīrya-parākramāya Tathāgatāya",
+    "translation": "Homage to the Great Strength, Vigorous Effort, Heroic Progress Buddha",
+    "meaning": "One who advances with heroic courage and unflagging diligence",
+    "quality": "heroic vigor", "element": "Fire", "chakra": "solar_plexus"
+  },
+  {
+    "id": "buddha_14", "index": 14, "group": "fifty_three",
+    "chinese": "南無大悲光佛", "pinyin": "Námó Dà Bēi Guāng Fó",
+    "sanskrit": "Namo Mahā-karuṇā-prabhāya Tathāgatāya",
+    "translation": "Homage to the Great Compassion Light Buddha",
+    "meaning": "One whose great compassion radiates as light, embracing all beings",
+    "quality": "compassionate light", "element": "Water", "chakra": "heart"
+  },
+  {
+    "id": "buddha_15", "index": 15, "group": "fifty_three",
+    "chinese": "南無慈力王佛", "pinyin": "Námó Cí Lì Wáng Fó",
+    "sanskrit": "Namo Maitrī-bala-rājāya Tathāgatāya",
+    "translation": "Homage to the Loving-Kindness Power King Buddha",
+    "meaning": "One whose loving-kindness is a sovereign power that conquers all",
+    "quality": "sovereign love", "element": "Earth", "chakra": "heart"
+  },
+  {
+    "id": "buddha_16", "index": 16, "group": "fifty_three",
+    "chinese": "南無慈藏佛", "pinyin": "Námó Cí Cáng Fó",
+    "sanskrit": "Namo Maitrī-garbhāya Tathāgatāya",
+    "translation": "Homage to the Loving-Kindness Treasury Buddha",
+    "meaning": "One who stores an inexhaustible treasury of loving-kindness",
+    "quality": "treasury of love", "element": "Earth", "chakra": "heart"
+  },
+  {
+    "id": "buddha_17", "index": 17, "group": "fifty_three",
+    "chinese": "南無栴檀窟莊嚴勝佛", "pinyin": "Námó Zhān Tán Kū Zhuāng Yán Shèng Fó",
+    "sanskrit": "Namo Candana-kuṭī-vyūhāya Tathāgatāya",
+    "translation": "Homage to the Sandalwood Cave Majestic Buddha",
+    "meaning": "One whose meditation cave is adorned with the fragrance of sandalwood",
+    "quality": "fragrant meditation", "element": "Earth", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_18", "index": 18, "group": "fifty_three",
+    "chinese": "南無賢善首佛", "pinyin": "Námó Xián Shàn Shǒu Fó",
+    "sanskrit": "Namo Bhadra-śrī-śirṣāya Tathāgatāya",
+    "translation": "Homage to the Virtuous and Good Crown Buddha",
+    "meaning": "One crowned with supreme virtue and goodness",
+    "quality": "crowning virtue", "element": "Metal", "chakra": "crown"
+  },
+  {
+    "id": "buddha_19", "index": 19, "group": "fifty_three",
+    "chinese": "南無善意佛", "pinyin": "Námó Shàn Yì Fó",
+    "sanskrit": "Namo Su-manas-kārāya Tathāgatāya",
+    "translation": "Homage to the Wholesome Intention Buddha",
+    "meaning": "One whose every thought is imbued with goodness and altruistic intent",
+    "quality": "pure intention", "element": "Air", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_20", "index": 20, "group": "fifty_three",
+    "chinese": "南無廣莊嚴王佛", "pinyin": "Námó Guǎng Zhuāng Yán Wáng Fó",
+    "sanskrit": "Namo Vistīrṇa-vyūha-rājāya Tathāgatāya",
+    "translation": "Homage to the Vast Majestic King Buddha",
+    "meaning": "One whose majestic qualities extend boundlessly in all directions",
+    "quality": "boundless majesty", "element": "Air", "chakra": "crown"
+  },
+  {
+    "id": "buddha_21", "index": 21, "group": "fifty_three",
+    "chinese": "南無金華光佛", "pinyin": "Námó Jīn Huá Guāng Fó",
+    "sanskrit": "Namo Suvarṇa-puṣpa-prabhāya Tathāgatāya",
+    "translation": "Homage to the Golden Flower Light Buddha",
+    "meaning": "One whose radiance blooms like golden flowers",
+    "quality": "golden radiance", "element": "Metal", "chakra": "crown"
+  },
+  {
+    "id": "buddha_22", "index": 22, "group": "fifty_three",
+    "chinese": "南無寶蓋照空自在力王佛", "pinyin": "Námó Bǎo Gài Zhào Kōng Zì Zài Lì Wáng Fó",
+    "sanskrit": "Namo Ratna-cchatra-vairocana-vaśitā-bala-rājāya Tathāgatāya",
+    "translation": "Homage to the Jeweled Canopy Illuminating Space, Sovereign Power King Buddha",
+    "meaning": "One whose jeweled canopy of protection illuminates all space with sovereign mastery",
+    "quality": "sovereign protection", "element": "Metal", "chakra": "crown"
+  },
+  {
+    "id": "buddha_23", "index": 23, "group": "fifty_three",
+    "chinese": "南無虛空寶華光佛", "pinyin": "Námó Xū Kōng Bǎo Huá Guāng Fó",
+    "sanskrit": "Namo Gagana-ratna-kusuma-prabhāya Tathāgatāya",
+    "translation": "Homage to the Space Jewel Flower Light Buddha",
+    "meaning": "One whose jewel flowers of light fill the vastness of space",
+    "quality": "cosmic radiance", "element": "Air", "chakra": "crown"
+  },
+  {
+    "id": "buddha_24", "index": 24, "group": "fifty_three",
+    "chinese": "南無琉璃莊嚴王佛", "pinyin": "Námó Liú Lí Zhuāng Yán Wáng Fó",
+    "sanskrit": "Namo Vaiḍūrya-vyūha-rājāya Tathāgatāya",
+    "translation": "Homage to the Lapis Lazuli Majestic King Buddha",
+    "meaning": "One adorned with the deep blue majesty of lapis lazuli",
+    "quality": "lapis majesty", "element": "Water", "chakra": "throat"
+  },
+  {
+    "id": "buddha_25", "index": 25, "group": "fifty_three",
+    "chinese": "南無普現色身光佛", "pinyin": "Námó Pǔ Xiàn Sè Shēn Guāng Fó",
+    "sanskrit": "Namo Samanta-rūpa-kāya-prabhāya Tathāgatāya",
+    "translation": "Homage to the Universally Manifesting Form Body Light Buddha",
+    "meaning": "One who manifests in countless forms throughout all realms",
+    "quality": "universal manifestation", "element": "Air", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_26", "index": 26, "group": "fifty_three",
+    "chinese": "南無不動智光佛", "pinyin": "Námó Bù Dòng Zhì Guāng Fó",
+    "sanskrit": "Namo Acala-jñāna-prabhāya Tathāgatāya",
+    "translation": "Homage to the Unmoving Wisdom Light Buddha",
+    "meaning": "One whose wisdom light remains unwavering amidst all conditions",
+    "quality": "unshakable wisdom", "element": "Earth", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_27", "index": 27, "group": "fifty_three",
+    "chinese": "南無降伏眾魔王佛", "pinyin": "Námó Xiáng Fú Zhòng Mó Wáng Fó",
+    "sanskrit": "Namo Sarva-māra-pramardanāya Tathāgatāya",
+    "translation": "Homage to the Subduer of All Demon Kings Buddha",
+    "meaning": "One who has conquered all inner and outer demonic forces",
+    "quality": "demon-subduing", "element": "Fire", "chakra": "solar_plexus"
+  },
+  {
+    "id": "buddha_28", "index": 28, "group": "fifty_three",
+    "chinese": "南無才光明佛", "pinyin": "Námó Cái Guāng Míng Fó",
+    "sanskrit": "Namo Pratibhāna-prabhāya Tathāgatāya",
+    "translation": "Homage to the Talent Bright Light Buddha",
+    "meaning": "One whose eloquent wisdom shines brilliantly",
+    "quality": "eloquent wisdom", "element": "Air", "chakra": "throat"
+  },
+  {
+    "id": "buddha_29", "index": 29, "group": "fifty_three",
+    "chinese": "南無智慧勝佛", "pinyin": "Námó Zhì Huì Shèng Fó",
+    "sanskrit": "Namo Jñāna-viśeṣāya Tathāgatāya",
+    "translation": "Homage to the Supreme Wisdom Buddha",
+    "meaning": "One whose wisdom surpasses all — the ultimate knowing",
+    "quality": "supreme wisdom", "element": "Air", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_30", "index": 30, "group": "fifty_three",
+    "chinese": "南無彌勒仙光佛", "pinyin": "Námó Mí Lè Xiān Guāng Fó",
+    "sanskrit": "Namo Maitreya-ṛṣi-prabhāya Tathāgatāya",
+    "translation": "Homage to the Maitreya Sage Light Buddha",
+    "meaning": "One who radiates the loving-kindness destined to become the next Buddha",
+    "quality": "future Buddha light", "element": "Water", "chakra": "heart"
+  },
+  {
+    "id": "buddha_31", "index": 31, "group": "fifty_three",
+    "chinese": "南無善寂月音妙尊智王佛", "pinyin": "Námó Shàn Jì Yuè Yīn Miào Zūn Zhì Wáng Fó",
+    "sanskrit": "Namo Su-candra-ghoṣa-mañju-ghoṣa-jñāna-rājāya Tathāgatāya",
+    "translation": "Homage to the Good Tranquil Moon-Sound, Wondrous Wisdom King Buddha",
+    "meaning": "One whose tranquil wisdom sounds like moonlight on still water",
+    "quality": "tranquil wisdom", "element": "Water", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_32", "index": 32, "group": "fifty_three",
+    "chinese": "南無世淨光佛", "pinyin": "Námó Shì Jìng Guāng Fó",
+    "sanskrit": "Namo Loka-viśuddhi-prabhāya Tathāgatāya",
+    "translation": "Homage to the World-Purifying Light Buddha",
+    "meaning": "One whose light purifies entire world systems",
+    "quality": "world purification", "element": "Water", "chakra": "crown"
+  },
+  {
+    "id": "buddha_33", "index": 33, "group": "fifty_three",
+    "chinese": "南無龍種上尊王佛", "pinyin": "Námó Lóng Zhǒng Shàng Zūn Wáng Fó",
+    "sanskrit": "Namo Nāga-kulottama-rājāya Tathāgatāya",
+    "translation": "Homage to the Dragon Lineage Supreme King Buddha",
+    "meaning": "One born of the noble dragon lineage, supreme among beings",
+    "quality": "dragon nobility", "element": "Wood", "chakra": "crown"
+  },
+  {
+    "id": "buddha_34", "index": 34, "group": "fifty_three",
+    "chinese": "南無日月光佛", "pinyin": "Námó Rì Yuè Guāng Fó",
+    "sanskrit": "Namo Sūrya-candra-prabhāya Tathāgatāya",
+    "translation": "Homage to the Sun and Moon Light Buddha",
+    "meaning": "One who radiates both the brilliant light of sun and the gentle light of moon",
+    "quality": "balanced radiance", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_35", "index": 35, "group": "fifty_three",
+    "chinese": "南無日月珠光佛", "pinyin": "Námó Rì Yuè Zhū Guāng Fó",
+    "sanskrit": "Namo Sūrya-candra-maṇi-prabhāya Tathāgatāya",
+    "translation": "Homage to the Sun Moon Jewel Light Buddha",
+    "meaning": "One whose radiance combines solar brilliance, lunar gentleness, and jewel clarity",
+    "quality": "triple radiance", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_36", "index": 36, "group": "fifty_three",
+    "chinese": "南無慧幢勝王佛", "pinyin": "Námó Huì Chuáng Shèng Wáng Fó",
+    "sanskrit": "Namo Prajñā-dhvajottama-rājāya Tathāgatāya",
+    "translation": "Homage to the Wisdom Banner Supreme King Buddha",
+    "meaning": "One who raises the victory banner of supreme wisdom",
+    "quality": "wisdom victory", "element": "Air", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_37", "index": 37, "group": "fifty_three",
+    "chinese": "南無師子吼自在力王佛", "pinyin": "Námó Shī Zǐ Hǒu Zì Zài Lì Wáng Fó",
+    "sanskrit": "Namo Siṃha-nāda-vaśitā-bala-rājāya Tathāgatāya",
+    "translation": "Homage to the Lion's Roar, Sovereign Power King Buddha",
+    "meaning": "One whose teaching roars like a lion, sovereign over all",
+    "quality": "lion's proclamation", "element": "Fire", "chakra": "throat"
+  },
+  {
+    "id": "buddha_38", "index": 38, "group": "fifty_three",
+    "chinese": "南無妙音勝佛", "pinyin": "Námó Miào Yīn Shèng Fó",
+    "sanskrit": "Namo Mañju-ghoṣa-viśeṣāya Tathāgatāya",
+    "translation": "Homage to the Wondrous Sound Buddha",
+    "meaning": "One whose speech carries the supreme melody of Dharma",
+    "quality": "wondrous speech", "element": "Air", "chakra": "throat"
+  },
+  {
+    "id": "buddha_39", "index": 39, "group": "fifty_three",
+    "chinese": "南無常光幢佛", "pinyin": "Námó Cháng Guāng Chuáng Fó",
+    "sanskrit": "Namo Nitya-prabha-dhvajāya Tathāgatāya",
+    "translation": "Homage to the Eternal Light Banner Buddha",
+    "meaning": "One whose banner of light endures eternally, never fading",
+    "quality": "eternal light", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_40", "index": 40, "group": "fifty_three",
+    "chinese": "南無觀世燈佛", "pinyin": "Námó Guān Shì Dēng Fó",
+    "sanskrit": "Namo Avalokita-loka-pradīpāya Tathāgatāya",
+    "translation": "Homage to the World-Observing Lamp Buddha",
+    "meaning": "One who gazes upon the world like a lamp, illuminating the path",
+    "quality": "observant light", "element": "Fire", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_41", "index": 41, "group": "fifty_three",
+    "chinese": "南無慧威燈王佛", "pinyin": "Námó Huì Wēi Dēng Wáng Fó",
+    "sanskrit": "Namo Prajñā-tejo-pradīpa-rājāya Tathāgatāya",
+    "translation": "Homage to the Wisdom-Majesty Lamp King Buddha",
+    "meaning": "One whose wisdom-majesty blazes like a sovereign lamp",
+    "quality": "majestic wisdom", "element": "Fire", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_42", "index": 42, "group": "fifty_three",
+    "chinese": "南無法勝王佛", "pinyin": "Námó Fǎ Shèng Wáng Fó",
+    "sanskrit": "Namo Dharma-viśeṣa-rājāya Tathāgatāya",
+    "translation": "Homage to the Dharma Supreme King Buddha",
+    "meaning": "One who is sovereign over the entire Dharma",
+    "quality": "dharma sovereignty", "element": "Air", "chakra": "crown"
+  },
+  {
+    "id": "buddha_43", "index": 43, "group": "fifty_three",
+    "chinese": "南無須彌光佛", "pinyin": "Námó Xū Mí Guāng Fó",
+    "sanskrit": "Namo Sumeru-prabhāya Tathāgatāya",
+    "translation": "Homage to the Mount Sumeru Light Buddha",
+    "meaning": "One whose radiance towers like Mount Sumeru, the cosmic axis mountain",
+    "quality": "mountain radiance", "element": "Earth", "chakra": "crown"
+  },
+  {
+    "id": "buddha_44", "index": 44, "group": "fifty_three",
+    "chinese": "南無須曼那華光佛", "pinyin": "Námó Xū Màn Nà Huá Guāng Fó",
+    "sanskrit": "Namo Sumanā-puṣpa-prabhāya Tathāgatāya",
+    "translation": "Homage to the Sumana Flower Light Buddha",
+    "meaning": "One whose radiance blooms like the celestial sumana flower",
+    "quality": "floral radiance", "element": "Wood", "chakra": "heart"
+  },
+  {
+    "id": "buddha_45", "index": 45, "group": "fifty_three",
+    "chinese": "南無優曇鉢羅華殊勝王佛", "pinyin": "Námó Yōu Tán Bō Luó Huá Shū Shèng Wáng Fó",
+    "sanskrit": "Namo Udumbara-puṣpottama-rājāya Tathāgatāya",
+    "translation": "Homage to the Udumbara Flower Supreme King Buddha",
+    "meaning": "One as rare and wondrous as the udumbara flower that blooms once in three thousand years",
+    "quality": "rare blooming", "element": "Wood", "chakra": "crown"
+  },
+  {
+    "id": "buddha_46", "index": 46, "group": "fifty_three",
+    "chinese": "南無大慧力王佛", "pinyin": "Námó Dà Huì Lì Wáng Fó",
+    "sanskrit": "Namo Mahā-prajñā-bala-rājāya Tathāgatāya",
+    "translation": "Homage to the Great Wisdom Power King Buddha",
+    "meaning": "One who wields great wisdom as a sovereign force",
+    "quality": "wisdom power", "element": "Air", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_47", "index": 47, "group": "fifty_three",
+    "chinese": "南無阿閦毘歡喜光佛", "pinyin": "Námó Ā Chù Pí Huān Xǐ Guāng Fó",
+    "sanskrit": "Namo Akṣobhya-ratī-prabhāya Tathāgatāya",
+    "translation": "Homage to the Immovable Joyful Light Buddha",
+    "meaning": "One whose unwavering nature radiates supreme joy",
+    "quality": "immovable joy", "element": "Earth", "chakra": "heart"
+  },
+  {
+    "id": "buddha_48", "index": 48, "group": "fifty_three",
+    "chinese": "南無無量音聲王佛", "pinyin": "Námó Wú Liàng Yīn Shēng Wáng Fó",
+    "sanskrit": "Namo Ananta-svara-ghoṣa-rājāya Tathāgatāya",
+    "translation": "Homage to the Immeasurable Sound King Buddha",
+    "meaning": "One whose voice carries infinite Dharma sounds",
+    "quality": "infinite voice", "element": "Air", "chakra": "throat"
+  },
+  {
+    "id": "buddha_49", "index": 49, "group": "fifty_three",
+    "chinese": "南無才光佛", "pinyin": "Námó Cái Guāng Fó",
+    "sanskrit": "Namo Pratibhāna-prabhāya Tathāgatāya",
+    "translation": "Homage to the Talent Light Buddha",
+    "meaning": "One whose innate talent shines forth brilliantly",
+    "quality": "innate brilliance", "element": "Air", "chakra": "throat"
+  },
+  {
+    "id": "buddha_50", "index": 50, "group": "fifty_three",
+    "chinese": "南無金海光佛", "pinyin": "Námó Jīn Hǎi Guāng Fó",
+    "sanskrit": "Namo Suvarṇa-sāgara-prabhāya Tathāgatāya",
+    "translation": "Homage to the Golden Ocean Light Buddha",
+    "meaning": "One whose light is as vast and precious as a golden ocean",
+    "quality": "golden vastness", "element": "Metal", "chakra": "sacral"
+  },
+  {
+    "id": "buddha_51", "index": 51, "group": "fifty_three",
+    "chinese": "南無山海慧自在通王佛", "pinyin": "Námó Shān Hǎi Huì Zì Zài Tōng Wáng Fó",
+    "sanskrit": "Namo Sāgara-giri-jñāna-vaśitā-vikrīḍita-rājāya Tathāgatāya",
+    "translation": "Homage to the Mountain-Ocean Wisdom, Sovereign Penetrating King Buddha",
+    "meaning": "One whose wisdom spans mountains and oceans with sovereign ease",
+    "quality": "mountain-ocean wisdom", "element": "Earth", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_52", "index": 52, "group": "fifty_three",
+    "chinese": "南無大通光佛", "pinyin": "Námó Dà Tōng Guāng Fó",
+    "sanskrit": "Namo Mahābhijñā-prabhāya Tathāgatāya",
+    "translation": "Homage to the Great Penetrating Light Buddha",
+    "meaning": "One whose light penetrates all phenomena completely",
+    "quality": "penetrating light", "element": "Fire", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_53", "index": 53, "group": "fifty_three",
+    "chinese": "南無一切法常滿王佛", "pinyin": "Námó Yī Qiè Fǎ Cháng Mǎn Wáng Fó",
+    "sanskrit": "Namo Sarva-dharma-nitya-pūrṇa-rājāya Tathāgatāya",
+    "translation": "Homage to the Ever-Fulfilling All Dharmas King Buddha",
+    "meaning": "One in whom all Dharma qualities are eternally complete",
+    "quality": "dharma completion", "element": "Air", "chakra": "crown"
+  },
+  {
+    "id": "buddha_54", "index": 54, "group": "thirty_five",
+    "chinese": "南無釋迦牟尼佛", "pinyin": "Námó Shì Jiā Móu Ní Fó",
+    "sanskrit": "Namo Śākyamunaye Tathāgatāya",
+    "translation": "Homage to Shakyamuni Buddha",
+    "meaning": "The Sage of the Shakya clan, our historical Buddha who attained enlightenment under the Bodhi tree",
+    "quality": "historical awakening", "element": "Earth", "chakra": "crown"
+  },
+  {
+    "id": "buddha_55", "index": 55, "group": "thirty_five",
+    "chinese": "南無金剛不壞佛", "pinyin": "Námó Jīn Gāng Bù Huài Fó",
+    "sanskrit": "Namo Vajra-pramardine Tathāgatāya",
+    "translation": "Homage to the Vajra Indestructible Buddha",
+    "meaning": "One whose vajra body can never be destroyed by any force",
+    "quality": "indestructible", "element": "Metal", "chakra": "crown"
+  },
+  {
+    "id": "buddha_56", "index": 56, "group": "thirty_five",
+    "chinese": "南無寶光佛", "pinyin": "Námó Bǎo Guāng Fó",
+    "sanskrit": "Namo Ratnārciṣe Tathāgatāya",
+    "translation": "Homage to the Jewel Radiance Buddha",
+    "meaning": "One who blazes with precious jewel light",
+    "quality": "jewel blaze", "element": "Metal", "chakra": "crown"
+  },
+  {
+    "id": "buddha_57", "index": 57, "group": "thirty_five",
+    "chinese": "南無龍尊王佛", "pinyin": "Námó Lóng Zūn Wáng Fó",
+    "sanskrit": "Namo Nāgeśvara-rājāya Tathāgatāya",
+    "translation": "Homage to the Dragon Sovereign King Buddha",
+    "meaning": "One who is supreme lord of all naga kings",
+    "quality": "dragon sovereignty", "element": "Wood", "chakra": "crown"
+  },
+  {
+    "id": "buddha_58", "index": 58, "group": "thirty_five",
+    "chinese": "南無精進軍佛", "pinyin": "Námó Jīng Jìn Jūn Fó",
+    "sanskrit": "Namo Vīrya-senāya Tathāgatāya",
+    "translation": "Homage to the Vigorous Army Buddha",
+    "meaning": "One who leads an army of joyous effort against all obstacles",
+    "quality": "vigorous army", "element": "Fire", "chakra": "solar_plexus"
+  },
+  {
+    "id": "buddha_59", "index": 59, "group": "thirty_five",
+    "chinese": "南無精進喜佛", "pinyin": "Námó Jīng Jìn Xǐ Fó",
+    "sanskrit": "Namo Vīrya-pramoditāya Tathāgatāya",
+    "translation": "Homage to the Joyous Effort Buddha",
+    "meaning": "One who delights in unceasing virtuous effort",
+    "quality": "joyous effort", "element": "Fire", "chakra": "heart"
+  },
+  {
+    "id": "buddha_60", "index": 60, "group": "thirty_five",
+    "chinese": "南無寶火佛", "pinyin": "Námó Bǎo Huǒ Fó",
+    "sanskrit": "Namo Ratnāgnaye Tathāgatāya",
+    "translation": "Homage to the Jewel Fire Buddha",
+    "meaning": "One whose wisdom fire burns with precious jewel brilliance",
+    "quality": "jewel fire", "element": "Fire", "chakra": "solar_plexus"
+  },
+  {
+    "id": "buddha_61", "index": 61, "group": "thirty_five",
+    "chinese": "南無寶月光佛", "pinyin": "Námó Bǎo Yuè Guāng Fó",
+    "sanskrit": "Namo Ratna-candra-prabhāya Tathāgatāya",
+    "translation": "Homage to the Jewel Moonlight Buddha",
+    "meaning": "One who shines with the cool, precious light of the moon",
+    "quality": "jewel moonlight", "element": "Water", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_62", "index": 62, "group": "thirty_five",
+    "chinese": "南無現無愚佛", "pinyin": "Námó Xiàn Wú Yú Fó",
+    "sanskrit": "Namo Amogha-darśine Tathāgatāya",
+    "translation": "Homage to the Manifesting Non-Ignorance Buddha",
+    "meaning": "One who reveals the absence of ignorance in all phenomena",
+    "quality": "revealing clarity", "element": "Air", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_63", "index": 63, "group": "thirty_five",
+    "chinese": "南無寶月佛", "pinyin": "Námó Bǎo Yuè Fó",
+    "sanskrit": "Namo Ratna-candrāya Tathāgatāya",
+    "translation": "Homage to the Jewel Moon Buddha",
+    "meaning": "One who is like a precious moon, serene and luminous",
+    "quality": "serene jewel", "element": "Water", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_64", "index": 64, "group": "thirty_five",
+    "chinese": "南無無垢佛", "pinyin": "Námó Wú Gòu Fó",
+    "sanskrit": "Namo Vimale Tathāgatāya",
+    "translation": "Homage to the Stainless Buddha",
+    "meaning": "One completely free from all defilements and impurities",
+    "quality": "stainlessness", "element": "Water", "chakra": "heart"
+  },
+  {
+    "id": "buddha_65", "index": 65, "group": "thirty_five",
+    "chinese": "南無離垢佛", "pinyin": "Námó Lí Gòu Fó",
+    "sanskrit": "Namo Vimala-prabhāya Tathāgatāya",
+    "translation": "Homage to the Separated from Stain Buddha",
+    "meaning": "One who has permanently separated from all defilement",
+    "quality": "permanent purity", "element": "Water", "chakra": "heart"
+  },
+  {
+    "id": "buddha_66", "index": 66, "group": "thirty_five",
+    "chinese": "南無勇施佛", "pinyin": "Námó Yǒng Shī Fó",
+    "sanskrit": "Namo Śūra-dattāya Tathāgatāya",
+    "translation": "Homage to the Courageous Giving Buddha",
+    "meaning": "One who gives fearlessly and generously to all",
+    "quality": "fearless giving", "element": "Fire", "chakra": "heart"
+  },
+  {
+    "id": "buddha_67", "index": 67, "group": "thirty_five",
+    "chinese": "南無清淨佛", "pinyin": "Námó Qīng Jìng Fó",
+    "sanskrit": "Namo Śuddhāya Tathāgatāya",
+    "translation": "Homage to the Pure and Clean Buddha",
+    "meaning": "One of complete and utter purity in all respects",
+    "quality": "total purity", "element": "Water", "chakra": "crown"
+  },
+  {
+    "id": "buddha_68", "index": 68, "group": "thirty_five",
+    "chinese": "南無清淨施佛", "pinyin": "Námó Qīng Jìng Shī Fó",
+    "sanskrit": "Namo Śuddha-dattāya Tathāgatāya",
+    "translation": "Homage to the Pure Giving Buddha",
+    "meaning": "One whose generosity is completely pure and selfless",
+    "quality": "pure generosity", "element": "Water", "chakra": "heart"
+  },
+  {
+    "id": "buddha_69", "index": 69, "group": "thirty_five",
+    "chinese": "南無娑留那佛", "pinyin": "Námó Suō Liú Nà Fó",
+    "sanskrit": "Namo Saruṇāya Tathāgatāya",
+    "translation": "Homage to the Saruna (Water Deity) Buddha",
+    "meaning": "One connected with the purifying essence of water",
+    "quality": "water essence", "element": "Water", "chakra": "sacral"
+  },
+  {
+    "id": "buddha_70", "index": 70, "group": "thirty_five",
+    "chinese": "南無水天佛", "pinyin": "Námó Shuǐ Tiān Fó",
+    "sanskrit": "Namo Varuṇa-devāya Tathāgatāya",
+    "translation": "Homage to the Water Deva Buddha",
+    "meaning": "One who dwells in the celestial realm of water",
+    "quality": "celestial water", "element": "Water", "chakra": "sacral"
+  },
+  {
+    "id": "buddha_71", "index": 71, "group": "thirty_five",
+    "chinese": "南無堅德佛", "pinyin": "Námó Jiān Dé Fó",
+    "sanskrit": "Namo Dṛḍha-guṇāya Tathāgatāya",
+    "translation": "Homage to the Firm Virtue Buddha",
+    "meaning": "One whose virtue is steadfast and unshakeable",
+    "quality": "firm virtue", "element": "Earth", "chakra": "root"
+  },
+  {
+    "id": "buddha_72", "index": 72, "group": "thirty_five",
+    "chinese": "南無栴檀功德佛", "pinyin": "Námó Zhān Tán Gōng Dé Fó",
+    "sanskrit": "Namo Candana-guṇāya Tathāgatāya",
+    "translation": "Homage to the Sandalwood Merit Buddha",
+    "meaning": "One whose accumulated merit is fragrant like sandalwood",
+    "quality": "fragrant merit", "element": "Earth", "chakra": "crown"
+  },
+  {
+    "id": "buddha_73", "index": 73, "group": "thirty_five",
+    "chinese": "南無無量掬光佛", "pinyin": "Námó Wú Liàng Jū Guāng Fó",
+    "sanskrit": "Namo Ananta-raśmy-añjaline Tathāgatāya",
+    "translation": "Homage to the Immeasurable Handfuls of Light Buddha",
+    "meaning": "One who offers immeasurable handfuls of radiant light",
+    "quality": "boundless offering", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_74", "index": 74, "group": "thirty_five",
+    "chinese": "南無光德佛", "pinyin": "Námó Guāng Dé Fó",
+    "sanskrit": "Namo Prabhā-guṇāya Tathāgatāya",
+    "translation": "Homage to the Radiant Virtue Buddha",
+    "meaning": "One whose very virtue shines as luminous radiance",
+    "quality": "radiant virtue", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_75", "index": 75, "group": "thirty_five",
+    "chinese": "南無無憂德佛", "pinyin": "Námó Wú Yōu Dé Fó",
+    "sanskrit": "Namo Aśoka-guṇāya Tathāgatāya",
+    "translation": "Homage to the Sorrowless Virtue Buddha",
+    "meaning": "One whose virtue completely dispels all sorrow",
+    "quality": "sorrow-dispelling", "element": "Wood", "chakra": "heart"
+  },
+  {
+    "id": "buddha_76", "index": 76, "group": "thirty_five",
+    "chinese": "南無那羅延佛", "pinyin": "Námó Nà Luó Yán Fó",
+    "sanskrit": "Namo Nārāyaṇāya Tathāgatāya",
+    "translation": "Homage to the Narayana Buddha",
+    "meaning": "One with the indomitable strength of the cosmic being Narayana",
+    "quality": "cosmic strength", "element": "Earth", "chakra": "root"
+  },
+  {
+    "id": "buddha_77", "index": 77, "group": "thirty_five",
+    "chinese": "南無功德華佛", "pinyin": "Námó Gōng Dé Huá Fó",
+    "sanskrit": "Namo Kusuma-guṇāya Tathāgatāya",
+    "translation": "Homage to the Merit Flower Buddha",
+    "meaning": "One whose accumulated merits bloom like exquisite flowers",
+    "quality": "flowering merit", "element": "Wood", "chakra": "heart"
+  },
+  {
+    "id": "buddha_78", "index": 78, "group": "thirty_five",
+    "chinese": "南無清淨光遊戲神通佛", "pinyin": "Námó Qīng Jìng Guāng Yóu Xì Shén Tōng Fó",
+    "sanskrit": "Namo Vimala-prabha-vikrīḍitābhijñāya Tathāgatāya",
+    "translation": "Homage to the Pure Light Playful Supernatural Power Buddha",
+    "meaning": "One who sports with supernatural powers in the realm of pure light",
+    "quality": "playful power", "element": "Air", "chakra": "crown"
+  },
+  {
+    "id": "buddha_79", "index": 79, "group": "thirty_five",
+    "chinese": "南無蓮華光遊戲神通佛", "pinyin": "Námó Lián Huá Guāng Yóu Xì Shén Tōng Fó",
+    "sanskrit": "Namo Padma-prabha-vikrīḍitābhijñāya Tathāgatāya",
+    "translation": "Homage to the Lotus Light Playful Supernatural Power Buddha",
+    "meaning": "One who sports with supernatural powers radiating lotus light",
+    "quality": "lotus play", "element": "Wood", "chakra": "crown"
+  },
+  {
+    "id": "buddha_80", "index": 80, "group": "thirty_five",
+    "chinese": "南無財功德佛", "pinyin": "Námó Cái Gōng Dé Fó",
+    "sanskrit": "Namo Dhana-guṇāya Tathāgatāya",
+    "translation": "Homage to the Wealth Merit Buddha",
+    "meaning": "One whose merit is a treasury of spiritual wealth",
+    "quality": "spiritual wealth", "element": "Metal", "chakra": "root"
+  },
+  {
+    "id": "buddha_81", "index": 81, "group": "thirty_five",
+    "chinese": "南無德念佛", "pinyin": "Námó Dé Niàn Fó",
+    "sanskrit": "Namo Smṛti-guṇāya Tathāgatāya",
+    "translation": "Homage to the Virtuous Mindfulness Buddha",
+    "meaning": "One whose mindfulness is a supreme virtue",
+    "quality": "virtuous mindfulness", "element": "Air", "chakra": "third_eye"
+  },
+  {
+    "id": "buddha_82", "index": 82, "group": "thirty_five",
+    "chinese": "南無善名稱功德佛", "pinyin": "Námó Shàn Míng Chēng Gōng Dé Fó",
+    "sanskrit": "Namo Su-nāma-guṇāya Tathāgatāya",
+    "translation": "Homage to the Good Name Merit Buddha",
+    "meaning": "One whose very name carries boundless merit and virtue",
+    "quality": "meritorious name", "element": "Air", "chakra": "throat"
+  },
+  {
+    "id": "buddha_83", "index": 83, "group": "thirty_five",
+    "chinese": "南無紅燄帝幢王佛", "pinyin": "Námó Hóng Yàn Dì Chuáng Wáng Fó",
+    "sanskrit": "Namo Arkendū-dhvaja-rājāya Tathāgatāya",
+    "translation": "Homage to the Ruby Flame Imperial Banner King Buddha",
+    "meaning": "One whose banner blazes with ruby-red imperial flame",
+    "quality": "ruby sovereignty", "element": "Fire", "chakra": "crown"
+  },
+  {
+    "id": "buddha_84", "index": 84, "group": "thirty_five",
+    "chinese": "南無善遊步功德佛", "pinyin": "Námó Shàn Yóu Bù Gōng Dé Fó",
+    "sanskrit": "Namo Su-vikrānta-guṇāya Tathāgatāya",
+    "translation": "Homage to the Good Striding Merit Buddha",
+    "meaning": "One who travels everywhere with virtue and grace",
+    "quality": "graceful stride", "element": "Air", "chakra": "root"
+  },
+  {
+    "id": "buddha_85", "index": 85, "group": "thirty_five",
+    "chinese": "南無鬥戰勝佛", "pinyin": "Námó Dòu Zhàn Shèng Fó",
+    "sanskrit": "Namo Yuddha-jayāya Tathāgatāya",
+    "translation": "Homage to the Battle-Victorious Buddha",
+    "meaning": "One who emerges victorious in the battle against all afflictions",
+    "quality": "victorious battle", "element": "Fire", "chakra": "solar_plexus"
+  },
+  {
+    "id": "buddha_86", "index": 86, "group": "thirty_five",
+    "chinese": "南無善遊步佛", "pinyin": "Námó Shàn Yóu Bù Fó",
+    "sanskrit": "Namo Su-vikrāntāya Tathāgatāya",
+    "translation": "Homage to the Good Striding Buddha",
+    "meaning": "One who walks the path with supreme excellence",
+    "quality": "excellent stride", "element": "Air", "chakra": "root"
+  },
+  {
+    "id": "buddha_87", "index": 87, "group": "thirty_five",
+    "chinese": "南無周匝莊嚴功德佛", "pinyin": "Námó Zhōu Zā Zhuāng Yán Gōng Dé Fó",
+    "sanskrit": "Namo Samantāvabhāsa-vyūha-guṇāya Tathāgatāya",
+    "translation": "Homage to the All-Around Majestic Merit Buddha",
+    "meaning": "One whose merit adorns the entire universe with majesty",
+    "quality": "universal adornment", "element": "Metal", "chakra": "crown"
+  },
+  {
+    "id": "buddha_88", "index": 88, "group": "thirty_five",
+    "chinese": "南無寶華遊步佛", "pinyin": "Námó Bǎo Huá Yóu Bù Fó",
+    "sanskrit": "Namo Ratna-padma-vikramīṇe Tathāgatāya",
+    "translation": "Homage to the Jewel Lotus Striding Buddha",
+    "meaning": "One who strides through the world scattering jewel lotus blossoms",
+    "quality": "lotus stride", "element": "Metal", "chakra": "crown"
+  }
+]

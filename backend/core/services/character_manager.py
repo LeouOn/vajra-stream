@@ -52,13 +52,22 @@ class NarrativeCharacter:
     associated_realms: list[str] = field(default_factory=list)  # IDs of realms they frequent
     mantra_preference: str | None = None
     elemental_anchor: str = "space"  # earth, water, fire, air, space, aether
+    grounding_sense: str = ""
+    channeling_state: str = ""
+    anchoring_ritual: str = ""
 
     # System Tracking
     priority: int = 5  # 1-10
     is_active: bool = True
+    exp: int = 0
+    level: int = 1
+    energy: int = 100  # Consumed by practices
+    state: str = "Idle"  # Idle, Resting, Practicing, Channeling
     added_time: float = field(default_factory=time.time)
     last_used_time: float | None = None
     total_narratives_featured: int = 0
+    history_log: list[str] = field(default_factory=list)
+    relics: list[str] = field(default_factory=list)
 
     # Notes & Tags
     tags: list[str] = field(default_factory=list)
@@ -194,15 +203,19 @@ class CharacterManager:
         description: str,
         source_type: CharacterSourceType,
         dialogue_style: str = "cryptic and profound",
-        associated_realms: list[str] | None = None,
+        associated_realms: list[str] = None,
         mantra_preference: str | None = None,
         elemental_anchor: str = "space",
+        grounding_sense: str = "",
+        channeling_state: str = "",
+        anchoring_ritual: str = "",
         priority: int = 5,
         is_active: bool = True,
-        tags: list[str] | None = None,
+        tags: list[str] = None,
         notes: str = "",
         character_id: str | None = None,
     ) -> NarrativeCharacter:
+        """Create a new character and save to list"""
         if character_id is None:
             character_id = f"char_{int(time.time())}_{secrets.token_hex(4)}"
 
@@ -216,6 +229,9 @@ class CharacterManager:
             associated_realms=associated_realms or [],
             mantra_preference=mantra_preference,
             elemental_anchor=elemental_anchor,
+            grounding_sense=grounding_sense,
+            channeling_state=channeling_state,
+            anchoring_ritual=anchoring_ritual,
             priority=priority,
             is_active=is_active,
             tags=tags or [],
@@ -251,6 +267,45 @@ class CharacterManager:
 
     def get_all_characters(self) -> list[NarrativeCharacter]:
         return list(self.characters.values())
+
+    def add_exp_and_log(self, character_id: str, exp_amount: int, event_summary: str):
+        """Award EXP and log history to a character."""
+        char = self.characters.get(character_id)
+        if not char:
+            return
+        
+        char.exp += exp_amount
+        # Simple leveling logic (e.g., 100 exp = 1 level)
+        if char.exp >= char.level * 100:
+            char.level += 1
+            char.history_log.append(f"Reached Level {char.level}!")
+            
+        char.history_log.append(event_summary)
+        
+        # Keep history log reasonable
+        if len(char.history_log) > 50:
+            char.history_log = char.history_log[-50:]
+            
+        self._save()
+
+    def update_state(self, character_id: str, new_state: str, energy_change: int = 0):
+        """Update a character's state and energy."""
+        char = self.characters.get(character_id)
+        if not char:
+            return
+        char.state = new_state
+        char.energy = max(0, min(100, char.energy + energy_change))
+        self._save()
+
+    def add_relic(self, character_id: str, relic_name: str):
+        """Award a relic to a character."""
+        char = self.characters.get(character_id)
+        if not char:
+            return
+        if relic_name not in char.relics:
+            char.relics.append(relic_name)
+            char.history_log.append(f"Discovered relic: {relic_name}")
+            self._save()
 
     def get_active_characters(self) -> list[NarrativeCharacter]:
         return [c for c in self.characters.values() if c.is_active]

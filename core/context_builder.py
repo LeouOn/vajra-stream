@@ -162,6 +162,61 @@ def load_rate_database() -> dict[str, list[dict]]:
     return databases
 
 
+def format_astrology_for_llm() -> str:
+    """Build a concise current-astrology summary for LLM context injection.
+    
+    Auto-fetches comprehensive astrology for now at default SF location.
+    Returns a compact 6-8 line summary suitable for appending to a system prompt.
+    """
+    try:
+        from datetime import datetime
+        import pytz
+        from core.astrology import AstrologicalCalculator
+        
+        astro = AstrologicalCalculator()
+        now = datetime.now(pytz.UTC)
+        data = astro.get_comprehensive_astrology(now, (37.7749, -122.4194))
+        
+        western = data.get("western", {})
+        indian = data.get("indian", {})
+        chinese = data.get("chinese", {})
+        hours = data.get("planetary_hours", {})
+        moon = data.get("moon_phase", {})
+        
+        positions = western.get("positions", {})
+        sun = positions.get("sun", {})
+        moon_pos = positions.get("moon", {})
+        asc = positions.get("ascendant", {})
+        
+        # Top 3 aspects
+        aspects = western.get("aspects", [])[:3]
+        aspect_lines = ", ".join(
+            f"{a['planet1']} {a['aspect'].lower()} {a['planet2']}"
+            for a in aspects
+        ) if aspects else "no major aspects"
+        
+        # Retrograde planets
+        rx = [p for p, d in positions.items() if d.get("retrograde") and p not in ("ascendant", "midheaven")]
+        rx_str = f"Retrograde: {', '.join(rx)}. " if rx else ""
+        
+        panchanga = indian.get("panchanga", {})
+        
+        lines = [
+            f"Current Astrology:",
+            f"  Sun: {sun.get('sign', '?')} {sun.get('degree', 0):.1f}° (H{sun.get('house', '?')})",
+            f"  Moon: {moon_pos.get('sign', '?')} {moon_pos.get('degree', 0):.1f}° (H{moon_pos.get('house', '?')}) · {moon.get('phase_name', '?')} {moon.get('illumination', '?')}%",
+            f"  Ascendant: {asc.get('sign', '?')} {asc.get('degree', 0):.1f}°",
+            f"  Aspects: {aspect_lines}",
+            f"  {rx_str}Dominant Element: {western.get('dominant_element', '?')}",
+            f"  Planetary Hour: {hours.get('current_planetary_hour', '?')}",
+            f"  Vedic: Tithi {panchanga.get('tithi', {}).get('name', '?')} · Nakshatra {panchanga.get('nakshatra', {}).get('name', '?')}",
+            f"  Chinese: {chinese.get('zodiac_animal', '?')} year · {chinese.get('solar_term', '?')}",
+        ]
+        return "\n".join(lines)
+    except Exception:
+        return "(astrology data unavailable)"
+
+
 def search_rates(query: str, category: str | None = None) -> list[dict]:
     """Search rate databases for a query string."""
     databases = load_rate_database()
@@ -191,6 +246,7 @@ def build_system_prompt(
     include_frequencies: bool = True,
     include_mantras: bool = True,
     include_chakras: bool = True,
+    include_astrology: bool = True,
 ) -> str:
     """
     Build the complete system prompt for the RadionicsOperator LLM.
@@ -200,6 +256,7 @@ def build_system_prompt(
         include_frequencies: Include the frequencies reference table
         include_mantras: Include the mantras reference
         include_chakras: Include the chakra correspondence table
+        include_astrology: Auto-inject current transit data into the prompt
     """
     freq_ref = build_frequencies_reference() if include_frequencies else "(omitted)"
     mantra_ref = build_mantras_reference() if include_mantras else "(omitted)"
@@ -238,6 +295,14 @@ def build_system_prompt(
             prompt += f"**Remaining:** {session_state['duration_remaining']}s\n"
         if "planetary_context" in session_state:
             prompt += f"**Planetary:** {session_state['planetary_context']}\n"
+
+    # Auto-inject current astrology
+    if include_astrology:
+        try:
+            astro_summary = format_astrology_for_llm()
+            prompt += f"\n\n## {astro_summary}"
+        except Exception:
+            pass
 
     return prompt
 

@@ -419,6 +419,8 @@ class LLMIntegration:
                 return "No LLM initialized. Please configure an API key or local model."
         else:
             model_str = model.strip()
+            if model_str.lower() == "auto":
+                model_str = self.model_name or "auto"
 
         # Parse provider prefix if present
         provider: str | None = None
@@ -686,7 +688,15 @@ class LLMIntegration:
                     max_tokens=max_tokens,
                     temperature=temperature,
                 )
-                return response.choices[0].message.content
+                msg = response.choices[0].message
+                result = msg.content or ""
+                msg_dump = msg.model_dump()
+                reasoning = msg_dump.get("reasoning_content", "")
+                if not result and reasoning:
+                    result = "<thought>\n" + reasoning + "\n</thought>\n"
+                elif reasoning:
+                    result = "<thought>\n" + reasoning + "\n</thought>\n\n" + result
+                return result
             except Exception as e:
                 return f"LM Studio generation failed: {e}"
 
@@ -737,7 +747,14 @@ class LLMIntegration:
                 max_tokens=max_tokens,
                 temperature=temperature,
             )
-            result = response.choices[0].message.content
+            msg = response.choices[0].message
+            result = msg.content or ""
+            msg_dump = msg.model_dump()
+            reasoning = msg_dump.get("reasoning_content", "")
+            if not result and reasoning:
+                result = "<thought>\n" + reasoning + "\n</thought>\n"
+            elif reasoning:
+                result = "<thought>\n" + reasoning + "\n</thought>\n\n" + result
         except Exception as e:
             success = False
             if model and model != self.model_name:
@@ -750,7 +767,14 @@ class LLMIntegration:
                         max_tokens=max_tokens,
                         temperature=temperature,
                     )
-                    result = response.choices[0].message.content
+                    msg2 = response.choices[0].message
+                    result = msg2.content or ""
+                    msg2_dump = msg2.model_dump()
+                    reasoning2 = msg2_dump.get("reasoning_content", "")
+                    if not result and reasoning2:
+                        result = "<thought>\n" + reasoning2 + "\n</thought>\n"
+                    elif reasoning2:
+                        result = "<thought>\n" + reasoning2 + "\n</thought>\n\n" + result
                     success = True
                 except Exception as fallback_err:
                     print(f"[ERROR] Fallback also failed: {fallback_err}")

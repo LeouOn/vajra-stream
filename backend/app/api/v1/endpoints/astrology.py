@@ -354,3 +354,67 @@ def _get_element(sign: str) -> str:
         "Pisces": "water",
     }
     return elements.get(sign, "unknown")
+
+
+# ---- New Geocoding & Charting Endpoints ----
+
+from pydantic import BaseModel
+from typing import Optional
+
+class GeocodeRequest(BaseModel):
+    city_name: str
+
+@router.post("/geocode")
+async def geocode_city(req: GeocodeRequest):
+    """Search for a city and return its lat, lon, and timezone"""
+    from backend.core.services.geocoding_service import geocoding_service
+    result = geocoding_service.get_coordinates_and_timezone(req.city_name)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+class NatalChartRequest(BaseModel):
+    name: str
+    birth_time_iso: str
+    birth_city: str
+
+@router.post("/natal-chart")
+async def generate_natal_chart(req: NatalChartRequest):
+    """Generate a natal chart and export raw JSON data"""
+    from backend.core.services.astrology_chart_service import astrology_chart_service
+    result = astrology_chart_service.get_natal_chart(req.name, req.birth_time_iso, req.birth_city)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+class TransitRequest(BaseModel):
+    name: str
+    birth_time_iso: str
+    birth_city: str
+    current_time_iso: Optional[str] = None
+
+@router.post("/daily-horoscope")
+async def generate_daily_horoscope(req: TransitRequest):
+    """Generate a daily transit horoscope compared against natal chart"""
+    from backend.core.services.astrology_chart_service import astrology_chart_service
+    result = astrology_chart_service.get_daily_transit(req.name, req.birth_time_iso, req.birth_city, req.current_time_iso)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+class SynastryRequest(BaseModel):
+    name_a: str
+    time_a: str
+    city_a: str
+    name_b: str
+    time_b: str
+    city_b: str
+
+@router.post("/synastry")
+async def generate_synastry(req: SynastryRequest):
+    """Generate synastry (compatibility) aspects between two charts"""
+    from backend.core.services.astrology_chart_service import astrology_chart_service
+    result = astrology_chart_service.get_synastry(req.name_a, req.time_a, req.city_a, req.name_b, req.time_b, req.city_b)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result

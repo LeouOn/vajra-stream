@@ -14,6 +14,8 @@ from typing import Any
 
 import numpy as np
 
+from .true_rng_provider import get_true_rng
+
 
 class NeedleState(str, Enum):
     """E-meter style needle states"""
@@ -111,13 +113,18 @@ class RNGAttunementService:
         """
         Generate quantum-like random number
 
-        Uses multiple entropy sources and combines them in ways that
-        radionics practitioners believe may be influenced by consciousness.
+        Uses true quantum entropy (ANU API) as the primary source (70%),
+        and combines it with local pseudo-random components and pool feedback
+        that radionics practitioners believe may be influenced by consciousness.
 
         Returns: Float between 0.0 and 1.0
         """
-        # Primary: cryptographic random
-        primary = secrets.randbelow(2**32) / (2**32)
+        # Primary: True Quantum RNG from ANU (falls back to secrets if offline)
+        try:
+            true_rng = get_true_rng()
+            primary = true_rng.get_float()
+        except Exception:
+            primary = secrets.randbelow(2**32) / (2**32)
 
         # Secondary: numpy random (Mersenne Twister)
         secondary = np.random.random()
@@ -129,8 +136,9 @@ class RNGAttunementService:
         pool_sample = sum(list(self._entropy_pool)[-5:]) / 5.0 if self._entropy_pool else 0.5
 
         # Combine with weighted average
+        # True Quantum entropy is heavily weighted (70%)
         # This combination is where consciousness influence might occur
-        combined = primary * 0.4 + secondary * 0.3 + time_component * 0.2 + pool_sample * 0.1
+        combined = primary * 0.7 + secondary * 0.1 + time_component * 0.1 + pool_sample * 0.1
 
         # Add to entropy pool for feedback
         self._entropy_pool.append(combined)

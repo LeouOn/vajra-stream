@@ -30,6 +30,7 @@ import { useRateStore } from '../../stores/rateStore';
 import SessionTimeline from './SessionTimeline';
 import FrequencyWaterfall from '../2D/FrequencyWaterfall';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
+import JourneyCard from './JourneyCard';
 import { CardSkeleton, SessionSkeleton } from './LoadingSkeleton';
 
 const colorMap = {
@@ -96,19 +97,35 @@ const Dashboard = () => {
   const activeSessions = Object.values(sessions);
   const runningSessions = activeSessions.filter(s => s.status === 'running');
   
+  const SectionHeading = ({ icon: Icon, label, color, badge }) => (
+    <div className="flex items-center gap-3 mb-4">
+      <div className={`w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/50 flex items-center justify-center`}>
+        <Icon className={`w-4 h-4 ${color}`} />
+      </div>
+      <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">{label}</h2>
+      {badge !== undefined && (
+        <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700/50 text-[10px] font-mono text-slate-400">{badge}</span>
+      )}
+      <div className="flex-1 h-px bg-gradient-to-r from-slate-800 to-transparent ml-2" />
+    </div>
+  );
+
   const QuickStatCard = ({ icon: Icon, label, value, trend, color }) => (
-    <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-purple-500/50 transition-all duration-300">
-      <div className="flex items-center justify-between mb-2">
-        <Icon className={`w-5 h-5 ${color}`} />
+    <div className="group relative overflow-hidden rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/30 p-5 transition-all duration-300 hover:shadow-[0_0_20px_rgba(168,85,247,0.08)]">
+      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-purple-500/3 to-transparent rounded-bl-3xl" />
+      <div className="relative flex items-center justify-between mb-3">
+        <div className={`w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center`}>
+          <Icon className={`w-4 h-4 ${color}`} />
+        </div>
         {trend && (
-          <div className="flex items-center gap-1 text-xs text-green-400">
+          <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
             <TrendingUp className="w-3 h-3" />
             <span>{trend}</span>
           </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      <div className="text-sm text-gray-400 mt-1">{label}</div>
+      <div className="text-3xl font-bold text-white tracking-tight">{value}</div>
+      <div className="text-[11px] text-slate-500 mt-1 font-medium uppercase tracking-wider">{label}</div>
     </div>
   );
 
@@ -117,12 +134,12 @@ const Dashboard = () => {
     return (
       <button
         onClick={onClick}
-        className={`flex flex-col items-center gap-2 p-4 bg-gray-800 rounded-lg border border-gray-700 ${colors.container} hover:bg-gray-700 transition-all duration-300 group`}
+        className={`group flex flex-col items-center gap-3 p-5 rounded-xl bg-slate-900/60 border border-slate-800 ${colors.container} transition-all duration-300 hover:shadow-[0_0_15px_rgba(168,85,247,0.1)]`}
       >
-        <div className={`p-3 rounded-full ${colors.iconBg} transition-colors`}>
+        <div className={`w-11 h-11 rounded-xl ${colors.iconBg} flex items-center justify-center transition-all group-hover:scale-110`}>
           <Icon className={`w-5 h-5 ${colors.icon}`} />
         </div>
-        <span className="text-sm text-gray-300">{label}</span>
+        <span className="text-xs font-medium text-slate-400 group-hover:text-white transition-colors">{label}</span>
       </button>
     );
   };
@@ -156,69 +173,152 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section with Mini Globe */}
-      <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 rounded-lg border border-purple-700/50 overflow-hidden">
-        <div className="flex flex-col md:flex-row items-center gap-4 p-6">
-          <div className="flex-shrink-0">
+    <div className="space-y-8">
+      {/* Welcome Hero */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-purple-950/40 to-indigo-950/40 border border-white/10 shadow-2xl">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,theme(colors.purple.900/0.3),transparent_60%),radial-gradient(ellipse_at_bottom_left,theme(colors.indigo.900/0.3),transparent_60%)]" />
+        <div className="relative flex flex-col md:flex-row items-center gap-6 p-8">
+          <div className="flex-shrink-0 rounded-full ring-1 ring-purple-500/20 ring-offset-4 ring-offset-slate-900">
             <MiniGlobe isActive={runningSessions.length > 0} size="small" />
           </div>
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-2xl font-bold text-white mb-2">
-              Welcome to Vajra.Stream
+            <div className="flex items-center gap-2 justify-center md:justify-start mb-1">
+              <span className="text-[10px] px-2 py-0.5 bg-purple-500/10 text-purple-300 rounded-full border border-purple-500/20 font-mono tracking-wide">v2.0 · STABLE</span>
+              {isConnected && <span className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20 font-mono">● CONNECTED</span>}
+            </div>
+            <h1 className="text-3xl font-bold text-white tracking-tight mb-1">
+              Vajra<span className="text-purple-400">.</span>Stream
             </h1>
-            <p className="text-gray-300">
-              Your sacred technology platform for blessing, healing, and transformation
+            <p className="text-base text-slate-400 max-w-lg">
+              Sacred technology for blessing, healing, and transformation — bridging<br/>
+              ancient wisdom with modern radionics.
             </p>
-            <div className="flex gap-3 mt-3 text-xs">
-              <span className="text-purple-300">🌍 {runningSessions.length > 0 ? 'Blessings Active' : 'Ready'}</span>
-              <span className="text-cyan-300">✨ Golden Light</span>
-              <span className="text-amber-300">🌈 Rainbow Ring</span>
+            <div className="flex flex-wrap gap-3 mt-4 text-xs">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-900/30 rounded-md border border-purple-500/20 text-purple-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                {runningSessions.length > 0 ? `${runningSessions.length} sessions active` : 'Ready to begin'}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-900/30 rounded-md border border-amber-500/20 text-amber-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Golden Blessing Rays
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-rose-900/30 rounded-md border border-rose-500/20 text-rose-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                Rainbow Chakra Ring
+              </span>
             </div>
           </div>
         </div>
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent" />
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <QuickStatCard
           icon={Activity}
           label="Active Sessions"
           value={runningSessions.length}
-          trend={runningSessions.length > 0 ? '+1' : undefined}
+          trend={runningSessions.length > 0 ? `+${runningSessions.length}` : undefined}
           color="text-purple-400"
         />
         <QuickStatCard
           icon={Heart}
-          label="Crystal Status"
+          label="Crystal Grid"
           value={crystalStatus.active ? 'Active' : 'Idle'}
-          color={crystalStatus.active ? 'text-green-400' : 'text-gray-400'}
+          color={crystalStatus.active ? 'text-emerald-400' : 'text-slate-500'}
         />
         <QuickStatCard
           icon={Zap}
-          label="Current Rate"
-          value={scalarStatus.rate || 'N/A'}
+          label="Radionic Rate"
+          value={scalarStatus.rate || '—'}
           color="text-cyan-400"
         />
         <QuickStatCard
           icon={Clock}
-          label="Total Sessions"
-          value={activeSessions.length}
+          label="Session History"
+          value={sessionHistory.length || activeSessions.length}
           color="text-amber-400"
         />
       </div>
 
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold text-gray-200 mb-4">Trends</h2>
-        <TrendsChart sessionHistory={sessionHistory} />
-      </div>
+      {/* Cosmic Context Banner */}
+      {quickAstro && (
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900/40 border border-indigo-500/15 p-4">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl" />
+          <div className="relative flex items-center gap-4">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-900/50 border border-indigo-500/20 flex items-center justify-center">
+              <Moon className="w-5 h-5 text-indigo-300" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xs font-semibold text-indigo-300 uppercase tracking-widest mb-1">Cosmic Context</h3>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                <span className="text-white font-medium">{quickAstro.moon_phase?.phase_name || '—'}</span>
+                <span className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block" />
+                <span className="text-purple-300">{quickAstro.planetary_hours?.current_planetary_hour || '—'} hour</span>
+                <span className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block" />
+                <span className="text-slate-400">{quickAstro.moon_phase?.illumination?.toFixed(0) || '—'}% illuminated</span>
+              </div>
+            </div>
+            <div className="hidden sm:block text-right">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider">day ruler</div>
+              <div className="text-sm text-amber-300 font-medium">{quickAstro.planetary_hours?.current_planetary_hour || '—'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Character Journey */}
+      <JourneyCard />
+
+      {/* Automation Status */}
+      {automationStatus && automationStatus.active && (
+        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-950/40 to-cyan-950/30 border border-emerald-500/20 p-5">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl" />
+          <div className="relative space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <div className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-emerald-300">Blessing Rotation Active</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Autonomous blessing cycle in progress</p>
+                </div>
+              </div>
+              <span className="text-sm font-mono text-emerald-400 font-bold">
+                {Math.round(automationStatus.progress || 0)}%
+              </span>
+            </div>
+            {automationStatus.current_population && (
+              <div className="text-xs text-slate-300 pl-8">
+                Now blessing <span className="text-emerald-200 font-semibold">{automationStatus.current_population.name}</span>
+                <span className="text-slate-600 mx-1.5">·</span>
+                <span className="text-slate-500">{automationStatus.current_population.category}</span>
+              </div>
+            )}
+            <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div className="h-2 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-1000 ease-out"
+                style={{ width: `${Math.round(automationStatus.progress || 0)}%` }} />
+            </div>
+            <div className="flex justify-between text-[10px] text-slate-600 font-mono pl-8">
+              <span>{automationStatus.session_id?.slice(0, 16)}…</span>
+              <span>{automationStatus.populations_in_queue || 0} queued · cycle {automationStatus.cycle_count || 0}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trends Chart */}
+      <section>
+        <SectionHeading icon={TrendingUp} label="Session Trends" color="text-purple-400" />
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-1">
+          <TrendsChart sessionHistory={sessionHistory} />
+        </div>
+      </section>
 
       {/* Quick Actions */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-purple-400" />
-          Quick Actions
-        </h2>
+      <section>
+        <SectionHeading icon={Sparkles} label="Quick Actions" color="text-amber-400" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <QuickActionButton
             icon={Plus}
@@ -245,195 +345,102 @@ const Dashboard = () => {
             color="gray"
           />
         </div>
-      </div>
+      </section>
 
       {/* Active Sessions */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-purple-400" />
-          Active Sessions
-        </h2>
+      <section>
+        <SectionHeading icon={Activity} label="Active Sessions" color="text-purple-400" badge={runningSessions.length} />
         <div className="space-y-3">
           {!isConnected ? (
-            <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
-              <p className="text-red-300 text-sm">
-                ⚠️ Disconnected from backend. Session management unavailable.
-              </p>
+            <div className="rounded-xl bg-red-950/20 border border-red-500/20 p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <p className="text-red-300 text-sm font-medium">Backend connection lost</p>
+              </div>
+              <p className="text-red-400/60 text-xs mt-1 ml-5">Session management unavailable — check server status</p>
             </div>
           ) : runningSessions.length === 0 ? (
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center">
-              <Activity className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-              <p className="text-gray-400 mb-2">No active sessions</p>
-              <p className="text-sm text-gray-500">Create a session to begin your blessing practice</p>
+            <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-10 text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
+                <Activity className="w-6 h-6 text-slate-600" />
+              </div>
+              <p className="text-slate-400 text-sm font-medium mb-1">No active sessions</p>
+              <p className="text-slate-600 text-xs">Create a session to begin your blessing practice</p>
             </div>
           ) : (
             runningSessions.slice(0, 3).map((session) => (
               <div
                 key={session.id}
-                className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-purple-500/50 transition-all duration-300"
+                className="group rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/30 p-5 transition-all duration-300"
               >
                 <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-white mb-1">{session.name}</h3>
-                    <p className="text-sm text-gray-400 mb-2">{session.intention}</p>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Zap className="w-3 h-3" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white text-sm mb-1 truncate">{session.name}</h3>
+                    <p className="text-xs text-slate-400 mb-3 truncate">{session.intention}</p>
+                    <div className="flex items-center gap-4 text-[11px]">
+                      <span className="inline-flex items-center gap-1.5 text-slate-500">
+                        <Zap className="w-3 h-3 text-amber-500/70" />
                         {session.audio_frequency?.toFixed(1)} Hz
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
+                      <span className="inline-flex items-center gap-1.5 text-slate-500">
+                        <Clock className="w-3 h-3 text-slate-500/70" />
                         {Math.floor(session.duration / 60)} min
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="px-3 py-1 bg-green-600 text-white text-xs rounded-full font-medium">
-                      Active
-                    </div>
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  </div>
+                  <span className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-[10px] font-medium text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Active
+                  </span>
                 </div>
               </div>
             ))
           )}
           {runningSessions.length > 3 && (
-            <button className="w-full py-2 text-sm text-purple-400 hover:text-purple-300 transition-colors">
+            <button className="w-full py-2.5 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors">
               View all {runningSessions.length} active sessions →
             </button>
           )}
         </div>
-      </div>
-
-      {/* Automation Status */}
-      {automationStatus && automationStatus.active && (
-        <div className="bg-gradient-to-r from-emerald-900/20 to-cyan-900/20 rounded-lg p-4 border border-emerald-500/20 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-sm font-bold text-emerald-300">Blessing Rotation Active</span>
-            </div>
-            <span className="text-xs text-emerald-400 font-mono">
-              {Math.round(automationStatus.progress || 0)}%
-            </span>
-          </div>
-          {automationStatus.current_population && (
-            <div className="text-xs text-gray-300">
-              Now blessing: <span className="text-emerald-200 font-semibold">{automationStatus.current_population.name}</span>
-              <span className="text-gray-500 mx-1">·</span>
-              <span className="text-gray-500">{automationStatus.current_population.category}</span>
-            </div>
-          )}
-          <div className="w-full bg-gray-700 rounded-full h-1.5">
-            <div className="bg-gradient-to-r from-emerald-500 to-cyan-500 h-1.5 rounded-full transition-all duration-1000"
-              style={{ width: `${Math.round(automationStatus.progress || 0)}%` }} />
-          </div>
-          <div className="flex justify-between text-[10px] text-gray-500">
-            <span>Session: {automationStatus.session_id?.slice(0, 20)}…</span>
-            <span>{automationStatus.populations_in_queue || 0} in queue · Cycle {automationStatus.cycle_count || 0}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Astrology */}
-      {quickAstro && (
-        <div className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 rounded-lg p-4 border border-indigo-500/20">
-          <div className="flex items-center gap-3 text-xs">
-            <Moon className="w-5 h-5 text-cyan-400" />
-            <div>
-              <span className="text-gray-400">Cosmic Context · </span>
-              <span className="text-indigo-300 font-semibold">{quickAstro.moon_phase?.phase_name || '—'}</span>
-              <span className="text-gray-500 mx-1">·</span>
-              <span className="text-purple-300">{quickAstro.planetary_hour || '—'} hour</span>
-              <span className="text-gray-500 mx-1">·</span>
-              <span className="text-gray-400">{quickAstro.day_ruler || '—'} day</span>
-            </div>
-          </div>
-        </div>
-      )}
+      </section>
 
       {/* Session Timeline */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-amber-400" />
-          Session History
-        </h2>
-        <SessionTimeline sessions={sessions} />
-      </div>
+      <section>
+        <SectionHeading icon={Clock} label="Session History" color="text-amber-400" />
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-1">
+          <SessionTimeline sessions={sessions} />
+        </div>
+      </section>
 
       {/* Frequency Waterfall */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-cyan-400" />
-          Live Frequency Monitor
-        </h2>
-        <FrequencyWaterfall frequency={frequency} isPlaying={isPlaying} />
-      </div>
+      <section>
+        <SectionHeading icon={Activity} label="Live Frequency Monitor" color="text-cyan-400" />
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+          <FrequencyWaterfall frequency={frequency} isPlaying={isPlaying} />
+        </div>
+      </section>
 
       {/* System Status */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Settings className="w-5 h-5 text-purple-400" />
-          System Status
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">Audio System</span>
-              <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
-            </div>
-            <div className="text-white font-medium">
-              {isPlaying ? 'Playing' : 'Idle'}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {frequency?.toFixed(1)} Hz
-            </div>
-          </div>
-          
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">Connection</span>
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            </div>
-            <div className="text-white font-medium">
-              {isConnected ? 'Connected' : 'Disconnected'}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              WebSocket
-            </div>
-          </div>
-          
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">Crystal Grid</span>
-              <div className={`w-2 h-2 rounded-full ${crystalStatus.active ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
-            </div>
-            <div className="text-white font-medium">
-              {crystalStatus.active ? 'Active' : 'Inactive'}
-            </div>
-            {crystalStatus.intention && (
-              <div className="text-xs text-gray-500 mt-1 truncate">
-                {crystalStatus.intention}
+      <section>
+        <SectionHeading icon={Settings} label="System Status" color="text-slate-400" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: 'Audio Engine', status: isPlaying ? 'Playing' : 'Idle', detail: `${frequency?.toFixed(1)} Hz`, active: isPlaying, color: 'purple' },
+            { label: 'WebSocket', status: isConnected ? 'Connected' : 'Offline', detail: 'v2 stable', active: isConnected, color: 'emerald' },
+            { label: 'Crystal Grid', status: crystalStatus.active ? 'Active' : 'Inactive', detail: crystalStatus.intention, active: crystalStatus.active, color: 'cyan' },
+            { label: 'Scalar Waves', status: scalarStatus.active ? 'Broadcasting' : 'Idle', detail: scalarStatus.rate ? `Rate ${scalarStatus.rate}` : '', active: scalarStatus.active, color: 'amber' },
+          ].map((sys) => (
+            <div key={sys.label} className="group rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 p-4 transition-all duration-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">{sys.label}</span>
+                <div className={`w-2 h-2 rounded-full ${sys.active ? `bg-${sys.color === 'emerald' ? 'emerald' : sys.color === 'purple' ? 'purple' : sys.color === 'cyan' ? 'cyan' : 'amber'}-400 shadow-[0_0_6px_rgba(168,85,247,0.5)] animate-pulse` : 'bg-slate-700'}`} />
               </div>
-            )}
-          </div>
-          
-          <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-400">Radionics</span>
-              <div className={`w-2 h-2 rounded-full ${scalarStatus.active ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
+              <div className="text-sm font-semibold text-white">{sys.status}</div>
+              {sys.detail && <div className="text-[10px] text-slate-500 mt-0.5 truncate">{sys.detail}</div>}
             </div>
-            <div className="text-white font-medium">
-              {scalarStatus.active ? 'Broadcasting' : 'Idle'}
-            </div>
-            {scalarStatus.rate && (
-              <div className="text-xs text-gray-500 mt-1">
-                Rate: {scalarStatus.rate}
-              </div>
-            )}
-          </div>
+          ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 };

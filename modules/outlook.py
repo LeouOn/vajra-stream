@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from modules.interfaces import BlessingGenerated, EventBus
+from core.ritual_sequencer import RitualSequencer, RitualContext
 from backend.core.services.rng_attunement_service import get_rng_service
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ class OutlookService:
         include_astrology: bool = True,
         include_tarot: bool = True,
         include_iching: bool = True,
+        include_geomancy: bool = True,
         randomize_realm: bool = False,
         randomize_characters: bool = False,
     ) -> dict[str, Any]:
@@ -117,6 +119,7 @@ class OutlookService:
             include_astrology=include_astrology,
             include_tarot=include_tarot,
             include_iching=include_iching,
+            include_geomancy=include_geomancy,
             randomize_realm=randomize_realm,
             randomize_characters=randomize_characters,
             sensor_context=sensor_context,
@@ -152,6 +155,7 @@ class OutlookService:
         include_astrology: bool = True,
         include_tarot: bool = True,
         include_iching: bool = True,
+        include_geomancy: bool = True,
         randomize_realm: bool = False,
         randomize_characters: bool = False,
     ) -> dict[str, Any]:
@@ -187,6 +191,7 @@ class OutlookService:
             include_astrology=include_astrology,
             include_tarot=include_tarot,
             include_iching=include_iching,
+            include_geomancy=include_geomancy,
             randomize_realm=randomize_realm,
             randomize_characters=randomize_characters,
             sensor_context=sensor_context,
@@ -220,6 +225,7 @@ class OutlookService:
 
         self._loop_interval = interval_minutes
         self._loop_config = config
+        self._loop_config["genre_index"] = 0  # Initialize for cycling
         self._loop_running = True
 
         # Start async task
@@ -256,32 +262,31 @@ class OutlookService:
                 try:
                     config = self._loop_config.copy()
                     config["date"] = datetime.now()
+                    
+                    # Cycle genre if enabled
+                    if config.get("cycle_genres", False) and self.generator.genres:
+                        genres = self.generator.genres
+                        idx = self._loop_config.get("genre_index", 0)
+                        current_genre = genres[idx % len(genres)]
+                        config["genre"] = current_genre
+                        self._loop_config["genre_index"] = idx + 1
+                        logger.info(f"Cycling genre: {current_genre}")
 
-                    # Run generation in a separate thread/executor to prevent blocking FastAPI uvicorn thread
-                    result = await loop.run_in_executor(
-                        None,
-                        lambda: self.generate_single(
-                            lat=config.get("lat", 34.0522),
-                            lon=config.get("lon", -118.2437),
-                            languages=config.get("languages", ["English"]),
-                            genre=config.get("genre", "healing"),
-                            date=config.get("date"),
-                            custom_context=config.get("custom_context"),
-                            realm_id=config.get("realm_id"),
-                            population_ids=config.get("population_ids"),
-                            character_ids=config.get("character_ids"),
-                            excluded_forces=config.get("excluded_forces"),
-                            include_dialogue=config.get("include_dialogue", False),
-                            model=config.get("model"),
-                            include_astrology=config.get("include_astrology", True),
-                            include_tarot=config.get("include_tarot", True),
-                            include_iching=config.get("include_iching", True),
-                            randomize_realm=config.get("randomize_realm", False),
-                            randomize_characters=config.get("randomize_characters", False),
-                        ),
+                    # Create the context for the sequencer
+                    context = RitualContext(
+                        genre=config.get("genre", "healing"),
+                        lat=config.get("lat", 34.0522),
+                        lon=config.get("lon", -118.2437),
+                        target_intention=config.get("custom_context") or ""
                     )
+                    
+                    # Instantiate and execute the workflow engine sequence
+                    sequencer = RitualSequencer(outlook_generator=self.generator, event_bus=self.event_bus)
+                    final_context = await sequencer.execute_ritual(context)
 
-                    self._last_generated_narrative = result
+                    # Store last generated narrative
+                    self._last_generated_narrative = final_context.invocation_narrative
+                    logger.info(f"Ritual Broadcast completed successfully. Narrative Length: {len(self._last_generated_narrative)}")
 
                     # Save to DB
                     try:
@@ -304,16 +309,16 @@ class OutlookService:
                         """,
                             (
                                 "single",
-                                result.get("genre"),
-                                json.dumps(result.get("languages")),
+                                final_context.genre,
+                                json.dumps(config.get("languages", ["English"])),
                                 config.get("lat", 34.0522),
                                 config.get("lon", -118.2437),
                                 datetime.now().isoformat(),
-                                result.get("narrative"),
-                                result.get("astrology_used"),
-                                result.get("divination_used"),
-                                json.dumps(result.get("divination_raw")),
-                                result.get("entities_used"),
+                                final_context.invocation_narrative,
+                                json.dumps(final_context.astrology_results),
+                                json.dumps(final_context.divination_results),
+                                json.dumps(final_context.divination_results),
+                                "",  # entities
                             ),
                         )
                         conn.commit()

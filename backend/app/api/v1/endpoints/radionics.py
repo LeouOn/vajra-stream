@@ -438,6 +438,44 @@ async def generate_signature_rate(name: str, num_dials: int = 3, algorithm: str 
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ─── Crystal Grid & Programming ───
+
+
+@router.get("/crystal/grid")
+async def get_crystal_grid():
+    """Get current crystal grid configuration."""
+    return {
+        "status": "success",
+        "grid": {
+            "type": "double-hexagon",
+            "crystalType": "quartz",
+            "radius": 4,
+            "showEnergyField": True,
+            "intention": "May all beings be happy",
+            "crystalCount": 13,
+            "active": False,
+        },
+        "crystals": [
+            {"id": "quartz", "name": "Clear Quartz", "color": "#ffffff", "properties": ["amplification", "clarity"]},
+            {"id": "amethyst", "name": "Amethyst", "color": "#9966ff", "properties": ["protection", "spiritual"]},
+            {"id": "rose-quartz", "name": "Rose Quartz", "color": "#ffb6c1", "properties": ["love", "compassion"]},
+            {"id": "citrine", "name": "Citrine", "color": "#ffd700", "properties": ["abundance", "energy"]},
+        ],
+    }
+
+
+@router.post("/crystal/program")
+async def program_crystal(crystal_id: str = "quartz", intention: str = "Universal Peace"):
+    """Program a crystal with an intention."""
+    return {
+        "status": "success",
+        "crystal_id": crystal_id,
+        "intention": intention,
+        "programmed_at": __import__("time").time(),
+        "message": f"Crystal {crystal_id} programmed with intention: {intention}",
+    }
+
+
 @router.get("/status/{session_id}")
 async def get_broadcast_status(session_id: str):
     """Get status of a broadcast session"""
