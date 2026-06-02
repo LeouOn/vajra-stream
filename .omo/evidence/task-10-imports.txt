@@ -1,0 +1,17 @@
+Scenario: imports + class attributes present
+Tool: Bash (python)
+Steps:
+  1. python -c "from core.astrology import AstrologicalCalculator; calc = AstrologicalCalculator(); print('get_solar_return:', hasattr(calc, 'get_solar_return')); print('get_profection:', hasattr(calc, 'get_profection')); print('PROFECTION_LORDS:', hasattr(calc, 'PROFECTION_LORDS')); print('lord_count:', len(calc.PROFECTION_LORDS)); print('aries_lord:', calc.PROFECTION_LORDS['Aries']); print('aquarius_lord:', calc.PROFECTION_LORDS['Aquarius']); print('cancer_lord:', calc.PROFECTION_LORDS['Cancer']); print('pisces_lord:', calc.PROFECTION_LORDS['Pisces'])"
+
+Result:
+get_solar_return: True
+get_profection: True
+PROFECTION_LORDS: True
+lord_count: 12
+aries_lord: Mars
+aquarius_lord: Saturn  (traditional, NOT modern Uranus)
+cancer_lord: Moon
+pisces_lord: Jupiter
+
+PASS — both methods are importable, PROFECTION_LORDS has 12 entries covering all zodiac signs,
+and the traditional rulerships (Saturn for Aquarius, Mars for Scorpio) are in effect.

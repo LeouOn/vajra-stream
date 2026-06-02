@@ -2408,18 +2408,17 @@ class AstrologicalCalculator:
         if return_location is None:
             return_location = natal_location
 
-        # Natal Sun's ecliptic longitude.
         natal_positions = self.get_planetary_positions(natal_dt)
         natal_sun_lon = natal_positions["sun"]["longitude"]
 
-        # Search window: the full calendar year, anchored at noon UTC for
-
-        # Search window: the full calendar year, anchored at noon UTC for
-        # ephemeris stability. Add a 1-day buffer on each end so a return
-        # that lands on Jan 1 00:30 UTC or Dec 31 23:30 UTC is still
-        # found (extremely rare, but cheap to be safe).
+        # Search window: a full year starting Jan 1 of return_year noon UTC.
+        # The Sun's apparent motion is ~365.25 days per cycle, so the solar
+        # return can land on Jan 1-3 of return_year+1 for birthdays very
+        # close to New Year. We include that tail in the search range so
+        # the Sun is guaranteed to cross ``natal_sun_lon`` exactly once
+        # within [start, end). Anchored at noon UTC for ephemeris stability.
         start = datetime(return_year, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
-        end = datetime(return_year, 12, 31, 12, 0, 0, tzinfo=pytz.UTC)
+        end = datetime(return_year + 1, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
 
         def _sun_lon(dt: datetime) -> float:
             return self.get_planetary_positions(dt)["sun"]["longitude"]
@@ -2451,7 +2450,6 @@ class AstrologicalCalculator:
 
         exact_moment = lo + (hi - lo) / 2
 
-        # Compute the chart at the exact moment + return_location.
         chart = self.get_western_astrology(exact_moment, return_location)
         positions = chart["positions"]
 
