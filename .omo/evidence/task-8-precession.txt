@@ -1,0 +1,18 @@
+Scenario: precession shifts longitude (2000 vs 2050)
+Tool: Bash (python)
+Steps:
+  1. python (this script)
+Expected Result: ~0.7 (50 years x 50.3"/year / 3600 = 0.7 deg)
+---
+
+Regulus @ 2000-01-01: exact_longitude = 149.8300
+Regulus @ 2050-01-01: exact_longitude = 150.5285
+Delta: 0.6985 deg  (expected 0.6985 = 50 * 0.01397)
+Match within 0.01: True
+
+Bonus: precession envelope over 1900-2100 (worst-case star):
+  year=1900  worst_delta= 1.397 deg  expected~= 1.397 deg  within_5deg=True
+  year=1950  worst_delta= 0.699 deg  expected~= 0.699 deg  within_5deg=True
+  year=2000  worst_delta= 0.000 deg  expected~= 0.000 deg  within_5deg=True
+  year=2050  worst_delta= 0.699 deg  expected~= 0.699 deg  within_5deg=True
+  year=2100  worst_delta= 1.397 deg  expected~= 1.397 deg  within_5deg=True

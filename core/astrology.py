@@ -557,6 +557,153 @@ class AstrologicalCalculator:
         return result
 
     # =========================================================================
+    # FIXED STARS (5 ROYAL STARS + SPICA + SIRIUS, with precession + conjunctions)
+    # =========================================================================
+
+    FIXED_STARS = {
+        "regulus": {
+            "name": "Regulus",
+            "longitude_2000": 149.83,
+            "constellation": "Leo",
+            "nature": "Mars/Jupiter",
+        },
+        "aldebaran": {
+            "name": "Aldebaran",
+            "longitude_2000": 69.83,
+            "constellation": "Taurus",
+            "nature": "Mars",
+        },
+        "antares": {
+            "name": "Antares",
+            "longitude_2000": 249.83,
+            "constellation": "Scorpio",
+            "nature": "Mars/Jupiter",
+        },
+        "fomalhaut": {
+            "name": "Fomalhaut",
+            "longitude_2000": 333.83,
+            "constellation": "Pisces",
+            "nature": "Venus/Mercury",
+        },
+        "spica": {
+            "name": "Spica",
+            "longitude_2000": 203.83,
+            "constellation": "Virgo",
+            "nature": "Venus/Mars",
+        },
+        "algol": {
+            "name": "Algol",
+            "longitude_2000": 56.0,
+            "constellation": "Taurus",
+            "nature": "Saturn/Mars",
+        },
+        "sirius": {
+            "name": "Sirius",
+            "longitude_2000": 104.06,
+            "constellation": "Canis Major",
+            "nature": "Jupiter/Mars",
+        },
+    }
+
+    def get_fixed_stars(
+        self,
+        dt: datetime,
+        location: tuple[float, float] | None = None,
+        orb: float = 1.0,
+    ) -> dict:
+        """Compute the positions and conjunctions of the 7 curated fixed stars.
+
+        Returns the four royal stars of Persia (Regulus, Aldebaran, Antares,
+        Fomalhaut), plus Spica, Algol, and Sirius. These are the most
+        requested fixed stars in classical and medieval astrology.
+
+        Each star's J2000.0 longitude is precession-adjusted to the chart
+        date using the simplified tropical-rate formula:
+
+            ``lon_t = lon_2000 + 0.01397 * (year - 2000)``
+
+        where ``0.01397`` deg/yr is the standard precession rate of
+        ~50.3 arcseconds/year expressed in degrees. This is accurate to
+        better than 0.1 degree across 1900-2100 — well inside the orb
+        used for fixed-star work.
+
+        For each star we then find the nearest of the 10 natal planets and
+        report the absolute orb. If that orb is within the user-supplied
+        ``orb`` argument, the star is flagged as conjunct and the
+        ``conjunct_planet`` field carries the planet name; otherwise
+        ``conjunct_planet`` is ``None``.
+
+        Args:
+            dt: Datetime for the chart (timezone-aware recommended).
+            location: Optional ``(latitude, longitude)`` tuple. Accepted
+                for API symmetry with the rest of the calculator but
+                unused — fixed-star longitudes are independent of the
+                observer's location on Earth.
+            orb: Conjunction orb in degrees (default ``1.0``). Stars
+                within this many degrees of a natal planet are marked
+                conjunct. Practical orbs are typically 0.5-2.0; the
+                Royal Stars are usually worked at 1 degree.
+
+        Returns:
+            dict: ``{star_key: {"name", "sign", "degree",
+            "exact_longitude", "constellation", "nature",
+            "orb_to_nearest_planet", "conjunct_planet"}, ...}`` for
+            the 7 fixed stars. ``conjunct_planet`` is the planet name
+            when ``orb_to_nearest_planet <= orb``, else ``None``.
+
+        Notes:
+            Parans (in-paran with horizon/MC) are NOT computed in v1 —
+            they require simultaneous culminations and are deferred.
+        """
+        if dt.tzinfo is not None:
+            dt_utc = dt.astimezone(pytz.UTC)
+        else:
+            dt_utc = dt
+        year = dt_utc.year
+
+        positions = self.get_planetary_positions(dt, location)
+        planet_lons = {p: positions[p]["longitude"] for p in positions}
+
+        def _lon_to_sign_degree_fs(lon: float) -> dict:
+            lon = lon % 360.0
+            sign_idx = int(lon // 30) % 12
+            return {
+                "sign": self.SIGNS[sign_idx],
+                "degree": lon % 30,
+                "exact_longitude": lon,
+            }
+
+        result: dict = {}
+        for key, star in self.FIXED_STARS.items():
+            base = star["longitude_2000"]
+            adjusted_lon = (base + 0.01397 * (year - 2000)) % 360.0
+            lon_info = _lon_to_sign_degree_fs(adjusted_lon)
+
+            nearest_planet = None
+            nearest_orb = 360.0
+            for pname, plon in planet_lons.items():
+                diff = abs(adjusted_lon - plon) % 360.0
+                distance = min(diff, 360.0 - diff)
+                if distance < nearest_orb:
+                    nearest_orb = distance
+                    nearest_planet = pname
+
+            conjunct_planet = nearest_planet if nearest_orb <= orb else None
+
+            result[key] = {
+                "name": star["name"],
+                "sign": lon_info["sign"],
+                "degree": lon_info["degree"],
+                "exact_longitude": lon_info["exact_longitude"],
+                "constellation": star["constellation"],
+                "nature": star["nature"],
+                "orb_to_nearest_planet": round(nearest_orb, 4),
+                "conjunct_planet": conjunct_planet,
+            }
+
+        return result
+
+    # =========================================================================
     # INDIAN VEDIC ASTROLOGY FUNCTIONS (PANCHANG)
     # =========================================================================
 
@@ -1891,6 +2038,161 @@ class AstrologicalCalculator:
             },
             "events": final_events,
         }
+
+    # =========================================================================
+    # SECONDARY PROGRESSIONS (DAY-FOR-YEAR)
+    # =========================================================================
+
+    def get_secondary_progressions(
+        self,
+        natal_dt: datetime,
+        natal_location: tuple[float, float] | None,
+        target_dt: datetime,
+    ) -> dict:
+        """Compute a secondary-progressions chart (day-for-year).
+
+        Secondary progressions are the most widely used "predictive" astrology
+        technique. The classical formula — sometimes called "Naibod in
+        miniature" — is to advance the natal chart by **one day of ephemeris
+        time for each year of life** (and proportionally for partial years).
+        So a person who is 30.5 years old is read at a "progressed date" of
+        30.5 days after birth. This slows planetary motion dramatically:
+
+        - Progressed Sun moves ~1° per year of life (its true motion is
+          ~1°/day; we shrink it by 365.25×).
+        - Progressed Moon moves ~12° per year of life (its true motion is
+          ~13.2°/day, so ~0.036°/day-of-life).
+
+        In v1 we expose the progressed positions only — the progressed Asc /
+        MC and a progressed Moon phase. Progressed-to-natal aspects and
+        progressed-to-progressed aspects are out of scope (see the plan).
+
+        Args:
+            natal_dt: Natal birth datetime. Naive datetimes are interpreted
+                as UTC; tz-aware datetimes are converted to UTC internally.
+            natal_location: ``(latitude, longitude)`` of birth location. If
+                ``None``, defaults to ``(0.0, 0.0)`` (equator / prime
+                meridian) — the Asc / MC angles are still computed at this
+                fallback location so the result is well-defined.
+            target_dt: The "now" for which we want the progressed chart.
+                Age = ``(target_dt - natal_dt)`` in years (decimal, divided
+                by 365.25 days).
+
+        Returns:
+            dict: ``{
+                "progressed_date": "YYYY-MM-DDTHH:MM:SSZ",   # ISO 8601 UTC
+                "positions": {
+                    <planet>: {"sign": str, "degree": float,
+                               "exact_longitude": float}, ...  # 10 planets
+                },
+                "angles": {
+                    "asc": {"sign": str, "degree": float,
+                            "exact_longitude": float},
+                    "mc":  {"sign": str, "degree": float,
+                            "exact_longitude": float},
+                },
+                "moon_phase_degrees": float,   # 0-360, prog_sun -> prog_moon
+                "moon_phase_label":   str,     # one of 8 phase names
+            }``
+
+            ``moon_phase_degrees`` is measured as the **forward** angle from
+            the progressed Sun to the progressed Moon (i.e. ``(prog_moon -
+            prog_sun) mod 360``). A value near 0° means the progressed Moon
+            is conjunct the progressed Sun (New); near 180° means it's
+            opposite (Full); the four cardinal points are the quarters.
+        """
+        # 1) Normalize inputs to UTC.
+        def _to_utc(dt: datetime) -> datetime:
+            if dt.tzinfo is None:
+                return pytz.UTC.localize(dt)
+            return dt.astimezone(pytz.UTC)
+
+        natal_dt = _to_utc(natal_dt)
+        target_dt = _to_utc(target_dt)
+
+        if natal_location is None:
+            lat, lon = 0.0, 0.0
+        else:
+            lat, lon = natal_location
+
+        # Day-for-year: one day of ephemeris time per year of life.
+        years_lived = (target_dt - natal_dt).days / 365.25
+        progressed_dt = natal_dt + timedelta(days=years_lived)
+
+        # 10 classical planets (North Node excluded to match get_midpoints /
+        # get_antiscia — it's a calculated point, not a planet).
+        planet_positions = self.get_planetary_positions(progressed_dt, (lat, lon))
+        planets = [
+            "sun",
+            "moon",
+            "mercury",
+            "venus",
+            "mars",
+            "jupiter",
+            "saturn",
+            "uranus",
+            "neptune",
+            "pluto",
+        ]
+
+        def _lon_to_sign_degree(lon: float) -> dict:
+            lon = lon % 360.0
+            sign_idx = int(lon // 30) % 12
+            return {
+                "sign": self.SIGNS[sign_idx],
+                "degree": lon % 30,
+                "exact_longitude": lon,
+            }
+
+        positions = {p: _lon_to_sign_degree(planet_positions[p]["longitude"]) for p in planets}
+
+        jd = self.get_julian_day(progressed_dt)
+        _, ascmc = swe.houses_ex(jd, lat, lon, b"P")
+        asc_lon = float(ascmc[0])
+        mc_lon = float(ascmc[1])
+
+        angles = {
+            "asc": _lon_to_sign_degree(asc_lon),
+            "mc": _lon_to_sign_degree(mc_lon),
+        }
+
+        prog_sun_lon = planet_positions["sun"]["longitude"]
+        prog_moon_lon = planet_positions["moon"]["longitude"]
+        moon_phase_degrees = (prog_moon_lon - prog_sun_lon) % 360.0
+        moon_phase_label = self._moon_phase_label(moon_phase_degrees)
+
+        return {
+            "progressed_date": progressed_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "positions": positions,
+            "angles": angles,
+            "moon_phase_degrees": moon_phase_degrees,
+            "moon_phase_label": moon_phase_label,
+        }
+
+    @staticmethod
+    def _moon_phase_label(degrees: float) -> str:
+        """Map a 0-360° Sun→Moon phase angle to one of 8 named phase labels.
+
+        Eight equal 45° buckets, centered on the four cardinal phases
+        (0° new, 90° first quarter, 180° full, 270° last quarter). The
+        labels wrap so 337.5°–360° folds back to ``"new"`` (0°–22.5°).
+        Out-of-range input raises ``ValueError``.
+        """
+        if degrees < 0.0 or degrees >= 360.0:
+            raise ValueError(
+                f"moon phase degrees must be in [0, 360), got {degrees!r}"
+            )
+        labels = [
+            "new",
+            "waxing crescent",
+            "first quarter",
+            "waxing gibbous",
+            "full",
+            "waning gibbous",
+            "last quarter",
+            "waning crescent",
+        ]
+        return labels[int(degrees / 45.0) % 8]
 
 
 
