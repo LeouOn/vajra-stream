@@ -407,6 +407,156 @@ class AstrologicalCalculator:
         return lots
 
     # =========================================================================
+    # MIDPOINTS + ANTISCIA (90°-WHEEL SYMMETRY TECHNIQUES)
+    # =========================================================================
+
+    def get_midpoints(
+        self,
+        dt: datetime,
+        location: tuple[float, float] | None = None,
+        orb: float = 1.5,
+    ) -> dict:
+        """Compute the midpoint of every unique pair of the 10 natal planets.
+
+        A midpoint is the halfway point between two planetary longitudes on
+        the 360° wheel. The 10 classical planets give ``10 choose 2 = 45``
+        unique unordered pairs. Each pair key is alphabetically sorted
+        (e.g. ``mercury_sun`` not ``sun_mercury``) so the output is
+        stable and deterministic.
+
+        The midpoint is computed on the *shorter arc* of the circle when the
+        two planets are more than 180° apart. Concretely:
+
+            midpoint = (P1.lon + P2.lon) / 2  (mod 360)
+
+        with the two values averaged around the wheel. When ``abs(d) <= 180``,
+        the midpoint is just the arithmetic mean. When ``abs(d) > 180``, the
+        midpoint flips to the opposite arc — which the ``(P1 + P2) / 2``
+        formula already handles correctly because the mod-360 wrap-around
+        puts it on the shorter arc.
+
+        Args:
+            dt: Datetime for the chart (timezone-aware recommended).
+            location: Optional ``(latitude, longitude)`` tuple. Currently
+                unused for midpoint computation (it only affects house
+                cusps, which we don't use here). Accepted for API symmetry
+                with the rest of the calculator.
+            orb: Aspect orb in degrees. Reserved for future "which planet
+                is aspecting this midpoint" work. Not applied in v1.
+
+        Returns:
+            dict: ``{pair_key: {"sign": str, "degree": float,
+            "exact_longitude": float}, ...}`` for all 45 unique planet
+            pairs. ``pair_key`` is ``f"{p1}_{p2}"`` with ``p1 < p2``
+            alphabetically.
+        """
+        planets = [
+            "sun",
+            "moon",
+            "mercury",
+            "venus",
+            "mars",
+            "jupiter",
+            "saturn",
+            "uranus",
+            "neptune",
+            "pluto",
+        ]
+
+        positions = self.get_planetary_positions(dt, location)
+        longitudes = {p: positions[p]["longitude"] for p in planets}
+
+        midpoints: dict = {}
+        for i, p1 in enumerate(planets):
+            for p2 in planets[i + 1 :]:
+                a, b = sorted([p1, p2])
+                lon1 = longitudes[a]
+                lon2 = longitudes[b]
+                midpoint_lon = (lon1 + lon2) / 2.0
+                midpoint_lon = midpoint_lon % 360.0
+
+                sign_idx = int(midpoint_lon // 30) % 12
+                midpoints[f"{a}_{b}"] = {
+                    "sign": self.SIGNS[sign_idx],
+                    "degree": midpoint_lon % 30,
+                    "exact_longitude": midpoint_lon,
+                }
+
+        return midpoints
+
+    def get_antiscia(
+        self,
+        dt: datetime,
+        location: tuple[float, float] | None = None,
+    ) -> dict:
+        """Compute the antiscion and contrantiscion of each of the 10 planets.
+
+        Antiscia and contrantiscia are "mirror" points on the zodiac wheel:
+
+          * **Antiscion**: the point equidistant from the planet, mirrored
+            across the Cancer/Capricorn solstice axis (0° Cancer / 0°
+            Capricorn, i.e. the 90° / 270° wheel positions). Formula:
+            ``antiscion = (180 - lon) mod 360``.
+          * **Contrantiscion**: the point equidistant from the planet,
+            mirrored across the Aries/Libra equinox axis (0° Aries / 0°
+            Libra, i.e. the 0° / 180° wheel positions). Formula:
+            ``contrantiscion = (-lon) mod 360`` = ``(360 - lon) mod 360``.
+
+        Two planets are "in antiscion" when one's antiscion equals the
+        other's longitude (treated like a soft conjunction in traditional
+        astrology). The 10 classical planets are returned, with the
+        antiscion + contrantiscion of each, so downstream code can do the
+        conjunction check without recomputing the mirrors.
+
+        Args:
+            dt: Datetime for the chart (timezone-aware recommended).
+            location: Optional ``(latitude, longitude)`` tuple. Unused for
+                antiscia/contrantiscia (they're pure longitude
+                transformations). Accepted for API symmetry.
+
+        Returns:
+            dict: ``{planet_name: {"antiscion": {...}, "contrantiscion":
+            {...}}, ...}`` for the 10 planets. Each nested object has
+            ``sign`` (str), ``degree`` (float, 0-30), and
+            ``exact_longitude`` (float, 0-360).
+        """
+        planets = [
+            "sun",
+            "moon",
+            "mercury",
+            "venus",
+            "mars",
+            "jupiter",
+            "saturn",
+            "uranus",
+            "neptune",
+            "pluto",
+        ]
+
+        positions = self.get_planetary_positions(dt, location)
+
+        def _lon_to_sign_degree(lon: float) -> dict:
+            lon = lon % 360.0
+            sign_idx = int(lon // 30) % 12
+            return {
+                "sign": self.SIGNS[sign_idx],
+                "degree": lon % 30,
+                "exact_longitude": lon,
+            }
+
+        result: dict = {}
+        for p in planets:
+            lon = positions[p]["longitude"]
+            antiscion_lon = (180.0 - lon) % 360.0
+            contrantiscion_lon = (-lon) % 360.0
+            result[p] = {
+                "antiscion": _lon_to_sign_degree(antiscion_lon),
+                "contrantiscion": _lon_to_sign_degree(contrantiscion_lon),
+            }
+
+        return result
+
+    # =========================================================================
     # INDIAN VEDIC ASTROLOGY FUNCTIONS (PANCHANG)
     # =========================================================================
 
@@ -1519,6 +1669,227 @@ class AstrologicalCalculator:
             "transit_day_pillar": transit_chinese["bazi"]["day"].split(" ")[0] if "/" in transit_chinese["bazi"]["day"] else transit_chinese["bazi"]["day"],
             "natal_day_pillar": natal_chinese["bazi"]["day"].split(" ")[0] if "/" in natal_chinese["bazi"]["day"] else natal_chinese["bazi"]["day"],
             "interactions": interactions
+        }
+
+    YEAR_AHEAD_MAX_EVENTS = 500
+
+    _BODY_DISPLAY = {
+        "sun": "Sun",
+        "moon": "Moon",
+        "mercury": "Mercury",
+        "venus": "Venus",
+        "mars": "Mars",
+        "jupiter": "Jupiter",
+        "saturn": "Saturn",
+        "uranus": "Uranus",
+        "neptune": "Neptune",
+        "pluto": "Pluto",
+        "north_node": "North Node",
+    }
+
+    def get_year_ahead_timeline(
+        self,
+        natal_dt: datetime,
+        natal_location: tuple[float, float],
+        start: datetime | None = None,
+        end: datetime | None = None,
+        orb: float = 1.0,
+    ) -> dict:
+        """Compute a year-ahead transit timeline for a natal chart.
+
+        Scans daily from ``start`` to ``end`` (default period: 365 days
+        starting at ``natal_dt``) and emits events for the following
+        categories:
+
+        - ``lunar_phase`` — new moon and full moon, detected by
+          illumination crossing the 5%/95% thresholds. 12 of each per
+          year are typical. ``body="Moon"``.
+        - ``ingress`` — Sun or Moon entering a new zodiac sign. The Sun
+          changes sign roughly once per month (12/year); the Moon
+          changes sign every ~2.5 days (~145/year).
+        - ``transit`` — a transiting planet within ``orb`` degrees of a
+          natal planet, conjunction only (v1). Other aspects are not
+          computed.
+
+        Event priority for the cap (highest first): lunar phases,
+        ingresses, transits. When the cap is exceeded, transit events
+        are dropped first so that lunations and ingresses always
+        remain. All datetimes are returned in UTC ISO 8601.
+
+        Args:
+            natal_dt: Natal birth datetime (tz-aware or naive; naive
+                datetimes are interpreted as UTC).
+            natal_location: ``(latitude, longitude)`` of birth location.
+            start: Period start (defaults to ``natal_dt``).
+            end: Period end (defaults to ``start + timedelta(days=365)``).
+            orb: Maximum orb in degrees for transit conjunctions
+                (default 1.0°).
+
+        Returns:
+            dict: ``{"period": {"start": ISO, "end": ISO},
+                    "events": [{date, type, body, sign,
+                                aspect_to_natal, orb}, ...]}`` sorted
+            ascending by date and capped at
+            :attr:`YEAR_AHEAD_MAX_EVENTS` entries.
+        """
+
+        def _to_utc(dt: datetime) -> datetime:
+            if dt.tzinfo is None:
+                return pytz.UTC.localize(dt)
+            return dt.astimezone(pytz.UTC)
+
+        natal_dt = _to_utc(natal_dt)
+        if start is None:
+            start = natal_dt
+        else:
+            start = _to_utc(start)
+        if end is None:
+            end = start + timedelta(days=365)
+        else:
+            end = _to_utc(end)
+
+        if end <= start:
+            return {
+                "period": {"start": start.isoformat(), "end": end.isoformat()},
+                "events": [],
+            }
+
+        natal_positions = self.get_planetary_positions(natal_dt, natal_location)
+        natal_moon_illum = self.get_moon_phase(natal_dt)["illumination"]
+
+        prev_positions = self.get_planetary_positions(start, natal_location)
+        prev_sun_sign = prev_positions["sun"]["sign"]
+        prev_moon_sign = prev_positions["moon"]["sign"]
+        prev_illumination = self.get_moon_phase(start)["illumination"]
+
+        non_transit_events: list[dict] = []
+        transit_events: list[dict] = []
+
+        # Scan at noon UTC each day for a stable anchor, and start on
+        # the day after the anchor so we have a previous-day state to
+        # compare against.
+        scan_date = start.date() + timedelta(days=1)
+        end_date = end.date()
+
+        while scan_date <= end_date:
+            scan_dt = datetime(
+                scan_date.year,
+                scan_date.month,
+                scan_date.day,
+                12,
+                0,
+                0,
+                tzinfo=pytz.UTC,
+            )
+            if scan_dt > end:
+                break
+
+            positions = self.get_planetary_positions(scan_dt, natal_location)
+            moon_sign = positions["moon"]["sign"]
+
+            sun_sign = positions["sun"]["sign"]
+            if sun_sign != prev_sun_sign:
+                non_transit_events.append({
+                    "date": scan_dt.isoformat(),
+                    "type": "ingress",
+                    "body": "Sun",
+                    "sign": sun_sign,
+                    "aspect_to_natal": None,
+                    "orb": 0.0,
+                })
+            prev_sun_sign = sun_sign
+
+            if moon_sign != prev_moon_sign:
+                non_transit_events.append({
+                    "date": scan_dt.isoformat(),
+                    "type": "ingress",
+                    "body": "Moon",
+                    "sign": moon_sign,
+                    "aspect_to_natal": None,
+                    "orb": 0.0,
+                })
+            prev_moon_sign = moon_sign
+
+            illumination = self.get_moon_phase(scan_dt)["illumination"]
+            if prev_illumination is not None:
+                # Threshold of 5% (illumination 0-100) matches the
+                # ~12 new-moon crossings per year.
+                if prev_illumination >= 5.0 and illumination < 5.0:
+                    aspect = (
+                        "returns to natal moon phase"
+                        if natal_moon_illum < 5.0
+                        else None
+                    )
+                    non_transit_events.append({
+                        "date": scan_dt.isoformat(),
+                        "type": "lunar_phase",
+                        "body": "Moon",
+                        "sign": moon_sign,
+                        "aspect_to_natal": aspect,
+                        "orb": round(illumination, 2),
+                    })
+                elif prev_illumination <= 95.0 and illumination > 95.0:
+                    aspect = (
+                        "returns to natal moon phase"
+                        if natal_moon_illum > 95.0
+                        else None
+                    )
+                    non_transit_events.append({
+                        "date": scan_dt.isoformat(),
+                        "type": "lunar_phase",
+                        "body": "Moon",
+                        "sign": moon_sign,
+                        "aspect_to_natal": aspect,
+                        "orb": round(illumination, 2),
+                    })
+            prev_illumination = illumination
+
+            for planet_name, planet_pos in positions.items():
+                transit_lon = planet_pos["longitude"]
+                transit_sign = planet_pos["sign"]
+                for natal_name, natal_pos in natal_positions.items():
+                    natal_lon = natal_pos["longitude"]
+                    diff = abs(transit_lon - natal_lon) % 360.0
+                    distance = min(diff, 360.0 - diff)
+                    if distance <= orb:
+                        body_disp = self._BODY_DISPLAY.get(
+                            planet_name, planet_name.replace("_", " ").title()
+                        )
+                        natal_disp = self._BODY_DISPLAY.get(
+                            natal_name, natal_name.replace("_", " ").title()
+                        )
+                        transit_events.append({
+                            "date": scan_dt.isoformat(),
+                            "type": "transit",
+                            "body": body_disp,
+                            "sign": transit_sign,
+                            "aspect_to_natal": f"conjunct natal {natal_disp}",
+                            "orb": round(distance, 2),
+                        })
+
+            scan_date = scan_date + timedelta(days=1)
+
+        # Cap: transit events are lowest priority and dropped first.
+        cap = self.YEAR_AHEAD_MAX_EVENTS
+        if len(non_transit_events) + len(transit_events) > cap:
+            if len(non_transit_events) >= cap:
+                non_transit_events.sort(key=lambda e: e["date"])
+                final_events = non_transit_events[:cap]
+            else:
+                remaining = cap - len(non_transit_events)
+                transit_events.sort(key=lambda e: e["date"])
+                final_events = non_transit_events + transit_events[:remaining]
+        else:
+            final_events = non_transit_events + transit_events
+
+        final_events.sort(key=lambda e: e["date"])
+
+        return {
+            "period": {
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+            },
+            "events": final_events,
         }
 
 
