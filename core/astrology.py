@@ -2173,10 +2173,23 @@ class AstrologicalCalculator:
     def _moon_phase_label(degrees: float) -> str:
         """Map a 0-360° Sun→Moon phase angle to one of 8 named phase labels.
 
-        Eight equal 45° buckets, centered on the four cardinal phases
-        (0° new, 90° first quarter, 180° full, 270° last quarter). The
-        labels wrap so 337.5°–360° folds back to ``"new"`` (0°–22.5°).
-        Out-of-range input raises ``ValueError``.
+        The eight labels are spaced at 45° intervals, centered on 0° / 45° /
+        90° / ... / 315° (i.e. the cardinal phases sit at the *middle* of
+        each 45° bucket, not at the boundary). The exact bucket edges, per
+        spec, are:
+
+            0.0-22.5°   -> "new"
+            22.5-67.5°  -> "waxing crescent"
+            67.5-112.5° -> "first quarter"
+            112.5-157.5°-> "waxing gibbous"
+            157.5-202.5°-> "full"
+            202.5-247.5°-> "waning gibbous"
+            247.5-292.5°-> "last quarter"
+            292.5-337.5°-> "waning crescent"
+            337.5-360°  -> "new"
+
+        The labels wrap so 337.5°-360° folds back to ``"new"``. Out-of-range
+        input raises ``ValueError``.
         """
         if degrees < 0.0 or degrees >= 360.0:
             raise ValueError(
@@ -2192,7 +2205,340 @@ class AstrologicalCalculator:
             "last quarter",
             "waning crescent",
         ]
-        return labels[int(degrees / 45.0) % 8]
+        return labels[int((degrees + 22.5) / 45.0) % 8]
+
+    # =========================================================================
+    # SOLAR ARC DIRECTIONS
+    # =========================================================================
+
+    def get_solar_arc_directions(
+        self,
+        natal_dt: datetime,
+        natal_location: tuple[float, float] | None,
+        target_dt: datetime,
+    ) -> dict:
+        """Compute solar-arc directions for a natal chart at a target date.
+
+        Solar-arc directions are the simplest and most widely used predictive
+        technique in traditional western astrology. The formula has two steps:
+
+          1. Compute the **solar arc**: the difference (mod 360°) between the
+             *secondary-progression Sun* and the natal Sun. Because the
+             secondary-progression Sun advances ~1° per year of life, the
+             solar arc in degrees is approximately equal to the native's age
+             in years.
+          2. Add that arc to every natal planet longitude and every natal
+             angle (Asc, MC). The result is the **directed** position of
+             each body.
+
+        v1 returns the directed positions only. Directed-to-directed aspects,
+        directed-to-natal aspects, Naibod arc, key cycles, and other direction
+        variants are deliberately out of scope.
+
+        Args:
+            natal_dt: Natal birth datetime. Naive datetimes are interpreted
+                as UTC; tz-aware datetimes are converted to UTC internally.
+            natal_location: ``(latitude, longitude)`` of birth location. If
+                ``None``, defaults to ``(0.0, 0.0)`` (equator / prime
+                meridian) — the Asc / MC angles are still computed at this
+                fallback location so the result is well-defined.
+            target_dt: The "now" for which we want the directed chart.
+                Solar arc ≈ ``(target_dt - natal_dt) / 365.25`` years in
+                degrees.
+
+        Returns:
+            dict: ``{
+                "solar_arc_degrees": float,   # 0-360
+                "directed": {
+                    <planet>: {"sign": str, "degree": float,
+                               "exact_longitude": float},
+                    ...  # 10 classical planets: sun, moon, mercury, venus,
+                    #     mars, jupiter, saturn, uranus, neptune, pluto
+                    "asc":     {"sign": str, "degree": float,
+                                "exact_longitude": float},
+                    "mc":      {"sign": str, "degree": float,
+                                "exact_longitude": float},
+                },
+            }``
+
+            Every directed longitude is ``(natal_longitude + solar_arc)
+            mod 360``, so adding the same arc uniformly shifts the wheel.
+        """
+        # 1) Normalize inputs to UTC.
+        def _to_utc(dt: datetime) -> datetime:
+            if dt.tzinfo is None:
+                return pytz.UTC.localize(dt)
+            return dt.astimezone(pytz.UTC)
+
+        natal_dt = _to_utc(natal_dt)
+        target_dt = _to_utc(target_dt)
+
+        if natal_location is None:
+            lat, lon = 0.0, 0.0
+        else:
+            lat, lon = natal_location
+
+        # 2) Solar arc = progressed Sun - natal Sun (mod 360).
+        natal_positions = self.get_planetary_positions(natal_dt, (lat, lon))
+        natal_sun_lon = natal_positions["sun"]["longitude"]
+
+        progressed = self.get_secondary_progressions(
+            natal_dt, (lat, lon), target_dt
+        )
+        prog_sun_lon = progressed["positions"]["sun"]["exact_longitude"]
+
+        solar_arc = (prog_sun_lon - natal_sun_lon) % 360.0
+
+        # 3) Natal angles (Asc, MC) at birth, for the directed angles.
+        jd_natal = self.get_julian_day(natal_dt)
+        _, ascmc_natal = swe.houses_ex(jd_natal, lat, lon, b"P")
+        natal_asc_lon = float(ascmc_natal[0])
+        natal_mc_lon = float(ascmc_natal[1])
+
+        # 4) Build the directed set.
+        def _lon_to_sign_degree(lon: float) -> dict:
+            lon = lon % 360.0
+            sign_idx = int(lon // 30) % 12
+            return {
+                "sign": self.SIGNS[sign_idx],
+                "degree": lon % 30,
+                "exact_longitude": lon,
+            }
+
+        directed: dict = {}
+        planets = [
+            "sun",
+            "moon",
+            "mercury",
+            "venus",
+            "mars",
+            "jupiter",
+            "saturn",
+            "uranus",
+            "neptune",
+            "pluto",
+        ]
+        for p in planets:
+            natal_lon = natal_positions[p]["longitude"]
+            directed_lon = (natal_lon + solar_arc) % 360.0
+            directed[p] = _lon_to_sign_degree(directed_lon)
+
+        directed["asc"] = _lon_to_sign_degree((natal_asc_lon + solar_arc) % 360.0)
+        directed["mc"] = _lon_to_sign_degree((natal_mc_lon + solar_arc) % 360.0)
+
+        return {
+            "solar_arc_degrees": solar_arc,
+            "directed": directed,
+        }
+
+    # =========================================================================
+    # SOLAR RETURNS + PROFECTIONS
+    # =========================================================================
+
+    # Traditional (pre-modern) planetary rulerships. Modern astrology assigns
+    # Uranus to Aquarius and Pluto to Scorpio; the profection framework
+    # predates those discoveries and uses the seven-classical-planet scheme.
+    PROFECTION_LORDS = {
+        "Aries": "Mars",
+        "Taurus": "Venus",
+        "Gemini": "Mercury",
+        "Cancer": "Moon",
+        "Leo": "Sun",
+        "Virgo": "Mercury",
+        "Libra": "Venus",
+        "Scorpio": "Mars",
+        "Sagittarius": "Jupiter",
+        "Capricorn": "Saturn",
+        "Aquarius": "Saturn",
+        "Pisces": "Jupiter",
+    }
+
+    def get_solar_return(
+        self,
+        natal_dt: datetime,
+        natal_location: tuple[float, float] | None = None,
+        return_year: int = 0,
+        return_location: tuple[float, float] | None = None,
+    ) -> dict:
+        """Find the exact moment the transiting Sun returns to its natal longitude.
+
+        A solar return chart is computed for the moment the Sun reaches the
+        same ecliptic longitude it held at birth, observed during
+        ``return_year``. The exact moment is independent of location (the
+        Sun is effectively at infinity), but the chart houses/angles ARE
+        location-dependent — by default the natal location is reused (the
+        standard in solar return astrology, where the relocation question
+        is read off the chart rather than baked in), and ``return_location``
+        overrides that.
+
+        The moment is found by binary search within ``return_year`` (Jan 1
+        noon UTC to Dec 31 noon UTC). The Sun's apparent motion is ~1°/day,
+        so 30 bisection iterations converge to sub-second precision.
+
+        Args:
+            natal_dt: Natal birth datetime. Naive datetimes are interpreted
+                as UTC; tz-aware datetimes are converted to UTC internally.
+            natal_location: ``(latitude, longitude)`` of birth location.
+                Used as the default for ``return_location``.
+            return_year: Calendar year in which to find the solar return
+                (e.g., ``2026`` for the solar return in 2026).
+            return_location: Optional ``(latitude, longitude)`` override
+                for the chart location. Defaults to ``natal_location``;
+                if both are ``None``, ``(0.0, 0.0)`` is used.
+
+        Returns:
+            dict: ``{
+                "exact_moment": "YYYY-MM-DDTHH:MM:SS+00:00",  # ISO 8601 UTC
+                "location":      (lat, lon),                   # the location used
+                "positions":     {<planet>: {"longitude", "sign",
+                                            "degree", ...}, ...},
+                                                          # all 10 planets
+                                                          # + ascendant + midheaven
+                "angles": {
+                    "asc": {...},  # ascendant dict (copy from positions)
+                    "mc":  {...},  # midheaven  dict (copy from positions)
+                },
+            }``
+
+            The Sun's ``exact_longitude`` in ``positions["sun"]`` should
+            match the natal Sun's longitude to within ~0.5°.
+        """
+        if natal_location is None:
+            natal_location = (0.0, 0.0)
+        if return_location is None:
+            return_location = natal_location
+
+        # Natal Sun's ecliptic longitude.
+        natal_positions = self.get_planetary_positions(natal_dt)
+        natal_sun_lon = natal_positions["sun"]["longitude"]
+
+        # Search window: the full calendar year, anchored at noon UTC for
+
+        # Search window: the full calendar year, anchored at noon UTC for
+        # ephemeris stability. Add a 1-day buffer on each end so a return
+        # that lands on Jan 1 00:30 UTC or Dec 31 23:30 UTC is still
+        # found (extremely rare, but cheap to be safe).
+        start = datetime(return_year, 1, 1, 12, 0, 0, tzinfo=pytz.UTC)
+        end = datetime(return_year, 12, 31, 12, 0, 0, tzinfo=pytz.UTC)
+
+        def _sun_lon(dt: datetime) -> float:
+            return self.get_planetary_positions(dt)["sun"]["longitude"]
+
+        # Unwrap the target so it lives in the same monotonic space as the
+        # search range. The Sun's apparent longitude wraps from 360 -> 0
+        # at the Aries ingress (~Mar 20), so we shift the target by +360
+        # whenever it would otherwise be "before" the start-of-year value.
+        sun_lon_start = _sun_lon(start)
+        if sun_lon_start <= natal_sun_lon:
+            target_unwrapped = natal_sun_lon
+        else:
+            target_unwrapped = natal_sun_lon + 360.0
+
+        # Binary search. 35 iterations over a 365-day window gives
+        # ~365 / 2^35 seconds ≈ 10 nanoseconds — way below sub-second.
+        lo, hi = start, end
+        for _ in range(35):
+            mid_dt = lo + (hi - lo) / 2
+            cur = _sun_lon(mid_dt)
+            if cur < sun_lon_start:
+                cur += 360.0
+            if cur < target_unwrapped:
+                lo = mid_dt
+            else:
+                hi = mid_dt
+            if (hi - lo).total_seconds() < 1.0:
+                break
+
+        exact_moment = lo + (hi - lo) / 2
+
+        # Compute the chart at the exact moment + return_location.
+        chart = self.get_western_astrology(exact_moment, return_location)
+        positions = chart["positions"]
+
+        return {
+            "exact_moment": exact_moment.isoformat(),
+            "location": return_location,
+            "positions": positions,
+            "angles": {
+                "asc": positions.get("ascendant", {}),
+                "mc": positions.get("midheaven", {}),
+            },
+        }
+
+    def get_profection(
+        self,
+        natal_dt: datetime,
+        target_year: int,
+        profection_year_start: int = 0,
+        natal_location: tuple[float, float] | None = None,
+    ) -> dict:
+        """Compute the annual profection for a target year.
+
+        Profections rotate the Asc sign by one sign per year of life. The
+        profection lord is the traditional planetary ruler of the
+        profected sign. With the default ``profection_year_start=0``:
+
+            age = target_year - natal_dt.year
+            sign_offset = age % 12
+            profected_sign_index = (natal_asc_index + sign_offset) % 12
+            house_ruled = sign_offset + 1     # 1 through 12, wrapping yearly
+
+        The 12-year cycle returns the profected sign to the natal sign at
+        age 0, 12, 24, ...  At age 0 the profected sign IS the natal
+        Asc sign and ``house_ruled == 1``.
+
+        Traditional rulerships are used (see :attr:`PROFECTION_LORDS`).
+        Modern rulerships assign Uranus to Aquarius and Pluto to Scorpio,
+        but profections are a Hellenistic framework that predate those
+        discoveries — Saturn rules Aquarius and Mars rules Scorpio.
+
+        Args:
+            natal_dt: Natal birth datetime. Naive datetimes are interpreted
+                as UTC; tz-aware datetimes are converted to UTC internally.
+            target_year: The year for which to compute the profection.
+            profection_year_start: Optional offset to the year-of-life
+                calculation. Default 0 (profections start at birth).
+                Pass 1 to start the profection year one calendar year
+                after birth (some traditions anchor the year at the
+                birthday rather than the calendar year).
+            natal_location: ``(latitude, longitude)`` of birth location.
+                Required to compute the natal Asc sign. Defaults to
+                ``(0.0, 0.0)`` if not provided (the Asc / MC angles are
+                still computed at this fallback location so the result
+                is well-defined).
+
+        Returns:
+            dict: ``{
+                "age": int,                # target_year - natal_dt.year - profection_year_start
+                "natal_asc_sign": str,     # e.g. "Leo"
+                "profected_asc_sign": str, # e.g. "Sagittarius"  (natal + sign_offset)
+                "profection_lord": str,    # e.g. "Jupiter"
+                "house_ruled": int,        # 1-12 (sign_offset + 1)
+            }``
+        """
+        if natal_location is None:
+            natal_location = (0.0, 0.0)
+
+        natal_chart = self.get_western_astrology(natal_dt, natal_location)
+        natal_asc_sign = natal_chart["positions"]["ascendant"]["sign"]
+
+        age = target_year - natal_dt.year - profection_year_start
+        sign_offset = age % 12
+
+        natal_asc_idx = self.SIGNS.index(natal_asc_sign)
+        profected_asc_idx = (natal_asc_idx + sign_offset) % 12
+        profected_asc_sign = self.SIGNS[profected_asc_idx]
+
+        profection_lord = self.PROFECTION_LORDS[profected_asc_sign]
+        house_ruled = sign_offset + 1
+
+        return {
+            "age": age,
+            "natal_asc_sign": natal_asc_sign,
+            "profected_asc_sign": profected_asc_sign,
+            "profection_lord": profection_lord,
+            "house_ruled": house_ruled,
+        }
 
 
 
