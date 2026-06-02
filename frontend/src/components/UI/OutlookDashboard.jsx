@@ -416,7 +416,10 @@ export default function OutlookDashboard() {
   // ─── Model Options ───────────────────────────────────────
 
   const modelOptions = useMemo(() => {
-    const opts = [{ value: '', label: 'Auto-detect (default)' }];
+    const opts = [
+      { value: '', label: 'Auto-detect (default)' },
+      { value: 'deepseek:deepseek-chat', label: '⚡ DeepSeek V4 (fast MoE)' },
+    ];
     (outlookModels.lm_studio || []).forEach(m => opts.push({ value: `lm_studio:${m}`, label: `LM Studio: ${m}` }));
     (outlookModels.local || []).forEach(m => opts.push({ value: `local:${m}`, label: `Local: ${m}` }));
     (outlookModels.api || []).forEach(m => {
@@ -425,14 +428,16 @@ export default function OutlookDashboard() {
       else if (m.toLowerCase().includes('anthropic')) val = `anthropic:claude-3-5-haiku-20241022`;
       opts.push({ value: val, label: m });
     });
-    return opts;
+    // Remove duplicates by value
+    const seen = new Set();
+    return opts.filter(o => { const k = o.value; if (seen.has(k)) return false; seen.add(k); return true; });
   }, [outlookModels]);
 
   // ─── Render ──────────────────────────────────────────────
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
-      <Space direction="vertical" size="large" className="w-full">
+      <Space orientation="vertical" size="large" className="w-full">
 
         {/* ── Header ── */}
         <Card size="small">
@@ -479,7 +484,7 @@ export default function OutlookDashboard() {
                 extra={loopActive && <Badge status="processing" color="cyan" text="Loop Active" />}
                 size="small"
               >
-                <Space direction="vertical" className="w-full" size="middle">
+                <Space orientation="vertical" className="w-full" size="middle">
 
                   {/* Active selections summary */}
                   {(selectedRealmId || selectedCharIds.length > 0 || selectedPopIds.length > 0) && (
@@ -557,7 +562,7 @@ export default function OutlookDashboard() {
                   {/* Oracle Sources */}
                   <div>
                     <Text strong style={{ fontSize: 12 }}>Oracle Sources</Text>
-                    <Space direction="vertical" size={4} style={{ marginTop: 4 }}>
+                    <Space orientation="vertical" size={4} style={{ marginTop: 4 }}>
                       <Space><Switch size="small" checked={includeAstrology} onChange={setIncludeAstrology} /><Text style={{ fontSize: 11 }}>🌟 Astrology</Text></Space>
                       <Space><Switch size="small" checked={includeTarot} onChange={setIncludeTarot} /><Text style={{ fontSize: 11 }}>🃏 Tarot</Text></Space>
                       <Space><Switch size="small" checked={includeIching} onChange={setIncludeIching} /><Text style={{ fontSize: 11 }}>☯️ I Ching</Text></Space>
@@ -601,7 +606,7 @@ export default function OutlookDashboard() {
                       extra: <Tooltip title="Random 2-3"><Switch size="small" checked={randomizeCharacters} onChange={setRandomizeCharacters} /></Tooltip>,
                       children: (
                         <div className="max-h-40 overflow-y-auto">
-                          <Space direction="vertical" size={2} className="w-full">
+                          <Space orientation="vertical" size={2} className="w-full">
                             {characters.map(c => (
                               <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
                                 <Switch size="small" checked={selectedCharIds.includes(c.id)}
@@ -623,7 +628,7 @@ export default function OutlookDashboard() {
                       key: 'pops', label: <Text strong style={{ fontSize: 12 }}><Users className="w-3 h-3 inline mr-1" />Populations ({selectedPopIds.length})</Text>,
                       children: (
                         <div className="max-h-32 overflow-y-auto">
-                          <Space direction="vertical" size={2} className="w-full">
+                          <Space orientation="vertical" size={2} className="w-full">
                             {populations.map(p => (
                               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
                                 <Switch size="small" checked={selectedPopIds.includes(p.id)}
@@ -698,7 +703,7 @@ export default function OutlookDashboard() {
                 size="small"
                 style={{ marginTop: 16 }}
               >
-                <Space direction="vertical" className="w-full" size="middle">
+                <Space orientation="vertical" className="w-full" size="middle">
                   <div>
                     <Text style={{ fontSize: 12 }}>Interval: {loopInterval} min</Text>
                     <Slider min={1} max={60} value={loopInterval} onChange={setLoopInterval} disabled={loopActive} />
@@ -768,7 +773,7 @@ export default function OutlookDashboard() {
                       </Card>
                     </Col>
                     <Col xs={24} lg={8}>
-                      <Space direction="vertical" className="w-full" size="middle">
+                      <Space orientation="vertical" className="w-full" size="middle">
                         {/* Divination */}
                         {currentNarrative.divination_raw && (
                           <Card size="small" title={<Text strong className="font-mono text-xs uppercase">🔮 Esoteric Reading</Text>}>

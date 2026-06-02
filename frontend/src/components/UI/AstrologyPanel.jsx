@@ -2,7 +2,7 @@
  * Astrology Panel — Western, Vedic, and Chinese astrology display.
  * Handles saved natal charts, transit analysis, synastry comparison, and backup exports.
  */
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { 
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload
 } from 'lucide-react';
@@ -93,6 +93,7 @@ function MiniOrrery({ positions }) {
 export default function AstrologyPanel() {
   const { isPlaying, frequency } = useAudioStore();
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
   const [liveData, setLiveData] = useState(null);
   const [customData, setCustomData] = useState(null);
   const [isLiveMode, setIsLiveMode] = useState(true);
@@ -108,6 +109,9 @@ export default function AstrologyPanel() {
   
   // Navigation tabs: 'wheel' (Consolidated Charts), 'transits' (Transit aspect comparison), 'synastry' (Synastry matching)
   const [activeTab, setActiveTab] = useState('wheel');
+
+  // Geolocation guard — stop retrying after user blocks permission
+  const geoBlocked = useRef(false);
 
   // Load saved charts from database
   const fetchSavedCharts = async () => {
@@ -147,12 +151,14 @@ export default function AstrologyPanel() {
       }
     };
 
-    if (navigator.geolocation) {
+    if (navigator.geolocation && !geoBlocked.current) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           doFetch(position.coords.latitude, position.coords.longitude);
         },
-        () => {
+        (err) => {
+          // PERMISSION_DENIED = user blocked — stop retrying to avoid console spam
+          if (err.code === 1) geoBlocked.current = true;
           doFetch(null, null);
         },
         { timeout: 5000 }
@@ -172,88 +178,129 @@ export default function AstrologyPanel() {
     return () => clearInterval(interval);
   }, [isLiveMode]);
 
-  // Handle calculator submission (either save or display custom temporary chart)
+  // Helper: extract error detail from a failed fetch response
+  const _readError = async (response) => {
+    try {
+      const body = await response.json();
+      return body.detail || body.message || `HTTP ${response.status}`;
+    } catch {
+      return `HTTP ${response.status}: ${response.statusText}`;
+    }
+  };
+
+  // Helper: compute and display a chart from raw birth data (city + time)
+  const _computeTemporaryChart = async (birthTimeIso, cityName) => {
+    // Resolve coordinates via geocode
+    const geoResponse = await fetch(`${API_BASE}/astrology/geocode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ city_name: cityName })
+    });
+    if (!geoResponse.ok) {
+      const err = await _readError(geoResponse);
+      throw new Error(`Could not geocode "${cityName}": ${err}`);
+    }
+    const geo = await geoResponse.json();
+
+    // Hit /current with resolved coordinates
+    const params = new URLSearchParams({
+      datetime_str: birthTimeIso,
+      latitude: geo.latitude.toString(),
+      longitude: geo.longitude.toString()
+    }).toString();
+    const response = await fetch(`${API_BASE}/astrology/current?${params}`);
+    if (!response.ok) {
+      const err = await _readError(response);
+      throw new Error(`Chart calculation failed: ${err}`);
+    }
+    const result = await response.json();
+    return result.astrology;
+  };
+
+  // Handle calculator submission
   const handleCalculateSubmit = async (values) => {
     setLoading(true);
+    setLoadingStatus('Geocoding city…');
+    audioFeedback.playTelemetry();
     try {
-      if (values.saveToDb) {
-        // If editing, perform PUT update
+      const shouldSave = values.saveToDb || !!editingChart;
+      const birthTimeIso = values.birth_time_iso;
+      const cityName = values.city;
+
+      if (shouldSave) {
+        // Strip internal fields before sending to server
+        const payload = {
+          name: values.name,
+          birth_time_iso: birthTimeIso,
+          city: cityName,
+          description: values.description || '',
+          tags: values.tags || '',
+          notes: values.notes || '',
+        };
+
+        let savedChart = null;
         if (editingChart) {
+          setLoadingStatus('Updating saved profile…');
           const response = await fetch(`${API_BASE}/astrology/charts/${editingChart.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(values)
+            body: JSON.stringify(payload)
           });
           if (response.ok) {
-            const updated = await response.json();
+            savedChart = await response.json();
             message.success("Natal profile updated successfully");
             setEditingChart(null);
-            fetchSavedCharts();
-            // Automatically set as active chart
-            loadNatalChart(updated);
           } else {
-            message.error("Failed to update natal profile");
-            audioFeedback.playError();
+            const err = await _readError(response);
+            message.error(`Update failed: ${err}`);
+            // Fall through to compute temporary chart anyway
           }
         } else {
-          // Perform POST insert
+          setLoadingStatus('Saving to database…');
           const response = await fetch(`${API_BASE}/astrology/charts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(values)
+            body: JSON.stringify(payload)
           });
           if (response.ok) {
-            const created = await response.json();
+            savedChart = await response.json();
             message.success("Natal profile saved successfully");
-            fetchSavedCharts();
-            loadNatalChart(created);
           } else {
-            message.error("Failed to save natal profile");
-            audioFeedback.playError();
+            const err = await _readError(response);
+            message.warning(`Could not save: ${err}. Showing temporary chart instead.`);
+            // Fall through to compute temporary chart
           }
+        }
+
+        // Reload saved charts list and display the chart
+        if (savedChart) {
+          fetchSavedCharts();
+          loadNatalChart(savedChart);
+        } else {
+          // Save failed — fall back to temporary display
+          setLoadingStatus('Computing chart positions…');
+          const astroData = await _computeTemporaryChart(birthTimeIso, cityName);
+          setCustomData(astroData);
+          setIsLiveMode(false);
+          setActiveChart(null);
         }
       } else {
-        // Just perform a temporary, non-saved current calculation
-        const query = new URLSearchParams({
-          datetime_str: values.birth_time_iso,
-          city_name: values.city
-        });
-        
-        // Resolve coordinates first
-        const geoResponse = await fetch(`${API_BASE}/astrology/geocode`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ city_name: values.city })
-        });
-        
-        if (geoResponse.ok) {
-          const geo = await geoResponse.json();
-          const params = new URLSearchParams({
-            datetime_str: values.birth_time_iso,
-            latitude: geo.latitude.toString(),
-            longitude: geo.longitude.toString()
-          }).toString();
-          
-          const response = await fetch(`${API_BASE}/astrology/current?${params}`);
-          if (response.ok) {
-            const result = await response.json();
-            setCustomData(result.astrology);
-            setIsLiveMode(false);
-            setActiveChart(null); // Clear active database chart since this is temporary
-            message.info("Temporary chart computed successfully");
-            audioFeedback.playSuccess();
-          }
-        } else {
-          message.error("Could not geocode city coordinates");
-          audioFeedback.playError();
-        }
+        // Temporary calculation only (no save)
+        setLoadingStatus('Computing chart positions…');
+        const astroData = await _computeTemporaryChart(birthTimeIso, cityName);
+        setCustomData(astroData);
+        setIsLiveMode(false);
+        setActiveChart(null);
+        message.info("Temporary chart computed successfully");
+        audioFeedback.playSuccess();
       }
     } catch (err) {
       console.error(err);
-      message.error("Error processing request");
+      message.error(err.message || "Error processing request");
       audioFeedback.playError();
     } finally {
       setLoading(false);
+      setLoadingStatus('');
     }
   };
 
@@ -456,13 +503,14 @@ export default function AstrologyPanel() {
           </div>
 
           {activeTab === 'wheel' && (
-            <Space direction="vertical" size={24} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={24} style={{ width: '100%' }}>
               {/* Form Input + Overview Card */}
               <Row gutter={[16, 16]}>
                 <Col xs={24} lg={10}>
                   <NatalCalculator
                     onSubmit={handleCalculateSubmit}
                     loading={loading}
+                    loadingStatus={loadingStatus}
                     editingChart={editingChart}
                     onCancelEdit={() => setEditingChart(null)}
                   />

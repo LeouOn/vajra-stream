@@ -144,7 +144,7 @@ export default function SynastryViewer({
               value={subjectA?.id}
               onChange={handleSelectA}
               options={selectOptions}
-              dropdownClassName="bg-gray-950 border-gray-800 text-white"
+              classNames={{ popup: { root: 'bg-gray-950 border-gray-800 text-white' } }}
             />
           </Col>
           <Col xs={24} sm={4} className="text-center pt-4">
@@ -160,7 +160,7 @@ export default function SynastryViewer({
               value={subjectB?.id}
               onChange={handleSelectB}
               options={selectOptions}
-              dropdownClassName="bg-gray-950 border-gray-800 text-white"
+              classNames={{ popup: { root: 'bg-gray-950 border-gray-800 text-white' } }}
             />
           </Col>
         </Row>

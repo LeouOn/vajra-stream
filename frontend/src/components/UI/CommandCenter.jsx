@@ -743,7 +743,7 @@ export default function CommandCenter({
               onChange={(val) => { setSelectedModel(val); audioFeedback.playClick(); }}
               style={{ minWidth: 160, fontSize: '11px' }}
               className="font-mono"
-              dropdownStyle={{ minWidth: 220 }}
+              styles={{ popup: { minWidth: 220 } }}
               placeholder="Select model..."
             >
               {availableModels.lm_studio && availableModels.lm_studio.length > 0 && (

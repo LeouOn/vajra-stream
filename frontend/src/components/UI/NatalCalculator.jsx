@@ -6,6 +6,7 @@ import { audioFeedback } from '../../utils/audioFeedback';
 export default function NatalCalculator({ 
   onSubmit, 
   loading, 
+  loadingStatus,
   editingChart, 
   onCancelEdit 
 }) {
@@ -86,7 +87,7 @@ export default function NatalCalculator({
       styles={{ body: { padding: '16px' } }}
     >
       <form onSubmit={handleSubmit}>
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <div>
             <label className="text-gray-400 text-xs font-semibold block mb-1">
               Subject Name
@@ -214,7 +215,7 @@ export default function NatalCalculator({
               marginTop: '4px'
             }}
           >
-            {editingChart ? 'Update Saved Profile' : 'Calculate & Display Chart'}
+            {loading && loadingStatus ? loadingStatus : (editingChart ? 'Update Saved Profile' : 'Calculate & Display Chart')}
           </Button>
         </Space>
       </form>

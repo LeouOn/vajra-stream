@@ -557,15 +557,18 @@ Length: 5-8 paragraphs of dense, visionary prose.
         # Debug: log the full prompt for verification
         log_filename = self._debug_log_prompt(prompt, genre, lat, lon)
 
-        print(f"[DEBUG generate_single_outlook] model={model!r}, self.llm={type(self.llm).__name__ if self.llm else 'None'}")
+        # Default to DeepSeek (fast MoE) if no model specified and auto-detect might fail
+        effective_model = model or "deepseek:deepseek-chat"
+
+        print(f"[DEBUG generate_single_outlook] model={model!r}, effective_model={effective_model!r}, self.llm={type(self.llm).__name__ if self.llm else 'None'}")
         if self.llm:
             try:
                 result = self.llm.generate(
                     prompt=prompt,
                     system_prompt="You are a transcendent oracle and dharma scribe, speaking across eons. Your words heal, transform, and reveal the hidden architecture of reality.",
-                    max_tokens=2500,
-                    temperature=0.8,
-                    model=model,
+                    max_tokens=1200,
+                    temperature=0.7,
+                    model=effective_model,
                 )
                 if result and "No LLM initialized" in result:
                     result = f"LLM unavailable. Fallback Generation:\n\n{entity_context}\n{astro_context}\n{divination_context}\n\nMay this transmission bring peace."
@@ -690,7 +693,7 @@ Length: 5-8 paragraphs of dense, visionary prose.
                             "Do not write anything else, just your spoken dialogue."
                         )
                         try:
-                            intention = self.llm.generate(council_prompt, max_tokens=150, temperature=0.8, model=model)
+                            intention = self.llm.generate(council_prompt, max_tokens=150, temperature=0.8, model=epic_model)
                             if intention and "No LLM" not in intention:
                                 council_intentions.append(f"{char.name} declares: \"{intention.strip()}\"")
                         except Exception:
@@ -729,6 +732,8 @@ Length: 5-8 paragraphs of dense, visionary prose.
         if not self.llm:
             return {"status": "error", "message": "LLM required for epic generation"}
         
+        # Default to DeepSeek (fast MoE) if no model specified
+        epic_model = model or "deepseek:deepseek-chat"
         is_fallback = False
 
         # Stage 1: Invocation
@@ -752,7 +757,7 @@ Radionics/Sigils: {radionics_context}"""
 
         log_filename_1 = self._debug_log_prompt(prompt_1, f"{genre}_epic_ch1", lat, lon)
         try:
-            chap_1 = self.llm.generate(prompt_1, max_tokens=4000, model=model)
+            chap_1 = self.llm.generate(prompt_1, max_tokens=2000, temperature=0.7, model=epic_model)
             if chap_1 and "No LLM initialized" in chap_1:
                 is_fallback = True
                 chap_1 = f"LLM unavailable. Fallback Epic Stage 1:\n\n{entity_context}\n{astro_context}\n{divination_context}"
@@ -783,7 +788,7 @@ Seal the dharani, resolve the oracle's prophecy ({divination_context}), and show
             self._debug_log_response(log_filename_final, chap_final)
         else:
             try:
-                chap_final = self.llm.generate(prompt_final, max_tokens=4000, model=model)
+                chap_final = self.llm.generate(prompt_final, max_tokens=2000, temperature=0.7, model=epic_model)
                 if chap_final and "No LLM initialized" in chap_final:
                     chap_final = f"LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
                 self._debug_log_response(log_filename_final, chap_final)
@@ -795,7 +800,7 @@ Seal the dharani, resolve the oracle's prophecy ({divination_context}), and show
 
         # Part 1: The Critic Evaluation
         if not is_fallback:
-            eval_result = self.evaluate_ritual(prompt_1, chap_1, model)
+            eval_result = self.evaluate_ritual(prompt_1, chap_1, epic_model)
             # If the score is too low, we could auto-correct, but for now we'll just log it
             print(f"[CRITIC] Stage 1 Score: {eval_result['score']} - {eval_result['feedback']}")
 
