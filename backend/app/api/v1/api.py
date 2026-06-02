@@ -34,6 +34,7 @@ api_router.include_router(sessions_endpoint.router, prefix="/sessions", tags=["s
 api_router.include_router(astrology_endpoint.router, prefix="/astrology", tags=["astrology"])
 api_router.include_router(locations_endpoint.router, prefix="/astrology/locations", tags=["astrology-locations"])
 api_router.include_router(extraction_endpoint.router, prefix="/astrology/extract", tags=["astrology-extraction"])
+api_router.include_router(extraction_endpoint.runs_router, prefix="/astrology", tags=["astrology-extraction-runs"])
 
 # Terra MOPS and Healing System routers
 api_router.include_router(scalar_endpoint.router, prefix="/scalar", tags=["scalar-waves"])

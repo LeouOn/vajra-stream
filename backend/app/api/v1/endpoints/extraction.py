@@ -15,6 +15,8 @@ in this same module.
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import json
 import logging
 import sqlite3
@@ -23,19 +25,30 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from core.astrology import AstrologicalCalculator
 from core.extraction import (
+    ExtractionConfig,
+    ExtractionResult,
+    ExtractionRun,
     RunStatus,
     derive_algo_version,
     format_chart_for_llm,
+    format_extraction_run_json,
+    format_extraction_run_markdown,
 )
 from core.schema import get_db_path
 
 logger = logging.getLogger(__name__)
 
+# Router for the POST /astrology/extract batch endpoint (Task 15).
 router = APIRouter()
+
+# Router for the run management endpoints (Task 16). Mounted in api.py at
+# the /astrology prefix, so routes here resolve to /astrology/runs, etc.
+runs_router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
@@ -476,4 +489,452 @@ async def start_extraction(request: ExtractionRequest) -> dict[str, Any]:
         "status": RunStatus.QUEUED.value,
         "total_tuples": total,
         "algo_version": algo_version,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Run management helpers (Task 16)
+# ---------------------------------------------------------------------------
+
+
+def _safe_run_status(value: Any) -> RunStatus:
+    """Coerce a stored status string into :class:`RunStatus`, defaulting to
+    :attr:`RunStatus.ERROR` when the value is missing or unknown. This keeps
+    the formatter happy even if the DB carries a stale or corrupt value.
+    """
+    if value is None:
+        return RunStatus.ERROR
+    try:
+        return RunStatus(str(value))
+    except ValueError:
+        return RunStatus.ERROR
+
+
+def _load_run_from_db(db_path: str, run_id: int) -> ExtractionRun | None:
+    """Reconstruct an :class:`ExtractionRun` from the DB rows.
+
+    Returns ``None`` if the run id is unknown. The reconstructed
+    :class:`ExtractionConfig` carries an empty ``tuples`` list (the original
+    tuples are not stored in ``config_json``; they live in
+    ``extraction_results`` and are reconstructed on demand by the recompute
+    endpoint).
+    """
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        run_row = conn.execute(
+            "SELECT * FROM extraction_runs WHERE id = ?",
+            (int(run_id),),
+        ).fetchone()
+        if run_row is None:
+            return None
+        result_rows = conn.execute(
+            "SELECT * FROM extraction_results WHERE run_id = ? "
+            "ORDER BY tuple_idx ASC, id ASC",
+            (int(run_id),),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    raw_config = run_row["config_json"] or "{}"
+    try:
+        cfg_dict = json.loads(raw_config)
+    except Exception:
+        cfg_dict = {}
+
+    config_obj = ExtractionConfig(
+        tuples=[],
+        systems=list(cfg_dict.get("systems") or []),
+        house_system=str(cfg_dict.get("house_system") or "Placidus"),
+        sidereal=bool(cfg_dict.get("sidereal") or False),
+        project_id=cfg_dict.get("project_id"),
+        algo_version=str(cfg_dict.get("algo_version") or ""),
+        created_at=str(run_row["created_at"] or ""),
+    )
+
+    results: list[ExtractionResult] = []
+    for r in result_rows:
+        raw_chart = r["chart_json"] or "{}"
+        try:
+            chart = json.loads(raw_chart)
+        except Exception:
+            chart = {}
+        results.append(
+            ExtractionResult(
+                tuple_idx=int(r["tuple_idx"] or 0),
+                date_iso=str(r["date_iso"] or ""),
+                lat=float(r["lat"]) if r["lat"] is not None else 0.0,
+                lon=float(r["lon"]) if r["lon"] is not None else 0.0,
+                chart=chart,
+                status=_safe_run_status(r["status"]),
+                error_message=str(r["error_message"] or ""),
+                latency_ms=int(r["latency_ms"] or 0),
+            )
+        )
+
+    return ExtractionRun(
+        id=int(run_row["id"]),
+        config=config_obj,
+        results=results,
+        status=_safe_run_status(run_row["status"]),
+        created_at=str(run_row["created_at"] or ""),
+        algo_version=str(run_row["algo_version"] or ""),
+    )
+
+
+def _result_status_str(status: Any) -> str:
+    """Return the plain string value of a per-tuple status, whatever its shape."""
+    if hasattr(status, "value"):
+        return str(status.value)
+    return str(status)
+
+
+# ---------------------------------------------------------------------------
+# Run management endpoints (Task 16)
+# ---------------------------------------------------------------------------
+
+
+@runs_router.get("/runs", summary="List extraction runs (paginated)")
+async def list_runs(
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """Return runs sorted by ``created_at`` DESC, optionally filtered by status.
+
+    Query parameters:
+        limit:  Max rows to return (default 20, capped at 200).
+        offset: Number of rows to skip (default 0).
+        status: Optional status filter; one of
+            ``queued``, ``running``, ``done``, ``error``, ``partial``.
+    """
+    safe_limit = max(1, min(200, int(limit)))
+    safe_offset = max(0, int(offset))
+
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        if status:
+            try:
+                status_value = RunStatus(status).value
+            except ValueError:
+                conn.close()
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Unknown status filter: {status!r}. "
+                        "Expected one of: queued, running, done, error, partial."
+                    ),
+                )
+            rows = conn.execute(
+                "SELECT * FROM extraction_runs WHERE status = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                (status_value, safe_limit, safe_offset),
+            ).fetchall()
+            total_row = conn.execute(
+                "SELECT COUNT(*) FROM extraction_runs WHERE status = ?",
+                (status_value,),
+            ).fetchone()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM extraction_runs "
+                "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                (safe_limit, safe_offset),
+            ).fetchall()
+            total_row = conn.execute("SELECT COUNT(*) FROM extraction_runs").fetchone()
+    finally:
+        conn.close()
+
+    total = int(total_row[0]) if total_row else 0
+    return {
+        "limit": safe_limit,
+        "offset": safe_offset,
+        "total": total,
+        "runs": [dict(r) for r in rows],
+    }
+
+
+@runs_router.get("/runs/{run_id}", summary="Get a single extraction run status")
+async def get_run(run_id: int) -> dict[str, Any]:
+    """Return the run row, or 404 if the id is unknown."""
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT * FROM extraction_runs WHERE id = ?",
+            (int(run_id),),
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return dict(row)
+
+
+@runs_router.get(
+    "/runs/{run_id}/results",
+    summary="Get the results for a run in the requested format",
+)
+async def get_run_results(run_id: int, format: str = "markdown") -> Response:
+    """Return the run's results in ``markdown`` (default), ``json``, or ``raw``.
+
+    - ``markdown`` — uses :func:`format_extraction_run_markdown` and returns
+      the body as ``text/markdown``.
+    - ``json`` — uses :func:`format_extraction_run_json` and returns the
+      single JSON envelope as ``application/json``.
+    - ``raw`` — returns just the chart dicts, one per tuple, as a JSON
+      array of objects (no formatter wrapping).
+    """
+    db_path = get_db_path()
+    run = _load_run_from_db(db_path, int(run_id))
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    fmt = (format or "markdown").strip().lower()
+    if fmt == "markdown":
+        body = format_extraction_run_markdown(run)
+        return Response(content=body, media_type="text/markdown; charset=utf-8")
+    if fmt == "json":
+        body = format_extraction_run_json(run)
+        return Response(content=body, media_type="application/json; charset=utf-8")
+    if fmt == "raw":
+        charts = [r.chart for r in run.results]
+        body = json.dumps(charts, default=str, ensure_ascii=False)
+        return Response(content=body, media_type="application/json; charset=utf-8")
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"Unknown format: {format!r}. "
+            "Expected one of: markdown, json, raw."
+        ),
+    )
+
+
+@runs_router.get(
+    "/runs/{run_id}/results/export",
+    summary="Export a run as a downloadable file (jsonl, csv, or md)",
+)
+async def export_run_results(run_id: int, fmt: str = "jsonl") -> Response:
+    """Return a downloadable representation of the run.
+
+    - ``jsonl`` — one JSON object per line, each a tuple envelope. Media
+      type ``application/x-ndjson``; the file is a real JSONL/ndjson stream
+      consumable by ``json.loads(line)``.
+    - ``csv`` — one row per tuple with columns
+      ``idx, date_iso, lat, lon, status, error``.
+    - ``md`` — the same markdown the ``?format=markdown`` results endpoint
+      returns, but with a ``Content-Disposition: attachment`` header so
+      browsers save it instead of rendering it.
+    """
+    db_path = get_db_path()
+    run = _load_run_from_db(db_path, int(run_id))
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    fmt_lower = (fmt or "jsonl").strip().lower()
+    if fmt_lower == "jsonl":
+        lines: list[str] = []
+        for r in run.results:
+            envelope: dict[str, Any] = {
+                "idx": r.tuple_idx,
+                "date": r.date_iso,
+                "lat": r.lat,
+                "lon": r.lon,
+                "chart": r.chart,
+                "status": _result_status_str(r.status),
+            }
+            if r.error_message:
+                envelope["error"] = r.error_message
+            lines.append(json.dumps(envelope, default=str, ensure_ascii=False))
+        body = "\n".join(lines) + ("\n" if lines else "")
+        return Response(
+            content=body,
+            media_type="application/x-ndjson; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="run-{run_id}.jsonl"',
+            },
+        )
+    if fmt_lower == "csv":
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["idx", "date_iso", "lat", "lon", "status", "error"])
+        for r in run.results:
+            writer.writerow(
+                [
+                    r.tuple_idx,
+                    r.date_iso,
+                    r.lat,
+                    r.lon,
+                    _result_status_str(r.status),
+                    r.error_message or "",
+                ]
+            )
+        body = buf.getvalue()
+        return Response(
+            content=body,
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="run-{run_id}.csv"',
+            },
+        )
+    if fmt_lower == "md":
+        body = format_extraction_run_markdown(run)
+        return Response(
+            content=body,
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="run-{run_id}.md"',
+            },
+        )
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            f"Unknown export format: {fmt!r}. "
+            "Expected one of: jsonl, csv, md."
+        ),
+    )
+
+
+@runs_router.delete(
+    "/runs/{run_id}",
+    summary="Delete a run and all of its per-tuple results",
+)
+async def delete_run(run_id: int) -> dict[str, Any]:
+    """Remove the run row plus every associated ``extraction_results`` row.
+
+    Returns a small confirmation envelope. Returns 404 if the run id is
+    unknown so callers can distinguish a no-op delete from a real one.
+    """
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    try:
+        row = conn.execute(
+            "SELECT id FROM extraction_runs WHERE id = ?",
+            (int(run_id),),
+        ).fetchone()
+        if row is None:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Run not found")
+        conn.execute(
+            "DELETE FROM extraction_results WHERE run_id = ?",
+            (int(run_id),),
+        )
+        conn.execute(
+            "DELETE FROM extraction_runs WHERE id = ?",
+            (int(run_id),),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"deleted": True, "run_id": int(run_id)}
+
+
+@runs_router.post(
+    "/runs/{run_id}/recompute",
+    summary="Recompute a run with the same config but the current algo_version",
+)
+async def recompute_run(run_id: int) -> dict[str, Any]:
+    """Re-run the same tuple set with the current :func:`derive_algo_version`.
+
+    Steps:
+        1. Load the source run's ``config_json`` and the tuple list (read back
+           from the existing ``extraction_results`` rows in input order).
+        2. Dedup, insert a fresh ``extraction_runs`` row marked ``queued``,
+           carrying the same ``config_json`` and a freshly-derived
+           ``algo_version``.
+        3. Schedule the same background :func:`_process_run` task.
+        4. Return the new ``run_id`` and the new ``algo_version``.
+
+    The source run is left untouched. The new run references the source
+    via the returned ``source_run_id`` for traceability.
+    """
+    db_path = get_db_path()
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        run_row = conn.execute(
+            "SELECT * FROM extraction_runs WHERE id = ?",
+            (int(run_id),),
+        ).fetchone()
+        if run_row is None:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Run not found")
+        result_rows = conn.execute(
+            "SELECT tuple_idx, date_iso, lat, lon "
+            "FROM extraction_results WHERE run_id = ? "
+            "ORDER BY tuple_idx ASC, id ASC",
+            (int(run_id),),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    raw_config = run_row["config_json"] or "{}"
+    try:
+        config_dict = json.loads(raw_config)
+    except Exception:
+        config_dict = {}
+
+    tuples: list[ExtractionTuple] = []
+    for r in result_rows:
+        tuples.append(
+            ExtractionTuple(
+                date_iso=str(r["date_iso"] or ""),
+                lat=float(r["lat"]) if r["lat"] is not None else 0.0,
+                lon=float(r["lon"]) if r["lon"] is not None else 0.0,
+            )
+        )
+
+    if not tuples:
+        raise HTTPException(
+            status_code=400,
+            detail="Source run has no tuples to recompute",
+        )
+
+    deduped = _dedupe_tuples(tuples)
+    new_algo_version = derive_algo_version()
+    config_dict["algo_version"] = new_algo_version
+
+    created_at = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO extraction_runs (
+                created_at, config_json, status, total_tuples,
+                completed_tuples, error_message, algo_version
+            ) VALUES (?, ?, ?, ?, 0, NULL, ?)
+            """,
+            (
+                created_at,
+                json.dumps(config_dict),
+                RunStatus.QUEUED.value,
+                len(deduped),
+                new_algo_version,
+            ),
+        )
+        new_run_id = int(cur.lastrowid)
+        conn.commit()
+    finally:
+        conn.close()
+
+    systems = list(config_dict.get("systems") or ["western"])
+    sidereal = bool(config_dict.get("sidereal") or False)
+    asyncio.create_task(
+        _process_run(
+            new_run_id,
+            list(deduped),
+            systems,
+            sidereal,
+        )
+    )
+
+    return {
+        "run_id": new_run_id,
+        "source_run_id": int(run_id),
+        "status": RunStatus.QUEUED.value,
+        "total_tuples": len(deduped),
+        "algo_version": new_algo_version,
     }
