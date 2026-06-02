@@ -8,6 +8,7 @@ from backend.app.api.v1.endpoints import blessing_slideshow as slideshow_endpoin
 from backend.app.api.v1.endpoints import blessings as blessings_endpoint
 from backend.app.api.v1.endpoints import dharma_tales as dharma_tales_endpoint
 from backend.app.api.v1.endpoints import divination as divination_endpoint
+from backend.app.api.v1.endpoints import extraction as extraction_endpoint
 from backend.app.api.v1.endpoints import llm as llm_endpoint
 from backend.app.api.v1.endpoints import locations as locations_endpoint
 from backend.app.api.v1.endpoints import mops as mops_endpoint
@@ -32,6 +33,7 @@ api_router.include_router(audio_endpoint.router, prefix="/audio", tags=["audio"]
 api_router.include_router(sessions_endpoint.router, prefix="/sessions", tags=["sessions"])
 api_router.include_router(astrology_endpoint.router, prefix="/astrology", tags=["astrology"])
 api_router.include_router(locations_endpoint.router, prefix="/astrology/locations", tags=["astrology-locations"])
+api_router.include_router(extraction_endpoint.router, prefix="/astrology/extract", tags=["astrology-extraction"])
 
 # Terra MOPS and Healing System routers
 api_router.include_router(scalar_endpoint.router, prefix="/scalar", tags=["scalar-waves"])
