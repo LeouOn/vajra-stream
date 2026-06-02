@@ -1,0 +1,30 @@
+﻿tests/test_extraction.py::TestExtractionAPI::test_locations_crud PASSED  [ 85%]
+tests/test_extraction.py::TestExtractionAPI::test_per_calc_endpoints PASSED [100%]
+
+============================== warnings summary ===============================
+backend\app\api\v1\endpoints\automation.py:18
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\automation.py:18: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class StartAutomationRequest(BaseModel):
+
+backend\app\api\v1\endpoints\blessing_slideshow.py:26
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\blessing_slideshow.py:26: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class IntentionSetRequest(BaseModel):
+
+backend\app\api\v1\endpoints\blessing_slideshow.py:46
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\blessing_slideshow.py:46: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CreateSessionRequest(BaseModel):
+
+backend\app\api\v1\endpoints\populations.py:18
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\populations.py:18: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CreatePopulationRequest(BaseModel):
+
+backend\app\api\v1\endpoints\rng_attunement.py:15
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\rng_attunement.py:15: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CreateSessionRequest(BaseModel):
+
+backend\app\api\v1\endpoints\rng_attunement.py:33
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\rng_attunement.py:33: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ReadingResponse(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 7 passed, 6 warnings in 2.60s ========================
