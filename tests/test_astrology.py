@@ -190,6 +190,143 @@ class TestAstrologyAPI:
         assert "current_planetary_hour" in data
         assert "day_planet" in data
 
+    def test_api_saved_charts_workflow(self, client):
+        # 1. Create a saved chart
+        new_chart = {
+            "name": "Test Astrologer Profile",
+            "birth_time_iso": "1995-10-15T08:30:00",
+            "city": "London",
+            "description": "Integration test profile",
+            "tags": "Test,Developer",
+            "notes": "Verification test notes"
+        }
+        create_resp = client.post("/api/v1/astrology/charts", json=new_chart)
+        assert create_resp.status_code == 200
+        created = create_resp.json()
+        assert created["name"] == "Test Astrologer Profile"
+        assert "London" in created["city"]
+        assert abs(created["latitude"] - 51.5074) < 0.05
+        assert abs(created["longitude"] - (-0.1278)) < 0.05
+        assert created["timezone"] == "Europe/London"
+        chart_id = created["id"]
+
+        # 2. List saved charts
+        list_resp = client.get("/api/v1/astrology/charts")
+        assert list_resp.status_code == 200
+        charts = list_resp.json()
+        assert len(charts) > 0
+        assert any(c["id"] == chart_id for c in charts)
+
+        # 3. Get specific chart
+        get_resp = client.get(f"/api/v1/astrology/charts/{chart_id}")
+        assert get_resp.status_code == 200
+        fetched = get_resp.json()
+        assert fetched["name"] == "Test Astrologer Profile"
+
+        # 4. Update saved chart
+        update_data = {
+            "name": "Updated Test Profile",
+            "birth_time_iso": "1995-10-15T08:30:00",
+            "city": "Paris",
+            "description": "Updated profile",
+            "tags": "Test,Updated",
+            "notes": "Updated notes"
+        }
+        update_resp = client.put(f"/api/v1/astrology/charts/{chart_id}", json=update_data)
+        assert update_resp.status_code == 200
+        updated = update_resp.json()
+        assert updated["name"] == "Updated Test Profile"
+        assert "Paris" in updated["city"]
+        assert abs(updated["latitude"] - 48.8566) < 0.05
+        assert abs(updated["longitude"] - 2.3522) < 0.05
+        assert updated["timezone"] == "Europe/Paris"
+
+        # 5. Check Recalculate Chart
+        recalc_resp = client.post(f"/api/v1/astrology/charts/{chart_id}/recalculate")
+        assert recalc_resp.status_code == 200
+        assert recalc_resp.json()["status"] == "success"
+
+        # 6. Check Transits to Natal
+        transit_payload = {"transit_time_iso": "2026-06-02T12:00:00"}
+        transit_resp = client.post(f"/api/v1/astrology/charts/{chart_id}/transits", json=transit_payload)
+        assert transit_resp.status_code == 200
+        t_data = transit_resp.json()["data"]
+        assert t_data["name"] == "Updated Test Profile"
+        assert "aspects" in t_data
+        assert "gochara" in t_data
+        assert "bazi_clashes" in t_data
+
+        # 7. Check Vedic Dasha
+        dasha_resp = client.get(f"/api/v1/astrology/charts/{chart_id}/vedic-dasha")
+        assert dasha_resp.status_code == 200
+        dashas = dasha_resp.json()["dashas"]
+        assert len(dashas) > 0
+        assert dashas[0]["ruler"] in ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"]
+
+        # 8. Check Synastry Compare
+        # Create second profile
+        new_chart_b = {
+            "name": "Partner Profile",
+            "birth_time_iso": "1997-03-20T14:15:00",
+            "city": "New York",
+            "description": "Partner chart",
+            "tags": "Partner",
+            "notes": "Second chart"
+        }
+        create_resp_b = client.post("/api/v1/astrology/charts", json=new_chart_b)
+        chart_id_b = create_resp_b.json()["id"]
+
+        compare_resp = client.post("/api/v1/astrology/charts/compare", json={
+            "chart_id_a": chart_id,
+            "chart_id_b": chart_id_b
+        })
+        assert compare_resp.status_code == 200
+        comp_data = compare_resp.json()
+        assert comp_data["status"] == "success"
+        assert "scoring" in comp_data["data"]
+        assert "compatibility_score" in comp_data["data"]["scoring"]
+
+        # 9. Clean up (delete profiles)
+        del_resp_a = client.delete(f"/api/v1/astrology/charts/{chart_id}")
+        assert del_resp_a.status_code == 200
+        del_resp_b = client.delete(f"/api/v1/astrology/charts/{chart_id_b}")
+        assert del_resp_b.status_code == 200
+
+    def test_api_charts_import_export(self, client):
+        # Create a temp chart to export
+        chart_data = {
+            "name": "Export Test Profile",
+            "birth_time_iso": "1995-10-15T08:30:00",
+            "city": "Tokyo"
+        }
+        create_resp = client.post("/api/v1/astrology/charts", json=chart_data)
+        chart_id = create_resp.json()["id"]
+
+        # Export backup
+        export_resp = client.get("/api/v1/astrology/charts/export")
+        assert export_resp.status_code == 200
+        backup = export_resp.json()
+        assert backup["version"] == "2.0"
+        assert len(backup["charts"]) > 0
+        assert any(c["name"] == "Export Test Profile" for c in backup["charts"])
+
+        # Delete the profile
+        client.delete(f"/api/v1/astrology/charts/{chart_id}")
+
+        # Import the backup file back
+        import_resp = client.post("/api/v1/astrology/charts/import", json=backup)
+        assert import_resp.status_code == 200
+        assert import_resp.json()["imported"] > 0
+
+        # Verify it got re-created
+        list_resp = client.get("/api/v1/astrology/charts")
+        charts = list_resp.json()
+        imported_chart = next((c for c in charts if c["name"] == "Export Test Profile"), None)
+        assert imported_chart is not None
+
+        # Cleanup imported profile
+        client.delete(f"/api/v1/astrology/charts/{imported_chart['id']}")
+
 
 @pytest.mark.unit
 class TestAstrologyService:

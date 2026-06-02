@@ -1206,6 +1206,212 @@ class AstrologicalCalculator:
             return natal_chart["western"].get("aspects", [])
         return []
 
+    def get_transits_to_natal(
+        self, natal_dt: datetime, natal_location: tuple[float, float], transit_dt: datetime = None
+    ) -> list[dict]:
+        """Compare current or specific transit planetary positions to natal positions.
+        Returns transiting planets aspecting natal planets with orbs, aspect types, and descriptions."""
+        if transit_dt is None:
+            transit_dt = datetime.now(pytz.UTC)
+            
+        natal_positions = self.get_planetary_positions(natal_dt, natal_location)
+        transit_positions = self.get_planetary_positions(transit_dt, natal_location)
+        
+        # Add Ascendant and MC for natal if location is provided
+        jd_natal = self.get_julian_day(natal_dt)
+        if natal_location:
+            lat, lon = natal_location
+            houses, ascmc = swe.houses(jd_natal, lat, lon, b"P")
+            natal_positions["ascendant"] = {
+                "longitude": ascmc[0],
+                "sign": self.SIGNS[int(ascmc[0] / 30) % 12],
+                "degree": ascmc[0] % 30
+            }
+            natal_positions["midheaven"] = {
+                "longitude": ascmc[1],
+                "sign": self.SIGNS[int(ascmc[1] / 30) % 12],
+                "degree": ascmc[1] % 30
+            }
+            
+        aspect_types = [
+            {"name": "Conjunction", "angle": 0, "orb": 8},
+            {"name": "Sextile", "angle": 60, "orb": 6},
+            {"name": "Square", "angle": 90, "orb": 8},
+            {"name": "Trine", "angle": 120, "orb": 8},
+            {"name": "Opposition", "angle": 180, "orb": 8},
+        ]
+        
+        aspects = []
+        for t_name, t_pos in transit_positions.items():
+            for n_name, n_pos in natal_positions.items():
+                if t_name == "north_node" and n_name == "north_node":
+                    continue
+                
+                t_lon = t_pos["longitude"]
+                n_lon = n_pos["longitude"]
+                
+                diff = abs(t_lon - n_lon) % 360
+                distance = min(diff, 360 - diff)
+                
+                for asp in aspect_types:
+                    if abs(distance - asp["angle"]) <= asp["orb"]:
+                        exactness = 1.0 - (abs(distance - asp["angle"]) / asp["orb"])
+                        orb = abs(distance - asp["angle"])
+                        aspects.append({
+                            "transit_planet": t_name,
+                            "natal_planet": n_name,
+                            "aspect": asp["name"],
+                            "angle": distance,
+                            "orb": round(orb, 2),
+                            "exactness": round(exactness, 2),
+                            "description": f"Transit {t_name.title()} {asp['name']} Natal {n_name.title()} (Orb: {orb:.2f}°)"
+                        })
+                        
+        return aspects
+
+    def get_vedic_gochara(self, natal_dt: datetime, natal_location: tuple[float, float], transit_dt: datetime = None) -> dict:
+        """Calculate Vedic Gochara (Transit planets relative to natal Moon Rashi)"""
+        if transit_dt is None:
+            transit_dt = datetime.now(pytz.UTC)
+            
+        natal_vedic = self.get_indian_astrology(natal_dt, natal_location)
+        transit_vedic = self.get_indian_astrology(transit_dt, natal_location)
+        
+        natal_moon_rashi = natal_vedic["sidereal_positions"]["moon"]["rashi_number"]
+        
+        gochara = {}
+        for planet, pos in transit_vedic["sidereal_positions"].items():
+            if planet == "ascendant":
+                continue
+            transit_rashi = pos["rashi_number"]
+            gochara_house = ((transit_rashi - natal_moon_rashi + 12) % 12) + 1
+            gochara[planet] = {
+                "transit_rashi": pos["rashi"],
+                "transit_degree": pos["degree"],
+                "gochara_house": gochara_house,
+                "formatted": f"House {gochara_house} from Moon ({pos['rashi_name']})"
+            }
+        return gochara
+
+    def calculate_vimshottari_dasha(self, birth_dt: datetime, location: tuple[float, float]) -> list[dict]:
+        """Calculate Vimshottari Dasha periods for a birth chart."""
+        vedic = self.get_indian_astrology(birth_dt, location)
+        moon_lon = vedic["sidereal_positions"]["moon"]["longitude"]
+        
+        nak_width = 360.0 / 27.0
+        nak_idx = int(moon_lon / nak_width)
+        nak_progress = (moon_lon % nak_width) / nak_width
+        
+        dasha_order = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"]
+        dasha_years = {
+            "Ketu": 7, "Venus": 20, "Sun": 6, "Moon": 10,
+            "Mars": 7, "Rahu": 18, "Jupiter": 16, "Saturn": 19, "Mercury": 17
+        }
+        
+        first_dasha_idx = nak_idx % 9
+        first_dasha_ruler = dasha_order[first_dasha_idx]
+        first_dasha_total = dasha_years[first_dasha_ruler]
+        
+        remaining_ratio = 1.0 - nak_progress
+        first_dasha_remaining = first_dasha_total * remaining_ratio
+        
+        current_time = birth_dt
+        dashas = []
+        
+        first_end = current_time + timedelta(days=first_dasha_remaining * 365.25)
+        dashas.append({
+            "ruler": first_dasha_ruler,
+            "start": current_time.isoformat(),
+            "end": first_end.isoformat(),
+            "duration_years": first_dasha_total,
+            "remaining_years_at_birth": round(first_dasha_remaining, 2)
+        })
+        current_time = first_end
+        
+        idx = (first_dasha_idx + 1) % 9
+        for _ in range(9):
+            ruler = dasha_order[idx]
+            duration = dasha_years[ruler]
+            end_time = current_time + timedelta(days=duration * 365.25)
+            dashas.append({
+                "ruler": ruler,
+                "start": current_time.isoformat(),
+                "end": end_time.isoformat(),
+                "duration_years": duration,
+                "remaining_years_at_birth": 0.0
+            })
+            current_time = end_time
+            idx = (idx + 1) % 9
+            
+        return dashas
+
+    def compare_bazi_transits(self, natal_dt: datetime, transit_dt: datetime = None) -> dict:
+        """Compare transit BaZi pillars against natal BaZi pillars for clashes and harmonies."""
+        if transit_dt is None:
+            transit_dt = datetime.now(pytz.UTC)
+            
+        natal_chinese = self.get_chinese_astrology(natal_dt)
+        transit_chinese = self.get_chinese_astrology(transit_dt)
+        
+        def extract_sb(pillar_str):
+            if "/" in pillar_str:
+                clean = pillar_str.split("/")[1].split(" ")[0]
+                parts = clean.split("-")
+                return parts[0], parts[1]
+            return "Unknown", "Unknown"
+            
+        n_y_s, n_y_b = extract_sb(natal_chinese["bazi"]["year"])
+        n_m_s, n_m_b = extract_sb(natal_chinese["bazi"]["month"])
+        n_d_s, n_d_b = extract_sb(natal_chinese["bazi"]["day"])
+        n_h_s, n_h_b = extract_sb(natal_chinese["bazi"]["hour"])
+        
+        t_y_s, t_y_b = extract_sb(transit_chinese["bazi"]["year"])
+        t_m_s, t_m_b = extract_sb(transit_chinese["bazi"]["month"])
+        t_d_s, t_d_b = extract_sb(transit_chinese["bazi"]["day"])
+        t_h_s, t_h_b = extract_sb(transit_chinese["bazi"]["hour"])
+        
+        clash_map = {
+            "Zi": "Wu", "Wu": "Zi",
+            "Chou": "Wei", "Wei": "Chou",
+            "Yin": "Shen", "Shen": "Yin",
+            "Mao": "You", "You": "Mao",
+            "Chen": "Xu", "Xu": "Chen",
+            "Si": "Hai", "Hai": "Si"
+        }
+        
+        harmony_map = {
+            "Zi": "Chou", "Chou": "Zi",
+            "Yin": "Hai", "Hai": "Yin",
+            "Mao": "Xu", "Xu": "Mao",
+            "Chen": "You", "You": "Chen",
+            "Si": "Shen", "Shen": "Si",
+            "Wu": "Wei", "Wei": "Wu"
+        }
+        
+        interactions = []
+        for label, n_branch in [("Year (Sheng Xiao)", n_y_b), ("Month", n_m_b), ("Day (Self)", n_d_b), ("Hour", n_h_b)]:
+            if n_branch == "Unknown" or t_d_b == "Unknown":
+                continue
+            if clash_map.get(t_d_b) == n_branch:
+                interactions.append({
+                    "pillar": label,
+                    "type": "Clash",
+                    "description": f"Transit Day branch {t_d_b} CLASHES with Natal {label} branch {n_branch}. Dynamic change, potential conflict or breakthrough."
+                })
+            elif harmony_map.get(t_d_b) == n_branch:
+                interactions.append({
+                    "pillar": label,
+                    "type": "Harmony",
+                    "description": f"Transit Day branch {t_d_b} COMBINES with Natal {label} branch {n_branch}. Harmonious support, cooperation, and stability."
+                })
+                
+        return {
+            "transit_day_pillar": transit_chinese["bazi"]["day"].split(" ")[0] if "/" in transit_chinese["bazi"]["day"] else transit_chinese["bazi"]["day"],
+            "natal_day_pillar": natal_chinese["bazi"]["day"].split(" ")[0] if "/" in natal_chinese["bazi"]["day"] else natal_chinese["bazi"]["day"],
+            "interactions": interactions
+        }
+
+
 
 AstrologyEngine = AstrologicalCalculator
 
