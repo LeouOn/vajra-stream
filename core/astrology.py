@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 import pytz
 import swisseph as swe
 
+__version__ = "1.0.0"
+
 
 class AstrologicalCalculator:
     """Comprehensive astrological calculator for three major traditions.
