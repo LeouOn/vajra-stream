@@ -237,6 +237,129 @@ function ResultsTab({ currentRunId }) {
   );
 }
 
+const SweepTab = ({ setupState, onComplete }) => {
+  const [currentRunId, setCurrentRunId] = useState(null);
+  const [runStatus, setRunStatus] = useState(null);
+  const [progress, setProgress] = useState({ completed: 0, total: 0 });
+  const [elapsed, setElapsed] = useState(0);
+  const [launching, setLaunching] = useState(false);
+  const [error, setError] = useState(null);
+  const pollRef = useRef(null);
+  const startTimeRef = useRef(null);
+
+  const handleLaunch = async () => {
+    if (!setupState) return;
+    setLaunching(true);
+    setError(null);
+    setElapsed(0);
+    startTimeRef.current = Date.now();
+    try {
+      const tuples = (setupState.tuples || []).map((t) => ({
+        date_iso: t.date,
+        lat: t.lat,
+        lon: t.lon,
+      }));
+      const r = await fetch(`${API_BASE}/astrology/extract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tuples,
+          config: {
+            systems: setupState.systems || ['western'],
+            house_system: setupState.houseSystem || 'Placidus',
+            sidereal: setupState.sidereal || false,
+          },
+        }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      setCurrentRunId(data.run_id);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLaunching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!currentRunId) return;
+    const elapsedInterval = setInterval(() => {
+      if (startTimeRef.current) {
+        setElapsed(Math.round((Date.now() - startTimeRef.current) / 1000));
+      }
+    }, 1000);
+    const poll = async () => {
+      try {
+        const r = await fetch(`${API_BASE}/astrology/runs/${currentRunId}`);
+        if (r.ok) {
+          const data = await r.json();
+          setRunStatus(data.status);
+          setProgress({
+            completed: data.completed_tuples || 0,
+            total: data.total_tuples || 0,
+          });
+          if (['done', 'partial', 'error'].includes(data.status)) {
+            clearInterval(pollRef.current);
+            clearInterval(elapsedInterval);
+            if (onComplete) onComplete(currentRunId);
+          }
+        }
+      } catch {}
+    };
+    pollRef.current = setInterval(poll, 2000);
+    poll();
+    return () => {
+      clearInterval(pollRef.current);
+      clearInterval(elapsedInterval);
+    };
+  }, [currentRunId, onComplete]);
+
+  const pct = progress.total
+    ? Math.round((progress.completed / progress.total) * 100)
+    : 0;
+
+  const progressStatus =
+    runStatus === 'error'
+      ? 'exception'
+      : runStatus === 'done' || runStatus === 'partial'
+        ? 'success'
+        : 'active';
+
+  return (
+    <Space direction="vertical" className="w-full" size="middle">
+      <Card>
+        <Space direction="vertical" className="w-full">
+          <Space size="large" wrap>
+            <Statistic title="Run ID" value={currentRunId || '—'} />
+            <Statistic title="Status" value={runStatus || 'idle'} />
+            <Statistic title="Elapsed" value={`${elapsed}s`} />
+            <Statistic
+              title="Tuples"
+              value={`${progress.completed} / ${progress.total || '?'}`}
+            />
+          </Space>
+          <Progress percent={pct} status={progressStatus} />
+          <Button
+            type="primary"
+            size="large"
+            onClick={handleLaunch}
+            loading={launching}
+            disabled={
+              !setupState ||
+              !setupState.tuples ||
+              setupState.tuples.length === 0 ||
+              currentRunId !== null
+            }
+          >
+            Launch Sweep
+          </Button>
+          {error && <Alert type="error" message={error} />}
+        </Space>
+      </Card>
+    </Space>
+  );
+};
+
 const AstrologyExtractionPanel = () => {
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
@@ -346,8 +469,7 @@ const AstrologyExtractionPanel = () => {
 
   const handleSweepComplete = (runId) => {
     if (runId) {
-      // eslint-disable-next-line no-console
-      console.log('[AstrologyExtractionPanel] Sweep run complete:', runId);
+      setCurrentRunId(runId);
     }
   };
 
@@ -538,7 +660,7 @@ const AstrologyExtractionPanel = () => {
         {renderSetupTab()}
       </TabPane>
       <TabPane tab="Sweep" key="sweep">
-        {renderPlaceholder('Sweep')}
+        <SweepTab setupState={setupState} onComplete={handleSweepComplete} />
       </TabPane>
       <TabPane tab="Results" key="results">
         <ResultsTab currentRunId={currentRunId} />

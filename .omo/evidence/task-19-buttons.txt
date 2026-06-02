@@ -1,0 +1,94 @@
+TASK: 19 - Sweep tab with launch button and progress polling
+FILE: frontend/src/components/UI/AstrologyExtractionPanel.jsx
+
+================================================================================
+1. SweepTab component with setInterval (polling)
+================================================================================
+Component declared at line ~240:
+  const SweepTab = ({ setupState, onComplete }) => { ... }
+
+useEffect with two setInterval calls (elapsed tick + poll tick):
+  useEffect(() => {
+    if (!currentRunId) return;
+    const elapsedInterval = setInterval(() => { ... }, 1000);
+    const poll = async () => { ... };
+    pollRef.current = setInterval(poll, 2000);
+    poll();
+    return () => { clearInterval(pollRef.current); clearInterval(elapsedInterval); };
+  }, [currentRunId, onComplete]);
+
+================================================================================
+2. Launch button is wired with disabled={...}
+================================================================================
+Lines ~342-355:
+  <Button
+    type="primary"
+    size="large"
+    onClick={handleLaunch}
+    loading={launching}
+    disabled={
+      !setupState ||
+      !setupState.tuples ||
+      setupState.tuples.length === 0 ||
+      currentRunId !== null
+    }
+  >
+    Launch Sweep
+  </Button>
+
+disabled when:
+  - no setupState
+  - setupState.tuples missing
+  - tuples is empty (no locations+dates)
+  - a run is already in flight (currentRunId !== null)
+
+================================================================================
+3. Polling stops on done/partial/error
+================================================================================
+Lines ~301-305:
+  if (['done', 'partial', 'error'].includes(data.status)) {
+    clearInterval(pollRef.current);
+    clearInterval(elapsedInterval);
+    if (onComplete) onComplete(currentRunId);
+  }
+
+Terminal states: done, partial, error
+On terminal state:
+  - clearInterval(pollRef.current)  -> stops status polling
+  - clearInterval(elapsedInterval)  -> stops elapsed timer
+  - onComplete(currentRunId)        -> parent updates currentRunId
+                                        so Results tab can load the run
+
+================================================================================
+4. Parent wiring (setupState + onComplete lifted)
+================================================================================
+Lines ~425-462:
+  const setupState = useMemo(() => { ... }, [...]);
+  const handleSweepComplete = (runId) => {
+    if (runId) setCurrentRunId(runId);
+  };
+
+setupState.tuples is the cartesian product of:
+  - selectedLocations (resolved to {lat,lon} from the locations list)
+  - dates resolved from dateMode (explicit / every_n_days / weekly)
+
+Sweep TabPane (line ~662-664):
+  <TabPane tab="Sweep" key="sweep">
+    <SweepTab setupState={setupState} onComplete={handleSweepComplete} />
+  </TabPane>
+
+================================================================================
+5. Build verification
+================================================================================
+$ cd frontend && npx --no-install vite build --mode production
+vite v4.5.14 building for production...
+transforming...
+6541 modules transformed.
+dist/index.html                            1.09 kB | gzip:   0.56 kB
+dist/assets/index-12b62bc3.css             8.27 kB | gzip:   2.52 kB
+dist/assets/LazySacredMandala-9fd55d71.js  0.64 kB | gzip:   0.42 kB
+dist/assets/TransitComparison-19208383.js  9.37 kB | gzip:   3.77 kB
+dist/assets/SynastryViewer-7603e76f.js   170.95 kB | gzip:  55.22 kB
+dist/assets/index-5467769f.js          2,575.82 kB | gzip: 760.60 kB
+built in 25.80s
+SUCCESS - no syntax errors, SweepTab and parent wiring compile.
