@@ -17,29 +17,9 @@ def get_db_path():
     return db_path
 
 def init_tables():
-    conn = sqlite3.connect(get_db_path())
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS failed_tool_calls (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            tool_name TEXT,
-            arguments TEXT,
-            error_message TEXT
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS intentional_paths (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            agent_id TEXT,
-            intention TEXT,
-            missing_tools TEXT,
-            context TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    from core.schema import init_db as _core_init_db  # noqa: WPS433
+
+    _core_init_db()
 
 # Initialize tables when module loads
 init_tables()

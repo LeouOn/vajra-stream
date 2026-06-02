@@ -38,6 +38,16 @@ async def lifespan(app: FastAPI):
     print("Vajra.Stream API starting up...")
     print("Initializing Stable WebSocket connection manager v2...")
 
+    try:
+        from core.schema import init_db as _schema_init_db
+
+        _schema_init_db().close()
+        print("Database schema initialized (core.schema.init_db)")
+    except Exception as e:
+        print(f"Failed to initialize database schema: {e}")
+        logger.error(f"Failed to initialize database schema: {e}")
+        logger.error(traceback.format_exc())
+
     # Initialize Orchestrator Bridge
     try:
         from backend.core.orchestrator_bridge import orchestrator_bridge

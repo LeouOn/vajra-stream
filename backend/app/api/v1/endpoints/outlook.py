@@ -68,26 +68,9 @@ def get_db_connection():
 
 
 def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS outlook_narratives (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL,
-            genre TEXT,
-            languages TEXT,
-            lat REAL,
-            lon REAL,
-            date_generated TIMESTAMP,
-            content TEXT,
-            astrology_context TEXT,
-            divination_context TEXT,
-            divination_raw TEXT,
-            entities_invoked TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+    from core.schema import init_db as _core_init_db  # noqa: WPS433
+
+    _core_init_db()
 
 
 # Initialize DB on endpoint load
@@ -286,6 +269,159 @@ async def get_history(limit: int = 20):
 async def get_status():
     """Return the status of the outlook generator subsystem."""
     return container.outlook.get_status()
+
+
+# ----------------- TTS / NARRATIVE RECITATION -----------------
+class OutlookSpeakRequest(BaseModel):
+    text: str = Field(..., description="Narrative text to speak (single string or joined epic parts)", min_length=1, max_length=20000)
+    voice: str | None = Field(default=None, description="Voice/speaker override (bypasses role)")
+    rate: str | None = Field(default=None, description="Speech rate (Edge TTS only, e.g. '-25%')")
+    language: str | None = Field(default=None, description="Language override (Qwen3-TTS only)")
+    role: str | None = Field(default=None, description="Ritual role for auto-speaker mapping (default: outlook_narrative / outlook_epic)")
+    project_id: str | None = Field(default=None, description="Project id for per-project speaker overrides")
+    chunk_max_chars: int = Field(default=900, description="Max characters per chunk for long narratives")
+
+
+@router.post("/speak", summary="Speak a generated outlook narrative via TTS")
+async def speak_narrative(request: OutlookSpeakRequest):
+    """
+    Stream a generated outlook narrative through the unified TTS provider.
+
+    Long narratives are chunked (default ~900 chars) so each chunk can be
+    rendered quickly and the browser can begin playback without waiting
+    for the full generation to finish.
+    """
+    from fastapi.responses import Response
+    from core.tts_provider import get_tts_provider
+
+    provider = get_tts_provider()
+    original_project = provider.config.project_id
+    if request.project_id is not None:
+        provider.config.project_id = request.project_id
+
+    try:
+        # Pick a sensible default role based on the front-end flag
+        role = request.role or "outlook_narrative"
+        # Chunk the text on paragraph boundaries; cap chunk size
+        chunks: list[str] = []
+        text = request.text.strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Empty narrative text")
+        # Try paragraph-aware splitting first
+        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+        current = ""
+        for p in paragraphs:
+            if len(current) + len(p) + 2 <= request.chunk_max_chars:
+                current = f"{current}\n\n{p}" if current else p
+            else:
+                if current:
+                    chunks.append(current)
+                if len(p) <= request.chunk_max_chars:
+                    current = p
+                else:
+                    # Long paragraph — hard split
+                    for i in range(0, len(p), request.chunk_max_chars):
+                        chunks.append(p[i : i + request.chunk_max_chars])
+                    current = ""
+        if current:
+            chunks.append(current)
+        if not chunks:
+            chunks = [text[: request.chunk_max_chars]]
+
+        # Render all chunks and concatenate
+        all_audio: list[bytes] = []
+        mime_type = "audio/mpeg"
+        backend_id = provider.active_backend.value
+        for chunk in chunks:
+            result = await provider.speak_stream(
+                text=chunk,
+                voice=request.voice,
+                rate=request.rate,
+                language=request.language,
+                role=role,
+            )
+            if result is None:
+                continue
+            audio_bytes, mtype, bid = result
+            mime_type = mtype
+            backend_id = bid
+            all_audio.append(audio_bytes)
+        if not all_audio:
+            raise HTTPException(status_code=500, detail="TTS generation failed — check backend availability")
+
+        return Response(
+            content=b"".join(all_audio),
+            media_type=mime_type,
+            headers={
+                "X-TTS-Backend": backend_id,
+                "X-TTS-Chunks": str(len(all_audio)),
+                "X-TTS-Chars": str(len(request.text)),
+                "Cache-Control": "no-store",
+            },
+        )
+    finally:
+        provider.config.project_id = original_project
+
+
+@router.post("/speak/{narrative_id}", summary="Stream a stored outlook narrative by ID")
+async def speak_stored_narrative(narrative_id: int, role: str | None = None, voice: str | None = None, project_id: str | None = None):
+    """Look up a previously generated narrative and speak it."""
+    from fastapi.responses import Response
+    from core.tts_provider import get_tts_provider
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT type, content FROM outlook_narratives WHERE id = ?",
+            (narrative_id,),
+        )
+        row = cursor.fetchone()
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB error: {e}")
+    if not row:
+        raise HTTPException(status_code=404, detail="Narrative not found")
+
+    text = row["content"] or ""
+    if row["type"] == "epic":
+        try:
+            import json as _json
+            parts = _json.loads(text) if text else []
+            text = "\n\n".join(
+                p.get("content", "") if isinstance(p, dict) else str(p) for p in parts
+            )
+        except Exception:
+            pass
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Stored narrative is empty")
+
+    # Reuse the speak endpoint logic
+    provider = get_tts_provider()
+    original_project = provider.config.project_id
+    if project_id is not None:
+        provider.config.project_id = project_id
+    try:
+        effective_role = role or ("outlook_epic" if row["type"] == "epic" else "outlook_narrative")
+        result = await provider.speak_stream(
+            text=text,
+            voice=voice,
+            role=effective_role,
+        )
+    finally:
+        provider.config.project_id = original_project
+    if result is None:
+        raise HTTPException(status_code=500, detail="TTS generation failed — check backend availability")
+    audio_bytes, mime_type, backend_id = result
+    return Response(
+        content=audio_bytes,
+        media_type=mime_type,
+        headers={
+            "X-TTS-Backend": backend_id,
+            "X-TTS-Chars": str(len(text)),
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 # ----------------- CHARACTERS CRUD -----------------

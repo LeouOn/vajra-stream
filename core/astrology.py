@@ -4,13 +4,13 @@ Comprehensive time-space calculations for Western, Indian (Vedic), and Chinese s
 Uses Swiss Ephemeris and lunar-python for precise, offline-first calculations.
 """
 
+__version__ = "1.0.0"
+
 import math
 from datetime import datetime, timedelta
 
 import pytz
 import swisseph as swe
-
-__version__ = "1.0.0"
 
 
 class AstrologicalCalculator:

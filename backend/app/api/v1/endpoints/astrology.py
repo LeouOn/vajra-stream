@@ -28,27 +28,9 @@ def get_db_path():
     return db_path
 
 def init_db():
-    conn = sqlite3.connect(get_db_path())
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS saved_natal_charts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            birth_time_iso TEXT NOT NULL,
-            latitude REAL NOT NULL,
-            longitude REAL NOT NULL,
-            timezone TEXT NOT NULL,
-            city TEXT NOT NULL,
-            description TEXT DEFAULT '',
-            tags TEXT DEFAULT '',
-            cached_chart_data TEXT,
-            notes TEXT DEFAULT '',
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+    from core.schema import init_db as _core_init_db  # noqa: WPS433
+
+    _core_init_db()
 
 # Initialize saved charts table
 init_db()
