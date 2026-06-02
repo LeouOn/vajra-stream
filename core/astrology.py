@@ -2538,6 +2538,207 @@ class AstrologicalCalculator:
             "house_ruled": house_ruled,
         }
 
+    # =========================================================================
+    # ASTROCARTOGRAPHY (LOCATIONAL LINES)
+    # =========================================================================
+
+    # The 10 planets whose locational lines we draw. The lunar node is omitted
+    # because the algorithm assumes a body that is well defined for the
+    # 5°-step sweep; the node moves ~0.05°/day and its altitude crosses zero
+    # at well-defined longitudes, but the existing caller (Task 17) only
+    # consumes the classical 10. If you need the node, add it explicitly.
+    ASTROCARTOGRAPHY_PLANETS = (
+        "sun",
+        "moon",
+        "mercury",
+        "venus",
+        "mars",
+        "jupiter",
+        "saturn",
+        "uranus",
+        "neptune",
+        "pluto",
+    )
+
+    def get_astrocartography_lines(
+        self,
+        dt: datetime,
+        step_degrees: float = 5.0,
+    ) -> dict:
+        """Compute coarse astrocartography lines (AC/DC/MC/IC) per planet.
+
+        Astrocartography is a locational astrology technique developed by
+        Jim Lewis in the 1970s. The idea: every planet, at every moment, is
+        rising somewhere, setting somewhere, culminating somewhere, and
+        anti-culminating somewhere on Earth. The four "lines" for each
+        planet are the world locations where that planet sits exactly on:
+
+        - **AC** (Ascendant) — on the eastern horizon, altitude = 0,
+          rising (going from below to above the horizon).
+        - **DC** (Descendant) — on the western horizon, altitude = 0,
+          setting (going from above to below).
+        - **MC** (Midheaven) — on the upper meridian (due south in
+          Swiss Ephemeris convention, azimuth 0°/360°).
+        - **IC** (Imum Coeli) — on the lower meridian (due north,
+          azimuth 180°).
+
+        The v1 algorithm is a **coarse approximation**: for each of the 10
+        planets, we sample the equator strip at ``lat=0`` across
+        ``lon ∈ [-180, 180]`` in ``step_degrees`` increments, compute the
+        planet's altitude and azimuth at each sample point via
+        ``swe.azalt()``, and detect sign changes (crossings) in altitude
+        and azimuth. Crossing longitudes are refined by linear
+        interpolation between the bracketing samples.
+
+        The 5° default step yields ~73 sample points per sweep, which is
+        enough for visualization but not for production-level precision.
+        For higher accuracy, refine each crossing with bisection (not
+        implemented in v1 — this is documented as a follow-up).
+
+        Limitations:
+
+        - Sample latitude is fixed at 0°; non-equator AC/DC lines (which
+          curve toward the poles as a function of declination) are not
+          captured.
+        - No planetary aspect lines (planet X square planet Y) — v1
+          scope is the four angles per planet only.
+        - Azimuth is reported by ``swe.azalt`` from south to west
+          (0°=south, 90°=west, 180°=north, 270°=east).
+
+        Args:
+            dt: Datetime for the astrocartography snapshot. Naive
+                datetimes are interpreted as UTC; tz-aware datetimes
+                are converted to UTC internally.
+            step_degrees: Longitude step in degrees for the equator
+                sweep. Default 5.0°. Smaller = more sample points =
+                more precise line crossings (and slower). Must be
+                positive.
+
+        Returns:
+            dict: ``{
+                <planet_name>: {
+                    "ac": [(lat, lon), ...],  # rising crossings
+                    "dc": [(lat, lon), ...],  # setting crossings
+                    "mc": [(lat, lon), ...],  # upper meridian crossings
+                    "ic": [(lat, lon), ...],  # lower meridian crossings
+                },
+                ...
+            }``
+
+            Each list contains 0-N crossing points as ``(lat, lon)``
+            tuples (lat is always 0.0 in v1; lon is in ``[-180, 180]``).
+        """
+        if step_degrees <= 0:
+            raise ValueError("step_degrees must be positive")
+
+        if dt.tzinfo is None:
+            dt_utc = pytz.UTC.localize(dt)
+        else:
+            dt_utc = dt.astimezone(pytz.UTC)
+        jd_ut = self.get_julian_day(dt_utc)
+
+        # Pre-compute equatorial coords (RA/Dec/distance) once per planet;
+        # they are identical at every sample point on Earth at this instant.
+        planet_equatorial: dict[str, tuple[float, float, float]] = {}
+        for planet_name in self.ASTROCARTOGRAPHY_PLANETS:
+            planet_id = self.PLANETS[planet_name]
+            # swe.calc_ut returns ((ra, dec, dist, ...), flag) when the
+            # FLG_EQUATORIAL flag is passed.
+            result = swe.calc_ut(jd_ut, planet_id, swe.FLG_EQUATORIAL)
+            ra, dec, dist = result[0][0], result[0][1], result[0][2]
+            planet_equatorial[planet_name] = (ra, dec, dist)
+
+        lons = []
+        lon = -180.0
+        while lon <= 180.0 + 1e-9:
+            lons.append(lon)
+            lon += step_degrees
+        # Snap the last point to exactly 180.0 to avoid FP drift.
+        if lons[-1] > 180.0:
+            lons[-1] = 180.0
+
+        # swe.azalt's geopos is (lon, lat, alt_m) — note the order is
+        # east-positive longitude, north-positive latitude. atpress=0 and
+        # attemp=0 select a sea-level standard atmosphere.
+        geopos = [0.0, 0.0, 0.0]
+        results: dict[str, dict[str, list[tuple[float, float]]]] = {}
+
+        for planet_name in self.ASTROCARTOGRAPHY_PLANETS:
+            ra, dec, dist = planet_equatorial[planet_name]
+            xin = [ra, dec, dist]
+
+            altitudes: list[float] = []
+            azimuths: list[float] = []
+            for sample_lon in lons:
+                geopos[0] = sample_lon
+                az_alt = swe.azalt(jd_ut, swe.EQU2HOR, geopos, 0, 0, xin)
+                # swe.azalt returns (azimuth, true_altitude, apparent_altitude).
+                azimuths.append(az_alt[0])
+                altitudes.append(az_alt[1])
+
+            ac: list[tuple[float, float]] = []
+            dc: list[tuple[float, float]] = []
+            mc: list[tuple[float, float]] = []
+            ic: list[tuple[float, float]] = []
+
+            for i in range(1, len(lons)):
+                lon0, lon1 = lons[i - 1], lons[i]
+                alt0, alt1 = altitudes[i - 1], altitudes[i]
+                az0, az1 = azimuths[i - 1], azimuths[i]
+
+                if alt0 < 0.0 < alt1:
+                    frac = -alt0 / (alt1 - alt0)
+                    ac.append((0.0, _wrap_lon(lon0 + frac * (lon1 - lon0))))
+                elif alt0 > 0.0 > alt1:
+                    frac = alt0 / (alt0 - alt1)
+                    dc.append((0.0, _wrap_lon(lon0 + frac * (lon1 - lon0))))
+
+                # Swiss Ephemeris azimuth runs 0..360 (measured from south).
+                # MC is at azimuth 0/360 (upper meridian, due south), IC is
+                # at azimuth 180 (lower meridian, due north). A sweep from
+                # az=350 to az=10 therefore represents a single MC crossing
+                # through 0, not a 340° swing.
+                if az0 > 180.0 and az1 < 180.0:
+                    frac = az0 / (az0 - az1)
+                    mc.append((0.0, _wrap_lon(lon0 + frac * (lon1 - lon0))))
+                elif (az0 < 180.0 < az1) or (az0 > 180.0 > az1):
+                    frac = (180.0 - az0) / (az1 - az0)
+                    ic.append((0.0, _wrap_lon(lon0 + frac * (lon1 - lon0))))
+
+            results[planet_name] = {
+                "ac": ac,
+                "dc": dc,
+                "mc": mc,
+                "ic": ic,
+            }
+
+        return results
+
+
+
+def _wrap_lon(lon: float) -> float:
+    """Normalize a longitude to ``[-180, 180]``.
+
+    The astrocartography sweep can produce interpolated crossing
+    longitudes slightly outside that range (e.g. ``-182.3`` when the
+    bracket sat just past the antimeridian). This helper clamps them
+    into the conventional range so downstream code (and the QA
+    acceptance criteria) can rely on ``-180 <= lon <= 180``.
+    """
+    while lon > 180.0:
+        lon -= 360.0
+    while lon < -180.0:
+        lon += 360.0
+    return lon
+
+
+def _shortest_angular_delta(a: float, b: float) -> float:
+    """Return the signed shortest angular delta from ``a`` to ``b`` in
+    ``[-180, 180]``. Used to unwrap azimuth samples that wrap around
+    0/360.
+    """
+    d = (b - a + 180.0) % 360.0 - 180.0
+    return d
 
 
 AstrologyEngine = AstrologicalCalculator
