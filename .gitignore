@@ -87,6 +87,9 @@ logs/
 # Virtual environments (expanded)
 .venv/
 
+# Test artifacts
+tests/.pytest_tmp/
+
 # AI tooling
 .kilo/
 
