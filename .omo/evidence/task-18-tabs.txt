@@ -1,0 +1,6 @@
+All 4 tab labels present:
+  303: <TabPane tab="Setup" key="setup">
+  306: <TabPane tab="Sweep" key="sweep">
+  309: <TabPane tab="Results" key="results">
+  312: <TabPane tab="Replay" key="replay">
+PASS: Setup, Sweep, Results, Replay

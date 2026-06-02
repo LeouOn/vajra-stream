@@ -1,0 +1,319 @@
+/**
+ * AstrologyExtractionPanel — Sweep extraction configuration UI.
+ * Tabs: Setup, Sweep, Results, Replay. Only the Setup tab is implemented
+ * in this revision; the remaining tabs are placeholders.
+ */
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Tabs,
+  Card,
+  Form,
+  Select,
+  Radio,
+  Checkbox,
+  InputNumber,
+  DatePicker,
+  Switch,
+  Space,
+  Typography,
+  Alert,
+  Spin,
+  Empty,
+} from 'antd';
+import { Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
+import { API_BASE } from '../../utils/api';
+
+const { TabPane } = Tabs;
+const { Text } = Typography;
+
+// 11 supported astrological systems with human-friendly labels
+const SYSTEM_OPTIONS = [
+  { value: 'western', label: 'Western (Tropical)' },
+  { value: 'vedic', label: 'Vedic (Jyotish)' },
+  { value: 'chinese', label: 'Chinese (Ba Zi)' },
+  { value: 'lots', label: 'Lots (Arabic Parts)' },
+  { value: 'midpoints', label: 'Midpoints' },
+  { value: 'fixed_stars', label: 'Fixed Stars' },
+  { value: 'progressions', label: 'Secondary Progressions' },
+  { value: 'returns', label: 'Planetary Returns' },
+  { value: 'directions', label: 'Primary Directions' },
+  { value: 'year_ahead', label: 'Year Ahead (Solar Arc)' },
+  { value: 'astrocartography', label: 'Astrocartography' },
+];
+
+const HOUSE_SYSTEM_OPTIONS = [
+  { value: 'placidus', label: 'Placidus' },
+  { value: 'whole_sign', label: 'Whole Sign' },
+  { value: 'equal', label: 'Equal' },
+  { value: 'koch', label: 'Koch' },
+  { value: 'porphyry', label: 'Porphyry' },
+];
+
+const DATE_MODES = [
+  { value: 'explicit', label: 'Explicit Dates' },
+  { value: 'every_n_days', label: 'Every N Days' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'astro_events', label: 'Astronomical Events' },
+];
+
+const AstrologyExtractionPanel = () => {
+  const [locations, setLocations] = useState([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [locationsError, setLocationsError] = useState(null);
+  const [selectedLocations, setSelectedLocations] = useState([]);
+
+  const [dateMode, setDateMode] = useState('explicit');
+  const [explicitDates, setExplicitDates] = useState([]);
+  const [everyNDays, setEveryNDays] = useState(7);
+  const [weeklyWeekday, setWeeklyWeekday] = useState(0); // 0 = Sunday
+  const [astroEvents, setAstroEvents] = useState([]);
+
+  const [systems, setSystems] = useState(['western', 'vedic', 'chinese']);
+  const [houseSystem, setHouseSystem] = useState('placidus');
+  const [sidereal, setSidereal] = useState(false);
+
+  // Fetch available locations on mount
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLocations = async () => {
+      setLocationsLoading(true);
+      setLocationsError(null);
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/astrology/locations`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          const list = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.locations)
+              ? data.locations
+              : [];
+          setLocations(list);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLocationsError(err?.message || 'Failed to load locations');
+        }
+      } finally {
+        if (!cancelled) {
+          setLocationsLoading(false);
+        }
+      }
+    };
+    fetchLocations();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const locationOptions = useMemo(
+    () =>
+      locations.map((loc) => ({
+        value: loc.id ?? loc.name,
+        label: loc.name || loc.label || String(loc.id),
+      })),
+    [locations],
+  );
+
+  const renderDateModeSubInputs = () => {
+    if (dateMode === 'explicit') {
+      return (
+        <Form.Item label="Pick specific dates" style={{ marginTop: 12 }}>
+          <DatePicker.RangePicker
+            multiple
+            value={explicitDates}
+            onChange={(vals) => setExplicitDates(vals || [])}
+            style={{ width: '100%' }}
+          />
+        </Form.Item>
+      );
+    }
+    if (dateMode === 'every_n_days') {
+      return (
+        <Form.Item label="Step (days)" style={{ marginTop: 12 }}>
+          <InputNumber
+            min={1}
+            max={365}
+            value={everyNDays}
+            onChange={(v) => setEveryNDays(v ?? 1)}
+          />
+        </Form.Item>
+      );
+    }
+    if (dateMode === 'weekly') {
+      return (
+        <Form.Item label="Day of the week" style={{ marginTop: 12 }}>
+          <Select
+            value={weeklyWeekday}
+            onChange={setWeeklyWeekday}
+            style={{ width: 180 }}
+            options={[
+              { value: 0, label: 'Sunday' },
+              { value: 1, label: 'Monday' },
+              { value: 2, label: 'Tuesday' },
+              { value: 3, label: 'Wednesday' },
+              { value: 4, label: 'Thursday' },
+              { value: 5, label: 'Friday' },
+              { value: 6, label: 'Saturday' },
+            ]}
+          />
+        </Form.Item>
+      );
+    }
+    if (dateMode === 'astro_events') {
+      return (
+        <Form.Item label="Astronomical event types" style={{ marginTop: 12 }}>
+          <Checkbox.Group
+            value={astroEvents}
+            onChange={setAstroEvents}
+            options={[
+              { value: 'ingress', label: 'Planetary Ingress' },
+              { value: 'aspect', label: 'Major Aspect' },
+              { value: 'lunar_phase', label: 'Lunar Phase' },
+              { value: 'eclipse', label: 'Eclipse' },
+              { value: 'retrograde', label: 'Retrograde Station' },
+            ]}
+          />
+        </Form.Item>
+      );
+    }
+    return null;
+  };
+
+  const renderSetupTab = () => (
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Card
+        title={
+          <Space>
+            <MapPin size={16} />
+            <span>Locations</span>
+          </Space>
+        }
+        size="small"
+      >
+        {locationsError ? (
+          <Alert
+            type="error"
+            showIcon
+            message="Could not load locations"
+            description={locationsError}
+            style={{ marginBottom: 12 }}
+          />
+        ) : null}
+        <Select
+          mode="multiple"
+          allowClear
+          style={{ width: '100%' }}
+          placeholder={
+            locationsLoading ? 'Loading locations…' : 'Select one or more locations'
+          }
+          value={selectedLocations}
+          onChange={setSelectedLocations}
+          options={locationOptions}
+          notFoundContent={
+            locationsLoading ? <Spin size="small" /> : <Empty description="No locations" />
+          }
+          disabled={locationsLoading}
+        />
+      </Card>
+
+      <Card
+        title={
+          <Space>
+            <Calendar size={16} />
+            <span>Date Grid</span>
+          </Space>
+        }
+        size="small"
+      >
+        <Radio.Group
+          options={DATE_MODES}
+          value={dateMode}
+          onChange={(e) => setDateMode(e.target.value)}
+          optionType="button"
+          buttonStyle="solid"
+        />
+        {renderDateModeSubInputs()}
+      </Card>
+
+      <Card
+        title={
+          <Space>
+            <Sparkles size={16} />
+            <span>Systems</span>
+          </Space>
+        }
+        size="small"
+      >
+        <Checkbox.Group
+          value={systems}
+          onChange={(vals) => setSystems(vals || [])}
+          options={SYSTEM_OPTIONS}
+        />
+      </Card>
+
+      <Card
+        title={
+          <Space>
+            <Settings2 size={16} />
+            <span>Chart Options</span>
+          </Space>
+        }
+        size="small"
+      >
+        <Form layout="vertical">
+          <Form.Item label="House system">
+            <Select
+              value={houseSystem}
+              onChange={setHouseSystem}
+              options={HOUSE_SYSTEM_OPTIONS}
+              style={{ width: 220 }}
+            />
+          </Form.Item>
+          <Form.Item label="Sidereal mode">
+            <Space>
+              <Switch checked={sidereal} onChange={setSidereal} />
+              <Text type="secondary">
+                {sidereal ? 'Sidereal (ecliptic, star-anchored)' : 'Tropical (default)'}
+              </Text>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+    </Space>
+  );
+
+  const renderPlaceholder = (label) => (
+    <div
+      style={{
+        padding: '48px 16px',
+        textAlign: 'center',
+        color: 'rgba(255,255,255,0.55)',
+      }}
+    >
+      <Compass size={32} style={{ opacity: 0.4, marginBottom: 12 }} />
+      <div>{label} — Coming soon</div>
+    </div>
+  );
+
+  return (
+    <Tabs defaultActiveKey="setup" type="card">
+      <TabPane tab="Setup" key="setup">
+        {renderSetupTab()}
+      </TabPane>
+      <TabPane tab="Sweep" key="sweep">
+        {renderPlaceholder('Sweep')}
+      </TabPane>
+      <TabPane tab="Results" key="results">
+        {renderPlaceholder('Results')}
+      </TabPane>
+      <TabPane tab="Replay" key="replay">
+        {renderPlaceholder('Replay')}
+      </TabPane>
+    </Tabs>
+  );
+};
+
+export default AstrologyExtractionPanel;
