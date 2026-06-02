@@ -737,12 +737,12 @@ export default function AstrologyPanel() {
             <div key="synastry" className="animate-slide-up">
               <ErrorBoundary fallbackTitle="Synastry viewer failed to load">
                 <Suspense fallback={<LazyFallback />}>
-                  <SynastryViewer
-                    charts={charts}
-                    subjectA={subjectA}
-                    subjectB={subjectB}
-                    onSetSubjectA={setSubjectA}
-                    onSetSubjectB={setSubjectB}
+                  <SynastryViewer 
+                    charts={charts} 
+                    subjectA={subjectA} 
+                    subjectB={subjectB} 
+                    onSetSubjectA={setSubjectA} 
+                    onSetSubjectB={setSubjectB} 
                   />
                 </Suspense>
               </ErrorBoundary>
