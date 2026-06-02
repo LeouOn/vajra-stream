@@ -3,7 +3,7 @@
  * Tabs: Setup, Sweep, Results, Replay. Only the Setup tab is implemented
  * in this revision; the remaining tabs are placeholders.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Tabs,
   Card,
@@ -19,7 +19,14 @@ import {
   Alert,
   Spin,
   Empty,
+  Table,
+  Popconfirm,
+  Tag,
+  Button,
+  Dropdown,
+  message,
 } from 'antd';
+import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
 import { API_BASE } from '../../utils/api';
 
@@ -56,6 +63,180 @@ const DATE_MODES = [
   { value: 'astro_events', label: 'Astronomical Events' },
 ];
 
+function ReplayTab({ onView, onRecompute }) {
+  const [runs, setRuns] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchRuns = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API_BASE}/astrology/runs`);
+      if (r.ok) setRuns(await r.json());
+    } catch (e) {
+      message.error('Failed to load runs: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchRuns(); }, []);
+
+  const handleDelete = async (id) => {
+    try {
+      const r = await fetch(`${API_BASE}/astrology/runs/${id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      message.success(`Run ${id} deleted`);
+      fetchRuns();
+    } catch (e) {
+      message.error('Delete failed: ' + e.message);
+    }
+  };
+
+  const handleRecompute = async (id) => {
+    try {
+      const r = await fetch(`${API_BASE}/astrology/runs/${id}/recompute`, { method: 'POST' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      message.success(`Recompute started: run ${data.run_id}`);
+      if (onRecompute) onRecompute(data.run_id);
+      fetchRuns();
+    } catch (e) {
+      message.error('Recompute failed: ' + e.message);
+    }
+  };
+
+  const handleExport = (id, fmt) => {
+    const a = document.createElement('a');
+    a.href = `${API_BASE}/astrology/runs/${id}/results/export?fmt=${fmt}`;
+    a.download = `run-${id}.${fmt}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const columns = [
+    { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
+    { title: 'Created', dataIndex: 'created_at', key: 'created_at' },
+    { title: 'Total', dataIndex: 'total_tuples', key: 'total_tuples', width: 80 },
+    { title: 'Completed', dataIndex: 'completed_tuples', key: 'completed_tuples', width: 100 },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (s) => <Tag color={s === 'done' ? 'green' : s === 'error' ? 'red' : s === 'partial' ? 'orange' : 'blue'}>{s}</Tag>,
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space size="small">
+          <Button size="small" onClick={() => onView && onView(record.id)}>View</Button>
+          <Button size="small" type="primary" onClick={() => handleRecompute(record.id)}>Recompute</Button>
+          <Popconfirm title="Delete this run?" onConfirm={() => handleDelete(record.id)} okText="Delete" okButtonProps={{ danger: true }}>
+            <Button size="small" danger>Delete</Button>
+          </Popconfirm>
+          <Button size="small" onClick={() => handleExport(record.id, 'jsonl')}>Export</Button>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <Table
+      dataSource={runs}
+      columns={columns}
+      rowKey="id"
+      loading={loading}
+      pagination={{ pageSize: 20 }}
+      size="small"
+    />
+  );
+}
+
+function ResultsTab({ currentRunId }) {
+  const [markdown, setMarkdown] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(null);
+
+  useEffect(() => {
+    if (!currentRunId) return;
+    setLoading(true);
+    setError(null);
+    fetch(`${API_BASE}/astrology/runs/${currentRunId}/results?format=markdown`)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(setMarkdown)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [currentRunId]);
+
+  const handleCopy = async (fmt) => {
+    try {
+      let text;
+      if (fmt === 'markdown') {
+        text = markdown;
+      } else {
+        const r = await fetch(`${API_BASE}/astrology/runs/${currentRunId}/results?format=json`);
+        text = await r.text();
+      }
+      await navigator.clipboard.writeText(text);
+      setCopied(fmt);
+      message.success(`${fmt === 'markdown' ? 'Markdown' : 'JSON'} copied to clipboard`);
+      setTimeout(() => setCopied(null), 2000);
+    } catch (e) {
+      message.error('Copy failed: ' + e.message);
+    }
+  };
+
+  const handleDownload = (fmt) => {
+    const a = document.createElement('a');
+    a.href = `${API_BASE}/astrology/runs/${currentRunId}/results/export?fmt=${fmt}`;
+    a.download = `run-${currentRunId}.${fmt}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  return (
+    <Space direction="vertical" className="w-full" size="middle">
+      {!currentRunId && <Empty description="No run selected. Launch a sweep first." />}
+      {loading && <Spin tip="Loading results..." />}
+      {error && <Alert type="error" message={error} showIcon />}
+      {currentRunId && !loading && !error && (
+        <Card
+          title={`Run ${currentRunId} Results`}
+          extra={
+            <Space>
+              <Button icon={<CopyOutlined />} onClick={() => handleCopy('markdown')}>
+                {copied === 'markdown' ? 'Copied!' : 'Copy MD'}
+              </Button>
+              <Button icon={<CopyOutlined />} onClick={() => handleCopy('json')}>
+                {copied === 'json' ? 'Copied!' : 'Copy JSON'}
+              </Button>
+              <Dropdown
+                menu={{
+                  items: [
+                    { key: 'jsonl', label: 'JSONL', onClick: () => handleDownload('jsonl') },
+                    { key: 'csv', label: 'CSV', onClick: () => handleDownload('csv') },
+                    { key: 'md', label: 'Markdown', onClick: () => handleDownload('md') },
+                  ],
+                }}
+              >
+                <Button icon={<DownloadOutlined />}>Download</Button>
+              </Dropdown>
+            </Space>
+          }
+        >
+          <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: 12, maxHeight: 600, overflow: 'auto' }}>
+            {markdown}
+          </pre>
+        </Card>
+      )}
+    </Space>
+  );
+}
+
 const AstrologyExtractionPanel = () => {
   const [locations, setLocations] = useState([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
@@ -71,6 +252,8 @@ const AstrologyExtractionPanel = () => {
   const [systems, setSystems] = useState(['western', 'vedic', 'chinese']);
   const [houseSystem, setHouseSystem] = useState('placidus');
   const [sidereal, setSidereal] = useState(false);
+
+  const [currentRunId, setCurrentRunId] = useState(null);
 
   // Fetch available locations on mount
   useEffect(() => {
@@ -116,6 +299,57 @@ const AstrologyExtractionPanel = () => {
       })),
     [locations],
   );
+
+  const setupState = useMemo(() => {
+    const selectedLocs = selectedLocations
+      .map((id) => locations.find((l) => (l.id ?? l.name) === id))
+      .filter(Boolean);
+    const dates = [];
+    if (dateMode === 'explicit' && explicitDates && explicitDates.length) {
+      explicitDates.forEach((d) => {
+        const dt = d && (d.$d || d);
+        if (dt && !Number.isNaN(dt.getTime?.())) {
+          dates.push(new Date(dt).toISOString());
+        }
+      });
+    } else if (dateMode === 'every_n_days' && everyNDays > 0) {
+      const start = new Date();
+      for (let i = 0; i < everyNDays; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i * everyNDays);
+        dates.push(d.toISOString());
+      }
+    } else if (dateMode === 'weekly') {
+      const start = new Date();
+      for (let i = 0; i < 4; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + ((weeklyWeekday - start.getDay() + 7) % 7) + i * 7);
+        dates.push(d.toISOString());
+      }
+    }
+    const tuples = [];
+    selectedLocs.forEach((loc) => {
+      if (typeof loc.lat !== 'number' || typeof loc.lon !== 'number') return;
+      dates.forEach((iso) => {
+        tuples.push({ date: iso, lat: loc.lat, lon: loc.lon });
+      });
+    });
+    return {
+      tuples,
+      systems,
+      houseSystem,
+      sidereal,
+      dateMode,
+      selectedLocations,
+    };
+  }, [locations, selectedLocations, dateMode, explicitDates, everyNDays, weeklyWeekday, systems, houseSystem, sidereal]);
+
+  const handleSweepComplete = (runId) => {
+    if (runId) {
+      // eslint-disable-next-line no-console
+      console.log('[AstrologyExtractionPanel] Sweep run complete:', runId);
+    }
+  };
 
   const renderDateModeSubInputs = () => {
     if (dateMode === 'explicit') {
@@ -307,10 +541,10 @@ const AstrologyExtractionPanel = () => {
         {renderPlaceholder('Sweep')}
       </TabPane>
       <TabPane tab="Results" key="results">
-        {renderPlaceholder('Results')}
+        <ResultsTab currentRunId={currentRunId} />
       </TabPane>
       <TabPane tab="Replay" key="replay">
-        {renderPlaceholder('Replay')}
+        <ReplayTab />
       </TabPane>
     </Tabs>
   );
