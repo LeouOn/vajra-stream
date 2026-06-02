@@ -131,6 +131,114 @@ class TestAstrologyCalculator:
         assert "planetary_hours" in data
 
 
+@pytest.mark.unit
+class TestNewCalcMethods:
+    def test_hellenistic_lots(self, calculator):
+        from datetime import datetime, timezone
+        dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        lots = calculator.get_hellenistic_lots(dt, location=(51.5, -0.13), sect='day')
+        assert set(lots.keys()) == {'fortune', 'spirit', 'eros', 'necessity', 'courage', 'victory', 'nemesis'}
+        for lot in lots.values():
+            assert 'sign' in lot and 'degree' in lot and 'exact_longitude' in lot
+            assert lot['degree'] >= 0 and lot['degree'] < 30
+            assert lot['exact_longitude'] >= 0 and lot['exact_longitude'] < 360
+
+    def test_midpoints(self, calculator):
+        from datetime import datetime, timezone
+        dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        m = calculator.get_midpoints(dt)
+        assert len(m) == 45  # 10C2
+        for k, v in m.items():
+            assert '_' in k  # pair format
+            assert 0 <= v['degree'] < 30
+
+    def test_antiscia(self, calculator):
+        from datetime import datetime, timezone
+        dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        a = calculator.get_antiscia(dt)
+        assert len(a) == 10
+        for planet, data in a.items():
+            assert 'antiscion' in data
+            assert 'contrantiscion' in data
+            # antiscion should be 180° from contrantiscion
+            diff = (data['antiscion']['exact_longitude'] - data['contrantiscion']['exact_longitude']) % 360
+            assert abs(diff - 180) < 0.001
+
+    def test_year_ahead_timeline(self, calculator):
+        from datetime import datetime, timezone
+        natal = datetime(1990, 1, 1, tzinfo=timezone.utc)
+        t = calculator.get_year_ahead_timeline(natal, (0, 0))
+        assert 'events' in t
+        assert 'period' in t
+        # 12 solar ingresses
+        solar = [e for e in t['events'] if e['type'] == 'ingress' and e['body'] == 'Sun']
+        assert len(solar) == 12
+        # Total <= 500 cap
+        assert len(t['events']) <= 500
+        # Events sorted
+        dates = [e['date'] for e in t['events']]
+        assert dates == sorted(dates)
+
+    def test_fixed_stars(self, calculator):
+        from datetime import datetime, timezone
+        dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        s = calculator.get_fixed_stars(dt)
+        assert len(s) == 7
+        assert 'regulus' in s
+        assert 'sirius' in s
+
+    def test_secondary_progressions(self, calculator):
+        from datetime import datetime, timezone
+        natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
+        p1 = calculator.get_secondary_progressions(natal, (0, 0), datetime(2001, 1, 1, 12, 0, tzinfo=timezone.utc))
+        p29 = calculator.get_secondary_progressions(natal, (0, 0), datetime(2029, 1, 1, 12, 0, tzinfo=timezone.utc))
+        # Progressed Sun moves ~1°/year
+        sun_arc = (p29['positions']['sun']['exact_longitude'] - p1['positions']['sun']['exact_longitude']) % 360
+        assert 25 < sun_arc < 33
+        # Progressed Moon moves ~12°/year
+        moon_arc = (p29['positions']['moon']['exact_longitude'] - p1['positions']['moon']['exact_longitude']) % 360
+        assert 330 < moon_arc or moon_arc < 30  # ~12° × 28 years = 336°
+
+    def test_solar_return(self, calculator):
+        from datetime import datetime, timezone
+        natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
+        sr = calculator.get_solar_return(natal, (0, 0), 2026)
+        # Sun at exact moment should be near natal Sun
+        natal_sun = calculator.get_planetary_positions(natal)['sun']['longitude']
+        sr_sun = sr['positions']['sun']['longitude']
+        diff = min((sr_sun - natal_sun) % 360, (natal_sun - sr_sun) % 360)
+        assert diff < 1.0  # within 1°
+
+    def test_profection(self, calculator):
+        from datetime import datetime, timezone
+        natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
+        p0 = calculator.get_profection(natal, 2000)
+        p12 = calculator.get_profection(natal, 2012)
+        # 12-year cycle returns to natal Asc
+        assert p0['profected_asc_sign'] == p12['profected_asc_sign']
+
+    def test_solar_arc(self, calculator):
+        from datetime import datetime, timezone
+        natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
+        sad = calculator.get_solar_arc_directions(natal, (0, 0), datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
+        assert abs(sad['solar_arc_degrees'] - 25) < 1
+
+    def test_astrocartography(self, calculator):
+        from datetime import datetime, timezone
+        dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+        a = calculator.get_astrocartography_lines(dt, step_degrees=10.0)  # coarse for speed
+        assert len(a) == 10
+        for planet, lines in a.items():
+            assert 'ac' in lines
+            assert 'dc' in lines
+            assert 'mc' in lines
+            assert 'ic' in lines
+            for line in lines.values():
+                for lat, lon in line:
+                    assert -90 <= lat <= 90
+                    assert -180 <= lon <= 180
+
+
 @pytest.mark.integration
 class TestAstrologyAPI:
     def test_api_current_transit(self, client):
