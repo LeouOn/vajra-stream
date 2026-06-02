@@ -299,6 +299,114 @@ class AstrologicalCalculator:
         }
 
     # =========================================================================
+    # HELLENISTIC LOTS
+    # =========================================================================
+
+    def get_hellenistic_lots(
+        self,
+        dt: datetime,
+        location: tuple[float, float] | None = None,
+        sect: str = "day",
+    ) -> dict:
+        """Calculate the seven classical Hellenistic astrological lots.
+
+        The seven lots are the foundational "places" (kleroi) of Hellenistic
+        chart interpretation: Fortune (Tyche), Spirit (Daimon), Eros, Necessity
+        (Ananke), Courage (Andreia), Victory (Nike), and Nemesis.
+
+        Whole-sign placement is used: each lot is placed in the zodiac sign
+        determined by its absolute longitude (0° Aries = 0°). The degree
+        within the sign is ``lon mod 30``. This is the simplest and most
+        reproducible placement for v1.
+
+        Formulas (mod 360):
+            Fortune (day):  ASC + Moon - Sun
+            Fortune (night): ASC + Sun - Moon
+            Spirit (day):   ASC + Sun - Moon
+            Spirit (night): ASC + Moon - Sun
+            Eros (day):     Spirit + Venus - Sun  (equivalently ASC + Venus - Moon)
+            Necessity:      ASC + Mercury - Sun
+            Courage:        ASC + Mars - Sun
+            Victory:        ASC + Jupiter - Sun
+            Nemesis:        ASC + Saturn - Sun
+
+        Fortune and Spirit swap Sun and Moon by sect. The remaining five lots
+        use the day-chart formula regardless of sect (this is a v1 simplification;
+        some traditions swap Sun for Moon at night for the planetary lots too).
+
+        Args:
+            dt: Datetime for the chart (timezone-aware recommended).
+            location: Optional ``(latitude, longitude)`` tuple. If ``None``,
+                defaults to ``(0.0, 0.0)`` (equator / prime meridian).
+            sect: ``"day"`` (default) or ``"night"`` — selects the Fortune /
+                Spirit formula.
+
+        Returns:
+            dict: ``{lot_name: {"sign": str, "degree": float,
+            "exact_longitude": float}, ...}`` for the 7 lots:
+            ``fortune, spirit, eros, necessity, courage, victory, nemesis``.
+
+        Raises:
+            ValueError: If ``sect`` is not ``"day"`` or ``"night"``.
+        """
+        if sect not in ("day", "night"):
+            raise ValueError(f"sect must be 'day' or 'night', got {sect!r}")
+
+        if location is None:
+            lat, lon = 0.0, 0.0
+        else:
+            lat, lon = location
+
+        jd = self.get_julian_day(dt)
+
+        cusps, ascmc = swe.houses_ex(jd, lat, lon, b"P")
+        asc_lon = float(ascmc[0])
+
+        positions = self.get_planetary_positions(dt, location)
+        sun_lon = positions["sun"]["longitude"]
+        moon_lon = positions["moon"]["longitude"]
+        mercury_lon = positions["mercury"]["longitude"]
+        venus_lon = positions["venus"]["longitude"]
+        mars_lon = positions["mars"]["longitude"]
+        jupiter_lon = positions["jupiter"]["longitude"]
+        saturn_lon = positions["saturn"]["longitude"]
+
+        if sect == "day":
+            fortune_lon = (asc_lon + moon_lon - sun_lon) % 360
+            spirit_lon = (asc_lon + sun_lon - moon_lon) % 360
+        else:
+            fortune_lon = (asc_lon + sun_lon - moon_lon) % 360
+            spirit_lon = (asc_lon + moon_lon - sun_lon) % 360
+
+        eros_lon = (spirit_lon + venus_lon - sun_lon) % 360
+        necessity_lon = (asc_lon + mercury_lon - sun_lon) % 360
+        courage_lon = (asc_lon + mars_lon - sun_lon) % 360
+        victory_lon = (asc_lon + jupiter_lon - sun_lon) % 360
+        nemesis_lon = (asc_lon + saturn_lon - sun_lon) % 360
+
+        raw_lots = {
+            "fortune": fortune_lon,
+            "spirit": spirit_lon,
+            "eros": eros_lon,
+            "necessity": necessity_lon,
+            "courage": courage_lon,
+            "victory": victory_lon,
+            "nemesis": nemesis_lon,
+        }
+
+        lots: dict = {}
+        for name, lon in raw_lots.items():
+            lon = lon % 360
+            sign_idx = int(lon // 30) % 12
+            lots[name] = {
+                "sign": self.SIGNS[sign_idx],
+                "degree": lon % 30,
+                "exact_longitude": lon,
+            }
+
+        return lots
+
+    # =========================================================================
     # INDIAN VEDIC ASTROLOGY FUNCTIONS (PANCHANG)
     # =========================================================================
 
