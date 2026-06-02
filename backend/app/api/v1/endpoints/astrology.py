@@ -1009,3 +1009,287 @@ async def import_saved_charts(req: dict):
         logger.error(f"Import error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ============================================================================
+# Per-Calc Endpoints for the 8 New Astrological Systems (Task 17)
+# ============================================================================
+# These endpoints expose the new calculator methods (Tasks 5-12) one at a
+# time. They are pure compute — no caching, no persistence, no auth. The
+# batch extraction endpoint (Task 15) is responsible for persistence; the
+# `AstrologicalCalculator` is reconstructed per request so requests are
+# stateless and safe to call concurrently.
+
+from pydantic import BaseModel, Field, field_validator  # noqa: E402
+from typing import Literal  # noqa: E402
+from dateutil import parser as _dt_parser  # noqa: E402
+import pytz  # noqa: E402
+
+
+def _parse_dt(date_iso: str) -> datetime.datetime:
+    """Parse an ISO-8601 datetime string into a tz-aware UTC datetime."""
+    if not date_iso:
+        raise HTTPException(status_code=422, detail="date_iso is required")
+    clean = date_iso[:-1] + "+00:00" if date_iso.endswith("Z") else date_iso
+    try:
+        dt = datetime.datetime.fromisoformat(clean)
+    except ValueError:
+        try:
+            dt = _dt_parser.parse(date_iso)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"Invalid date_iso: {exc}") from exc
+    if dt.tzinfo is None:
+        dt = pytz.UTC.localize(dt)
+    return dt
+
+
+class DateLocationRequest(BaseModel):
+    """Shared (date_iso, lat, lon) request body for snapshot calcs."""
+
+    date_iso: str = Field(..., description="ISO-8601 datetime string (UTC recommended)")
+    lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude in degrees")
+    lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude in degrees")
+
+
+class LotsRequest(DateLocationRequest):
+    sect: Literal["day", "night"] = Field(
+        "day", description="Day/night birth sect for Fortune/Spirit swap"
+    )
+
+
+class OrbRequest(DateLocationRequest):
+    orb: float = Field(1.5, gt=0.0, le=10.0, description="Conjunction orb in degrees")
+
+
+class SecondaryProgressionsRequest(BaseModel):
+    natal_date_iso: str
+    natal_lat: float = Field(..., ge=-90.0, le=90.0)
+    natal_lon: float = Field(..., ge=-180.0, le=180.0)
+    target_date_iso: str
+
+
+class SolarReturnRequest(BaseModel):
+    natal_date_iso: str
+    natal_lat: float = Field(..., ge=-90.0, le=90.0)
+    natal_lon: float = Field(..., ge=-180.0, le=180.0)
+    return_year: int = Field(..., ge=1900, le=2200)
+    return_lat: float | None = Field(None, ge=-90.0, le=90.0)
+    return_lon: float | None = Field(None, ge=-180.0, le=180.0)
+
+
+class ProfectionRequest(BaseModel):
+    natal_date_iso: str
+    target_year: int = Field(..., ge=1900, le=2200)
+
+
+class SolarArcRequest(BaseModel):
+    natal_date_iso: str
+    natal_lat: float = Field(..., ge=-90.0, le=90.0)
+    natal_lon: float = Field(..., ge=-180.0, le=180.0)
+    target_date_iso: str
+
+
+class YearAheadRequest(BaseModel):
+    natal_date_iso: str
+    natal_lat: float = Field(..., ge=-90.0, le=90.0)
+    natal_lon: float = Field(..., ge=-180.0, le=180.0)
+    start_date_iso: str | None = None
+    end_date_iso: str | None = None
+    orb: float = Field(1.0, gt=0.0, le=10.0)
+
+
+class AstrocartographyRequest(BaseModel):
+    date_iso: str
+    step_degrees: float = Field(5.0, gt=0.0, le=45.0)
+
+
+@router.post("/lots")
+async def post_lots(req: LotsRequest):
+    """Hellenistic lots (Fortune, Spirit, Eros, Necessity, Courage, Victory, Nemesis)."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        dt = _parse_dt(req.date_iso)
+        calc = AstrologicalCalculator()
+        lots = calc.get_hellenistic_lots(dt, (req.lat, req.lon), sect=req.sect)
+        return {"status": "success", "sect": req.sect, "lots": lots}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"lots endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/midpoints")
+async def post_midpoints(req: OrbRequest):
+    """Midpoint of every pair of 10 planets (45 midpoints)."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        dt = _parse_dt(req.date_iso)
+        calc = AstrologicalCalculator()
+        midpoints = calc.get_midpoints(dt, (req.lat, req.lon), orb=req.orb)
+        return {"status": "success", "orb": req.orb, "count": len(midpoints), "midpoints": midpoints}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"midpoints endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/antiscia")
+async def post_antiscia(req: DateLocationRequest):
+    """Antiscion + contrantiscion for each of the 10 planets."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        dt = _parse_dt(req.date_iso)
+        calc = AstrologicalCalculator()
+        antiscia = calc.get_antiscia(dt, (req.lat, req.lon))
+        return {"status": "success", "antiscia": antiscia}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"antiscia endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/fixed-stars")
+async def post_fixed_stars(req: OrbRequest):
+    """Royal stars + Spica/Algol/Sirius with precession-adjusted longitudes."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        dt = _parse_dt(req.date_iso)
+        calc = AstrologicalCalculator()
+        stars = calc.get_fixed_stars(dt, (req.lat, req.lon), orb=req.orb)
+        return {"status": "success", "orb": req.orb, "stars": stars}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"fixed-stars endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/secondary-progressions")
+async def post_secondary_progressions(req: SecondaryProgressionsRequest):
+    """Day-for-year secondary progressions with progressed Moon phase."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        natal_dt = _parse_dt(req.natal_date_iso)
+        target_dt = _parse_dt(req.target_date_iso)
+        calc = AstrologicalCalculator()
+        result = calc.get_secondary_progressions(
+            natal_dt, (req.natal_lat, req.natal_lon), target_dt
+        )
+        return {"status": "success", "progressions": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"secondary-progressions endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/solar-return")
+async def post_solar_return(req: SolarReturnRequest):
+    """Solar return chart for the given year at natal or relocated location."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        natal_dt = _parse_dt(req.natal_date_iso)
+        return_loc = None
+        if req.return_lat is not None and req.return_lon is not None:
+            return_loc = (req.return_lat, req.return_lon)
+        calc = AstrologicalCalculator()
+        result = calc.get_solar_return(
+            natal_dt,
+            (req.natal_lat, req.natal_lon),
+            return_year=req.return_year,
+            return_location=return_loc,
+        )
+        return {"status": "success", "solar_return": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"solar-return endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profection")
+async def post_profection(req: ProfectionRequest):
+    """Annual profection: profected Asc sign + lord for the target year."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        natal_dt = _parse_dt(req.natal_date_iso)
+        calc = AstrologicalCalculator()
+        result = calc.get_profection(natal_dt, target_year=req.target_year)
+        return {"status": "success", "profection": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"profection endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/solar-arc")
+async def post_solar_arc(req: SolarArcRequest):
+    """Solar arc directions: every natal body shifted by progressed Sun - natal Sun."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        natal_dt = _parse_dt(req.natal_date_iso)
+        target_dt = _parse_dt(req.target_date_iso)
+        calc = AstrologicalCalculator()
+        result = calc.get_solar_arc_directions(
+            natal_dt, (req.natal_lat, req.natal_lon), target_dt
+        )
+        return {"status": "success", "solar_arc": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"solar-arc endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/year-ahead")
+async def post_year_ahead(req: YearAheadRequest):
+    """Year-ahead transit timeline: lunations, ingresses, transits-to-natal."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        natal_dt = _parse_dt(req.natal_date_iso)
+        start_dt = _parse_dt(req.start_date_iso) if req.start_date_iso else None
+        end_dt = _parse_dt(req.end_date_iso) if req.end_date_iso else None
+        calc = AstrologicalCalculator()
+        result = calc.get_year_ahead_timeline(
+            natal_dt,
+            (req.natal_lat, req.natal_lon),
+            start=start_dt,
+            end=end_dt,
+            orb=req.orb,
+        )
+        return {"status": "success", "year_ahead": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"year-ahead endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/astrocartography")
+async def post_astrocartography(req: AstrocartographyRequest):
+    """Astrocartography lines: AC/DC/MC/IC per planet (coarse, step_degrees sampling)."""
+    try:
+        from core.astrology import AstrologicalCalculator
+
+        dt = _parse_dt(req.date_iso)
+        calc = AstrologicalCalculator()
+        result = calc.get_astrocartography_lines(dt, step_degrees=req.step_degrees)
+        return {"status": "success", "step_degrees": req.step_degrees, "lines": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"astrocartography endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

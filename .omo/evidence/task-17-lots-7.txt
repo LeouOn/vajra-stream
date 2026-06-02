@@ -1,0 +1,13 @@
+=== /lots returns 7 lots for any valid chart ===
+status: 200
+lot count: 7
+lot names: ['courage', 'eros', 'fortune', 'necessity', 'nemesis', 'spirit', 'victory']
+sample lot (fortune):    {'sign': 'Leo', 'degree': 16.398716794982988, 'exact_longitude': 136.398716794983}
+sample lot (spirit):     {'sign': 'Leo', 'degree': 10.304099132639237, 'exact_longitude': 130.30409913263924}
+sample lot (eros):       {'sign': 'Virgo', 'degree': 18.243539406582045, 'exact_longitude': 168.24353940658204}
+sample lot (necessity):  {'sign': 'Virgo', 'degree': 7.838452177108763, 'exact_longitude': 157.83845217710876}
+sample lot (courage):    {'sign': 'Cancer', 'degree': 9.386227544677354, 'exact_longitude': 99.38622754467735}
+sample lot (victory):    {'sign': 'Virgo', 'degree': 15.981567335508402, 'exact_longitude': 165.9815673355084}
+sample lot (nemesis):    {'sign': 'Gemini', 'degree': 2.426144644255885, 'exact_longitude': 62.426144644255885}
+
+PASS
