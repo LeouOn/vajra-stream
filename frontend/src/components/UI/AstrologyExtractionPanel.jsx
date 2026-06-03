@@ -25,6 +25,8 @@ import {
   Button,
   Dropdown,
   message,
+  Progress,
+  Statistic,
 } from 'antd';
 import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
