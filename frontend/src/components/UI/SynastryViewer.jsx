@@ -1,29 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { Award, Compass, Heart, RefreshCw, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Award, Compass, Heart, RefreshCw, AlertTriangle, Sparkles, ShieldAlert, Minus } from 'lucide-react';
 import { Card, Button, Select, Space, Row, Col, Progress, Table, Tag } from 'antd';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 const PLANET_GLYPHS = {
   sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂',
   jupiter:'♃', saturn:'♄', uranus:'♅', neptune:'♆', pluto:'♇',
-  north_node:'☊', south_node:'☋', Chiron: '⚷', mean_node: '☊'
+  north_node:'☊', south_node:'☋', chiron: '⚷', mean_node: '☊'
 };
 
 const ASPECT_COLORS = {
-  Conjunction: 'blue',
-  Trine: 'geekblue',
-  Sextile: 'purple',
-  Square: 'red',
-  Opposition: 'volcano',
+  conjunction: '#10b981',
+  trine: '#3b82f6',
+  sextile: '#a855f7',
+  square: '#ef4444',
+  opposition: '#f97316',
+  quincunx: '#64748b',
+  quintile: '#64748b',
 };
 
-export default function SynastryViewer({ 
-  charts, 
-  subjectA, 
-  subjectB, 
-  onSetSubjectA, 
-  onSetSubjectB 
+const ASPECT_LABEL_COLORS = {
+  conjunction: 'green',
+  trine: 'blue',
+  sextile: 'purple',
+  square: 'red',
+  opposition: 'volcano',
+  quincunx: 'default',
+  quintile: 'default',
+};
+
+const HARMONIOUS = new Set(['trine', 'sextile', 'conjunction']);
+const CHALLENGING = new Set(['square', 'opposition']);
+
+const ASPECT_GLYPHS = {
+  conjunction: '☌',
+  sextile: '⚹',
+  square: '□',
+  trine: '△',
+  opposition: '☍',
+  quincunx: '⚻',
+  quintile: '⛶',
+};
+
+const aspectCategory = (name) => {
+  const n = (name || '').toLowerCase();
+  if (HARMONIOUS.has(n)) return 'harmonious';
+  if (CHALLENGING.has(n)) return 'challenging';
+  return 'minor';
+};
+
+const aspectGlyph = (name) => ASPECT_GLYPHS[(name || '').toLowerCase()] || '○';
+
+export default function SynastryViewer({
+  charts,
+  subjectA,
+  subjectB,
+  onSetSubjectA,
+  onSetSubjectB
 }) {
   const [loading, setLoading] = useState(false);
   const [synastryData, setSynastryData] = useState(null);
@@ -81,6 +116,40 @@ export default function SynastryViewer({
   const aspects = synastryData?.data?.aspects || [];
   const scoring = synastryData?.data?.scoring || {};
 
+  const distribution = useMemo(() => {
+    const counts = {};
+    for (const a of aspects) {
+      const k = (a.aspect || '').toLowerCase();
+      counts[k] = (counts[k] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .map(([name, count]) => ({
+        name,
+        label: name.charAt(0).toUpperCase() + name.slice(1),
+        count,
+        category: aspectCategory(name),
+        glyph: aspectGlyph(name),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [aspects]);
+
+  const harmonyRatio = useMemo(() => {
+    if (!aspects.length) return { harmonious: 0, challenging: 0, neutral: 0 };
+    let h = 0, c = 0, m = 0;
+    for (const a of aspects) {
+      const cat = aspectCategory(a.aspect);
+      if (cat === 'harmonious') h++;
+      else if (cat === 'challenging') c++;
+      else m++;
+    }
+    const total = h + c + m;
+    return {
+      harmonious: total ? Math.round((h / total) * 100) : 0,
+      challenging: total ? Math.round((c / total) * 100) : 0,
+      neutral: total ? Math.round((m / total) * 100) : 0,
+    };
+  }, [aspects]);
+
   const columns = [
     {
       title: 'Subject A Planet',
@@ -96,11 +165,14 @@ export default function SynastryViewer({
       title: 'Aspect',
       dataIndex: 'aspect',
       key: 'aspect',
-      render: (text) => (
-        <Tag color={ASPECT_COLORS[text] || 'default'} className="font-mono text-[9px] uppercase font-bold">
-          {text}
-        </Tag>
-      )
+      render: (text) => {
+        const key = (text || '').toLowerCase();
+        return (
+          <Tag color={ASPECT_LABEL_COLORS[key] || 'default'} className="font-mono text-[9px] uppercase font-bold">
+            <span className="mr-1">{aspectGlyph(key)}</span>{text}
+          </Tag>
+        );
+      }
     },
     {
       title: 'Subject B Planet',
@@ -116,7 +188,7 @@ export default function SynastryViewer({
       title: 'Orb',
       dataIndex: 'orb',
       key: 'orb',
-      render: (val) => <span className="font-mono text-[10px] text-gray-400">{val.toFixed(2)}°</span>
+      render: (val) => <span className="font-mono text-[10px] text-gray-400">{(val ?? 0).toFixed(2)}°</span>
     }
   ];
 
@@ -132,7 +204,6 @@ export default function SynastryViewer({
       styles={{ body: { padding: '20px' } }}
     >
       <div className="space-y-6">
-        {/* Dropdowns for Subjects */}
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={10}>
             <label className="text-[10px] text-gray-500 font-mono block mb-1 uppercase font-bold">
@@ -172,7 +243,6 @@ export default function SynastryViewer({
             </div>
           ) : (
             <div className="space-y-6 pt-4 border-t border-white/5">
-              {/* Compatibility Score */}
               {scoring.compatibility_score !== undefined && (
                 <Row gutter={[20, 20]} align="middle">
                   <Col xs={24} md={6} className="text-center">
@@ -192,22 +262,171 @@ export default function SynastryViewer({
                       )}
                     />
                   </Col>
-                  <Col xs={24} md={18} className="space-y-2">
+                  <Col xs={24} md={18} className="space-y-2.5">
                     <h4 className="text-sm font-bold text-slate-200">
                       Elemental Synergy: {scoring.element_a} & {scoring.element_b}
                     </h4>
                     <p className="text-xs text-gray-300 leading-relaxed mb-0">
                       {scoring.description}
                     </p>
-                    <div className="flex gap-4 text-[10px] font-mono text-gray-500 pt-1.5">
-                      <span>Harmonies: <span className="text-green-400">{scoring.harmony_count}</span></span>
-                      <span>Tensions: <span className="text-red-400">{scoring.tension_count}</span></span>
-                    </div>
+                    <Row gutter={[12, 12]} className="pt-2">
+                      <Col xs={8}>
+                        <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/25 rounded-lg text-center">
+                          <Sparkles className="w-3.5 h-3.5 text-emerald-400 mx-auto mb-0.5" />
+                          <div className="text-xl font-bold text-emerald-300 font-mono leading-none">
+                            {scoring.harmony_count ?? 0}
+                          </div>
+                          <div className="text-[9px] text-emerald-400/70 font-mono uppercase tracking-wider mt-1">
+                            Harmonious
+                          </div>
+                        </div>
+                      </Col>
+                      <Col xs={8}>
+                        <div className="p-2.5 bg-rose-950/20 border border-rose-500/25 rounded-lg text-center">
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400 mx-auto mb-0.5" />
+                          <div className="text-xl font-bold text-rose-300 font-mono leading-none">
+                            {scoring.tension_count ?? 0}
+                          </div>
+                          <div className="text-[9px] text-rose-400/70 font-mono uppercase tracking-wider mt-1">
+                            Challenging
+                          </div>
+                        </div>
+                      </Col>
+                      <Col xs={8}>
+                        <div className={`p-2.5 border rounded-lg text-center ${
+                          (scoring.harmony_count ?? 0) - (scoring.tension_count ?? 0) > 0
+                            ? 'bg-cyan-950/20 border-cyan-500/25'
+                            : (scoring.harmony_count ?? 0) - (scoring.tension_count ?? 0) < 0
+                              ? 'bg-orange-950/20 border-orange-500/25'
+                              : 'bg-gray-950/30 border-white/10'
+                        }`}>
+                          <Minus className="w-3.5 h-3.5 text-gray-400 mx-auto mb-0.5" />
+                          <div className={`text-xl font-bold font-mono leading-none ${
+                            (scoring.harmony_count ?? 0) - (scoring.tension_count ?? 0) > 0
+                              ? 'text-cyan-300'
+                              : (scoring.harmony_count ?? 0) - (scoring.tension_count ?? 0) < 0
+                                ? 'text-orange-300'
+                                : 'text-gray-300'
+                          }`}>
+                            {(scoring.harmony_count ?? 0) - (scoring.tension_count ?? 0) > 0 ? '+' : ''}
+                            {(scoring.harmony_count ?? 0) - (scoring.tension_count ?? 0)}
+                          </div>
+                          <div className="text-[9px] text-gray-400 font-mono uppercase tracking-wider mt-1">
+                            Net Energy
+                          </div>
+                        </div>
+                      </Col>
+                    </Row>
                   </Col>
                 </Row>
               )}
 
-              {/* Aspects Table */}
+              {distribution.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-0">
+                    Aspect Distribution
+                  </h4>
+                  <Row gutter={[16, 16]}>
+                    <Col xs={24} md={16}>
+                      <div className="bg-black/35 border border-white/5 rounded-xl p-3" style={{ height: 200 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={distribution} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                            <XAxis
+                              dataKey="label"
+                              stroke="#94a3b8"
+                              fontSize={10}
+                              tickLine={false}
+                              axisLine={{ stroke: '#334155' }}
+                            />
+                            <YAxis
+                              stroke="#94a3b8"
+                              fontSize={10}
+                              tickLine={false}
+                              axisLine={{ stroke: '#334155' }}
+                              allowDecimals={false}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                background: '#0f172a',
+                                border: '1px solid #1e293b',
+                                borderRadius: 8,
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                                color: '#e2e8f0',
+                              }}
+                              cursor={{ fill: 'rgba(148, 163, 184, 0.08)' }}
+                              formatter={(value, _name, props) => [
+                                `${value} aspect${value === 1 ? '' : 's'}`,
+                                props.payload.label,
+                              ]}
+                            />
+                            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                              {distribution.map((entry, idx) => (
+                                <Cell
+                                  key={`cell-${idx}`}
+                                  fill={ASPECT_COLORS[entry.name] || '#64748b'}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Col>
+                    <Col xs={24} md={8}>
+                      <div className="bg-black/35 border border-white/5 rounded-xl p-4 h-full flex flex-col justify-center space-y-3">
+                        <div className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
+                          Energy Breakdown
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] font-mono mb-1">
+                            <span className="flex items-center gap-1.5 text-emerald-300">
+                              <Sparkles className="w-3 h-3" /> Harmonious
+                            </span>
+                            <span className="text-emerald-300">{harmonyRatio.harmonious}%</span>
+                          </div>
+                          <div className="h-2 bg-emerald-950/30 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all"
+                              style={{ width: `${harmonyRatio.harmonious}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] font-mono mb-1">
+                            <span className="flex items-center gap-1.5 text-rose-300">
+                              <ShieldAlert className="w-3 h-3" /> Challenging
+                            </span>
+                            <span className="text-rose-300">{harmonyRatio.challenging}%</span>
+                          </div>
+                          <div className="h-2 bg-rose-950/30 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-rose-500 to-rose-400 transition-all"
+                              style={{ width: `${harmonyRatio.challenging}%` }}
+                            />
+                          </div>
+                        </div>
+                        {harmonyRatio.neutral > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] font-mono mb-1">
+                              <span className="flex items-center gap-1.5 text-gray-400">
+                                <Minus className="w-3 h-3" /> Minor
+                              </span>
+                              <span className="text-gray-400">{harmonyRatio.neutral}%</span>
+                            </div>
+                            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-gray-500 to-gray-400 transition-all"
+                                style={{ width: `${harmonyRatio.neutral}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Col>
+                  </Row>
+                </div>
+              )}
+
               <div className="space-y-2.5">
                 <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-0">
                   Synastry Aspects List
