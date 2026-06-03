@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity } from 'lucide-react';
 import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty } from 'antd';
 import { API_BASE } from '../../utils/api';
@@ -12,18 +12,31 @@ const ASPECT_COLORS = {
   Opposition: 'text-orange-400 border-orange-500/20 bg-orange-500/10',
 };
 
-const PLANET_GLYPHS = {
-  sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂',
-  jupiter:'♃', saturn:'♄', uranus:'♅', neptune:'♆', pluto:'♇',
-  north_node:'☊', south_node:'☋', Chiron: '⚷', mean_node: '☊'
+const HARMONIOUS_ASPECTS = new Set(['Trine', 'Sextile', 'Conjunction']);
+const CHALLENGING_ASPECTS = new Set(['Square', 'Opposition']);
+
+const aspectCategory = (name) => {
+  if (HARMONIOUS_ASPECTS.has(name)) return 'harmonious';
+  if (CHALLENGING_ASPECTS.has(name)) return 'challenging';
+  return 'minor';
 };
 
+const PLANET_GLYPHS = {
+  sun:'â˜‰', moon:'â˜½', mercury:'â˜¿', venus:'â™€', mars:'â™‚',
+  jupiter:'â™ƒ', saturn:'â™„', uranus:'â™…', neptune:'â™†', pluto:'â™‡',
+  north_node:'â˜Š', south_node:'â˜‹', chiron: 'âš·', mean_node: 'â˜Š'
+};
+
+const isHouseCusp = (name) => typeof name === 'string' && name.startsWith('house_');
+const houseLabel = (name) => (isHouseCusp(name) ? name.replace('house_', 'H') : name);
+const natalDisplay = (name) => (isHouseCusp(name) ? `Natal Cusp ${houseLabel(name)}` : `Natal ${name}`);
+
 const ASPECT_GLYPHS = {
-  Conjunction: '☌',
-  Sextile: '⚹',
-  Square: '□',
-  Trine: '△',
-  Opposition: '☍'
+  Conjunction: 'â˜Œ',
+  Sextile: 'âš¹',
+  Square: 'â–¡',
+  Trine: 'â–³',
+  Opposition: 'â˜'
 };
 
 const GOCHARA_DESCRIPTIONS = {
@@ -49,6 +62,27 @@ const ASPECT_INTERPRETATIONS = {
   Opposition: "Brings awareness of relationship polarities, calling for balance or compromise.",
 };
 
+const PILLAR_ORDER = ['Year', 'Month', 'Day', 'Hour'];
+const PILLAR_LABELS = {
+  'Year': 'Year Pillar (ancestry, social)',
+  'Month': 'Month Pillar (parents, work)',
+  'Day': 'Day Pillar (self, spouse)',
+  'Hour': 'Hour Pillar (children, old age)',
+};
+
+function NatalPillar({ label, pillar }) {
+  return (
+    <div className="p-3 bg-black/40 border border-white/5 rounded-xl flex-1 min-w-[140px]">
+      <div className="text-[8px] text-gray-500 font-mono font-bold tracking-widest uppercase mb-1">
+        {label}
+      </div>
+      <div className="text-base font-serif text-amber-300 font-bold">
+        {pillar || 'â€”'}
+      </div>
+    </div>
+  );
+}
+
 export default function TransitComparison({ chart }) {
   const [transitTime, setTransitTime] = useState(() => {
     const d = new Date();
@@ -58,6 +92,7 @@ export default function TransitComparison({ chart }) {
   const [loading, setLoading] = useState(false);
   const [transitData, setTransitData] = useState(null);
   const [activeTab, setActiveTab] = useState('Western');
+  const [aspectFilter, setAspectFilter] = useState('all');
 
   const fetchTransits = async () => {
     if (!chart) return;
@@ -89,6 +124,37 @@ export default function TransitComparison({ chart }) {
     }
   }, [chart]);
 
+  const aspects = useMemo(() => {
+    const raw = transitData?.aspects || [];
+    if (aspectFilter === 'all') return raw;
+    return raw.filter((a) => aspectCategory(a.aspect) === aspectFilter);
+  }, [transitData, aspectFilter]);
+
+  const aspectStats = useMemo(() => {
+    const all = transitData?.aspects || [];
+    let harmonious = 0, challenging = 0, minor = 0;
+    for (const a of all) {
+      const c = aspectCategory(a.aspect);
+      if (c === 'harmonious') harmonious++;
+      else if (c === 'challenging') challenging++;
+      else minor++;
+    }
+    return { total: all.length, harmonious, challenging, minor };
+  }, [transitData]);
+
+  const baziInteractions = transitData?.bazi_clashes?.interactions || [];
+
+  const baziByPillar = useMemo(() => {
+    const groups = { 'Year': [], 'Month': [], 'Day': [], 'Hour': [] };
+    for (const ix of baziInteractions) {
+      const label = ix.pillar || '';
+      const m = label.match(/^([A-Za-z]+)/);
+      const key = m ? m[1] : null;
+      if (key && groups[key]) groups[key].push(ix);
+    }
+    return groups;
+  }, [baziInteractions]);
+
   if (!chart) {
     return (
       <Card className="bg-gray-900/60 border-white/5 text-center p-8 text-gray-500 italic text-xs">
@@ -97,9 +163,7 @@ export default function TransitComparison({ chart }) {
     );
   }
 
-  const aspects = transitData?.aspects || [];
   const gochara = transitData?.gochara || {};
-  const baziClashes = transitData?.bazi_clashes?.interactions || [];
 
   return (
     <Card
@@ -116,10 +180,10 @@ export default function TransitComparison({ chart }) {
               onChange={(e) => setTransitTime(e.target.value)}
               className="bg-gray-800 border border-gray-700 text-white rounded px-2.5 py-1 text-xs outline-none"
             />
-            <Button 
-              size="small" 
-              type="primary" 
-              onClick={fetchTransits} 
+            <Button
+              size="small"
+              type="primary"
+              onClick={fetchTransits}
               loading={loading}
               icon={<RefreshCw className="w-3.5 h-3.5" />}
               style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none' }}
@@ -132,7 +196,6 @@ export default function TransitComparison({ chart }) {
       className="bg-gray-900/80 border-purple-500/20"
       styles={{ body: { padding: '20px' } }}
     >
-      {/* Tradition Selector */}
       <div className="flex justify-center mb-5">
         <Segmented
           options={['Western', 'Vedic Gochara', 'Chinese Pillars']}
@@ -148,45 +211,60 @@ export default function TransitComparison({ chart }) {
         </div>
       ) : (
         <div>
-          {/* Western Aspects tab */}
           {activeTab === 'Western' && (
             <div className="space-y-4">
-              <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-1">
-                Active Transit-to-Natal Aspects
-              </h4>
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-0">
+                  Active Transit-to-Natal Aspects
+                </h4>
+                <Segmented
+                  size="small"
+                  value={aspectFilter}
+                  onChange={(v) => { audioFeedback.playTabChange(); setAspectFilter(v); }}
+                  options={[
+                    { label: `All (${aspectStats.total})`, value: 'all' },
+                    { label: `Harmonious (${aspectStats.harmonious})`, value: 'harmonious' },
+                    { label: `Challenging (${aspectStats.challenging})`, value: 'challenging' },
+                  ]}
+                  className="bg-black/40 border border-white/5 text-[10px]"
+                />
+              </div>
               {aspects.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1">
                   {aspects.map((asp, idx) => {
                     const aspectColor = ASPECT_COLORS[asp.aspect] || 'bg-white/5 border-white/5 text-white';
-                    const transitGlyph = PLANET_GLYPHS[asp.transit_planet] || '●';
-                    const natalGlyph = PLANET_GLYPHS[asp.natal_planet] || '●';
-                    const aspectGlyph = ASPECT_GLYPHS[asp.aspect] || '☌';
+                    const transitGlyph = PLANET_GLYPHS[asp.transit_planet] || 'â—';
+                    const natalGlyph = isHouseCusp(asp.natal_planet) ? 'âŒ–' : (PLANET_GLYPHS[asp.natal_planet] || 'â—');
+                    const aspectGlyph = ASPECT_GLYPHS[asp.aspect] || 'â˜Œ';
+                    const cuspFlag = isHouseCusp(asp.natal_planet);
 
                     return (
-                      <div 
-                        key={idx} 
-                        className={`p-3 border rounded-xl flex items-start justify-between gap-3 hover:scale-[1.01] transition-transform ${aspectColor}`}
+                      <div
+                        key={`${asp.transit_planet}-${asp.natal_planet}-${asp.aspect}-${idx}`}
+                        className={`p-3 border rounded-xl flex items-start justify-between gap-3 hover:scale-[1.01] transition-transform ${aspectColor} ${
+                          cuspFlag ? 'ring-1 ring-amber-500/30' : ''
+                        }`}
                       >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono font-bold">
                             <span className="capitalize">{asp.transit_planet}</span>
                             <span className="text-[13px]">{aspectGlyph}</span>
-                            <span className="capitalize text-slate-300">Natal {asp.natal_planet}</span>
+                            <span className="capitalize text-slate-300">{natalDisplay(asp.natal_planet)}</span>
                           </div>
                           <p className="text-[10px] opacity-75 mb-1.5 leading-relaxed">
                             {ASPECT_INTERPRETATIONS[asp.aspect]}
                           </p>
                           <div className="flex items-center gap-2">
-                            <Progress 
-                              percent={Math.round(asp.exactness * 100)} 
-                              size="small" 
-                              showInfo={false} 
+                            <Progress
+                              percent={Math.round(asp.exactness * 100)}
+                              size="small"
+                              showInfo={false}
                               strokeColor="currentColor"
                               trailColor="rgba(0,0,0,0.4)"
                               style={{ width: '60px', margin: 0 }}
                             />
                             <span className="text-[8px] font-mono leading-none">
-                              {Math.round(asp.exactness * 100)}% exact · {asp.orb}° orb
+                              {Math.round(asp.exactness * 100)}% exact Â· {asp.orb}Â° orb
                             </span>
                           </div>
                         </div>
@@ -198,27 +276,33 @@ export default function TransitComparison({ chart }) {
                   })}
                 </div>
               ) : (
-                <Empty description="No transit-to-natal aspects in orb." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                <Empty
+                  description={
+                    aspectFilter === 'all'
+                      ? "No transit-to-natal aspects in orb."
+                      : `No ${aspectFilter} aspects in orb.`
+                  }
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
               )}
             </div>
           )}
 
-          {/* Vedic Gochara tab */}
           {activeTab === 'Vedic Gochara' && (
             <div className="space-y-4">
               <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-1">
                 Gochara (Transit Grahas from Natal Moon)
               </h4>
               <p className="text-[10px] text-gray-500 italic leading-relaxed">
-                In Vedic Jyotish, planetary transits are analyzed relative to the Rashi (sign) of the Moon at birth. 
+                In Vedic Jyotish, planetary transits are analyzed relative to the Rashi (sign) of the Moon at birth.
                 Below are the active transit houses and their traditional focus points.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[350px] overflow-y-auto pr-1">
                 {Object.entries(gochara).map(([planet, data]) => {
-                  const glyph = PLANET_GLYPHS[planet] || '●';
+                  const glyph = PLANET_GLYPHS[planet] || 'â—';
                   return (
-                    <div 
-                      key={planet} 
+                    <div
+                      key={planet}
                       className="p-3 bg-black/45 border border-white/5 rounded-xl space-y-1.5 hover:border-amber-500/20 transition-colors"
                     >
                       <div className="flex justify-between items-center">
@@ -231,7 +315,7 @@ export default function TransitComparison({ chart }) {
                         </Tag>
                       </div>
                       <div className="text-[9px] text-amber-500 font-mono">
-                        {data.transit_rashi} ({data.transit_degree.toFixed(2)}°)
+                        {data.transit_rashi} ({data.transit_degree.toFixed(2)}Â°)
                       </div>
                       <p className="text-[10px] text-gray-400 leading-snug mb-0 pt-1 border-t border-white/5">
                         {GOCHARA_DESCRIPTIONS[data.gochara_house]}
@@ -243,64 +327,76 @@ export default function TransitComparison({ chart }) {
             </div>
           )}
 
-          {/* Chinese Pillars tab */}
           {activeTab === 'Chinese Pillars' && (
             <div className="space-y-4">
               <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-1">
-                Transit Day Pillar vs Natal Pillars
+                BaZi Four Pillars: Transit Ã— Natal Interactions
               </h4>
               <p className="text-[10px] text-gray-500 italic leading-relaxed">
-                BaZi (Four Pillars) analysis calculates how the stems and branches of the current transit day pillar 
-                interact with your birth pillars. Harmonious connections bring stability, whereas Clashes call for adaptation.
+                Each transit pillar (Year, Month, Day, Hour) is compared against its natal counterpart.
+                Same-pillar pairs (Year-Year, Month-Month, Day-Day, Hour-Hour) and cross-pillar Day
+                impacts on the other natal pillars are all evaluated for Clashes and Harmonies.
               </p>
 
-              <Row gutter={[16, 16]}>
-                <Col xs={24} md={10}>
-                  <div className="p-4 bg-black/55 border border-white/10 rounded-2xl text-center space-y-2">
-                    <span className="text-[9px] text-gray-500 font-mono font-bold tracking-widest block uppercase">
-                      Active Transit Day Pillar
-                    </span>
-                    <div className="text-2xl font-bold text-emerald-400 font-serif tracking-wider">
-                      {transitData?.bazi_clashes?.transit_day_pillar || '—'}
-                    </div>
-                    <div className="text-[9px] text-gray-400 font-mono">
-                      Current day's dominant energetic flow
-                    </div>
-                  </div>
-                </Col>
-                <Col xs={24} md={14} className="space-y-3">
-                  {baziClashes.length > 0 ? (
-                    baziClashes.map((clash, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`p-3 border rounded-xl flex items-start gap-3 ${
-                          clash.type === 'Clash' 
-                            ? 'bg-rose-950/15 border-rose-500/20 text-rose-300' 
-                            : 'bg-emerald-950/15 border-emerald-500/20 text-emerald-300'
-                        }`}
-                      >
-                        {clash.type === 'Clash' ? (
-                          <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                        ) : (
-                          <Sparkles className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                        )}
-                        <div>
-                          <span className="font-bold text-xs block font-mono">
-                            {clash.type}: Natal {clash.pillar}
+              <div className="space-y-3">
+                {PILLAR_ORDER.map((pillar) => {
+                  const interactions = baziByPillar[pillar] || [];
+                  return (
+                    <div key={pillar} className="border border-white/5 rounded-xl overflow-hidden">
+                      <div className="px-3 py-2 bg-black/50 border-b border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-amber-400 font-mono font-bold tracking-widest uppercase">
+                            {pillar} Pillar
                           </span>
-                          <p className="text-[10px] text-gray-300 leading-relaxed mb-0 mt-1">
-                            {clash.description}
-                          </p>
+                          <span className="text-[9px] text-gray-500 italic">
+                            {PILLAR_LABELS[pillar]}
+                          </span>
                         </div>
+                        <Tag
+                          color={interactions.length === 0 ? 'default' : interactions.some(i => i.type === 'Clash') ? 'red' : 'green'}
+                          className="text-[9px] font-mono leading-none m-0"
+                        >
+                          {interactions.length === 0
+                            ? 'no interactions'
+                            : `${interactions.length} ${interactions.length === 1 ? 'note' : 'notes'}`}
+                        </Tag>
                       </div>
-                    ))
-                  ) : (
-                    <div className="p-8 border border-white/5 rounded-xl bg-black/30 text-center text-xs text-gray-500 italic font-mono">
-                      No significant clashes or harmonies with today's branches.
+                      {interactions.length > 0 ? (
+                        <div className="p-2 space-y-2">
+                          {interactions.map((ix, idx) => (
+                            <div
+                              key={idx}
+                              className={`p-3 border rounded-xl flex items-start gap-3 ${
+                                ix.type === 'Clash'
+                                  ? 'bg-rose-950/15 border-rose-500/20 text-rose-300'
+                                  : 'bg-emerald-950/15 border-emerald-500/20 text-emerald-300'
+                              }`}
+                            >
+                              {ix.type === 'Clash' ? (
+                                <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                              ) : (
+                                <Sparkles className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                              )}
+                              <div>
+                                <span className="font-bold text-xs block font-mono">
+                                  {ix.type}: {ix.pillar}
+                                </span>
+                                <p className="text-[10px] text-gray-300 leading-relaxed mb-0 mt-1">
+                                  {ix.description}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-3 text-center text-[10px] text-gray-500 italic font-mono">
+                          No clashes or harmonies for the {pillar.toLowerCase()} pillar.
+                        </div>
+                      )}
                     </div>
-                  )}
-                </Col>
-              </Row>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
