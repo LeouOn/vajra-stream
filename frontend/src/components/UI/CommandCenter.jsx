@@ -633,10 +633,76 @@ export default function CommandCenter({
     { label: 'Start automation', text: 'start automation' },
     { label: 'Stop automation', text: 'stop automation' },
     { label: 'List populations', text: 'list populations' },
-    { label: 'Start RNG session', text: 'start RNG session' },
+    { label: 'Start RNG session', text: 'start rng session' },
     { label: 'Get statistics', text: 'get statistics' },
     { label: 'Dharma Wisdom', text: 'tell me a dharma tale' }
   ];
+
+  const operatorActions = [
+    {
+      key: 'analyze',
+      label: 'Analyze intention',
+      icon: '🎯',
+      prompt: 'help my friend with chronic back pain',
+      endpoint: `${API_BASE}/operator/analyze`,
+      body: () => ({ intention: 'help my friend with chronic back pain' }),
+    },
+    {
+      key: 'rates',
+      label: 'Suggest rates',
+      icon: '📊',
+      prompt: 'emotional healing after loss',
+      endpoint: `${API_BASE}/operator/suggest-rates`,
+      body: () => ({ intention_or_condition: 'emotional healing after loss', count: 5 }),
+    },
+    {
+      key: 'insight',
+      label: 'Session insight',
+      icon: '👁',
+      prompt: 'what do my current readings suggest?',
+      endpoint: `${API_BASE}/operator/insights`,
+      body: () => ({
+        session_context: {
+          currentFrequency: frequency,
+          isPlaying,
+          activeSessions: Object.values(sessions || {}).filter(s => s.status === 'running').length,
+          crystalActive: crystalStatus?.active || false,
+          scalarRate: scalarStatus?.rate || null,
+        },
+      }),
+    },
+  ];
+
+  async function handleOperatorAction(action) {
+    if (isLoading) return;
+    setIsLoading(true);
+    audioFeedback.playTelemetry();
+    setMessages(prev => [...prev, { role: 'user', content: `[${action.label}] ${action.prompt}`, action: action.key }]);
+    addToolLog('user', `Operator action: ${action.label}`);
+    addToolLog('llm', `Calling ${action.endpoint.split('/').pop()}...`, 'pending');
+    try {
+      const res = await fetch(action.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action.body()),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const summary = action.key === 'analyze'
+          ? `🎯 Target: ${data.analysis?.target || '—'}\n🌀 Chakra: ${data.analysis?.primary_chakra || '—'}\n📡 Freq: ${data.analysis?.recommended_frequency || '—'} Hz\n🕉️ Mantra: ${data.analysis?.recommended_mantra_tradition || '—'}`
+          : action.key === 'rates'
+            ? `📊 ${(data.rates || []).map((r, i) => `${i + 1}. ${r.name || 'Rate ' + (i + 1)} → ${Array.isArray(r.values) ? r.values.join('-') : r.values}`).join('\n')}`
+            : data.insight || JSON.stringify(data);
+        setMessages(prev => [...prev, { role: 'assistant', content: summary, action: action.key }]);
+        addToolLog('llm', `${action.label} complete`, 'success');
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Operator service unavailable.', action: 'error' }]);
+      }
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Unable to reach operator.', action: 'error' }]);
+    }
+    setIsLoading(false);
+  }
 
   return (
     <div className="h-full flex flex-col gap-4 p-4 md:p-6 overflow-hidden">
@@ -714,6 +780,33 @@ export default function CommandCenter({
               </Button>
             ))}
           </Space>
+        </div>
+
+        {/* Operator Quick Actions */}
+        <div className="px-4 py-1.5 bg-gradient-to-r from-indigo-950/30 to-purple-950/20 border-t border-indigo-500/15">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-mono text-indigo-300/70 uppercase tracking-wider">Operator</span>
+            <Space wrap size={[4, 4]}>
+              {operatorActions.map((action) => (
+                <Button
+                  key={action.key}
+                  size="small"
+                  type="default"
+                  disabled={isLoading}
+                  onClick={() => handleOperatorAction(action)}
+                  style={{
+                    fontSize: '10px',
+                    borderRadius: '12px',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    borderColor: 'rgba(99, 102, 241, 0.3)',
+                    color: '#a5b4fc',
+                  }}
+                >
+                  <span className="mr-1">{action.icon}</span>{action.label}
+                </Button>
+              ))}
+            </Space>
+          </div>
         </div>
 
         {/* LLM Environmental Context Injection Panel */}
