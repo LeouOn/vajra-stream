@@ -45,6 +45,21 @@ const LANGUAGES = [
   'English', 'Sanskrit', 'Tibetan', 'Chinese', 'Latin', 'Greek', 'Hebrew',
 ];
 
+const DIFFICULTY_OPTIONS = [
+  { id: 'mild', label: 'Mild', desc: 'Minor obstacles and everyday challenges' },
+  { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
+  { id: 'deep', label: 'Deep', desc: 'Profound wounds and life-changing difficulties' },
+];
+
+const GLOBAL_INTENTIONS = [
+  { id: 'world peace', label: 'World Peace', planet: 'Jupiter', freq: '852Hz', icon: '🕊️' },
+  { id: 'world prosperity', label: 'World Prosperity', planet: 'Venus', freq: '528Hz', icon: '💎' },
+  { id: 'end to disease and cancer', label: 'End Disease & Cancer', planet: 'Sun', freq: '528Hz', icon: '☀️' },
+  { id: 'happiness', label: 'Happiness', planet: 'Jupiter', freq: '528Hz', icon: '🌟' },
+  { id: 'reforestation the world', label: 'Reforestation', planet: 'Earth', freq: '528Hz', icon: '🌲' },
+  { id: 'cleaning up pollution', label: 'Clean Pollution', planet: 'Saturn', freq: '396Hz', icon: '🌊' },
+];
+
 // ─── Component ─────────────────────────────────────────────
 
 export default function OutlookDashboard() {
@@ -65,6 +80,7 @@ export default function OutlookDashboard() {
   const [selectedPopIds, setSelectedPopIds] = useState([]);
   const [includeDialogue, setIncludeDialogue] = useState(false);
   const [customContext, setCustomContext] = useState('');
+  const [difficulty, setDifficulty] = useState('moderate');
   const [excludedForcesText, setExcludedForcesText] = useState('');
   const [includeAstrology, setIncludeAstrology] = useState(true);
   const [includeTarot, setIncludeTarot] = useState(true);
@@ -82,6 +98,10 @@ export default function OutlookDashboard() {
   const [currentNarrative, setCurrentNarrative] = useState(null);
   const [historyList, setHistoryList] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [resultTab, setResultTab] = useState('narrative');
+  const [affirmation, setAffirmation] = useState(null);
+  const [affirmationLoading, setAffirmationLoading] = useState(false);
+  const [affirmationCopied, setAffirmationCopied] = useState(false);
 
   // ─── Universe Data ───────────────────────────────────────
   const [realms, setRealms] = useState([]);
@@ -218,6 +238,8 @@ export default function OutlookDashboard() {
   const handleGenerate = async () => {
     setLoading(true);
     setCurrentNarrative(null);
+    setAffirmation(null);
+    setResultTab('narrative');
     audioFeedback.playTelemetry();
 
     try {
@@ -227,6 +249,7 @@ export default function OutlookDashboard() {
         languages: selectedLangs, genre,
         date: new Date(date).toISOString(),
         custom_context: customContext || null,
+        difficulty,
         realm_id: selectedRealmId || null,
         population_ids: selectedPopIds.length > 0 ? selectedPopIds : null,
         character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
@@ -265,6 +288,42 @@ export default function OutlookDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const generateAffirmation = async () => {
+    if (!currentNarrative) return;
+    setAffirmationLoading(true);
+    audioFeedback.playTelemetry();
+    try {
+      const intention = customContext
+        || currentNarrative.genre
+        || 'spiritual practice';
+      const res = await fetch(`${API_BASE}/radionics/affirmation/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intention, style: 'empowering' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAffirmation(data.affirmation || data.text || '');
+        setResultTab('affirmation');
+        audioFeedback.playSuccess();
+      } else {
+        message.error('Affirmation service unavailable.');
+        audioFeedback.playError();
+      }
+    } catch {
+      message.error('Could not reach affirmation endpoint.');
+      audioFeedback.playError();
+    }
+    setAffirmationLoading(false);
+  };
+
+  const copyAffirmation = () => {
+    if (!affirmation) return;
+    navigator.clipboard.writeText(affirmation);
+    setAffirmationCopied(true);
+    setTimeout(() => setAffirmationCopied(false), 2000);
   };
 
   // ─── Loop Controls ───────────────────────────────────────
@@ -545,6 +604,36 @@ export default function OutlookDashboard() {
                     <Input size="small" type="datetime-local" value={date} onChange={e => setDate(e.target.value)} style={{ marginTop: 4 }} />
                   </div>
 
+                  {/* Global Intentions Presets (saved from deleted RadionicsNarrative) */}
+                  <div>
+                    <Text strong style={{ fontSize: 12 }}><Globe className="w-3 h-3 inline mr-1" /> Global Intentions</Text>
+                    <div className="grid grid-cols-2 gap-1.5" style={{ marginTop: 4 }}>
+                      {GLOBAL_INTENTIONS.map((preset) => {
+                        const isActive = customContext.toLowerCase().includes(preset.id);
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => setCustomContext(preset.id)}
+                            className={`p-1.5 rounded text-left text-[10px] transition-colors border ${
+                              isActive
+                                ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-200'
+                                : 'bg-gray-800/50 border-white/5 text-gray-400 hover:border-white/15 hover:text-gray-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>{preset.icon}</span>
+                              <span className="font-medium truncate">{preset.label}</span>
+                            </div>
+                            <div className="text-[8px] opacity-70 mt-0.5 font-mono">
+                              {preset.planet} · {preset.freq}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Genre */}
                   <div>
                     <Text strong style={{ fontSize: 12 }}>Blessing Genre</Text>
@@ -667,6 +756,28 @@ export default function OutlookDashboard() {
 
                   <Divider style={{ margin: '4px 0' }} />
 
+                  {/* Difficulty Level */}
+                  <div>
+                    <Text strong style={{ fontSize: 12 }}>Difficulty Level</Text>
+                    <div className="grid grid-cols-3 gap-1.5" style={{ marginTop: 4 }}>
+                      {DIFFICULTY_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setDifficulty(opt.id)}
+                          className={`p-1.5 rounded text-[10px] transition-colors border ${
+                            difficulty === opt.id
+                              ? 'bg-purple-950/60 border-purple-500/40 text-purple-200'
+                              : 'bg-gray-800/50 border-white/5 text-gray-400 hover:border-white/15 hover:text-gray-200'
+                          }`}
+                          title={opt.desc}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Epic Toggle */}
                   <Row justify="space-between" align="middle">
                     <Col>
@@ -760,7 +871,7 @@ export default function OutlookDashboard() {
                   <Row gutter={[24, 24]}>
                     <Col xs={24} lg={16}>
                       <Card
-                        title={<Text strong className="font-mono text-xs uppercase">Single Transmission</Text>}
+                        title={<Text strong className="font-mono text-xs uppercase">Transmission</Text>}
                         extra={
                           <Space size={4}>
                             <NarrativeTTSPlayer
@@ -772,11 +883,77 @@ export default function OutlookDashboard() {
                           </Space>
                         }
                       >
-                        <Title level={4} style={{ color: '#e2e8f0', textTransform: 'capitalize' }}>{currentNarrative.genre} Revelation</Title>
-                        <Divider />
-                        <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
-                          {currentNarrative.narrative}
-                        </Paragraph>
+                        <Tabs
+                          size="small"
+                          activeKey={resultTab}
+                          onChange={setResultTab}
+                          items={[
+                            {
+                              key: 'narrative',
+                              label: <span><BookOpen className="w-3 h-3 inline mr-1" />Narrative</span>,
+                              children: (
+                                <>
+                                  <Title level={4} style={{ color: '#e2e8f0', textTransform: 'capitalize' }}>{currentNarrative.genre} Revelation</Title>
+                                  <Divider />
+                                  <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
+                                    {currentNarrative.narrative}
+                                  </Paragraph>
+                                </>
+                              ),
+                            },
+                            {
+                              key: 'affirmation',
+                              label: <span><Sparkles className="w-3 h-3 inline mr-1" />Affirmation</span>,
+                              children: (
+                                <div className="py-4">
+                                  {!affirmation ? (
+                                    <div className="text-center space-y-3 py-6">
+                                      <Text type="secondary" style={{ fontSize: 13 }}>
+                                        Forge a personal affirmation from this transmission's intention.
+                                      </Text>
+                                      <Button
+                                        type="primary"
+                                        onClick={generateAffirmation}
+                                        loading={affirmationLoading}
+                                        icon={<Sparkles className="w-3.5 h-3.5" />}
+                                        style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none' }}
+                                      >
+                                        Generate Affirmation
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <div className="flex justify-between items-center mb-3">
+                                        <Text strong style={{ fontSize: 12, color: '#fbbf24' }}>Empowering Affirmation</Text>
+                                        <Button
+                                          size="small"
+                                          icon={affirmationCopied ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                          onClick={copyAffirmation}
+                                        >
+                                          {affirmationCopied ? 'Copied' : 'Copy'}
+                                        </Button>
+                                      </div>
+                                      <blockquote className="border-l-4 border-amber-500/50 pl-4 pr-2 italic text-amber-100 text-base leading-relaxed whitespace-pre-wrap">
+                                        "{affirmation}"
+                                      </blockquote>
+                                      <div className="mt-4 text-center">
+                                        <Button
+                                          size="small"
+                                          type="default"
+                                          onClick={generateAffirmation}
+                                          loading={affirmationLoading}
+                                          icon={<RefreshCw className="w-3 h-3" />}
+                                        >
+                                          Regenerate
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ),
+                            },
+                          ]}
+                        />
                       </Card>
                     </Col>
                     <Col xs={24} lg={8}>
