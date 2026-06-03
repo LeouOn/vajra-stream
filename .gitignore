@@ -23,6 +23,10 @@ generated_sigils/
 session_logs/
 llm_generated/
 
+# Qwen3-TTS model cache (downloaded on first use, ~3-7 GB)
+.qwen_tts/
+core/qwen_tts_cache/
+
 # Audio files
 *.wav
 *.mp3
