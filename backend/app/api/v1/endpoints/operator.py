@@ -560,7 +560,14 @@ async def recitation_status():
 
 
 @router.post("/buddhas/recitation/start", summary="Start Buddha recitation loop")
-async def start_recitation(intention: str = "愿一切众生离苦得乐", interval_seconds: float = 3.0, mala_cycles: int | None = None):
+async def start_recitation(
+    intention: str = "愿一切众生离苦得乐",
+    interval_seconds: float = 3.0,
+    mala_cycles: int | None = None,
+    voice: str = "zh-CN-YunxiNeural",
+    role: str = "buddhist_chant",
+    project_id: str | None = None,
+):
     """Start the continuous 88-Buddha recitation loop."""
     import asyncio
     from core.buddha_recitation_loop import get_recitation_loop
@@ -576,11 +583,28 @@ async def start_recitation(intention: str = "愿一切众生离苦得乐", inter
                     intention=intention,
                     interval_seconds=interval_seconds,
                     mala_cycles=mala_cycles,
+                    voice=voice,
+                    role=role,
+                    project_id=project_id,
                 ))
             else:
-                asyncio.run(loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles))
+                asyncio.run(loop.start(
+                    intention=intention,
+                    interval_seconds=interval_seconds,
+                    mala_cycles=mala_cycles,
+                    voice=voice,
+                    role=role,
+                    project_id=project_id,
+                ))
         except RuntimeError:
-            asyncio.run(loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles))
+            asyncio.run(loop.start(
+                intention=intention,
+                interval_seconds=interval_seconds,
+                mala_cycles=mala_cycles,
+                voice=voice,
+                role=role,
+                project_id=project_id,
+            ))
         return loop.get_status()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

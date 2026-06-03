@@ -135,11 +135,60 @@ class ToolDispatcher:
                 b = svc.get_buddha_by_name(buddha_name)
                 if not b:
                     return {"error": f"Buddha not found: {buddha_name}"}
-                return {
-                    "buddha": b.name_chinese,
-                    "pinyin": b.name_pinyin,
-                    "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS. Use start_buddha_recitation for continuous playback.",
-                }
+                # Actually invoke the unified TTS provider so the recitation is
+                # played back in the active backend (Qwen3-TTS or Edge).
+                text = f"南無{b.name_chinese}" if not b.name_chinese.startswith("南無") else b.name_chinese
+                try:
+                    from core.tts_provider import get_tts_provider
+                    provider = get_tts_provider()
+                    project_id = arguments.get("project_id")
+                    if project_id is not None:
+                        provider.config.project_id = project_id
+                    role = arguments.get("role", "buddhist_chant")
+                    edge_v, qwen_s = provider._resolve_voice(
+                        arguments.get("voice"),
+                        role,
+                    )
+                    backend_id = provider.active_backend.value
+
+                    async def _do_speak():
+                        return await provider.speak(
+                            text=text,
+                            voice=arguments.get("voice"),
+                            rate="-30%",
+                            role=role,
+                        )
+
+                    try:
+                        running = asyncio.get_event_loop()
+                        if running.is_running():
+                            # Schedule the coroutine and immediately return
+                            # the metadata; the audio renders in the background.
+                            asyncio.ensure_future(_do_speak())
+                            path = None
+                        else:
+                            path = asyncio.run(_do_speak())
+                    except RuntimeError:
+                        path = asyncio.run(_do_speak())
+
+                    return {
+                        "buddha": b.name_chinese,
+                        "pinyin": b.name_pinyin,
+                        "text": text,
+                        "audio_path": path,
+                        "backend": backend_id,
+                        "speaker": qwen_s if backend_id == "qwen" else edge_v,
+                        "role": role,
+                        "message": f"Recited {b.name_chinese} ({b.name_pinyin}) via {backend_id}.",
+                    }
+                except Exception as e:
+                    return {
+                        "buddha": b.name_chinese,
+                        "pinyin": b.name_pinyin,
+                        "text": text,
+                        "error": str(e),
+                        "message": f"Could not play recitation of {b.name_chinese}: {e}",
+                    }
 
             elif tool_name == "start_buddha_recitation":
                 from core.buddha_recitation_loop import get_recitation_loop
@@ -150,6 +199,9 @@ class ToolDispatcher:
                 intention = arguments.get("intention", "愿一切众生离苦得乐")
                 interval = arguments.get("interval_seconds", 3.0)
                 mala_cycles = arguments.get("mala_cycles")
+                role = arguments.get("role", "buddhist_chant")
+                project_id = arguments.get("project_id")
+                voice = arguments.get("voice", "zh-CN-YunxiNeural")
                 try:
                     running_loop = asyncio.get_event_loop()
                     if running_loop.is_running():
@@ -157,11 +209,28 @@ class ToolDispatcher:
                             intention=intention,
                             interval_seconds=interval,
                             mala_cycles=mala_cycles,
+                            voice=voice,
+                            role=role,
+                            project_id=project_id,
                         ))
                     else:
-                        asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+                        asyncio.run(loop.start(
+                            intention=intention,
+                            interval_seconds=interval,
+                            mala_cycles=mala_cycles,
+                            voice=voice,
+                            role=role,
+                            project_id=project_id,
+                        ))
                 except RuntimeError:
-                    asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+                    asyncio.run(loop.start(
+                        intention=intention,
+                        interval_seconds=interval,
+                        mala_cycles=mala_cycles,
+                        voice=voice,
+                        role=role,
+                        project_id=project_id,
+                    ))
                 return loop.get_status()
 
             elif tool_name == "stop_buddha_recitation":
