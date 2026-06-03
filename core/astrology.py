@@ -1327,7 +1327,7 @@ class AstrologicalCalculator:
         natal_positions = self.get_planetary_positions(natal_dt, natal_location)
         transit_positions = self.get_planetary_positions(transit_dt, natal_location)
         
-        # Add Ascendant and MC for natal if location is provided
+        # Add Ascendant, MC, and 12 house cusps for natal if location is provided
         jd_natal = self.get_julian_day(natal_dt)
         if natal_location:
             lat, lon = natal_location
@@ -1342,6 +1342,13 @@ class AstrologicalCalculator:
                 "sign": self.SIGNS[int(ascmc[1] / 30) % 12],
                 "degree": ascmc[1] % 30
             }
+            for i in range(12):
+                cusp_lon = houses[i]
+                natal_positions[f"house_{i + 1}"] = {
+                    "longitude": cusp_lon,
+                    "sign": self.SIGNS[int(cusp_lon / 30) % 12],
+                    "degree": cusp_lon % 30,
+                }
             
         aspect_types = [
             {"name": "Conjunction", "angle": 0, "orb": 8},
@@ -1499,18 +1506,43 @@ class AstrologicalCalculator:
         }
         
         interactions = []
-        for label, n_branch in [("Year (Sheng Xiao)", n_y_b), ("Month", n_m_b), ("Day (Self)", n_d_b), ("Hour", n_h_b)]:
+        # 1. Same-type pillar pair checks: transit branch vs natal branch of same pillar
+        pillar_pairs = [
+            ("Year-Year", t_y_b, n_y_b),
+            ("Month-Month", t_m_b, n_m_b),
+            ("Day-Day", t_d_b, n_d_b),
+            ("Hour-Hour", t_h_b, n_h_b),
+        ]
+        for pair_label, t_branch, n_branch in pillar_pairs:
+            if t_branch == "Unknown" or n_branch == "Unknown":
+                continue
+            pillar_name = pair_label.split("-")[0]
+            if clash_map.get(t_branch) == n_branch:
+                interactions.append({
+                    "pillar": pair_label,
+                    "type": "Clash",
+                    "description": f"Transit {pillar_name} branch {t_branch} CLASHES with Natal {pillar_name} branch {n_branch}. Dynamic change, potential conflict or breakthrough."
+                })
+            elif harmony_map.get(t_branch) == n_branch:
+                interactions.append({
+                    "pillar": pair_label,
+                    "type": "Harmony",
+                    "description": f"Transit {pillar_name} branch {t_branch} COMBINES with Natal {pillar_name} branch {n_branch}. Harmonious support, cooperation, and stability."
+                })
+
+        # 2. Cross-pillar: Transit Day branch (self) impacts all natal pillars
+        for label, n_branch in [("Year (Sheng Xiao)", n_y_b), ("Month", n_m_b), ("Hour", n_h_b)]:
             if n_branch == "Unknown" or t_d_b == "Unknown":
                 continue
             if clash_map.get(t_d_b) == n_branch:
                 interactions.append({
-                    "pillar": label,
+                    "pillar": f"Day→{label}",
                     "type": "Clash",
                     "description": f"Transit Day branch {t_d_b} CLASHES with Natal {label} branch {n_branch}. Dynamic change, potential conflict or breakthrough."
                 })
             elif harmony_map.get(t_d_b) == n_branch:
                 interactions.append({
-                    "pillar": label,
+                    "pillar": f"Day→{label}",
                     "type": "Harmony",
                     "description": f"Transit Day branch {t_d_b} COMBINES with Natal {label} branch {n_branch}. Harmonious support, cooperation, and stability."
                 })

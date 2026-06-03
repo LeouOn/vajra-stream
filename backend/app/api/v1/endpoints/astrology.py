@@ -914,8 +914,10 @@ async def compare_saved_charts(req: SavedChartsCompareRequest):
             
             # Count aspect types
             aspects = result.get("data", {}).get("aspects", [])
-            harmonies = len([a for a in aspects if a["aspect"] in ["Trine", "Sextile", "Conjunction"]])
-            tensions = len([a for a in aspects if a["aspect"] in ["Square", "Opposition"]])
+            harmonious = {"trine", "sextile", "conjunction"}
+            challenging = {"square", "opposition"}
+            harmonies = len([a for a in aspects if a.get("aspect", "").lower() in harmonious])
+            tensions = len([a for a in aspects if a.get("aspect", "").lower() in challenging])
             
             score = 50 + (harmonies * 5) - (tensions * 5)
             score = max(0, min(100, score))
