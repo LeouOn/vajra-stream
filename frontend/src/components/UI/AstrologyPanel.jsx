@@ -15,6 +15,7 @@ import ChineseBaZi from './ChineseBaZi';
 // Always-visible sub-components — imported eagerly
 import SavedChartsDrawer from './SavedChartsDrawer';
 import NatalCalculator from './NatalCalculator';
+import NatalChartWheel from './NatalChartWheel';
 import ErrorBoundary from './ErrorBoundary';
 
 // Tabbed sub-components — lazy-loaded to reduce initial bundle
@@ -679,6 +680,11 @@ export default function AstrologyPanel() {
                           </div>
                         </Col>
                       </Row>
+
+                      <NatalChartWheel
+                        data={activeData}
+                        name={isLiveMode ? 'Live' : (activeChart ? activeChart.name : 'Custom')}
+                      />
                     </Card>
                   )}
 
