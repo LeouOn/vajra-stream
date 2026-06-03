@@ -52,6 +52,7 @@ class AstrologicalCalculator:
             "neptune": swe.NEPTUNE,
             "pluto": swe.PLUTO,
             "north_node": swe.MEAN_NODE,
+            "chiron": swe.CHIRON,
         }
 
         # Zodiac signs (Western Tropical)
@@ -137,8 +138,10 @@ class AstrologicalCalculator:
         """
         jd = self.get_julian_day(dt)
         positions = {}
+        chiron_id = self.PLANETS.get("chiron")
+        main_planets = {k: v for k, v in self.PLANETS.items() if k != "chiron"}
 
-        for name, planet_id in self.PLANETS.items():
+        for name, planet_id in main_planets.items():
             result = swe.calc_ut(jd, planet_id)
             longitude = result[0][0]
             speed = result[0][3]  # degrees per day — negative = retrograde
@@ -156,6 +159,23 @@ class AstrologicalCalculator:
                 "retrograde": retrograde,
                 "speed": round(speed, 4),
             }
+
+        if chiron_id is not None:
+            try:
+                chiron_result = swe.calc_ut(jd, chiron_id)
+                cl = chiron_result[0][0]
+                cs = chiron_result[0][3]
+                csn = int(cl / 30) % 12
+                positions["chiron"] = {
+                    "longitude": cl,
+                    "sign": self.SIGNS[csn],
+                    "degree": cl % 30,
+                    "formatted": f"{self.SIGNS[csn]} {cl % 30:.2f}°{' ℞' if cs < 0 else ''}",
+                    "retrograde": cs < 0,
+                    "speed": round(cs, 4),
+                }
+            except Exception:
+                pass
 
         return positions
 
@@ -296,6 +316,15 @@ class AstrologicalCalculator:
             "dominant_element": max(elements, key=elements.get),
             "dominant_modality": max(modalities, key=modalities.get),
             "aspects": aspects,
+            "houses": {
+                f"house_{i + 1}": {
+                    "longitude": cusps[i],
+                    "sign": self.SIGNS[int(cusps[i] / 30) % 12],
+                    "degree": cusps[i] % 30,
+                    "formatted": f"{self.SIGNS[int(cusps[i] / 30) % 12]} {cusps[i] % 30:.2f}°",
+                }
+                for i in range(12)
+            } if cusps is not None else {},
         }
 
     # =========================================================================
@@ -467,7 +496,9 @@ class AstrologicalCalculator:
             }
 
         # Calculate standard planets
-        for name, planet_id in self.PLANETS.items():
+        chiron_id = self.PLANETS.get("chiron")
+        main_planets = {k: v for k, v in self.PLANETS.items() if k != "chiron"}
+        for name, planet_id in main_planets.items():
             result = swe.calc_ut(jd, planet_id, swe.FLG_SIDEREAL)
             sidereal_lon = result[0][0]
             rashi_idx = int(sidereal_lon / 30) % 12
@@ -485,6 +516,22 @@ class AstrologicalCalculator:
                 "degree": sidereal_lon % 30,
                 "formatted": f"{rashis[rashi_idx]} {sidereal_lon % 30:.2f}°",
             }
+
+        if chiron_id is not None:
+            try:
+                chiron_result = swe.calc_ut(jd, chiron_id, swe.FLG_SIDEREAL)
+                cl = chiron_result[0][0]
+                cr = int(cl / 30) % 12
+                sidereal_positions["chiron"] = {
+                    "longitude": cl,
+                    "rashi": rashis[cr],
+                    "rashi_name": rashis[cr].split(" ")[0],
+                    "rashi_number": cr + 1,
+                    "degree": cl % 30,
+                    "formatted": f"{rashis[cr]} {cl % 30:.2f}°",
+                }
+            except Exception:
+                pass
 
         # Add Ketu (opposite Rahu)
         if "rahu" in sidereal_positions:

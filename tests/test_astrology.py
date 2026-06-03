@@ -478,6 +478,39 @@ class TestAstrologyTransitFixes:
             assert "description" in ix
             assert ix["type"] in ("Clash", "Harmony")
 
+    def test_comprehensive_includes_chiron_and_houses(self, calculator):
+        """get_comprehensive_astrology must include Chiron in positions and 12 houses.
+        Chiron requires the optional 'seas_*.se1' extended ephemeris file; if it is
+        not installed the function self-heals and Chiron is absent — that path is
+        accepted but the houses assertion is still strict."""
+        from datetime import datetime
+        import pytz
+        import pytest
+
+        dt = datetime(1995, 10, 15, 8, 30, tzinfo=pytz.timezone("Europe/London"))
+        data = calculator.get_comprehensive_astrology(dt, (51.5074, -0.1278))
+
+        western = data["western"]
+
+        houses = western.get("houses") or {}
+        assert len(houses) == 12, f"expected 12 house cusps, got {len(houses)}: {sorted(houses.keys())}"
+        for i in range(1, 13):
+            key = f"house_{i}"
+            assert key in houses, f"missing {key}"
+            cusp = houses[key]
+            assert {"longitude", "sign", "degree", "formatted"} <= set(cusp.keys()), (
+                f"{key} missing keys: {cusp}"
+            )
+
+        positions = western.get("positions") or {}
+        if "chiron" in positions:
+            chiron = positions["chiron"]
+            assert {"sign", "degree", "formatted"} <= set(chiron.keys())
+        else:
+            pytest.skip(
+                "Chiron ephemeris (seas_18.se1) not installed; positions are self-healing"
+            )
+
 
 @pytest.mark.unit
 class TestAstrologyService:
