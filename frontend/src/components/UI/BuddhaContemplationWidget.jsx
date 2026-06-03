@@ -11,10 +11,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles, RefreshCw, Volume2, Play, Square, Activity,
-  BookOpen, Compass, Zap, Clock
+  BookOpen, Compass, Zap, Clock, Settings
 } from 'lucide-react';
 import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
+import TTSSettingsPanel from './TTSSettingsPanel';
 
 const CATEGORY_LABELS = {
   past: '53 Past Buddhas',
@@ -78,16 +79,41 @@ export default function BuddhaContemplationWidget({ buddhaStatus }) {
   const handleRecite = async () => {
     if (!buddha?.buddha?.name_chinese) return;
     audioFeedback.playTelemetry();
+    const name = buddha.buddha.name_chinese;
+    const text = name.startsWith('南無') ? name : `南無${name}`;
+    // Play via the unified TTS stream endpoint (Qwen3-TTS or Edge)
+    const audio = new Audio();
     try {
-      await fetch(`${API_BASE}/operator/dispatch`, {
+      const res = await fetch(`${API_BASE}/tts/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tool_name: 'recite_buddha_name',
-          arguments: { buddha_name: buddha.buddha.name_chinese },
+          text,
+          role: 'buddhist_chant',
+          rate: '-30%',
         }),
       });
-    } catch {}
+      if (!res.ok) throw new Error('TTS request failed');
+      const mime = res.headers.get('Content-Type') || 'audio/mpeg';
+      const blob = await res.blob();
+      const url = URL.createObjectURL(new Blob([blob], { type: mime }));
+      audio.src = url;
+      audio.onended = () => URL.revokeObjectURL(url);
+      audio.onerror = () => URL.revokeObjectURL(url);
+      await audio.play();
+    } catch (e) {
+      // Fall back to the legacy dispatch tool path (server-side render only)
+      try {
+        await fetch(`${API_BASE}/operator/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tool_name: 'recite_buddha_name',
+            arguments: { buddha_name: name, role: 'buddhist_chant' },
+          }),
+        });
+      } catch {}
+    }
   };
 
   const handleToggleLoop = async () => {
@@ -272,6 +298,17 @@ export default function BuddhaContemplationWidget({ buddhaStatus }) {
             <RefreshCw className="w-6 h-6 text-slate-600 animate-spin" />
           </div>
         )}
+
+        {/* TTS Settings (collapsible) */}
+        <details className="mt-4 border-t border-white/5 pt-3">
+          <summary className="flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 cursor-pointer select-none">
+            <Settings className="w-3.5 h-3.5" />
+            TTS Voice Settings
+          </summary>
+          <div className="mt-3">
+            <TTSSettingsPanel compact />
+          </div>
+        </details>
       </div>
     </div>
   );

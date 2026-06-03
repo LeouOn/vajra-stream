@@ -26,6 +26,7 @@ import { useAudioStore } from '../../stores/audioStore';
 import { API_BASE } from '../../utils/api';
 import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
+import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 
 const { Text, Paragraph, Title } = Typography;
 const { Panel } = Collapse;
@@ -761,8 +762,14 @@ export default function OutlookDashboard() {
                       <Card
                         title={<Text strong className="font-mono text-xs uppercase">Single Transmission</Text>}
                         extra={
-                          <Button size="small" icon={copied ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                            onClick={copyNarrative}>{copied ? 'Copied' : 'Copy'}</Button>
+                          <Space size={4}>
+                            <NarrativeTTSPlayer
+                              text={currentNarrative.narrative}
+                              role="outlook_narrative"
+                            />
+                            <Button size="small" icon={copied ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              onClick={copyNarrative}>{copied ? 'Copied' : 'Copy'}</Button>
+                          </Space>
                         }
                       >
                         <Title level={4} style={{ color: '#e2e8f0', textTransform: 'capitalize' }}>{currentNarrative.genre} Revelation</Title>
