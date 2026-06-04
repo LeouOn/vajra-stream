@@ -1796,6 +1796,53 @@ def get_tool_schemas() -> list[dict[str, Any]]:
             "parameters": {"type": "object", "properties": {}},
         },
         {
+            "name": "get_current_slide",
+            "description": "Get current slideshow photo details, progress, and overlay information.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Slideshow session ID"},
+                },
+                "required": ["session_id"],
+            },
+        },
+        {
+            "name": "stop_slideshow",
+            "description": "Stop an active blessing slideshow and get final statistics including photos blessed and mantras repeated.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Slideshow session ID"},
+                },
+                "required": ["session_id"],
+            },
+        },
+        {
+            "name": "update_population",
+            "description": "Update a target population's settings — priority, active status, urgency, etc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "population_id": {"type": "string", "description": "Population ID to update"},
+                    "priority": {"type": "integer", "description": "Priority 1-10"},
+                    "is_urgent": {"type": "boolean", "description": "Whether urgent"},
+                    "is_active": {"type": "boolean", "description": "Whether active"},
+                },
+                "required": ["population_id"],
+            },
+        },
+        {
+            "name": "get_automation_stats",
+            "description": "Get complete automation statistics including history, totals, sessions completed, and populations processed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string", "description": "Automation session ID"},
+                },
+                "required": ["session_id"],
+            },
+        },
+        {
             "name": "add_agent_suggestion",
             "description": "Log an intentional path or suggestion for a task the agent wanted to do but couldn't because of missing capabilities or permissions.",
             "parameters": {

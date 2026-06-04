@@ -416,6 +416,49 @@ class AuspiciousTiming:
                 "This is the hour of radical transparency.",
                 "Om Benza Satto Hung"
             ),
+            # ─── Bodhicitta Transmutations (all genres) ───
+            ("healing", "Bodhicitta"): (
+                "When conditions challenge healing, invoke bodhicitta — the awakened heart. "
+                "The pain you feel is the doorway to compassion for all who suffer. "
+                "Transform personal healing into universal bodhisattva activity.",
+                "Om Mani Padme Hum"
+            ),
+            ("compassion", "Bodhicitta"): (
+                "The difficult hour is the perfect teacher. Each obstacle is a reminder of "
+                "why we practice — for the liberation of ALL beings without exception. "
+                "Let this resistance deepen your bodhicitta resolve.",
+                "Om Mani Padme Hum"
+            ),
+            ("wisdom", "Bodhicitta"): (
+                "The union of wisdom and compassion is the heart of bodhicitta. "
+                "Conventional wisdom may be blocked, but the wisdom that sees emptiness "
+                "naturally gives rise to boundless love. Rest in that space.",
+                "Gate Gate Paragate Parasamgate Bodhi Svaha"
+            ),
+            ("creativity", "Bodhicitta"): (
+                "The creative block is the birthplace of bodhicitta. "
+                "When the small self can't create, the vast bodhisattva heart creates for all. "
+                "Let your creativity become an offering to every being.",
+                "Om Ah Hum Vajra Guru Padma Siddhi Hum"
+            ),
+            ("prosperity", "Bodhicitta"): (
+                "True prosperity is the wealth of bodhicitta — inexhaustible and shared with all. "
+                "When material channels feel blocked, generate the wealth of the awakened heart. "
+                "All abundance flows from the wish to benefit others.",
+                "Om Dzambhala Dzalentraye Svaha"
+            ),
+            ("protection", "Bodhicitta"): (
+                "The ultimate protection is bodhicitta — the diamond armor of compassion. "
+                "No force can harm one whose sole purpose is the benefit of all beings. "
+                "Wrap yourself in the intention of bodhicitta.",
+                "Om Tare Tuttare Ture Soha"
+            ),
+            ("victory", "Bodhicitta"): (
+                "The bodhisattva's victory is not conquest but liberation. "
+                "When resistance is strong, remember: the true enemy is self-cherishing. "
+                "Victory comes through surrendering the self to the service of all.",
+                "Om Vajrasattva Hum"
+            ),
         }
 
         key = (genre, hour)
