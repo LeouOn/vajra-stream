@@ -3,6 +3,7 @@ import { Award, Compass, Heart, RefreshCw, AlertTriangle, Sparkles, ShieldAlert,
 import { Card, Button, Select, Space, Row, Col, Progress, Table, Tag } from 'antd';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { API_BASE } from '../../utils/api';
+import { planetGlyph } from '../../lib/astroHelpers';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 const PLANET_GLYPHS = {
@@ -157,7 +158,7 @@ export default function SynastryViewer({
       key: 'person_a_planet',
       render: (text) => (
         <span className="capitalize font-mono flex items-center gap-1.5 text-xs text-purple-300">
-          <span className="text-sm font-sans">{PLANET_GLYPHS[text] || '●'}</span> {text.replace('_', ' ')}
+          <span className="text-sm font-sans">{planetGlyph(text)}</span> {text.replace('_', ' ')}
         </span>
       )
     },
@@ -180,7 +181,7 @@ export default function SynastryViewer({
       key: 'person_b_planet',
       render: (text) => (
         <span className="capitalize font-mono flex items-center gap-1.5 text-xs text-cyan-300">
-          <span className="text-sm font-sans">{PLANET_GLYPHS[text] || '●'}</span> {text.replace('_', ' ')}
+          <span className="text-sm font-sans">{planetGlyph(text)}</span> {text.replace('_', ' ')}
         </span>
       )
     },

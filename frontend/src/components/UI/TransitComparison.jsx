@@ -3,40 +3,17 @@ import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles,
 import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty } from 'antd';
 import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
+import {
+  aspectCategory, aspectGlyph, planetGlyph,
+  isHouseCusp, houseLabel, natalDisplayName,
+} from '../../lib/astroHelpers';
 
 const ASPECT_COLORS = {
-  Conjunction: 'text-green-400 border-green-500/20 bg-green-500/10',
-  Trine: 'text-blue-400 border-blue-500/20 bg-blue-500/10',
-  Sextile: 'text-purple-400 border-purple-500/20 bg-purple-500/10',
-  Square: 'text-red-400 border-red-500/20 bg-red-500/10',
-  Opposition: 'text-orange-400 border-orange-500/20 bg-orange-500/10',
-};
-
-const HARMONIOUS_ASPECTS = new Set(['Trine', 'Sextile', 'Conjunction']);
-const CHALLENGING_ASPECTS = new Set(['Square', 'Opposition']);
-
-const aspectCategory = (name) => {
-  if (HARMONIOUS_ASPECTS.has(name)) return 'harmonious';
-  if (CHALLENGING_ASPECTS.has(name)) return 'challenging';
-  return 'minor';
-};
-
-const PLANET_GLYPHS = {
-  sun:'â˜‰', moon:'â˜½', mercury:'â˜¿', venus:'â™€', mars:'â™‚',
-  jupiter:'â™ƒ', saturn:'â™„', uranus:'â™…', neptune:'â™†', pluto:'â™‡',
-  north_node:'â˜Š', south_node:'â˜‹', chiron: 'âš·', mean_node: 'â˜Š'
-};
-
-const isHouseCusp = (name) => typeof name === 'string' && name.startsWith('house_');
-const houseLabel = (name) => (isHouseCusp(name) ? name.replace('house_', 'H') : name);
-const natalDisplay = (name) => (isHouseCusp(name) ? `Natal Cusp ${houseLabel(name)}` : `Natal ${name}`);
-
-const ASPECT_GLYPHS = {
-  Conjunction: 'â˜Œ',
-  Sextile: 'âš¹',
-  Square: 'â–¡',
-  Trine: 'â–³',
-  Opposition: 'â˜'
+  conjunction: 'text-green-400 border-green-500/20 bg-green-500/10',
+  trine: 'text-blue-400 border-blue-500/20 bg-blue-500/10',
+  sextile: 'text-purple-400 border-purple-500/20 bg-purple-500/10',
+  square: 'text-red-400 border-red-500/20 bg-red-500/10',
+  opposition: 'text-orange-400 border-orange-500/20 bg-orange-500/10',
 };
 
 const GOCHARA_DESCRIPTIONS = {
@@ -233,9 +210,9 @@ export default function TransitComparison({ chart }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1">
                   {aspects.map((asp, idx) => {
                     const aspectColor = ASPECT_COLORS[asp.aspect] || 'bg-white/5 border-white/5 text-white';
-                    const transitGlyph = PLANET_GLYPHS[asp.transit_planet] || 'â—';
-                    const natalGlyph = isHouseCusp(asp.natal_planet) ? 'âŒ–' : (PLANET_GLYPHS[asp.natal_planet] || 'â—');
-                    const aspectGlyph = ASPECT_GLYPHS[asp.aspect] || 'â˜Œ';
+                    const transitGlyph = planetGlyph(asp.transit_planet);
+                    const natalGlyph = isHouseCusp(asp.natal_planet) ? '⌖' : planetGlyph(asp.natal_planet);
+                    const aspectChar = aspectGlyph(asp.aspect);
                     const cuspFlag = isHouseCusp(asp.natal_planet);
 
                     return (
@@ -248,8 +225,8 @@ export default function TransitComparison({ chart }) {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono font-bold">
                             <span className="capitalize">{asp.transit_planet}</span>
-                            <span className="text-[13px]">{aspectGlyph}</span>
-                            <span className="capitalize text-slate-300">{natalDisplay(asp.natal_planet)}</span>
+                            <span className="text-[13px]">{aspectChar}</span>
+                            <span className="capitalize text-slate-300">{natalDisplayName(asp.natal_planet)}</span>
                           </div>
                           <p className="text-[10px] opacity-75 mb-1.5 leading-relaxed">
                             {ASPECT_INTERPRETATIONS[asp.aspect]}
@@ -299,7 +276,7 @@ export default function TransitComparison({ chart }) {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[350px] overflow-y-auto pr-1">
                 {Object.entries(gochara).map(([planet, data]) => {
-                  const glyph = PLANET_GLYPHS[planet] || 'â—';
+                  const glyph = planetGlyph(planet);
                   return (
                     <div
                       key={planet}

@@ -1,49 +1,16 @@
 import React, { useMemo } from 'react';
 import { Compass } from 'lucide-react';
-
-const PLANET_GLYPHS = {
-  sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
-  jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆', pluto: '♇',
-  north_node: '☊', south_node: '☋', chiron: '⚷', ascendant: '⟪', midheaven: '⟪',
-};
-
-const SIGN_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
-const SIGN_NAMES = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
-  'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
-
-const ELEMENT_COLORS = {
-  Fire: '#dc2626',
-  Earth: '#a16207',
-  Air: '#ca8a04',
-  Water: '#2563eb',
-};
-
-const SIGN_ELEMENT = ['Fire', 'Earth', 'Air', 'Water', 'Fire', 'Earth',
-  'Air', 'Water', 'Fire', 'Earth', 'Air', 'Water'];
+import {
+  SIGN_GLYPHS, SIGN_NAMES, SIGN_ELEMENT, ELEMENT_COLORS,
+  signName, signElement, signElementColor,
+  toSvgAngle, polarToXY, describeArc, planetGlyph,
+} from '../../lib/astroHelpers';
 
 const PLANET_COLORS = {
   sun: '#fbbf24', moon: '#e5e7eb', mercury: '#a78bfa', venus: '#f472b6',
   mars: '#ef4444', jupiter: '#fb923c', saturn: '#fde047',
   uranus: '#22d3ee', neptune: '#60a5fa', pluto: '#a855f7',
   chiron: '#94a3b8', north_node: '#64748b', south_node: '#64748b',
-};
-
-const toSvgAngle = (longitude, ascendant) => {
-  const offset = (longitude - ascendant + 360) % 360;
-  return (180 - offset + 360) % 360;
-};
-
-const polarToXY = (cx, cy, r, deg) => {
-  const rad = (deg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-};
-
-const describeArc = (cx, cy, r, startDeg, endDeg) => {
-  const start = polarToXY(cx, cy, r, startDeg);
-  const end = polarToXY(cx, cy, r, endDeg);
-  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
-  const sweep = endDeg > startDeg ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
 };
 
 const ZODIAC_R_OUTER = 200;
@@ -153,7 +120,7 @@ function PlanetMarker({ name, data, ascLon, index, total, color }) {
   const angle = toSvgAngle(data.longitude, ascLon);
   const r = PLANET_R - (index * 4);
   const pos = polarToXY(CENTER, CENTER, r, angle);
-  const glyph = PLANET_GLYPHS[name] || '●';
+  const glyph = planetGlyph(name);
   const degText = `${Math.floor(data.degree || 0)}°`;
 
   return (

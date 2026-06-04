@@ -2,13 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Download, Copy, FileJson, FileText, Check, Square, RefreshCw, Package, CheckCircle2, XCircle } from 'lucide-react';
 import { Card, Button, Tag, Tooltip, message, Segmented, Switch } from 'antd';
 import { API_BASE } from '../../utils/api';
+import { toMarkdown as toMarkdownImpl, applyFieldSelection as applyFieldSelectionImpl, planetGlyph } from '../../lib/astroHelpers';
 import { audioFeedback } from '../../utils/audioFeedback';
-
-const PLANET_GLYPHS = {
-  sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
-  jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆', pluto: '♇',
-  north_node: '☊', south_node: '☋', chiron: '⚷', mean_node: '☊'
-};
 
 const FIELD_GROUPS = [
   { key: 'name', label: 'Name', required: true },
@@ -76,7 +71,7 @@ function toMarkdown(payload, selectedFieldKeys) {
       const positions = western.positions || {};
       const planetLines = Object.entries(positions)
         .filter(([k]) => !['ascendant', 'midheaven', 'north_node', 'south_node'].includes(k))
-        .map(([k, v]) => `  - ${k.charAt(0).toUpperCase() + k.slice(1)} (${PLANET_GLYPHS[k] || '●'}): ${v.formatted || `${v.degree?.toFixed(2)}° ${v.sign || ''}`}`);
+        .map(([k, v]) => `  - ${k.charAt(0).toUpperCase() + k.slice(1)} (${planetGlyph(k)}): ${v.formatted || `${v.degree?.toFixed(2)}° ${v.sign || ''}`}`);
       if (planetLines.length) {
         lines.push('');
         lines.push('**Western planets**:');
@@ -111,7 +106,7 @@ function toMarkdown(payload, selectedFieldKeys) {
   return lines.join('\n');
 }
 
-function applyFieldSelection(payload, selectedChartIds, selectedFieldKeys) {
+function applyFieldSelection(payload, selectedChartIds, selectedFieldKeys, topLevelFields = TOP_LEVEL_FIELDS, fieldGroups = FIELD_GROUPS) {
   const filteredCharts = (payload.charts || []).filter((c) => selectedChartIds.has(c.id));
   const topLevel = {};
   for (const f of TOP_LEVEL_FIELDS) {
@@ -168,7 +163,7 @@ export default function ExportPanel({ charts: chartsProp = [] }) {
 
   const projected = useMemo(() => {
     if (!payload) return null;
-    return applyFieldSelection(payload, selectedIds, selectedFields);
+    return applyFieldSelectionImpl(payload, selectedIds, selectedFields);
   }, [payload, selectedIds, selectedFields]);
 
   const rendered = useMemo(() => {
@@ -176,7 +171,7 @@ export default function ExportPanel({ charts: chartsProp = [] }) {
     if (format === 'json') {
       return JSON.stringify(projected, null, 2);
     }
-    return toMarkdown(projected, selectedFields);
+    return toMarkdownImpl(projected, selectedFields);
   }, [projected, format, selectedFields]);
 
   const toggleId = (id) => {
