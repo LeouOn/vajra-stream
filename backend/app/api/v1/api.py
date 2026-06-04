@@ -25,6 +25,7 @@ from backend.app.api.v1.endpoints import time_cycles as time_cycles_endpoint
 from backend.app.api.v1.endpoints import visualization as visualization_endpoint
 from backend.app.api.v1.endpoints import agent_suggestions as agent_suggestions_endpoint
 from backend.app.api.v1.endpoints import tts as tts_endpoint
+from backend.app.api.v1.endpoints import ritual_engine as ritual_engine_endpoint
 
 api_router = APIRouter()
 
@@ -55,3 +56,4 @@ api_router.include_router(operator_endpoint.router, prefix="/operator", tags=["o
 api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["outlook"])
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])
+api_router.include_router(ritual_engine_endpoint.router, prefix="/ritual", tags=["ritual-engine"])

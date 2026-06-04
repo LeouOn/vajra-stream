@@ -34,6 +34,9 @@ import JourneyCard from './JourneyCard';
 import BuddhaContemplationWidget from './BuddhaContemplationWidget';
 import SakaDawaBanner from './SakaDawaBanner';
 import RitualPhaseIndicator from './RitualPhaseIndicator';
+import BodhicittaBanner from './BodhicittaBanner';
+import GeneratedContentGallery from './GeneratedContentGallery';
+import RitualMonitor from './RitualMonitor';
 import { CardSkeleton, SessionSkeleton } from './LoadingSkeleton';
 
 const colorMap = {
@@ -282,6 +285,9 @@ const Dashboard = () => {
       {/* Saka Dawa Banner */}
       <SakaDawaBanner />
 
+      {/* Bodhicitta Banner — The Awakened Heart */}
+      <BodhicittaBanner />
+
       {/* Ritual Phase Indicator */}
       <RitualPhaseIndicator
         sessions={sessions}
@@ -291,6 +297,9 @@ const Dashboard = () => {
 
       {/* Character Journey */}
       <JourneyCard />
+
+      {/* Autonomous Ritual Engine */}
+      <RitualMonitor compact />
 
       {/* Buddha Contemplation */}
       <BuddhaContemplationWidget />
@@ -443,6 +452,12 @@ const Dashboard = () => {
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
           <FrequencyWaterfall frequency={frequency} isPlaying={isPlaying} />
         </div>
+      </section>
+
+      {/* Generated Content Gallery */}
+      <section>
+        <SectionHeading icon={Sparkles} label="Generated Blessings" color="text-purple-400" />
+        <GeneratedContentGallery compact />
       </section>
 
       {/* System Status */}

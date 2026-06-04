@@ -9,6 +9,7 @@ import { useAudioStore } from './stores/audioStore';
 import { ConfigProvider, theme } from 'antd';
 
 import SacredGeometry from './components/3D/SacredGeometry';
+import TTSSettingsPanel from './components/UI/TTSSettingsPanel';
 import CrystalGrid from './components/3D/CrystalGrid';
 import SacredMandala from './components/3D/SacredMandala';
 import RadionicsVisualization from './components/3D/RadionicsVisualization';
@@ -167,6 +168,12 @@ function AppContent() {
         <Route path="/grimoire" element={
           <div className="flex-1 h-full overflow-hidden">
             <GrimoirePanel />
+          </div>
+        } />
+
+        <Route path="/tts" element={
+          <div className="flex-1 h-full overflow-y-auto p-6">
+            <TTSSettingsPanel />
           </div>
         } />
         
