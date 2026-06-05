@@ -103,3 +103,9 @@ backend_server.log
 
 #Javascript
 node_modules/
+
+# Dev artifacts (Omo evidence collection, local eval scripts, ephemeral builds)
+.omo/
+frontend/tmp/
+generated/
+scripts/eval_system.py
