@@ -575,7 +575,7 @@ async def create_saved_chart(chart: SavedChartCreate):
             from backend.core.services.geocoding_service import geocoding_service
             geo = geocoding_service.get_coordinates_and_timezone(chart.city)
             if "error" in geo:
-                raise HTTPException(status_code=400, detail=f"Geocoding failed for {city}: {geo['error']}")
+                raise HTTPException(status_code=400, detail=f"Geocoding failed for {chart.city}: {geo['error']}")
             lat = geo["latitude"]
             lon = geo["longitude"]
             tz = geo["timezone"]
