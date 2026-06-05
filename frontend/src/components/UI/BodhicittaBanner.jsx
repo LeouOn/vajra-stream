@@ -32,11 +32,13 @@ const AFFIRMATIONS = [
 ];
 
 const FOUR_IMMEASURABLES = [
-  { name: 'Maitri', sanskrit: 'मैत्री', english: 'Loving-Kindness', mantra: 'Om Maitri Ah Hum', wish: 'May all beings have happiness and its causes', practice: 'Generate the Four Immeasurables', color: '#ec4899' },
-  { name: 'Karuna', sanskrit: 'करुणा', english: 'Compassion', mantra: 'Om Mani Padme Hum', wish: 'May all beings be free from suffering and its causes', practice: 'Generate the Four Immeasurables', color: '#ef4444' },
-  { name: 'Mudita', sanskrit: 'मुदिता', english: 'Sympathetic Joy', mantra: 'Om Mudita Ah Hum', wish: 'May all beings never be separated from supreme happiness', practice: 'Generate the Four Immeasurables', color: '#f59e0b' },
-  { name: 'Upeksha', sanskrit: 'उपेक्षा', english: 'Equanimity', mantra: 'Om Upeksha Ah Hum', wish: 'May all beings abide in equanimity, free from bias', practice: 'Generate the Four Immeasurables', color: '#06b6d4' },
+  { name: 'Maitri', sanskrit: 'r^@j]_', english: 'Loving-Kindness', mantra: 'Om Maitri Ah Hum', wish: 'May all beings have happiness and its causes', practice: 'Generate the Four Immeasurables', color: '#ec4899' },
+  { name: 'Karuna', sanskrit: 'j]j_', english: 'Compassion', mantra: 'Om Mani Padme Hum', wish: 'May all beings be free from suffering and its causes', practice: 'Generate the Four Immeasurables', color: '#ef4444' },
+  { name: 'Mudita', sanskrit: 'r^@]_', english: 'Sympathetic Joy', mantra: 'Om Mudita Ah Hum', wish: 'May all beings never be separated from supreme happiness', practice: 'Generate the Four Immeasurables', color: '#f59e0b' },
+  { name: 'Upeksha', sanskrit: '%_', english: 'Equanimity', mantra: 'Om Upeksha Ah Hum', wish: 'May all beings abide in equanimity, free from bias', practice: 'Generate the Four Immeasurables', color: '#06b6d4' },
 ];
+
+export { AFFIRMATIONS, FOUR_IMMEASURABLES };
 
 export default function BodhicittaBanner() {
   const [affIndex, setAffIndex] = useState(0);
