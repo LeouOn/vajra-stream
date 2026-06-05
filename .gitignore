@@ -107,5 +107,7 @@ node_modules/
 # Dev artifacts (Omo evidence collection, local eval scripts, ephemeral builds)
 .omo/
 frontend/tmp/
+frontend/test-results/
+frontend/playwright-report/
 generated/
 scripts/eval_system.py
