@@ -1110,7 +1110,7 @@ async def chat_interaction(request: ChatRequest):
             provider = "local"
 
     # Retrieve key from request or env
-    api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+    api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("MINIMAX_API_KEY")
     provider = provider or "auto"
     tool_schemas = get_tool_schemas()
 
@@ -1470,6 +1470,95 @@ async def chat_interaction(request: ChatRequest):
                 f"*(DeepSeek Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n"
                 + fallback_res.response
             )
+            return wrap_res(fallback_res)
+
+    # Handle minimax.io (OpenAI-compatible) Tool Calling
+    elif api_key and (provider == "minimax" or (provider == "auto" and os.getenv("MINIMAX_API_KEY") and not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"))):
+        try:
+            import openai as openai_lib
+            # minimax.io exposes an OpenAI-compatible API; use the OpenAI client.
+            client = openai_lib.OpenAI(
+                api_key=api_key,
+                base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
+                timeout=float(os.getenv("MINIMAX_TIMEOUT", "120")),
+            )
+
+            openai_tools = []
+            for t in tool_schemas:
+                openai_tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "description": t["description"],
+                        "parameters": t["parameters"]
+                    }
+                })
+
+            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
+            openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+
+            model_name = request.model or "MiniMax-M3"
+            max_turns = 5
+            response_text = ""
+
+            for turn in range(max_turns):
+                logger.info(f"minimax turn {turn} with model {model_name}...")
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=openai_messages,
+                    tools=openai_tools if openai_tools else None,
+                    tool_choice="auto" if openai_tools else None,
+                    temperature=0.7,
+                )
+
+                msg = response.choices[0].message
+                openai_messages.append(msg)
+
+                if not msg.tool_calls:
+                    response_text = msg.content
+                    break
+
+                for tc in msg.tool_calls:
+                    name = tc.function.name
+                    args = json.loads(tc.function.arguments)
+
+                    try:
+                        result = await execute_tool_locally(name, args)
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
+                        openai_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": name,
+                            "content": json.dumps(result)
+                        })
+                    except Exception as ex:
+                        logger.error(f"Error executing minimax tool {name}: {ex}")
+                        try:
+                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
+                        except Exception as log_ex:
+                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
+                        openai_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": name,
+                            "content": json.dumps({"error": str(ex)})
+                        })
+            else:
+                response_text = "*(minimax reached maximum reasoning turns without finishing.)*"
+
+            return wrap_res(ChatResponse(response=response_text or "", tool_calls=tool_logs))
+        except Exception as e:
+            err_str = str(e).lower()
+            logger.error(f"minimax execution failed: {e}. Falling back to rule-based parser.")
+            fallback_res = await run_rule_based_fallback(query)
+            if "timeout" in err_str or "timed out" in err_str:
+                prefix = "*(minimax Request Timed Out - Switched to Local Interpreter)*"
+            elif "connection" in err_str or "refused" in err_str or "name resolution" in err_str:
+                prefix = "*(minimax Not Reachable - Switched to Local Interpreter)*"
+            else:
+                prefix = f"*(minimax Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*"
+            fallback_res.response = f"{prefix}\n\n" + fallback_res.response
             return wrap_res(fallback_res)
 
     # Handle Anthropic Client Tool Calling
