@@ -1,0 +1,110 @@
+TASK: 22 - Replay tab for AstrologyExtractionPanel
+FILE: frontend/src/components/UI/AstrologyExtractionPanel.jsx
+DATE: 2026-06-02
+
+CHECK 1: ReplayTab component uses Table from antd
+--------------------------------------------------------
+imports include Table (line 22):
+
+  22:   Table,
+  23:   Popconfirm,
+  24:   Tag,
+  25:   Button,
+  26:   message,
+
+ReplayTab function defined (line 66) and renders <Table> at line 146:
+
+  66: function ReplayTab({ onView, onRecompute }) {
+  ...
+ 146:     <Table
+ 147:       dataSource={runs}
+ 148:       columns={columns}
+ 149:       rowKey="id"
+ 150:       loading={loading}
+ 151:       pagination={{ pageSize: 20 }}
+ 152:       size="small"
+ 153:     />
+ 154:   );
+ 155: }
+
+Replay tab pane now mounts <ReplayTab />:
+
+ 461:       <TabPane tab="Replay" key="replay">
+ 462:         <ReplayTab />
+ 463:       </TabPane>
+
+
+CHECK 2: Recompute and Delete actions present
+--------------------------------------------------------
+Recompute handler (line 95) calls /astrology/runs/{id}/recompute:
+
+  95:   const handleRecompute = async (id) => {
+  96:     try {
+  97:       const r = await fetch(`${API_BASE}/astrology/runs/${id}/recompute`, { method: 'POST' });
+  98:       if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  99:       const data = await r.json();
+ 100:       message.success(`Recompute started: run ${data.run_id}`);
+ 101:       if (onRecompute) onRecompute(data.run_id);
+ 102:       fetchRuns();
+
+Recompute button rendered in actions column (line 135):
+
+ 135:           <Button size="small" type="primary" onClick={() => handleRecompute(record.id)}>Recompute</Button>
+
+Delete handler (line 84) calls /astrology/runs/{id} DELETE:
+
+  84:   const handleDelete = async (id) => {
+  85:     try {
+  86:       const r = await fetch(`${API_BASE}/astrology/runs/${id}`, { method: 'DELETE' });
+  87:       if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  88:       message.success(`Run ${id} deleted`);
+  89:       fetchRuns();
+
+Delete button wrapped in Popconfirm (lines 136-138):
+
+ 136:           <Popconfirm title="Delete this run?" onConfirm={() => handleDelete(record.id)} okText="Delete" okButtonProps={{ danger: true }}>
+ 137:             <Button size="small" danger>Delete</Button>
+ 138:           </Popconfirm>
+
+
+CHECK 3: fetchRuns calls /astrology/runs
+--------------------------------------------------------
+fetchRuns function (line 70) calls the runs list endpoint:
+
+  70:   const fetchRuns = async () => {
+  71:     setLoading(true);
+  72:     try {
+  73:       const r = await fetch(`${API_BASE}/astrology/runs`);
+  74:       if (r.ok) setRuns(await r.json());
+  75:     } catch (e) {
+  76:       message.error('Failed to load runs: ' + e.message);
+  77:     } finally {
+  78:       setLoading(false);
+  79:     }
+  80:   };
+  81:
+  82:   useEffect(() => { fetchRuns(); }, []);
+
+
+ADDITIONAL FEATURES IN REPLAY TAB
+--------------------------------------------------------
+- Tag for status column (line 125): <Tag color={...}>{s}</Tag>
+- Export handler (line 108) downloads run as JSONL
+- View button calls onView prop
+- Loading state during fetch
+- Pagination: pageSize 20
+- Small table size
+
+
+TABS NOT MODIFIED
+--------------------------------------------------------
+Setup, Sweep, Results tab panes unchanged. Only Replay tab pane
+replaced {renderPlaceholder('Replay')} with <ReplayTab />.
+
+
+SYNTAX VERIFICATION
+--------------------------------------------------------
+esbuild JSX transform passes with no errors.
+Command: node node_modules/esbuild/lib/main.js --loader=jsx
+         --bundle=false src/components/UI/AstrologyExtractionPanel.jsx
+Result: SYNTAX_OK

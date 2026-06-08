@@ -1,0 +1,46 @@
+Scenario: antiscion + contrantiscion symmetry
+Datetime: 2026-01-01 00:00 UTC
+
+Total entries: 10 (expected 10)
+Planets: ['jupiter', 'mars', 'mercury', 'moon', 'neptune', 'pluto', 'saturn', 'sun', 'uranus', 'venus']
+
+Antiscion / contrantiscion values:
+planet            lon    antiscion   contrantisc.
+jupiter      111.3577      68.6423       248.6423
+mars         282.6882     257.3118        77.3118
+mercury      268.6516     271.3484        91.3484
+moon          66.7158     113.2842       293.2842
+neptune      359.5068     180.4932         0.4932
+pluto        302.7185     237.2815        57.2815
+saturn       356.1673     183.8327         3.8327
+sun          280.5686     259.4314        79.4314
+uranus        57.9493     122.0507       302.0507
+venus        279.2065     260.7935        80.7935
+
+Formulas (verified):
+  antiscion     = (180 - planet_lon) mod 360
+  contrantiscion = (-planet_lon) mod 360
+
+Antiscion/contrantiscion symmetry check:
+  antiscion - contrantiscion = 180 (mod 360)
+  i.e. antiscion = (contrantiscion + 180) mod 360
+
+Verification per planet:
+  sun        antiscion - contrantiscion = 180.000000 OK
+  moon       antiscion - contrantiscion = 180.000000 OK
+  mercury    antiscion - contrantiscion = 180.000000 OK
+  venus      antiscion - contrantiscion = 180.000000 OK
+  mars       antiscion - contrantiscion = 180.000000 OK
+  jupiter    antiscion - contrantiscion = 180.000000 OK
+  saturn     antiscion - contrantiscion = 180.000000 OK
+  uranus     antiscion - contrantiscion = 180.000000 OK
+  neptune    antiscion - contrantiscion = 180.000000 OK
+  pluto      antiscion - contrantiscion = 180.000000 OK
+
+All 10 planets satisfy antiscion - contrantiscion = 180: True
+
+Sample (sun):
+  sun_lon = 280.568586
+  sun_antiscion     = (180 - 280.568586) mod 360 = 259.431414
+  sun_contrantiscion = (-280.568586) mod 360      = 79.431414
+  antiscion - contrantiscion = 180.000000 (expected 180)

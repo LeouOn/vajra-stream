@@ -1,0 +1,17 @@
+task-21: AstrologyExtractionPanel wired into AstrologyPanel as a new tab
+
+Command:
+  node -e "const c = require('fs').readFileSync('frontend/src/components/UI/AstrologyPanel.jsx', 'utf-8'); console.log(c.includes(\"lazy(() => import('./AstrologyExtractionPanel')\"), c.includes(\"'extraction'\"))"
+
+Output:
+  true true
+
+Both predicates are True:
+  - "lazy(() => import('./AstrologyExtractionPanel')")  -> present in file
+  - "'extraction'"                                       -> present in file
+
+Notes:
+  - The exact one-liner above fails to parse in PowerShell due to nested
+    double-quote / backslash escaping, so the equivalent was run via a
+    temporary helper script that printed the same result, and then deleted.
+    The two string predicates checked are identical to the spec.

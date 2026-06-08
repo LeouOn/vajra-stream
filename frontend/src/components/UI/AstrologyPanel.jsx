@@ -25,6 +25,9 @@ const SynastryViewer = lazy(() => import('./SynastryViewer'));
 // 3D mandala — lazy-loaded (Three.js ~600 kB isolated into separate chunk)
 const LazySacredMandala = lazy(() => import('./LazySacredMandala'));
 
+// Extraction panel — lazy-loaded
+const LazyAstrologyExtractionPanel = lazy(() => import('./AstrologyExtractionPanel'));
+
 // Fallback skeleton for lazy components
 const LazyFallback = () => (
   <div className="bg-gray-900/60 rounded-xl border border-white/5 p-8 text-center text-xs text-gray-500 italic animate-pulse">
@@ -495,7 +498,8 @@ export default function AstrologyPanel() {
               options={[
                 { value: 'wheel', label: 'Celestial Positions' },
                 { value: 'transits', label: 'Transit-to-Natal' },
-                { value: 'synastry', label: 'Synastry (Compatibility)' }
+                { value: 'synastry', label: 'Synastry (Compatibility)' },
+                { value: 'extraction', label: 'Extraction' }
               ]}
               value={activeTab}
               onChange={(val) => { audioFeedback.playTabChange(); setActiveTab(val); }}
@@ -748,6 +752,14 @@ export default function AstrologyPanel() {
                   />
                 </Suspense>
               </ErrorBoundary>
+            </div>
+          )}
+
+          {activeTab === 'extraction' && (
+            <div key="extraction" className="animate-slide-up">
+              <Suspense fallback={<LazyFallback />}>
+                <LazyAstrologyExtractionPanel />
+              </Suspense>
             </div>
           )}
         </div>

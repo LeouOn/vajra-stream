@@ -1,0 +1,27 @@
+Scenario: midpoint of Sun and Moon = (sun_lon + moon_lon) / 2 (mod 360)
+Datetime: 2026-01-01 00:00 UTC
+
+Planet longitudes:
+  sun_lon  = 280.568586
+  moon_lon = 66.715759
+
+Key ordering note: keys are alphabetically sorted.
+  Since 'm' < 's' alphabetically, the sun-moon pair key is 'moon_sun'
+  (NOT 'sun_moon'). The formula is identical regardless of key.
+
+  m['moon_sun']['exact_longitude'] = 173.642172
+  expected (sun+moon)/2 mod 360    = 173.642172
+  match: True
+
+Sample midpoints (first 5 alphabetically-sorted keys):
+  moon_sun: {'sign': 'Virgo', 'degree': 23.642172378412226, 'exact_longitude': 173.64217237841223}
+  mercury_sun: {'sign': 'Capricorn', 'degree': 4.610102594268028, 'exact_longitude': 274.610102594268}
+  sun_venus: {'sign': 'Capricorn', 'degree': 9.887537269525978, 'exact_longitude': 279.887537269526}
+  mars_sun: {'sign': 'Capricorn', 'degree': 11.6283725739072, 'exact_longitude': 281.6283725739072}
+  jupiter_sun: {'sign': 'Libra', 'degree': 15.963127704142096, 'exact_longitude': 195.9631277041421}
+
+Total midpoints: 45 (expected 45)
+All 45 midpoints have valid sign (string) + degree (0-30) + exact_longitude (0-360)
+
+Verification: every midpoint = (lon1+lon2)/2 mod 360
+All 45 match: True

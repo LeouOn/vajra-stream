@@ -1,0 +1,33 @@
+Task 11 — Solar arc directions: arc-25 verification
+====================================================
+
+PLAN'S QA SCENARIO (Task 11 in .omo/plans/astrology-extraction-sweep.md):
+    python -c "from core.astrology import AstrologicalCalculator; \
+from datetime import datetime, timezone; \
+calc = AstrologicalCalculator(); \
+n = datetime(2000,1,1,12,0,tzinfo=timezone.utc); \
+sad = calc.get_solar_arc_directions(n, (0,0), datetime(2025,1,1,12,0,tzinfo=timezone.utc)); \
+print(abs(sad['solar_arc_degrees'] - 25) < 1)"
+    Expected: True
+
+
+ACTUAL OUTPUT
+-------------
+solar_arc_degrees = 25.464138356716774
+abs(arc - 25) < 1 -> True
+
+
+INTERPRETATION
+--------------
+At age 25.002 years (2000-01-01 12:00 UTC -> 2025-01-01 12:00 UTC), the
+secondary-progression Sun has advanced 25.46° on the zodiac wheel. This
+is the canonical "1°/year" rule of thumb for solar arc directions — the
+arc in degrees approximately equals the native's age in years.
+
+The output of 25.46° (rather than exactly 25.00°) is correct: the
+day-for-year formula is `years_lived * 1 day of ephemeris = 25.00 days
+of motion`, and the Sun moves just over 1° per day at this point in its
+orbit (perihelion in early January). 25.46° is within the plan's
+acceptance criterion `abs(arc - 25) < 1`.
+
+PASS

@@ -1,0 +1,15 @@
+Scenario: profection 12-year cycle (age 0, 12, 24 all return to natal sign)
+Tool: Bash (python)
+Steps:
+  1. python -c "from core.astrology import AstrologicalCalculator; from datetime import datetime, timezone; calc = AstrologicalCalculator(); n = datetime(2000,1,1,12,0,tzinfo=timezone.utc); p0 = calc.get_profection(n, 2000, natal_location=(51.5,-0.13)); p12 = calc.get_profection(n, 2012, natal_location=(51.5,-0.13)); p24 = calc.get_profection(n, 2024, natal_location=(51.5,-0.13)); print('p0 :', p0); print('p12:', p12); print('p24:', p24); print('cycle_holds:', p0['profected_asc_sign']==p12['profected_asc_sign']==p24['profected_asc_sign']); print('all_lords_valid:', all(p['profection_lord'] in {'Sun','Moon','Mercury','Venus','Mars','Jupiter','Saturn'} for p in [p0,p12,p24]))"
+
+Result:
+p0 : {'age': 0,  'natal_asc_sign': 'Aries', 'profected_asc_sign': 'Aries',   'profection_lord': 'Mars',   'house_ruled': 1}
+p12: {'age': 12, 'natal_asc_sign': 'Aries', 'profected_asc_sign': 'Aries',   'profection_lord': 'Mars',   'house_ruled': 1}
+p24: {'age': 24, 'natal_asc_sign': 'Aries', 'profected_asc_sign': 'Aries',   'profection_lord': 'Mars',   'house_ruled': 1}
+cycle_holds: True
+all_lords_valid: True
+
+PASS — at age 0, 12, and 24 the profected sign equals the natal Asc sign (Aries),
+the profection lord is Mars (traditional ruler of Aries), and the house ruled is 1.
+The 12-year cycle is exact.

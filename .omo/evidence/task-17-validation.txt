@@ -1,0 +1,12 @@
+=== Pydantic Validation Tests ===
+
+PASS  lat=999 expected=422 got=422 :: Input should be less than or equal to 90
+PASS  lon=-999 expected=422 got=422 :: Input should be greater than or equal to -180
+PASS  missing date_iso expected=422 got=422 :: Field required
+PASS  invalid sect=blue expected=422 got=422 :: Input should be 'day' or 'night'
+PASS  orb=50 expected=422 got=422 :: Input should be less than or equal to 10
+PASS  return_year=1500 expected=422 got=422 :: Input should be greater than or equal to 1900
+PASS  step_degrees=0 expected=422 got=422 :: Input should be greater than 0
+PASS  orb=0 expected=422 got=422 :: Input should be greater than 0
+
+All 8 validation cases returned 422 as expected.
