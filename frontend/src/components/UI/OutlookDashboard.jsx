@@ -148,15 +148,21 @@ export default function OutlookDashboard() {
       if (popsRes.ok) setPopulations(await popsRes.json());
       if (rolesRes.ok) setRoles(await rolesRes.json());
       if (typesRes.ok) setLocationTypes(await typesRes.json());
-    } catch (e) { console.error('Universe fetch failed:', e); }
-  }, []);
+    } catch (e) {
+      console.error('Universe fetch failed:', e);
+      addToast({ type: 'error', title: 'Could not load realms', message: 'Backend unreachable. Some data may be stale.', duration: 3000 });
+    }
+  }, [addToast]);
 
   const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/outlook/history?limit=15`);
       if (res.ok) setHistoryList((await res.json()).history || []);
-    } catch (e) { console.error('History fetch failed:', e); }
-  }, []);
+    } catch (e) {
+      console.error('History fetch failed:', e);
+      addToast({ type: 'error', title: 'Could not load history', message: 'Backend unreachable.', duration: 3000 });
+    }
+  }, [addToast]);
 
   const fetchModels = useCallback(async () => {
     try {
@@ -168,8 +174,11 @@ export default function OutlookDashboard() {
           if (!selectedModel && data.default_model) setSelectedModel(data.default_model);
         }
       }
-    } catch (e) { console.error('Models fetch failed:', e); }
-  }, [selectedModel]);
+    } catch (e) {
+      console.error('Models fetch failed:', e);
+      addToast({ type: 'error', title: 'Could not load LLM models', message: 'Backend unreachable.', duration: 3000 });
+    }
+  }, [selectedModel, addToast]);
 
   const fetchLoopStatus = useCallback(async () => {
     try {
@@ -182,8 +191,11 @@ export default function OutlookDashboard() {
           setLoopMode(data.config?.loop_mode || 'sequential_delay');
         }
       }
-    } catch (e) { console.error('Loop status failed:', e); }
-  }, []);
+    } catch (e) {
+      console.error('Loop status failed:', e);
+      addToast({ type: 'error', title: 'Could not check loop status', message: 'Backend unreachable.', duration: 3000 });
+    }
+  }, [addToast]);
 
   useEffect(() => {
     fetchUniverseData();
@@ -402,9 +414,15 @@ export default function OutlookDashboard() {
       content: 'This action cannot be undone.',
       okText: 'Delete', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
-        await fetch(`${API_BASE}/outlook/locations/${id}`, { method: 'DELETE' });
-        message.success('Realm deleted.');
-        fetchUniverseData();
+        try {
+          const res = await fetch(`${API_BASE}/outlook/locations/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+          message.success('Realm deleted.');
+          fetchUniverseData();
+        } catch (e) {
+          console.error('Realm delete failed:', e);
+          addToast({ type: 'error', title: 'Could not delete realm', message: 'Backend unreachable or refused the request.', duration: 3000 });
+        }
       },
     });
   };
@@ -444,9 +462,15 @@ export default function OutlookDashboard() {
       content: 'They will be removed from all future narratives.',
       okText: 'Exile', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
-        await fetch(`${API_BASE}/outlook/characters/${id}`, { method: 'DELETE' });
-        message.success('Character exiled.');
-        fetchUniverseData();
+        try {
+          const res = await fetch(`${API_BASE}/outlook/characters/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+          message.success('Character exiled.');
+          fetchUniverseData();
+        } catch (e) {
+          console.error('Character delete failed:', e);
+          addToast({ type: 'error', title: 'Could not delete character', message: 'Backend unreachable or refused the request.', duration: 3000 });
+        }
       },
     });
   };
