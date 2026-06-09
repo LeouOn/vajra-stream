@@ -14,7 +14,9 @@ from . import blessing_slideshow
 from . import blessings
 from . import dharma_tales
 from . import divination
+from . import extraction
 from . import llm
+from . import locations
 from . import mops
 from . import operator
 from . import outlook
@@ -42,7 +44,9 @@ __all__ = [
     "blessings",
     "dharma_tales",
     "divination",
+    "extraction",
     "llm",
+    "locations",
     "mops",
     "operator",
     "outlook",

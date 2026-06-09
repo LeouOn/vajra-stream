@@ -102,14 +102,13 @@ class TestExtractionAPI:
         init_db()
 
     def test_batch_extract_small(self, client):
-        """A small batch should queue, run, and reach a terminal 'done' state.
+        """A single-tuple batch should queue, run, and reach 'done'.
 
-        Note: the spec called for 3 tuples × (western + lots) but the
-        background runner has a Swiss-Ephemeris threading hazard that
-        reliably hangs on the 3rd tuple from this code path. The
-        extraction system is otherwise functional — a single tuple
-        exercises the same code path (queued → running → done) and
-        completes deterministically, which is what we assert here.
+        This is the canonical happy-path assertion for the background
+        runner. Multi-tuple coverage lives in
+        :meth:`test_batch_extract_multi_no_hang` (regression test for
+        the asyncio.to_thread executor starvation that previously hung
+        on tuple 3).
         """
         r = client.post(
             "/api/v1/astrology/extract",
@@ -136,6 +135,44 @@ class TestExtractionAPI:
         )
         assert final["completed_tuples"] == 1
         assert final["total_tuples"] == 1
+
+    def test_batch_extract_multi_no_hang(self, client):
+        """Regression: 5-tuple batch must complete, not hang on tuple 3.
+
+        Previously the background runner used ``asyncio.to_thread`` for
+        every tuple, which under FastAPI's :class:`TestClient` starved
+        the default executor on the 3rd concurrent call. The run would
+        sit at ``completed_tuples=2`` until the poll timeout fired.
+
+        This test pins the fix: 5 tuples with the ``western`` system
+        must all reach ``done`` within a generous timeout.
+        """
+        tuples = [
+            {
+                "date_iso": f"2026-{i + 1:02d}-01T12:00:00Z",
+                "lat": float(i) * 5.0,
+                "lon": float(i) * 5.0,
+            }
+            for i in range(5)
+        ]
+        r = client.post(
+            "/api/v1/astrology/extract",
+            json={"tuples": tuples, "config": {"systems": ["western"]}},
+        )
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["total_tuples"] == 5
+
+        final = _poll_run_for_completion(
+            client, data["run_id"], timeout_s=30.0
+        )
+        assert final["status"] in ("done", "partial"), (
+            f"expected terminal status, got {final['status']!r}: {final}"
+        )
+        assert final["completed_tuples"] == 5, (
+            f"expected 5/5 completed, got {final['completed_tuples']}/5"
+        )
+        assert final["total_tuples"] == 5
 
     def test_batch_extract_empty(self, client):
         """Empty tuple list must be rejected with HTTP 400."""

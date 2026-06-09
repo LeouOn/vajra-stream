@@ -217,11 +217,12 @@ def _run_tuple_sync(
     systems: list[str],
     sidereal: bool,
 ) -> dict[str, Any]:
-    """Compute one tuple's chart. Returns a plain dict for cross-thread safety.
+    """Compute one tuple's chart. Returns a plain dict.
 
-    Mirrors :class:`core.extraction.ExtractionResult` but as a dict, since
-    the background task is dispatched via :func:`asyncio.to_thread` and we
-    want to avoid carrying the dataclass across the thread boundary.
+    Mirrors :class:`core.extraction.ExtractionResult` but as a dict for
+    clean serialization through the background task. Runs sequentially
+    inside the async loop (Swiss Ephemeris calls release the GIL, and
+    per-tuple work is sub-ms in the common case).
     """
     location = (float(lat), float(lon))
     try:
@@ -365,8 +366,13 @@ async def _process_run(
 
     for idx, raw in enumerate(raw_tuples):
         try:
-            result = await asyncio.to_thread(
-                _run_tuple_sync,
+            # Call directly (not via asyncio.to_thread). Swiss Ephemeris
+            # calls release the GIL, and the per-tuple work is sub-ms in
+            # the common case. Routing through ``asyncio.to_thread`` made
+            # the 3rd tuple hang under FastAPI's TestClient, where the
+            # default executor was starved by the test portal's own
+            # thread; see tests/test_extraction.py for the regression.
+            result = _run_tuple_sync(
                 idx,
                 raw.date_iso,
                 raw.lat,
