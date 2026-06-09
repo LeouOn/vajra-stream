@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  Compass,
+  Clock,
+  FileText,
+  Waves,
+  Headphones,
+  BookOpen,
+  Volume2,
+  Video,
+  LayoutDashboard,
+  PlayCircle,
+  PauseCircle,
+} from 'lucide-react';
 import { ToastContainer } from '../UI/Toast';
 import VisualizationSelector from '../UI/VisualizationSelector';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { COLORS } from '../../lib/colors';
 
 // Ant Design
-import { Layout, Menu, Button, Space, Badge, Dropdown } from 'antd';
-import {
-  CodeOutlined,
-  CompassOutlined,
-  ClockCircleOutlined,
-  FileTextOutlined,
-  AudioOutlined,
-  CustomerServiceOutlined,
-  BookOutlined,
-  SoundOutlined,
-  VideoCameraOutlined,
-  DesktopOutlined,
-  SettingOutlined,
-  PlayCircleFilled,
-  PauseCircleFilled
-} from '@ant-design/icons';
+import { Layout, Menu, Button, Space, Badge } from 'antd';
 
 const { Header, Content, Footer } = Layout;
 
@@ -69,15 +68,15 @@ export default function MainLayout({
   };
 
   const menuItems = [
-    { key: 'command-center', icon: <DesktopOutlined />, label: 'Command Center' },
-    { key: 'operations', icon: <CompassOutlined />, label: 'Operations' },
-    { key: 'astrology', icon: <ClockCircleOutlined />, label: 'Cosmic Clock' },
-    { key: 'outlook', icon: <FileTextOutlined />, label: 'Outlook' },
-    { key: 'broadcast', icon: <AudioOutlined />, label: 'Broadcast' },
-    { key: 'meditation', icon: <CustomerServiceOutlined />, label: 'Meditate' },
-    { key: 'visualizers', icon: <VideoCameraOutlined />, label: 'Visualizer' },
-    { key: 'grimoire', icon: <BookOutlined />, label: 'Grimoire' },
-    { key: 'tts', icon: <SoundOutlined />, label: 'TTS' },
+    { key: 'command-center', icon: <LayoutDashboard size={16} />, label: 'Command Center' },
+    { key: 'operations', icon: <Compass size={16} />, label: 'Operations' },
+    { key: 'astrology', icon: <Clock size={16} />, label: 'Cosmic Clock' },
+    { key: 'outlook', icon: <FileText size={16} />, label: 'Outlook' },
+    { key: 'broadcast', icon: <Waves size={16} />, label: 'Broadcast' },
+    { key: 'meditation', icon: <Headphones size={16} />, label: 'Meditate' },
+    { key: 'visualizers', icon: <Video size={16} />, label: 'Visualizer' },
+    { key: 'grimoire', icon: <BookOpen size={16} />, label: 'Grimoire' },
+    { key: 'tts', icon: <Volume2 size={16} />, label: 'TTS' },
   ];
 
   return (
@@ -92,7 +91,7 @@ export default function MainLayout({
         borderBottom: '1px solid #303030' 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
-          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#06b6d4' }}>
+          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: COLORS.secondary }}>
             🔮 Vajra.Stream
           </h1>
           <Badge status={isConnected ? 'success' : 'error'} text={isConnected ? 'LIVE' : 'OFFLINE'} style={{ marginLeft: 16 }} />
@@ -131,11 +130,11 @@ export default function MainLayout({
         fontSize: '12px'
       }}>
         <div>
-          <span style={{ color: '#8b5cf6', fontWeight: 'bold', marginRight: '16px' }}>
+          <span style={{ color: COLORS.primary, fontWeight: 'bold', marginRight: '16px' }}>
             Vajra.Stream - Sacred Technology Platform
           </span>
           {mopsData && (
-            <span style={{ color: '#06b6d4', fontFamily: 'monospace' }}>
+            <span style={{ color: COLORS.secondary, fontFamily: 'monospace' }}>
               MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s | 
               Mantra {Math.round(mopsData.mantras?.["10s"] || 0)}/s | 
               Crystals {Math.round(mopsData.crystals?.["10s"] || 0)}/s | 
@@ -146,15 +145,15 @@ export default function MainLayout({
         <Space size="large">
           <Button 
             type="text" 
-            icon={isPlaying ? <PauseCircleFilled style={{color:'#8b5cf6'}} /> : <PlayCircleFilled style={{color:'#06b6d4'}} />} 
+            icon={isPlaying ? <PauseCircle size={18} color={COLORS.primary} /> : <PlayCircle size={18} color={COLORS.secondary} />} 
             onClick={async () => { if (!isPlaying) { await generateAudio(); await playAudio(); } else { stopAudio(); } }}
           >
-            <span style={{ color: '#06b6d4', fontWeight: 'bold', fontSize: '14px' }}>
+            <span style={{ color: COLORS.secondary, fontWeight: 'bold', fontSize: '14px' }}>
               {frequency.toFixed(1)} Hz
             </span>
           </Button>
           <span>Volume: <strong>{Math.round(volume * 100)}%</strong></span>
-          <span>Mode: <strong style={{ color: '#8b5cf6' }}>{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</strong></span>
+          <span>Mode: <strong style={{ color: COLORS.primary }}>{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</strong></span>
           <Badge status={isConnected ? 'success' : 'error'} text={isConnected ? 'Connected' : 'Offline'} />
         </Space>
       </Footer>
