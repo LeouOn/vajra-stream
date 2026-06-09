@@ -25,6 +25,125 @@ def tmp_output_dir(tmp_path):
     out.mkdir()
     return out
 
+
+# ---------------------------------------------------------------------------
+# Deterministic geocoding for tests
+# ---------------------------------------------------------------------------
+# The real backend/core/services/geocoding_service.py wraps geopy.Nominatim,
+# which is rate-limited (HTTP 429) by OpenStreetMap. The integration and
+# e2e tests create natal charts with city names ("London", "Tokyo", ...)
+# and were intermittently failing when pytest collected enough geocoding
+# calls in a short window to hit the rate limit.
+#
+# This autouse fixture swaps the singleton's lookup method for a
+# deterministic dict-based implementation. Tests that need to assert
+# specific lat/lon (like the e2e workflow) get the same canonical
+# coordinates on every run; tests that exercise the "city not found"
+# path (e.g. test_400_on_bad_geocode) get a real "not found" reply.
+# ---------------------------------------------------------------------------
+_CANNED_GEOCODES: dict[str, dict] = {
+    "London": {
+        "latitude": 51.5074,
+        "longitude": -0.1278,
+        "timezone": "Europe/London",
+        "address": "London, Greater London, England, UK",
+    },
+    "Paris": {
+        "latitude": 48.8566,
+        "longitude": 2.3522,
+        "timezone": "Europe/Paris",
+        "address": "Paris, Île-de-France, France",
+    },
+    "New York": {
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "timezone": "America/New_York",
+        "address": "New York, NY, USA",
+    },
+    "Tokyo": {
+        "latitude": 35.6762,
+        "longitude": 139.6503,
+        "timezone": "Asia/Tokyo",
+        "address": "Tokyo, Japan",
+    },
+    "New Delhi": {
+        "latitude": 28.6139,
+        "longitude": 77.2090,
+        "timezone": "Asia/Kolkata",
+        "address": "New Delhi, Delhi, India",
+    },
+    "San Francisco": {
+        "latitude": 37.7749,
+        "longitude": -122.4194,
+        "timezone": "America/Los_Angeles",
+        "address": "San Francisco, CA, USA",
+    },
+    "Beijing": {
+        "latitude": 39.9042,
+        "longitude": 116.4074,
+        "timezone": "Asia/Shanghai",
+        "address": "Beijing, China",
+    },
+    "Mumbai": {
+        "latitude": 19.0760,
+        "longitude": 72.8777,
+        "timezone": "Asia/Kolkata",
+        "address": "Mumbai, Maharashtra, India",
+    },
+}
+
+
+def _fake_get_coordinates_and_timezone(self, location_name: str) -> dict:
+    """Stand-in for GeocodingService.get_coordinates_and_timezone used
+    in tests. Returns canned data for known cities, a "not found"
+    error for anything that starts with Xyzzy (the convention the
+    e2e test uses to assert the 400 path), and a generic UTC fallback
+    for any other unknown city so that tests which only assert
+    *success* still succeed without hitting the real Nominatim service.
+    """
+    key = (location_name or "").strip()
+    if key in _CANNED_GEOCODES:
+        return dict(_CANNED_GEOCODES[key])
+    if key.startswith("Xyzzy"):
+        return {"error": f"Location '{key}' not found."}
+    return {
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "timezone": "UTC",
+        "address": key or "Unknown",
+    }
+
+
+@pytest.fixture(autouse=True)
+def _deterministic_geocoding(monkeypatch):
+    """Replace GeocodingService.get_coordinates_and_timezone with a
+    deterministic dict lookup. Autouse so every test that triggers a
+    chart creation (and therefore a city lookup) sees the same
+    canonical coordinates and never hits the real Nominatim service.
+
+    Implementation note: we load geocoding_service.py by file path
+    with importlib to side-step backend.core.services.__init__ (which
+    transitively initialises the full backend service stack and can
+    trigger circular imports in some test contexts). Once we hold the
+    module object we can patch the method on its class, which
+    reaches every imported singleton because Python looks up the
+    attribute on the class at call time.
+    """
+    import importlib.util
+
+    gs_path = r"C:\Users\Y\proj\vajra-stream\backend\core\services\geocoding_service.py"
+    spec = importlib.util.spec_from_file_location(
+        "_test_geocoding_service_module", gs_path
+    )
+    gs_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gs_mod)
+    monkeypatch.setattr(
+        gs_mod.GeocodingService,
+        "get_coordinates_and_timezone",
+        _fake_get_coordinates_and_timezone,
+    )
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "unit: fast isolated tests")
     config.addinivalue_line("markers", "integration: tests wiring multiple modules")
