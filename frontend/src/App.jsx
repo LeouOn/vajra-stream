@@ -34,6 +34,7 @@ import OutlookDashboard from './components/UI/OutlookDashboard';
 import Dashboard from './components/UI/Dashboard';
 import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
 import { audioFeedback } from './utils/audioFeedback';
+import { COLORS } from './lib/colors';
 
 function AppContent() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
@@ -474,8 +475,8 @@ function App() {
       theme={{
         algorithm: theme.darkAlgorithm,
         token: {
-          colorPrimary: '#8b5cf6', // vajra-purple
-          colorInfo: '#06b6d4', // vajra-cyan
+          colorPrimary: COLORS.primary, // vajra-purple (--primary in globals.css)
+          colorInfo: COLORS.secondary, // vajra-cyan (--secondary in globals.css)
         },
       }}
     >

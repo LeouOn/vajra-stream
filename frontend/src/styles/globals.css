@@ -3,14 +3,16 @@
   :root {
     --background: 20 10 30;
     --foreground: 240 230 250;
-    --primary: 138 43 226;
-    --secondary: 75 0 130;
+    --primary: 139 92 246;
+    --primary-rgb: 139 92 246;
+    --secondary: 6 182 212;
+    --secondary-rgb: 6 182 212;
     --muted: 75 30 120;
     --accent: 255 215 0;
     --destructive: 220 38 38;
-    --glow-purple: 138 43 226;
+    --glow-purple: 139 92 246;
     --glow-gold: 255 215 0;
-    --glow-cyan: 0 255 255;
+    --glow-cyan: 6 182 212;
   }
 
   * {
