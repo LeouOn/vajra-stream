@@ -1,6 +1,7 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { COLORS } from '../../lib/colors';
 
 /**
  * Astrocartography 3D Globe Visualization
@@ -351,7 +352,7 @@ export default function Astrocartography({
         </bufferGeometry>
         <pointsMaterial
           size={0.05}
-          color="#00ffff"
+          color="COLORS.secondary"
           transparent
           opacity={0.6}
           sizeAttenuation

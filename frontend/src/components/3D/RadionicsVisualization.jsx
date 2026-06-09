@@ -8,6 +8,7 @@ import React, { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Float, Trail } from '@react-three/drei';
 import * as THREE from 'three';
+import { COLORS } from '../../lib/colors';
 
 // Rotating crystal geometry component
 function Crystal({ position, scale, rotationSpeed, color, attunedRate }) {
@@ -190,8 +191,8 @@ function CentralCore({ attunedRate }) {
       <icosahedronGeometry args={[0.5, 2]} />
       <meshStandardMaterial
         ref={materialRef}
-        color="#8a2be2"
-        emissive="#8a2be2"
+        color="COLORS.primary"
+        emissive="COLORS.primary"
         emissiveIntensity={0.5}
         metalness={0.9}
         roughness={0.1}
@@ -217,7 +218,7 @@ function RadionicsVisualization({ attunedRate, isPlaying }) {
       />
       
       <ambientLight intensity={0.3} />
-      <pointLight position={[10, 10, 10]} intensity={1} color="#8a2be2" />
+      <pointLight position={[10, 10, 10]} intensity={1} color="COLORS.primary" />
       <pointLight position={[-10, -10, -10]} intensity={0.5} color="#ffd700" />
       
       {/* Central Core */}
@@ -227,7 +228,7 @@ function RadionicsVisualization({ attunedRate, isPlaying }) {
       <EnergyRing
         radius={1.5}
         rotationSpeed={0.01}
-        color="#8a2be2"
+        color="COLORS.primary"
         pulseSpeed={2 + rate / 50}
       />
       <EnergyRing
@@ -248,7 +249,7 @@ function RadionicsVisualization({ attunedRate, isPlaying }) {
         position={[2, 0, 0]}
         scale={0.3}
         rotationSpeed={{ x: 0.01, y: 0.02, z: 0.005 }}
-        color="#8a2be2"
+        color="COLORS.primary"
         attunedRate={attunedRate}
       />
       <Crystal

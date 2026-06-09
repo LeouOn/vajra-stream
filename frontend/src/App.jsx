@@ -6,7 +6,7 @@ import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
 
 // Ant Design
-import { ConfigProvider, theme } from 'antd';
+import { ConfigProvider, theme, Result } from 'antd';
 
 import SacredGeometry from './components/3D/SacredGeometry';
 import TTSSettingsPanel from './components/UI/TTSSettingsPanel';
