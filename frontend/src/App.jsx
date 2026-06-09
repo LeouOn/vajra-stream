@@ -35,6 +35,7 @@ import Dashboard from './components/UI/Dashboard';
 import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
+import { DEFAULT_ROUTE } from './lib/routes';
 
 function AppContent() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
@@ -53,7 +54,7 @@ function AppContent() {
     complexity: 'medium',
   });
   const location = useLocation();
-  const activeTab = location.pathname.split('/')[1] || 'command-center';
+  const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
   
   useEffect(() => {
     const fetchMops = async () => {
@@ -141,7 +142,7 @@ function AppContent() {
       handleVisualizationChange={handleVisualizationChange}
     >
       <Routes>
-        <Route path="/" element={<Navigate to="/command-center" replace />} />
+        <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />
         
         <Route path="/command-center" element={
           <div className="flex-1 h-full overflow-hidden">
@@ -416,7 +417,7 @@ function AppContent() {
               subTitle="The path you requested does not match any known route."
               extra={
                 <a
-                  href="/command-center"
+                  href={`/${DEFAULT_ROUTE}`}
                   className="inline-block px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors"
                 >
                   Return to Command Center

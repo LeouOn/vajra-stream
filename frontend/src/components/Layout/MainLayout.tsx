@@ -3,26 +3,20 @@
  * routes. Renders the header (brand + status badge + nav menu),
  * the children content area, and the footer (MOPS readout +
  * play/pause control + volume + mode).
+ *
+ * The nav menu reads from lib/routes.ts (ROUTES registry) so the
+ * menu and the <Route> declarations in App.jsx share one source
+ * of truth. Adding a new route means adding one entry to ROUTES
+ * and one component mapping in App.jsx.
  */
 import React, { useEffect, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Compass,
-  Clock,
-  FileText,
-  Waves,
-  Headphones,
-  BookOpen,
-  Volume2,
-  Video,
-  LayoutDashboard,
-  PlayCircle,
-  PauseCircle,
-} from 'lucide-react';
+import { PlayCircle, PauseCircle } from 'lucide-react';
 import { ToastContainer } from '../UI/Toast';
 import VisualizationSelector from '../UI/VisualizationSelector';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { COLORS } from '../../lib/colors';
+import { ROUTES, DEFAULT_ROUTE } from '../../lib/routes';
 
 // Ant Design
 import { Layout, Menu, Button, Space, Badge } from 'antd';
@@ -39,12 +33,6 @@ interface MopsData {
   crystals?: MopsWindow;
   divination?: MopsWindow;
   tuning?: MopsWindow;
-}
-
-interface MenuItem {
-  key: string;
-  icon: React.ReactNode;
-  label: string;
 }
 
 interface Props {
@@ -78,7 +66,7 @@ const MainLayout: React.FC<Props> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const activeTab = location.pathname.split('/')[1] || 'command-center';
+  const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -87,7 +75,7 @@ const MainLayout: React.FC<Props> = ({
         switch (e.key) {
           case 'b':
             e.preventDefault();
-            navigate(activeTab === 'command-center' ? '/visualizers' : '/command-center');
+            navigate(activeTab === DEFAULT_ROUTE ? '/visualizers' : `/${DEFAULT_ROUTE}`);
             break;
           case 'd':
             e.preventDefault();
@@ -106,17 +94,11 @@ const MainLayout: React.FC<Props> = ({
     navigate(`/${e.key}`);
   };
 
-  const menuItems: MenuItem[] = [
-    { key: 'command-center', icon: <LayoutDashboard size={16} />, label: 'Command Center' },
-    { key: 'operations', icon: <Compass size={16} />, label: 'Operations' },
-    { key: 'astrology', icon: <Clock size={16} />, label: 'Cosmic Clock' },
-    { key: 'outlook', icon: <FileText size={16} />, label: 'Outlook' },
-    { key: 'broadcast', icon: <Waves size={16} />, label: 'Broadcast' },
-    { key: 'meditation', icon: <Headphones size={16} />, label: 'Meditate' },
-    { key: 'visualizers', icon: <Video size={16} />, label: 'Visualizer' },
-    { key: 'grimoire', icon: <BookOpen size={16} />, label: 'Grimoire' },
-    { key: 'tts', icon: <Volume2 size={16} />, label: 'TTS' },
-  ];
+  const menuItems = ROUTES.map(({ key, label, icon: Icon }) => ({
+    key,
+    label,
+    icon: <Icon size={16} />,
+  }));
 
   return (
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
