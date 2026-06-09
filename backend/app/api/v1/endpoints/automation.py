@@ -7,7 +7,7 @@ Control automated blessing rotation through populations.
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.services.blessing_scheduler import SchedulerConfig, SchedulerMode, get_scheduler
 
@@ -27,8 +27,8 @@ class StartAutomationRequest(BaseModel):
     only_active: bool = Field(True, description="Only include active populations")
     min_priority: int = Field(1, ge=1, le=10, description="Minimum priority to include")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "mode": "round_robin",
                 "duration_per_population": 1800,
@@ -36,6 +36,7 @@ class StartAutomationRequest(BaseModel):
                 "continuous_mode": True,
             }
         }
+    )
 
 
 class AutomationSessionResponse(BaseModel):
