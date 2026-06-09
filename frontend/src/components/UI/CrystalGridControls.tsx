@@ -1,25 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent } from 'react';
 import { Gem, Settings, Save, RotateCcw } from 'lucide-react';
 
 /**
  * Crystal Grid Configuration Panel
  * Allows users to customize crystal grid visualization settings
+ *
+ * Note: the emitted settings object has consistent field names
+ * (unlike MandalaControls which intentionally renames complexity →
+ * complejidad for the parent canvas). The parent visualization
+ * (CrystalGrid canvas) reads each key under its English name.
  */
-const CrystalGridControls = ({
+
+type GridType = 'hexagon' | 'double-hexagon' | 'star' | 'grid';
+type CrystalType = 'quartz' | 'amethyst' | 'rose-quartz' | 'citrine' | 'black-tourmaline' | 'selenite';
+
+interface GridPattern {
+  id: GridType;
+  name: string;
+  description: string;
+  icon: string;
+  crystalCount: number;
+}
+
+interface Crystal {
+  id: CrystalType;
+  name: string;
+  color: string;
+  properties: string;
+  chakra: string;
+  icon: string;
+}
+
+interface AppliedSettings {
+  gridType: GridType;
+  crystalType: CrystalType;
+  showEnergyField: boolean;
+  intention: string;
+}
+
+interface Props {
+  gridType?: GridType;
+  crystalType?: CrystalType;
+  showEnergyField?: boolean;
+  intention?: string;
+  onSettingsChange?: (settings: AppliedSettings) => void;
+}
+
+const CrystalGridControls: React.FC<Props> = ({
   gridType: initialGridType = 'hexagon',
   crystalType: initialCrystalType = 'quartz',
   showEnergyField: initialShowEnergyField = true,
   intention: initialIntention = '',
   onSettingsChange
 }) => {
-  const [gridType, setGridType] = useState(initialGridType);
-  const [crystalType, setCrystalType] = useState(initialCrystalType);
-  const [showEnergyField, setShowEnergyField] = useState(initialShowEnergyField);
-  const [intention, setIntention] = useState(initialIntention);
+  const [gridType, setGridType] = useState<GridType>(initialGridType);
+  const [crystalType, setCrystalType] = useState<CrystalType>(initialCrystalType);
+  const [showEnergyField, setShowEnergyField] = useState<boolean>(initialShowEnergyField);
+  const [intention, setIntention] = useState<string>(initialIntention);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Grid pattern configurations
-  const gridPatterns = [
+  const gridPatterns: GridPattern[] = [
     {
       id: 'hexagon',
       name: 'Hexagon Grid',
@@ -51,7 +92,7 @@ const CrystalGridControls = ({
   ];
 
   // Crystal types with properties
-  const crystalTypes = [
+  const crystalTypes: Crystal[] = [
     {
       id: 'quartz',
       name: 'Clear Quartz',
@@ -129,11 +170,11 @@ const CrystalGridControls = ({
     }
   };
 
-  const getCurrentPattern = () => {
+  const getCurrentPattern = (): GridPattern => {
     return gridPatterns.find(p => p.id === gridType) || gridPatterns[0];
   };
 
-  const getCurrentCrystal = () => {
+  const getCurrentCrystal = (): Crystal => {
     return crystalTypes.find(c => c.id === crystalType) || crystalTypes[0];
   };
 
@@ -220,7 +261,7 @@ const CrystalGridControls = ({
           <input
             type="checkbox"
             checked={showEnergyField}
-            onChange={(e) => setShowEnergyField(e.target.checked)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setShowEnergyField(e.target.checked)}
             className="rounded text-vajra-cyan focus:ring-vajra-cyan"
           />
           <span className="text-sm font-medium">Show Energy Field</span>
@@ -235,7 +276,7 @@ const CrystalGridControls = ({
         <label className="block text-sm font-medium mb-2">Intention</label>
         <textarea
           value={intention}
-          onChange={(e) => setIntention(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setIntention(e.target.value)}
           placeholder="Enter your intention (e.g., 'May all beings be happy and free')"
           className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm focus:border-vajra-cyan focus:ring-1 focus:ring-vajra-cyan"
           rows={3}
