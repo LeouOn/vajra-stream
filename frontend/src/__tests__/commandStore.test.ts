@@ -73,6 +73,15 @@ describe('commandStore', () => {
       expect(useCommandStore.getState().selectedIndex).toBe(3);
     });
 
+    it('setQuery("audio") does not throw (no unhandled ReferenceError)', () => {
+      // Regression: performSearch called getScore as a free function,
+      // but it lives on state. Triggering a search logged a
+      // ReferenceError as an unhandled rejection even though the
+      // top-level call returned. setQuery must complete cleanly.
+      expect(() => useCommandStore.getState().setQuery('audio')).not.toThrow();
+      expect(useCommandStore.getState().query).toBe('audio');
+    });
+
     it('addToRecent prepends and dedupes, caps at 10', () => {
       for (let i = 0; i < 12; i++) {
         useCommandStore.getState().addToRecent({ id: `cmd-${i}`, label: `C${i}`, category: 'X', icon: 'x' });
