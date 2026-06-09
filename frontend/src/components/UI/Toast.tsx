@@ -19,19 +19,25 @@
  * @component
  */
 import { useEffect, useRef } from 'react';
+import type { ArgsProps } from 'antd/es/notification';
 import { notification } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
+import type { Toast } from '../../types';
 
 // Antd's notification key is a string; our store uses numbers.
 // Keep a side-table so removeToast(id) can find the matching Antd key.
-const idToAntdKey = new Map();
+const idToAntdKey = new Map<number, string>();
 let antdKeyCounter = 0;
 
-const TYPE_TO_API = {
-  success: notification.success,
-  error: notification.error,
-  warning: notification.warning,
-  info: notification.info,
+type ToastType = Toast['type'];
+
+type ToastApi = (args: ArgsProps) => void;
+
+const TYPE_TO_API: Record<ToastType, ToastApi> = {
+  success: notification.success as ToastApi,
+  error: notification.error as ToastApi,
+  warning: notification.warning as ToastApi,
+  info: notification.info as ToastApi,
 };
 
 const ToastBridge = () => {
@@ -39,18 +45,18 @@ const ToastBridge = () => {
   // Track which toast ids we've already mirrored into Antd, so we
   // only call notification.* once per toast (Antd is a push API,
   // not a render API).
-  const mirroredRef = useRef(new Set());
+  const mirroredRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     const mirrored = mirroredRef.current;
-    const currentIds = new Set(toasts.map((t) => t.id));
+    const currentIds = new Set<number>(toasts.map((t) => t.id));
 
     // Mirror new toasts into Antd
     toasts.forEach((toast) => {
       if (mirrored.has(toast.id)) return;
       mirrored.add(toast.id);
 
-      const api = TYPE_TO_API[toast.type] || notification.info;
+      const api = TYPE_TO_API[toast.type] ?? (notification.info as ToastApi);
       const antdKey = `toast-${++antdKeyCounter}`;
       idToAntdKey.set(toast.id, antdKey);
 
@@ -64,7 +70,7 @@ const ToastBridge = () => {
           <button
             type="button"
             onClick={() => {
-              toast.action.onClick();
+              toast.action?.onClick();
               useUIStore.getState().removeToast(toast.id);
             }}
             style={{ color: 'inherit', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
