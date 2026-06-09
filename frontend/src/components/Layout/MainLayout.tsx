@@ -1,4 +1,10 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * MainLayout — top-level layout for all /visualizers, /operations, etc.
+ * routes. Renders the header (brand + status badge + nav menu),
+ * the children content area, and the footer (MOPS readout +
+ * play/pause control + volume + mode).
+ */
+import React, { useEffect, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Compass,
@@ -23,7 +29,40 @@ import { Layout, Menu, Button, Space, Badge } from 'antd';
 
 const { Header, Content, Footer } = Layout;
 
-export default function MainLayout({
+interface MopsWindow {
+  [window: string]: number;
+}
+
+interface MopsData {
+  scalar_pulses?: MopsWindow;
+  mantras?: MopsWindow;
+  crystals?: MopsWindow;
+  divination?: MopsWindow;
+  tuning?: MopsWindow;
+}
+
+interface MenuItem {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+}
+
+interface Props {
+  children: React.ReactNode;
+  isConnected: boolean;
+  isPlaying: boolean;
+  frequency: number;
+  volume: number;
+  prayerBowlMode: boolean;
+  generateAudio: () => Promise<void>;
+  playAudio: () => Promise<void>;
+  stopAudio: () => void;
+  mopsData: MopsData | null;
+  visualizationType: string;
+  handleVisualizationChange: (type: string) => void;
+}
+
+const MainLayout: React.FC<Props> = ({
   children,
   isConnected,
   isPlaying,
@@ -36,14 +75,14 @@ export default function MainLayout({
   mopsData,
   visualizationType,
   handleVisualizationChange
-}) {
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = location.pathname.split('/')[1] || 'command-center';
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 'b':
@@ -62,12 +101,12 @@ export default function MainLayout({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab, navigate, handleVisualizationChange]);
 
-  const handleMenuClick = (e) => {
+  const handleMenuClick = (e: { key: string }) => {
     audioFeedback.playTick();
     navigate(`/${e.key}`);
   };
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { key: 'command-center', icon: <LayoutDashboard size={16} />, label: 'Command Center' },
     { key: 'operations', icon: <Compass size={16} />, label: 'Operations' },
     { key: 'astrology', icon: <Clock size={16} />, label: 'Cosmic Clock' },
@@ -82,13 +121,13 @@ export default function MainLayout({
   return (
     <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
       <ToastContainer />
-      
-      <Header style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        padding: '0 20px', 
-        background: '#141414', 
-        borderBottom: '1px solid #303030' 
+
+      <Header style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 20px',
+        background: '#141414',
+        borderBottom: '1px solid #303030'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
           <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: COLORS.secondary }}>
@@ -96,7 +135,7 @@ export default function MainLayout({
           </h1>
           <Badge status={isConnected ? 'success' : 'error'} text={isConnected ? 'LIVE' : 'OFFLINE'} style={{ marginLeft: 16 }} />
         </div>
-        
+
         <Menu
           theme="dark"
           mode="horizontal"
@@ -120,12 +159,12 @@ export default function MainLayout({
         {children}
       </Content>
 
-      <Footer style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        padding: '10px 20px', 
-        background: '#141414', 
+      <Footer style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 20px',
+        background: '#141414',
         borderTop: '1px solid #303030',
         fontSize: '12px'
       }}>
@@ -135,17 +174,17 @@ export default function MainLayout({
           </span>
           {mopsData && (
             <span style={{ color: COLORS.secondary, fontFamily: 'monospace' }}>
-              MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s | 
-              Mantra {Math.round(mopsData.mantras?.["10s"] || 0)}/s | 
-              Crystals {Math.round(mopsData.crystals?.["10s"] || 0)}/s | 
-              Divination {mopsData.divination?.["60s"] || 0}/s
+              MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s |
+              Mantra {Math.round(mopsData.mantras?.["10s"] ?? 0)}/s |
+              Crystals {Math.round(mopsData.crystals?.["10s"] ?? 0)}/s |
+              Divination {mopsData.divination?.["60s"] ?? 0}/s
             </span>
           )}
         </div>
         <Space size="large">
-          <Button 
-            type="text" 
-            icon={isPlaying ? <PauseCircle size={18} color={COLORS.primary} /> : <PlayCircle size={18} color={COLORS.secondary} />} 
+          <Button
+            type="text"
+            icon={isPlaying ? <PauseCircle size={18} color={COLORS.primary} /> : <PlayCircle size={18} color={COLORS.secondary} />}
             onClick={async () => { if (!isPlaying) { await generateAudio(); await playAudio(); } else { stopAudio(); } }}
           >
             <span style={{ color: COLORS.secondary, fontWeight: 'bold', fontSize: '14px' }}>
@@ -158,4 +197,6 @@ export default function MainLayout({
       </Footer>
     </Layout>
   );
-}
+};
+
+export default MainLayout;
