@@ -42,7 +42,7 @@ function AppContent() {
   useEffect(() => {
     const fetchMops = async () => {
       try {
-        const res = await fetch('http://localhost:8008/api/v1/mops/current');
+        const res = await fetch('/api/v1/mops/current');
         if (res.ok) {
           const data = await res.json();
           setMopsData(data.mops);
@@ -364,6 +364,24 @@ function AppContent() {
               ) : (
                 <p className="text-sm text-purple-400 italic">No active sessions</p>
               )}
+            </div>
+          </div>
+        } />
+
+        <Route path="*" element={
+          <div className="flex-1 flex items-center justify-center bg-gray-900">
+            <div className="text-center max-w-md p-8">
+              <h1 className="text-6xl font-bold text-purple-300 mb-3">404</h1>
+              <p className="text-xl text-gray-200 mb-2">Page not found</p>
+              <p className="text-sm text-gray-400 mb-6">
+                The path you requested does not match any known route.
+              </p>
+              <a
+                href="/command-center"
+                className="inline-block px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors"
+              >
+                Return to Command Center
+              </a>
             </div>
           </div>
         } />
