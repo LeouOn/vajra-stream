@@ -13,6 +13,7 @@ import TTSSettingsPanel from './components/UI/TTSSettingsPanel';
 import CrystalGrid from './components/3D/CrystalGrid';
 import SacredMandala from './components/3D/SacredMandala';
 import RadionicsVisualization from './components/3D/RadionicsVisualization';
+import Astrocartography from './components/3D/Astrocartography';
 import AudioSpectrum from './components/2D/AudioSpectrum';
 import LiveWaveVisualizer from './components/2D/LiveWaveVisualizer';
 import ScalarWaveVisualizer from './components/2D/ScalarWaveVisualizer';
@@ -245,6 +246,32 @@ function AppContent() {
                   <SacredMandala audioSpectrum={audioSpectrum} isPlaying={isPlaying} frequency={frequency} pattern="sri-yantra" chakra="heart" complexity="medium" />
                   <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.4} />
                   <Environment preset="sunset" />
+                </Canvas>
+              </Suspense>
+            ) : visualizationType === 'astrocartography' ? (
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-900/50"><div className="text-cyan-400 animate-pulse text-sm">Loading Astrocartography...</div></div>}>
+                <Canvas key="astrocartography" camera={{ position: [0, 0, 15], fov: 60 }} className="w-full h-full">
+                  <ambientLight intensity={0.3} />
+                  <pointLight position={[20, 20, 20]} intensity={1.5} />
+                  <pointLight position={[-20, -20, -20]} intensity={0.5} color="#4488ff" />
+                  <Stars radius={200} depth={100} count={8000} factor={5} saturation={0.3} fade speed={0.5} />
+                  <Astrocartography
+                    audioSpectrum={audioSpectrum}
+                    isPlaying={isPlaying}
+                    frequency={frequency}
+                    birthLocation={{ lat: 37.7749, lon: -122.4194, name: 'San Francisco' }}
+                    showPowerSpots={true}
+                    autoRotate={true}
+                  />
+                  <OrbitControls
+                    enableZoom={true}
+                    enablePan={true}
+                    enableRotate={true}
+                    autoRotate={false}
+                    minDistance={8}
+                    maxDistance={30}
+                  />
+                  <Environment preset="night" />
                 </Canvas>
               </Suspense>
             ) : visualizationType === 'audio-spectrum' ? (

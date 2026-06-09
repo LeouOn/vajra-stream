@@ -11,7 +11,7 @@ import React from 'react';
 import { Select, Tag } from 'antd';
 import {
   Sparkles, Compass, Diamond, Circle, BarChart3, Activity, Waves,
-  TrendingUp, Palette, Sun, Globe,
+  TrendingUp, Palette, Sun, Globe, Globe2,
 } from 'lucide-react';
 
 const OPTIONS = [
@@ -19,6 +19,7 @@ const OPTIONS = [
   { value: 'radionics', label: 'Radionics', icon: Compass, color: 'cyan' },
   { value: 'crystal-grid', label: 'Crystal Grid', icon: Diamond, color: 'cyan' },
   { value: 'sacred-mandala', label: 'Sacred Mandala', icon: Circle, color: 'magenta' },
+  { value: 'astrocartography', label: 'Astrocartography', icon: Globe2, color: 'geekblue' },
   { value: 'audio-spectrum', label: 'Audio Spectrum', icon: BarChart3, color: 'gold' },
   { value: 'live-wave', label: 'Live Wave', icon: Activity, color: 'lime' },
   { value: 'scalar-wave', label: 'Scalar Wave', icon: Waves, color: 'cyan' },
