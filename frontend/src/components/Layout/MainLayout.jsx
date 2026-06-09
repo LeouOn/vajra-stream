@@ -154,7 +154,6 @@ export default function MainLayout({
           </Button>
           <span>Volume: <strong>{Math.round(volume * 100)}%</strong></span>
           <span>Mode: <strong style={{ color: COLORS.primary }}>{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</strong></span>
-          <Badge status={isConnected ? 'success' : 'error'} text={isConnected ? 'Connected' : 'Offline'} />
         </Space>
       </Footer>
     </Layout>
