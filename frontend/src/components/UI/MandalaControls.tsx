@@ -4,20 +4,69 @@ import { Hexagon, Settings, Save, RotateCcw } from 'lucide-react';
 /**
  * Sacred Mandala Configuration Panel
  * Allows users to select sacred geometry patterns and chakra colors
+ *
+ * Note: handleApplySettings emits the field as `complejidad` (Spanish
+ * for complexity) because the parent visualization (the
+ * SacredMandala canvas) reads it under that key. handleReset emits
+ * it as `complexity` (English) — this asymmetry is pre-existing
+ * and intentional, do not "fix" it without updating the consumer.
  */
-const MandalaControls = ({
+
+type PatternId = 'sri-yantra' | 'metatron' | 'seed-of-life' | 'tree-of-life';
+type ChakraId = 'root' | 'sacral' | 'solar-plexus' | 'heart' | 'throat' | 'third-eye' | 'crown';
+type ComplexityId = 'simple' | 'medium' | 'complex';
+
+interface Pattern {
+  id: PatternId;
+  name: string;
+  tradition: string;
+  description: string;
+  details: string;
+  bestFor: string;
+  icon: string;
+}
+
+interface Chakra {
+  id: ChakraId;
+  name: string;
+  sanskrit: string;
+  color: string;
+  location: string;
+  element: string;
+  qualities: string;
+  icon: string;
+}
+
+// Shape emitted to the parent visualization. Note `complejidad` vs
+// `complexity` mismatch is intentional — the canvas reads
+// `complejidad` and we send what it asks for.
+interface AppliedSettings {
+  pattern: PatternId;
+  chakra: ChakraId;
+  complejidad: ComplexityId;
+  complexity?: ComplexityId; // for handleReset path
+}
+
+interface Props {
+  pattern?: PatternId;
+  chakra?: ChakraId;
+  complexity?: ComplexityId;
+  onSettingsChange?: (settings: AppliedSettings) => void;
+}
+
+const MandalaControls: React.FC<Props> = ({
   pattern: initialPattern = 'sri-yantra',
   chakra: initialChakra = 'heart',
   complexity: initialComplexity = 'medium',
   onSettingsChange
 }) => {
-  const [pattern, setPattern] = useState(initialPattern);
-  const [chakra, setChakra] = useState(initialChakra);
-  const [complexity, setComplexity] = useState(initialComplexity);
+  const [pattern, setPattern] = useState<PatternId>(initialPattern);
+  const [chakra, setChakra] = useState<ChakraId>(initialChakra);
+  const [complexity, setComplexity] = useState<ComplexityId>(initialComplexity);
   const [showInfo, setShowInfo] = useState(false);
 
   // Sacred geometry patterns
-  const patterns = [
+  const patterns: Pattern[] = [
     {
       id: 'sri-yantra',
       name: 'Sri Yantra',
@@ -57,7 +106,7 @@ const MandalaControls = ({
   ];
 
   // Chakra system
-  const chakras = [
+  const chakras: Chakra[] = [
     {
       id: 'root',
       name: 'Root Chakra',
@@ -154,11 +203,11 @@ const MandalaControls = ({
     }
   };
 
-  const getCurrentPattern = () => {
+  const getCurrentPattern = (): Pattern => {
     return patterns.find(p => p.id === pattern) || patterns[0];
   };
 
-  const getCurrentChakra = () => {
+  const getCurrentChakra = (): Chakra => {
     return chakras.find(c => c.id === chakra) || chakras[3];
   };
 
@@ -259,7 +308,7 @@ const MandalaControls = ({
       <div>
         <label className="block text-sm font-medium mb-2">Detail Level</label>
         <div className="grid grid-cols-3 gap-2">
-          {['simple', 'medium', 'complex'].map((level) => (
+          {(['simple', 'medium', 'complex'] as ComplexityId[]).map((level) => (
             <button
               key={level}
               onClick={() => setComplexity(level)}
