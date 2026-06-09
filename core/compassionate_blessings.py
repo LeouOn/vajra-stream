@@ -276,62 +276,16 @@ class BlessingDatabase:
         self._initialize_database()
 
     def _initialize_database(self):
-        """Create tables if they don't exist."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        """Ensure the schema is present.
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS blessing_targets (
-                identifier TEXT PRIMARY KEY,
-                name TEXT,
-                category TEXT NOT NULL,
-                description TEXT,
-                case_number TEXT,
-                relevant_date TEXT,
-                discovery_date TEXT,
-                last_updated TEXT NOT NULL,
-                coordinates_json TEXT,
-                photograph_path TEXT,
-                additional_data_json TEXT,
-                mantras_dedicated INTEGER DEFAULT 0,
-                prayer_wheel_rotations INTEGER DEFAULT 0,
-                dedication_sessions_json TEXT,
-                intention TEXT,
-                priority INTEGER DEFAULT 5
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS blessing_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_date TEXT NOT NULL,
-                mantra_type TEXT,
-                total_mantras INTEGER DEFAULT 0,
-                total_rotations INTEGER DEFAULT 0,
-                targets_blessed INTEGER DEFAULT 0,
-                allocation_method TEXT,
-                notes TEXT,
-                astrological_data_json TEXT
-            )
-        """)
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS mantra_dedications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                target_identifier TEXT NOT NULL,
-                session_id INTEGER,
-                mantra_type TEXT,
-                mantras_count INTEGER DEFAULT 0,
-                dedication_date TEXT NOT NULL,
-                dedicator TEXT,
-                notes TEXT,
-                FOREIGN KEY (target_identifier) REFERENCES blessing_targets(identifier),
-                FOREIGN KEY (session_id) REFERENCES blessing_sessions(id)
-            )
-        """)
-
-        conn.commit()
-        conn.close()
+        All three tables (``blessing_targets``, ``blessing_sessions``,
+        ``mantra_dedications``) are owned by the centralized migration
+        runner in :mod:`core.schema`. We delegate here so there is
+        exactly one place that creates them, and so re-running this
+        constructor is a true no-op.
+        """
+        from core.schema import init_db as _core_init_db
+        _core_init_db()
 
     def add_target(self, target: BlessingTarget):
         """Add a blessing target to the database."""

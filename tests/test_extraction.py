@@ -101,6 +101,36 @@ class TestExtractionAPI:
         init_db()
         init_db()
 
+    def test_schema_creates_compassionate_blessing_tables(self, client):  # noqa: ARG002
+        """Regression: init_db must own the compassionate_blessings tables.
+
+        Pre-Task 1, ``core/compassionate_blessings.py`` created
+        ``blessing_targets``, ``blessing_sessions``, and
+        ``mantra_dedications`` inside its own ``__init__``. The
+        centralized migration runner in ``core/schema.py`` now owns
+        every table, so a fresh ``init_db()`` must produce all three
+        without any side import of compassionate_blessings.
+        """
+        import sqlite3
+        from core.schema import get_db_path, init_db
+
+        init_db()
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        try:
+            for table in (
+                "blessing_targets",
+                "blessing_sessions",
+                "mantra_dedications",
+            ):
+                row = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    (table,),
+                ).fetchone()
+                assert row is not None, f"{table} not created by init_db()"
+        finally:
+            conn.close()
+
     def test_batch_extract_small(self, client):
         """A single-tuple batch should queue, run, and reach 'done'.
 
