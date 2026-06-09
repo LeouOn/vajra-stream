@@ -135,7 +135,7 @@ const MandalaControls = ({
       onSettingsChange({
         pattern,
         chakra,
-        complexity
+        complejidad: complexity
       });
     }
   };

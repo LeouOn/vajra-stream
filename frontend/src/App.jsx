@@ -17,6 +17,8 @@ import Astrocartography from './components/3D/Astrocartography';
 import AudioSpectrum from './components/2D/AudioSpectrum';
 import LiveWaveVisualizer from './components/2D/LiveWaveVisualizer';
 import ScalarWaveVisualizer from './components/2D/ScalarWaveVisualizer';
+import CrystalGridControls from './components/UI/CrystalGridControls';
+import MandalaControls from './components/UI/MandalaControls';
 import RadionicsGlobe from './components/3D/RadionicsGlobe';
 import FrequencyWaterfall from './components/2D/FrequencyWaterfall';
 import RothkoGenerator from './components/2D/RothkoGenerator';
@@ -36,6 +38,19 @@ import { audioFeedback } from './utils/audioFeedback';
 function AppContent() {
   const [visualizationType, setVisualizationType] = useState('sacred-geometry');
   const [mopsData, setMopsData] = useState(null);
+  // Settings for the viz control panels (lifted state so the viz
+  // components and the panels stay in sync via the parent).
+  const [crystalGridSettings, setCrystalGridSettings] = useState({
+    gridType: 'double-hexagon',
+    crystalType: 'quartz',
+    showEnergyField: true,
+    intention: 'May all beings be happy',
+  });
+  const [mandalaSettings, setMandalaSettings] = useState({
+    pattern: 'sri-yantra',
+    chakra: 'heart',
+    complexity: 'medium',
+  });
   const location = useLocation();
   const activeTab = location.pathname.split('/')[1] || 'command-center';
   
@@ -219,31 +234,55 @@ function AppContent() {
             ) : visualizationType === 'radionics' ? (
               <RadionicsVisualization attunedRate={scalarStatus?.rate} isPlaying={isPlaying} />
             ) : visualizationType === 'crystal-grid' ? (
-              <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-900/50"><div className="text-cyan-400 animate-pulse text-sm">Loading Crystal Grid...</div></div>}>
-                <Canvas key="crystal-grid" camera={{ position: [0, -8, 12], fov: 60 }} className="w-full h-full">
-                  <ambientLight intensity={0.4} />
-                  <pointLight position={[10, 10, 10]} intensity={1} />
-                  <Stars radius={150} depth={60} count={3000} factor={3} saturation={0} fade speed={0.5} />
-                  <CrystalGrid
-                    audioSpectrum={audioSpectrum}
-                    isPlaying={isPlaying}
-                    frequency={frequency}
-                    gridType="double-hexagon"
-                    crystalType="quartz"
-                    showEnergyField={true}
-                    intention="May all beings be happy"
+              <>
+                <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-900/50"><div className="text-cyan-400 animate-pulse text-sm">Loading Crystal Grid...</div></div>}>
+                  <Canvas key="crystal-grid" camera={{ position: [0, -8, 12], fov: 60 }} className="w-full h-full">
+                    <ambientLight intensity={0.4} />
+                    <pointLight position={[10, 10, 10]} intensity={1} />
+                    <Stars radius={150} depth={60} count={3000} factor={3} saturation={0.5} />
+                    <CrystalGrid
+                      audioSpectrum={audioSpectrum}
+                      isPlaying={isPlaying}
+                      frequency={frequency}
+                      gridType={crystalGridSettings.gridType}
+                      crystalType={crystalGridSettings.crystalType}
+                      showEnergyField={crystalGridSettings.showEnergyField}
+                      intention={crystalGridSettings.intention}
+                    />
+                    <OrbitControls enableZoom={true} enablePan={true} enableRotate={true} autoRotate={true} autoRotateSpeed={0.3} />
+                    <Environment preset="night" />
+                  </Canvas>
+                </Suspense>
+                <div className="absolute top-4 right-4 w-80 max-h-[calc(100vh-100px)] overflow-y-auto bg-gray-900/85 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl z-10 pointer-events-auto">
+                  <CrystalGridControls
+                    gridType={crystalGridSettings.gridType}
+                    crystalType={crystalGridSettings.crystalType}
+                    showEnergyField={crystalGridSettings.showEnergyField}
+                    intention={crystalGridSettings.intention}
+                    onSettingsChange={setCrystalGridSettings}
                   />
-                  <OrbitControls enableZoom={true} enablePan={true} enableRotate={true} autoRotate={true} autoRotateSpeed={0.3} />
-                  <Environment preset="night" />
-                </Canvas>
-              </Suspense>
+                </div>
+              </>
             ) : visualizationType === 'sacred-mandala' ? (
               <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-900/50"><div className="text-amber-400 animate-pulse text-sm">Loading Sacred Mandala...</div></div>}>
                 <Canvas key="sacred-mandala" camera={{ position: [0, 0, 15], fov: 60 }} className="w-full h-full">
                   <ambientLight intensity={0.5} />
                   <pointLight position={[10, 10, 10]} intensity={1} />
                   <Stars radius={120} depth={50} count={4000} factor={3} saturation={0.1} fade speed={0.8} />
-                  <SacredMandala audioSpectrum={audioSpectrum} isPlaying={isPlaying} frequency={frequency} pattern="sri-yantra" chakra="heart" complexity="medium" />
+                  <SacredMandala
+                    audioSpectrum={audioSpectrum}
+                    isPlaying={isPlaying}
+                    frequency={frequency}
+                    pattern={mandalaSettings.pattern}
+                    chakra={mandalaSettings.chakra}
+                    complejidad={mandalaSettings.complejidad}
+                  />
+                  <MandalaControls
+                    pattern={mandalaSettings.pattern}
+                    chakra={mandalaSettings.chakra}
+                    complejidad={mandalaSettings.complejidad}
+                    onSettingsChange={setMandalaSettings}
+                  />
                   <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.4} />
                   <Environment preset="sunset" />
                 </Canvas>
