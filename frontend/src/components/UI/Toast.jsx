@@ -1,112 +1,100 @@
 /**
  * Toast — auto-dismissing notification toasts.
- * Supports info, success, warning, and error types with optional
- * action buttons. Positioned top-right. Managed by UI Store.
+ *
+ * Backed by Antd's `notification` API. The store's addToast()
+ * still pushes a toast into state.toasts; this component subscribes
+ * to that array, mirrors new toasts into Antd's notification stack,
+ * and removes the mirror when the store removes the toast.
+ *
+ * Why: the previous implementation hand-rolled icons, colors,
+ * positioning, and ARIA semantics that Antd provides out of the
+ * box. The hand-rolled version was 110+ lines; the Antd version is
+ * a thin subscription.
+ *
+ * Position: topRight (matches the previous fixed top-4 right-4 layout).
+ *
+ * Supported types: 'success' | 'error' | 'warning' | 'info'.
+ * The store defaults to 'info' if no type is provided.
+ *
  * @component
  */
-import React, { useEffect } from 'react';
-import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { notification } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 
-const Toast = ({ toast }) => {
-  const { removeToast } = useUIStore();
-  
+// Antd's notification key is a string; our store uses numbers.
+// Keep a side-table so removeToast(id) can find the matching Antd key.
+const idToAntdKey = new Map();
+let antdKeyCounter = 0;
+
+const TYPE_TO_API = {
+  success: notification.success,
+  error: notification.error,
+  warning: notification.warning,
+  info: notification.info,
+};
+
+const ToastBridge = () => {
+  const toasts = useUIStore((s) => s.toasts);
+  // Track which toast ids we've already mirrored into Antd, so we
+  // only call notification.* once per toast (Antd is a push API,
+  // not a render API).
+  const mirroredRef = useRef(new Set());
+
   useEffect(() => {
-    if (toast.duration > 0) {
-      const timer = setTimeout(() => {
-        removeToast(toast.id);
-      }, toast.duration);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [toast.id, toast.duration, removeToast]);
-  
-  const getIcon = () => {
-    switch (toast.type) {
-      case 'success':
-        return <CheckCircle className="w-5 h-5 text-green-400" />;
-      case 'error':
-        return <AlertCircle className="w-5 h-5 text-red-400" />;
-      case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-amber-400" />;
-      default:
-        return <Info className="w-5 h-5 text-blue-400" />;
-    }
-  };
-  
-  const getBackgroundColor = () => {
-    switch (toast.type) {
-      case 'success':
-        return 'bg-green-900/90 border-green-700';
-      case 'error':
-        return 'bg-red-900/90 border-red-700';
-      case 'warning':
-        return 'bg-amber-900/90 border-amber-700';
-      default:
-        return 'bg-blue-900/90 border-blue-700';
-    }
-  };
-  
-  return (
-    <div
-      className={`flex items-start gap-3 p-4 rounded-lg border shadow-lg backdrop-blur-sm transition-all duration-300 transform ${getBackgroundColor()}`}
-      role="alert"
-      aria-live="polite"
-    >
-      <div className="flex-shrink-0 mt-0.5">
-        {getIcon()}
-      </div>
-      
-      <div className="flex-1 min-w-0">
-        {toast.title && (
-          <h4 className="text-sm font-semibold text-white mb-1">
-            {toast.title}
-          </h4>
-        )}
-        <p className="text-sm text-gray-200">
-          {toast.message}
-        </p>
-        {toast.action && (
+    const mirrored = mirroredRef.current;
+    const currentIds = new Set(toasts.map((t) => t.id));
+
+    // Mirror new toasts into Antd
+    toasts.forEach((toast) => {
+      if (mirrored.has(toast.id)) return;
+      mirrored.add(toast.id);
+
+      const api = TYPE_TO_API[toast.type] || notification.info;
+      const antdKey = `toast-${++antdKeyCounter}`;
+      idToAntdKey.set(toast.id, antdKey);
+
+      api({
+        key: antdKey,
+        message: toast.title || undefined,
+        description: toast.message || undefined,
+        placement: 'topRight',
+        duration: toast.duration ?? 4.5,
+        btn: toast.action ? (
           <button
+            type="button"
             onClick={() => {
               toast.action.onClick();
-              removeToast(toast.id);
+              useUIStore.getState().removeToast(toast.id);
             }}
-            className="mt-2 text-sm font-medium text-white hover:underline"
+            style={{ color: 'inherit', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
           >
             {toast.action.label}
           </button>
-        )}
-      </div>
-      
-      <button
-        onClick={() => removeToast(toast.id)}
-        className="flex-shrink-0 text-gray-400 hover:text-white transition-colors"
-        aria-label="Close notification"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  );
+        ) : undefined,
+        onClose: () => {
+          // Antd-driven close (timeout or user X click) — clean up our side-table
+          idToAntdKey.delete(toast.id);
+          mirrored.delete(toast.id);
+        },
+      });
+    });
+
+    // Mirror removals: any id we previously mirrored that is no
+    // longer in the store was removed via removeToast().
+    mirrored.forEach((id) => {
+      if (!currentIds.has(id)) {
+        const antdKey = idToAntdKey.get(id);
+        if (antdKey) {
+          notification.destroy(antdKey);
+          idToAntdKey.delete(id);
+        }
+        mirrored.delete(id);
+      }
+    });
+  }, [toasts]);
+
+  return null;
 };
 
-const ToastContainer = () => {
-  const { toasts } = useUIStore();
-  
-  if (toasts.length === 0) {
-    return null;
-  }
-  
-  return (
-    <div
-      className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full"
-      aria-label="Notifications"
-    >
-      {toasts.map((toast) => (
-        <Toast key={toast.id} toast={toast} />
-      ))}
-    </div>
-  );
-};
-
-export { Toast, ToastContainer };
+export { ToastBridge as ToastContainer };
