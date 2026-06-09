@@ -23,6 +23,10 @@ generated_sigils/
 session_logs/
 llm_generated/
 
+# Qwen3-TTS model cache (downloaded on first use, ~3-7 GB)
+.qwen_tts/
+core/qwen_tts_cache/
+
 # Audio files
 *.wav
 *.mp3
@@ -87,6 +91,9 @@ logs/
 # Virtual environments (expanded)
 .venv/
 
+# Test artifacts
+tests/.pytest_tmp/
+
 # AI tooling
 .kilo/
 
@@ -99,3 +106,11 @@ backend_server.log
 
 #Javascript
 node_modules/
+
+# Dev artifacts (Omo evidence collection, local eval scripts, ephemeral builds)
+.omo/
+frontend/tmp/
+frontend/test-results/
+frontend/playwright-report/
+generated/
+scripts/eval_system.py

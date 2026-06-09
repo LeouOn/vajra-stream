@@ -7,7 +7,7 @@ CRUD operations for managing populations that receive automated blessings.
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.services.population_manager import PopulationCategory, SourceType, get_population_manager
 
@@ -33,8 +33,8 @@ class CreatePopulationRequest(BaseModel):
     tags: list[str] = Field(default_factory=list)
     notes: str = ""
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "Missing Persons - California 2024",
                 "description": "Database of missing persons from California",
@@ -46,6 +46,7 @@ class CreatePopulationRequest(BaseModel):
                 "priority": 7,
             }
         }
+    )
 
 
 class UpdatePopulationRequest(BaseModel):

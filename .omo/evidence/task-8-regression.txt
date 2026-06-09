@@ -1,0 +1,11 @@
+Scenario: regression — other new methods still work
+Tool: Bash (python)
+Steps:
+  1. call get_hellenistic_lots / get_midpoints / get_antiscia / get_year_ahead_timeline
+Expected Result: all return expected counts / non-error
+---
+
+  get_hellenistic_lots: 7 lots, fortune sign=Virgo
+  get_midpoints: 45 pairs (expected 45)
+  get_antiscia: 10 planets (expected 10)
+  get_year_ahead_timeline: 500 events (expected <= 500)

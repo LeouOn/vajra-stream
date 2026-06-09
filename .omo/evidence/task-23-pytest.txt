@@ -1,0 +1,35 @@
+﻿============================= test session starts =============================
+tests/test_astrology.py::TestAstrologyCalculator::test_julian_day PASSED [  3%]
+tests/test_astrology.py::TestAstrologyCalculator::test_planetary_positions PASSED [  7%]
+tests/test_astrology.py::TestAstrologyCalculator::test_western_astrology PASSED [ 11%]
+tests/test_astrology.py::TestAstrologyCalculator::test_indian_astrology PASSED [ 15%]
+tests/test_astrology.py::TestAstrologyCalculator::test_chinese_astrology PASSED [ 19%]
+tests/test_astrology.py::TestAstrologyCalculator::test_exact_planetary_hours PASSED [ 23%]
+tests/test_astrology.py::TestAstrologyCalculator::test_comprehensive_astrology PASSED [ 26%]
+tests/test_astrology.py::TestNewCalcMethods::test_hellenistic_lots PASSED [ 30%]
+tests/test_astrology.py::TestNewCalcMethods::test_midpoints PASSED       [ 34%]
+tests/test_astrology.py::TestNewCalcMethods::test_antiscia PASSED        [ 38%]
+tests/test_astrology.py::TestNewCalcMethods::test_year_ahead_timeline PASSED [ 42%]
+tests/test_astrology.py::TestNewCalcMethods::test_fixed_stars PASSED     [ 46%]
+tests/test_astrology.py::TestNewCalcMethods::test_secondary_progressions PASSED [ 50%]
+tests/test_astrology.py::TestNewCalcMethods::test_solar_return PASSED    [ 53%]
+tests/test_astrology.py::TestNewCalcMethods::test_profection PASSED      [ 57%]
+tests/test_astrology.py::TestNewCalcMethods::test_solar_arc PASSED       [ 61%]
+tests/test_astrology.py::TestNewCalcMethods::test_astrocartography PASSED [ 65%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_current_transit PASSED [ 69%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_current_natal_calculation PASSED [ 73%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_western_endpoint PASSED [ 76%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_indian_endpoint PASSED [ 80%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_chinese_endpoint PASSED [ 84%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_planetary_hours_endpoint PASSED [ 88%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_saved_charts_workflow PASSED [ 92%]
+tests/test_astrology.py::TestAstrologyAPI::test_api_charts_import_export PASSED [ 96%]
+tests/test_astrology.py::TestAstrologyService::test_astrology_service_methods PASSED [100%]
+============================== warnings summary ===============================
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\automation.py:18: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\blessing_slideshow.py:26: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\blessing_slideshow.py:46: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\populations.py:18: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\rng_attunement.py:15: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+  C:\Users\Y\proj\vajra-stream\backend\app\api\v1\endpoints\rng_attunement.py:33: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+======================= 26 passed, 7 warnings in 4.64s ========================

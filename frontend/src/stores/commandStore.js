@@ -127,7 +127,7 @@ export const useCommandStore = create(
         // Search commands
         if (state.searchContext === 'all' || state.searchContext === 'commands') {
           commandRegistry.forEach(cmd => {
-            const score = getScore(query, [cmd.label, cmd.id, cmd.category].join(' '));
+            const score = state.getScore(query, [cmd.label, cmd.id, cmd.category].join(' '));
             if (score > 0) {
               results.push({ type: 'command', ...cmd, score });
             }
@@ -141,7 +141,7 @@ export const useCommandStore = create(
             if (response.ok) {
               const data = await response.json();
               data.stories?.forEach(story => {
-                const score = getScore(query, [story.title, story.content, ...(story.tags || []), story.theme, story.tradition].join(' '));
+                const score = state.getScore(query, [story.title, story.content, ...(story.tags || []), story.theme, story.tradition].join(' '));
                 if (score > 0) {
                   results.push({ type: 'story', ...story, score });
                 }
@@ -151,7 +151,7 @@ export const useCommandStore = create(
             // Fallback to local stories
             const savedTales = JSON.parse(localStorage.getItem('dharma-tales') || '[]');
             savedTales.forEach(story => {
-              const score = getScore(query, [story.tale, story.theme, story.tradition].join(' '));
+              const score = state.getScore(query, [story.tale, story.theme, story.tradition].join(' '));
               if (score > 0) {
                 results.push({ type: 'story', ...story, id: story.id, title: story.tale.slice(0, 50) + '...', score });
               }
@@ -166,7 +166,7 @@ export const useCommandStore = create(
             if (response.ok) {
               const data = await response.json();
               data.results?.forEach(rate => {
-                const score = getScore(query, [rate.name, rate.description, rate.values?.join('-'), rate.category].join(' '));
+                const score = state.getScore(query, [rate.name, rate.description, rate.values?.join('-'), rate.category].join(' '));
                 if (score > 0) {
                   results.push({ type: 'rate', ...rate, score });
                 }
@@ -191,7 +191,7 @@ export const useCommandStore = create(
             { id: 'carnelian', name: 'Carnelian', properties: ['vitality', 'creativity', 'courage'], chakras: ['sacral'], description: 'Vitality, creativity and motivation' },
           ];
           crystalLibrary.forEach(crystal => {
-            const score = getScore(query, [crystal.name, crystal.description, ...crystal.properties, ...crystal.chakras].join(' '));
+            const score = state.getScore(query, [crystal.name, crystal.description, ...crystal.properties, ...crystal.chakras].join(' '));
             if (score > 0) {
               results.push({ type: 'crystal', ...crystal, score });
             }

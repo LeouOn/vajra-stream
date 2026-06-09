@@ -21,6 +21,9 @@ import { API_BASE } from '../../utils/api';
 import ScalarWaveVisualizer from '../2D/ScalarWaveVisualizer';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { AttunementChart } from './AttunementChart';
+import SakaDawaBanner from './SakaDawaBanner';
+import JourneyCard from './JourneyCard';
+import BuddhaContemplationWidget from './BuddhaContemplationWidget';
 
 const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }) => {
   if (!toolCalls || toolCalls.length === 0) return null;
@@ -367,7 +370,9 @@ export default function CommandCenter({
   frequency, 
   crystalStatus, 
   scalarStatus,
-  sessions
+  sessions,
+  buddhaStatus,
+  sakaDawa
 }) {
   const [activeZoomItem, setActiveZoomItem] = useState(null);
   const [messages, setMessages] = useState([
@@ -452,6 +457,24 @@ export default function CommandCenter({
     fetchModels();
   }, []);
 
+  // Ref to hold latest handleSendMessage (avoids stale closure in event listener)
+  const handleSendMessageRef = useRef(handleSendMessage);
+  handleSendMessageRef.current = handleSendMessage;
+
+  // Listen for vajra:quick-command custom events (fired by SakaDawaBanner, etc.)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.command) {
+        setInput(e.detail.command);
+        setTimeout(() => {
+          handleSendMessageRef.current(e.detail.command);
+        }, 200);
+      }
+    };
+    window.addEventListener('vajra:quick-command', handler);
+    return () => window.removeEventListener('vajra:quick-command', handler);
+  }, []);
+
   const messagesEndRef = useRef(null);
   const logEndRef = useRef(null);
 
@@ -516,7 +539,7 @@ export default function CommandCenter({
     ]);
   };
 
-  const handleSendMessage = async (textToSend) => {
+  async function handleSendMessage(textToSend) {
     const text = textToSend || input;
     if (!text.trim()) return;
 
@@ -610,15 +633,85 @@ export default function CommandCenter({
     { label: 'Start automation', text: 'start automation' },
     { label: 'Stop automation', text: 'stop automation' },
     { label: 'List populations', text: 'list populations' },
-    { label: 'Start RNG session', text: 'start RNG session' },
+    { label: 'Start RNG session', text: 'start rng session' },
     { label: 'Get statistics', text: 'get statistics' },
     { label: 'Dharma Wisdom', text: 'tell me a dharma tale' }
   ];
 
+  const operatorActions = [
+    {
+      key: 'analyze',
+      label: 'Analyze intention',
+      icon: '🎯',
+      prompt: 'help my friend with chronic back pain',
+      endpoint: `${API_BASE}/operator/analyze`,
+      body: () => ({ intention: 'help my friend with chronic back pain' }),
+    },
+    {
+      key: 'rates',
+      label: 'Suggest rates',
+      icon: '📊',
+      prompt: 'emotional healing after loss',
+      endpoint: `${API_BASE}/operator/suggest-rates`,
+      body: () => ({ intention_or_condition: 'emotional healing after loss', count: 5 }),
+    },
+    {
+      key: 'insight',
+      label: 'Session insight',
+      icon: '👁',
+      prompt: 'what do my current readings suggest?',
+      endpoint: `${API_BASE}/operator/insights`,
+      body: () => ({
+        session_context: {
+          currentFrequency: frequency,
+          isPlaying,
+          activeSessions: Object.values(sessions || {}).filter(s => s.status === 'running').length,
+          crystalActive: crystalStatus?.active || false,
+          scalarRate: scalarStatus?.rate || null,
+        },
+      }),
+    },
+  ];
+
+  async function handleOperatorAction(action) {
+    if (isLoading) return;
+    setIsLoading(true);
+    audioFeedback.playTelemetry();
+    setMessages(prev => [...prev, { role: 'user', content: `[${action.label}] ${action.prompt}`, action: action.key }]);
+    addToolLog('user', `Operator action: ${action.label}`);
+    addToolLog('llm', `Calling ${action.endpoint.split('/').pop()}...`, 'pending');
+    try {
+      const res = await fetch(action.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action.body()),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const summary = action.key === 'analyze'
+          ? `🎯 Target: ${data.analysis?.target || '—'}\n🌀 Chakra: ${data.analysis?.primary_chakra || '—'}\n📡 Freq: ${data.analysis?.recommended_frequency || '—'} Hz\n🕉️ Mantra: ${data.analysis?.recommended_mantra_tradition || '—'}`
+          : action.key === 'rates'
+            ? `📊 ${(data.rates || []).map((r, i) => `${i + 1}. ${r.name || 'Rate ' + (i + 1)} → ${Array.isArray(r.values) ? r.values.join('-') : r.values}`).join('\n')}`
+            : data.insight || JSON.stringify(data);
+        setMessages(prev => [...prev, { role: 'assistant', content: summary, action: action.key }]);
+        addToolLog('llm', `${action.label} complete`, 'success');
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Operator service unavailable.', action: 'error' }]);
+      }
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Unable to reach operator.', action: 'error' }]);
+    }
+    setIsLoading(false);
+  }
+
   return (
-    <div className="h-full flex flex-col lg:flex-row gap-6 p-4 md:p-6 overflow-hidden">
-      
-      {/* Left Column: Chat and Commands */}
+    <div className="h-full flex flex-col gap-4 p-4 md:p-6 overflow-hidden">
+      {/* Saka Dawa Banner */}
+      <SakaDawaBanner sakaDawa={sakaDawa} />
+
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+        
+        {/* Left Column: Chat and Commands */}
       <Card className="flex-1 flex flex-col min-h-0 bg-gray-900/80 border-purple-500/20 overflow-hidden" styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', flex: 1 } }}>
         
         {/* Chat Header */}
@@ -689,6 +782,33 @@ export default function CommandCenter({
           </Space>
         </div>
 
+        {/* Operator Quick Actions */}
+        <div className="px-4 py-1.5 bg-gradient-to-r from-indigo-950/30 to-purple-950/20 border-t border-indigo-500/15">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[9px] font-mono text-indigo-300/70 uppercase tracking-wider">Operator</span>
+            <Space wrap size={[4, 4]}>
+              {operatorActions.map((action) => (
+                <Button
+                  key={action.key}
+                  size="small"
+                  type="default"
+                  disabled={isLoading}
+                  onClick={() => handleOperatorAction(action)}
+                  style={{
+                    fontSize: '10px',
+                    borderRadius: '12px',
+                    background: 'rgba(99, 102, 241, 0.08)',
+                    borderColor: 'rgba(99, 102, 241, 0.3)',
+                    color: '#a5b4fc',
+                  }}
+                >
+                  <span className="mr-1">{action.icon}</span>{action.label}
+                </Button>
+              ))}
+            </Space>
+          </div>
+        </div>
+
         {/* LLM Environmental Context Injection Panel */}
         <div className="px-4 py-2 border-t border-purple-500/15 bg-black/30 flex flex-wrap items-center gap-4 text-xs font-mono select-none">
           <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Inject Context:</span>
@@ -716,7 +836,7 @@ export default function CommandCenter({
               onChange={(val) => { setSelectedModel(val); audioFeedback.playClick(); }}
               style={{ minWidth: 160, fontSize: '11px' }}
               className="font-mono"
-              dropdownStyle={{ minWidth: 220 }}
+              styles={{ popup: { minWidth: 220 } }}
               placeholder="Select model..."
             >
               {availableModels.lm_studio && availableModels.lm_studio.length > 0 && (
@@ -793,7 +913,13 @@ export default function CommandCenter({
       </Card>
 
       {/* Right Column: Status & Tool execution logs */}
-      <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0">
+      <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+        
+        {/* Journey Card (Epic Multi-Stage Journey) */}
+        <JourneyCard />
+
+        {/* Buddha Contemplation Widget */}
+        <BuddhaContemplationWidget buddhaStatus={buddhaStatus} />
         
         {/* Status Monitors Card */}
         <Card
@@ -1032,6 +1158,7 @@ export default function CommandCenter({
         </Card>
 
       </div>
+    </div>
 
       {/* Zoom Modal */}
       <Modal

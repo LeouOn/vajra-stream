@@ -38,6 +38,16 @@ async def lifespan(app: FastAPI):
     print("Vajra.Stream API starting up...")
     print("Initializing Stable WebSocket connection manager v2...")
 
+    try:
+        from core.schema import init_db as _schema_init_db
+
+        _schema_init_db().close()
+        print("Database schema initialized (core.schema.init_db)")
+    except Exception as e:
+        print(f"Failed to initialize database schema: {e}")
+        logger.error(f"Failed to initialize database schema: {e}")
+        logger.error(traceback.format_exc())
+
     # Initialize Orchestrator Bridge
     try:
         from backend.core.orchestrator_bridge import orchestrator_bridge
@@ -60,11 +70,30 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to start streaming: {e}")
         logger.error(traceback.format_exc())
 
+    # Start Autonomous Operator Daemon
+    try:
+        from container import container
+        print("Starting Autonomous Radionics Operator daemon...")
+        container.operator.start_autonomous_mode(interval_seconds=60)
+        print("Autonomous Radionics Operator daemon activated successfully on startup")
+    except Exception as e:
+        print(f"Failed to start Autonomous Operator daemon: {e}")
+        logger.error(f"Failed to start Autonomous Operator daemon: {e}")
+
     yield
 
     # Shutdown
     print("Vajra.Stream API shutting down...")
     stable_connection_manager_v2.stop_realtime_streaming()
+
+    # Stop Autonomous Operator Daemon
+    try:
+        from container import container
+        print("Stopping Autonomous Radionics Operator daemon...")
+        container.operator.stop_autonomous_mode()
+        print("Autonomous Radionics Operator daemon stopped")
+    except Exception as e:
+        print(f"Failed to stop Autonomous Operator daemon: {e}")
 
     if streaming_task:
         streaming_task.cancel()

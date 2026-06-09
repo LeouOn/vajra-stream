@@ -145,6 +145,7 @@ testpaths = ["backend/tests", "tests"]
 markers = [
     "unit: fast isolated tests",
     "integration: tests that wire multiple modules together",
+    "e2e: end-to-end workflow tests spanning multiple endpoints",
     "slow: tests that take more than a few seconds",
 ]
 asyncio_mode = "auto"

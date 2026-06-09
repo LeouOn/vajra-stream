@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Activity, TrendingUp, TrendingDown, Minus, Zap, AlertCircle, CheckCircle } from 'lucide-react';
 
 import { API_BASE } from '../../utils/api';
+import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 
 // Needle state colors
 const NEEDLE_COLORS = {
@@ -38,6 +39,8 @@ const RNGAttunement = ({ className = '' }) => {
   const [sensitivity, setSensitivity] = useState(1.0);
   const [baselineToneArm, setBaselineToneArm] = useState(5.0);
   const [summary, setSummary] = useState(null);
+
+  const { rngData } = useWebSocket();
 
   const intervalRef = useRef(null);
   const canvasRef = useRef(null);
@@ -110,20 +113,13 @@ const RNGAttunement = ({ className = '' }) => {
     }
   };
 
-  // Auto-refresh readings
+  // Auto-refresh readings via WebSocket
   useEffect(() => {
-    if (autoRefresh && isActive) {
-      intervalRef.current = setInterval(getReading, refreshRate);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
+    if (autoRefresh && isActive && rngData && rngData.session_id === sessionId) {
+      setReading(rngData);
+      setHistory(prev => [...prev.slice(-99), rngData]);
     }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [autoRefresh, isActive, refreshRate, sessionId]);
+  }, [rngData, autoRefresh, isActive, sessionId]);
 
   // Draw needle visualization
   useEffect(() => {
@@ -409,17 +405,8 @@ const RNGAttunement = ({ className = '' }) => {
           {autoRefresh && (
             <div className="mb-4">
               <label className="block text-xs text-gray-400 mb-1">
-                Refresh Rate: {refreshRate}ms
+                Listening for real-time WebSocket updates...
               </label>
-              <input
-                type="range"
-                min="100"
-                max="5000"
-                step="100"
-                value={refreshRate}
-                onChange={(e) => setRefreshRate(parseInt(e.target.value))}
-                className="w-full"
-              />
             </div>
           )}
 

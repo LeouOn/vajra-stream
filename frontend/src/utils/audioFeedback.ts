@@ -15,7 +15,13 @@ class AudioFeedbackEngine {
     if (this.ctx) return;
     try {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Resume if suspended (autoplay policy)
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
     } catch (e) {
+      // Autoplay policy — suppress noisy console warning
+      if (e instanceof Error && e.name === 'NotAllowedError') return;
       console.warn("Web Audio API not supported in this browser", e);
     }
   }

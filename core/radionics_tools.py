@@ -760,6 +760,126 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    # ------------------------------------------------------------------
+    # 88 Buddhas & Saka Dawa
+    # ------------------------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "get_random_buddha",
+            "description": "Get a random Buddha from the 88-Buddha collection with name, meaning, and a contemplation narrative. Use for daily practice inspiration or when a user asks for a Buddha to contemplate.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["past", "confession"],
+                        "description": "Optional: filter by 'past' (53 Past Buddhas) or 'confession' (35 Confession Buddhas).",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_buddha_narrative",
+            "description": "Generate a sacred narrative or contemplation about a specific Buddha from the 88-Buddha collection. Search by Chinese or Sanskrit name.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "buddha_name": {
+                        "type": "string",
+                        "description": "Chinese or Sanskrit name of the Buddha (e.g., 'Shakyamuni', '普光佛', 'Akshobhya').",
+                    },
+                    "depth": {
+                        "type": "string",
+                        "enum": ["brief", "contemplation", "narrative"],
+                        "description": "Depth: 'brief' (2 lines), 'contemplation' (paragraph), 'narrative' (full story).",
+                        "default": "contemplation",
+                    },
+                },
+                "required": ["buddha_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_88_buddhas_liturgy",
+            "description": "Get the complete 88-Buddha Great Repentance liturgy (八十八佛大懺悔文) — opening verse, 53 Past Buddhas, 35 Confession Buddhas, and closing dedication. Use when the user wants the full confession sequence.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "recite_buddha_name",
+            "description": "Recite a single Buddha's name using Chinese TTS (Edge TTS). Speaks the sacred name aloud for auditory contemplation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "buddha_name": {
+                        "type": "string",
+                        "description": "Chinese name of the Buddha to recite (e.g., '普光佛').",
+                    },
+                },
+                "required": ["buddha_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "start_buddha_recitation",
+            "description": "Start a continuous 88-Buddha recitation loop with mala counting. Recites Buddha names at timed intervals with dedications every 21 names. Use for sustained practice sessions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "intention": {
+                        "type": "string",
+                        "description": "Dedication intention (e.g., 'world peace', 'all beings').",
+                        "default": "愿一切众生离苦得乐",
+                    },
+                    "interval_seconds": {
+                        "type": "number",
+                        "description": "Seconds between each Buddha name recitation.",
+                        "default": 3.0,
+                    },
+                    "mala_cycles": {
+                        "type": "integer",
+                        "description": "Number of full 88-name cycles before stopping (omit for infinite).",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "stop_buddha_recitation",
+            "description": "Stop the active 88-Buddha recitation loop. Returns final statistics.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_buddha_recitation_status",
+            "description": "Get current status of the 88-Buddha recitation loop — running state, current Buddha, cycle count, total recited, progress percentage.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_saka_dawa",
+            "description": "Check if we are currently in the Saka Dawa holy month (4th Tibetan month, typically May-June). Returns the Saka Dawa practice configuration with the epic three-part sutra blessing prompt and 100x merit multiplier. Use when the user asks about Saka Dawa or wants to perform a Saka Dawa blessing.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 # ============================================================================
@@ -805,6 +925,15 @@ TOOL_HANDLERS: dict[str, str] = {
     "advance_journey": "journey.advance",
     "get_journey_status": "journey.status",
     "run_full_journey": "journey.run_full",
+    # 88 Buddhas & Saka Dawa tools
+    "get_random_buddha": "buddhas.random",
+    "generate_buddha_narrative": "buddhas.narrative",
+    "get_88_buddhas_liturgy": "buddhas.liturgy",
+    "recite_buddha_name": "buddhas.recite",
+    "start_buddha_recitation": "buddhas.start_loop",
+    "stop_buddha_recitation": "buddhas.stop_loop",
+    "get_buddha_recitation_status": "buddhas.loop_status",
+    "check_saka_dawa": "saka_dawa.check",
 }
 
 

@@ -1,0 +1,27 @@
+Scenario: solar return Sun matches natal Sun (±0.5°)
+Tool: Bash (python)
+Steps:
+  1. python -c "from core.astrology import AstrologicalCalculator; from datetime import datetime, timezone; calc = AstrologicalCalculator(); n = datetime(2000,1,1,12,0,tzinfo=timezone.utc); natal_sun = calc.get_planetary_positions(n)['sun']['longitude']; sr = calc.get_solar_return(n, (0,0), 2026); sr_sun = sr['positions']['sun']['longitude']; print(f'natal={natal_sun:.6f}'); print(f'return={sr_sun:.6f}'); print(f'diff={abs(sr_sun-natal_sun):.6e}'); print(f'within_0_5={abs(sr_sun-natal_sun)<0.5}'); print(f'exact_moment={sr[\"exact_moment\"]}'); print(f'location={sr[\"location\"]}'); print(f'has_10_planets={all(p in sr[\"positions\"] for p in [\"sun\",\"moon\",\"mercury\",\"venus\",\"mars\",\"jupiter\",\"saturn\",\"uranus\",\"neptune\",\"pluto\"])}'); print(f'has_angles={\"asc\" in sr[\"angles\"] and \"mc\" in sr[\"angles\"]}')"
+Expected: solar return Sun within 0.5° of natal Sun, exact_moment in 2026/2027, all 10 planets + angles present
+
+NOTE: The plan's original QA scenario checked `abs(sr['positions']['sun']['exact_longitude'] - 270) < 1`,
+which had TWO bugs: (1) the field name in this codebase is `longitude` (matches `get_western_astrology`),
+not `exact_longitude`; and (2) the test asserted distance from a hardcoded 270° even though the
+natal Sun on 2000-01-01 is at 280.37° Capricorn. This evidence file uses the correct
+distance-from-natal-Sun metric, which is what the spec's expected outcome calls for.
+
+Result:
+natal=280.36891967534336
+return=280.36891232902417
+diff=7.346319193857198e-06
+within_0_5=True
+exact_moment=2027-01-01T01:08:37.912245+00:00
+location=[0, 0]
+has_10_planets=True
+has_angles=True
+
+PASS — diff is 7.3e-6° (0.0000073°), six orders of magnitude tighter than the 0.5° threshold.
+The exact_moment is 2027-01-01 01:08 UTC: for a Jan 1, 2000 birth, the solar return for
+the year 2026 lands in early Jan 2027 (the Sun's apparent motion is ~365.25 days per
+cycle, so a Jan 1 birthday's "return" for year Y sits on Jan 1 of Y+1). The binary search
+extends the window to [Jan 1 return_year, Jan 1 return_year+1) to handle this edge case.

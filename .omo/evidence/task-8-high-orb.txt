@@ -1,0 +1,17 @@
+Scenario: high orb catches all (orb=180)
+Tool: Bash (python)
+Steps:
+  1. python (this script)
+Expected Result: True (every star's orb_to_nearest_planet <= 180, conjunct_planet set)
+---
+
+all conjunct at orb=180: True
+
+Per-star:
+  regulus     Regulus    orb= 38.84 deg  conjunct_planet=jupiter
+  aldebaran   Aldebaran  orb=  3.48 deg  conjunct_planet=moon
+  antares     Antares    orb= 18.46 deg  conjunct_planet=mercury
+  fomalhaut   Fomalhaut  orb=  7.98 deg  conjunct_planet=north_node
+  spica       Spica      orb= 64.46 deg  conjunct_planet=mercury
+  algol       Algol      orb=  1.59 deg  conjunct_planet=uranus
+  sirius      Sirius     orb=  6.93 deg  conjunct_planet=jupiter

@@ -4,7 +4,7 @@ Provides REST API access to RNG attunement readings
 """
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.services.rng_attunement_service import NeedleState, ReadingQuality, get_rng_service
 
@@ -19,8 +19,9 @@ class CreateSessionRequest(BaseModel):
     baseline_tone_arm: float = Field(5.0, ge=0, le=10, description="Starting tone arm position (0-10)")
     sensitivity: float = Field(1.0, ge=0.1, le=5.0, description="Reading sensitivity multiplier")
 
-    class Config:
-        json_schema_extra = {"example": {"baseline_tone_arm": 5.0, "sensitivity": 1.0}}
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"baseline_tone_arm": 5.0, "sensitivity": 1.0}}
+    )
 
 
 class SessionResponse(BaseModel):
@@ -44,8 +45,8 @@ class ReadingResponse(BaseModel):
     trend: float
     floating_needle_score: float
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "timestamp": 1700000000.0,
                 "raw_value": 0.523,
@@ -59,6 +60,7 @@ class ReadingResponse(BaseModel):
                 "floating_needle_score": 0.85,
             }
         }
+    )
 
 
 class SessionSummaryResponse(BaseModel):

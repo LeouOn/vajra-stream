@@ -237,9 +237,9 @@ export const useRateStore = create(
       
       // Rate validation
       isValidRate: (rate) => {
-        return rate.values && 
-               Array.isArray(rate.values) && 
-               rate.values.length >= 2 && 
+        return Boolean(rate?.values) &&
+               Array.isArray(rate.values) &&
+               rate.values.length >= 2 &&
                rate.values.every(v => v >= 0 && v <= 100);
       },
       

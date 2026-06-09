@@ -1,0 +1,14 @@
+﻿# Astrology Extraction ù Run 1
+Algo: 1.0.0  Created: 2026-01-01T00:00:00Z
+
+## Tuple 0 ù 2026-01-01T00:00:00Z @ 0.0, 0.0
+**Status**: ok
+
+### Positions
+  - **sun**:
+    - sign: Capricorn
+
+
+## Tuple 1 ù 2026-04-01T00:00:00Z @ 0.0, 0.0
+**Status**: error: bad input
+

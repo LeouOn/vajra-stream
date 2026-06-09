@@ -31,6 +31,12 @@ import SessionTimeline from './SessionTimeline';
 import FrequencyWaterfall from '../2D/FrequencyWaterfall';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
 import JourneyCard from './JourneyCard';
+import BuddhaContemplationWidget from './BuddhaContemplationWidget';
+import SakaDawaBanner from './SakaDawaBanner';
+import RitualPhaseIndicator from './RitualPhaseIndicator';
+import BodhicittaBanner from './BodhicittaBanner';
+import GeneratedContentGallery from './GeneratedContentGallery';
+import RitualMonitor from './RitualMonitor';
 import { CardSkeleton, SessionSkeleton } from './LoadingSkeleton';
 
 const colorMap = {
@@ -57,7 +63,7 @@ const colorMap = {
 };
 
 const Dashboard = () => {
-  const { sessions, isConnected, crystalStatus, scalarStatus } = useWebSocket();
+  const { sessions, isConnected, crystalStatus, scalarStatus, rngData } = useWebSocket();
   const { isPlaying, frequency, playAudio, stopAudio, generateAudio } = useAudioStore();
   const { addToast, setSidebarOpen, setSearchOpen } = useUIStore();
   const [sessionHistory, setSessionHistory] = useState([]);
@@ -239,6 +245,15 @@ const Dashboard = () => {
           value={sessionHistory.length || activeSessions.length}
           color="text-amber-400"
         />
+        {rngData?.coherence !== undefined && (
+          <QuickStatCard
+            icon={Activity}
+            label="RNG Coherence"
+            value={rngData.coherence.toFixed(2)}
+            trend={rngData.coherence > 0.7 ? 'High' : rngData.coherence > 0.4 ? 'Mid' : undefined}
+            color={rngData.coherence > 0.7 ? 'text-emerald-400' : rngData.coherence > 0.4 ? 'text-amber-400' : 'text-red-400'}
+          />
+        )}
       </div>
 
       {/* Cosmic Context Banner */}
@@ -267,8 +282,27 @@ const Dashboard = () => {
         </div>
       )}
 
+      {/* Saka Dawa Banner */}
+      <SakaDawaBanner />
+
+      {/* Bodhicitta Banner — The Awakened Heart */}
+      <BodhicittaBanner />
+
+      {/* Ritual Phase Indicator */}
+      <RitualPhaseIndicator
+        sessions={sessions}
+        scalarStatus={scalarStatus}
+        frequency={frequency}
+      />
+
       {/* Character Journey */}
       <JourneyCard />
+
+      {/* Autonomous Ritual Engine */}
+      <RitualMonitor compact />
+
+      {/* Buddha Contemplation */}
+      <BuddhaContemplationWidget />
 
       {/* Automation Status */}
       {automationStatus && automationStatus.active && (
@@ -418,6 +452,12 @@ const Dashboard = () => {
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
           <FrequencyWaterfall frequency={frequency} isPlaying={isPlaying} />
         </div>
+      </section>
+
+      {/* Generated Content Gallery */}
+      <section>
+        <SectionHeading icon={Sparkles} label="Generated Blessings" color="text-purple-400" />
+        <GeneratedContentGallery compact />
       </section>
 
       {/* System Status */}

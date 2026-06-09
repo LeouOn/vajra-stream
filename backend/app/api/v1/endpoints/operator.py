@@ -183,7 +183,7 @@ async def stream_insights():
 
 
 class AutonomousStartRequest(BaseModel):
-    interval_seconds: int = Field(default=300, ge=60, le=3600, description="Seconds between autonomous cycles")
+    interval_seconds: int = Field(default=300, ge=5, le=3600, description="Seconds between autonomous cycles")
 
 
 class SuggestionActionRequest(BaseModel):
@@ -479,5 +479,195 @@ async def get_session():
     try:
         operator = container.operator
         return operator._session.to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Tool Dispatch (generic — for frontend-driven tool calls)
+# ============================================================================
+
+class ToolDispatchRequest(BaseModel):
+    tool_name: str = Field(..., description="Name of the tool to call")
+    arguments: dict = Field(default_factory=dict, description="Tool arguments")
+
+
+@router.post("/dispatch", summary="Dispatch a tool call")
+async def dispatch_tool(request: ToolDispatchRequest):
+    """Generic tool dispatch — allows the frontend to call any registered tool directly."""
+    from modules.radionics_operator import ToolDispatcher
+
+    try:
+        from container import container
+        dispatcher = ToolDispatcher(container)
+        result = dispatcher.dispatch(request.tool_name, request.arguments)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# 88 Buddhas Endpoints
+# ============================================================================
+
+@router.get("/buddhas/random", summary="Get a random Buddha for contemplation")
+async def random_buddha(category: str | None = None):
+    """Return a random Buddha from the 88-Buddha collection with narrative."""
+    from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
+    try:
+        svc = get_eighty_eight_buddhas()
+        b = svc.random_buddha(category=category if category else None)
+        narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
+        return {
+            "buddha": {
+                "name_chinese": b.name_chinese,
+                "name_pinyin": b.name_pinyin,
+                "name_sanskrit": b.name_sanskrit,
+                "category": b.category,
+                "meaning": b.meaning,
+                "realm": b.realm,
+                "light": b.light,
+            },
+            "narrative": narrative.get("narrative", ""),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/buddhas/liturgy", summary="Get the full 88-Buddha confession liturgy")
+async def buddhas_liturgy():
+    """Return the complete 88-Buddha Great Repentance liturgy."""
+    from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
+    try:
+        svc = get_eighty_eight_buddhas()
+        return svc.get_confession_sequence()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/buddhas/recitation/status", summary="Get Buddha recitation loop status")
+async def recitation_status():
+    """Get current status of the 88-Buddha recitation loop."""
+    from core.buddha_recitation_loop import get_recitation_loop
+
+    try:
+        loop = get_recitation_loop()
+        return loop.get_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/buddhas/recitation/start", summary="Start Buddha recitation loop")
+async def start_recitation(
+    intention: str = "愿一切众生离苦得乐",
+    interval_seconds: float = 3.0,
+    mala_cycles: int | None = None,
+    voice: str = "zh-CN-YunxiNeural",
+    role: str = "buddhist_chant",
+    project_id: str | None = None,
+):
+    """Start the continuous 88-Buddha recitation loop."""
+    import asyncio
+    from core.buddha_recitation_loop import get_recitation_loop
+
+    try:
+        loop = get_recitation_loop()
+        if loop.state.running:
+            return {"status": "already_running", "message": "Recitation loop already active."}
+        try:
+            running_loop = asyncio.get_event_loop()
+            if running_loop.is_running():
+                running_loop.create_task(loop.start(
+                    intention=intention,
+                    interval_seconds=interval_seconds,
+                    mala_cycles=mala_cycles,
+                    voice=voice,
+                    role=role,
+                    project_id=project_id,
+                ))
+            else:
+                asyncio.run(loop.start(
+                    intention=intention,
+                    interval_seconds=interval_seconds,
+                    mala_cycles=mala_cycles,
+                    voice=voice,
+                    role=role,
+                    project_id=project_id,
+                ))
+        except RuntimeError:
+            asyncio.run(loop.start(
+                intention=intention,
+                interval_seconds=interval_seconds,
+                mala_cycles=mala_cycles,
+                voice=voice,
+                role=role,
+                project_id=project_id,
+            ))
+        return loop.get_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/buddhas/recitation/stop", summary="Stop Buddha recitation loop")
+async def stop_recitation():
+    """Stop the active 88-Buddha recitation loop."""
+    from core.buddha_recitation_loop import get_recitation_loop
+
+    try:
+        loop = get_recitation_loop()
+        loop.stop()
+        return loop.get_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Saka Dawa Endpoint
+# ============================================================================
+
+@router.get("/saka-dawa", summary="Check Saka Dawa holy month status")
+async def check_saka_dawa():
+    """Check if we are currently in the Saka Dawa holy month window."""
+    from core.models.practice import Practice
+    from datetime import datetime
+
+    try:
+        practices = Practice.get_default_practices()
+        saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
+        if not saka_dawa:
+            return {"error": "Saka Dawa practice not found"}
+
+        now = datetime.now()
+        in_window = now.month in (5, 6)
+
+        return {
+            "in_saka_dawa_window": in_window,
+            "current_month": now.month,
+            "saka_dawa_months": [5, 6],
+            "practice": {
+                "id": saka_dawa.id,
+                "name": saka_dawa.name,
+                "tradition": saka_dawa.tradition,
+                "description": saka_dawa.description,
+                "genre": saka_dawa.genre,
+                "merit_multiplier": saka_dawa.merit_multiplier,
+                "blessing_prompt": saka_dawa.base_prompt_template,
+                "preferred_hours": saka_dawa.preferred_planetary_hours,
+            },
+            "message": (
+                "We ARE in the Saka Dawa holy month — the 4th Tibetan month where merit is multiplied 100,000 times! "
+                "All compassionate practices are profoundly amplified."
+                if in_window else
+                "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
+                "Consider timing your major practice for that period when merit multiplies 100,000x."
+            ),
+            "suggested_action": (
+                "Perform the Saka Dawa Blessing — generate the epic three-part sutra now while the cosmic multiplier is active!"
+                if in_window else
+                "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
+            ),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

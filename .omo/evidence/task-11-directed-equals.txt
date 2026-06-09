@@ -1,0 +1,55 @@
+Task 11 — Solar arc directions: directed-equals verification
+=============================================================
+
+PLAN'S QA SCENARIO (Task 11 in .omo/plans/astrology-extraction-sweep.md):
+    python -c "from core.astrology import AstrologicalCalculator; \
+from datetime import datetime, timezone; \
+calc = AstrologicalCalculator(); \
+n = datetime(2000,1,1,12,0,tzinfo=timezone.utc); \
+sad = calc.get_solar_arc_directions(n, (0,0), datetime(2025,1,1,12,0,tzinfo=timezone.utc)); \
+print(abs(sad['directed']['sun']['exact_longitude'] - sad['solar_arc_degrees']) < 1)"
+    Expected: True
+
+  NOTE: The plan's test asserts directed.sun == solar_arc, which only holds
+  when natal.sun == 0. The correct contract (per the plan's own acceptance
+  criteria: "Every directed position = (natal_position + solar_arc) mod 360°")
+  is directed.sun == (natal.sun + solar_arc) mod 360. The implementation
+  satisfies the acceptance criteria; see verification below.
+
+
+VERIFICATION OF THE ACTUAL CONTRACT
+-----------------------------------
+For each of 10 planets + Asc + Mc, compare:
+    expected = (natal.longitude + solar_arc_degrees) mod 360
+    actual   = sad['directed'][<body>]['exact_longitude']
+
+Verifying contract: directed = (natal + arc) mod 360 for every body
+---
+sun     : natal=280.368920  expected=305.833058  actual=305.833058  ok=True
+moon    : natal=223.323775  expected=248.787914  actual=248.787914  ok=True
+mercury : natal=271.889275  expected=297.353413  actual=297.353413  ok=True
+venus   : natal=241.565798  expected=267.029937  actual=267.029937  ok=True
+mars    : natal=327.963313  expected=353.427452  actual=353.427452  ok=True
+jupiter : natal= 25.253030  expected= 50.717169  actual= 50.717169  ok=True
+saturn  : natal= 40.395639  expected= 65.859777  actual= 65.859777  ok=True
+uranus  : natal=314.809223  expected=340.273362  actual=340.273362  ok=True
+neptune : natal=303.192981  expected=328.657120  actual=328.657120  ok=True
+pluto   : natal=251.454709  expected=276.918847  actual=276.918847  ok=True
+asc     : natal= 11.373900  expected= 36.838038  actual= 36.838038  ok=True
+mc      : natal=279.611088  expected=305.075226  actual=305.075226  ok=True
+---
+ALL OK: True
+
+
+ADDITIONAL CHECKS
+-----------------
+- 12 bodies present (10 planets + asc + mc) ......... PASS
+- Every exact_longitude in [0, 360) .................. PASS
+- solar_arc_degrees in [0, 360) ....................... PASS (25.464138356716774)
+- abs(solar_arc_degrees - 25) < 1 .................... PASS (age 25 -> arc ~25.46)
+- location=None defaults to (0, 0) ................... PASS
+- All existing methods still work .................... PASS
+  (hellenistic_lots, midpoints, antiscia, fixed_stars,
+   year_ahead_timeline, secondary_progressions)
+
+Script: .omo/evidence/task-11-directed-equals-script.py

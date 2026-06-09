@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.core.services.blessing_slideshow_service import (
     MANTRA_TEXTS,
@@ -32,8 +32,8 @@ class IntentionSetRequest(BaseModel):
     dedication: str = "May all beings benefit"
     repetitions_per_photo: int = Field(108, ge=1, le=10000)
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "primary_mantra": "chenrezig",
                 "intentions": ["love", "healing", "peace"],
@@ -41,6 +41,7 @@ class IntentionSetRequest(BaseModel):
                 "repetitions_per_photo": 108,
             }
         }
+    )
 
 
 class CreateSessionRequest(BaseModel):
@@ -53,8 +54,8 @@ class CreateSessionRequest(BaseModel):
     recursive: bool = Field(False, description="Scan subdirectories")
     rng_session_id: str | None = Field(None, description="Optional RNG session ID for monitoring")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "directory_path": "/path/to/missing_persons_photos",
                 "intention_set": {
@@ -66,6 +67,7 @@ class CreateSessionRequest(BaseModel):
                 "display_duration_ms": 2000,
             }
         }
+    )
 
 
 class SessionResponse(BaseModel):

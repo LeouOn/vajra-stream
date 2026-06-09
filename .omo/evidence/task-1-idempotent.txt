@@ -1,0 +1,31 @@
+=== Task 1 QA: schema migration is idempotent ===
+DB: C:\Users\Y\proj\vajra-stream\vajra_stream.db
+Run 1: rc=0 stdout=OK
+Run 2: rc=0 stdout=OK
+Run 3: rc=0 stdout=OK
+
+--- _schema_version rows (1) ---
+id=1 version=1 applied_at=2026-06-02T20:28:36.178881+00:00
+  desc=Initial centralized schema: extraction_runs, extraction_results, astrology_locations, plus idempotent CREATE TABLE IF NOT EXISTS for all pre-existing vajra-stream tables.
+
+--- outlook_narratives columns (12) ---
+['id', 'type', 'genre', 'languages', 'lat', 'lon', 'date_generated', 'content', 'astrology_context', 'divination_context', 'divination_raw', 'entities_invoked']
+
+--- saved_natal_charts columns (13) ---
+['id', 'name', 'birth_time_iso', 'latitude', 'longitude', 'timezone', 'city', 'description', 'tags', 'cached_chart_data', 'notes', 'created_at', 'updated_at']
+
+--- extraction_runs columns (8) ---
+['id', 'created_at', 'config_json', 'status', 'total_tuples', 'completed_tuples', 'error_message', 'algo_version']
+
+--- extraction_results columns (13) ---
+['id', 'run_id', 'tuple_idx', 'date_iso', 'lat', 'lon', 'chart_json', 'formatted_markdown', 'formatted_json', 'latency_ms', 'status', 'error_message', 'created_at']
+
+--- astrology_locations columns (9) ---
+['id', 'name', 'lat', 'lon', 'category', 'timezone', 'tags_json', 'notes', 'created_at']
+
+--- extraction_results indexes: ['idx_extraction_results_run_id']
+--- astrology_locations indexes: ['idx_astrology_locations_category']
+
+--- Total tables now: 18 ---
+
+=== PASS ===

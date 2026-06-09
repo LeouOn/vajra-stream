@@ -1,0 +1,28 @@
+Scenario: 7 stars returned for 2026-01-01
+Tool: Bash (python)
+Steps:
+  1. python (this script)
+Expected Result: 7
+---
+
+len(AstrologicalCalculator.FIXED_STARS) = 7
+len(result) = 7
+
+Per-star breakdown (date=2026-01-01 UTC):
+  key         name       lon (J2000)  lon (2026)   sign        deg    orb     conjunct   nature      
+  regulus     Regulus         149.830      150.193 Virgo        0.19  38.84 None       Mars/Jupiter
+  aldebaran   Aldebaran        69.830       70.193 Gemini      10.19   3.48 None       Mars        
+  antares     Antares         249.830      250.193 Sagittarius 10.19  18.46 None       Mars/Jupiter
+  fomalhaut   Fomalhaut       333.830      334.193 Pisces       4.19   7.98 None       Venus/Mercury
+  spica       Spica           203.830      204.193 Libra       24.19  64.46 None       Venus/Mars  
+  algol       Algol            56.000       56.363 Taurus      26.36   1.59 None       Saturn/Mars 
+  sirius      Sirius          104.060      104.423 Cancer      14.42   6.93 None       Jupiter/Mars
+
+Field coverage check (all required fields present):
+  regulus     missing=none
+  aldebaran   missing=none
+  antares     missing=none
+  fomalhaut   missing=none
+  spica       missing=none
+  algol       missing=none
+  sirius      missing=none

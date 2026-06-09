@@ -14,6 +14,7 @@ import {
   AudioOutlined,
   CustomerServiceOutlined,
   BookOutlined,
+  SoundOutlined,
   VideoCameraOutlined,
   DesktopOutlined,
   SettingOutlined,
@@ -76,6 +77,7 @@ export default function MainLayout({
     { key: 'meditation', icon: <CustomerServiceOutlined />, label: 'Meditate' },
     { key: 'visualizers', icon: <VideoCameraOutlined />, label: 'Visualizer' },
     { key: 'grimoire', icon: <BookOutlined />, label: 'Grimoire' },
+    { key: 'tts', icon: <SoundOutlined />, label: 'TTS' },
   ];
 
   return (

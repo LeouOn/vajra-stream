@@ -1,0 +1,11 @@
+Scenario: no false-positive conjunction at orb=0.5 deg for a non-conjunct chart
+Tool: Bash (python)
+Steps:
+  1. sample 12 dates across 2025-2027 (Jan/Apr/Jul/Oct x 3 years)
+  2. call get_fixed_stars(dt, orb=0.5) for each
+Expected Result: 0 hits (random sweep should not produce 0.5 deg conjunctions)
+---
+
+
+Total tight conjunctions (<=0.5 deg) over 12 sample dates: 0
+Acceptance: hits should be very few or zero for a non-conjunct chart sweep.

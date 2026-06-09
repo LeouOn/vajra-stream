@@ -7,6 +7,7 @@
  */
 import React, { useState } from 'react';
 import { BookOpen, Sparkles, Compass, Moon, Sun, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 
 export default function EpicStoryViewer({
   narrativeParts = [],
@@ -16,6 +17,12 @@ export default function EpicStoryViewer({
   entitiesInvoked = ''
 }) {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+
+  const allText = (narrativeParts || [])
+    .map(p => (typeof p === 'object' && p ? p.content : '') || '')
+    .filter(Boolean)
+    .join('\n\n');
+  const currentText = narrativeParts[currentChapterIndex]?.content || '';
 
   if (!narrativeParts || narrativeParts.length === 0) {
     return (
@@ -31,7 +38,7 @@ export default function EpicStoryViewer({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
       <style>{`
         .svg-container svg,
-        [dangerouslySetInnerHTML] svg {
+        .divination-card-container svg {
           width: 100% !important;
           height: 100% !important;
           max-width: 100% !important;
@@ -41,8 +48,8 @@ export default function EpicStoryViewer({
       {/* Narrative Section - Main Col Span 2 */}
       <div className="lg:col-span-2 flex flex-col justify-between bg-gray-950/40 p-5 rounded-xl border border-white/5 space-y-4 overflow-y-auto">
         <div className="space-y-4">
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
-            <div>
+          <div className="flex justify-between items-center border-b border-white/10 pb-3 gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
               <span className="text-[10px] text-vajra-purple font-mono font-bold tracking-widest uppercase">
                 EPIC NARRATIVE OUTLOOK
               </span>
@@ -50,8 +57,22 @@ export default function EpicStoryViewer({
                 Chapter {currentChapter.chapter}: {currentChapter.title}
               </h3>
             </div>
-            <div className="text-xs bg-purple-950/50 text-purple-300 px-3 py-1 rounded-full border border-purple-500/20 font-mono">
-              Stage {currentChapterIndex + 1} of {narrativeParts.length}
+            <div className="flex items-center gap-2 flex-wrap">
+              <NarrativeTTSPlayer
+                text={currentText}
+                role="outlook_epic"
+                label="Speak chapter"
+                showAdvanced={false}
+              />
+              <NarrativeTTSPlayer
+                text={allText}
+                role="outlook_epic"
+                label="Speak full epic"
+                showAdvanced
+              />
+              <div className="text-xs bg-purple-950/50 text-purple-300 px-3 py-1 rounded-full border border-purple-500/20 font-mono">
+                Stage {currentChapterIndex + 1} of {narrativeParts.length}
+              </div>
             </div>
           </div>
 

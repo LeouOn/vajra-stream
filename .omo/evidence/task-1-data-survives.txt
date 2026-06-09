@@ -1,0 +1,19 @@
+=== Task 1 QA: pre-existing data survives ===
+DB: C:\Users\Y\proj\vajra-stream\vajra_stream.db
+init_db() stdout: OK
+
+--- Row counts (before vs after) ---
+blessing_sessions: before=0 after=0 [OK]
+blessing_targets: before=7 after=7 [OK]
+generated_content: before=0 after=0 [OK]
+healing_history: before=0 after=0 [OK]
+intentions: before=0 after=0 [OK]
+mantra_dedications: before=0 after=0 [OK]
+outlook_narratives: before=37 after=37 [OK]
+scheduled_events: before=0 after=0 [OK]
+sessions: before=0 after=0 [OK]
+user_preferences: before=4 after=4 [OK]
+
+All pre-existing row counts identical.
+
+=== PASS ===

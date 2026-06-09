@@ -87,7 +87,7 @@ Generate and view sacred visualizations directly in your browser:
 - Healing mandalas
 - Energy field visualizations
 
-See [WEB_VISUALIZATION_GUIDE.md](WEB_VISUALIZATION_GUIDE.md) for details.
+See [docs/FEATURES_REFERENCE.md](docs/FEATURES_REFERENCE.md) for details.
 
 #### Terminal Interface
 
@@ -131,13 +131,9 @@ Vajra.Stream includes a complete **radionics broadcasting system** for intention
 
 ### Complete Radionics Documentation
 
-📚 **[RADIONICS_MASTER_GUIDE.md](RADIONICS_MASTER_GUIDE.md)** - Start here! Complete navigation and overview
-
-The radionics system is documented in three comprehensive guides:
-
-1. **[RADIONICS_GUIDE.md](RADIONICS_GUIDE.md)** - Software operation, commands, presets
-2. **[PHYSICAL_RADIONICS_SETUP.md](PHYSICAL_RADIONICS_SETUP.md)** - Hardware construction, crystals, consciousness practices
-3. **[RADIONICS_ANALYSIS_GUIDE.md](RADIONICS_ANALYSIS_GUIDE.md)** - Rate analysis, GV measurement, tracking
+The radionics system is fully documented in the consolidated references:
+- Refer to **[docs/FEATURES_REFERENCE.md](docs/FEATURES_REFERENCE.md)** for features, rate analysis, and subtle body mappings.
+- Refer to **[docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md)** for software operation, presets, and physical grid hardware setup instructions.
 
 ### Quick Radionics Start
 
@@ -160,7 +156,7 @@ python scripts/radionics_operation.py \
   --duration 7200
 ```
 
-See the [RADIONICS_MASTER_GUIDE.md](RADIONICS_MASTER_GUIDE.md) for complete documentation.
+See the **[docs/README.md](docs/README.md)** for complete documentation portal.
 
 ---
 

@@ -1,0 +1,13 @@
+All 11 system values present:
+  31: { value: 'western', label: 'Western (Tropical)' },
+  32: { value: 'vedic', label: 'Vedic (Jyotish)' },
+  33: { value: 'chinese', label: 'Chinese (Ba Zi)' },
+  34: { value: 'lots', label: 'Lots (Arabic Parts)' },
+  35: { value: 'midpoints', label: 'Midpoints' },
+  36: { value: 'fixed_stars', label: 'Fixed Stars' },
+  37: { value: 'progressions', label: 'Secondary Progressions' },
+  38: { value: 'returns', label: 'Planetary Returns' },
+  39: { value: 'directions', label: 'Primary Directions' },
+  40: { value: 'year_ahead', label: 'Year Ahead (Solar Arc)' },
+  41: { value: 'astrocartography', label: 'Astrocartography' },
+PASS: 11/11

@@ -416,6 +416,49 @@ class AuspiciousTiming:
                 "This is the hour of radical transparency.",
                 "Om Benza Satto Hung"
             ),
+            # ─── Bodhicitta Transmutations (all genres) ───
+            ("healing", "Bodhicitta"): (
+                "When conditions challenge healing, invoke bodhicitta — the awakened heart. "
+                "The pain you feel is the doorway to compassion for all who suffer. "
+                "Transform personal healing into universal bodhisattva activity.",
+                "Om Mani Padme Hum"
+            ),
+            ("compassion", "Bodhicitta"): (
+                "The difficult hour is the perfect teacher. Each obstacle is a reminder of "
+                "why we practice — for the liberation of ALL beings without exception. "
+                "Let this resistance deepen your bodhicitta resolve.",
+                "Om Mani Padme Hum"
+            ),
+            ("wisdom", "Bodhicitta"): (
+                "The union of wisdom and compassion is the heart of bodhicitta. "
+                "Conventional wisdom may be blocked, but the wisdom that sees emptiness "
+                "naturally gives rise to boundless love. Rest in that space.",
+                "Gate Gate Paragate Parasamgate Bodhi Svaha"
+            ),
+            ("creativity", "Bodhicitta"): (
+                "The creative block is the birthplace of bodhicitta. "
+                "When the small self can't create, the vast bodhisattva heart creates for all. "
+                "Let your creativity become an offering to every being.",
+                "Om Ah Hum Vajra Guru Padma Siddhi Hum"
+            ),
+            ("prosperity", "Bodhicitta"): (
+                "True prosperity is the wealth of bodhicitta — inexhaustible and shared with all. "
+                "When material channels feel blocked, generate the wealth of the awakened heart. "
+                "All abundance flows from the wish to benefit others.",
+                "Om Dzambhala Dzalentraye Svaha"
+            ),
+            ("protection", "Bodhicitta"): (
+                "The ultimate protection is bodhicitta — the diamond armor of compassion. "
+                "No force can harm one whose sole purpose is the benefit of all beings. "
+                "Wrap yourself in the intention of bodhicitta.",
+                "Om Tare Tuttare Ture Soha"
+            ),
+            ("victory", "Bodhicitta"): (
+                "The bodhisattva's victory is not conquest but liberation. "
+                "When resistance is strong, remember: the true enemy is self-cherishing. "
+                "Victory comes through surrendering the self to the service of all.",
+                "Om Vajrasattva Hum"
+            ),
         }
 
         key = (genre, hour)
@@ -470,3 +513,50 @@ def get_all_windows() -> dict[str, dict[str, Any]]:
     if _timing_instance is None:
         _timing_instance = AuspiciousTiming()
     return _timing_instance.get_all_genre_windows()
+
+
+def check_saka_dawa(target_date: datetime = None) -> dict[str, Any]:
+    """
+    Check if a given date falls within the Saka Dawa month (4th Tibetan lunar month).
+    We use the Chinese lunar calendar via lunar_python as a close proxy for the 
+    Tibetan lunar calendar. The 15th day (full moon) is Saka Dawa Duchen.
+    """
+    try:
+        from lunar_python import Lunar, Solar
+    except ImportError:
+        # Fallback if library missing
+        return {
+            "is_saka_dawa": False,
+            "multiplier": 1,
+            "current_date": target_date.isoformat() if target_date else datetime.now().isoformat(),
+            "error": "lunar_python not installed"
+        }
+    
+    dt = target_date or datetime.now()
+    solar = Solar.fromYmd(dt.year, dt.month, dt.day)
+    lunar = Lunar.fromSolar(solar)
+    
+    lunar_month = lunar.getMonth()
+    lunar_day = lunar.getDay()
+    
+    # 4th Lunar month is Saga Dawa
+    # Month > 0 handles leap months in lunar calendar logic
+    is_saka_dawa = (abs(lunar_month) == 4)
+    is_duchen = is_saka_dawa and (lunar_day == 15)
+    
+    # Merit multiplier rules
+    multiplier = 1
+    if is_duchen:
+        multiplier = 100000
+    elif is_saka_dawa:
+        multiplier = 10000
+        
+    return {
+        "is_saka_dawa": is_saka_dawa,
+        "multiplier": multiplier,
+        "current_date": dt.isoformat(),
+        "is_duchen": is_duchen,
+        "lunar_month": lunar_month,
+        "lunar_day": lunar_day
+    }
+

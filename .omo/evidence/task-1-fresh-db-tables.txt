@@ -1,0 +1,50 @@
+=== Task 1 QA: schema applies cleanly on fresh DB ===
+DB: C:\Users\Y\proj\vajra-stream\vajra_stream.db
+init_db() stdout: init_db OK
+init_db() stderr: 
+
+--- Tables (sorted) ---
+_schema_version
+astrology_locations
+blessing_sessions
+blessing_targets
+extraction_results
+extraction_runs
+failed_tool_calls
+generated_content
+healing_history
+intentional_paths
+intentions
+mantra_dedications
+outlook_narratives
+saved_natal_charts
+scheduled_events
+sessions
+sqlite_sequence
+user_preferences
+
+--- Total: 18 tables ---
+
+extraction_runs present: True
+
+extraction_results present: True
+
+astrology_locations present: True
+outlook_narratives present: True
+saved_natal_charts present: True
+sessions present: True
+intentions present: True
+generated_content present: True
+healing_history present: True
+scheduled_events present: True
+blessing_targets present: True
+blessing_sessions present: True
+mantra_dedications present: True
+user_preferences present: True
+failed_tool_calls present: True
+intentional_paths present: True
+
+--- _schema_version rows ---
+version=1 applied_at=2026-06-02T20:27:36.826347+00:00 description=Initial centralized schema: extraction_runs, extraction_results, astrology_locations, plus idempotent CREATE TABLE IF NOT EXISTS for all pre-existing vajra-stream tables.
+
+=== PASS ===

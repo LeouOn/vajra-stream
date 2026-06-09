@@ -4,6 +4,7 @@ Tests for RadionicsOperator — all methods tested via fallback paths (no LLM re
 These tests verify the operator's logic, dispatch, and fallback behavior.
 """
 
+import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -175,6 +176,28 @@ class TestBlessingLoop:
         # Fetch since index 0
         since_zero = op.get_blessing_stream(since=0)
         assert len(since_zero) >= 1
+        op.stop_blessing_loop()
+
+    @pytest.mark.asyncio
+    async def test_blessing_loop_async_task(self, operator_with_container):
+        op = operator_with_container
+        # We start the blessing loop with a very short interval for testing
+        result = op.start_blessing_loop("peace", interval_seconds=0.01)
+        assert result["status"] == "started"
+        assert op._blessing_loop_active is True
+        assert op._blessing_loop_task is not None
+        assert not op._blessing_loop_task.done()
+
+        # Let the task tick multiple times in background
+        await asyncio.sleep(0.05)
+        # Verify that more blessings were generated (first one immediate, and then at least one tick)
+        assert len(op._blessing_stream) > 1
+
+        # Stop the blessing loop and check task cancellation
+        stop_result = op.stop_blessing_loop()
+        assert stop_result["status"] == "stopped"
+        assert op._blessing_loop_active is False
+        assert op._blessing_loop_task is None
 
 
 # ============================================================================
@@ -187,12 +210,14 @@ class TestAutonomousMode:
         result = operator.start_autonomous_mode(interval_seconds=60)
         assert result["status"] == "started"
         assert "message" in result
+        operator.stop_autonomous_mode()
 
     def test_autonomous_status(self, operator):
         operator.start_autonomous_mode(60)
         status = operator.get_autonomous_status()
         assert status["active"] is True
         assert status["interval_seconds"] == 60
+        operator.stop_autonomous_mode()
 
     def test_stop_autonomous(self, operator):
         operator.start_autonomous_mode(60)
@@ -216,6 +241,22 @@ class TestAutonomousMode:
         operator._autonomous_suggestions = [{"title": "Test"}]
         dismissed = operator.dismiss_suggestion(0)
         assert dismissed["status"] == "dismissed"
+        operator.stop_autonomous_mode()
+
+    @pytest.mark.asyncio
+    async def test_autonomous_loop_async_task(self, operator):
+        # We start autonomous mode with a short interval
+        result = operator.start_autonomous_mode(interval_seconds=1)
+        assert result["status"] == "started"
+        assert operator._autonomous_active is True
+        assert operator._autonomous_task is not None
+        assert not operator._autonomous_task.done()
+
+        # Stop autonomous mode and check task cancellation
+        stop_result = operator.stop_autonomous_mode()
+        assert stop_result["status"] == "stopped"
+        assert operator._autonomous_active is False
+        assert operator._autonomous_task is None
 
 
 # ============================================================================

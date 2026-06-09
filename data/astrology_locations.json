@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "locations": [
+    {
+      "id": "loc-001",
+      "name": "Mount Kailash",
+      "lat": 31.0686,
+      "lon": 81.3119,
+      "category": "sacred_site",
+      "timezone": "Asia/Kathmandu",
+      "tags": ["hindu", "buddhist", "bon", "abode-of-shiva"],
+      "notes": "Sacred to Hinduism, Buddhism, Jainism, and Bön. Considered the axis mundi."
+    },
+    {
+      "id": "loc-002",
+      "name": "Uluru",
+      "lat": -25.3444,
+      "lon": 131.0369,
+      "category": "sacred_site",
+      "timezone": "Australia/Sydney",
+      "tags": ["aboriginal", "monolith", "dreamtime"],
+      "notes": "Massive sandstone monolith sacred to the Anangu people and the Pitjantjatjara traditional owners. A UNESCO World Heritage site."
+    },
+    {
+      "id": "loc-003",
+      "name": "Stonehenge",
+      "lat": 51.1789,
+      "lon": -1.8262,
+      "category": "sacred_site",
+      "timezone": "Europe/London",
+      "tags": ["prehistoric", "megalithic", "solstice"],
+      "notes": "Prehistoric ring of standing stones on Salisbury Plain. Aligned with the solstice sunrise and sunset."
+    },
+    {
+      "id": "loc-004",
+      "name": "Machu Picchu",
+      "lat": -13.1631,
+      "lon": -72.5450,
+      "category": "sacred_site",
+      "timezone": "America/Lima",
+      "tags": ["inca", "andean", "unesco"],
+      "notes": "15th-century Inca citadel set high in the Andes. A UNESCO World Heritage site and one of the New Seven Wonders of the World."
+    },
+    {
+      "id": "loc-005",
+      "name": "Mount Sinai",
+      "lat": 28.5392,
+      "lon": 33.9734,
+      "category": "sacred_site",
+      "timezone": "Africa/Cairo",
+      "tags": ["abrahamic", "judeo-christian", "monastery"],
+      "notes": "Biblical mountain traditionally identified as the site where Moses received the Ten Commandments. Home to the historic Saint Catherine's Monastery."
+    },
+    {
+      "id": "loc-006",
+      "name": "Mount Fuji",
+      "lat": 35.3606,
+      "lon": 138.7274,
+      "category": "sacred_site",
+      "timezone": "Asia/Tokyo",
+      "tags": ["shinto", "buddhist", "stratovolcano"],
+      "notes": "Japan's highest peak and an active stratovolcano. Long considered sacred and a frequent subject of pilgrimage and art."
+    },
+    {
+      "id": "loc-007",
+      "name": "Varanasi",
+      "lat": 25.3176,
+      "lon": 82.9739,
+      "category": "sacred_site",
+      "timezone": "Asia/Kolkata",
+      "tags": ["hindu", "ganges", "pilgrimage"],
+      "notes": "One of the oldest continuously inhabited cities in the world. Sits on the Ganges and is central to Hindu funerary and devotional practice."
+    },
+    {
+      "id": "loc-008",
+      "name": "Sedona",
+      "lat": 34.8697,
+      "lon": -111.7607,
+      "category": "sacred_site",
+      "timezone": "America/Phoenix",
+      "tags": ["vortex", "red-rocks", "new-age"],
+      "notes": "High-desert town in Arizona known for its red sandstone formations and reputed energy vortexes. A major spiritual retreat destination."
+    },
+    {
+      "id": "loc-009",
+      "name": "Glastonbury Tor",
+      "lat": 51.1439,
+      "lon": -2.6987,
+      "category": "sacred_site",
+      "timezone": "Europe/London",
+      "tags": ["celtic", "avalon", "mythic"],
+      "notes": "Hill topped by the ruins of a 14th-century church in Somerset. Long associated with Arthurian legend and the myth of Avalon."
+    },
+    {
+      "id": "loc-010",
+      "name": "Mount Shasta",
+      "lat": 41.4099,
+      "lon": -122.1949,
+      "category": "sacred_site",
+      "timezone": "America/Los_Angeles",
+      "tags": ["volcanic", "spiritual-retreat", "california"],
+      "notes": "Dormant stratovolcano in Northern California. Long regarded as a sacred mountain and a focal point for spiritual communities."
+    },
+    {
+      "id": "loc-011",
+      "name": "London",
+      "lat": 51.5074,
+      "lon": -0.1278,
+      "category": "astrocartography_anchor",
+      "timezone": "Europe/London",
+      "tags": ["capital", "financial", "europe"],
+      "notes": "Capital of the United Kingdom and a major world city. A common astrocartography reference point for European line work."
+    },
+    {
+      "id": "loc-012",
+      "name": "Tokyo",
+      "lat": 35.6762,
+      "lon": 139.6503,
+      "category": "astrocartography_anchor",
+      "timezone": "Asia/Tokyo",
+      "tags": ["capital", "metropolitan", "asia"],
+      "notes": "Capital of Japan and the world's most populous metropolitan area. Frequently used as an East Asian anchor in astrocartography work."
+    },
+    {
+      "id": "loc-013",
+      "name": "Sydney",
+      "lat": -33.8688,
+      "lon": 151.2093,
+      "category": "astrocartography_anchor",
+      "timezone": "Australia/Sydney",
+      "tags": ["harbor", "oceania", "anchor"],
+      "notes": "Largest city in Australia and a frequent Southern Hemisphere astrocartography anchor. Sits on the country's southeastern coast."
+    },
+    {
+      "id": "loc-014",
+      "name": "Rio de Janeiro",
+      "lat": -22.9068,
+      "lon": -43.1729,
+      "category": "astrocartography_anchor",
+      "timezone": "America/Sao_Paulo",
+      "tags": ["south-america", "coastal", "tropical"],
+      "notes": "Major Brazilian coastal city anchored by landmarks such as Sugarloaf and Christ the Redeemer. A common South American reference point."
+    },
+    {
+      "id": "loc-015",
+      "name": "Cairo",
+      "lat": 30.0444,
+      "lon": 31.2357,
+      "category": "astrocartography_anchor",
+      "timezone": "Africa/Cairo",
+      "tags": ["capital", "north-africa", "nile"],
+      "notes": "Capital of Egypt and the largest city in the Arab world. Sits on the Nile near the Giza pyramid complex and is a frequent North African anchor."
+    }
+  ]
+}

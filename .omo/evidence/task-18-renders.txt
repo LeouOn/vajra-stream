@@ -1,0 +1,2 @@
+node -e "const c = require('fs').readFileSync('frontend/src/components/UI/AstrologyExtractionPanel.jsx', 'utf-8'); console.log('OK', c.length, 'chars')"
+OK 9171 chars

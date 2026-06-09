@@ -292,6 +292,94 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         astro_data = await vajra_service._get_astrology_data()
         hour_data = grimoire_service.get_planetary_hours(now.hour, now.weekday())
         return {"astrology": astro_data, "planetary_hour": hour_data, "timestamp": time.time()}
+    elif name == "get_random_buddha":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        category = args.get("category")
+        b = svc.random_buddha(category=category)
+        narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
+        return {
+            "buddha": {
+                "name_chinese": b.name_chinese, "name_pinyin": b.name_pinyin,
+                "name_sanskrit": b.name_sanskrit, "category": b.category,
+                "meaning": b.meaning, "realm": b.realm, "light": b.light,
+            },
+            "narrative": narrative.get("narrative", ""),
+        }
+    elif name == "generate_buddha_narrative":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        return svc.generate_buddha_narrative(
+            buddha_name=args.get("buddha_name", ""),
+            depth=args.get("depth", "contemplation"),
+        )
+    elif name == "get_88_buddhas_liturgy":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        return svc.get_confession_sequence()
+    elif name == "recite_buddha_name":
+        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+        svc = get_eighty_eight_buddhas()
+        b = svc.get_buddha_by_name(args.get("buddha_name", ""))
+        if not b:
+            return {"error": f"Buddha not found: {args.get('buddha_name')}"}
+        return {"buddha": b.name_chinese, "pinyin": b.name_pinyin,
+                "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS."}
+    elif name == "start_buddha_recitation":
+        import asyncio
+        from core.buddha_recitation_loop import get_recitation_loop
+        loop = get_recitation_loop()
+        if loop.state.running:
+            return {"status": "already_running"}
+        intention = args.get("intention", "愿一切众生离苦得乐")
+        interval = args.get("interval_seconds", 3.0)
+        mala_cycles = args.get("mala_cycles")
+        try:
+            running_loop = asyncio.get_event_loop()
+            if running_loop.is_running():
+                running_loop.create_task(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+            else:
+                asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+        except RuntimeError:
+            asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+        return loop.get_status()
+    elif name == "stop_buddha_recitation":
+        from core.buddha_recitation_loop import get_recitation_loop
+        loop = get_recitation_loop()
+        loop.stop()
+        return loop.get_status()
+    elif name == "get_buddha_recitation_status":
+        from core.buddha_recitation_loop import get_recitation_loop
+        return get_recitation_loop().get_status()
+    elif name == "check_saka_dawa":
+        from datetime import datetime as dt
+        from core.models.practice import Practice
+        practices = Practice.get_default_practices()
+        saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
+        if not saka_dawa:
+            return {"error": "Saka Dawa practice not found"}
+        now = dt.now()
+        in_window = now.month in (5, 6)
+        return {
+            "in_saka_dawa_window": in_window, "current_month": now.month,
+            "practice": {"id": saka_dawa.id, "name": saka_dawa.name, "genre": saka_dawa.genre,
+                         "merit_multiplier": saka_dawa.merit_multiplier,
+                         "blessing_prompt": saka_dawa.base_prompt_template},
+            "message": "Saka Dawa is ACTIVE — 100,000x merit!" if in_window else "Not in Saka Dawa window.",
+        }
+    elif name == "check_auspicious_timing":
+        from core.auspicious_timing import check_auspicious_window
+        return check_auspicious_window(args.get("genre", "healing")).to_dict()
+    elif name == "generate_character":
+        from core.character_generator import CharacterGenerator
+        gen = CharacterGenerator()
+        sheet = gen.generate(use_llm=False)
+        return sheet.to_dict()
+    elif name == "start_character_journey" or name == "advance_journey" or name == "get_journey_status" or name == "run_full_journey":
+        from modules.radionics_operator import ToolDispatcher
+        from container import container
+        disp = ToolDispatcher(container)
+        return disp.dispatch(name, args)
     else:
         # Fallback: call the tool function directly (detect if async or sync)
         import inspect
@@ -1022,7 +1110,7 @@ async def chat_interaction(request: ChatRequest):
             provider = "local"
 
     # Retrieve key from request or env
-    api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY")
+    api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("MINIMAX_API_KEY")
     provider = provider or "auto"
     tool_schemas = get_tool_schemas()
 
@@ -1382,6 +1470,95 @@ async def chat_interaction(request: ChatRequest):
                 f"*(DeepSeek Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n"
                 + fallback_res.response
             )
+            return wrap_res(fallback_res)
+
+    # Handle minimax.io (OpenAI-compatible) Tool Calling
+    elif api_key and (provider == "minimax" or (provider == "auto" and os.getenv("MINIMAX_API_KEY") and not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"))):
+        try:
+            import openai as openai_lib
+            # minimax.io exposes an OpenAI-compatible API; use the OpenAI client.
+            client = openai_lib.OpenAI(
+                api_key=api_key,
+                base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
+                timeout=float(os.getenv("MINIMAX_TIMEOUT", "120")),
+            )
+
+            openai_tools = []
+            for t in tool_schemas:
+                openai_tools.append({
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "description": t["description"],
+                        "parameters": t["parameters"]
+                    }
+                })
+
+            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
+            openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+
+            model_name = request.model or "MiniMax-M3"
+            max_turns = 5
+            response_text = ""
+
+            for turn in range(max_turns):
+                logger.info(f"minimax turn {turn} with model {model_name}...")
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=openai_messages,
+                    tools=openai_tools if openai_tools else None,
+                    tool_choice="auto" if openai_tools else None,
+                    temperature=0.7,
+                )
+
+                msg = response.choices[0].message
+                openai_messages.append(msg)
+
+                if not msg.tool_calls:
+                    response_text = msg.content
+                    break
+
+                for tc in msg.tool_calls:
+                    name = tc.function.name
+                    args = json.loads(tc.function.arguments)
+
+                    try:
+                        result = await execute_tool_locally(name, args)
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
+                        openai_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": name,
+                            "content": json.dumps(result)
+                        })
+                    except Exception as ex:
+                        logger.error(f"Error executing minimax tool {name}: {ex}")
+                        try:
+                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
+                        except Exception as log_ex:
+                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
+                        openai_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": name,
+                            "content": json.dumps({"error": str(ex)})
+                        })
+            else:
+                response_text = "*(minimax reached maximum reasoning turns without finishing.)*"
+
+            return wrap_res(ChatResponse(response=response_text or "", tool_calls=tool_logs))
+        except Exception as e:
+            err_str = str(e).lower()
+            logger.error(f"minimax execution failed: {e}. Falling back to rule-based parser.")
+            fallback_res = await run_rule_based_fallback(query)
+            if "timeout" in err_str or "timed out" in err_str:
+                prefix = "*(minimax Request Timed Out - Switched to Local Interpreter)*"
+            elif "connection" in err_str or "refused" in err_str or "name resolution" in err_str:
+                prefix = "*(minimax Not Reachable - Switched to Local Interpreter)*"
+            else:
+                prefix = f"*(minimax Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*"
+            fallback_res.response = f"{prefix}\n\n" + fallback_res.response
             return wrap_res(fallback_res)
 
     # Handle Anthropic Client Tool Calling

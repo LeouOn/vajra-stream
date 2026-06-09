@@ -471,16 +471,18 @@ class VajraStreamService:
                 rng_service = get_rng_service()
                 rng_sessions = rng_service.get_all_sessions()
                 if rng_sessions:
-                    summary = rng_service.get_session_summary(rng_sessions[-1])
-                    if summary and self.event_bus:
+                    session_id = rng_sessions[-1]
+                    latest_reading = rng_service.get_reading(session_id)
+                    
+                    if latest_reading and self.event_bus:
                         # Publish DomainEvent for the Autonomous Agent
                         event = RNGReadingEvent(
                             timestamp=datetime.now(),
                             event_id=str(uuid.uuid4()),
-                            session_id=rng_sessions[-1],
-                            coherence=summary.get('avg_coherence', 0.5),
-                            entropy=summary.get('avg_entropy', 0.5),
-                            floating_needle_score=summary.get('floating_needle_count', 0.0)
+                            session_id=session_id,
+                            coherence=latest_reading.coherence,
+                            entropy=latest_reading.entropy,
+                            floating_needle_score=latest_reading.floating_needle_score
                         )
                         try:
                             self.event_bus.publish(event)
@@ -490,16 +492,51 @@ class VajraStreamService:
                                 {
                                     "type": "RNG_READING",
                                     "data": {
-                                        "coherence": event.coherence,
-                                        "entropy": event.entropy,
-                                        "floating_needle_score": event.floating_needle_score,
-                                        "session_id": event.session_id
+                                        "coherence": latest_reading.coherence,
+                                        "entropy": latest_reading.entropy,
+                                        "floating_needle_score": latest_reading.floating_needle_score,
+                                        "session_id": session_id,
+                                        "tone_arm": latest_reading.tone_arm,
+                                        "needle_position": latest_reading.needle_position,
+                                        "needle_state": latest_reading.needle_state,
+                                        "trend": latest_reading.trend,
+                                        "quality": latest_reading.quality
                                     },
                                     "timestamp": time.time(),
                                 }
                             )
                         except Exception as e:
                             print(f"Error publishing RNGReadingEvent: {e}")
+
+                # Emit Buddha Recitation status if running
+                try:
+                    from core.buddha_recitation_loop import get_recitation_loop
+                    loop = get_recitation_loop()
+                    status = loop.get_status()
+                    if status.get("running"):
+                        await stable_connection_manager_v2.broadcast(
+                            {
+                                "type": "BUDDHA_RECITATION_UPDATE",
+                                "data": status,
+                                "timestamp": time.time(),
+                            }
+                        )
+                except Exception as e:
+                    print(f"Error broadcasting Buddha Recitation: {e}")
+
+                # Emit Saka Dawa Status
+                try:
+                    from core.auspicious_timing import check_saka_dawa
+                    saka_dawa_status = check_saka_dawa()
+                    await stable_connection_manager_v2.broadcast(
+                        {
+                            "type": "SAKA_DAWA_CHECK",
+                            "data": saka_dawa_status,
+                            "timestamp": time.time(),
+                        }
+                    )
+                except Exception as e:
+                    print(f"Error broadcasting Saka Dawa Check: {e}")
 
                 # Emit RADIONICS_RATE_BROADCAST for each running session
                 for session in running:

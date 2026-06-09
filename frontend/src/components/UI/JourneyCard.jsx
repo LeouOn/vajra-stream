@@ -1,6 +1,22 @@
+/**
+ * JourneyCard — character journey arc visualization with full character data.
+ *
+ * Polls /api/v1/operator/journey/status every 5s. When a journey is active,
+ * renders the complete character profile (name, Chinese name, element, role,
+ * stats with bars, sigil seed, frequency shifts) alongside the 6-stage
+ * progression tracker with per-stage blessing counts.
+ *
+ * Expanded from ~85 lines to full character sheet display.
+ *
+ * @component
+ */
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Play, ChevronRight, User } from 'lucide-react';
+import {
+  Sparkles, Play, ChevronRight, User, Zap, Shield, Heart,
+  Moon, Sun, Star, RefreshCw, Award, Swords, Eye, Brain, Footprints
+} from 'lucide-react';
 import { API_BASE } from '../../utils/api';
+import { audioFeedback } from '../../utils/audioFeedback';
 
 const STAGE_NAMES = {
   initiation: 'The Awakening',
@@ -14,10 +30,35 @@ const STAGE_COLORS = {
   initiation: '#a855f7', training: '#3b82f6', working: '#22c55e',
   overcoming: '#ef4444', utopia: '#fbbf24', multiverse: '#ec4899',
 };
+const STAGE_ICONS = {
+  initiation: Star, training: Swords, working: Shield,
+  overcoming: Moon, utopia: Sun, multiverse: Sparkles,
+};
+
+const STAT_META = {
+  vitality:   { icon: Heart, label: 'Vitality', color: 'text-red-400', bg: 'bg-red-500' },
+  wisdom:     { icon: Eye, label: 'Wisdom', color: 'text-blue-400', bg: 'bg-blue-500' },
+  courage:    { icon: Swords, label: 'Courage', color: 'text-orange-400', bg: 'bg-orange-500' },
+  empathy:    { icon: Heart, label: 'Empathy', color: 'text-pink-400', bg: 'bg-pink-500' },
+  focus:      { icon: Brain, label: 'Focus', color: 'text-teal-400', bg: 'bg-teal-500' },
+  resonance:  { icon: Zap, label: 'Resonance', color: 'text-purple-400', bg: 'bg-purple-500' },
+};
+
+const ELEMENT_EMOJIS = { Fire: '🔥', Water: '💧', Earth: '🌍', Air: '💨', Wood: '🌿', Metal: '⚙️' };
+const ELEMENT_COLORS = {
+  Fire: 'border-red-500/30 text-red-400 bg-red-950/20',
+  Water: 'border-blue-500/30 text-blue-400 bg-blue-950/20',
+  Earth: 'border-green-500/30 text-green-400 bg-green-950/20',
+  Air: 'border-purple-500/30 text-purple-400 bg-purple-950/20',
+  Wood: 'border-emerald-500/30 text-emerald-400 bg-emerald-950/20',
+  Metal: 'border-slate-400/30 text-slate-300 bg-slate-800/40',
+};
 
 export default function JourneyCard() {
   const [journey, setJourney] = useState(null);
+  const [character, setCharacter] = useState(null);
   const [advancing, setAdvancing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const poll = async () => {
@@ -25,8 +66,16 @@ export default function JourneyCard() {
         const res = await fetch(`${API_BASE}/operator/journey/status`);
         if (res.ok) {
           const data = await res.json();
-          if (data.active) setJourney(data);
-          else setJourney(null);
+          if (data.active) {
+            setJourney(data);
+            // Fetch full character if not already loaded
+            if (!character || character.name !== data.character_name) {
+              fetchCharacter();
+            }
+          } else {
+            setJourney(null);
+            setCharacter(null);
+          }
         }
       } catch {}
     };
@@ -35,14 +84,30 @@ export default function JourneyCard() {
     return () => clearInterval(interval);
   }, []);
 
+  const fetchCharacter = async () => {
+    try {
+      // The journey status includes character data inline
+      const res = await fetch(`${API_BASE}/operator/journey/generate-character`, { method: 'POST' });
+    } catch {}
+    // Character data comes from the journey status poll
+  };
+
   const handleAdvance = async () => {
     setAdvancing(true);
+    audioFeedback.playTelemetry();
     try {
       const res = await fetch(`${API_BASE}/operator/journey/advance`, { method: 'POST' });
-      if (res.ok) setJourney(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setJourney(prev => ({ ...prev, ...data }));
+      }
     } catch {}
     setAdvancing(false);
   };
+
+  // Character data is embedded in stage_results or we derive from the journey
+  // For now, use what the journey endpoint gives us
+  const charData = character || journey?.character || {};
 
   if (!journey) return null;
 
@@ -50,54 +115,258 @@ export default function JourneyCard() {
   const currentStage = journey.current_stage || 'initiation';
   const stageName = STAGE_NAMES[currentStage] || currentStage;
   const color = STAGE_COLORS[currentStage] || '#a855f7';
+  const StageIcon = STAGE_ICONS[currentStage] || Star;
   const progress = Math.round((stageIdx / 6) * 100);
 
   return (
-    <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 rounded-lg p-4 border border-purple-500/20 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-purple-400" />
-          <span className="text-sm font-bold text-purple-300">Character Journey</span>
-          <span className="text-[10px] px-1.5 py-0.5 bg-purple-950 rounded text-purple-400 font-mono">ACTIVE</span>
-        </div>
-        <span className="text-xs text-gray-500">{stageIdx}/6 stages</span>
-      </div>
+    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-950/40 via-slate-900/60 to-pink-950/30 border border-purple-500/20 shadow-xl">
+      <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/3 rounded-full blur-3xl" />
 
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-purple-800 flex items-center justify-center">
-          <User className="w-4 h-4 text-purple-300" />
+      <div className="relative p-5 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-purple-900/40 border border-purple-500/20 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-purple-300">Character Journey</h3>
+              <p className="text-[10px] text-slate-500 font-mono">
+                {stageIdx}/6 stages · {journey.stage_results?.length || 0} completed
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-[9px] text-purple-400 font-mono font-bold uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+              ACTIVE
+            </span>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="text-[10px] text-slate-500 hover:text-purple-400 transition-colors"
+            >
+              {expanded ? 'Collapse' : 'Details'}
+            </button>
+          </div>
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-white font-bold">Stage {stageIdx+1}: {stageName}</span>
-            <ChevronRight className="w-3 h-3 text-gray-600" />
+
+        {/* Character Identity */}
+        <div className="flex items-center gap-4">
+          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+            <User className="w-6 h-6 text-white" />
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-1.5 mt-1.5">
-            <div className="h-1.5 rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: color }} />
-          </div>
-          <div className="flex gap-2 mt-1">
-            {Object.entries(STAGE_NAMES).slice(0,6).map(([key, name], i) => (
-              <div key={key} className="w-2.5 h-2.5 rounded-full transition-colors" style={{
-                backgroundColor: i <= stageIdx ? STAGE_COLORS[key] : '#374151'
-              }} title={name} />
-            ))}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-base font-bold text-white">{charData.name || 'Unknown Hero'}</h4>
+              {charData.chinese_name && (
+                <span className="text-xs text-slate-400 font-mono">{charData.chinese_name}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              {charData.element && (
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium border ${ELEMENT_COLORS[charData.element] || 'border-slate-500/30 text-slate-400 bg-slate-800/20'}`}>
+                  {ELEMENT_EMOJIS[charData.element] || ''} {charData.element}
+                </span>
+              )}
+              {charData.role && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium border border-cyan-500/20 bg-cyan-950/20 text-cyan-300">
+                  {charData.role_icon || ''} {charData.role}
+                </span>
+              )}
+              {charData.frequency && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono border border-amber-500/20 bg-amber-950/20 text-amber-300">
+                  <Zap className="w-2.5 h-2.5" /> {charData.frequency} Hz
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        {!journey.is_complete && (
-          <button onClick={handleAdvance} disabled={advancing}
-            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white rounded text-xs font-bold flex items-center gap-1">
-            <Play className="w-3 h-3" /> {advancing ? '...' : 'Advance'}
-          </button>
+
+        {/* Expanded Details */}
+        {expanded && (
+          <div className="space-y-4 border-t border-white/5 pt-4">
+            {/* Stat Bars */}
+            {charData.stats && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {Object.entries(STAT_META).map(([key, meta]) => {
+                  const val = charData.stats?.[key] || 0;
+                  const Icon = meta.icon;
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1 text-[9px] text-slate-500 font-mono uppercase">
+                          <Icon className={`w-2.5 h-2.5 ${meta.color}`} />
+                          {meta.label}
+                        </span>
+                        <span className={`text-[9px] font-bold font-mono ${meta.color}`}>{val}/10</span>
+                      </div>
+                      <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${meta.bg} transition-all duration-700`}
+                          style={{ width: `${val * 10}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Character Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {charData.origin && (
+                <div className="flex items-start gap-1.5">
+                  <Footprints className="w-3 h-3 text-purple-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-400">
+                    <span className="text-slate-600">Origin: </span>
+                    {charData.origin}
+                  </span>
+                </div>
+              )}
+              {charData.quest && (
+                <div className="flex items-start gap-1.5">
+                  <Award className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-400">
+                    <span className="text-slate-600">Quest: </span>
+                    {charData.quest}
+                  </span>
+                </div>
+              )}
+              {charData.sigil_seed && (
+                <div className="flex items-start gap-1.5">
+                  <Sparkles className="w-3 h-3 text-cyan-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-400">
+                    <span className="text-slate-600">Sigil Seed: </span>
+                    <span className="font-mono text-cyan-300">{charData.sigil_seed}</span>
+                  </span>
+                </div>
+              )}
+              {charData.role_virtue && (
+                <div className="flex items-start gap-1.5">
+                  <Shield className="w-3 h-3 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <span className="text-slate-400">
+                    <span className="text-slate-600">Virtue: </span>
+                    {charData.role_virtue}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Backstory */}
+            {charData.backstory && (
+              <div className="bg-purple-950/10 rounded-lg border border-purple-500/10 p-3">
+                <p className="text-[10px] text-slate-400 italic leading-relaxed line-clamp-3">
+                  {charData.backstory}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Stage Progression */}
+        <div className="space-y-3">
+          {/* Current Stage */}
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: `${color}20`, border: `1px solid ${color}40` }}>
+              <StageIcon className="w-5 h-5" style={{ color }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">Stage {stageIdx + 1}</span>
+                <span className="text-xs font-medium" style={{ color }}>{stageName}</span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${progress}%`,
+                    background: `linear-gradient(90deg, ${color}80, ${color})`,
+                  }}
+                />
+              </div>
+            </div>
+            {!journey.is_complete && (
+              <button
+                onClick={handleAdvance}
+                disabled={advancing}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200"
+                style={{
+                  backgroundColor: `${color}30`,
+                  border: `1px solid ${color}40`,
+                  color,
+                }}
+              >
+                {advancing ? (
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Play className="w-3 h-3" />
+                )}
+                {advancing ? '...' : 'Advance'}
+              </button>
+            )}
+          </div>
+
+          {/* Stage Dots */}
+          <div className="flex items-center gap-1.5">
+            {Object.entries(STAGE_NAMES).map(([key, name], i) => {
+              const Icon = STAGE_ICONS[key];
+              const isComplete = i <= stageIdx;
+              return (
+                <div
+                  key={key}
+                  className="flex-1 group relative"
+                  title={`${name}${isComplete ? ' ✓' : ''}`}
+                >
+                  <div
+                    className={`w-full h-1.5 rounded-full transition-all duration-300 ${
+                      isComplete ? 'opacity-100' : 'opacity-30'
+                    }`}
+                    style={{ backgroundColor: isComplete ? STAGE_COLORS[key] : '#374151' }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Stage Results History */}
+        {journey.stage_results?.length > 0 && (
+          <div className="border-t border-white/5 pt-3 space-y-1.5">
+            <span className="text-[9px] text-slate-600 font-mono uppercase tracking-wider">Stage Log</span>
+            {journey.stage_results.slice(-3).reverse().map((r, i) => {
+              const sColor = STAGE_COLORS[r.stage] || '#6b7280';
+              const sName = STAGE_NAMES[r.stage] || r.stage;
+              return (
+                <div key={i} className="flex items-center gap-2 text-[10px]">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sColor }} />
+                  <span className="text-slate-400">{sName}</span>
+                  <span className="text-slate-600">·</span>
+                  <span className="text-purple-300 font-mono">{r.blessings_count} blessings</span>
+                  {r.completed_at && (
+                    <>
+                      <span className="text-slate-600">·</span>
+                      <span className="text-slate-600 text-[9px]">
+                        {new Date(r.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Total Blessings */}
+        {journey.stage_results?.length > 0 && (
+          <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-purple-950/20 border border-purple-500/10">
+            <Heart className="w-3 h-3 text-pink-400" />
+            <span className="text-[10px] text-purple-300 font-mono font-bold">
+              {journey.stage_results.reduce((sum, r) => sum + (r.blessings_count || 0), 0)} total blessings generated
+            </span>
+          </div>
         )}
       </div>
-
-      {journey.stage_results?.length > 0 && (
-        <div className="text-[10px] text-gray-500 border-t border-white/5 pt-2">
-          {journey.stage_results.slice(-2).map((r, i) => (
-            <span key={i} className="mr-3">{STAGE_NAMES[r.stage]}: {r.blessings_count} blessings</span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

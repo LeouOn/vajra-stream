@@ -1,0 +1,40 @@
+Evidence for Task 20 — Results tab with copy/download.
+
+Grep checks against frontend/src/components/UI/AstrologyExtractionPanel.jsx:
+
+1) Copy as Markdown handler present (handleCopy('markdown') invoked from a Button):
+   174:   const handleCopy = async (fmt) => {
+   211:               <Button icon={<CopyOutlined />} onClick={() => handleCopy('markdown')}>
+   212:                 {copied === 'markdown' ? 'Copied!' : 'Copy MD'}
+
+2) Copy as JSON handler present (handleCopy('json') invoked from a Button):
+   174:   const handleCopy = async (fmt) => {
+   214:               <Button icon={<CopyOutlined />} onClick={() => handleCopy('json')}>
+   215:                 {copied === 'json' ? 'Copied!' : 'Copy JSON'}
+
+3) Download dropdown with jsonl/csv/md present (Dropdown menu items):
+   192:   const handleDownload = (fmt) => {
+   217:               <Dropdown
+   218:                 menu={{
+   219:                   items: [
+   220:                     { key: 'jsonl', label: 'JSONL', onClick: () => handleDownload('jsonl') },
+   221:                     { key: 'csv', label: 'CSV', onClick: () => handleDownload('csv') },
+   222:                     { key: 'md', label: 'Markdown', onClick: () => handleDownload('md') },
+   223:                   ],
+   224:                 }}
+   225:               >
+   226:                 <Button icon={<DownloadOutlined />}>Download</Button>
+
+4) Component uses navigator.clipboard.writeText:
+   183:       await navigator.clipboard.writeText(text);
+
+5) ResultsTab wired into the Results TabPane (replaces prior placeholder):
+   543:       <TabPane tab="Results" key="results">
+   544:         <ResultsTab currentRunId={currentRunId} />
+   545:       </TabPane>
+
+6) Required imports added (Dropdown from antd, CopyOutlined/DownloadOutlined from @ant-design/icons):
+   26:   Dropdown,
+   29: import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
+
+PASS: copy-markdown, copy-json, download dropdown (jsonl/csv/md), navigator.clipboard.writeText all present.
