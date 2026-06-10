@@ -112,13 +112,15 @@ class LLMIntegration:
             self._initialize_openai_compatible()
         elif model_type == "openai":
             self._initialize_openai()
+        elif model_type == "openrouter":
+            self._initialize_openrouter()
         elif model_type == "anthropic":
             self._initialize_anthropic()
         elif model_type == "local":
             self._initialize_local()
 
     def _initialize_auto(self) -> None:
-        """Auto-detect: LM Studio → DeepSeek → local GGUF → Anthropic → OpenAI."""
+        """Auto-detect: LM Studio → DeepSeek → OpenRouter → local GGUF → Anthropic → OpenAI."""
         print("Auto-detecting available LLM...")
 
         # 1. Try LM Studio (OpenAI-compatible local server)
@@ -205,7 +207,17 @@ class LLMIntegration:
             except Exception as e:
                 print(f"  DeepSeek not available: {e}")
 
-        # 3. Try local GGUF
+        # 3. Try OpenRouter API
+        if os.getenv("OPENROUTER_API_KEY"):
+            try:
+                self._initialize_openrouter()
+                if self.client:
+                    print("[OK] Using OpenRouter API")
+                    return
+            except Exception as e:
+                print(f"  OpenRouter not available: {e}")
+
+        # 4. Try local GGUF
         try:
             self._initialize_local()
             if self.local_model:
@@ -214,7 +226,7 @@ class LLMIntegration:
         except Exception as e:
             print(f"  Local model not available: {e}")
 
-        # 4. Fall back to Anthropic
+        # 5. Fall back to Anthropic
         if os.getenv("ANTHROPIC_API_KEY"):
             try:
                 self._initialize_anthropic()
@@ -223,7 +235,7 @@ class LLMIntegration:
             except Exception:
                 pass
 
-        # 5. Fall back to OpenAI (or OpenAI-compatible)
+        # 6. Fall back to OpenAI (or OpenAI-compatible)
         if os.getenv("OPENAI_API_KEY"):
             try:
                 self._initialize_openai()
@@ -232,7 +244,7 @@ class LLMIntegration:
             except Exception:
                 pass
 
-        print("[WARN] No LLM available. Set DEEPSEEK_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or add GGUF models.")
+        print("[WARN] No LLM available. Set OPENROUTER_API_KEY, DEEPSEEK_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or add GGUF models.")
 
     def _initialize_local(self) -> None:
         """Initialize local GGUF model"""
@@ -336,6 +348,26 @@ class LLMIntegration:
         if not self.model_name:
             self.model_name = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
         print(f"[OK] DeepSeek client ready — model: {self.model_name} @ {base}")
+
+    def _initialize_openrouter(self) -> None:
+        try:
+            from openai import OpenAI
+        except ImportError:
+            raise ImportError("openai package not installed. Run: pip install openai")
+
+        base = self.base_url or os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+        key = self.api_key or os.getenv("OPENROUTER_API_KEY")
+
+        if not key:
+            raise ValueError("OPENROUTER_API_KEY not set")
+
+        self.client = OpenAI(base_url=base, api_key=key)
+        self.base_url = base
+        self.model_type = "openrouter"
+        self.provider_key = "openrouter"
+        if not self.model_name:
+            self.model_name = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+        print(f"[OK] OpenRouter client ready — model: {self.model_name} @ {base}")
 
     def _initialize_openai_compatible(self) -> None:
         """Initialize a generic OpenAI-compatible endpoint.
