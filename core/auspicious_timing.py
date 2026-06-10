@@ -152,8 +152,8 @@ class AuspiciousTiming:
     def engine(self):
         if self._engine is None:
             try:
-                from core.astrology import AstrologyEngine
-                self._engine = AstrologyEngine()
+                from core.astrology import AstrologicalCalculator
+                self._engine = AstrologicalCalculator()
             except ImportError:
                 self._engine = None
         return self._engine

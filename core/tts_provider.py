@@ -453,30 +453,6 @@ class TTSProvider:
                     paths.append(path)
             return paths
 
-    async def speak_batch(
-        self,
-        texts: list[str],
-        voice: str | None = None,
-        language: str | None = None,
-    ) -> list[str]:
-        """
-        Generate speech for multiple texts efficiently.
-
-        On Qwen3-TTS: one GPU pass for all texts (fast).
-        On Edge TTS: sequential (slower but reliable).
-        """
-        backend = self.active_backend
-
-        if backend == TTSBackend.QWEN:
-            return await self._speak_batch_qwen(texts, voice, language)
-        else:
-            paths = []
-            for text in texts:
-                path = await self._speak_edge(text, voice)
-                if path:
-                    paths.append(path)
-            return paths
-
     async def _speak_edge(
         self,
         text: str,

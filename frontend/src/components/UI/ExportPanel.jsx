@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Download, Copy, FileJson, FileText, Check, Square, RefreshCw, Package, CheckCircle2, XCircle } from 'lucide-react';
-import { Card, Button, Tag, Tooltip, message, Segmented, Switch } from 'antd';
+import { Card, Button, Tag, Tooltip, message, Segmented, Switch, Row, Col } from 'antd';
 import { API_BASE } from '../../utils/api';
 import { toMarkdown as toMarkdownImpl, applyFieldSelection as applyFieldSelectionImpl, planetGlyph } from '../../lib/astroHelpers';
 import { audioFeedback } from '../../utils/audioFeedback';

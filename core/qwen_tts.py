@@ -21,7 +21,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
+# numpy is an optional runtime dep — only required for actual TTS inference.
+# Import lazily inside the methods that need it so the module loads even
+# when numpy isn't installed (e.g. on systems where only Edge TTS is used).
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +252,7 @@ class QwenTTSEngine:
         speaker: str | None = None,
         language: str | None = None,
         instruct: str | None = None,
-    ) -> tuple[np.ndarray, int] | list[tuple[np.ndarray, int]] | None:
+    ) -> "tuple[np.ndarray, int] | list[tuple[np.ndarray, int]] | None":
         """
         Generate speech from text using Qwen3-TTS CustomVoice model.
 
@@ -293,7 +295,7 @@ class QwenTTSEngine:
         texts: list[str],
         speaker: str | None = None,
         language: str | None = None,
-    ) -> list[tuple[np.ndarray, int]] | None:
+    ) -> "list[tuple[np.ndarray, int]] | None":
         """
         Generate speech for multiple texts in one GPU pass (much faster than sequential).
 
@@ -306,7 +308,7 @@ class QwenTTSEngine:
         text: str,
         instruct: str,
         language: str = "Chinese",
-    ) -> tuple[np.ndarray, int] | None:
+    ) -> "tuple[np.ndarray, int] | None":
         """
         Generate speech using voice design — describe the voice in natural language.
 
@@ -342,10 +344,10 @@ class QwenTTSEngine:
     def clone_voice(
         self,
         text: str,
-        ref_audio: str | np.ndarray,
+        ref_audio: "str | np.ndarray",
         ref_text: str = "",
         language: str = "Chinese",
-    ) -> tuple[np.ndarray, int] | None:
+    ) -> "tuple[np.ndarray, int] | None":
         """
         Clone a voice from a reference audio sample and speak new text.
 
