@@ -99,7 +99,7 @@ export function describeArc(cx, cy, r, startDeg, endDeg) {
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
 }
 
-const PLANET_GLYPHS_MAP = {
+export const PLANET_GLYPHS = {
   sun: '\u2609', moon: '\u263D', mercury: '\u263F', venus: '\u2640', mars: '\u2642',
   jupiter: '\u2643', saturn: '\u2644', uranus: '\u2645', neptune: '\u2646', pluto: '\u2647',
   north_node: '\u260A', south_node: '\u260B', chiron: '\u26B7',
@@ -107,7 +107,7 @@ const PLANET_GLYPHS_MAP = {
 };
 
 export function planetGlyph(name) {
-  return PLANET_GLYPHS_MAP[name] || '\u25CF';
+  return PLANET_GLYPHS[name] || '\u25CF';
 }
 
 export function isHouseCusp(name) {
@@ -142,7 +142,7 @@ export function applyFieldSelection(payload, selectedChartIds, selectedFieldKeys
   return { ...topLevel, charts };
 }
 
-export function toMarkdown(payload, selectedFieldKeys, topLevelFields, fieldGroups, planetGlyphs = PLANET_GLYPHS_MAP) {
+export function toMarkdown(payload, selectedFieldKeys, topLevelFields, fieldGroups, planetGlyphs = PLANET_GLYPHS) {
   const lines = [];
   lines.push('# Saved Natal Charts Export');
   lines.push('');
