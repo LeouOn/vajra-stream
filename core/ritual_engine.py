@@ -602,7 +602,7 @@ class RitualScheduler:
         self.state = EngineState.EXECUTING
 
         # Get all practices
-        from core.models.practice import Practice
+        from core.practices.practice import Practice
         practices = Practice.get_default_practices()
 
         # Get timing windows
