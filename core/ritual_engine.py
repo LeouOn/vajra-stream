@@ -309,9 +309,9 @@ class RitualExecutionEngine:
             },
         )
 
-        # TTS opening invocation
+        # TTS opening invocation — use buddhist_chant role for formal invocations
         prep_text = self._get_opening_invocation(record)
-        tts_path = await self.tts.speak(prep_text, rate="-35%")
+        tts_path = await self.tts.speak(prep_text, rate="-35%", role="buddhist_chant")
         if tts_path:
             record.tts_generated = True
 
@@ -334,7 +334,7 @@ class RitualExecutionEngine:
             record.narrative_preview = narrative[:200]
 
             # TTS the generated narrative
-            tts_path = await self.tts.speak(narrative[:1500], rate="-20%")
+            tts_path = await self.tts.speak(narrative[:1500], rate="-20%", role="dharma_teaching")
             if tts_path:
                 record.tts_generated = True
 
@@ -359,7 +359,7 @@ class RitualExecutionEngine:
         )
 
         dedication_text = self._get_dedication(record)
-        tts_path = await self.tts.speak(dedication_text, rate="-35%")
+        tts_path = await self.tts.speak(dedication_text, rate="-35%", role="outlook_narrative")
         if tts_path:
             record.tts_generated = True
 
@@ -689,11 +689,50 @@ class RitualScheduler:
         return record
 
     def _is_timing_good_enough(self, hour: str, min_quality: str) -> bool:
-        """Check if any genre is favorable enough to execute."""
+        """Check if any genre's current quality meets the configured threshold.
+
+        Used by the scheduler to decide whether to fire rituals or idle.
+        Returns True if EITHER the current planetary hour is favorable or
+        neutral for at least one genre whose threshold the user accepts
+        (i.e. sets min_quality to a level this hour's score meets or exceeds).
+
+        A practitioner who set min_quality="excellent" will only fire
+        during the most favorable hours; one who set "transmutative"
+        will fire even on hard hours (the bodhisattva path of working
+        WITH difficulty). The empty-hour edge case is treated as
+        "unknown hour, not enough information" → False, which is the
+        safe default.
+        """
         quality_rank = {"excellent": 4, "good": 3, "challenging": 2, "transmutative": 1}
         min_rank = quality_rank.get(min_quality, 2)
-        # Always allow — the PracticeSelector will score appropriately
-        return True
+
+        from core.auspicious_timing import GENRE_PLANETARY_HOURS
+
+        if not hour:
+            return False  # no planetary hour known → don't fire
+
+        best = max(
+            self._score_hour(hour, GENRE_PLANETARY_HOURS[genre])
+            for genre in GENRE_PLANETARY_HOURS
+        )
+        return best >= min_rank
+
+    @staticmethod
+    def _score_hour(planet: str, config: dict[str, list[str]]) -> int:
+        """Score a planetary hour's favorability for a genre (1-4).
+
+        4 = excellent (favorable planet)
+        3 = good (neutral planet, but still useful)
+        2 = challenging (unfavorable planet — must transmute)
+        1 = transmutative (no planet recognized — fallback)
+        """
+        if planet in config.get("favorable", []):
+            return 4
+        if planet in config.get("neutral", []):
+            return 3
+        if planet in config.get("unfavorable", []):
+            return 2
+        return 1
 
     def _get_upcoming_schedule(self) -> list[dict]:
         """Predict favorable hours for the next 24 hours."""

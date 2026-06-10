@@ -1077,6 +1077,124 @@ def check_auspicious_timing(genre: str = "healing") -> dict[str, Any]:
     return check_auspicious_window(genre).to_dict()
 
 
+# ============================================================================
+# RITUAL ENGINE TOOLS — autonomous LLM agent control over the ritual engine
+# ============================================================================
+
+
+def get_ritual_status() -> dict[str, Any]:
+    """Get the current state, history, and merit of the autonomous ritual engine.
+
+    Use this when:
+    - The user asks about recent rituals or accumulated merit
+    - You need to decide whether to start/stop the engine
+    - You want to know what the engine has been doing
+
+    Returns:
+        {
+            "state": "running" | "stopped" | "executing" | "paused",
+            "is_running": bool,
+            "rituals_today": int,
+            "rituals_this_hour": int,
+            "total_merit_today": float,
+            "recent_history": [{"id", "practice_name", "genre", "merit_multiplier", "narrative_length", "completed_at"}, ...],
+            "current_ritual": {...} | None,
+        }
+    """
+    client = get_client()
+    return client._get("/api/v1/ritual/status")
+
+
+def start_ritual_engine(min_timing_quality: str = "challenging") -> dict[str, Any]:
+    """Start the autonomous ritual engine.
+
+    The engine runs on a 60-second loop, selecting and executing rituals
+    based on the configured minimum timing quality and current auspicious
+    windows. Practice selection uses the PracticeSelector to score by
+    genre, timing, merit, and recency diversity.
+
+    Use this when:
+    - The user asks to start a continuous blessing practice
+    - You detect favorable Saka Dawa or other high-merit windows
+    - You want to maintain ongoing intentional practice
+
+    Args:
+        min_timing_quality: Minimum timing quality to execute — one of
+            "excellent" (4), "good" (3), "challenging" (2), "transmutative" (1).
+            Default "challenging" — execute unless the hour is fully blocked.
+
+    Returns:
+        {"status": "started" | "already_running", "state": "running"}
+    """
+    client = get_client()
+    return client._post("/api/v1/ritual/start", {"min_timing_quality": min_timing_quality})
+
+
+def stop_ritual_engine() -> dict[str, Any]:
+    """Stop the autonomous ritual engine.
+
+    Idempotent — safe to call when the engine is already stopped.
+
+    Use this when:
+    - The user asks to pause or stop automatic practice
+    - You're transitioning to a manual ritual mode
+    - The engine has accumulated enough merit and the user wants a break
+    """
+    client = get_client()
+    return client._post("/api/v1/ritual/stop", {})
+
+
+def trigger_ritual() -> dict[str, Any]:
+    """Manually trigger one ritual execution on the autonomous engine.
+
+    Use this when:
+    - The user asks for an immediate blessing
+    - You want to fire a one-off practice without starting the full loop
+    - You're testing or demonstrating the engine
+
+    Returns:
+        {"status": "executed" | "no_practice_selected",
+         "ritual": {RitualRecord fields} | None}
+    """
+    client = get_client()
+    return client._post("/api/v1/ritual/trigger", {})
+
+
+def list_practices() -> dict[str, Any]:
+    """List all available ritual practices with their genre, merit, and mantras.
+
+    Use this when:
+    - The user asks what practices are available
+    - You need to recommend a specific practice for a situation
+    - You want to see the merit multipliers for scoring decisions
+
+    Returns:
+        {"practices": [{"id", "name", "genre", "merit_multiplier",
+                        "preferred_planetary_hours", "duration_sec", "mantra"}, ...]}
+    """
+    from core.practices.practice import Practice
+
+    return {"practices": [p.__dict__ for p in Practice.get_default_practices()]}
+
+
+def get_ritual_schedule(hours: int = 24) -> dict[str, Any]:
+    """Get the next N hours of predicted favorable ritual timing.
+
+    Use this when:
+    - You want to schedule a specific ritual for an upcoming favorable hour
+    - The user asks "when's the next good time for X?"
+    - You're planning a sequence of practices
+
+    Args:
+        hours: How many hours to look ahead (default 24)
+
+    Returns:
+        {"schedule": [{"datetime", "planetary_hour", "favorable_genres", "quality"}, ...]}
+    """
+    client = get_client()
+    return client._get(f"/api/v1/ritual/schedule?hours={hours}")
+
+
 def generate_character() -> dict[str, Any]:
     """Generate an RNG-seeded character."""
     from core.character_generator import CharacterGenerator
@@ -1388,6 +1506,13 @@ TOOL_REGISTRY = {
     "get_world_context": get_world_context,
     "get_all_genre_windows": get_all_genre_windows,
     "get_current_conditions": get_current_conditions,
+    # Ritual engine
+    "get_ritual_status": get_ritual_status,
+    "start_ritual_engine": start_ritual_engine,
+    "stop_ritual_engine": stop_ritual_engine,
+    "trigger_ritual": trigger_ritual,
+    "list_practices": list_practices,
+    "get_ritual_schedule": get_ritual_schedule,
 }
 
 
