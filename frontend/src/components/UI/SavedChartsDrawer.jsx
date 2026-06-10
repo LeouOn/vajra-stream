@@ -104,7 +104,7 @@ export default function SavedChartsDrawer({
             onChange={setSelectedTag}
             size="small"
             className="min-w-[90px]"
-            dropdownClassName="bg-gray-950 border-gray-800 text-white"
+            classNames={{ popup: { root: 'bg-gray-950 border-gray-800 text-white' } }}
             options={allTags.map(tag => ({ value: tag, label: tag }))}
           />
         </div>

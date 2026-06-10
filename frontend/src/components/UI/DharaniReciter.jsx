@@ -187,7 +187,7 @@ export default function DharaniReciter() {
                 <Progress
                   percent={progress}
                   strokeColor={{ '0%': CHAKRA_COLORS[dharani.chakra], '100%': '#a855f7' }}
-                  trailColor="rgba(255,255,255,0.05)"
+                  railColor="rgba(255,255,255,0.05)"
                   showInfo={false}
                   size="small"
                 />

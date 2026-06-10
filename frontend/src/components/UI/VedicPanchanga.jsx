@@ -67,7 +67,7 @@ export default function VedicPanchanga({ indianData }) {
           <Progress
             percent={Math.round((panchanga.nakshatra.progress || 0) * 100)}
             strokeColor={{ '0%': '#06b6d4', '100%': '#a855f7' }}
-            trailColor="rgba(255,255,255,0.05)"
+            railColor="rgba(255,255,255,0.05)"
             size="small"
             showInfo={false}
           />

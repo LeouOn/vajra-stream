@@ -552,7 +552,7 @@ export default function OutlookDashboard() {
         </Card>
 
         {/* ── Ambient Rothko ── */}
-        <Card bodyStyle={{ padding: 0, height: 100, overflow: 'hidden' }}>
+        <Card styles={{ body: { padding: 0, height: 100, overflow: 'hidden' } }}>
           <RothkoGenerator isPlaying={isPlaying} palette="compassion" transitionSpeed={60} />
         </Card>
 
@@ -714,7 +714,7 @@ export default function OutlookDashboard() {
                   <Divider style={{ margin: '4px 0' }} />
 
                   {/* Characters — Collapsible */}
-                  <Collapse ghost size="small" expandIconPosition="end"
+                  <Collapse ghost size="small" expandIconPlacement="end"
                     items={[{
                       key: 'chars', label: <Text strong style={{ fontSize: 12 }}><Shield className="w-3 h-3 inline mr-1" />Characters ({selectedCharIds.length})</Text>,
                       extra: <Tooltip title="Random 2-3"><Switch size="small" checked={randomizeCharacters} onChange={setRandomizeCharacters} /></Tooltip>,
@@ -737,7 +737,7 @@ export default function OutlookDashboard() {
                   />
 
                   {/* Populations — Collapsible */}
-                  <Collapse ghost size="small" expandIconPosition="end"
+                  <Collapse ghost size="small" expandIconPlacement="end"
                     items={[{
                       key: 'pops', label: <Text strong style={{ fontSize: 12 }}><Users className="w-3 h-3 inline mr-1" />Populations ({selectedPopIds.length})</Text>,
                       children: (
@@ -1043,7 +1043,7 @@ export default function OutlookDashboard() {
             UNIVERSE TAB
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'universe' && (
-          <Card size="small" bodyStyle={{ padding: 0 }}>
+          <Card size="small" styles={{ body: { padding: 0 } }}>
             <Tabs
               activeKey={universeTab}
               onChange={k => { setUniverseTab(k); audioFeedback.playClick(); }}
@@ -1275,7 +1275,7 @@ export default function OutlookDashboard() {
         onOk={saveRealm}
         okText="Save"
         width={640}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={realmForm} layout="vertical" size="small" initialValues={{ is_metaphysical: true, priority: 5, source_type: 'manual' }}>
           <Row gutter={16}>
@@ -1343,7 +1343,7 @@ export default function OutlookDashboard() {
         onOk={saveCharacter}
         okText="Save"
         width={560}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={charForm} layout="vertical" size="small" initialValues={{ role: 'master', source_type: 'manual', elemental_anchor: 'space', priority: 5 }}>
           <Row gutter={16}>
