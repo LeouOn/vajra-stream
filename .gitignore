@@ -112,5 +112,6 @@ node_modules/
 frontend/tmp/
 frontend/test-results/
 frontend/playwright-report/
+.playwright-mcp/
 generated/
 scripts/eval_system.py
