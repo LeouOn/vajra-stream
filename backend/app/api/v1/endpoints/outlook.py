@@ -102,7 +102,7 @@ async def generate_single(request: OutlookRequest):
             model=request.model,
             include_geomancy=request.include_geomancy,
             randomize_realm=request.randomize_realm,
-            randomize_characters=request.randomize_characters
+            randomize_characters=request.randomize_characters,
         )
 
         # Save to database
@@ -163,7 +163,7 @@ async def generate_epic(request: EpicOutlookRequest):
             model=request.model,
             include_geomancy=request.include_geomancy,
             randomize_realm=request.randomize_realm,
-            randomize_characters=request.randomize_characters
+            randomize_characters=request.randomize_characters,
         )
 
         # Save to database
@@ -273,11 +273,15 @@ async def get_status():
 
 # ----------------- TTS / NARRATIVE RECITATION -----------------
 class OutlookSpeakRequest(BaseModel):
-    text: str = Field(..., description="Narrative text to speak (single string or joined epic parts)", min_length=1, max_length=20000)
+    text: str = Field(
+        ..., description="Narrative text to speak (single string or joined epic parts)", min_length=1, max_length=20000
+    )
     voice: str | None = Field(default=None, description="Voice/speaker override (bypasses role)")
     rate: str | None = Field(default=None, description="Speech rate (Edge TTS only, e.g. '-25%')")
     language: str | None = Field(default=None, description="Language override (Qwen3-TTS only)")
-    role: str | None = Field(default=None, description="Ritual role for auto-speaker mapping (default: outlook_narrative / outlook_epic)")
+    role: str | None = Field(
+        default=None, description="Ritual role for auto-speaker mapping (default: outlook_narrative / outlook_epic)"
+    )
     project_id: str | None = Field(default=None, description="Project id for per-project speaker overrides")
     chunk_max_chars: int = Field(default=900, description="Max characters per chunk for long narratives")
 
@@ -292,6 +296,7 @@ async def speak_narrative(request: OutlookSpeakRequest):
     for the full generation to finish.
     """
     from fastapi.responses import Response
+
     from core.tts_provider import get_tts_provider
 
     provider = get_tts_provider()
@@ -364,9 +369,12 @@ async def speak_narrative(request: OutlookSpeakRequest):
 
 
 @router.post("/speak/{narrative_id}", summary="Stream a stored outlook narrative by ID")
-async def speak_stored_narrative(narrative_id: int, role: str | None = None, voice: str | None = None, project_id: str | None = None):
+async def speak_stored_narrative(
+    narrative_id: int, role: str | None = None, voice: str | None = None, project_id: str | None = None
+):
     """Look up a previously generated narrative and speak it."""
     from fastapi.responses import Response
+
     from core.tts_provider import get_tts_provider
 
     try:
@@ -387,10 +395,9 @@ async def speak_stored_narrative(narrative_id: int, role: str | None = None, voi
     if row["type"] == "epic":
         try:
             import json as _json
+
             parts = _json.loads(text) if text else []
-            text = "\n\n".join(
-                p.get("content", "") if isinstance(p, dict) else str(p) for p in parts
-            )
+            text = "\n\n".join(p.get("content", "") if isinstance(p, dict) else str(p) for p in parts)
         except Exception:
             pass
     if not text.strip():
@@ -595,7 +602,7 @@ async def start_loop(req: LoopStartRequest):
         include_geomancy=req.include_geomancy,
         cycle_genres=req.cycle_genres,
         randomize_realm=req.randomize_realm,
-        randomize_characters=req.randomize_characters
+        randomize_characters=req.randomize_characters,
     )
     if not success:
         raise HTTPException(status_code=400, detail="Loop already running or failed to start")
@@ -747,4 +754,3 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
         return {"status": "success", "imported": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-

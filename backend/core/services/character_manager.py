@@ -273,19 +273,19 @@ class CharacterManager:
         char = self.characters.get(character_id)
         if not char:
             return
-        
+
         char.exp += exp_amount
         # Simple leveling logic (e.g., 100 exp = 1 level)
         if char.exp >= char.level * 100:
             char.level += 1
             char.history_log.append(f"Reached Level {char.level}!")
-            
+
         char.history_log.append(event_summary)
-        
+
         # Keep history log reasonable
         if len(char.history_log) > 50:
             char.history_log = char.history_log[-50:]
-            
+
         self._save()
 
     def update_state(self, character_id: str, new_state: str, energy_change: int = 0):

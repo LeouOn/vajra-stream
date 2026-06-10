@@ -99,9 +99,7 @@ def test_dynamic_routing_local(mock_env):
 
     with patch("llama_cpp.Llama") as mock_llama_class:
         mock_local_model = MagicMock()
-        mock_local_model.return_value = {
-            "choices": [{"text": "mocked local response"}]
-        }
+        mock_local_model.return_value = {"choices": [{"text": "mocked local response"}]}
         mock_llama_class.return_value = mock_local_model
 
         # Mock existence of file

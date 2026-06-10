@@ -17,31 +17,102 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-
 # ─── Archetypal Tables ───────────────────────────────────────
 
 ELEMENTS = [
-    {"name": "Fire", "color": "#ef4444", "chakra": "solar_plexus", "frequency": 528, "quality": "will, passion, transformation"},
+    {
+        "name": "Fire",
+        "color": "#ef4444",
+        "chakra": "solar_plexus",
+        "frequency": 528,
+        "quality": "will, passion, transformation",
+    },
     {"name": "Water", "color": "#3b82f6", "chakra": "sacral", "frequency": 417, "quality": "emotion, intuition, flow"},
-    {"name": "Earth", "color": "#22c55e", "chakra": "root", "frequency": 396, "quality": "stability, grounding, nurture"},
-    {"name": "Air", "color": "#a78bfa", "chakra": "heart", "frequency": 639, "quality": "intellect, communication, freedom"},
-    {"name": "Wood", "color": "#84cc16", "chakra": "throat", "frequency": 741, "quality": "growth, creativity, expansion"},
-    {"name": "Metal", "color": "#e2e8f0", "chakra": "third_eye", "frequency": 852, "quality": "precision, clarity, refinement"},
+    {
+        "name": "Earth",
+        "color": "#22c55e",
+        "chakra": "root",
+        "frequency": 396,
+        "quality": "stability, grounding, nurture",
+    },
+    {
+        "name": "Air",
+        "color": "#a78bfa",
+        "chakra": "heart",
+        "frequency": 639,
+        "quality": "intellect, communication, freedom",
+    },
+    {
+        "name": "Wood",
+        "color": "#84cc16",
+        "chakra": "throat",
+        "frequency": 741,
+        "quality": "growth, creativity, expansion",
+    },
+    {
+        "name": "Metal",
+        "color": "#e2e8f0",
+        "chakra": "third_eye",
+        "frequency": 852,
+        "quality": "precision, clarity, refinement",
+    },
 ]
 
 ROLES = [
-    {"name": "Healer", "icon": "💚", "mantra": "medicine_buddha", "virtue": "compassion",
-     "chinese": "医者", "chinese_pinyin": "Yīzhě", "chinese_description": "悬壶济世，以慈悲之心医治众生疾苦"},
-    {"name": "Warrior", "icon": "⚔️", "mantra": "vajrasattva", "virtue": "courage",
-     "chinese": "武者", "chinese_pinyin": "Wǔzhě", "chinese_description": "金刚怒目，以无畏之勇破除一切障碍"},
-    {"name": "Sage", "icon": "🔮", "mantra": "manjushri", "virtue": "wisdom",
-     "chinese": "智者", "chinese_pinyin": "Zhìzhě", "chinese_description": "慧剑斩惑，以般若之智照破无明黑暗"},
-    {"name": "Mystic", "icon": "🌙", "mantra": "tara", "virtue": "devotion",
-     "chinese": "玄者", "chinese_pinyin": "Xuánzhě", "chinese_description": "通幽洞微，以至诚之心感应天地玄机"},
-    {"name": "Artisan", "icon": "✨", "mantra": "universal", "virtue": "creativity",
-     "chinese": "匠者", "chinese_pinyin": "Jiàngzhě", "chinese_description": "巧夺天工，以创造之力化腐朽为神奇"},
-    {"name": "Sovereign", "icon": "👑", "mantra": "chenrezig", "virtue": "leadership",
-     "chinese": "君者", "chinese_pinyin": "Jūnzhě", "chinese_description": "以德配天，以王道之治引领众生归位"},
+    {
+        "name": "Healer",
+        "icon": "💚",
+        "mantra": "medicine_buddha",
+        "virtue": "compassion",
+        "chinese": "医者",
+        "chinese_pinyin": "Yīzhě",
+        "chinese_description": "悬壶济世，以慈悲之心医治众生疾苦",
+    },
+    {
+        "name": "Warrior",
+        "icon": "⚔️",
+        "mantra": "vajrasattva",
+        "virtue": "courage",
+        "chinese": "武者",
+        "chinese_pinyin": "Wǔzhě",
+        "chinese_description": "金刚怒目，以无畏之勇破除一切障碍",
+    },
+    {
+        "name": "Sage",
+        "icon": "🔮",
+        "mantra": "manjushri",
+        "virtue": "wisdom",
+        "chinese": "智者",
+        "chinese_pinyin": "Zhìzhě",
+        "chinese_description": "慧剑斩惑，以般若之智照破无明黑暗",
+    },
+    {
+        "name": "Mystic",
+        "icon": "🌙",
+        "mantra": "tara",
+        "virtue": "devotion",
+        "chinese": "玄者",
+        "chinese_pinyin": "Xuánzhě",
+        "chinese_description": "通幽洞微，以至诚之心感应天地玄机",
+    },
+    {
+        "name": "Artisan",
+        "icon": "✨",
+        "mantra": "universal",
+        "virtue": "creativity",
+        "chinese": "匠者",
+        "chinese_pinyin": "Jiàngzhě",
+        "chinese_description": "巧夺天工，以创造之力化腐朽为神奇",
+    },
+    {
+        "name": "Sovereign",
+        "icon": "👑",
+        "mantra": "chenrezig",
+        "virtue": "leadership",
+        "chinese": "君者",
+        "chinese_pinyin": "Jūnzhě",
+        "chinese_description": "以德配天，以王道之治引领众生归位",
+    },
 ]
 
 CHINESE_NAME_PREFIXES = [
@@ -152,9 +223,11 @@ ANCHORING_RITUALS = [
 
 # ─── Character Data ──────────────────────────────────────────
 
+
 @dataclass
 class CharacterSheet:
     """A complete character generated for ritual work."""
+
     name: str = ""
     chinese_name: str = ""
     chinese_name_pinyin: str = ""
@@ -218,6 +291,7 @@ class CharacterSheet:
 
 
 # ─── Generator ───────────────────────────────────────────────
+
 
 class CharacterGenerator:
     """
@@ -360,7 +434,7 @@ class CharacterGenerator:
         )
 
         # LLM-enhanced backstory
-        if use_llm and operator and hasattr(operator, 'creative_llm'):
+        if use_llm and operator and hasattr(operator, "creative_llm"):
             try:
                 creative = operator.creative_llm
                 if creative and (creative.client or creative.local_model):

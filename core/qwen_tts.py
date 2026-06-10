@@ -17,6 +17,8 @@ Models (auto-downloaded from HuggingFace/ModelScope on first use):
 Gracefully degrades: returns None if qwen_tts not installed or GPU unavailable.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -30,29 +32,82 @@ logger = logging.getLogger(__name__)
 # ─── Speaker Catalog ───────────────────────────────────────
 
 QWEN_SPEAKERS = {
-    "Vivian":    {"description": "Bright, slightly edgy young female voice",        "native": "Chinese", "gender": "female", "age": "young"},
-    "Serena":    {"description": "Warm, gentle young female voice",                 "native": "Chinese", "gender": "female", "age": "young"},
-    "Uncle_Fu":  {"description": "Seasoned male voice with a low, mellow timbre",   "native": "Chinese", "gender": "male",   "age": "senior"},
-    "Dylan":     {"description": "Youthful Beijing male voice, clear and natural",  "native": "Chinese (Beijing)", "gender": "male", "age": "young"},
-    "Eric":      {"description": "Lively Chengdu male voice, slightly husky",       "native": "Chinese (Sichuan)", "gender": "male", "age": "young"},
-    "Ryan":      {"description": "Dynamic male voice with strong rhythmic drive",   "native": "English", "gender": "male",   "age": "adult"},
-    "Aiden":     {"description": "Sunny American male voice with a clear midrange", "native": "English", "gender": "male",   "age": "young"},
-    "Ono_Anna":  {"description": "Playful Japanese female voice, light and nimble", "native": "Japanese","gender": "female", "age": "young"},
-    "Sohee":     {"description": "Warm Korean female voice with rich emotion",      "native": "Korean",  "gender": "female", "age": "young"},
+    "Vivian": {
+        "description": "Bright, slightly edgy young female voice",
+        "native": "Chinese",
+        "gender": "female",
+        "age": "young",
+    },
+    "Serena": {
+        "description": "Warm, gentle young female voice",
+        "native": "Chinese",
+        "gender": "female",
+        "age": "young",
+    },
+    "Uncle_Fu": {
+        "description": "Seasoned male voice with a low, mellow timbre",
+        "native": "Chinese",
+        "gender": "male",
+        "age": "senior",
+    },
+    "Dylan": {
+        "description": "Youthful Beijing male voice, clear and natural",
+        "native": "Chinese (Beijing)",
+        "gender": "male",
+        "age": "young",
+    },
+    "Eric": {
+        "description": "Lively Chengdu male voice, slightly husky",
+        "native": "Chinese (Sichuan)",
+        "gender": "male",
+        "age": "young",
+    },
+    "Ryan": {
+        "description": "Dynamic male voice with strong rhythmic drive",
+        "native": "English",
+        "gender": "male",
+        "age": "adult",
+    },
+    "Aiden": {
+        "description": "Sunny American male voice with a clear midrange",
+        "native": "English",
+        "gender": "male",
+        "age": "young",
+    },
+    "Ono_Anna": {
+        "description": "Playful Japanese female voice, light and nimble",
+        "native": "Japanese",
+        "gender": "female",
+        "age": "young",
+    },
+    "Sohee": {
+        "description": "Warm Korean female voice with rich emotion",
+        "native": "Korean",
+        "gender": "female",
+        "age": "young",
+    },
 }
 
 QWEN_LANGUAGES = [
-    "Chinese", "English", "Japanese", "Korean",
-    "German", "French", "Russian", "Portuguese", "Spanish", "Italian",
+    "Chinese",
+    "English",
+    "Japanese",
+    "Korean",
+    "German",
+    "French",
+    "Russian",
+    "Portuguese",
+    "Spanish",
+    "Italian",
 ]
 
 # Recommend speakers for ritual/spiritual content
 RITUAL_SPEAKERS = {
-    "buddhist_chant":    "Uncle_Fu",   # Deep, seasoned — sutra recitation
-    "compassionate":     "Serena",     # Warm, gentle — blessings
-    "meditation_guide":  "Vivian",     # Clear, bright — guided meditation
-    "dharma_teaching":   "Dylan",      # Natural Beijing — dharma talks
-    "english_blessing":  "Ryan",       # Dynamic English — universal blessings
+    "buddhist_chant": "Uncle_Fu",  # Deep, seasoned — sutra recitation
+    "compassionate": "Serena",  # Warm, gentle — blessings
+    "meditation_guide": "Vivian",  # Clear, bright — guided meditation
+    "dharma_teaching": "Dylan",  # Natural Beijing — dharma talks
+    "english_blessing": "Ryan",  # Dynamic English — universal blessings
 }
 
 # Voice design presets for Vajra.Stream use cases
@@ -82,9 +137,11 @@ VOICE_DESIGN_PRESETS = {
 
 # ─── Qwen3-TTS Wrapper ─────────────────────────────────────
 
+
 @dataclass
 class QwenTTSConfig:
     """Configuration for Qwen3-TTS model."""
+
     model_name: str = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
     device: str = "cuda:0"  # "cuda:0", "cpu", "auto"
     dtype: str = "bfloat16"  # "bfloat16", "float16", "float32"
@@ -129,11 +186,12 @@ class QwenTTSEngine:
         """Probe for qwen_tts package and GPU (CUDA/ROCm) availability."""
         try:
             import torch
+
             has_gpu = torch.cuda.is_available()
             if has_gpu:
                 device_name = torch.cuda.get_device_name(0) or "Unknown GPU"
                 # Detect ROCm vs CUDA
-                if hasattr(torch.version, 'hip') and torch.version.hip is not None:
+                if hasattr(torch.version, "hip") and torch.version.hip is not None:
                     logger.info(f"AMD ROCm detected: {device_name} (HIP {torch.version.hip})")
                 else:
                     logger.info(f"NVIDIA CUDA detected: {device_name}")
@@ -145,6 +203,7 @@ class QwenTTSEngine:
 
         try:
             import qwen_tts  # noqa: F401
+
             return True  # Package available — can run on CPU or GPU
         except ImportError:
             logger.info("qwen_tts not installed. Install with: pip install qwen-tts")
@@ -155,10 +214,11 @@ class QwenTTSEngine:
         info = {"gpu_available": False, "backend": "cpu", "devices": []}
         try:
             import torch
+
             if torch.cuda.is_available():
                 info["gpu_available"] = True
                 # Detect ROCm vs CUDA
-                if hasattr(torch.version, 'hip') and torch.version.hip is not None:
+                if hasattr(torch.version, "hip") and torch.version.hip is not None:
                     info["backend"] = "ROCm"
                     info["hip_version"] = torch.version.hip
                 else:
@@ -166,12 +226,14 @@ class QwenTTSEngine:
                     info["cuda_version"] = torch.version.cuda
                 for i in range(torch.cuda.device_count()):
                     props = torch.cuda.get_device_properties(i)
-                    info["devices"].append({
-                        "id": i,
-                        "name": torch.cuda.get_device_name(i),
-                        "vram_gb": round(props.total_mem / 1e9, 1),
-                        "compute": f"{props.major}.{props.minor}",
-                    })
+                    info["devices"].append(
+                        {
+                            "id": i,
+                            "name": torch.cuda.get_device_name(i),
+                            "vram_gb": round(props.total_mem / 1e9, 1),
+                            "compute": f"{props.major}.{props.minor}",
+                        }
+                    )
         except ImportError:
             pass
         return info
@@ -188,7 +250,7 @@ class QwenTTSEngine:
         if device == "auto":
             if torch.cuda.is_available():
                 device = "cuda:0"  # Works for both CUDA (NVIDIA) and ROCm (AMD)
-                backend = "ROCm" if (hasattr(torch.version, 'hip') and torch.version.hip) else "CUDA"
+                backend = "ROCm" if (hasattr(torch.version, "hip") and torch.version.hip) else "CUDA"
                 logger.info(f"Auto-selected GPU: {torch.cuda.get_device_name(0)} ({backend})")
             else:
                 device = "cpu"
@@ -229,10 +291,7 @@ class QwenTTSEngine:
 
     def get_supported_speakers(self) -> list[dict[str, Any]]:
         """Return available speakers with descriptions."""
-        return [
-            {"id": name, **info}
-            for name, info in QWEN_SPEAKERS.items()
-        ]
+        return [{"id": name, **info} for name, info in QWEN_SPEAKERS.items()]
 
     def get_supported_languages(self) -> list[str]:
         """Return supported languages."""
@@ -252,7 +311,7 @@ class QwenTTSEngine:
         speaker: str | None = None,
         language: str | None = None,
         instruct: str | None = None,
-    ) -> "tuple[np.ndarray, int] | list[tuple[np.ndarray, int]] | None":
+    ) -> tuple[Any, int] | list[tuple[Any, int]] | None:
         """
         Generate speech from text using Qwen3-TTS CustomVoice model.
 
@@ -295,7 +354,7 @@ class QwenTTSEngine:
         texts: list[str],
         speaker: str | None = None,
         language: str | None = None,
-    ) -> "list[tuple[np.ndarray, int]] | None":
+    ) -> list[tuple[Any, int]] | None:
         """
         Generate speech for multiple texts in one GPU pass (much faster than sequential).
 
@@ -308,7 +367,7 @@ class QwenTTSEngine:
         text: str,
         instruct: str,
         language: str = "Chinese",
-    ) -> "tuple[np.ndarray, int] | None":
+    ) -> tuple[Any, int] | None:
         """
         Generate speech using voice design — describe the voice in natural language.
 
@@ -344,10 +403,10 @@ class QwenTTSEngine:
     def clone_voice(
         self,
         text: str,
-        ref_audio: "str | np.ndarray",
+        ref_audio: str | Any,
         ref_text: str = "",
         language: str = "Chinese",
-    ) -> "tuple[np.ndarray, int] | None":
+    ) -> tuple[Any, int] | None:
         """
         Clone a voice from a reference audio sample and speak new text.
 

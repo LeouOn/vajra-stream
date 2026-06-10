@@ -1,7 +1,6 @@
-import asyncio
-from backend.core.services.geocoding_service import geocoding_service
 from backend.core.services.astrology_chart_service import astrology_chart_service
-import json
+from backend.core.services.geocoding_service import geocoding_service
+
 
 def test():
     print("Testing Geocoding...")
@@ -24,13 +23,13 @@ def test():
 
     print("\nTesting Synastry...")
     synastry = astrology_chart_service.get_synastry(
-        "User1", "1990-05-15T14:30:00Z", "Los Angeles",
-        "User2", "1992-08-23T08:15:00Z", "New York"
+        "User1", "1990-05-15T14:30:00Z", "Los Angeles", "User2", "1992-08-23T08:15:00Z", "New York"
     )
     if "data" in synastry:
         print(f"Synastry Aspects Count: {len(synastry['data']['aspects'])}")
     else:
         print(f"Synastry error: {synastry}")
+
 
 if __name__ == "__main__":
     test()

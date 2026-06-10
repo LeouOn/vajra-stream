@@ -285,6 +285,7 @@ class BlessingDatabase:
         constructor is a true no-op.
         """
         from core.schema import init_db as _core_init_db
+
         _core_init_db()
 
     def add_target(self, target: BlessingTarget):

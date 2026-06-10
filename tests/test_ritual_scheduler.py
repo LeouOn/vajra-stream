@@ -8,13 +8,14 @@ Covers:
 - start/stop state transitions (no actual loop run)
 - _is_timing_good_enough (currently always True - documents behavior)
 """
+
 import asyncio
+
 import pytest
-from unittest.mock import patch
 
 from core.ritual_engine import (
-    RitualScheduler,
     EngineState,
+    RitualScheduler,
 )
 
 
@@ -25,6 +26,7 @@ def scheduler() -> RitualScheduler:
 
 
 # --- update_config ---
+
 
 def test_update_config_merges_new_keys(scheduler: RitualScheduler):
     scheduler.update_config(tts_enabled=False, max_per_hour=5)
@@ -51,6 +53,7 @@ def test_update_config_can_add_arbitrary_keys(scheduler: RitualScheduler):
 
 # --- _is_timing_good_enough ---
 
+
 def test_is_timing_good_enough_currently_always_true(scheduler: RitualScheduler):
     """Documents current behavior: this method is a placeholder that
     always allows execution. The PracticeSelector handles scoring.
@@ -63,6 +66,7 @@ def test_is_timing_good_enough_currently_always_true(scheduler: RitualScheduler)
 
 
 # --- _get_upcoming_schedule ---
+
 
 def test_get_upcoming_schedule_returns_24_hours(scheduler: RitualScheduler):
     schedule = scheduler._get_upcoming_schedule()
@@ -107,11 +111,19 @@ def test_get_upcoming_schedule_favorable_genres_is_list(scheduler: RitualSchedul
 
 # --- status property ---
 
+
 def test_status_shape_keys(scheduler: RitualScheduler):
     s = scheduler.status
     expected_keys = {
-        "state", "current_ritual", "rituals_today", "total_merit_today",
-        "current_hour", "rituals_this_hour", "config", "history", "schedule",
+        "state",
+        "current_ritual",
+        "rituals_today",
+        "total_merit_today",
+        "current_hour",
+        "rituals_this_hour",
+        "config",
+        "history",
+        "schedule",
     }
     assert set(s.keys()) == expected_keys
 
@@ -140,6 +152,7 @@ def test_status_reflects_in_memory_counter_changes(scheduler: RitualScheduler):
 
 
 # --- start/stop state transitions ---
+
 
 def test_initial_state_is_stopped(scheduler: RitualScheduler):
     assert scheduler.state == EngineState.STOPPED

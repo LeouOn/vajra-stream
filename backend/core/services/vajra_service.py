@@ -160,7 +160,7 @@ class VajraStreamService:
         """Generate specialized chakra healing audio"""
         try:
             print(f"Generating chakra audio for: {chakra_name}")
-            if hasattr(self, 'audio_generator') and self.audio_generator:
+            if hasattr(self, "audio_generator") and self.audio_generator:
                 audio_data = self.audio_generator.generate_chakra_healing(chakra_name, duration)
                 self.current_audio_data = audio_data
                 self._update_audio_spectrum(audio_data)
@@ -169,8 +169,13 @@ class VajraStreamService:
                 # Fallback to base configuration if enhanced generator not found
                 # Basic frequency mapping fallback
                 freqs = {
-                    "root": 396.0, "sacral": 417.0, "solar_plexus": 528.0,
-                    "heart": 639.0, "throat": 741.0, "third_eye": 852.0, "crown": 963.0
+                    "root": 396.0,
+                    "sacral": 417.0,
+                    "solar_plexus": 528.0,
+                    "heart": 639.0,
+                    "throat": 741.0,
+                    "third_eye": 852.0,
+                    "crown": 963.0,
                 }
                 config = AudioConfig(frequency=freqs.get(chakra_name.lower(), 528.0), duration=duration)
                 return await self.generate_prayer_bowl_audio(config)
@@ -434,9 +439,10 @@ class VajraStreamService:
     async def _broadcast_loop(self):
         """Periodically emit RADIONICS_RATE_BROADCAST and SCALAR_WAVE_ACTIVE to WebSocket clients, and publish RNGReadingEvent."""
         import random
+        import uuid
+
         from backend.core.services.rng_attunement_service import get_rng_service
         from modules.interfaces import RNGReadingEvent
-        import uuid
 
         idle_count = 0
         while True:
@@ -473,7 +479,7 @@ class VajraStreamService:
                 if rng_sessions:
                     session_id = rng_sessions[-1]
                     latest_reading = rng_service.get_reading(session_id)
-                    
+
                     if latest_reading and self.event_bus:
                         # Publish DomainEvent for the Autonomous Agent
                         event = RNGReadingEvent(
@@ -482,11 +488,11 @@ class VajraStreamService:
                             session_id=session_id,
                             coherence=latest_reading.coherence,
                             entropy=latest_reading.entropy,
-                            floating_needle_score=latest_reading.floating_needle_score
+                            floating_needle_score=latest_reading.floating_needle_score,
                         )
                         try:
                             self.event_bus.publish(event)
-                            
+
                             # Also broadcast to frontend WebSockets for the UI
                             await stable_connection_manager_v2.broadcast(
                                 {
@@ -500,7 +506,7 @@ class VajraStreamService:
                                         "needle_position": latest_reading.needle_position,
                                         "needle_state": latest_reading.needle_state,
                                         "trend": latest_reading.trend,
-                                        "quality": latest_reading.quality
+                                        "quality": latest_reading.quality,
                                     },
                                     "timestamp": time.time(),
                                 }
@@ -511,6 +517,7 @@ class VajraStreamService:
                 # Emit Buddha Recitation status if running
                 try:
                     from core.buddha_recitation_loop import get_recitation_loop
+
                     loop = get_recitation_loop()
                     status = loop.get_status()
                     if status.get("running"):
@@ -527,6 +534,7 @@ class VajraStreamService:
                 # Emit Saka Dawa Status
                 try:
                     from core.auspicious_timing import check_saka_dawa
+
                     saka_dawa_status = check_saka_dawa()
                     await stable_connection_manager_v2.broadcast(
                         {
@@ -541,7 +549,7 @@ class VajraStreamService:
                 # Emit RADIONICS_RATE_BROADCAST for each running session
                 for session in running:
                     cfg = session.get("config")
-                    freq = getattr(getattr(cfg, 'audio_config', None), 'frequency', 528.0)
+                    freq = getattr(getattr(cfg, "audio_config", None), "frequency", 528.0)
                     rate = round((freq % 100) + random.uniform(-2, 2), 2)
                     await stable_connection_manager_v2.broadcast(
                         {

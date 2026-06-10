@@ -123,8 +123,6 @@ async def test_api_endpoints():
     print("=" * 60)
 
     try:
-        import json
-
         import aiohttp
 
         # Test the generate endpoint

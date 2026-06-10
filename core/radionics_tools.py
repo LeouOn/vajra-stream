@@ -666,7 +666,16 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
                 "properties": {
                     "genre": {
                         "type": "string",
-                        "enum": ["healing", "victory", "wisdom", "purification", "compassion", "prosperity", "protection", "creativity"],
+                        "enum": [
+                            "healing",
+                            "victory",
+                            "wisdom",
+                            "purification",
+                            "compassion",
+                            "prosperity",
+                            "protection",
+                            "creativity",
+                        ],
                         "description": "The ritual genre to check timing for.",
                     },
                 },

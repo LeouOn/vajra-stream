@@ -142,7 +142,7 @@ class CharacterJourney:
 
         return {
             "status": "journey_begun",
-            "character": character.to_dict() if hasattr(character, 'to_dict') else character,
+            "character": character.to_dict() if hasattr(character, "to_dict") else character,
             "stages_total": len(STAGE_CONFIG),
             "first_stage": STAGE_CONFIG[0]["name"],
         }
@@ -151,7 +151,9 @@ class CharacterJourney:
         """Broadcast a journey event to all WebSocket clients."""
         try:
             import asyncio
+
             from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+
             payload = {"type": event_type, "data": data, "timestamp": time.time()}
             try:
                 loop = asyncio.get_event_loop()
@@ -169,16 +171,23 @@ class CharacterJourney:
 
         stage_cfg = STAGE_CONFIG[self._current_stage_index]
         # Broadcast stage start
-        self._broadcast_ws("JOURNEY_STAGE_STARTED", {
-            "stage": stage_cfg["stage"].value, "name": stage_cfg["name"],
-            "character": self._character.to_dict() if hasattr(self._character, 'to_dict') and self._character else {},
-        })
+        self._broadcast_ws(
+            "JOURNEY_STAGE_STARTED",
+            {
+                "stage": stage_cfg["stage"].value,
+                "name": stage_cfg["name"],
+                "character": self._character.to_dict()
+                if hasattr(self._character, "to_dict") and self._character
+                else {},
+            },
+        )
         # Part 2: The World Reacts Model (Astrological Reactivity)
         from core.auspicious_timing import check_auspicious_window
+
         window = check_auspicious_window("wisdom")
-        
+
         elemental_bonus = ""
-        if hasattr(self._character, 'element') and isinstance(self._character.element, dict):
+        if hasattr(self._character, "element") and isinstance(self._character.element, dict):
             el_name = self._character.element.get("name", "")
             # Simple favorable mapping
             favorable_map = {
@@ -187,20 +196,20 @@ class CharacterJourney:
                 "Earth": ["Saturn", "Venus", "Moon"],
                 "Air": ["Mercury", "Jupiter"],
                 "Wood": ["Jupiter", "Venus"],
-                "Metal": ["Saturn", "Mars"]
+                "Metal": ["Saturn", "Mars"],
             }
             if window.planetary_hour in favorable_map.get(el_name, []):
                 elemental_bonus = f" [SYNCHRONICITY BONUS: The planetary hour of {window.planetary_hour} perfectly aligns with their {el_name} nature, warping reality to aid them.]"
             else:
                 elemental_bonus = f" [SHADOW TRIAL: The planetary hour of {window.planetary_hour} actively resists their {el_name} nature. The environment turns hostile.]"
-                
+
         intention = f"{self._character.name}'s {stage_cfg['name']}: {stage_cfg['blessing_theme']}{elemental_bonus}"
 
         # Start ritual for this stage
         self._sequencer.start(
             intention=intention,
             tradition="universal",
-            character=self._character.to_dict() if hasattr(self._character, 'to_dict') else {},
+            character=self._character.to_dict() if hasattr(self._character, "to_dict") else {},
         )
 
         # Run through all 4 phases
@@ -226,11 +235,11 @@ class CharacterJourney:
 
         # Apply stat growth
         for stat, growth in stage_cfg.get("stat_growth", {}).items():
-            if hasattr(self._character, 'stats') and stat in self._character.stats:
+            if hasattr(self._character, "stats") and stat in self._character.stats:
                 self._character.stats[stat] = min(10, self._character.stats[stat] + growth)
 
         # Shift frequency for next stage
-        if hasattr(self._character, 'frequency'):
+        if hasattr(self._character, "frequency"):
             shift = stage_cfg.get("frequency_shift", 0)
             sacred = [136.1, 396, 417, 528, 639, 741, 852, 963]
             current = self._character.frequency + shift
@@ -242,16 +251,28 @@ class CharacterJourney:
 
         if self.is_complete:
             self._journey_completed = datetime.now().isoformat()
-            self._broadcast_ws("JOURNEY_COMPLETED", {
-                "total_stages": len(STAGE_CONFIG), "total_blessings": self._total_blessings,
-                "character": self._character.to_dict() if hasattr(self._character, 'to_dict') and self._character else {},
-            })
+            self._broadcast_ws(
+                "JOURNEY_COMPLETED",
+                {
+                    "total_stages": len(STAGE_CONFIG),
+                    "total_blessings": self._total_blessings,
+                    "character": self._character.to_dict()
+                    if hasattr(self._character, "to_dict") and self._character
+                    else {},
+                },
+            )
         else:
-            self._broadcast_ws("JOURNEY_STAGE_COMPLETED", {
-                "stage": result["stage"], "name": result["name"],
-                "blessings_count": result["blessings_count"],
-                "next_stage": STAGE_CONFIG[self._current_stage_index]["name"] if self._current_stage_index < len(STAGE_CONFIG) else None,
-            })
+            self._broadcast_ws(
+                "JOURNEY_STAGE_COMPLETED",
+                {
+                    "stage": result["stage"],
+                    "name": result["name"],
+                    "blessings_count": result["blessings_count"],
+                    "next_stage": STAGE_CONFIG[self._current_stage_index]["name"]
+                    if self._current_stage_index < len(STAGE_CONFIG)
+                    else None,
+                },
+            )
 
         return result
 
@@ -259,7 +280,7 @@ class CharacterJourney:
         """Collect the final journey results."""
         return {
             "status": "complete" if self.is_complete else "in_progress",
-            "character": self._character.to_dict() if hasattr(self._character, 'to_dict') else self._character,
+            "character": self._character.to_dict() if hasattr(self._character, "to_dict") else self._character,
             "stages_completed": self._current_stage_index,
             "stages_total": len(STAGE_CONFIG),
             "stage_results": self._stage_results,
@@ -283,7 +304,7 @@ class CharacterJourney:
     def _on_preparation(self, event: str, state, operator):
         if event == "enter":
             # Generate a blessing for the preparation
-            if operator and hasattr(operator, 'generate_next_blessing'):
+            if operator and hasattr(operator, "generate_next_blessing"):
                 blessing = operator.generate_next_blessing()
                 if blessing:
                     state.blessings.append(blessing.get("text", ""))
@@ -300,7 +321,7 @@ class CharacterJourney:
         if event == "enter" and operator:
             # Try to forge a sigil for the character
             try:
-                if hasattr(operator, '_container') and operator._container:
+                if hasattr(operator, "_container") and operator._container:
                     name = state.character.get("name", "character") if state.character else "character"
                     operator._container.radionics.broadcast_healing(
                         target_name=name,
@@ -313,7 +334,7 @@ class CharacterJourney:
     def _on_dedication(self, event: str, state, operator):
         if event == "enter":
             # Generate final dedication blessing
-            if operator and hasattr(operator, 'generate_next_blessing'):
+            if operator and hasattr(operator, "generate_next_blessing"):
                 blessing = operator.generate_next_blessing()
                 if blessing:
                     state.blessings.append(f"Dedication: {blessing.get('text', 'May all beings benefit.')}")

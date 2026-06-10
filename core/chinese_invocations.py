@@ -11,19 +11,19 @@ CHINESE_INVOCATIONS = {
             "chinese": "道可道，非常道；名可名，非常名。",
             "pinyin": "Dào kě dào, fēi cháng dào; míng kě míng, fēi cháng míng.",
             "translation": "The Dao that can be spoken is not the eternal Dao; the name that can be named is not the eternal name.",
-            "source": "道德经 (Dào Dé Jīng), Chapter 1"
+            "source": "道德经 (Dào Dé Jīng), Chapter 1",
         },
         {
             "chinese": "太上老君，急急如律令！",
             "pinyin": "Tài Shàng Lǎo Jūn, jí jí rú lǜ lìng!",
             "translation": "By the command of the Most High Lord Lao, swiftly, swiftly, in accordance with the statutes and ordinances!",
-            "source": "Daoist Ritual Invocation"
+            "source": "Daoist Ritual Invocation",
         },
         {
             "chinese": "天地玄宗，万炁本根。",
             "pinyin": "Tiān dì xuán zōng, wàn qì běn gēn.",
             "translation": "The profound origin of Heaven and Earth, the root source of all vital energies.",
-            "source": "金光神咒 (Golden Light Spirit Spell)"
+            "source": "金光神咒 (Golden Light Spirit Spell)",
         },
     ],
     "purification": [
@@ -31,13 +31,13 @@ CHINESE_INVOCATIONS = {
             "chinese": "太上台星，应变无停。驱邪缚魅，保命护身。",
             "pinyin": "Tài shàng tái xīng, yìng biàn wú tíng. Qū xié fù mèi, bǎo mìng hù shēn.",
             "translation": "The celestial stars of the Most High respond without ceasing. Expel evil, bind demons, protect life, guard the body.",
-            "source": "净心神咒 (Heart-Purifying Spell)"
+            "source": "净心神咒 (Heart-Purifying Spell)",
         },
         {
             "chinese": "灵宝天尊，安慰身形。弟子魂魄，五脏玄冥。",
             "pinyin": "Líng bǎo tiān zūn, ān wèi shēn xíng. Dì zǐ hún pò, wǔ zàng xuán míng.",
             "translation": "Celestial Worthy of Numinous Treasure, comfort my form. May this disciple's hun and po, and the five organs, be mysteriously tranquil.",
-            "source": "净身神咒 (Body-Purifying Spell)"
+            "source": "净身神咒 (Body-Purifying Spell)",
         },
     ],
     "dedication": [
@@ -45,19 +45,19 @@ CHINESE_INVOCATIONS = {
             "chinese": "愿以此功德，庄严佛净土。上报四重恩，下济三途苦。",
             "pinyin": "Yuàn yǐ cǐ gōng dé, zhuāng yán fó jìng tǔ. Shàng bào sì chóng ēn, xià jì sān tú kǔ.",
             "translation": "May the merit of this practice adorn the Buddha's Pure Land. Repay the fourfold kindness above, relieve the suffering of the three paths below.",
-            "source": "回向偈 (Dedication Verse)"
+            "source": "回向偈 (Dedication Verse)",
         },
         {
             "chinese": "若有见闻者，悉发菩提心。尽此一报身，同生极乐国。",
             "pinyin": "Ruò yǒu jiàn wén zhě, xī fā pú tí xīn. Jǐn cǐ yī bào shēn, tóng shēng jí lè guó.",
             "translation": "May all who see and hear this give rise to bodhicitta. When this life of retribution ends, may we together be born in the Land of Ultimate Bliss.",
-            "source": "回向偈 (Dedication Verse)"
+            "source": "回向偈 (Dedication Verse)",
         },
         {
             "chinese": "功德回向法界一切众生，同证无上正等正觉。",
             "pinyin": "Gōng dé huí xiàng fǎ jiè yī qiè zhòng shēng, tóng zhèng wú shàng zhèng děng zhèng jué.",
             "translation": "Dedicate all merit to every sentient being throughout the Dharma realm; may all together realize unsurpassed, perfect enlightenment.",
-            "source": "大乘回向 (Mahayana Dedication)"
+            "source": "大乘回向 (Mahayana Dedication)",
         },
     ],
     "blessing": [
@@ -65,13 +65,13 @@ CHINESE_INVOCATIONS = {
             "chinese": "福生无量天尊",
             "pinyin": "Fú shēng wú liàng tiān zūn",
             "translation": "May the Celestial Worthy grant boundless blessings",
-            "source": "Daoist Blessing"
+            "source": "Daoist Blessing",
         },
         {
             "chinese": "消灾延寿药师佛",
             "pinyin": "Xiāo zāi yán shòu yào shī fó",
             "translation": "May the Medicine Buddha dispel disasters and extend life",
-            "source": "Medicine Buddha invocation"
+            "source": "Medicine Buddha invocation",
         },
     ],
     "sealing": [
@@ -79,7 +79,7 @@ CHINESE_INVOCATIONS = {
             "chinese": "天圆地方，律令九章。吾今封印，万邪不侵。",
             "pinyin": "Tiān yuán dì fāng, lǜ lìng jiǔ zhāng. Wú jīn fēng yìn, wàn xié bù qīn.",
             "translation": "Heaven is round, Earth is square, the statutes have nine chapters. I now seal this; no evil of any kind shall intrude.",
-            "source": "封印咒 (Sealing Spell)"
+            "source": "封印咒 (Sealing Spell)",
         },
     ],
 }

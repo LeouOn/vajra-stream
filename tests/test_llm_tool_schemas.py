@@ -1,9 +1,9 @@
 """Tests for the 3 new tool schemas added to backend/core/llm_agent/tools.py:
 get_current_slide, stop_slideshow, update_population."""
+
 import pytest
 
 from backend.core.llm_agent.tools import get_tool_schemas
-
 
 NEW_TOOL_NAMES = ["get_current_slide", "stop_slideshow", "update_population"]
 
@@ -20,9 +20,7 @@ def new_schemas(all_schemas):
 
 
 def test_all_three_new_tools_are_registered(new_schemas):
-    assert set(new_schemas.keys()) == set(NEW_TOOL_NAMES), (
-        f"expected {NEW_TOOL_NAMES}, got {list(new_schemas.keys())}"
-    )
+    assert set(new_schemas.keys()) == set(NEW_TOOL_NAMES), f"expected {NEW_TOOL_NAMES}, got {list(new_schemas.keys())}"
 
 
 def test_get_current_slide_requires_session_id(new_schemas):

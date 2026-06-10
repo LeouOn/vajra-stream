@@ -101,6 +101,7 @@ class RNGReadingEvent(DomainEvent):
     entropy: float
     floating_needle_score: float
 
+
 # ============================================================================
 # Module Interfaces (Ports)
 # ============================================================================

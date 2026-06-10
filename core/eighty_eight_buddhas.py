@@ -10,10 +10,10 @@ Usage:
     service = EightyEightBuddhas()
     # Get a random Buddha for contemplation
     buddha = service.random_buddha()
-    
+
     # Generate a narrative about a specific Buddha
     story = service.generate_buddha_narrative("Shakyamuni", llm=operator.creative_llm)
-    
+
     # Get the full confession sequence
     sequence = service.get_confession_sequence()
 """
@@ -30,6 +30,7 @@ from typing import Any
 @dataclass
 class BuddhaEntry:
     """A single Buddha from the 88-Buddha collection."""
+
     index: int
     name_chinese: str
     name_pinyin: str
@@ -71,17 +72,19 @@ class EightyEightBuddhas:
                 if isinstance(b, dict):
                     group = b.get("group", "confession")
                     category = "past" if group == "fifty_three" else "confession"
-                    self._buddhas.append(BuddhaEntry(
-                        index=b.get("index", 0),
-                        name_chinese=b.get("chinese", b.get("name_chinese", "")),
-                        name_pinyin=b.get("pinyin", b.get("name_pinyin", "")),
-                        name_sanskrit=b.get("sanskrit", b.get("name_sanskrit", "")),
-                        category=category,
-                        meaning=b.get("meaning", ""),
-                        realm=b.get("quality", b.get("realm", "")),
-                        light=b.get("quality", b.get("light", "")),
-                        epithet=b.get("translation", ""),
-                    ))
+                    self._buddhas.append(
+                        BuddhaEntry(
+                            index=b.get("index", 0),
+                            name_chinese=b.get("chinese", b.get("name_chinese", "")),
+                            name_pinyin=b.get("pinyin", b.get("name_pinyin", "")),
+                            name_sanskrit=b.get("sanskrit", b.get("name_sanskrit", "")),
+                            category=category,
+                            meaning=b.get("meaning", ""),
+                            realm=b.get("quality", b.get("realm", "")),
+                            light=b.get("quality", b.get("light", "")),
+                            epithet=b.get("translation", ""),
+                        )
+                    )
 
     # ─── Public API ───────────────────────────────────────────
 
@@ -165,7 +168,11 @@ class EightyEightBuddhas:
 
         if depth == "brief":
             text = self._brief_narrative(buddha)
-        elif narrative_llm and hasattr(narrative_llm, 'generate') and (hasattr(narrative_llm, 'client') or hasattr(narrative_llm, 'local_model')):
+        elif (
+            narrative_llm
+            and hasattr(narrative_llm, "generate")
+            and (hasattr(narrative_llm, "client") or hasattr(narrative_llm, "local_model"))
+        ):
             text = self._llm_narrative(buddha, narrative_llm, depth)
         else:
             text = self._contemplation_narrative(buddha)
@@ -201,18 +208,22 @@ class EightyEightBuddhas:
 
         narratives = []
         for buddha in selected:
-            narratives.append({
-                "name": buddha.name_chinese,
-                "pinyin": buddha.name_pinyin,
-                "meaning": buddha.meaning,
-                "narrative": self._contemplation_narrative(buddha),
-            })
+            narratives.append(
+                {
+                    "name": buddha.name_chinese,
+                    "pinyin": buddha.name_pinyin,
+                    "meaning": buddha.meaning,
+                    "narrative": self._contemplation_narrative(buddha),
+                }
+            )
 
         # Compose the full liturgy
         liturgy_parts = []
         liturgy_parts.append("八十八佛大懺悔文")
         liturgy_parts.append("The Great Repentance of the 88 Buddhas\n")
-        liturgy_parts.append(f"Intention: {intention or 'purification of all negative karma accumulated since beginningless time'}\n")
+        liturgy_parts.append(
+            f"Intention: {intention or 'purification of all negative karma accumulated since beginningless time'}\n"
+        )
 
         liturgy_parts.append("─" * 50)
         liturgy_parts.append("I. OPENING ASPIRATION")
@@ -242,7 +253,9 @@ class EightyEightBuddhas:
 
         return {
             "title": "88-Buddha Repentance Liturgy",
-            "selected_buddhas": [{"name": b.name_chinese, "pinyin": b.name_pinyin, "meaning": b.meaning} for b in selected],
+            "selected_buddhas": [
+                {"name": b.name_chinese, "pinyin": b.name_pinyin, "meaning": b.meaning} for b in selected
+            ],
             "liturgy": "\n".join(liturgy_parts),
             "narratives": narratives,
             "total_buddhas": len(self._buddhas),
@@ -251,17 +264,27 @@ class EightyEightBuddhas:
 
     def explore_by_element(self, element: str = "Fire") -> list[BuddhaEntry]:
         """Find Buddhas associated with a specific Wu Xing element."""
-        return [b for b in self._buddhas if element.lower() in (b.light or "").lower() or element.lower() in (b.realm or "").lower()]
+        return [
+            b
+            for b in self._buddhas
+            if element.lower() in (b.light or "").lower() or element.lower() in (b.realm or "").lower()
+        ]
 
     def explore_by_realm(self, realm_keyword: str = "purification") -> list[BuddhaEntry]:
         """Find Buddhas associated with a specific realm or quality."""
-        return [b for b in self._buddhas if realm_keyword.lower() in (b.realm or "").lower() + " " + (b.meaning or "").lower()]
+        return [
+            b
+            for b in self._buddhas
+            if realm_keyword.lower() in (b.realm or "").lower() + " " + (b.meaning or "").lower()
+        ]
 
     # ─── Internal Narrative Builders ─────────────────────────
 
     def _brief_narrative(self, buddha: BuddhaEntry) -> str:
         """Generate a brief 2-line narrative."""
-        category_text = "past Buddha who appeared in the world" if buddha.category == "past" else "confession Buddha who purifies"
+        category_text = (
+            "past Buddha who appeared in the world" if buddha.category == "past" else "confession Buddha who purifies"
+        )
         return (
             f"{buddha.name_chinese} ({buddha.name_sanskrit}) is a {category_text}."
             f"{' Their name means: ' + buddha.meaning + '.' if buddha.meaning else ''}"
@@ -280,16 +303,16 @@ class EightyEightBuddhas:
             f"Contemplate {name} ({buddha.name_pinyin}), a transcendent Buddha {category},",
         ]
         if meaning:
-            parts.append(f"whose sacred name means \"{meaning}.\"")
+            parts.append(f'whose sacred name means "{meaning}."')
         if light:
             parts.append(f"From their body emanates {light},")
         if realm:
             parts.append(f"illuminating the {realm}.")
         parts.append(
-            f"As you recite their name with sincere devotion,"
-            f" visualize this Buddha before you, radiating boundless compassion."
-            f" Every negative karma you have ever created dissolves like mist before the rising sun."
-            f" Feel the warmth of their blessing permeate every cell of your being."
+            "As you recite their name with sincere devotion,"
+            " visualize this Buddha before you, radiating boundless compassion."
+            " Every negative karma you have ever created dissolves like mist before the rising sun."
+            " Feel the warmth of their blessing permeate every cell of your being."
         )
 
         return " ".join(parts)

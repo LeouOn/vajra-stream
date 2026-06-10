@@ -11,6 +11,7 @@ from container import container
 def client():
     return TestClient(app)
 
+
 @patch("openai.OpenAI")
 def test_outlook_api_e2e_lm_studio(mock_openai_cls, client):
     # Setup mock

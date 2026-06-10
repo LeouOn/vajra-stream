@@ -5,13 +5,13 @@ Covers:
   updates work via model_dump(exclude_none=True))
 - Router registration: all expected routes are mounted
 """
+
 import pytest
-from fastapi.testclient import TestClient
 
 from backend.app.api.v1.endpoints.ritual_engine import (
-    RitualConfigUpdate, router,
+    RitualConfigUpdate,
+    router,
 )
-
 
 EXPECTED_ROUTES = [
     ("GET", "/status"),
@@ -75,20 +75,12 @@ class TestRitualConfigUpdate:
 
 class TestRitualEngineRoutes:
     def test_all_expected_routes_are_registered(self):
-        actual_routes = [
-            (frozenset(r.methods), r.path)
-            for r in router.routes if hasattr(r, "methods")
-        ]
+        actual_routes = [(frozenset(r.methods), r.path) for r in router.routes if hasattr(r, "methods")]
         for method, path in EXPECTED_ROUTES:
             method_set = frozenset({method} if method != "GET" else ["GET", "HEAD"])
-            found = any(
-                (r_methods & method_set) and r_path == path
-                for r_methods, r_path in actual_routes
-            )
+            found = any((r_methods & method_set) and r_path == path for r_methods, r_path in actual_routes)
             assert found, f"missing route {method} {path} in ritual_engine router"
 
     def test_router_has_seven_routes(self):
         route_count = sum(1 for r in router.routes if hasattr(r, "methods"))
-        assert route_count == len(EXPECTED_ROUTES), (
-            f"expected {len(EXPECTED_ROUTES)} routes, got {route_count}"
-        )
+        assert route_count == len(EXPECTED_ROUTES), f"expected {len(EXPECTED_ROUTES)} routes, got {route_count}"

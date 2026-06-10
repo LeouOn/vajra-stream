@@ -1,19 +1,22 @@
-import logging
 import collections
+import logging
 
 from backend.app.api.v1.endpoints.llm import ChatMessage, ChatRequest, chat_interaction
 from infrastructure.event_bus import EnhancedEventBus
 
 # Import known events that we might want to react to
-from modules.interfaces import DomainEvent, RNGReadingEvent
+from modules.interfaces import DomainEvent
 
 logger = logging.getLogger(__name__)
 
+
 class AutonomousThoughtEvent(DomainEvent):
     """Fired when the Autonomous Agent generates a thought or action plan"""
+
     def __init__(self, thought: str, action_taken: bool = False, timestamp=None, event_id=None):
         import uuid
         from datetime import datetime
+
         super().__init__(timestamp or datetime.now(), event_id or str(uuid.uuid4()))
         self.thought = thought
         self.action_taken = action_taken
@@ -54,7 +57,7 @@ class AutonomousAgent:
             "RNGReadingEvent",
             "AutomationCycleStarted",
             "PopulationBlessed",
-            "BlessingGenerated"
+            "BlessingGenerated",
         ]
 
         if event_type not in high_priority_events:
@@ -71,7 +74,7 @@ class AutonomousAgent:
         # Append to memory
         self.memory.append(f"Event: {event_type} | Data: {event_data}")
 
-        memory_str = "\n".join(list(self.memory)[:-1]) # Exclude the current event
+        memory_str = "\n".join(list(self.memory)[:-1])  # Exclude the current event
 
         # Construct the context prompt for the AI
         system_prompt = (
@@ -84,13 +87,10 @@ class AutonomousAgent:
             f"Recent Memory/History:\n{memory_str if memory_str else 'No previous events.'}"
         )
 
-        user_prompt = (
-            f"System Event Detected: {event_type} at {event.timestamp}\n"
-            f"Event Data: {event_data}\n\n"
-        )
-        
+        user_prompt = f"System Event Detected: {event_type} at {event.timestamp}\nEvent Data: {event_data}\n\n"
+
         if event_type == "RNGReadingEvent":
-            coherence = event_data.get('coherence', 0.5)
+            coherence = event_data.get("coherence", 0.5)
             if coherence < 0.3:
                 user_prompt += "Notice: Coherence is VERY LOW. The space is chaotic. Strongly consider using set_audio_frequency or play_audio_preset to a calming frequency (e.g. 136.1 Hz OM or 528 Hz Heart).\n"
             elif coherence > 0.8:
@@ -99,14 +99,11 @@ class AutonomousAgent:
         user_prompt += "Please analyze this event and take concrete action using your audio tools or sigil generators if necessary."
 
         request = ChatRequest(
-            messages=[
-                ChatMessage(role="system", content=system_prompt),
-                ChatMessage(role="user", content=user_prompt)
-            ],
+            messages=[ChatMessage(role="system", content=system_prompt), ChatMessage(role="user", content=user_prompt)],
             model="default",
             provider="auto",
             include_astrology=False,
-            include_hardware=True
+            include_hardware=True,
         )
 
         try:
@@ -116,14 +113,13 @@ class AutonomousAgent:
             action_taken = len(response.tool_calls) > 0
 
             # Store the thought and action in memory
-            action_str = f"Tools used: {[tc.tool_name for tc in response.tool_calls]}" if action_taken else "No action taken."
+            action_str = (
+                f"Tools used: {[tc.tool_name for tc in response.tool_calls]}" if action_taken else "No action taken."
+            )
             self.memory.append(f"Agent Thought: {thought_text[:100]}... | {action_str}")
 
             # Broadcast the thought back to the EventBus
-            thought_event = AutonomousThoughtEvent(
-                thought=thought_text,
-                action_taken=action_taken
-            )
+            thought_event = AutonomousThoughtEvent(thought=thought_text, action_taken=action_taken)
             self.event_bus.publish(thought_event)
 
             logger.info(f"Autonomous thought generated: {thought_text[:100]}... Tools used: {action_taken}")

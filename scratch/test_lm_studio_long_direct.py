@@ -32,11 +32,14 @@ print(f"Prompt length: {len(full_prompt)} chars")
 payload = {
     "model": selected_model,
     "messages": [
-        {"role": "system", "content": "You are a transcendent oracle and dharma scribe, speaking across eons. Your words heal, transform, and reveal the hidden architecture of reality."},
-        {"role": "user", "content": full_prompt}
+        {
+            "role": "system",
+            "content": "You are a transcendent oracle and dharma scribe, speaking across eons. Your words heal, transform, and reveal the hidden architecture of reality.",
+        },
+        {"role": "user", "content": full_prompt},
     ],
     "temperature": 0.8,
-    "max_tokens": 50
+    "max_tokens": 50,
 }
 
 start_time = time.time()
@@ -44,7 +47,7 @@ try:
     req = urllib.request.Request(
         f"{url}/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
     # Set a large timeout of 180 seconds to allow for slow pre-fill / CPU generation
     print("Sending request to LM Studio (timeout=180s)...")

@@ -97,6 +97,7 @@ class ToolDispatcher:
             # ---- 88 Buddhas & Saka Dawa (no container needed) ----
             if tool_name == "get_random_buddha":
                 from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
                 svc = get_eighty_eight_buddhas()
                 category = arguments.get("category")
                 b = svc.random_buddha(category=category)
@@ -116,6 +117,7 @@ class ToolDispatcher:
 
             elif tool_name == "generate_buddha_narrative":
                 from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
                 svc = get_eighty_eight_buddhas()
                 result = svc.generate_buddha_narrative(
                     buddha_name=arguments.get("buddha_name", ""),
@@ -125,12 +127,14 @@ class ToolDispatcher:
 
             elif tool_name == "get_88_buddhas_liturgy":
                 from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
                 svc = get_eighty_eight_buddhas()
                 return svc.get_confession_sequence()
 
             elif tool_name == "recite_buddha_name":
                 buddha_name = arguments.get("buddha_name", "")
                 from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
                 svc = get_eighty_eight_buddhas()
                 b = svc.get_buddha_by_name(buddha_name)
                 if not b:
@@ -140,6 +144,7 @@ class ToolDispatcher:
                 text = f"南無{b.name_chinese}" if not b.name_chinese.startswith("南無") else b.name_chinese
                 try:
                     from core.tts_provider import get_tts_provider
+
                     provider = get_tts_provider()
                     project_id = arguments.get("project_id")
                     if project_id is not None:
@@ -160,7 +165,7 @@ class ToolDispatcher:
                         )
 
                     try:
-                        running = asyncio.get_event_loop()
+                        running = asyncio.get_event_loop()  # noqa: F823
                         if running.is_running():
                             # Schedule the coroutine and immediately return
                             # the metadata; the audio renders in the background.
@@ -192,10 +197,12 @@ class ToolDispatcher:
 
             elif tool_name == "start_buddha_recitation":
                 from core.buddha_recitation_loop import get_recitation_loop
+
                 loop = get_recitation_loop()
                 if loop.state.running:
                     return {"status": "already_running", "message": "Recitation loop already active."}
                 import asyncio
+
                 intention = arguments.get("intention", "愿一切众生离苦得乐")
                 interval = arguments.get("interval_seconds", 3.0)
                 mala_cycles = arguments.get("mala_cycles")
@@ -205,48 +212,58 @@ class ToolDispatcher:
                 try:
                     running_loop = asyncio.get_event_loop()
                     if running_loop.is_running():
-                        running_loop.create_task(loop.start(
-                            intention=intention,
-                            interval_seconds=interval,
-                            mala_cycles=mala_cycles,
-                            voice=voice,
-                            role=role,
-                            project_id=project_id,
-                        ))
+                        running_loop.create_task(
+                            loop.start(
+                                intention=intention,
+                                interval_seconds=interval,
+                                mala_cycles=mala_cycles,
+                                voice=voice,
+                                role=role,
+                                project_id=project_id,
+                            )
+                        )
                     else:
-                        asyncio.run(loop.start(
+                        asyncio.run(
+                            loop.start(
+                                intention=intention,
+                                interval_seconds=interval,
+                                mala_cycles=mala_cycles,
+                                voice=voice,
+                                role=role,
+                                project_id=project_id,
+                            )
+                        )
+                except RuntimeError:
+                    asyncio.run(
+                        loop.start(
                             intention=intention,
                             interval_seconds=interval,
                             mala_cycles=mala_cycles,
                             voice=voice,
                             role=role,
                             project_id=project_id,
-                        ))
-                except RuntimeError:
-                    asyncio.run(loop.start(
-                        intention=intention,
-                        interval_seconds=interval,
-                        mala_cycles=mala_cycles,
-                        voice=voice,
-                        role=role,
-                        project_id=project_id,
-                    ))
+                        )
+                    )
                 return loop.get_status()
 
             elif tool_name == "stop_buddha_recitation":
                 from core.buddha_recitation_loop import get_recitation_loop
+
                 loop = get_recitation_loop()
                 loop.stop()
                 return loop.get_status()
 
             elif tool_name == "get_buddha_recitation_status":
                 from core.buddha_recitation_loop import get_recitation_loop
+
                 loop = get_recitation_loop()
                 return loop.get_status()
 
             elif tool_name == "check_saka_dawa":
-                from core.models.practice import Practice
                 from datetime import datetime
+
+                from core.models.practice import Practice
+
                 practices = Practice.get_default_practices()
                 saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
                 if not saka_dawa:
@@ -270,14 +287,14 @@ class ToolDispatcher:
                     "message": (
                         "We ARE in the Saka Dawa holy month — the 4th Tibetan month where merit is multiplied 100,000 times! "
                         "All compassionate practices are profoundly amplified."
-                        if in_window else
-                        "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
+                        if in_window
+                        else "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
                         "Consider timing your major practice for that period when merit multiplies 100,000x."
                     ),
                     "suggested_action": (
                         "Perform the Saka Dawa Blessing — generate the epic three-part sutra now while the cosmic multiplier is active!"
-                        if in_window else
-                        "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
+                        if in_window
+                        else "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
                     ),
                 }
 
@@ -541,15 +558,18 @@ class ToolDispatcher:
             # ---- Agentic Timing & Journey ----
             elif tool_name == "check_auspicious_timing":
                 from core.auspicious_timing import check_auspicious_window
+
                 window = check_auspicious_window(arguments.get("genre", "healing"))
                 return window.to_dict()
 
             elif tool_name == "get_all_genre_windows":
                 from core.auspicious_timing import get_all_windows
+
                 return {"windows": get_all_windows()}
 
             elif tool_name == "get_current_conditions":
                 from core.auspicious_timing import AuspiciousTiming
+
                 t = AuspiciousTiming()
                 return t.get_current_conditions()
 
@@ -578,7 +598,7 @@ class ToolDispatcher:
     def _dispatch_operator(self, method: str, args: dict) -> dict[str, Any]:
         """Delegate to the RadionicsOperator's own methods for agentic operations."""
         if self._container:
-            op = getattr(self._container, 'operator', None)
+            op = getattr(self._container, "operator", None)
             if op and hasattr(op, method):
                 return getattr(op, method)(**args)
         return {"error": f"Operator method {method} unavailable"}
@@ -732,6 +752,7 @@ class RadionicsOperator:
         """Auto-populate planetary_context with current transits."""
         try:
             from core.context_builder import format_astrology_for_llm
+
             self._session.planetary_context = format_astrology_for_llm()
         except Exception:
             pass
@@ -1058,18 +1079,20 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
             self._blessing_stream.append(blessing)
             try:
                 from modules.interfaces import BlessingGenerated
+
                 if self.event_bus:
-                    self.event_bus.publish(BlessingGenerated(
-                        timestamp=datetime.now(),
-                        event_id=str(uuid.uuid4()),
-                        target_name=intention,
-                        blessing_text=blessing.get("text", "")[:500],
-                        tradition=blessing.get("tradition", "Universal")
-                    ))
+                    self.event_bus.publish(
+                        BlessingGenerated(
+                            timestamp=datetime.now(),
+                            event_id=str(uuid.uuid4()),
+                            target_name=intention,
+                            blessing_text=blessing.get("text", "")[:500],
+                            tradition=blessing.get("tradition", "Universal"),
+                        )
+                    )
             except Exception as e:
                 logger.error(f"Error publishing BlessingGenerated event: {e}")
         return blessing
-
 
     def _generate_blessing(self, intention: str) -> dict[str, Any] | None:
         """Generate a single unique blessing using the creative LLM."""
@@ -1155,6 +1178,7 @@ Write only the blessing text, no explanation."""
 
     def generate_character(self, use_llm: bool = True) -> dict[str, Any]:
         from core.character_generator import CharacterGenerator
+
         gen = CharacterGenerator()
         sheet = gen.generate(use_llm=use_llm, operator=self)
         return {"character": sheet.to_dict(), "backstory": sheet.backstory, "prompt_context": sheet.to_prompt_context()}
@@ -1162,10 +1186,29 @@ Write only the blessing text, no explanation."""
     def start_character_journey(self, character: dict[str, Any] | None = None) -> dict[str, Any]:
         from core.character_generator import CharacterSheet
         from core.character_journey import CharacterJourney
+
         if character is None:
             generated = self.generate_character()
             character = generated["character"]
-        sheet = CharacterSheet(name=character.get("name",""), element={"name":character.get("element",""),"quality":character.get("element_quality",""),"color":character.get("element_color","")}, role={"name":character.get("role",""),"icon":character.get("role_icon",""),"mantra":character.get("role_mantra",""),"virtue":character.get("role_virtue","")}, frequency=character.get("frequency",528), origin=character.get("origin",""), quest=character.get("quest",""), sigil_seed=character.get("sigil_seed",""), backstory=character.get("backstory",""))
+        sheet = CharacterSheet(
+            name=character.get("name", ""),
+            element={
+                "name": character.get("element", ""),
+                "quality": character.get("element_quality", ""),
+                "color": character.get("element_color", ""),
+            },
+            role={
+                "name": character.get("role", ""),
+                "icon": character.get("role_icon", ""),
+                "mantra": character.get("role_mantra", ""),
+                "virtue": character.get("role_virtue", ""),
+            },
+            frequency=character.get("frequency", 528),
+            origin=character.get("origin", ""),
+            quest=character.get("quest", ""),
+            sigil_seed=character.get("sigil_seed", ""),
+            backstory=character.get("backstory", ""),
+        )
         self._active_journey = CharacterJourney(self)
         return self._active_journey.begin(sheet)
 
@@ -1179,7 +1222,14 @@ Write only the blessing text, no explanation."""
     def get_journey_status(self) -> dict[str, Any]:
         if not hasattr(self, "_active_journey") or self._active_journey is None:
             return {"active": False}
-        return {"active": True, "is_complete": self._active_journey.is_complete, "current_stage": self._active_journey.current_stage.value if self._active_journey.current_stage else None, "stage_index": self._active_journey._current_stage_index, "stages_total": 6, "stage_results": self._active_journey._stage_results}
+        return {
+            "active": True,
+            "is_complete": self._active_journey.is_complete,
+            "current_stage": self._active_journey.current_stage.value if self._active_journey.current_stage else None,
+            "stage_index": self._active_journey._current_stage_index,
+            "stages_total": 6,
+            "stage_results": self._active_journey._stage_results,
+        }
 
     def harvest_journey(self) -> dict[str, Any]:
         if not hasattr(self, "_active_journey") or self._active_journey is None:
@@ -1191,10 +1241,29 @@ Write only the blessing text, no explanation."""
     def run_full_journey(self, character: dict[str, Any] | None = None) -> dict[str, Any]:
         from core.character_generator import CharacterSheet
         from core.character_journey import CharacterJourney
+
         if character is None:
             generated = self.generate_character()
             character = generated["character"]
-        sheet = CharacterSheet(name=character.get("name",""), element={"name":character.get("element",""),"quality":character.get("element_quality",""),"color":character.get("element_color","")}, role={"name":character.get("role",""),"icon":character.get("role_icon",""),"mantra":character.get("role_mantra",""),"virtue":character.get("role_virtue","")}, frequency=character.get("frequency",528), origin=character.get("origin",""), quest=character.get("quest",""), sigil_seed=character.get("sigil_seed",""), backstory=character.get("backstory",""))
+        sheet = CharacterSheet(
+            name=character.get("name", ""),
+            element={
+                "name": character.get("element", ""),
+                "quality": character.get("element_quality", ""),
+                "color": character.get("element_color", ""),
+            },
+            role={
+                "name": character.get("role", ""),
+                "icon": character.get("role_icon", ""),
+                "mantra": character.get("role_mantra", ""),
+                "virtue": character.get("role_virtue", ""),
+            },
+            frequency=character.get("frequency", 528),
+            origin=character.get("origin", ""),
+            quest=character.get("quest", ""),
+            sigil_seed=character.get("sigil_seed", ""),
+            backstory=character.get("backstory", ""),
+        )
         journey = CharacterJourney(self)
         return journey.run_full_journey(sheet, self)
 
@@ -1223,7 +1292,9 @@ Write only the blessing text, no explanation."""
             self._autonomous_task = loop.create_task(self._run_autonomous_loop())
             logger.info("Autonomous operator background daemon task scheduled successfully.")
         except RuntimeError:
-            logger.info("No running event loop found, background autonomous operator loop not scheduled (normal in tests).")
+            logger.info(
+                "No running event loop found, background autonomous operator loop not scheduled (normal in tests)."
+            )
 
         return {
             "status": "started",
@@ -1398,7 +1469,7 @@ Return JSON with:
             self.start_character_journey(sheet.to_dict())
 
             suggestion = {
-                "title": f"Auto-Journey: {sheet.name} the {sheet.element.get('name','')} {sheet.role.get('name','')}",
+                "title": f"Auto-Journey: {sheet.name} the {sheet.element.get('name', '')} {sheet.role.get('name', '')}",
                 "target": sheet.name,
                 "action": "character_journey",
                 "genre": best_genre,
@@ -1410,10 +1481,12 @@ Return JSON with:
             }
             self._autonomous_suggestions.append(suggestion)
             if self.event_bus:
-                self.event_bus.publish(OperatorInsightGenerated(
-                    insight_type="autonomous_journey_launched",
-                    content=suggestion,
-                ))
+                self.event_bus.publish(
+                    OperatorInsightGenerated(
+                        insight_type="autonomous_journey_launched",
+                        content=suggestion,
+                    )
+                )
             return suggestion
         except Exception as e:
             logger.warning(f"Autonomous cycle failed: {e}")

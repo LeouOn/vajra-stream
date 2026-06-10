@@ -315,6 +315,7 @@ async def get_world_context():
 @router.post("/journey/generate-character", summary="Generate an RNG-seeded character")
 async def generate_character():
     from container import container
+
     try:
         return container.operator.generate_character(use_llm=True)
     except Exception as e:
@@ -324,6 +325,7 @@ async def generate_character():
 @router.post("/journey/start", summary="Start a character journey arc")
 async def start_journey():
     from container import container
+
     try:
         return container.operator.start_character_journey()
     except Exception as e:
@@ -333,6 +335,7 @@ async def start_journey():
 @router.post("/journey/advance", summary="Advance journey by one stage")
 async def advance_journey():
     from container import container
+
     try:
         return container.operator.advance_journey()
     except Exception as e:
@@ -342,6 +345,7 @@ async def advance_journey():
 @router.get("/journey/status", summary="Get journey status")
 async def journey_status():
     from container import container
+
     try:
         return container.operator.get_journey_status()
     except Exception as e:
@@ -351,6 +355,7 @@ async def journey_status():
 @router.post("/journey/harvest", summary="Complete and harvest journey")
 async def harvest_journey():
     from container import container
+
     try:
         return container.operator.harvest_journey()
     except Exception as e:
@@ -360,6 +365,7 @@ async def harvest_journey():
 @router.post("/journey/run-full", summary="Run full 6-stage journey")
 async def run_full_journey():
     from container import container
+
     try:
         return container.operator.run_full_journey()
     except Exception as e:
@@ -487,6 +493,7 @@ async def get_session():
 # Tool Dispatch (generic — for frontend-driven tool calls)
 # ============================================================================
 
+
 class ToolDispatchRequest(BaseModel):
     tool_name: str = Field(..., description="Name of the tool to call")
     arguments: dict = Field(default_factory=dict, description="Tool arguments")
@@ -499,6 +506,7 @@ async def dispatch_tool(request: ToolDispatchRequest):
 
     try:
         from container import container
+
         dispatcher = ToolDispatcher(container)
         result = dispatcher.dispatch(request.tool_name, request.arguments)
         return result
@@ -509,6 +517,7 @@ async def dispatch_tool(request: ToolDispatchRequest):
 # ============================================================================
 # 88 Buddhas Endpoints
 # ============================================================================
+
 
 @router.get("/buddhas/random", summary="Get a random Buddha for contemplation")
 async def random_buddha(category: str | None = None):
@@ -570,6 +579,7 @@ async def start_recitation(
 ):
     """Start the continuous 88-Buddha recitation loop."""
     import asyncio
+
     from core.buddha_recitation_loop import get_recitation_loop
 
     try:
@@ -579,32 +589,38 @@ async def start_recitation(
         try:
             running_loop = asyncio.get_event_loop()
             if running_loop.is_running():
-                running_loop.create_task(loop.start(
-                    intention=intention,
-                    interval_seconds=interval_seconds,
-                    mala_cycles=mala_cycles,
-                    voice=voice,
-                    role=role,
-                    project_id=project_id,
-                ))
+                running_loop.create_task(
+                    loop.start(
+                        intention=intention,
+                        interval_seconds=interval_seconds,
+                        mala_cycles=mala_cycles,
+                        voice=voice,
+                        role=role,
+                        project_id=project_id,
+                    )
+                )
             else:
-                asyncio.run(loop.start(
+                asyncio.run(
+                    loop.start(
+                        intention=intention,
+                        interval_seconds=interval_seconds,
+                        mala_cycles=mala_cycles,
+                        voice=voice,
+                        role=role,
+                        project_id=project_id,
+                    )
+                )
+        except RuntimeError:
+            asyncio.run(
+                loop.start(
                     intention=intention,
                     interval_seconds=interval_seconds,
                     mala_cycles=mala_cycles,
                     voice=voice,
                     role=role,
                     project_id=project_id,
-                ))
-        except RuntimeError:
-            asyncio.run(loop.start(
-                intention=intention,
-                interval_seconds=interval_seconds,
-                mala_cycles=mala_cycles,
-                voice=voice,
-                role=role,
-                project_id=project_id,
-            ))
+                )
+            )
         return loop.get_status()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -627,11 +643,13 @@ async def stop_recitation():
 # Saka Dawa Endpoint
 # ============================================================================
 
+
 @router.get("/saka-dawa", summary="Check Saka Dawa holy month status")
 async def check_saka_dawa():
     """Check if we are currently in the Saka Dawa holy month window."""
-    from core.models.practice import Practice
     from datetime import datetime
+
+    from core.models.practice import Practice
 
     try:
         practices = Practice.get_default_practices()
@@ -659,14 +677,14 @@ async def check_saka_dawa():
             "message": (
                 "We ARE in the Saka Dawa holy month — the 4th Tibetan month where merit is multiplied 100,000 times! "
                 "All compassionate practices are profoundly amplified."
-                if in_window else
-                "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
+                if in_window
+                else "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
                 "Consider timing your major practice for that period when merit multiplies 100,000x."
             ),
             "suggested_action": (
                 "Perform the Saka Dawa Blessing — generate the epic three-part sutra now while the cosmic multiplier is active!"
-                if in_window else
-                "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
+                if in_window
+                else "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
             ),
         }
     except Exception as e:

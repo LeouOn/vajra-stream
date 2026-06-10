@@ -8,13 +8,13 @@ Supports multiple backends with automatic fallback:
 Usage:
     provider = get_tts_provider()
     provider.set_backend("edge")  # or "qwen"
-    
+
     # Quick speak
     path = await provider.speak("南無普光佛")
-    
+
     # Batch speak (much faster on Qwen3-TTS)
     paths = await provider.speak_batch(["name1", "name2", ...])
-    
+
     # Check capabilities
     print(provider.capabilities)
 
@@ -46,22 +46,22 @@ class TTSBackend(str, Enum):
 # This is the default for new projects. Each project can override via ProjectTTSConfig.
 RITUAL_ROLE_SPEAKERS: dict[str, dict[str, str]] = {
     "qwen": {
-        "buddhist_chant":    "Uncle_Fu",
-        "compassionate":     "Serena",
-        "meditation_guide":  "Vivian",
-        "dharma_teaching":   "Dylan",
-        "english_blessing":  "Ryan",
-        "outlook_narrative": "Serena",   # Warm, gentle — for sutra-style blessings
-        "outlook_epic":      "Uncle_Fu", # Deep, seasoned — for epic sealings
+        "buddhist_chant": "Uncle_Fu",
+        "compassionate": "Serena",
+        "meditation_guide": "Vivian",
+        "dharma_teaching": "Dylan",
+        "english_blessing": "Ryan",
+        "outlook_narrative": "Serena",  # Warm, gentle — for sutra-style blessings
+        "outlook_epic": "Uncle_Fu",  # Deep, seasoned — for epic sealings
     },
     "edge": {
-        "buddhist_chant":    "zh-CN-YunxiNeural",
-        "compassionate":     "zh-CN-XiaoxiaoNeural",
-        "meditation_guide":  "zh-CN-XiaoxiaoNeural",
-        "dharma_teaching":   "zh-CN-YunxiNeural",
-        "english_blessing":  "en-US-AriaNeural",
+        "buddhist_chant": "zh-CN-YunxiNeural",
+        "compassionate": "zh-CN-XiaoxiaoNeural",
+        "meditation_guide": "zh-CN-XiaoxiaoNeural",
+        "dharma_teaching": "zh-CN-YunxiNeural",
+        "english_blessing": "en-US-AriaNeural",
         "outlook_narrative": "zh-CN-YunxiNeural",
-        "outlook_epic":      "zh-CN-YunxiNeural",
+        "outlook_epic": "zh-CN-YunxiNeural",
     },
 }
 
@@ -111,6 +111,7 @@ def list_project_overrides(project_id: str | None = None) -> dict[str, dict[str,
 @dataclass
 class TTSConfig:
     """Active TTS configuration."""
+
     backend: TTSBackend = TTSBackend.AUTO
     # Edge TTS settings
     edge_voice: str = "zh-CN-YunxiNeural"  # Male, warm — traditional sutra feel
@@ -171,15 +172,19 @@ class TTSProvider:
 
     # Edge TTS voice catalog
     EDGE_VOICES = {
-        "zh-CN-YunxiNeural":    {"description": "Male, warm — traditional sutra chanting feel", "gender": "male", "style": "sacred"},
+        "zh-CN-YunxiNeural": {
+            "description": "Male, warm — traditional sutra chanting feel",
+            "gender": "male",
+            "style": "sacred",
+        },
         "zh-CN-XiaoxiaoNeural": {"description": "Female, clear, natural", "gender": "female", "style": "neutral"},
-        "zh-CN-XiaoyiNeural":   {"description": "Female, lively", "gender": "female", "style": "bright"},
+        "zh-CN-XiaoyiNeural": {"description": "Female, lively", "gender": "female", "style": "bright"},
         "zh-TW-HsiaoChenNeural": {"description": "Taiwanese female, gentle", "gender": "female", "style": "gentle"},
-        "zh-HK-HiuGaaiNeural":  {"description": "Cantonese female", "gender": "female", "style": "regional"},
-        "en-US-AriaNeural":     {"description": "American female, warm and engaging", "gender": "female", "style": "warm"},
-        "en-US-GuyNeural":      {"description": "American male, enthusiastic", "gender": "male", "style": "bright"},
-        "ja-JP-NanamiNeural":   {"description": "Japanese female, natural", "gender": "female", "style": "natural"},
-        "ko-KR-SunHiNeural":    {"description": "Korean female, natural", "gender": "female", "style": "natural"},
+        "zh-HK-HiuGaaiNeural": {"description": "Cantonese female", "gender": "female", "style": "regional"},
+        "en-US-AriaNeural": {"description": "American female, warm and engaging", "gender": "female", "style": "warm"},
+        "en-US-GuyNeural": {"description": "American male, enthusiastic", "gender": "male", "style": "bright"},
+        "ja-JP-NanamiNeural": {"description": "Japanese female, natural", "gender": "female", "style": "natural"},
+        "ko-KR-SunHiNeural": {"description": "Korean female, natural", "gender": "female", "style": "natural"},
     }
 
     def __init__(self, config: TTSConfig | None = None):
@@ -216,17 +221,12 @@ class TTSProvider:
 
         if backend == TTSBackend.QWEN:
             from core.qwen_tts import QWEN_LANGUAGES, QWEN_SPEAKERS
+
             caps["languages"] = QWEN_LANGUAGES
-            caps["speakers"] = [
-                {"id": name, **info}
-                for name, info in QWEN_SPEAKERS.items()
-            ]
+            caps["speakers"] = [{"id": name, **info} for name, info in QWEN_SPEAKERS.items()]
         else:
             caps["languages"] = ["Chinese", "English", "Japanese", "Korean"]
-            caps["speakers"] = [
-                {"id": name, **info}
-                for name, info in self.EDGE_VOICES.items()
-            ]
+            caps["speakers"] = [{"id": name, **info} for name, info in self.EDGE_VOICES.items()]
 
         return caps
 
@@ -243,20 +243,20 @@ class TTSProvider:
         except Exception:
             pass
 
-        from core.qwen_tts import RITUAL_SPEAKERS, VOICE_DESIGN_PRESETS, QWEN_SPEAKERS
+        from core.qwen_tts import QWEN_SPEAKERS, RITUAL_SPEAKERS, VOICE_DESIGN_PRESETS
 
         return {
             "backends": {
                 "edge": {"available": True, "description": "Microsoft Edge TTS — fast, no GPU, always available"},
-                "qwen": {"available": qwen_available, "description": "Qwen3-TTS neural — GPU-accelerated, voice design/clone, 10 languages"},
+                "qwen": {
+                    "available": qwen_available,
+                    "description": "Qwen3-TTS neural — GPU-accelerated, voice design/clone, 10 languages",
+                },
             },
             "active_backend": self.active_backend.value,
             "gpu": gpu_info,
             "edge": {
-                "voices": [
-                    {"id": name, **info}
-                    for name, info in self.EDGE_VOICES.items()
-                ],
+                "voices": [{"id": name, **info} for name, info in self.EDGE_VOICES.items()],
             },
             "qwen": {
                 "available": qwen_available,
@@ -267,20 +267,24 @@ class TTSProvider:
                     "1.7B-Clone": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
                 },
                 "languages": [
-                    "Chinese", "English", "Japanese", "Korean",
-                    "German", "French", "Russian", "Portuguese", "Spanish", "Italian",
-                ] if qwen_available else [],
-                "speakers": [
-                    {"id": name, **info}
-                    for name, info in QWEN_SPEAKERS.items()
-                ] if qwen_available else [],
+                    "Chinese",
+                    "English",
+                    "Japanese",
+                    "Korean",
+                    "German",
+                    "French",
+                    "Russian",
+                    "Portuguese",
+                    "Spanish",
+                    "Italian",
+                ]
+                if qwen_available
+                else [],
+                "speakers": [{"id": name, **info} for name, info in QWEN_SPEAKERS.items()] if qwen_available else [],
                 "ritual_speakers": RITUAL_SPEAKERS if qwen_available else {},
                 "voice_design_presets": list(VOICE_DESIGN_PRESETS.keys()) if qwen_available else [],
             },
-            "ritual_roles": {
-                backend: list(roles.keys())
-                for backend, roles in RITUAL_ROLE_SPEAKERS.items()
-            },
+            "ritual_roles": {backend: list(roles.keys()) for backend, roles in RITUAL_ROLE_SPEAKERS.items()},
             "current_config": self.config.to_dict(),
         }
 
@@ -291,6 +295,7 @@ class TTSProvider:
         if self._qwen_engine is None:
             try:
                 from core.qwen_tts import QwenTTSConfig, QwenTTSEngine
+
                 qwen_config = QwenTTSConfig(
                     model_name=self.config.qwen_model,
                     device="auto",
@@ -389,20 +394,25 @@ class TTSProvider:
             wav, sr = result
             try:
                 import io
+
                 import soundfile as sf
+
                 buf = io.BytesIO()
                 sf.write(buf, wav, sr, format="WAV", subtype="PCM_16")
                 return buf.getvalue(), "audio/wav", "qwen"
             except ImportError:
                 # No soundfile — write minimal WAV header around float32 PCM
                 import io
+
                 import numpy as np
+
                 buf = io.BytesIO()
                 pcm = np.clip(wav, -1.0, 1.0)
                 pcm_i16 = (pcm * 32767.0).astype("<i2")
                 data = pcm_i16.tobytes()
                 with io.BytesIO() as wav_buf:
                     import wave
+
                     with wave.open(wav_buf, "wb") as wf:
                         wf.setnchannels(1)
                         wf.setsampwidth(2)
@@ -469,9 +479,7 @@ class TTSProvider:
 
         voice = voice or self.config.edge_voice
         rate = rate or self.config.edge_rate
-        output_path = output_file or os.path.join(
-            tempfile.gettempdir(), f"vajra_tts_{hash(text) % 100000}.mp3"
-        )
+        output_path = output_file or os.path.join(tempfile.gettempdir(), f"vajra_tts_{hash(text) % 100000}.mp3")
 
         try:
             communicate = edge_tts.Communicate(text, voice, rate=rate)
@@ -502,17 +510,17 @@ class TTSProvider:
             return None
 
         wav, sr = result
-        output_path = output_file or os.path.join(
-            tempfile.gettempdir(), f"vajra_qwen_tts_{hash(text) % 100000}.wav"
-        )
+        output_path = output_file or os.path.join(tempfile.gettempdir(), f"vajra_qwen_tts_{hash(text) % 100000}.wav")
 
         try:
             import soundfile as sf
+
             sf.write(output_path, wav, sr)
             return output_path
         except ImportError:
             # Fallback: save raw numpy
             import numpy as np
+
             np.save(output_path.replace(".wav", ".npy"), wav)
             return output_path.replace(".wav", ".npy")
 
@@ -537,11 +545,10 @@ class TTSProvider:
 
         output_paths = []
         for i, (wav, sr) in enumerate(results):
-            output_path = os.path.join(
-                tempfile.gettempdir(), f"vajra_qwen_batch_{i}_{hash(texts[i]) % 100000}.wav"
-            )
+            output_path = os.path.join(tempfile.gettempdir(), f"vajra_qwen_batch_{i}_{hash(texts[i]) % 100000}.wav")
             try:
                 import soundfile as sf
+
                 sf.write(output_path, wav, sr)
                 output_paths.append(output_path)
             except ImportError:

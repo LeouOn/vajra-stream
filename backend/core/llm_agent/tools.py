@@ -153,7 +153,7 @@ def play_chakra_healing_audio(chakra_name: str, duration: float = 30.0) -> dict[
             "status": "success",
             "message": f"Successfully playing {chakra_name} chakra healing audio.",
             "generation_details": gen_res,
-            "playback_details": play_res
+            "playback_details": play_res,
         }
     return gen_res
 
@@ -177,7 +177,7 @@ def set_audio_frequency(freq_hz: float, duration_s: float = 30.0) -> dict[str, A
         "volume": 0.8,
         "prayer_bowl_mode": True,
         "harmonic_strength": 0.3,
-        "modulation_depth": 0.05
+        "modulation_depth": 0.05,
     }
     gen_res = client._post("/api/v1/audio/generate", config)
     if gen_res.get("status") == "success":
@@ -201,24 +201,28 @@ def set_audio_modulation(harmonic_strength: float, modulation_depth: float, dura
     """
     client = get_client()
     config = {
-        "frequency": 432.0, # Defaulting to a safe base frequency
+        "frequency": 432.0,  # Defaulting to a safe base frequency
         "duration": duration_s,
         "volume": 0.8,
         "prayer_bowl_mode": True,
         "harmonic_strength": harmonic_strength,
-        "modulation_depth": modulation_depth
+        "modulation_depth": modulation_depth,
     }
     gen_res = client._post("/api/v1/audio/generate", config)
     if gen_res.get("status") == "success":
         play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
-        return {"status": "success", "message": f"Successfully modulated audio (harmonics: {harmonic_strength}, depth: {modulation_depth}).", "playback": play_res}
+        return {
+            "status": "success",
+            "message": f"Successfully modulated audio (harmonics: {harmonic_strength}, depth: {modulation_depth}).",
+            "playback": play_res,
+        }
     return gen_res
 
 
 def play_audio_preset(preset_name: str, duration_s: float = 30.0) -> dict[str, Any]:
     """
     Play a specific predefined audio preset.
-    
+
     Use this when:
     - You want guaranteed safe configurations
     - You want to quickly shift states
@@ -234,10 +238,10 @@ def play_audio_preset(preset_name: str, duration_s: float = 30.0) -> dict[str, A
     presets = presets_res.get("presets", {})
     if preset_name not in presets:
         return {"status": "error", "message": f"Preset '{preset_name}' not found."}
-    
+
     config = presets[preset_name]
     config["duration"] = duration_s
-    
+
     gen_res = client._post("/api/v1/audio/generate", config)
     if gen_res.get("status") == "success":
         play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
@@ -951,106 +955,164 @@ def get_narrative_loop_status() -> dict[str, Any]:
 # 88 BUDDHAS & SAKA DAWA TOOLS (stubs — executed by llm.py's execute_tool_locally)
 # ============================================================================
 
+
 def get_random_buddha(category: str | None = None) -> dict[str, Any]:
     """Get a random Buddha from the 88-Buddha collection with contemplation narrative."""
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
     svc = get_eighty_eight_buddhas()
     b = svc.random_buddha(category=category)
     narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
-    return {"buddha": {"name_chinese": b.name_chinese, "name_pinyin": b.name_pinyin,
-            "name_sanskrit": b.name_sanskrit, "category": b.category, "meaning": b.meaning,
-            "realm": b.realm, "light": b.light}, "narrative": narrative.get("narrative", "")}
+    return {
+        "buddha": {
+            "name_chinese": b.name_chinese,
+            "name_pinyin": b.name_pinyin,
+            "name_sanskrit": b.name_sanskrit,
+            "category": b.category,
+            "meaning": b.meaning,
+            "realm": b.realm,
+            "light": b.light,
+        },
+        "narrative": narrative.get("narrative", ""),
+    }
+
 
 def generate_buddha_narrative(buddha_name: str, depth: str = "contemplation") -> dict[str, Any]:
     """Generate a sacred narrative about a specific Buddha."""
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
     return get_eighty_eight_buddhas().generate_buddha_narrative(buddha_name, depth=depth)
+
 
 def get_88_buddhas_liturgy() -> dict[str, Any]:
     """Get the full 88-Buddha confession liturgy."""
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
     return get_eighty_eight_buddhas().get_confession_sequence()
+
 
 def recite_buddha_name(buddha_name: str) -> dict[str, Any]:
     """Recite a single Buddha name via TTS."""
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
     svc = get_eighty_eight_buddhas()
     b = svc.get_buddha_by_name(buddha_name)
-    if not b: return {"error": f"Buddha not found: {buddha_name}"}
-    return {"buddha": b.name_chinese, "pinyin": b.name_pinyin,
-            "message": f"Recitation of {b.name_chinese} would play via TTS."}
+    if not b:
+        return {"error": f"Buddha not found: {buddha_name}"}
+    return {
+        "buddha": b.name_chinese,
+        "pinyin": b.name_pinyin,
+        "message": f"Recitation of {b.name_chinese} would play via TTS.",
+    }
 
-def start_buddha_recitation(intention: str = "愿一切众生离苦得乐", interval_seconds: float = 3.0, mala_cycles: int | None = None) -> dict[str, Any]:
+
+def start_buddha_recitation(
+    intention: str = "愿一切众生离苦得乐", interval_seconds: float = 3.0, mala_cycles: int | None = None
+) -> dict[str, Any]:
     """Start continuous 88-Buddha recitation loop."""
     import asyncio
+
     from core.buddha_recitation_loop import get_recitation_loop
+
     loop = get_recitation_loop()
-    if loop.state.running: return {"status": "already_running"}
+    if loop.state.running:
+        return {"status": "already_running"}
     try:
         running_loop = asyncio.get_event_loop()
         if running_loop.is_running():
-            running_loop.create_task(loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles))
+            running_loop.create_task(
+                loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles)
+            )
         else:
             asyncio.run(loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles))
     except RuntimeError:
         asyncio.run(loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles))
     return loop.get_status()
 
+
 def stop_buddha_recitation() -> dict[str, Any]:
     """Stop active Buddha recitation loop."""
     from core.buddha_recitation_loop import get_recitation_loop
-    loop = get_recitation_loop(); loop.stop()
+
+    loop = get_recitation_loop()
+    loop.stop()
     return loop.get_status()
+
 
 def get_buddha_recitation_status() -> dict[str, Any]:
     """Get current recitation loop status."""
     from core.buddha_recitation_loop import get_recitation_loop
+
     return get_recitation_loop().get_status()
+
 
 def check_saka_dawa() -> dict[str, Any]:
     """Check Saka Dawa holy month status."""
     from datetime import datetime
+
     from core.models.practice import Practice
+
     practices = Practice.get_default_practices()
     saka = next((p for p in practices if "saka" in p.name.lower()), None)
-    if not saka: return {"error": "Saka Dawa practice not found"}
-    now = datetime.now(); in_window = now.month in (5, 6)
-    return {"in_saka_dawa_window": in_window, "practice": {"name": saka.name, "genre": saka.genre,
-            "merit_multiplier": saka.merit_multiplier, "blessing_prompt": saka.base_prompt_template},
-            "message": "ACTIVE — 100,000x merit!" if in_window else "Not in Saka Dawa window."}
+    if not saka:
+        return {"error": "Saka Dawa practice not found"}
+    now = datetime.now()
+    in_window = now.month in (5, 6)
+    return {
+        "in_saka_dawa_window": in_window,
+        "practice": {
+            "name": saka.name,
+            "genre": saka.genre,
+            "merit_multiplier": saka.merit_multiplier,
+            "blessing_prompt": saka.base_prompt_template,
+        },
+        "message": "ACTIVE — 100,000x merit!" if in_window else "Not in Saka Dawa window.",
+    }
+
 
 def check_auspicious_timing(genre: str = "healing") -> dict[str, Any]:
     """Check auspicious timing for a ritual genre."""
     from core.auspicious_timing import check_auspicious_window
+
     return check_auspicious_window(genre).to_dict()
+
 
 def generate_character() -> dict[str, Any]:
     """Generate an RNG-seeded character."""
     from core.character_generator import CharacterGenerator
+
     return CharacterGenerator().generate(use_llm=False).to_dict()
+
 
 def start_character_journey() -> dict[str, Any]:
     """Start a character journey arc."""
-    from modules.radionics_operator import ToolDispatcher
     from container import container
+    from modules.radionics_operator import ToolDispatcher
+
     return ToolDispatcher(container).dispatch("start_character_journey", {})
+
 
 def advance_journey() -> dict[str, Any]:
     """Advance character journey by one stage."""
-    from modules.radionics_operator import ToolDispatcher
     from container import container
+    from modules.radionics_operator import ToolDispatcher
+
     return ToolDispatcher(container).dispatch("advance_journey", {})
+
 
 def get_journey_status() -> dict[str, Any]:
     """Get current journey status."""
-    from modules.radionics_operator import ToolDispatcher
     from container import container
+    from modules.radionics_operator import ToolDispatcher
+
     return ToolDispatcher(container).dispatch("get_journey_status", {})
+
 
 def run_full_journey() -> dict[str, Any]:
     """Run full 6-stage journey."""
-    from modules.radionics_operator import ToolDispatcher
     from container import container
+    from modules.radionics_operator import ToolDispatcher
+
     return ToolDispatcher(container).dispatch("run_full_journey", {})
 
 
@@ -1059,95 +1121,164 @@ def run_full_journey() -> dict[str, Any]:
 # (delegate to ToolDispatcher for unified dispatch)
 # ============================================================================
 
+
 def _dispatch_via_container(tool_name: str, **args) -> dict[str, Any]:
     """Helper: dispatch any tool through the container's ToolDispatcher."""
-    from modules.radionics_operator import ToolDispatcher
     from container import container
+    from modules.radionics_operator import ToolDispatcher
+
     return ToolDispatcher(container).dispatch(tool_name, args)
 
-def broadcast_healing(target_name: str, duration_minutes: int = 10, frequency_hz: float = 528.0, intensity: float = 0.8) -> dict[str, Any]:
-    return _dispatch_via_container("broadcast_healing", target_name=target_name, duration_minutes=duration_minutes, frequency_hz=frequency_hz, intensity=intensity)
+
+def broadcast_healing(
+    target_name: str, duration_minutes: int = 10, frequency_hz: float = 528.0, intensity: float = 0.8
+) -> dict[str, Any]:
+    return _dispatch_via_container(
+        "broadcast_healing",
+        target_name=target_name,
+        duration_minutes=duration_minutes,
+        frequency_hz=frequency_hz,
+        intensity=intensity,
+    )
+
 
 def broadcast_liberation(event_name: str, souls_count: int = 1000, duration_minutes: int = 108) -> dict[str, Any]:
-    return _dispatch_via_container("broadcast_liberation", event_name=event_name, souls_count=souls_count, duration_minutes=duration_minutes)
+    return _dispatch_via_container(
+        "broadcast_liberation", event_name=event_name, souls_count=souls_count, duration_minutes=duration_minutes
+    )
+
 
 def get_available_intentions() -> dict[str, Any]:
     return _dispatch_via_container("get_available_intentions")
 
+
 def get_sacred_frequencies() -> dict[str, Any]:
     return _dispatch_via_container("get_sacred_frequencies")
+
 
 def text_to_rate(text: str, num_dials: int = 3) -> dict[str, Any]:
     return _dispatch_via_container("text_to_rate", text=text, num_dials=num_dials)
 
+
 def measure_general_vitality(subject: str, samples: int = 10) -> dict[str, Any]:
     return _dispatch_via_container("measure_general_vitality", subject=subject, samples=samples)
+
 
 def find_balancing_rates(subject: str, num_rates: int = 5) -> dict[str, Any]:
     return _dispatch_via_container("find_balancing_rates", subject=subject, num_rates=num_rates)
 
+
 def search_knowledge(query: str, top_k: int = 5, category: str | None = None) -> dict[str, Any]:
     return _dispatch_via_container("search_knowledge", query=query, top_k=top_k, category=category)
+
 
 def search_rate_database(query: str, category: str | None = None) -> dict[str, Any]:
     return _dispatch_via_container("search_rate_database", query=query, category=category)
 
+
 def generate_scalar_waves(method: str = "hybrid", count: int = 10000, intensity: float = 1.0) -> dict[str, Any]:
     return _dispatch_via_container("generate_scalar_waves", method=method, count=count, intensity=intensity)
+
 
 def get_rng_summary(session_id: str) -> dict[str, Any]:
     return _dispatch_via_container("get_rng_summary", session_id=session_id)
 
+
 def get_chakra_info() -> dict[str, Any]:
     return _dispatch_via_container("get_chakra_info")
+
 
 def get_meridian_info() -> dict[str, Any]:
     return _dispatch_via_container("get_meridian_info")
 
-def create_healing_session(target_name: str, modalities: list[str] | None = None, duration_minutes: int = 60, intention: str = "complete healing") -> dict[str, Any]:
-    return _dispatch_via_container("create_healing_session", target_name=target_name, modalities=modalities, duration_minutes=duration_minutes, intention=intention)
+
+def create_healing_session(
+    target_name: str,
+    modalities: list[str] | None = None,
+    duration_minutes: int = 60,
+    intention: str = "complete healing",
+) -> dict[str, Any]:
+    return _dispatch_via_container(
+        "create_healing_session",
+        target_name=target_name,
+        modalities=modalities,
+        duration_minutes=duration_minutes,
+        intention=intention,
+    )
+
 
 def chakra_balancing_protocol(target_name: str, chakras: list[str] | None = None) -> dict[str, Any]:
     return _dispatch_via_container("chakra_balancing_protocol", target_name=target_name, chakras=chakras)
 
+
 def get_healing_modalities() -> dict[str, Any]:
     return _dispatch_via_container("get_healing_modalities")
+
 
 def get_planetary_positions() -> dict[str, Any]:
     return _dispatch_via_container("get_planetary_positions")
 
-def calculate_natal_chart(name: str = "", birth_date: str = "", latitude: float = 0, longitude: float = 0) -> dict[str, Any]:
-    return _dispatch_via_container("calculate_natal_chart", name=name, birth_date=birth_date, latitude=latitude, longitude=longitude)
 
-def generate_audio(frequency_hz: float = 136.1, duration_seconds: float = 10, mode: str = "prayer_bowl") -> dict[str, Any]:
+def calculate_natal_chart(
+    name: str = "", birth_date: str = "", latitude: float = 0, longitude: float = 0
+) -> dict[str, Any]:
+    return _dispatch_via_container(
+        "calculate_natal_chart", name=name, birth_date=birth_date, latitude=latitude, longitude=longitude
+    )
+
+
+def generate_audio(
+    frequency_hz: float = 136.1, duration_seconds: float = 10, mode: str = "prayer_bowl"
+) -> dict[str, Any]:
     return _dispatch_via_container("generate_audio", frequency_hz=frequency_hz, duration_seconds=duration_seconds)
 
-def generate_blessing(target_name: str, intention: str = "peace and happiness", tradition: str = "universal") -> dict[str, Any]:
-    return _dispatch_via_container("generate_blessing", target_name=target_name, intention=intention, tradition=tradition)
+
+def generate_blessing(
+    target_name: str, intention: str = "peace and happiness", tradition: str = "universal"
+) -> dict[str, Any]:
+    return _dispatch_via_container(
+        "generate_blessing", target_name=target_name, intention=intention, tradition=tradition
+    )
+
 
 def get_blessing_traditions() -> dict[str, Any]:
     return _dispatch_via_container("get_blessing_traditions")
 
+
 def generate_prayer(intention: str, tradition: str = "universal") -> dict[str, Any]:
     return _dispatch_via_container("generate_prayer", intention=intention, tradition=tradition)
+
 
 def generate_teaching(topic: str, length: str = "short") -> dict[str, Any]:
     return _dispatch_via_container("generate_teaching", topic=topic, length=length)
 
-def generate_meditation_script(meditation_type: str, duration_minutes: int = 20, experience_level: str = "beginner") -> dict[str, Any]:
-    return _dispatch_via_container("generate_meditation_script", meditation_type=meditation_type, duration_minutes=duration_minutes, experience_level=experience_level)
+
+def generate_meditation_script(
+    meditation_type: str, duration_minutes: int = 20, experience_level: str = "beginner"
+) -> dict[str, Any]:
+    return _dispatch_via_container(
+        "generate_meditation_script",
+        meditation_type=meditation_type,
+        duration_minutes=duration_minutes,
+        experience_level=experience_level,
+    )
+
 
 def web_search(query: str, top_k: int = 5) -> dict[str, Any]:
     return _dispatch_via_container("web_search", query=query, top_k=top_k)
 
+
 def web_fetch(url: str) -> dict[str, Any]:
     return _dispatch_via_container("web_fetch", url=url)
+
 
 def get_world_context() -> dict[str, Any]:
     return _dispatch_via_container("get_world_context")
 
+
 def get_all_genre_windows() -> dict[str, Any]:
     return _dispatch_via_container("get_all_genre_windows")
+
 
 def get_current_conditions() -> dict[str, Any]:
     return _dispatch_via_container("get_current_conditions")
@@ -1170,13 +1301,9 @@ def add_agent_suggestion(agent_id: str, intention: str, missing_tools: str, cont
     client = get_client()
     return client._post(
         "/api/v1/agent_suggestions/intentional_paths",
-        {
-            "agent_id": agent_id,
-            "intention": intention,
-            "missing_tools": missing_tools,
-            "context": context
-        }
+        {"agent_id": agent_id, "intention": intention, "missing_tools": missing_tools, "context": context},
     )
+
 
 # Registry of all available tools
 TOOL_REGISTRY = {
@@ -1280,6 +1407,7 @@ def get_tool_schemas() -> list[dict[str, Any]]:
     # Import RADIONICS_TOOLS for the full radionics/broadcasting/astrology domain
     try:
         from core.radionics_tools import RADIONICS_TOOLS as raw_schemas
+
         _radionics_schemas = []
         for s in raw_schemas:
             if "type" in s and s["type"] == "function" and "function" in s:
@@ -1480,10 +1608,10 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "freq_hz": {"type": "number", "description": "The frequency in Hz to play (e.g. 432.0, 528.0)"},
-                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"}
+                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"},
                 },
-                "required": ["freq_hz"]
-            }
+                "required": ["freq_hz"],
+            },
         },
         {
             "name": "set_audio_modulation",
@@ -1493,10 +1621,10 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                 "properties": {
                     "harmonic_strength": {"type": "number", "description": "0.0 to 1.0, richness of overtones"},
                     "modulation_depth": {"type": "number", "description": "0.0 to 1.0, depth of vibrato/tremolo"},
-                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"}
+                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"},
                 },
-                "required": ["harmonic_strength", "modulation_depth"]
-            }
+                "required": ["harmonic_strength", "modulation_depth"],
+            },
         },
         {
             "name": "play_audio_preset",
@@ -1505,10 +1633,10 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "preset_name": {"type": "string", "description": "Name of the preset to play"},
-                    "duration_s": {"type": "number", "description": "Duration in seconds, default 30.0"}
+                    "duration_s": {"type": "number", "description": "Duration in seconds, default 30.0"},
                 },
-                "required": ["preset_name"]
-            }
+                "required": ["preset_name"],
+            },
         },
         {
             "name": "play_chakra_healing_audio",
@@ -1517,10 +1645,10 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "chakra_name": {"type": "string", "description": "Name of the chakra (e.g. root, sacral, heart)"},
-                    "duration": {"type": "number", "description": "Duration to play in seconds, default 30.0"}
+                    "duration": {"type": "number", "description": "Duration to play in seconds, default 30.0"},
                 },
-                "required": ["chakra_name"]
-            }
+                "required": ["chakra_name"],
+            },
         },
         {
             "name": "list_populations",

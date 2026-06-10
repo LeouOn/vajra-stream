@@ -28,10 +28,10 @@ payload = {
     "model": selected_model,
     "messages": [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Say hello in one word."}
+        {"role": "user", "content": "Say hello in one word."},
     ],
     "temperature": 0.7,
-    "max_tokens": 10
+    "max_tokens": 10,
 }
 
 start_time = time.time()
@@ -39,7 +39,7 @@ try:
     req = urllib.request.Request(
         f"{url}/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         res = json.loads(resp.read().decode())

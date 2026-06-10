@@ -1,4 +1,5 @@
 """Helper to write task-17 evidence files (UTF-8 safe)."""
+
 from __future__ import annotations
 
 import pathlib
@@ -13,6 +14,7 @@ EVIDENCE.mkdir(parents=True, exist_ok=True)
 
 def write_lots7():
     from fastapi.testclient import TestClient
+
     from backend.app.main import app
 
     c = TestClient(app)
@@ -43,6 +45,7 @@ def write_lots7():
 
 def write_validation():
     from fastapi.testclient import TestClient
+
     from backend.app.main import app
 
     c = TestClient(app)
@@ -163,9 +166,7 @@ def write_routes():
         lines.append(f"{verdict}  {r}")
     lines.append("")
     lines.append(f"Total routes in module: {len(registered)}")
-    lines.append(
-        f"All 10 new routes present: {all(r in registered for r in new_routes)}"
-    )
+    lines.append(f"All 10 new routes present: {all(r in registered for r in new_routes)}")
     (EVIDENCE / "task-17-routes.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("wrote task-17-routes.txt")
 

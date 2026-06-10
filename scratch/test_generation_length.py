@@ -19,7 +19,7 @@ prompt = generator.generate_single_outlook(
     genre="healing",
     include_astrology=True,
     include_tarot=True,
-    include_iching=True
+    include_iching=True,
 )
 
 # Extract prompt that was logged
@@ -33,10 +33,7 @@ print(f"Prompt length: {len(full_prompt)} chars")
 print("\nTesting generation with max_tokens=50...")
 start = time.time()
 response = llm.generate(
-    prompt=full_prompt,
-    system_prompt="You are a transcendent oracle and dharma scribe.",
-    max_tokens=50,
-    temperature=0.8
+    prompt=full_prompt, system_prompt="You are a transcendent oracle and dharma scribe.", max_tokens=50, temperature=0.8
 )
 duration = time.time() - start
 print(f"Completed in {duration:.2f}s!")

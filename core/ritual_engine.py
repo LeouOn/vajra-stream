@@ -45,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Data Classes ──────────────────────────────────────────
 
+
 class RitualPhase(str, Enum):
     IDLE = "idle"
     PREPARATION = "preparation"
@@ -64,6 +65,7 @@ class EngineState(str, Enum):
 @dataclass
 class RitualRecord:
     """A completed ritual logged to the database."""
+
     id: int = 0
     practice_name: str = ""
     practice_id: str = ""
@@ -79,12 +81,17 @@ class RitualRecord:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "id": self.id, "practice_name": self.practice_name,
-            "practice_id": self.practice_id, "genre": self.genre,
-            "planetary_hour": self.planetary_hour, "timing_quality": self.timing_quality,
-            "merit_multiplier": self.merit_multiplier, "narrative_length": self.narrative_length,
+            "id": self.id,
+            "practice_name": self.practice_name,
+            "practice_id": self.practice_id,
+            "genre": self.genre,
+            "planetary_hour": self.planetary_hour,
+            "timing_quality": self.timing_quality,
+            "merit_multiplier": self.merit_multiplier,
+            "narrative_length": self.narrative_length,
             "tts_generated": self.tts_generated,
-            "started_at": self.started_at, "completed_at": self.completed_at,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
             "narrative_preview": self.narrative_preview,
         }
 
@@ -92,6 +99,7 @@ class RitualRecord:
 @dataclass
 class PracticeScore:
     """A practice scored for selection."""
+
     practice: Any  # Practice object
     score: float = 0.0
     timing_quality: str = ""
@@ -99,6 +107,7 @@ class PracticeScore:
 
 
 # ─── Practice Selector ─────────────────────────────────────
+
 
 class PracticeSelector:
     """
@@ -127,9 +136,7 @@ class PracticeSelector:
 
         scores: list[PracticeScore] = []
         for p in practices:
-            score, quality, reason = self._score_practice(
-                p, current_hour, timing_windows, max_recent
-            )
+            score, quality, reason = self._score_practice(p, current_hour, timing_windows, max_recent)
             scores.append(PracticeScore(practice=p, score=score, timing_quality=quality, reason=reason))
 
         scores.sort(key=lambda s: s.score, reverse=True)
@@ -158,21 +165,24 @@ class PracticeSelector:
         quality = "neutral"  # Default
 
         # ── 1. Planetary hour favorability (40%) ──
-        genre = getattr(practice, 'genre', 'healing')
+        genre = getattr(practice, "genre", "healing")
         if genre in timing_windows:
             window = timing_windows[genre]
             quality = window.get("quality", "neutral")
 
             quality_scores = {
-                "excellent": 1.0, "good": 0.75, "challenging": 0.35,
-                "transmutative": 0.5, "neutral": 0.5,
+                "excellent": 1.0,
+                "good": 0.75,
+                "challenging": 0.35,
+                "transmutative": 0.5,
+                "neutral": 0.5,
             }
             qs = quality_scores.get(quality, 0.5)
             total += qs * 0.40
             reasons.append(f"timing: {quality} ({current_hour} hour → {genre})")
 
             # Bonus if current hour is in practice's preferred hours
-            preferred = getattr(practice, 'preferred_planetary_hours', [])
+            preferred = getattr(practice, "preferred_planetary_hours", [])
             if current_hour in preferred:
                 total += 0.15
                 reasons.append("preferred hour match")
@@ -181,19 +191,19 @@ class PracticeSelector:
             reasons.append("timing: unknown")
 
         # ── 2. Merit multiplier (30%) ──
-        multiplier = getattr(practice, 'merit_multiplier', 1)
+        multiplier = getattr(practice, "merit_multiplier", 1)
         # Normalize: 108x = 1.0, 1x = 0.1
         mm_score = min(1.0, multiplier / 108.0)
         total += mm_score * 0.30
         reasons.append(f"merit ×{multiplier}")
 
         # ── 3. Recency penalty (20%) ──
-        pid = getattr(practice, 'id', '')
+        pid = getattr(practice, "id", "")
         if pid in self._recent_practices[:max_recent]:
             idx = self._recent_practices[:max_recent].index(pid)
             penalty = (idx + 1) / max_recent  # 1.0 if just done, 0.33 if 3 back
             total += (1.0 - penalty) * 0.20
-            reasons.append(f"recent #{idx+1} → penalty {penalty:.0%}")
+            reasons.append(f"recent #{idx + 1} → penalty {penalty:.0%}")
         else:
             total += 0.20
             reasons.append("novel practice")
@@ -211,6 +221,7 @@ class PracticeSelector:
 
 # ─── Ritual Execution Engine ───────────────────────────────
 
+
 class RitualExecutionEngine:
     """
     Executes a single complete ritual cycle through all 4 phases.
@@ -226,6 +237,7 @@ class RitualExecutionEngine:
     def tts(self):
         if self._tts_provider is None:
             from core.tts_provider import get_tts_provider
+
             self._tts_provider = get_tts_provider()
         return self._tts_provider
 
@@ -233,6 +245,7 @@ class RitualExecutionEngine:
         """Send event to all WebSocket clients."""
         try:
             from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+
             payload = {"type": event_type, "data": data, "timestamp": time.time()}
             await stable_connection_manager_v2.broadcast(payload)
         except Exception:
@@ -274,22 +287,27 @@ class RitualExecutionEngine:
         """
         self._init_db()
         record = RitualRecord(
-            practice_name=getattr(practice, 'name', 'Unknown'),
-            practice_id=getattr(practice, 'id', ''),
-            genre=getattr(practice, 'genre', 'healing'),
+            practice_name=getattr(practice, "name", "Unknown"),
+            practice_id=getattr(practice, "id", ""),
+            genre=getattr(practice, "genre", "healing"),
             planetary_hour=timing_window.get("planetary_hour", "Unknown"),
             timing_quality=timing_window.get("quality", "neutral"),
-            merit_multiplier=getattr(practice, 'merit_multiplier', 1),
+            merit_multiplier=getattr(practice, "merit_multiplier", 1),
             started_at=datetime.now().isoformat(),
         )
 
         logger.info(f"🎭 Executing ritual: {record.practice_name} ({record.genre}) at {record.planetary_hour} hour")
 
         # ── Phase 1: PREPARATION ──
-        await self._broadcast_ws("RITUAL_PHASE", {
-            "phase": "preparation", "practice": record.practice_name,
-            "genre": record.genre, "planetary_hour": record.planetary_hour,
-        })
+        await self._broadcast_ws(
+            "RITUAL_PHASE",
+            {
+                "phase": "preparation",
+                "practice": record.practice_name,
+                "genre": record.genre,
+                "planetary_hour": record.planetary_hour,
+            },
+        )
 
         # TTS opening invocation
         prep_text = self._get_opening_invocation(record)
@@ -301,9 +319,13 @@ class RitualExecutionEngine:
         await asyncio.sleep(1.5)
 
         # ── Phase 2: INVOCATION ──
-        await self._broadcast_ws("RITUAL_PHASE", {
-            "phase": "invocation", "practice": record.practice_name,
-        })
+        await self._broadcast_ws(
+            "RITUAL_PHASE",
+            {
+                "phase": "invocation",
+                "practice": record.practice_name,
+            },
+        )
 
         # Generate blessing via DeepSeek
         narrative = await self._generate_narrative(practice)
@@ -317,16 +339,24 @@ class RitualExecutionEngine:
                 record.tts_generated = True
 
         # ── Phase 3: BROADCAST ──
-        await self._broadcast_ws("RITUAL_PHASE", {
-            "phase": "broadcast", "practice": record.practice_name,
-            "narrative_length": record.narrative_length,
-        })
+        await self._broadcast_ws(
+            "RITUAL_PHASE",
+            {
+                "phase": "broadcast",
+                "practice": record.practice_name,
+                "narrative_length": record.narrative_length,
+            },
+        )
         await asyncio.sleep(1.0)
 
         # ── Phase 4: DEDICATION ──
-        await self._broadcast_ws("RITUAL_PHASE", {
-            "phase": "dedication", "practice": record.practice_name,
-        })
+        await self._broadcast_ws(
+            "RITUAL_PHASE",
+            {
+                "phase": "dedication",
+                "practice": record.practice_name,
+            },
+        )
 
         dedication_text = self._get_dedication(record)
         tts_path = await self.tts.speak(dedication_text, rate="-35%")
@@ -342,18 +372,22 @@ class RitualExecutionEngine:
         # Broadcast completion
         await self._broadcast_ws("RITUAL_COMPLETED", record.to_dict())
 
-        logger.info(f"✅ Ritual complete: {record.practice_name} — {record.narrative_length} chars, merit ×{record.merit_multiplier}")
+        logger.info(
+            f"✅ Ritual complete: {record.practice_name} — {record.narrative_length} chars, merit ×{record.merit_multiplier}"
+        )
         return record
 
     async def _generate_narrative(self, practice) -> str | None:
         """Generate a blessing narrative via the outlook generator."""
         try:
             from container import container
+
             result = container.outlook.generate_single(
-                lat=37.7749, lon=-122.4194,
+                lat=37.7749,
+                lon=-122.4194,
                 languages=["English", "Sanskrit"],
-                genre=getattr(practice, 'genre', 'compassion'),
-                custom_context=getattr(practice, 'base_prompt_template', ''),
+                genre=getattr(practice, "genre", "compassion"),
+                custom_context=getattr(practice, "base_prompt_template", ""),
                 include_dialogue=False,
             )
             return result.get("narrative", "")
@@ -392,11 +426,19 @@ class RitualExecutionEngine:
                  merit_multiplier, narrative_length, tts_generated,
                  narrative_preview, started_at, completed_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (record.practice_name, record.practice_id, record.genre,
-                 record.planetary_hour, record.timing_quality,
-                 record.merit_multiplier, record.narrative_length,
-                 1 if record.tts_generated else 0,
-                 record.narrative_preview, record.started_at, record.completed_at),
+                (
+                    record.practice_name,
+                    record.practice_id,
+                    record.genre,
+                    record.planetary_hour,
+                    record.timing_quality,
+                    record.merit_multiplier,
+                    record.narrative_length,
+                    1 if record.tts_generated else 0,
+                    record.narrative_preview,
+                    record.started_at,
+                    record.completed_at,
+                ),
             )
             conn.commit()
             record.id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -432,6 +474,7 @@ class RitualExecutionEngine:
 
 
 # ─── Ritual Scheduler ──────────────────────────────────────
+
 
 class RitualScheduler:
     """
@@ -504,12 +547,8 @@ class RitualScheduler:
             executor._init_db()
             conn = sqlite3.connect(executor._db_path or ":memory:")
             today = datetime.now().strftime("%Y-%m-%d")
-            today_row = conn.execute(
-                "SELECT * FROM merit_tracker WHERE date = ?", (today,)
-            ).fetchone()
-            total_row = conn.execute(
-                "SELECT SUM(total_merit), SUM(rituals_count) FROM merit_tracker"
-            ).fetchone()
+            today_row = conn.execute("SELECT * FROM merit_tracker WHERE date = ?", (today,)).fetchone()
+            total_row = conn.execute("SELECT SUM(total_merit), SUM(rituals_count) FROM merit_tracker").fetchone()
             conn.close()
             return {
                 "today_merit": today_row[1] if today_row else 0,
@@ -569,6 +608,7 @@ class RitualScheduler:
 
         # Check timing
         from core.auspicious_timing import AuspiciousTiming
+
         timing = AuspiciousTiming()
         conditions = timing.get_current_conditions()
         current_hour = conditions.get("planetary_hour", "Unknown")
@@ -578,10 +618,14 @@ class RitualScheduler:
         if hour_changed:
             self._last_hour = current_hour
             self._rituals_this_hour = 0
-            await self._broadcast_ws("PLANETARY_HOUR_SHIFT", {
-                "hour": current_hour, "tithi": conditions.get("tithi", ""),
-                "nakshatra": conditions.get("nakshatra", ""),
-            })
+            await self._broadcast_ws(
+                "PLANETARY_HOUR_SHIFT",
+                {
+                    "hour": current_hour,
+                    "tithi": conditions.get("tithi", ""),
+                    "nakshatra": conditions.get("nakshatra", ""),
+                },
+            )
 
         # Rate limiting
         if self._rituals_this_hour >= self._config.get("max_per_hour", 2):
@@ -603,10 +647,12 @@ class RitualScheduler:
 
         # Get all practices
         from core.practices.practice import Practice
+
         practices = Practice.get_default_practices()
 
         # Get timing windows
         from core.auspicious_timing import AuspiciousTiming
+
         timing = AuspiciousTiming()
         windows = timing.get_all_genre_windows()
 
@@ -628,7 +674,7 @@ class RitualScheduler:
         record = await self.executor.execute(
             practice=selection.practice,
             timing_window=windows.get(
-                getattr(selection.practice, 'genre', 'healing'),
+                getattr(selection.practice, "genre", "healing"),
                 {},
             ),
         )
@@ -652,6 +698,7 @@ class RitualScheduler:
     def _get_upcoming_schedule(self) -> list[dict]:
         """Predict favorable hours for the next 24 hours."""
         from core.auspicious_timing import AuspiciousTiming
+
         # Simplified: just list the Chaldean order forward
         chaldean = ["Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"]
         now = datetime.now()
@@ -661,26 +708,29 @@ class RitualScheduler:
             planet = chaldean[future_idx]
             # Check which genres are favorable
             from core.auspicious_timing import GENRE_PLANETARY_HOURS
-            favorable_genres = [
-                g for g, cfg in GENRE_PLANETARY_HOURS.items()
-                if planet in cfg.get("favorable", [])
-            ]
-            schedule.append({
-                "hour_offset": i,
-                "planet": planet,
-                "favorable_genres": favorable_genres[:3],
-            })
+
+            favorable_genres = [g for g, cfg in GENRE_PLANETARY_HOURS.items() if planet in cfg.get("favorable", [])]
+            schedule.append(
+                {
+                    "hour_offset": i,
+                    "planet": planet,
+                    "favorable_genres": favorable_genres[:3],
+                }
+            )
         return schedule
 
     async def _broadcast_status(self):
         """Send engine status to WebSocket clients."""
         try:
             from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
-            await stable_connection_manager_v2.broadcast({
-                "type": "RITUAL_ENGINE_STATUS",
-                "data": self.status,
-                "timestamp": time.time(),
-            })
+
+            await stable_connection_manager_v2.broadcast(
+                {
+                    "type": "RITUAL_ENGINE_STATUS",
+                    "data": self.status,
+                    "timestamp": time.time(),
+                }
+            )
         except Exception:
             pass
 
@@ -688,9 +738,14 @@ class RitualScheduler:
         """Send event to WebSocket."""
         try:
             from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
-            await stable_connection_manager_v2.broadcast({
-                "type": event_type, "data": data, "timestamp": time.time(),
-            })
+
+            await stable_connection_manager_v2.broadcast(
+                {
+                    "type": event_type,
+                    "data": data,
+                    "timestamp": time.time(),
+                }
+            )
         except Exception:
             pass
 

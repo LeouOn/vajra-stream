@@ -41,7 +41,7 @@ result = generator.generate_single_outlook(
     genre="healing",
     include_astrology=True,
     include_tarot=True,
-    include_iching=True
+    include_iching=True,
 )
 print(f"   Success in {time.time() - start:.2f}s!")
 print(f"   Narrative Preview: {result['narrative'][:200]}...")

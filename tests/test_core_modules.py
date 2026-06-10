@@ -164,7 +164,11 @@ class TestDoshaAssessment:
         from core.assessment import DoshaAssessment
 
         da = DoshaAssessment()
-        answers = {"vata": [5, 5, 5, 5, 5, 5, 5, 5, 5, 5], "pitta": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2], "kapha": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]}
+        answers = {
+            "vata": [5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+            "pitta": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            "kapha": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        }
         result = da.evaluate(answers)
         assert result["dominant"] == "vata"
         assert result["vata_pct"] > 50
@@ -275,8 +279,26 @@ class TestLLMUsageTracker:
         tracker = LLMUsageTracker.get(log_path=os.path.join(tempfile.gettempdir(), "test_usage.jsonl"))
         calls_before = tracker.total_calls
 
-        tracker.record(UsageRecord(provider="deepseek", model="deepseek-chat", prompt_tokens=100, completion_tokens=50, total_tokens=150, cost_usd=0.000042))
-        tracker.record(UsageRecord(provider="openai", model="gpt-4o-mini", prompt_tokens=200, completion_tokens=80, total_tokens=280, cost_usd=0.000078))
+        tracker.record(
+            UsageRecord(
+                provider="deepseek",
+                model="deepseek-chat",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                cost_usd=0.000042,
+            )
+        )
+        tracker.record(
+            UsageRecord(
+                provider="openai",
+                model="gpt-4o-mini",
+                prompt_tokens=200,
+                completion_tokens=80,
+                total_tokens=280,
+                cost_usd=0.000078,
+            )
+        )
 
         summary = tracker.get_summary()
         assert summary["total_calls"] >= calls_before + 2

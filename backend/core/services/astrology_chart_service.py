@@ -2,12 +2,12 @@
 Astrology Chart Service using Kerykeion (v5.x factory API)
 Provides Natal, Transit, and Synastry calculations and structured exports.
 """
+
 import datetime
 import logging
-import json
-from typing import Dict, Any, Optional
+from typing import Any
 
-from kerykeion import AstrologicalSubjectFactory, AspectsFactory
+from kerykeion import AspectsFactory, AstrologicalSubjectFactory
 
 from backend.core.services.geocoding_service import geocoding_service
 
@@ -15,9 +15,18 @@ logger = logging.getLogger(__name__)
 
 # Canonical sign names for normalization (Kerykeion v5 uses abbreviations)
 _SIGN_NORMALIZE = {
-    "Ari": "Aries", "Tau": "Taurus", "Gem": "Gemini", "Can": "Cancer",
-    "Leo": "Leo", "Vir": "Virgo", "Lib": "Libra", "Sco": "Scorpio",
-    "Sag": "Sagittarius", "Cap": "Capricorn", "Aqu": "Aquarius", "Pis": "Pisces",
+    "Ari": "Aries",
+    "Tau": "Taurus",
+    "Gem": "Gemini",
+    "Can": "Cancer",
+    "Leo": "Leo",
+    "Vir": "Virgo",
+    "Lib": "Libra",
+    "Sco": "Scorpio",
+    "Sag": "Sagittarius",
+    "Cap": "Capricorn",
+    "Aqu": "Aquarius",
+    "Pis": "Pisces",
 }
 
 
@@ -51,7 +60,7 @@ class AstrologyChartService:
         """Expand abbreviated sign names from Kerykeion v5 to full names."""
         return _SIGN_NORMALIZE.get(sign, sign)
 
-    def _serialize_point(self, point_obj) -> Dict[str, Any]:
+    def _serialize_point(self, point_obj) -> dict[str, Any]:
         """Extract data from a Kerykeion v5 point model (Pydantic)."""
         if not point_obj:
             return {}
@@ -64,15 +73,25 @@ class AstrologyChartService:
         except Exception:
             return str(point_obj)
 
-    def get_natal_chart(self, name: str, birth_time_iso: str, birth_city: str) -> Dict[str, Any]:
+    def get_natal_chart(self, name: str, birth_time_iso: str, birth_city: str) -> dict[str, Any]:
         """Generate a natal chart with structured raw data export."""
         try:
             subject = self._create_subject(name, birth_time_iso, birth_city)
 
             planet_names = [
-                "sun", "moon", "mercury", "venus", "mars",
-                "jupiter", "saturn", "uranus", "neptune", "pluto",
-                "mean_node", "true_node", "chiron",
+                "sun",
+                "moon",
+                "mercury",
+                "venus",
+                "mars",
+                "jupiter",
+                "saturn",
+                "uranus",
+                "neptune",
+                "pluto",
+                "mean_node",
+                "true_node",
+                "chiron",
             ]
             planets = {}
             for p_name in planet_names:
@@ -81,9 +100,18 @@ class AstrologyChartService:
                     planets[p_name] = self._serialize_point(p_obj)
 
             house_names = [
-                "first_house", "second_house", "third_house", "fourth_house",
-                "fifth_house", "sixth_house", "seventh_house", "eighth_house",
-                "ninth_house", "tenth_house", "eleventh_house", "twelfth_house",
+                "first_house",
+                "second_house",
+                "third_house",
+                "fourth_house",
+                "fifth_house",
+                "sixth_house",
+                "seventh_house",
+                "eighth_house",
+                "ninth_house",
+                "tenth_house",
+                "eleventh_house",
+                "twelfth_house",
             ]
             houses = {}
             for h_name in house_names:
@@ -107,8 +135,8 @@ class AstrologyChartService:
             return {"error": str(e)}
 
     def get_daily_transit(
-        self, name: str, birth_time_iso: str, birth_city: str, current_time_iso: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, name: str, birth_time_iso: str, birth_city: str, current_time_iso: str | None = None
+    ) -> dict[str, Any]:
         """Compare natal chart with current transits using the v5 AspectsFactory."""
         try:
             natal_subject = self._create_subject(name, birth_time_iso, birth_city)
@@ -139,13 +167,15 @@ class AstrologyChartService:
             aspects_list = []
 
             for aspect in result.aspects:
-                aspects_list.append({
-                    "natal_planet": aspect.p1_name,
-                    "transit_planet": aspect.p2_name,
-                    "aspect": aspect.aspect,
-                    "orb": aspect.orbit,
-                    "exactness": 1.0 - (aspect.orbit / 8.0),  # approximate
-                })
+                aspects_list.append(
+                    {
+                        "natal_planet": aspect.p1_name,
+                        "transit_planet": aspect.p2_name,
+                        "aspect": aspect.aspect,
+                        "orb": aspect.orbit,
+                        "exactness": 1.0 - (aspect.orbit / 8.0),  # approximate
+                    }
+                )
 
             return {
                 "status": "success",
@@ -161,7 +191,7 @@ class AstrologyChartService:
 
     def get_synastry(
         self, name_a: str, time_a: str, city_a: str, name_b: str, time_b: str, city_b: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compare two natal charts for compatibility using the v5 AspectsFactory."""
         try:
             subject_a = self._create_subject(name_a, time_a, city_a)
@@ -171,12 +201,14 @@ class AstrologyChartService:
             aspects_list = []
 
             for aspect in result.aspects:
-                aspects_list.append({
-                    "person_a_planet": aspect.p1_name,
-                    "person_b_planet": aspect.p2_name,
-                    "aspect": aspect.aspect,
-                    "orb": aspect.orbit,
-                })
+                aspects_list.append(
+                    {
+                        "person_a_planet": aspect.p1_name,
+                        "person_b_planet": aspect.p2_name,
+                        "aspect": aspect.aspect,
+                        "orb": aspect.orbit,
+                    }
+                )
 
             return {
                 "status": "success",
@@ -189,5 +221,6 @@ class AstrologyChartService:
         except Exception as e:
             logger.error(f"Synastry error: {e}")
             return {"error": str(e)}
+
 
 astrology_chart_service = AstrologyChartService()

@@ -7,12 +7,16 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def client():
     from backend.app.main import app
+
     return TestClient(app)
+
 
 @pytest.fixture
 def fresh_outlook_service():
     from container import container
+
     return container.outlook
+
 
 def test_outlook_request_parameters(client):
     # Mock generation on the service layer to avoid actual LLM calls
@@ -26,7 +30,7 @@ def test_outlook_request_parameters(client):
             "divination_used": "Divination alignment",
             "divination_raw": {},
             "entities_used": "Buddha",
-            "narrative": "A peaceful test blessing."
+            "narrative": "A peaceful test blessing.",
         }
 
         # Mock get_db_connection to avoid writing to database in test
@@ -43,8 +47,8 @@ def test_outlook_request_parameters(client):
                     "genre": "healing",
                     "model": "test-model-123",
                     "randomize_realm": True,
-                    "randomize_characters": True
-                }
+                    "randomize_characters": True,
+                },
             )
 
             assert response.status_code == 200
@@ -63,8 +67,9 @@ def test_outlook_request_parameters(client):
                 model="test-model-123",
                 include_geomancy=True,
                 randomize_realm=True,
-                randomize_characters=True
+                randomize_characters=True,
             )
+
 
 def test_loop_start_parameters(client):
     with patch("container.container.outlook.start_broadcast_loop") as mock_start_loop:
@@ -83,8 +88,8 @@ def test_loop_start_parameters(client):
                 "include_tarot": False,
                 "include_iching": False,
                 "randomize_realm": True,
-                "randomize_characters": True
-            }
+                "randomize_characters": True,
+            },
         )
 
         assert response.status_code == 200
@@ -108,8 +113,9 @@ def test_loop_start_parameters(client):
             include_geomancy=True,
             cycle_genres=False,
             randomize_realm=True,
-            randomize_characters=True
+            randomize_characters=True,
         )
+
 
 def test_randomization_logic_in_generator(fresh_outlook_service):
     # Mock managers to return active items
@@ -120,11 +126,12 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
     mock_char = MagicMock()
     mock_char.id = "mock_char_id"
 
-    with patch("core.outlook_generator.get_location_manager") as mock_lm, \
-         patch("core.outlook_generator.get_character_manager") as mock_cm, \
-         patch("core.outlook_generator.random.choice") as mock_choice, \
-         patch("core.outlook_generator.random.sample") as mock_sample:
-
+    with (
+        patch("core.outlook_generator.get_location_manager") as mock_lm,
+        patch("core.outlook_generator.get_character_manager") as mock_cm,
+        patch("core.outlook_generator.random.choice") as mock_choice,
+        patch("core.outlook_generator.random.sample") as mock_sample,
+    ):
         mock_lm.return_value.get_active_locations.return_value = [mock_realm]
         mock_cm.return_value.get_active_characters.return_value = [mock_char]
         mock_choice.return_value = mock_realm
@@ -135,11 +142,7 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
         fresh_outlook_service.generator.llm.generate.return_value = "Randomized blessing content."
 
         result = fresh_outlook_service.generate_single(
-            lat=34.0522,
-            lon=-118.2437,
-            languages=["English"],
-            randomize_realm=True,
-            randomize_characters=True
+            lat=34.0522, lon=-118.2437, languages=["English"], randomize_realm=True, randomize_characters=True
         )
 
         assert result["status"] == "success"

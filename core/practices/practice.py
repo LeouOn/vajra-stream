@@ -21,7 +21,6 @@ The fields the runtime reads:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
 
 
 @dataclass
@@ -30,13 +29,13 @@ class Practice:
     name: str
     genre: str
     merit_multiplier: int = 10
-    preferred_planetary_hours: List[str] = field(default_factory=list)
+    preferred_planetary_hours: list[str] = field(default_factory=list)
     base_prompt_template: str = ""
     duration_sec: int = 120
     mantra: str = ""
 
     @classmethod
-    def get_default_practices(cls) -> List["Practice"]:
+    def get_default_practices(cls) -> list[Practice]:
         """Return the canonical Vajra.Stream practice catalog.
 
         Genres align with `core.auspicious_timing.GENRE_PLANETARY_HOURS`.
@@ -50,8 +49,7 @@ class Practice:
                 merit_multiplier=12,
                 preferred_planetary_hours=["Venus", "Moon", "Jupiter"],
                 base_prompt_template=(
-                    "Compose a brief loving-kindness dedication for all beings, "
-                    "radiating warmth and equanimity."
+                    "Compose a brief loving-kindness dedication for all beings, radiating warmth and equanimity."
                 ),
                 duration_sec=180,
                 mantra="May all beings be happy and free from suffering.",

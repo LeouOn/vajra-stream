@@ -244,7 +244,9 @@ class LLMIntegration:
             except Exception:
                 pass
 
-        print("[WARN] No LLM available. Set OPENROUTER_API_KEY, DEEPSEEK_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or add GGUF models.")
+        print(
+            "[WARN] No LLM available. Set OPENROUTER_API_KEY, DEEPSEEK_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or add GGUF models."
+        )
 
     def _initialize_local(self) -> None:
         """Initialize local GGUF model"""
@@ -432,7 +434,9 @@ class LLMIntegration:
                 'deepseek:deepseek-v4-flash', or 'local:darwin-4b-genesis-i1.gguf').
         """
         # DEBUG: trace model parameter flow
-        print(f"[DEBUG generate] model={model!r}, self.model_type={self.model_type!r}, self.client={'set' if self.client else 'None'}")
+        print(
+            f"[DEBUG generate] model={model!r}, self.model_type={self.model_type!r}, self.client={'set' if self.client else 'None'}"
+        )
         # If model_type is still "auto" (meaning previous detection failed), try one more time
         if self.model_type == "auto" or getattr(self, "model_type", "auto") == "auto":
             self._initialize_auto()
@@ -542,7 +546,9 @@ class LLMIntegration:
                 except Exception as e:
                     return f"Failed to load local GGUF model '{model_path}': {e}"
 
-            formatted_prompt = f"### System:\n{system_prompt}\n\n### User:\n{prompt}\n\n### Assistant:\n" if system_prompt else prompt
+            formatted_prompt = (
+                f"### System:\n{system_prompt}\n\n### User:\n{prompt}\n\n### Assistant:\n" if system_prompt else prompt
+            )
             response = self.local_model(
                 formatted_prompt, max_tokens=max_tokens, temperature=temperature, stop=["###", "\n\n\n"], echo=False
             )
@@ -556,6 +562,7 @@ class LLMIntegration:
 
             try:
                 from openai import OpenAI
+
                 client = OpenAI(base_url=base_url, api_key=api_key)
             except Exception as e:
                 return f"Failed to initialize OpenAI client for DeepSeek: {e}"
@@ -578,20 +585,30 @@ class LLMIntegration:
 
                 if HAS_USAGE_TRACKER and self._tracker:
                     try:
-                        prompt_tokens = response.usage.prompt_tokens if hasattr(response, "usage") and response.usage else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
-                        completion_tokens = response.usage.completion_tokens if hasattr(response, "usage") and response.usage else self._tracker.estimate_tokens(result)
+                        prompt_tokens = (
+                            response.usage.prompt_tokens
+                            if hasattr(response, "usage") and response.usage
+                            else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
+                        )
+                        completion_tokens = (
+                            response.usage.completion_tokens
+                            if hasattr(response, "usage") and response.usage
+                            else self._tracker.estimate_tokens(result)
+                        )
                         cost = self._tracker.estimate_cost("deepseek", target_model, prompt_tokens, completion_tokens)
-                        self._tracker.record(UsageRecord(
-                            provider="deepseek",
-                            model=target_model,
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            total_tokens=prompt_tokens + completion_tokens,
-                            cost_usd=cost,
-                            latency_ms=latency_ms,
-                            endpoint="chat",
-                            success=True,
-                        ))
+                        self._tracker.record(
+                            UsageRecord(
+                                provider="deepseek",
+                                model=target_model,
+                                prompt_tokens=prompt_tokens,
+                                completion_tokens=completion_tokens,
+                                total_tokens=prompt_tokens + completion_tokens,
+                                cost_usd=cost,
+                                latency_ms=latency_ms,
+                                endpoint="chat",
+                                success=True,
+                            )
+                        )
                     except Exception:
                         pass
                 return result
@@ -606,6 +623,7 @@ class LLMIntegration:
 
             try:
                 from openai import OpenAI
+
                 if base_url:
                     client = OpenAI(base_url=base_url, api_key=api_key)
                 else:
@@ -631,20 +649,30 @@ class LLMIntegration:
 
                 if HAS_USAGE_TRACKER and self._tracker:
                     try:
-                        prompt_tokens = response.usage.prompt_tokens if hasattr(response, "usage") and response.usage else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
-                        completion_tokens = response.usage.completion_tokens if hasattr(response, "usage") and response.usage else self._tracker.estimate_tokens(result)
+                        prompt_tokens = (
+                            response.usage.prompt_tokens
+                            if hasattr(response, "usage") and response.usage
+                            else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
+                        )
+                        completion_tokens = (
+                            response.usage.completion_tokens
+                            if hasattr(response, "usage") and response.usage
+                            else self._tracker.estimate_tokens(result)
+                        )
                         cost = self._tracker.estimate_cost("openai", target_model, prompt_tokens, completion_tokens)
-                        self._tracker.record(UsageRecord(
-                            provider="openai",
-                            model=target_model,
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            total_tokens=prompt_tokens + completion_tokens,
-                            cost_usd=cost,
-                            latency_ms=latency_ms,
-                            endpoint="chat",
-                            success=True,
-                        ))
+                        self._tracker.record(
+                            UsageRecord(
+                                provider="openai",
+                                model=target_model,
+                                prompt_tokens=prompt_tokens,
+                                completion_tokens=completion_tokens,
+                                total_tokens=prompt_tokens + completion_tokens,
+                                cost_usd=cost,
+                                latency_ms=latency_ms,
+                                endpoint="chat",
+                                success=True,
+                            )
+                        )
                     except Exception:
                         pass
                 return result
@@ -658,6 +686,7 @@ class LLMIntegration:
 
             try:
                 from anthropic import Anthropic
+
                 client = Anthropic(api_key=api_key)
             except Exception as e:
                 return f"Failed to initialize Anthropic client: {e}"
@@ -680,20 +709,26 @@ class LLMIntegration:
                 if HAS_USAGE_TRACKER and self._tracker:
                     try:
                         usage = response.usage if hasattr(response, "usage") else None
-                        prompt_tokens = usage.input_tokens if usage else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
+                        prompt_tokens = (
+                            usage.input_tokens
+                            if usage
+                            else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
+                        )
                         completion_tokens = usage.output_tokens if usage else self._tracker.estimate_tokens(result)
                         cost = self._tracker.estimate_cost("anthropic", target_model, prompt_tokens, completion_tokens)
-                        self._tracker.record(UsageRecord(
-                            provider="anthropic",
-                            model=target_model,
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            total_tokens=prompt_tokens + completion_tokens,
-                            cost_usd=cost,
-                            latency_ms=latency_ms,
-                            endpoint="chat",
-                            success=True,
-                        ))
+                        self._tracker.record(
+                            UsageRecord(
+                                provider="anthropic",
+                                model=target_model,
+                                prompt_tokens=prompt_tokens,
+                                completion_tokens=completion_tokens,
+                                total_tokens=prompt_tokens + completion_tokens,
+                                cost_usd=cost,
+                                latency_ms=latency_ms,
+                                endpoint="chat",
+                                success=True,
+                            )
+                        )
                     except Exception:
                         pass
                 return result
@@ -704,6 +739,7 @@ class LLMIntegration:
             base_url = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234")
             try:
                 from openai import OpenAI
+
                 client = OpenAI(base_url=f"{base_url}/v1", api_key="lm-studio")
             except Exception as e:
                 return f"Failed to initialize LM Studio client: {e}"
@@ -722,7 +758,7 @@ class LLMIntegration:
                 )
                 msg = response.choices[0].message
                 result = msg.content or ""
-                
+
                 reasoning = ""
                 if hasattr(msg, "model_dump"):
                     try:
@@ -789,7 +825,7 @@ class LLMIntegration:
             )
             msg = response.choices[0].message
             result = msg.content or ""
-            
+
             reasoning = ""
             if hasattr(msg, "model_dump"):
                 try:
@@ -817,7 +853,7 @@ class LLMIntegration:
                     )
                     msg2 = response.choices[0].message
                     result = msg2.content or ""
-                    
+
                     reasoning2 = ""
                     if hasattr(msg2, "model_dump"):
                         try:
@@ -844,21 +880,31 @@ class LLMIntegration:
         # Track usage
         if HAS_USAGE_TRACKER and self._tracker and success:
             try:
-                prompt_tokens = response.usage.prompt_tokens if hasattr(response, "usage") and response.usage else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
-                completion_tokens = response.usage.completion_tokens if hasattr(response, "usage") and response.usage else self._tracker.estimate_tokens(result)
+                prompt_tokens = (
+                    response.usage.prompt_tokens
+                    if hasattr(response, "usage") and response.usage
+                    else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
+                )
+                completion_tokens = (
+                    response.usage.completion_tokens
+                    if hasattr(response, "usage") and response.usage
+                    else self._tracker.estimate_tokens(result)
+                )
                 cost = self._tracker.estimate_cost(self.provider_key, target_model, prompt_tokens, completion_tokens)
 
-                self._tracker.record(UsageRecord(
-                    provider=self.provider_key,
-                    model=target_model,
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=prompt_tokens + completion_tokens,
-                    cost_usd=cost,
-                    latency_ms=latency_ms,
-                    endpoint="chat",
-                    success=success,
-                ))
+                self._tracker.record(
+                    UsageRecord(
+                        provider=self.provider_key,
+                        model=target_model,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        total_tokens=prompt_tokens + completion_tokens,
+                        cost_usd=cost,
+                        latency_ms=latency_ms,
+                        endpoint="chat",
+                        success=success,
+                    )
+                )
             except Exception:
                 pass  # Never let tracking break generation
 
@@ -915,21 +961,25 @@ class LLMIntegration:
         if HAS_USAGE_TRACKER and self._tracker and success:
             try:
                 usage = response.usage if hasattr(response, "usage") else None
-                prompt_tokens = usage.input_tokens if usage else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
+                prompt_tokens = (
+                    usage.input_tokens if usage else self._tracker.estimate_tokens(prompt + (system_prompt or ""))
+                )
                 completion_tokens = usage.output_tokens if usage else self._tracker.estimate_tokens(result)
                 cost = self._tracker.estimate_cost("anthropic", target_model, prompt_tokens, completion_tokens)
 
-                self._tracker.record(UsageRecord(
-                    provider="anthropic",
-                    model=target_model,
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=prompt_tokens + completion_tokens,
-                    cost_usd=cost,
-                    latency_ms=latency_ms,
-                    endpoint="chat",
-                    success=success,
-                ))
+                self._tracker.record(
+                    UsageRecord(
+                        provider="anthropic",
+                        model=target_model,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        total_tokens=prompt_tokens + completion_tokens,
+                        cost_usd=cost,
+                        latency_ms=latency_ms,
+                        endpoint="chat",
+                        success=success,
+                    )
+                )
             except Exception:
                 pass
 
@@ -958,9 +1008,7 @@ class LLMIntegration:
 
         # API providers
         if os.getenv("DEEPSEEK_API_KEY"):
-            available["api"].append(
-                f"DeepSeek ({os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')})"
-            )
+            available["api"].append(f"DeepSeek ({os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')})")
 
         if os.getenv("OPENAI_API_KEY"):
             label = "OpenAI (gpt-4o, gpt-4o-mini, etc.)"

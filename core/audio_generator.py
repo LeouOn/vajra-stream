@@ -187,7 +187,9 @@ class ScalarWaveGenerator:
         """
         return self.generate_solfeggio_tone(136.1, duration)
 
-    def generate_intention_carrier(self, intention_text: str, base_freq: float = 432, duration: int = 60) -> "np.ndarray":
+    def generate_intention_carrier(
+        self, intention_text: str, base_freq: float = 432, duration: int = 60
+    ) -> "np.ndarray":
         """Create a carrier wave uniquely modulated by the user's intention text.
 
         Hashes ``intention_text`` into a deterministic but unique random seed,
@@ -221,7 +223,9 @@ class ScalarWaveGenerator:
 
         return wave
 
-    def layer_frequencies(self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False) -> "np.ndarray":
+    def layer_frequencies(
+        self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False
+    ) -> "np.ndarray":
         """Layer multiple frequencies together into a single waveform.
 
         Each frequency is generated independently (as a prayer bowl tone or
@@ -298,10 +302,10 @@ class ScalarWaveGenerator:
             wave += amplitude * np.sin(2 * np.pi * inharmonic_freq * t)
 
         # Apply ADSR envelope for natural bowl sound
-        attack_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_ATTACK', 4.0)  # seconds
-        decay_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_DECAY', 2.0)
-        sustain_level = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_SUSTAIN', 0.4)
-        release_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_RELEASE', 5.0)
+        attack_time = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_ATTACK", 4.0)  # seconds
+        decay_time = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_DECAY", 2.0)
+        sustain_level = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_SUSTAIN", 0.4)
+        release_time = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_RELEASE", 5.0)
 
         attack_samples = int(attack_time * self.sample_rate)
         decay_samples = int(decay_time * self.sample_rate)
