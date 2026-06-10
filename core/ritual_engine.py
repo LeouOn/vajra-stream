@@ -711,10 +711,7 @@ class RitualScheduler:
         if not hour:
             return False  # no planetary hour known → don't fire
 
-        best = max(
-            self._score_hour(hour, GENRE_PLANETARY_HOURS[genre])
-            for genre in GENRE_PLANETARY_HOURS
-        )
+        best = max(self._score_hour(hour, GENRE_PLANETARY_HOURS[genre]) for genre in GENRE_PLANETARY_HOURS)
         return best >= min_rank
 
     @staticmethod
