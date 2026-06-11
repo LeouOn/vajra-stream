@@ -1,12 +1,13 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity } from 'lucide-react';
-import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty } from 'antd';
+import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity, Clipboard } from 'lucide-react';
+import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty, message } from 'antd';
 import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 import {
   aspectCategory, aspectGlyph, planetGlyph,
   isHouseCusp, houseLabel, natalDisplayName,
 } from '../../lib/astroHelpers';
+import { formatTransitExportMarkdown, formatTransitExportJSON } from '../../lib/transitExport';
 
 const ASPECT_COLORS = {
   conjunction: 'text-green-400 border-green-500/20 bg-green-500/10',
@@ -63,6 +64,8 @@ export default function TransitComparison({ chart }) {
   const [transitData, setTransitData] = useState(null);
   const [activeTab, setActiveTab] = useState('Western');
   const [aspectFilter, setAspectFilter] = useState('all');
+  const [exportFormat, setExportFormat] = useState('markdown');
+  const [exporting, setExporting] = useState(false);
 
   const fetchTransits = async () => {
     if (!chart) return;
@@ -93,6 +96,30 @@ export default function TransitComparison({ chart }) {
       fetchTransits();
     }
   }, [chart]);
+
+  const handleExport = async () => {
+    if (!transitData || !chart) return;
+    setExporting(true);
+    try {
+      const response = await fetch(`${API_BASE}/astrology/charts/${chart.id}/transit-export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      const data = result.data || result;
+      const formatted = exportFormat === 'json'
+        ? formatTransitExportJSON(data)
+        : formatTransitExportMarkdown(data);
+      await navigator.clipboard.writeText(formatted);
+      message.success('Copied to clipboard!');
+    } catch (e) {
+      message.error('Export failed: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const aspects = useMemo(() => {
     const raw = transitData?.aspects || [];
@@ -174,6 +201,31 @@ export default function TransitComparison({ chart }) {
           className="bg-black/40 border border-white/5 p-1 text-xs"
         />
       </div>
+
+      {transitData && (
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <Segmented
+            size="small"
+            value={exportFormat}
+            onChange={setExportFormat}
+            options={[
+              { label: 'Markdown', value: 'markdown' },
+              { label: 'JSON', value: 'json' },
+            ]}
+            className="bg-black/40 border border-white/5 text-[10px]"
+          />
+          <Button
+            size="small"
+            icon={<Clipboard size={12} />}
+            onClick={handleExport}
+            loading={exporting}
+            className="text-[10px]"
+            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', color: '#fff' }}
+          >
+            Copy for LLM
+          </Button>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center italic text-gray-500 text-xs py-16 animate-pulse">
