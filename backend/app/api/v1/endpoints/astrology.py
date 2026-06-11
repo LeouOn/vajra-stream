@@ -6,14 +6,10 @@ import asyncio
 import datetime
 import json
 import logging
-import os
 import sqlite3
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-from backend.app.config import settings
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -23,11 +19,18 @@ router = APIRouter()
 
 
 def get_db_path():
-    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.isabs(db_path):
-        project_root = Path(__file__).parent.parent.parent.parent.parent
-        db_path = str((project_root / db_path).resolve())
-    return db_path
+    """Resolve the SQLite database path.
+
+    Delegates to ``core.schema.get_db_path`` so that this endpoint and
+    :func:`core.schema.init_db` operate on the *same* DB file. Previously
+    this function walked up 5 parents from the endpoint file, landing
+    inside ``backend/`` and creating a *second* ``vajra_stream.db`` that
+    lacked every table defined in the centralized schema — leading to
+    ``no such table: saved_natal_charts`` errors on fresh checkouts.
+    """
+    from core.schema import get_db_path as _core_get_db_path
+
+    return _core_get_db_path()
 
 
 def init_db():
