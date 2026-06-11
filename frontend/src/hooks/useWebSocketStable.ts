@@ -77,11 +77,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
 
   const getDefaultWsUrl = (): string => {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let frontendHost = window.location.hostname;
-    if (frontendHost === 'localhost' || frontendHost === '::1') {
-      frontendHost = '127.0.0.1';
-    }
-    return `${wsProtocol}//${frontendHost}:8008/ws`;
+    return `${wsProtocol}//${window.location.host}/ws`;
   };
 
   const clearTimers = useCallback(() => {
