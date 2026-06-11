@@ -43,4 +43,7 @@ jobs:
         run: ruff format --check .
 
       - name: Run tests
-        run: pytest tests/ -m "not slow" --cov --cov-report=term-missing
+        # tests/e2e/ requires running services (LM Studio, PostgreSQL, etc.)
+        # and is excluded from CI. Developers can run them locally with
+        # 'pytest tests/e2e/ -m \"not slow\"'.
+        run: pytest tests/ -m "not slow" --ignore=tests/e2e --cov --cov-report=term-missing
