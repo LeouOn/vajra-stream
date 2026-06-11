@@ -3,7 +3,7 @@ import { Compass } from 'lucide-react';
 import {
   SIGN_GLYPHS, SIGN_NAMES, SIGN_ELEMENT, ELEMENT_COLORS,
   signName, signElement, signElementColor,
-  toSvgAngle, polarToXY, describeArc, planetGlyph,
+  toSvgAngle, polarToXY, describeArc, planetGlyph, PLANET_GLYPHS,
 } from '../../lib/astroHelpers';
 
 const PLANET_COLORS = {

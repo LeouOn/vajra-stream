@@ -7,7 +7,12 @@ intention-modulated carrier waves, and multi-frequency layered prayer bowl tones
 with natural ADSR envelopes, tremolo, and vibrato.
 
 Dependencies:
-    numpy, scipy, sounddevice — all required at import time.
+    numpy, scipy — required at import time.
+    sounddevice  — required only for actual playback (play() method). The import
+                   is wrapped in try/except so the module loads cleanly on systems
+                   without PortAudio (e.g. CI without libportaudio2 installed).
+                   `ScalarWaveGenerator.play()` will raise a clear RuntimeError
+                   if called without sounddevice available.
     config.settings.PRAYER_BOWL_CONFIG — optional; falls back gracefully if config
         module is not on sys.path.
 
@@ -19,7 +24,7 @@ Exports:
 Typical usage:
     >>> gen = ScalarWaveGenerator()
     >>> wave = gen.generate_prayer_bowl_tone(528, duration=60)
-    >>> gen.play(wave)
+    >>> gen.play(wave)  # requires sounddevice + PortAudio
 """
 
 import logging
@@ -27,8 +32,19 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import sounddevice as sd
 from scipy import signal
+
+# sounddevice is only required for actual audio playback. Allow the module
+# to load on systems without PortAudio so the synthesis/analysis classes
+# can be imported and unit-tested headlessly.
+try:
+    import sounddevice as sd
+
+    _SOUNDDEVICE_AVAILABLE = True
+except (ImportError, OSError) as _sd_err:
+    sd = None  # type: ignore[assignment]
+    _SOUNDDEVICE_AVAILABLE = False
+    _SOUNDDEVICE_IMPORT_ERROR = _sd_err
 
 try:
     from config.settings import PRAYER_BOWL_CONFIG
@@ -187,7 +203,9 @@ class ScalarWaveGenerator:
         """
         return self.generate_solfeggio_tone(136.1, duration)
 
-    def generate_intention_carrier(self, intention_text: str, base_freq: float = 432, duration: int = 60) -> "np.ndarray":
+    def generate_intention_carrier(
+        self, intention_text: str, base_freq: float = 432, duration: int = 60
+    ) -> "np.ndarray":
         """Create a carrier wave uniquely modulated by the user's intention text.
 
         Hashes ``intention_text`` into a deterministic but unique random seed,
@@ -221,7 +239,9 @@ class ScalarWaveGenerator:
 
         return wave
 
-    def layer_frequencies(self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False) -> "np.ndarray":
+    def layer_frequencies(
+        self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False
+    ) -> "np.ndarray":
         """Layer multiple frequencies together into a single waveform.
 
         Each frequency is generated independently (as a prayer bowl tone or
@@ -298,10 +318,10 @@ class ScalarWaveGenerator:
             wave += amplitude * np.sin(2 * np.pi * inharmonic_freq * t)
 
         # Apply ADSR envelope for natural bowl sound
-        attack_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_ATTACK', 4.0)  # seconds
-        decay_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_DECAY', 2.0)
-        sustain_level = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_SUSTAIN', 0.4)
-        release_time = getattr(sys.modules.get('config.settings'), 'PRAYER_BOWL_RELEASE', 5.0)
+        attack_time = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_ATTACK", 4.0)  # seconds
+        decay_time = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_DECAY", 2.0)
+        sustain_level = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_SUSTAIN", 0.4)
+        release_time = getattr(sys.modules.get("config.settings"), "PRAYER_BOWL_RELEASE", 5.0)
 
         attack_samples = int(attack_time * self.sample_rate)
         decay_samples = int(decay_time * self.sample_rate)
@@ -369,6 +389,13 @@ class ScalarWaveGenerator:
             blocking: If True (default), block until playback finishes;
                 if False, return immediately (background playback).
         """
+        if not _SOUNDDEVICE_AVAILABLE:
+            raise RuntimeError(
+                "sounddevice is not available — cannot play audio. "
+                f"Original import error: {_SOUNDDEVICE_IMPORT_ERROR}. "
+                "Install PortAudio (e.g. `apt-get install libportaudio2`) and "
+                "sounddevice (`pip install sounddevice`) to enable playback."
+            )
         if loop:
             sd.play(wave, samplerate=self.sample_rate, loop=True)
         else:
@@ -379,6 +406,8 @@ class ScalarWaveGenerator:
 
     def stop(self) -> None:
         """Stop any currently-playing audio on the default device."""
+        if not _SOUNDDEVICE_AVAILABLE:
+            return  # nothing playing, nothing to stop
         sd.stop()
 
 

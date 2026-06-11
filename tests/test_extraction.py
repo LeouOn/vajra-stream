@@ -30,9 +30,7 @@ import os
 # imported — which happens transitively when `backend.app.main` is loaded
 # below. We must set DATABASE_URL before any `from backend.app...` line
 # executes, so we do it at the top of this module.
-_TMP_DB_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), ".pytest_tmp"
-)
+_TMP_DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".pytest_tmp")
 os.makedirs(_TMP_DB_DIR, exist_ok=True)
 _TEST_DB_PATH = os.path.abspath(os.path.join(_TMP_DB_DIR, "test_extraction.db"))
 
@@ -45,6 +43,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB_PATH}"
 
 # Now safe to import the app + FastAPI machinery.
 import time  # noqa: E402
+
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -56,9 +55,7 @@ init_db(_TEST_DB_PATH).close()
 from backend.app.main import app  # noqa: E402
 
 
-def _poll_run_for_completion(
-    client: TestClient, run_id: int, timeout_s: float = 30.0
-) -> dict:
+def _poll_run_for_completion(client: TestClient, run_id: int, timeout_s: float = 30.0) -> dict:
     """Poll ``GET /astrology/runs/{id}`` until status is terminal.
 
     Returns the final run-row dict. Raises :class:`AssertionError` if the
@@ -74,9 +71,7 @@ def _poll_run_for_completion(
         if last.get("status") in ("done", "error", "partial"):
             return last
         time.sleep(0.25)
-    raise AssertionError(
-        f"Run {run_id} did not complete within {timeout_s}s; last status: {last}"
-    )
+    raise AssertionError(f"Run {run_id} did not complete within {timeout_s}s; last status: {last}")
 
 
 @pytest.fixture
@@ -112,6 +107,7 @@ class TestExtractionAPI:
         without any side import of compassionate_blessings.
         """
         import sqlite3
+
         from core.schema import get_db_path, init_db
 
         init_db()
@@ -160,9 +156,7 @@ class TestExtractionAPI:
         assert data["total_tuples"] == 1
 
         final = _poll_run_for_completion(client, data["run_id"], timeout_s=20.0)
-        assert final["status"] in ("done", "partial"), (
-            f"expected terminal status, got {final['status']!r}: {final}"
-        )
+        assert final["status"] in ("done", "partial"), f"expected terminal status, got {final['status']!r}: {final}"
         assert final["completed_tuples"] == 1
         assert final["total_tuples"] == 1
 
@@ -193,15 +187,9 @@ class TestExtractionAPI:
         data = r.json()
         assert data["total_tuples"] == 5
 
-        final = _poll_run_for_completion(
-            client, data["run_id"], timeout_s=30.0
-        )
-        assert final["status"] in ("done", "partial"), (
-            f"expected terminal status, got {final['status']!r}: {final}"
-        )
-        assert final["completed_tuples"] == 5, (
-            f"expected 5/5 completed, got {final['completed_tuples']}/5"
-        )
+        final = _poll_run_for_completion(client, data["run_id"], timeout_s=30.0)
+        assert final["status"] in ("done", "partial"), f"expected terminal status, got {final['status']!r}: {final}"
+        assert final["completed_tuples"] == 5, f"expected 5/5 completed, got {final['completed_tuples']}/5"
         assert final["total_tuples"] == 5
 
     def test_batch_extract_empty(self, client):
@@ -228,9 +216,7 @@ class TestExtractionAPI:
         r = client.post(
             "/api/v1/astrology/extract",
             json={
-                "tuples": [
-                    {"date_iso": "2026-01-01T12:00:00Z", "lat": 0, "lon": 0}
-                ],
+                "tuples": [{"date_iso": "2026-01-01T12:00:00Z", "lat": 0, "lon": 0}],
                 "config": {"systems": ["western"]},
             },
         )
@@ -333,6 +319,4 @@ class TestExtractionAPI:
             r = client.post(path, json=body)
             assert r.status_code == 200, f"{path} returned {r.status_code}: {r.text}"
             payload = r.json()
-            assert payload.get("status") == "success", (
-                f"{path} returned non-success payload: {payload}"
-            )
+            assert payload.get("status") == "success", f"{path} returned non-success payload: {payload}"

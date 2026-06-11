@@ -3,7 +3,7 @@ E2E tests for the Astrology module.
 Tests complete user flows: chart CRUD, transit analysis, synastry,
 import/export, Vedic Dasha, and error handling.
 """
-import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -107,9 +107,7 @@ class TestAstrologyE2E:
 
         # Request transits
         transit_payload = {"transit_time_iso": "2026-06-02T12:00:00"}
-        transit_resp = client.post(
-            f"{ASTRO_BASE}/charts/{chart_id}/transits", json=transit_payload
-        )
+        transit_resp = client.post(f"{ASTRO_BASE}/charts/{chart_id}/transits", json=transit_payload)
         assert transit_resp.status_code == 200
         data = transit_resp.json()["data"]
 
@@ -147,28 +145,37 @@ class TestAstrologyE2E:
     def test_synastry_comparison_flow(self):
         """Create two charts → compare → verify scoring."""
         # Create Subject A
-        a_resp = client.post(f"{ASTRO_BASE}/charts", json={
-            "name": "E2E_Synastry_A",
-            "birth_time_iso": "1995-10-15T08:30:00",
-            "city": "New Delhi",
-        })
+        a_resp = client.post(
+            f"{ASTRO_BASE}/charts",
+            json={
+                "name": "E2E_Synastry_A",
+                "birth_time_iso": "1995-10-15T08:30:00",
+                "city": "New Delhi",
+            },
+        )
         assert a_resp.status_code == 200
         id_a = a_resp.json()["id"]
 
         # Create Subject B
-        b_resp = client.post(f"{ASTRO_BASE}/charts", json={
-            "name": "E2E_Synastry_B",
-            "birth_time_iso": "1997-03-20T14:15:00",
-            "city": "Tokyo",
-        })
+        b_resp = client.post(
+            f"{ASTRO_BASE}/charts",
+            json={
+                "name": "E2E_Synastry_B",
+                "birth_time_iso": "1997-03-20T14:15:00",
+                "city": "Tokyo",
+            },
+        )
         assert b_resp.status_code == 200
         id_b = b_resp.json()["id"]
 
         # Compare
-        compare_resp = client.post(f"{ASTRO_BASE}/charts/compare", json={
-            "chart_id_a": id_a,
-            "chart_id_b": id_b,
-        })
+        compare_resp = client.post(
+            f"{ASTRO_BASE}/charts/compare",
+            json={
+                "chart_id_a": id_a,
+                "chart_id_b": id_b,
+            },
+        )
         assert compare_resp.status_code == 200
         result = compare_resp.json()
         assert result["status"] == "success"
@@ -192,16 +199,22 @@ class TestAstrologyE2E:
     def test_import_export_roundtrip(self):
         """Create charts → export → delete → import → verify recovery."""
         # Create two charts
-        c1 = client.post(f"{ASTRO_BASE}/charts", json={
-            "name": "E2E_Export_A",
-            "birth_time_iso": "2000-01-01T12:00:00",
-            "city": "San Francisco",
-        })
-        c2 = client.post(f"{ASTRO_BASE}/charts", json={
-            "name": "E2E_Export_B",
-            "birth_time_iso": "1985-07-20T06:00:00",
-            "city": "Beijing",
-        })
+        c1 = client.post(
+            f"{ASTRO_BASE}/charts",
+            json={
+                "name": "E2E_Export_A",
+                "birth_time_iso": "2000-01-01T12:00:00",
+                "city": "San Francisco",
+            },
+        )
+        c2 = client.post(
+            f"{ASTRO_BASE}/charts",
+            json={
+                "name": "E2E_Export_B",
+                "birth_time_iso": "1985-07-20T06:00:00",
+                "city": "Beijing",
+            },
+        )
         assert c1.status_code == 200 and c2.status_code == 200
         id_a, id_b = c1.json()["id"], c2.json()["id"]
 
@@ -264,8 +277,15 @@ class TestAstrologyE2E:
         first = dashas[0]
         assert first["remaining_years_at_birth"] > 0
         assert first["ruler"] in [
-            "Ketu", "Venus", "Sun", "Moon", "Mars",
-            "Rahu", "Jupiter", "Saturn", "Mercury",
+            "Ketu",
+            "Venus",
+            "Sun",
+            "Moon",
+            "Mars",
+            "Rahu",
+            "Jupiter",
+            "Saturn",
+            "Mercury",
         ]
         assert first["duration_years"] > 0
 
@@ -310,11 +330,14 @@ class TestAstrologyE2E:
         assert resp.status_code == 404
 
     def test_400_on_bad_geocode(self):
-        resp = client.post(f"{ASTRO_BASE}/charts", json={
-            "name": "Bad City",
-            "birth_time_iso": "2000-01-01T12:00:00",
-            "city": "XyzzyNoSuchPlace999",
-        })
+        resp = client.post(
+            f"{ASTRO_BASE}/charts",
+            json={
+                "name": "Bad City",
+                "birth_time_iso": "2000-01-01T12:00:00",
+                "city": "XyzzyNoSuchPlace999",
+            },
+        )
         # Should fail because geocoding won't find this city
         assert resp.status_code in (400, 500)
 

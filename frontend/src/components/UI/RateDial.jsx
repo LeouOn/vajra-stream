@@ -6,6 +6,7 @@
  */
 import React, { useRef, useState, useCallback, useEffect, useId } from 'react';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { COLORS } from '../../lib/colors';
 
 const SWEEP_DEGREES = 270;
 const START_ANGLE = 225;
@@ -16,7 +17,7 @@ const RateDial = ({
   min = 0,
   max = 100,
   label = '',
-  color = '#8a2be2',
+  color = COLORS.primary,
   size = 120,
   disabled = false,
   showValue = true

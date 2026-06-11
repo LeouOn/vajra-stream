@@ -5,17 +5,19 @@ result per endpoint. Saves a transcript for evidence.
 
 Expected: all 200, with non-empty JSON bodies.
 """
+
 from __future__ import annotations
 
 import json
+
+# Ensure the project root is on sys.path so `from backend.app.main import app`
+# works no matter how this script is invoked.
+import pathlib
 import sys
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
-# Ensure the project root is on sys.path so `from backend.app.main import app`
-# works no matter how this script is invoked.
-import pathlib
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
@@ -43,25 +45,21 @@ ENDPOINTS = [
     (
         "/api/v1/astrology/midpoints",
         {"date_iso": SNAPSHOT, "lat": LAT, "lon": LON, "orb": 1.5},
-        lambda body: body.get("status") == "success"
-        and body.get("count") == 45
-        and isinstance(body.get("midpoints"), dict),
+        lambda body: (
+            body.get("status") == "success" and body.get("count") == 45 and isinstance(body.get("midpoints"), dict)
+        ),
         "45 midpoints returned",
     ),
     (
         "/api/v1/astrology/antiscia",
         {"date_iso": SNAPSHOT, "lat": LAT, "lon": LON},
-        lambda body: body.get("status") == "success"
-        and "antiscia" in body
-        and len(body["antiscia"]) == 10,
+        lambda body: body.get("status") == "success" and "antiscia" in body and len(body["antiscia"]) == 10,
         "10 planets antiscia",
     ),
     (
         "/api/v1/astrology/fixed-stars",
         {"date_iso": SNAPSHOT, "lat": LAT, "lon": LON, "orb": 1.0},
-        lambda body: body.get("status") == "success"
-        and "stars" in body
-        and len(body["stars"]) == 7,
+        lambda body: body.get("status") == "success" and "stars" in body and len(body["stars"]) == 7,
         "7 fixed stars",
     ),
     (
@@ -72,9 +70,9 @@ ENDPOINTS = [
             "natal_lon": LON,
             "target_date_iso": TARGET,
         },
-        lambda body: body.get("status") == "success"
-        and "progressions" in body
-        and len(body["progressions"]["positions"]) == 10,
+        lambda body: (
+            body.get("status") == "success" and "progressions" in body and len(body["progressions"]["positions"]) == 10
+        ),
         "10 planet progressions + angles",
     ),
     (
@@ -85,19 +83,23 @@ ENDPOINTS = [
             "natal_lon": LON,
             "return_year": 2026,
         },
-        lambda body: body.get("status") == "success"
-        and "solar_return" in body
-        and "exact_moment" in body["solar_return"]
-        and "positions" in body["solar_return"],
+        lambda body: (
+            body.get("status") == "success"
+            and "solar_return" in body
+            and "exact_moment" in body["solar_return"]
+            and "positions" in body["solar_return"]
+        ),
         "solar return has exact_moment + positions",
     ),
     (
         "/api/v1/astrology/profection",
         {"natal_date_iso": NATAL, "target_year": 2025},
-        lambda body: body.get("status") == "success"
-        and "profection" in body
-        and "profected_asc_sign" in body["profection"]
-        and "profection_lord" in body["profection"],
+        lambda body: (
+            body.get("status") == "success"
+            and "profection" in body
+            and "profected_asc_sign" in body["profection"]
+            and "profection_lord" in body["profection"]
+        ),
         "profection has sign + lord",
     ),
     (
@@ -108,10 +110,12 @@ ENDPOINTS = [
             "natal_lon": LON,
             "target_date_iso": TARGET,
         },
-        lambda body: body.get("status") == "success"
-        and "solar_arc" in body
-        and "solar_arc_degrees" in body["solar_arc"]
-        and "directed" in body["solar_arc"],
+        lambda body: (
+            body.get("status") == "success"
+            and "solar_arc" in body
+            and "solar_arc_degrees" in body["solar_arc"]
+            and "directed" in body["solar_arc"]
+        ),
         "solar arc has degrees + directed",
     ),
     (
@@ -121,17 +125,13 @@ ENDPOINTS = [
             "natal_lat": LAT,
             "natal_lon": LON,
         },
-        lambda body: body.get("status") == "success"
-        and "year_ahead" in body
-        and "events" in body["year_ahead"],
+        lambda body: body.get("status") == "success" and "year_ahead" in body and "events" in body["year_ahead"],
         "year-ahead has events list",
     ),
     (
         "/api/v1/astrology/astrocartography",
         {"date_iso": SNAPSHOT, "step_degrees": 5.0},
-        lambda body: body.get("status") == "success"
-        and "lines" in body
-        and len(body["lines"]) == 10,
+        lambda body: body.get("status") == "success" and "lines" in body and len(body["lines"]) == 10,
         "10 planets astrocartography",
     ),
 ]
@@ -154,10 +154,7 @@ def main() -> int:
             passed += 1
         else:
             failed += 1
-        line = (
-            f"{verdict}  {r.status_code:>3}  {path}  :: {description}  :: "
-            f"{json.dumps(payload, default=str)[:200]}"
-        )
+        line = f"{verdict}  {r.status_code:>3}  {path}  :: {description}  :: {json.dumps(payload, default=str)[:200]}"
         print(line)
         transcript.append(line)
 
@@ -168,7 +165,9 @@ def main() -> int:
         json={"date_iso": SNAPSHOT, "lat": 999.0, "lon": 0.0},
     )
     val_ok = r.status_code == 422
-    validation_line = f"{'PASS' if val_ok else 'FAIL'}  {r.status_code}  /api/v1/astrology/lots  :: lat=999 rejected by Pydantic"
+    validation_line = (
+        f"{'PASS' if val_ok else 'FAIL'}  {r.status_code}  /api/v1/astrology/lots  :: lat=999 rejected by Pydantic"
+    )
     print(validation_line)
     transcript.append(validation_line)
     if val_ok:

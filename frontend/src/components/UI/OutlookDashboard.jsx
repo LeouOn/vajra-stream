@@ -148,15 +148,21 @@ export default function OutlookDashboard() {
       if (popsRes.ok) setPopulations(await popsRes.json());
       if (rolesRes.ok) setRoles(await rolesRes.json());
       if (typesRes.ok) setLocationTypes(await typesRes.json());
-    } catch (e) { console.error('Universe fetch failed:', e); }
-  }, []);
+    } catch (e) {
+      console.error('Universe fetch failed:', e);
+      addToast({ type: 'error', title: 'Could not load realms', message: 'Backend unreachable. Some data may be stale.', duration: 3000 });
+    }
+  }, [addToast]);
 
   const fetchHistory = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/outlook/history?limit=15`);
       if (res.ok) setHistoryList((await res.json()).history || []);
-    } catch (e) { console.error('History fetch failed:', e); }
-  }, []);
+    } catch (e) {
+      console.error('History fetch failed:', e);
+      addToast({ type: 'error', title: 'Could not load history', message: 'Backend unreachable.', duration: 3000 });
+    }
+  }, [addToast]);
 
   const fetchModels = useCallback(async () => {
     try {
@@ -168,8 +174,11 @@ export default function OutlookDashboard() {
           if (!selectedModel && data.default_model) setSelectedModel(data.default_model);
         }
       }
-    } catch (e) { console.error('Models fetch failed:', e); }
-  }, [selectedModel]);
+    } catch (e) {
+      console.error('Models fetch failed:', e);
+      addToast({ type: 'error', title: 'Could not load LLM models', message: 'Backend unreachable.', duration: 3000 });
+    }
+  }, [selectedModel, addToast]);
 
   const fetchLoopStatus = useCallback(async () => {
     try {
@@ -182,8 +191,11 @@ export default function OutlookDashboard() {
           setLoopMode(data.config?.loop_mode || 'sequential_delay');
         }
       }
-    } catch (e) { console.error('Loop status failed:', e); }
-  }, []);
+    } catch (e) {
+      console.error('Loop status failed:', e);
+      addToast({ type: 'error', title: 'Could not check loop status', message: 'Backend unreachable.', duration: 3000 });
+    }
+  }, [addToast]);
 
   useEffect(() => {
     fetchUniverseData();
@@ -402,9 +414,15 @@ export default function OutlookDashboard() {
       content: 'This action cannot be undone.',
       okText: 'Delete', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
-        await fetch(`${API_BASE}/outlook/locations/${id}`, { method: 'DELETE' });
-        message.success('Realm deleted.');
-        fetchUniverseData();
+        try {
+          const res = await fetch(`${API_BASE}/outlook/locations/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+          message.success('Realm deleted.');
+          fetchUniverseData();
+        } catch (e) {
+          console.error('Realm delete failed:', e);
+          addToast({ type: 'error', title: 'Could not delete realm', message: 'Backend unreachable or refused the request.', duration: 3000 });
+        }
       },
     });
   };
@@ -444,9 +462,15 @@ export default function OutlookDashboard() {
       content: 'They will be removed from all future narratives.',
       okText: 'Exile', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
-        await fetch(`${API_BASE}/outlook/characters/${id}`, { method: 'DELETE' });
-        message.success('Character exiled.');
-        fetchUniverseData();
+        try {
+          const res = await fetch(`${API_BASE}/outlook/characters/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+          message.success('Character exiled.');
+          fetchUniverseData();
+        } catch (e) {
+          console.error('Character delete failed:', e);
+          addToast({ type: 'error', title: 'Could not delete character', message: 'Backend unreachable or refused the request.', duration: 3000 });
+        }
       },
     });
   };
@@ -528,7 +552,7 @@ export default function OutlookDashboard() {
         </Card>
 
         {/* ── Ambient Rothko ── */}
-        <Card bodyStyle={{ padding: 0, height: 100, overflow: 'hidden' }}>
+        <Card styles={{ body: { padding: 0, height: 100, overflow: 'hidden' } }}>
           <RothkoGenerator isPlaying={isPlaying} palette="compassion" transitionSpeed={60} />
         </Card>
 
@@ -690,7 +714,7 @@ export default function OutlookDashboard() {
                   <Divider style={{ margin: '4px 0' }} />
 
                   {/* Characters — Collapsible */}
-                  <Collapse ghost size="small" expandIconPosition="end"
+                  <Collapse ghost size="small" expandIconPlacement="end"
                     items={[{
                       key: 'chars', label: <Text strong style={{ fontSize: 12 }}><Shield className="w-3 h-3 inline mr-1" />Characters ({selectedCharIds.length})</Text>,
                       extra: <Tooltip title="Random 2-3"><Switch size="small" checked={randomizeCharacters} onChange={setRandomizeCharacters} /></Tooltip>,
@@ -713,7 +737,7 @@ export default function OutlookDashboard() {
                   />
 
                   {/* Populations — Collapsible */}
-                  <Collapse ghost size="small" expandIconPosition="end"
+                  <Collapse ghost size="small" expandIconPlacement="end"
                     items={[{
                       key: 'pops', label: <Text strong style={{ fontSize: 12 }}><Users className="w-3 h-3 inline mr-1" />Populations ({selectedPopIds.length})</Text>,
                       children: (
@@ -1019,7 +1043,7 @@ export default function OutlookDashboard() {
             UNIVERSE TAB
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'universe' && (
-          <Card size="small" bodyStyle={{ padding: 0 }}>
+          <Card size="small" styles={{ body: { padding: 0 } }}>
             <Tabs
               activeKey={universeTab}
               onChange={k => { setUniverseTab(k); audioFeedback.playClick(); }}
@@ -1251,7 +1275,7 @@ export default function OutlookDashboard() {
         onOk={saveRealm}
         okText="Save"
         width={640}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={realmForm} layout="vertical" size="small" initialValues={{ is_metaphysical: true, priority: 5, source_type: 'manual' }}>
           <Row gutter={16}>
@@ -1319,7 +1343,7 @@ export default function OutlookDashboard() {
         onOk={saveCharacter}
         okText="Save"
         width={560}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={charForm} layout="vertical" size="small" initialValues={{ role: 'master', source_type: 'manual', elemental_anchor: 'space', priority: 5 }}>
           <Row gutter={16}>

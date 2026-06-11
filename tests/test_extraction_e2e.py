@@ -1,5 +1,6 @@
 import os
 import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,18 +13,21 @@ def test_e2e_batch_to_results(tmp_path):
 
     from backend.app.main import app
     from core.schema import init_db
+
     init_db(db_path=db_path)
 
     client = TestClient(app)
 
     # Step 1: POST /astrology/extract with 5 tuples and 3 systems
-    r = client.post("/api/v1/astrology/extract", json={
-        "tuples": [
-            {"date_iso": f"2026-{i+1:02d}-01T12:00:00Z", "lat": i*5.0, "lon": i*5.0}
-            for i in range(5)
-        ],
-        "config": {"systems": ["western"]}
-    })
+    r = client.post(
+        "/api/v1/astrology/extract",
+        json={
+            "tuples": [
+                {"date_iso": f"2026-{i + 1:02d}-01T12:00:00Z", "lat": i * 5.0, "lon": i * 5.0} for i in range(5)
+            ],
+            "config": {"systems": ["western"]},
+        },
+    )
     assert r.status_code == 200, f"extract failed: {r.text}"
     data = r.json()
     run_id = data["run_id"]
@@ -56,6 +60,7 @@ def test_e2e_batch_to_results(tmp_path):
     r4 = client.get(f"/api/v1/astrology/runs/{run_id}/results?format=json")
     assert r4.status_code == 200
     import json
+
     j = json.loads(r4.text)
     assert "schema_version" in j
     assert len(j.get("tuples", [])) == 5

@@ -152,9 +152,7 @@ class ChakraAssessment:
 
         for chakra_name, scores in answers.items():
             if len(scores) != 7:
-                raise ValueError(
-                    f"Expected 7 answers for {chakra_name}, got {len(scores)}"
-                )
+                raise ValueError(f"Expected 7 answers for {chakra_name}, got {len(scores)}")
 
             total = sum(scores)
             # Normalise: max possible = 35, min = 7
@@ -276,9 +274,7 @@ class DoshaAssessment:
 
         for dosha, scores in answers.items():
             if len(scores) != 10:
-                raise ValueError(
-                    f"Expected 10 answers for {dosha}, got {len(scores)}"
-                )
+                raise ValueError(f"Expected 10 answers for {dosha}, got {len(scores)}")
             totals[dosha] = sum(scores)
 
         grand_total = sum(totals.values())

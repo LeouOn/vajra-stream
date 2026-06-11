@@ -3,7 +3,9 @@ Unit tests for the modular Prayer Wheel Service wrapper
 """
 
 from unittest.mock import MagicMock, patch
+
 import pytest
+
 from modules.prayer_wheel import PrayerWheelService
 
 
@@ -38,7 +40,7 @@ class TestPrayerWheelService:
         svc = PrayerWheelService()
         # Mock audio play to avoid PortAudio issues
         svc.wheel.audio = MagicMock()
-        
+
         result = svc.spin_wheel(mantra="Om Mani Padme Hum", rotations=10, speed=1.0)
         assert result["status"] == "success"
         assert result["mantra"] == "Om Mani Padme Hum"
@@ -49,11 +51,11 @@ class TestPrayerWheelService:
     def test_continuous_spinning(self, mock_sleep):
         svc = PrayerWheelService()
         svc.wheel.audio = MagicMock()
-        
+
         result = svc.continuous_spinning(mantras=["Om Mani Padme Hum"], duration_minutes=1)
         assert result["status"] == "success"
         assert "session_id" in result
-        
+
         # Clean up threads
         if hasattr(svc.wheel, "_active_spins"):
             for s_id, info in list(svc.wheel._active_spins.items()):

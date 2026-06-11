@@ -37,10 +37,10 @@ for model in models:
         "model": model,
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": full_prompt}
+            {"role": "user", "content": full_prompt},
         ],
         "temperature": 0.8,
-        "max_tokens": 30
+        "max_tokens": 30,
     }
 
     start_time = time.time()
@@ -48,7 +48,7 @@ for model in models:
         req = urllib.request.Request(
             f"{url}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
+            headers={"Content-Type": "application/json"},
         )
         # Use a 30s timeout per model for testing
         with urllib.request.urlopen(req, timeout=30) as resp:

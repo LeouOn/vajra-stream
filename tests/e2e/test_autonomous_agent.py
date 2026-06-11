@@ -15,6 +15,7 @@ class RNGReadingSpike(DomainEvent):
         super().__init__(timestamp or datetime.now(), event_id)
         self.spike_value = spike_value
 
+
 @pytest.mark.asyncio
 async def test_autonomous_agent_event_reaction():
     """
@@ -37,7 +38,7 @@ async def test_autonomous_agent_event_reaction():
             MagicMock(
                 tool_name="play_chakra_healing_audio",
                 arguments={"chakra_name": "heart", "duration": 30.0},
-                status="success"
+                status="success",
             )
         ]
 
@@ -49,6 +50,7 @@ async def test_autonomous_agent_event_reaction():
 
         # We need to capture the thought event broadcasted by the agent
         thoughts = []
+
         def thought_handler(event):
             thoughts.append(event)
 
@@ -70,4 +72,3 @@ async def test_autonomous_agent_event_reaction():
         thought = thoughts[0]
         assert thought.action_taken is True
         assert "heart chakra" in thought.thought
-

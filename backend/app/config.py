@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = ""
     ANTHROPIC_API_KEY: str = ""
     LM_STUDIO_BASE_URL: str = "http://127.0.0.1:1234"
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    OPENROUTER_MODEL: str = ""
 
     # TTS API Keys (optional)
     ELEVENLABS_API_KEY: str = ""

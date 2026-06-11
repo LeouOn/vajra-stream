@@ -2,8 +2,8 @@
 Ritual Engine API — start, stop, configure, and monitor the autonomous ritual engine.
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -21,6 +21,7 @@ class RitualConfigUpdate(BaseModel):
 async def get_status():
     """Current engine state, history, schedule, and merit stats."""
     from core.ritual_engine import get_ritual_engine
+
     engine = get_ritual_engine()
     return {
         "status": engine.status,
@@ -33,6 +34,7 @@ async def get_status():
 async def start_engine():
     """Begin autonomous 24/7 ritual orchestration."""
     from core.ritual_engine import get_ritual_engine
+
     engine = get_ritual_engine()
     await engine.start()
     return {"status": "started", "state": engine.state.value}
@@ -42,6 +44,7 @@ async def start_engine():
 async def stop_engine():
     """Pause the autonomous engine."""
     from core.ritual_engine import get_ritual_engine
+
     engine = get_ritual_engine()
     await engine.stop()
     return {"status": "stopped", "state": engine.state.value}
@@ -51,6 +54,7 @@ async def stop_engine():
 async def trigger_ritual():
     """Immediately select and execute the best practice for this moment."""
     from core.ritual_engine import get_ritual_engine
+
     engine = get_ritual_engine()
     record = await engine.trigger_now()
     if record is None:
@@ -62,6 +66,7 @@ async def trigger_ritual():
 async def update_config(config: RitualConfigUpdate):
     """Update engine settings."""
     from core.ritual_engine import get_ritual_engine
+
     engine = get_ritual_engine()
     updates = config.model_dump(exclude_none=True)
     engine.update_config(**updates)
@@ -72,6 +77,7 @@ async def update_config(config: RitualConfigUpdate):
 async def get_schedule():
     """Predicted favorable hours for the next 24 hours."""
     from core.ritual_engine import get_ritual_engine
+
     engine = get_ritual_engine()
     return {"schedule": engine.status.get("schedule", [])}
 
@@ -80,5 +86,6 @@ async def get_schedule():
 async def get_merit():
     """Today's and total merit accumulation."""
     from core.ritual_engine import get_ritual_engine
+
     engine = get_ritual_engine()
     return engine.get_merit_stats()

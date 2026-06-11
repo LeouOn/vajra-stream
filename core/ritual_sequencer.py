@@ -10,10 +10,11 @@ through the entire ritual lifecycle.
 
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 
 class RitualPhase(Enum):
@@ -29,6 +30,7 @@ class RitualPhase(Enum):
 @dataclass
 class RitualState:
     """Mutable state carried through the ritual."""
+
     ritual_id: str = ""
     phase: RitualPhase = RitualPhase.IDLE
     intention: str = ""
@@ -44,7 +46,7 @@ class RitualState:
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: str = ""
     completed_at: str | None = None
-    
+
     # Fields added for outlook.py integration
     invocation_narrative: str = ""
     astrology_results: dict[str, Any] = field(default_factory=dict)
@@ -67,7 +69,7 @@ class RitualState:
             "created_at": self.created_at,
             "completed_at": self.completed_at,
             "invocation_narrative": self.invocation_narrative,
-            "genre": self.genre
+            "genre": self.genre,
         }
 
 
@@ -97,9 +99,7 @@ class RitualSequencer:
         self.kwargs = kwargs
         self.state = RitualState()
         self._phase_index = 0
-        self._on_phase_callbacks: dict[RitualPhase, list[Callable]] = {
-            p: [] for p in RitualPhase
-        }
+        self._on_phase_callbacks: dict[RitualPhase, list[Callable]] = {p: [] for p in RitualPhase}
         self._running = False
 
     # ─── Public API ───────────────────────────────────────────
@@ -169,45 +169,43 @@ class RitualSequencer:
         self.state.created_at = datetime.now().isoformat()
         self._phase_index = 0
         self._running = True
-        
+
         while not self.is_complete:
             current = self.state.phase
-            
+
             if current == RitualPhase.PREPARATION:
                 # Gather baseline entropy or prep sigils if needed
                 pass
-                
+
             elif current == RitualPhase.INVOCATION:
                 if self.outlook_generator:
                     lat = self.state.metadata.get("lat", 34.0522)
                     lon = self.state.metadata.get("lon", -118.2437)
                     res = self.outlook_generator.generate_single(
-                        lat=lat,
-                        lon=lon,
-                        genre=self.state.genre,
-                        custom_context=self.state.intention
+                        lat=lat, lon=lon, genre=self.state.genre, custom_context=self.state.intention
                     )
                     self.state.invocation_narrative = res.get("narrative", "")
                     self.state.astrology_results = res.get("astrology", {})
                     self.state.divination_results = res.get("divination", {})
-                    
+
             elif current == RitualPhase.BROADCAST:
                 if self.event_bus:
                     from modules.interfaces import BlessingGenerated
+
                     event = BlessingGenerated(
                         timestamp=datetime.now(),
                         event_id=str(uuid.uuid4()),
                         target_name=self.state.intention or "Automated Ritual",
                         blessing_text=self.state.invocation_narrative[:500],
-                        tradition="Universal"
+                        tradition="Universal",
                     )
                     self.event_bus.publish(event)
-                    
+
             elif current == RitualPhase.DEDICATION:
                 pass
-                
+
             self.advance()
-            
+
         return self.state
 
     @property
@@ -259,6 +257,7 @@ class RitualSequencer:
         """Check auspicious timing for this ritual. Always returns go=true with approach guidance."""
         try:
             from core.auspicious_timing import check_auspicious_window
+
             window = check_auspicious_window(genre)
             self.state.metadata["timing"] = window.to_dict()
             return window.to_dict()
@@ -272,7 +271,9 @@ class RitualSequencer:
 
         try:
             from datetime import datetime
+
             import pytz
+
             from core.astrology import AstrologicalCalculator
 
             astro = AstrologicalCalculator()
@@ -286,7 +287,10 @@ class RitualSequencer:
                     "nakshatra": panchanga.get("nakshatra", {}).get("name", ""),
                     "yoga": panchanga.get("yoga", {}).get("name", ""),
                     "vara": panchanga.get("vara", {}).get("name", ""),
-                    "lagna": data.get("indian", {}).get("sidereal_positions", {}).get("ascendant", {}).get("rashi_name", ""),
+                    "lagna": data.get("indian", {})
+                    .get("sidereal_positions", {})
+                    .get("ascendant", {})
+                    .get("rashi_name", ""),
                     "invocation_mantra": f"Om {panchanga.get('nakshatra', {}).get('name', '')}aya Namah",
                 }
 
@@ -297,7 +301,7 @@ class RitualSequencer:
                     "solar_term": chinese.get("solar_term", ""),
                     "shichen": chinese.get("shichen", {}).get("name", ""),
                     "bazi_year": chinese.get("bazi", {}).get("year", ""),
-                    "invocation_mantra": f"Tai Shang Lao Jun Ji Ji Ru Lv Ling",
+                    "invocation_mantra": "Tai Shang Lao Jun Ji Ji Ru Lv Ling",
                 }
 
             if tradition in ("western", "universal"):

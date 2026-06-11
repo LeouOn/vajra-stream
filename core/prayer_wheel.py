@@ -206,27 +206,27 @@ class PrayerWheel:
 
     def continuous_spin(self, mantras: list[str], duration_minutes: int = 60) -> dict:
         """Start continuous spinning of selected mantras in a background thread.
-        
+
         Args:
             mantras: List of mantras to cycle through
             duration_minutes: Duration to run in minutes
         """
         import threading
         import uuid
-        
+
         session_id = f"pw_session_{uuid.uuid4().hex[:8]}"
-        
+
         if not hasattr(self, "_active_spins"):
             self._active_spins = {}
-            
+
         stop_event = threading.Event()
-        
+
         def spin_loop():
             start_time = time.time()
             end_time = start_time + (duration_minutes * 60)
-            
+
             self.session_start = datetime.now()
-            
+
             try:
                 while not stop_event.is_set() and time.time() < end_time:
                     for mantra in mantras:
@@ -246,18 +246,18 @@ class PrayerWheel:
                 self._end_session()
                 if session_id in self._active_spins:
                     del self._active_spins[session_id]
-                    
+
         thread = threading.Thread(target=spin_loop)
         thread.daemon = True
         thread.start()
-        
+
         self._active_spins[session_id] = {
             "thread": thread,
             "stop_event": stop_event,
             "mantras": mantras,
-            "started_at": datetime.now().isoformat()
+            "started_at": datetime.now().isoformat(),
         }
-        
+
         return {"session_id": session_id, "status": "running"}
 
     def continuous_rotation(

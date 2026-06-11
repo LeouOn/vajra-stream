@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 def main():
     from backend.app.main import app
+
     client = TestClient(app)
 
     # Check models list
@@ -28,11 +29,12 @@ def main():
     if res.status_code == 200:
         print(f"History records found: {len(res.json().get('history', []))}")
         print("Latest history item preview:")
-        history = res.json().get('history', [])
+        history = res.json().get("history", [])
         if history:
             print(history[0])
     else:
         print(res.text)
+
 
 if __name__ == "__main__":
     main()

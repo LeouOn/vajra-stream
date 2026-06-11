@@ -160,13 +160,18 @@ export interface MoonPhase {
 // Store types (imported by store modules)
 // ---------------------------------------------------------------------------
 
+export interface ToastAction {
+  onClick: () => void;
+  label: string;
+}
+
 export interface Toast {
   id: number;
   type: 'info' | 'success' | 'warning' | 'error';
   title: string;
   message: string;
   duration: number;
-  action: (() => void) | null;
+  action: ToastAction | null;
 }
 
 export interface RatePreset {

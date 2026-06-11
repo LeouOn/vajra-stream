@@ -301,16 +301,19 @@ def preflight_checks():
     if frontend_dir.exists():
         print("Verifying Frontend dependencies...")
         node_modules = frontend_dir / "node_modules"
-        
+
         missing_deps = []
         if node_modules.exists():
             pkg_file = frontend_dir / "package.json"
             if pkg_file.exists():
                 try:
                     import json
+
                     with open(pkg_file, encoding="utf-8") as f:
                         pkg_data = json.load(f)
-                    all_deps = list(pkg_data.get("dependencies", {}).keys()) + list(pkg_data.get("devDependencies", {}).keys())
+                    all_deps = list(pkg_data.get("dependencies", {}).keys()) + list(
+                        pkg_data.get("devDependencies", {}).keys()
+                    )
                     for dep in all_deps:
                         if not (node_modules / dep).exists():
                             missing_deps.append(dep)

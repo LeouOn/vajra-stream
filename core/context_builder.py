@@ -164,45 +164,48 @@ def load_rate_database() -> dict[str, list[dict]]:
 
 def format_astrology_for_llm() -> str:
     """Build a concise current-astrology summary for LLM context injection.
-    
+
     Auto-fetches comprehensive astrology for now at default SF location.
     Returns a compact 6-8 line summary suitable for appending to a system prompt.
     """
     try:
         from datetime import datetime
+
         import pytz
+
         from core.astrology import AstrologicalCalculator
-        
+
         astro = AstrologicalCalculator()
         now = datetime.now(pytz.UTC)
         data = astro.get_comprehensive_astrology(now, (37.7749, -122.4194))
-        
+
         western = data.get("western", {})
         indian = data.get("indian", {})
         chinese = data.get("chinese", {})
         hours = data.get("planetary_hours", {})
         moon = data.get("moon_phase", {})
-        
+
         positions = western.get("positions", {})
         sun = positions.get("sun", {})
         moon_pos = positions.get("moon", {})
         asc = positions.get("ascendant", {})
-        
+
         # Top 3 aspects
         aspects = western.get("aspects", [])[:3]
-        aspect_lines = ", ".join(
-            f"{a['planet1']} {a['aspect'].lower()} {a['planet2']}"
-            for a in aspects
-        ) if aspects else "no major aspects"
-        
+        aspect_lines = (
+            ", ".join(f"{a['planet1']} {a['aspect'].lower()} {a['planet2']}" for a in aspects)
+            if aspects
+            else "no major aspects"
+        )
+
         # Retrograde planets
         rx = [p for p, d in positions.items() if d.get("retrograde") and p not in ("ascendant", "midheaven")]
         rx_str = f"Retrograde: {', '.join(rx)}. " if rx else ""
-        
+
         panchanga = indian.get("panchanga", {})
-        
+
         lines = [
-            f"Current Astrology:",
+            "Current Astrology:",
             f"  Sun: {sun.get('sign', '?')} {sun.get('degree', 0):.1f}° (H{sun.get('house', '?')})",
             f"  Moon: {moon_pos.get('sign', '?')} {moon_pos.get('degree', 0):.1f}° (H{moon_pos.get('house', '?')}) · {moon.get('phase_name', '?')} {moon.get('illumination', '?')}%",
             f"  Ascendant: {asc.get('sign', '?')} {asc.get('degree', 0):.1f}°",

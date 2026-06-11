@@ -8,10 +8,10 @@ export default {
     extend: {
       colors: {
         'vajra': {
-          'cyan': '#00bcd4',
-          'purple': '#9c27b0',
-          'deep-purple': '#673ab7',
-          'indigo': '#3f51b5',
+          'cyan': '#06b6d4',
+          'purple': '#8b5cf6',
+          'deep-purple': '#7c3aed',
+          'indigo': '#6366f1',
           'blue': '#2196f3',
           'teal': '#009688',
           'green': '#4caf50',
@@ -42,18 +42,18 @@ export default {
         },
         glow: {
           '0%, 100%': {
-            boxShadow: '0 0 5px rgba(138, 43, 226, 0.5)',
+            boxShadow: '0 0 5px rgba(139, 92, 246, 0.5)',
             filter: 'brightness(1)'
           },
           '50%': {
-            boxShadow: '0 0 20px rgba(138, 43, 226, 0.8), 0 0 30px rgba(138, 43, 226, 0.4)',
+            boxShadow: '0 0 20px rgba(139, 92, 246, 0.8), 0 0 30px rgba(139, 92, 246, 0.4)',
             filter: 'brightness(1.2)'
           },
         },
         'rotate-glow': {
           '0%': {
             filter: 'hue-rotate(0deg)',
-            boxShadow: '0 0 10px rgba(138, 43, 226, 0.6)'
+            boxShadow: '0 0 10px rgba(139, 92, 246, 0.6)'
           },
           '50%': {
             filter: 'hue-rotate(180deg)',
@@ -61,7 +61,7 @@ export default {
           },
           '100%': {
             filter: 'hue-rotate(360deg)',
-            boxShadow: '0 0 10px rgba(138, 43, 226, 0.6)'
+            boxShadow: '0 0 10px rgba(139, 92, 246, 0.6)'
           }
         },
         'particle-float': {

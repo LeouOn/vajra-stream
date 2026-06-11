@@ -8,13 +8,14 @@ Covers:
 - start/stop state transitions (no actual loop run)
 - _is_timing_good_enough (currently always True - documents behavior)
 """
+
 import asyncio
+
 import pytest
-from unittest.mock import patch
 
 from core.ritual_engine import (
-    RitualScheduler,
     EngineState,
+    RitualScheduler,
 )
 
 
@@ -25,6 +26,7 @@ def scheduler() -> RitualScheduler:
 
 
 # --- update_config ---
+
 
 def test_update_config_merges_new_keys(scheduler: RitualScheduler):
     scheduler.update_config(tts_enabled=False, max_per_hour=5)
@@ -51,18 +53,32 @@ def test_update_config_can_add_arbitrary_keys(scheduler: RitualScheduler):
 
 # --- _is_timing_good_enough ---
 
-def test_is_timing_good_enough_currently_always_true(scheduler: RitualScheduler):
-    """Documents current behavior: this method is a placeholder that
-    always allows execution. The PracticeSelector handles scoring.
-    The quality_rank dict is defined but never used."""
-    for hour in ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", ""]:
-        for quality in ["excellent", "good", "challenging", "transmutative", "unknown"]:
-            assert scheduler._is_timing_good_enough(hour, quality) is True, (
-                f"unexpected false for hour={hour!r} quality={quality!r}"
-            )
+
+def test_is_timing_good_enough_returns_true_when_current_hour_matches_favorable_genre(
+    scheduler: RitualScheduler,
+):
+    """The Sun hour is favorable for victory/protection/creativity-adjacent
+    genres, so any threshold should pass when the current planetary hour
+    is a favorable one for at least one genre."""
+    # Sun is in favorable set for: victory, protection, wisdom-neutrals
+    for quality in ["excellent", "good", "challenging", "transmutative"]:
+        assert scheduler._is_timing_good_enough("Sun", quality) is True, (
+            f"Sun hour should always pass for quality={quality!r}"
+        )
+
+
+def test_is_timing_good_enough_respects_threshold(scheduler: RitualScheduler):
+    """An empty hour string yields no favorable matches, so even the
+    lowest threshold should fail — the method must actually filter."""
+    # Empty string matches no genre's favorable/neutral/unfavorable set
+    # (every list is a list of proper names, never includes "").
+    assert scheduler._is_timing_good_enough("", "transmutative") is False, (
+        "empty hour with lowest threshold should still fail"
+    )
 
 
 # --- _get_upcoming_schedule ---
+
 
 def test_get_upcoming_schedule_returns_24_hours(scheduler: RitualScheduler):
     schedule = scheduler._get_upcoming_schedule()
@@ -107,11 +123,19 @@ def test_get_upcoming_schedule_favorable_genres_is_list(scheduler: RitualSchedul
 
 # --- status property ---
 
+
 def test_status_shape_keys(scheduler: RitualScheduler):
     s = scheduler.status
     expected_keys = {
-        "state", "current_ritual", "rituals_today", "total_merit_today",
-        "current_hour", "rituals_this_hour", "config", "history", "schedule",
+        "state",
+        "current_ritual",
+        "rituals_today",
+        "total_merit_today",
+        "current_hour",
+        "rituals_this_hour",
+        "config",
+        "history",
+        "schedule",
     }
     assert set(s.keys()) == expected_keys
 
@@ -140,6 +164,7 @@ def test_status_reflects_in_memory_counter_changes(scheduler: RitualScheduler):
 
 
 # --- start/stop state transitions ---
+
 
 def test_initial_state_is_stopped(scheduler: RitualScheduler):
     assert scheduler.state == EngineState.STOPPED

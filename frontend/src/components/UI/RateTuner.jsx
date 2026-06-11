@@ -10,8 +10,9 @@ import RateDial from './RateDial';
 import { useRateStore, RATE_PRESETS } from '../../stores/rateStore';
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { COLORS as BRAND_COLORS } from '../../lib/colors';
 
-const COLORS = ['#8a2be2', '#00bfff', '#ffd700'];
+const COLORS = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
 
 const RateTuner = ({ className = '' }) => {
   const {

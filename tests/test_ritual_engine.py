@@ -8,13 +8,16 @@ Covers:
 - PracticeSelector.select (selection + recency tracking)
 - get_ritual_engine() factory
 """
-import pytest
+
 from dataclasses import dataclass, field
-from typing import Any
 
 from core.ritual_engine import (
-    RitualPhase, EngineState, PracticeScore, RitualRecord,
-    PracticeSelector, get_ritual_engine,
+    EngineState,
+    PracticeScore,
+    PracticeSelector,
+    RitualPhase,
+    RitualRecord,
+    get_ritual_engine,
 )
 
 
@@ -67,13 +70,21 @@ def test_practice_score_construction():
 
 def test_ritual_record_construction():
     from datetime import datetime
-    p = MockPractice()
+
     now = datetime.now()
     r = RitualRecord(
-        id=1, practice_name="Test", practice_id="test_id", genre="healing",
-        planetary_hour="Sun", timing_quality="good", merit_multiplier=10,
-        narrative_length=500, tts_generated=True,
-        started_at=now, completed_at=now, narrative_preview="Once upon a time...",
+        id=1,
+        practice_name="Test",
+        practice_id="test_id",
+        genre="healing",
+        planetary_hour="Sun",
+        timing_quality="good",
+        merit_multiplier=10,
+        narrative_length=500,
+        tts_generated=True,
+        started_at=now,
+        completed_at=now,
+        narrative_preview="Once upon a time...",
     )
     assert r.id == 1
     assert r.genre == "healing"
@@ -168,9 +179,7 @@ def test_select_penalizes_recently_used():
     first = selector.select([p], "Sun", windows)
     assert first is not None
     second = selector.select([p], "Sun", windows)
-    assert second is None or second.score < first.score, (
-        "second select of same practice should be penalized"
-    )
+    assert second is None or second.score < first.score, "second select of same practice should be penalized"
 
 
 def test_select_recent_practices_capped_at_20():

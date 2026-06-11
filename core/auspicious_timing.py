@@ -95,6 +95,7 @@ NAKSHATRA_QUALITIES = {
 @dataclass
 class TimingWindow:
     """Result of a timing assessment — always permissive, never blocks."""
+
     go: bool = True  # Always true — rituals can always proceed
     planetary_hour: str = ""
     tithi: str = ""
@@ -141,8 +142,13 @@ class AuspiciousTiming:
 
     # Chaldean order of planetary hours
     CHALDEAN_ORDER = [
-        "Saturn", "Jupiter", "Mars", "Sun",
-        "Venus", "Mercury", "Moon",
+        "Saturn",
+        "Jupiter",
+        "Mars",
+        "Sun",
+        "Venus",
+        "Mercury",
+        "Moon",
     ]
 
     def __init__(self, astrology_engine=None):
@@ -152,8 +158,9 @@ class AuspiciousTiming:
     def engine(self):
         if self._engine is None:
             try:
-                from core.astrology import AstrologyEngine
-                self._engine = AstrologyEngine()
+                from core.astrology import AstrologicalCalculator
+
+                self._engine = AstrologicalCalculator()
             except ImportError:
                 self._engine = None
         return self._engine
@@ -270,10 +277,7 @@ class AuspiciousTiming:
 
     def get_all_genre_windows(self) -> dict[str, dict[str, Any]]:
         """Check timing for all known genres."""
-        return {
-            genre: self.check(genre).to_dict()
-            for genre in GENRE_PLANETARY_HOURS
-        }
+        return {genre: self.check(genre).to_dict() for genre in GENRE_PLANETARY_HOURS}
 
     # ─── Internal calculations ─────────────────────────────────
 
@@ -295,16 +299,36 @@ class AuspiciousTiming:
                     age_days = moon.get("phase_angle", 0) / 360 * 29.53
                     tithi_index = int(age_days % 30)
                     tithi_names = [
-                        "Shukla Pratipada", "Shukla Dwitiya", "Shukla Tritiya",
-                        "Shukla Chaturthi", "Shukla Panchami", "Shukla Shashthi",
-                        "Shukla Saptami", "Shukla Ashtami", "Shukla Navami",
-                        "Shukla Dashami", "Shukla Ekadashi", "Shukla Dwadashi",
-                        "Shukla Trayodashi", "Shukla Chaturdashi", "Purnima",
-                        "Krishna Pratipada", "Krishna Dwitiya", "Krishna Tritiya",
-                        "Krishna Chaturthi", "Krishna Panchami", "Krishna Shashthi",
-                        "Krishna Saptami", "Krishna Ashtami", "Krishna Navami",
-                        "Krishna Dashami", "Krishna Ekadashi", "Krishna Dwadashi",
-                        "Krishna Trayodashi", "Krishna Chaturdashi", "Amavasya",
+                        "Shukla Pratipada",
+                        "Shukla Dwitiya",
+                        "Shukla Tritiya",
+                        "Shukla Chaturthi",
+                        "Shukla Panchami",
+                        "Shukla Shashthi",
+                        "Shukla Saptami",
+                        "Shukla Ashtami",
+                        "Shukla Navami",
+                        "Shukla Dashami",
+                        "Shukla Ekadashi",
+                        "Shukla Dwadashi",
+                        "Shukla Trayodashi",
+                        "Shukla Chaturdashi",
+                        "Purnima",
+                        "Krishna Pratipada",
+                        "Krishna Dwitiya",
+                        "Krishna Tritiya",
+                        "Krishna Chaturthi",
+                        "Krishna Panchami",
+                        "Krishna Shashthi",
+                        "Krishna Saptami",
+                        "Krishna Ashtami",
+                        "Krishna Navami",
+                        "Krishna Dashami",
+                        "Krishna Ekadashi",
+                        "Krishna Dwadashi",
+                        "Krishna Trayodashi",
+                        "Krishna Chaturdashi",
+                        "Amavasya",
                     ]
                     return tithi_names[tithi_index] if tithi_index < 30 else "Unknown"
             except Exception:
@@ -339,125 +363,125 @@ class AuspiciousTiming:
             ("healing", "Mars"): (
                 "Channel Mars' fire through Vajrasattva purification before the healing broadcast. "
                 "The intensity becomes surgical precision.",
-                "Om Vajrasattva Hum"
+                "Om Vajrasattva Hum",
             ),
             ("healing", "Saturn"): (
                 "Saturn's weight can ground healing energy deeply. Begin with a grounding mantra, "
                 "then direct the stabilized energy to the healing target.",
-                "Om Shanti Shanti Shanti"
+                "Om Shanti Shanti Shanti",
             ),
             ("compassion", "Mars"): (
                 "Mars' warrior energy becomes fierce compassion. Visualize the red light of Mars "
                 "transforming into Chenrezig's thousand arms reaching out.",
-                "Om Mani Padme Hum"
+                "Om Mani Padme Hum",
             ),
             ("compassion", "Saturn"): (
                 "Saturn's discipline gives compassion structure. Use the heaviness as a foundation "
                 "for a compassion that lasts beyond the ritual.",
-                "Om Mani Padme Hum"
+                "Om Mani Padme Hum",
             ),
             ("wisdom", "Mars"): (
                 "Mars' drive becomes the sword of Manjushri — cutting through illusion. "
                 "The aggressive energy sharpens discernment.",
-                "Om Ah Ra Pa Tsa Na Dhih"
+                "Om Ah Ra Pa Tsa Na Dhih",
             ),
             ("wisdom", "Saturn"): (
                 "Saturn deepens wisdom through patience. This hour favors slow, contemplative "
                 "wisdom work rather than sudden insight.",
-                "Om Ah Ra Pa Tsa Na Dhih"
+                "Om Ah Ra Pa Tsa Na Dhih",
             ),
             ("creativity", "Mars"): (
                 "Mars brings creative fire. Channel it through rapid ideation and bold expression. "
                 "This is the hour of the lightning-strike inspiration.",
-                "Om Ah Hum"
+                "Om Ah Hum",
             ),
             ("creativity", "Saturn"): (
                 "Saturn structures creativity into lasting form. This is the hour for editing, "
                 "refining, and giving permanent shape to creative visions.",
-                "Om Ah Hum"
+                "Om Ah Hum",
             ),
             ("prosperity", "Mars"): (
                 "Mars' drive fuels assertive abundance work. Focus on taking bold action toward "
                 "prosperity rather than passive attraction.",
-                "Om Shrim Klim Mahalakshmyai Namaha"
+                "Om Shrim Klim Mahalakshmyai Namaha",
             ),
             ("prosperity", "Saturn"): (
                 "Saturn builds lasting wealth through discipline. This hour favors long-term "
                 "prosperity planning and structural abundance.",
-                "Om Shrim Klim Mahalakshmyai Namaha"
+                "Om Shrim Klim Mahalakshmyai Namaha",
             ),
             ("protection", "Moon"): (
                 "The Moon softens protection — shift from fortress walls to nurturing boundaries. "
                 "Visualize a sphere of silver moonlight rather than iron shields.",
-                "Om Tare Tuttare Ture Soha"
+                "Om Tare Tuttare Ture Soha",
             ),
             ("protection", "Venus"): (
                 "Venus transforms protection into loving guardianship. Call on Tara's compassionate "
                 "protection rather than Mars' warlike defense.",
-                "Om Tare Tuttare Ture Soha"
+                "Om Tare Tuttare Ture Soha",
             ),
             ("victory", "Saturn"): (
                 "Saturn delays victory but makes it decisive. This is the hour of strategic patience "
                 "— set the conditions for victory rather than forcing the outcome.",
-                "Om Vajra Guru Padma Siddhi Hum"
+                "Om Vajra Guru Padma Siddhi Hum",
             ),
             ("victory", "Moon"): (
                 "The Moon makes victory fluid — adapt tactics moment by moment. Victory comes "
                 "through responsiveness rather than force.",
-                "Om Vajra Guru Padma Siddhi Hum"
+                "Om Vajra Guru Padma Siddhi Hum",
             ),
             ("purification", "Venus"): (
                 "Venus purifies through love and beauty. Use art, music, or devotional practice "
                 "as the purification vehicle.",
-                "Om Benza Satto Hung"
+                "Om Benza Satto Hung",
             ),
             ("purification", "Sun"): (
                 "The Sun purifies through illumination — bring what's hidden into the light. "
                 "This is the hour of radical transparency.",
-                "Om Benza Satto Hung"
+                "Om Benza Satto Hung",
             ),
             # ─── Bodhicitta Transmutations (all genres) ───
             ("healing", "Bodhicitta"): (
                 "When conditions challenge healing, invoke bodhicitta — the awakened heart. "
                 "The pain you feel is the doorway to compassion for all who suffer. "
                 "Transform personal healing into universal bodhisattva activity.",
-                "Om Mani Padme Hum"
+                "Om Mani Padme Hum",
             ),
             ("compassion", "Bodhicitta"): (
                 "The difficult hour is the perfect teacher. Each obstacle is a reminder of "
                 "why we practice — for the liberation of ALL beings without exception. "
                 "Let this resistance deepen your bodhicitta resolve.",
-                "Om Mani Padme Hum"
+                "Om Mani Padme Hum",
             ),
             ("wisdom", "Bodhicitta"): (
                 "The union of wisdom and compassion is the heart of bodhicitta. "
                 "Conventional wisdom may be blocked, but the wisdom that sees emptiness "
                 "naturally gives rise to boundless love. Rest in that space.",
-                "Gate Gate Paragate Parasamgate Bodhi Svaha"
+                "Gate Gate Paragate Parasamgate Bodhi Svaha",
             ),
             ("creativity", "Bodhicitta"): (
                 "The creative block is the birthplace of bodhicitta. "
                 "When the small self can't create, the vast bodhisattva heart creates for all. "
                 "Let your creativity become an offering to every being.",
-                "Om Ah Hum Vajra Guru Padma Siddhi Hum"
+                "Om Ah Hum Vajra Guru Padma Siddhi Hum",
             ),
             ("prosperity", "Bodhicitta"): (
                 "True prosperity is the wealth of bodhicitta — inexhaustible and shared with all. "
                 "When material channels feel blocked, generate the wealth of the awakened heart. "
                 "All abundance flows from the wish to benefit others.",
-                "Om Dzambhala Dzalentraye Svaha"
+                "Om Dzambhala Dzalentraye Svaha",
             ),
             ("protection", "Bodhicitta"): (
                 "The ultimate protection is bodhicitta — the diamond armor of compassion. "
                 "No force can harm one whose sole purpose is the benefit of all beings. "
                 "Wrap yourself in the intention of bodhicitta.",
-                "Om Tare Tuttare Ture Soha"
+                "Om Tare Tuttare Ture Soha",
             ),
             ("victory", "Bodhicitta"): (
                 "The bodhisattva's victory is not conquest but liberation. "
                 "When resistance is strong, remember: the true enemy is self-cherishing. "
                 "Victory comes through surrendering the self to the service of all.",
-                "Om Vajrasattva Hum"
+                "Om Vajrasattva Hum",
             ),
         }
 
@@ -469,7 +493,7 @@ class AuspiciousTiming:
         return (
             f"{hour} hour challenges {genre} work. Begin with a brief purification or grounding "
             f"practice to transmute the energy before proceeding with the main ritual.",
-            "Om Ah Hum"
+            "Om Ah Hum",
         )
 
     def _find_next_favorable(self, favorable_hours: list[str]) -> tuple[int, str]:
@@ -518,7 +542,7 @@ def get_all_windows() -> dict[str, dict[str, Any]]:
 def check_saka_dawa(target_date: datetime = None) -> dict[str, Any]:
     """
     Check if a given date falls within the Saka Dawa month (4th Tibetan lunar month).
-    We use the Chinese lunar calendar via lunar_python as a close proxy for the 
+    We use the Chinese lunar calendar via lunar_python as a close proxy for the
     Tibetan lunar calendar. The 15th day (full moon) is Saka Dawa Duchen.
     """
     try:
@@ -529,34 +553,33 @@ def check_saka_dawa(target_date: datetime = None) -> dict[str, Any]:
             "is_saka_dawa": False,
             "multiplier": 1,
             "current_date": target_date.isoformat() if target_date else datetime.now().isoformat(),
-            "error": "lunar_python not installed"
+            "error": "lunar_python not installed",
         }
-    
+
     dt = target_date or datetime.now()
     solar = Solar.fromYmd(dt.year, dt.month, dt.day)
     lunar = Lunar.fromSolar(solar)
-    
+
     lunar_month = lunar.getMonth()
     lunar_day = lunar.getDay()
-    
+
     # 4th Lunar month is Saga Dawa
     # Month > 0 handles leap months in lunar calendar logic
-    is_saka_dawa = (abs(lunar_month) == 4)
+    is_saka_dawa = abs(lunar_month) == 4
     is_duchen = is_saka_dawa and (lunar_day == 15)
-    
+
     # Merit multiplier rules
     multiplier = 1
     if is_duchen:
         multiplier = 100000
     elif is_saka_dawa:
         multiplier = 10000
-        
+
     return {
         "is_saka_dawa": is_saka_dawa,
         "multiplier": multiplier,
         "current_date": dt.isoformat(),
         "is_duchen": is_duchen,
         "lunar_month": lunar_month,
-        "lunar_day": lunar_day
+        "lunar_day": lunar_day,
     }
-

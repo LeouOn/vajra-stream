@@ -15,5 +15,5 @@ for root, dirs, files in os.walk(search_dir):
                     for query in queries:
                         if query in content:
                             print(f"Found '{query}' in {path}")
-            except Exception as e:
+            except Exception:
                 pass

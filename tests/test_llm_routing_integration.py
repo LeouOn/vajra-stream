@@ -7,9 +7,11 @@ from backend.app.main import app
 
 client = TestClient(app)
 
+
 @pytest.fixture
 def mock_env_vars():
     with patch("os.getenv") as mock_getenv:
+
         def getenv_side_effect(key, default=None):
             if key == "DEEPSEEK_API_KEY":
                 return "sk-test-deepseek"
@@ -20,8 +22,10 @@ def mock_env_vars():
             if key == "DEEPSEEK_BASE_URL":
                 return "https://api.deepseek.com"
             return default
+
         mock_getenv.side_effect = getenv_side_effect
         yield mock_getenv
+
 
 def test_chat_endpoint_deepseek_routing(mock_env_vars):
     with patch("openai.OpenAI") as mock_openai_class:
@@ -34,11 +38,7 @@ def test_chat_endpoint_deepseek_routing(mock_env_vars):
         mock_client.chat.completions.create.return_value = mock_completion
         mock_openai_class.return_value = mock_client
 
-        payload = {
-            "messages": [{"role": "user", "content": "Hello"}],
-            "provider": "deepseek",
-            "model": "deepseek-chat"
-        }
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "provider": "deepseek", "model": "deepseek-chat"}
 
         response = client.post("/api/v1/llm/chat", json=payload)
 
@@ -62,7 +62,7 @@ def test_chat_endpoint_lm_studio_routing(mock_env_vars):
         payload = {
             "messages": [{"role": "user", "content": "Hello lm_studio"}],
             "provider": "auto",
-            "model": "lm_studio:qwen2.5"
+            "model": "lm_studio:qwen2.5",
         }
 
         response = client.post("/api/v1/llm/chat", json=payload)

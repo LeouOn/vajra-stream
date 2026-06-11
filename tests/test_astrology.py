@@ -135,104 +135,114 @@ class TestAstrologyCalculator:
 class TestNewCalcMethods:
     def test_hellenistic_lots(self, calculator):
         from datetime import datetime, timezone
+
         dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
-        lots = calculator.get_hellenistic_lots(dt, location=(51.5, -0.13), sect='day')
-        assert set(lots.keys()) == {'fortune', 'spirit', 'eros', 'necessity', 'courage', 'victory', 'nemesis'}
+        lots = calculator.get_hellenistic_lots(dt, location=(51.5, -0.13), sect="day")
+        assert set(lots.keys()) == {"fortune", "spirit", "eros", "necessity", "courage", "victory", "nemesis"}
         for lot in lots.values():
-            assert 'sign' in lot and 'degree' in lot and 'exact_longitude' in lot
-            assert lot['degree'] >= 0 and lot['degree'] < 30
-            assert lot['exact_longitude'] >= 0 and lot['exact_longitude'] < 360
+            assert "sign" in lot and "degree" in lot and "exact_longitude" in lot
+            assert lot["degree"] >= 0 and lot["degree"] < 30
+            assert lot["exact_longitude"] >= 0 and lot["exact_longitude"] < 360
 
     def test_midpoints(self, calculator):
         from datetime import datetime, timezone
+
         dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
         m = calculator.get_midpoints(dt)
         assert len(m) == 45  # 10C2
         for k, v in m.items():
-            assert '_' in k  # pair format
-            assert 0 <= v['degree'] < 30
+            assert "_" in k  # pair format
+            assert 0 <= v["degree"] < 30
 
     def test_antiscia(self, calculator):
         from datetime import datetime, timezone
+
         dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
         a = calculator.get_antiscia(dt)
         assert len(a) == 10
         for planet, data in a.items():
-            assert 'antiscion' in data
-            assert 'contrantiscion' in data
+            assert "antiscion" in data
+            assert "contrantiscion" in data
             # antiscion should be 180° from contrantiscion
-            diff = (data['antiscion']['exact_longitude'] - data['contrantiscion']['exact_longitude']) % 360
+            diff = (data["antiscion"]["exact_longitude"] - data["contrantiscion"]["exact_longitude"]) % 360
             assert abs(diff - 180) < 0.001
 
     def test_year_ahead_timeline(self, calculator):
         from datetime import datetime, timezone
+
         natal = datetime(1990, 1, 1, tzinfo=timezone.utc)
         t = calculator.get_year_ahead_timeline(natal, (0, 0))
-        assert 'events' in t
-        assert 'period' in t
+        assert "events" in t
+        assert "period" in t
         # 12 solar ingresses
-        solar = [e for e in t['events'] if e['type'] == 'ingress' and e['body'] == 'Sun']
+        solar = [e for e in t["events"] if e["type"] == "ingress" and e["body"] == "Sun"]
         assert len(solar) == 12
         # Total <= 500 cap
-        assert len(t['events']) <= 500
+        assert len(t["events"]) <= 500
         # Events sorted
-        dates = [e['date'] for e in t['events']]
+        dates = [e["date"] for e in t["events"]]
         assert dates == sorted(dates)
 
     def test_fixed_stars(self, calculator):
         from datetime import datetime, timezone
+
         dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
         s = calculator.get_fixed_stars(dt)
         assert len(s) == 7
-        assert 'regulus' in s
-        assert 'sirius' in s
+        assert "regulus" in s
+        assert "sirius" in s
 
     def test_secondary_progressions(self, calculator):
         from datetime import datetime, timezone
+
         natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
         p1 = calculator.get_secondary_progressions(natal, (0, 0), datetime(2001, 1, 1, 12, 0, tzinfo=timezone.utc))
         p29 = calculator.get_secondary_progressions(natal, (0, 0), datetime(2029, 1, 1, 12, 0, tzinfo=timezone.utc))
         # Progressed Sun moves ~1°/year
-        sun_arc = (p29['positions']['sun']['exact_longitude'] - p1['positions']['sun']['exact_longitude']) % 360
+        sun_arc = (p29["positions"]["sun"]["exact_longitude"] - p1["positions"]["sun"]["exact_longitude"]) % 360
         assert 25 < sun_arc < 33
         # Progressed Moon moves ~12°/year
-        moon_arc = (p29['positions']['moon']['exact_longitude'] - p1['positions']['moon']['exact_longitude']) % 360
+        moon_arc = (p29["positions"]["moon"]["exact_longitude"] - p1["positions"]["moon"]["exact_longitude"]) % 360
         assert 330 < moon_arc or moon_arc < 30  # ~12° × 28 years = 336°
 
     def test_solar_return(self, calculator):
         from datetime import datetime, timezone
+
         natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
         sr = calculator.get_solar_return(natal, (0, 0), 2026)
         # Sun at exact moment should be near natal Sun
-        natal_sun = calculator.get_planetary_positions(natal)['sun']['longitude']
-        sr_sun = sr['positions']['sun']['longitude']
+        natal_sun = calculator.get_planetary_positions(natal)["sun"]["longitude"]
+        sr_sun = sr["positions"]["sun"]["longitude"]
         diff = min((sr_sun - natal_sun) % 360, (natal_sun - sr_sun) % 360)
         assert diff < 1.0  # within 1°
 
     def test_profection(self, calculator):
         from datetime import datetime, timezone
+
         natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
         p0 = calculator.get_profection(natal, 2000)
         p12 = calculator.get_profection(natal, 2012)
         # 12-year cycle returns to natal Asc
-        assert p0['profected_asc_sign'] == p12['profected_asc_sign']
+        assert p0["profected_asc_sign"] == p12["profected_asc_sign"]
 
     def test_solar_arc(self, calculator):
         from datetime import datetime, timezone
+
         natal = datetime(2000, 1, 1, 12, 0, tzinfo=timezone.utc)
         sad = calculator.get_solar_arc_directions(natal, (0, 0), datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc))
-        assert abs(sad['solar_arc_degrees'] - 25) < 1
+        assert abs(sad["solar_arc_degrees"] - 25) < 1
 
     def test_astrocartography(self, calculator):
         from datetime import datetime, timezone
+
         dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
         a = calculator.get_astrocartography_lines(dt, step_degrees=10.0)  # coarse for speed
         assert len(a) == 10
         for planet, lines in a.items():
-            assert 'ac' in lines
-            assert 'dc' in lines
-            assert 'mc' in lines
-            assert 'ic' in lines
+            assert "ac" in lines
+            assert "dc" in lines
+            assert "mc" in lines
+            assert "ic" in lines
             for line in lines.values():
                 for lat, lon in line:
                     assert -90 <= lat <= 90
@@ -306,7 +316,7 @@ class TestAstrologyAPI:
             "city": "London",
             "description": "Integration test profile",
             "tags": "Test,Developer",
-            "notes": "Verification test notes"
+            "notes": "Verification test notes",
         }
         create_resp = client.post("/api/v1/astrology/charts", json=new_chart)
         assert create_resp.status_code == 200
@@ -338,7 +348,7 @@ class TestAstrologyAPI:
             "city": "Paris",
             "description": "Updated profile",
             "tags": "Test,Updated",
-            "notes": "Updated notes"
+            "notes": "Updated notes",
         }
         update_resp = client.put(f"/api/v1/astrology/charts/{chart_id}", json=update_data)
         assert update_resp.status_code == 200
@@ -379,15 +389,14 @@ class TestAstrologyAPI:
             "city": "New York",
             "description": "Partner chart",
             "tags": "Partner",
-            "notes": "Second chart"
+            "notes": "Second chart",
         }
         create_resp_b = client.post("/api/v1/astrology/charts", json=new_chart_b)
         chart_id_b = create_resp_b.json()["id"]
 
-        compare_resp = client.post("/api/v1/astrology/charts/compare", json={
-            "chart_id_a": chart_id,
-            "chart_id_b": chart_id_b
-        })
+        compare_resp = client.post(
+            "/api/v1/astrology/charts/compare", json={"chart_id_a": chart_id, "chart_id_b": chart_id_b}
+        )
         assert compare_resp.status_code == 200
         comp_data = compare_resp.json()
         assert comp_data["status"] == "success"
@@ -402,11 +411,7 @@ class TestAstrologyAPI:
 
     def test_api_charts_import_export(self, client):
         # Create a temp chart to export
-        chart_data = {
-            "name": "Export Test Profile",
-            "birth_time_iso": "1995-10-15T08:30:00",
-            "city": "Tokyo"
-        }
+        chart_data = {"name": "Export Test Profile", "birth_time_iso": "1995-10-15T08:30:00", "city": "Tokyo"}
         create_resp = client.post("/api/v1/astrology/charts", json=chart_data)
         chart_id = create_resp.json()["id"]
 
@@ -462,9 +467,13 @@ class TestAstrologyTransitFixes:
         cb = client.post("/api/v1/astrology/charts", json=chart_b).json()
 
         try:
-            resp = client.post("/api/v1/astrology/charts/compare", json={
-                "chart_id_a": ca["id"], "chart_id_b": cb["id"],
-            })
+            resp = client.post(
+                "/api/v1/astrology/charts/compare",
+                json={
+                    "chart_id_a": ca["id"],
+                    "chart_id_b": cb["id"],
+                },
+            )
             assert resp.status_code == 200
             data = resp.json()["data"]
             scoring = data.get("scoring", {})
@@ -504,13 +513,12 @@ class TestAstrologyTransitFixes:
         """Transit aspects must include the 12 natal house cusps as targets.
         Bug: only ascendant + midheaven were added; house_1 through house_12 missing."""
         from datetime import datetime
+
         import pytz
 
         natal_dt = datetime(1995, 10, 15, 8, 30, tzinfo=pytz.timezone("Europe/London"))
         transit_dt = datetime(2026, 6, 3, 12, 0, tzinfo=pytz.UTC)
-        aspects = calculator.get_transits_to_natal(
-            natal_dt, (51.5074, -0.1278), transit_dt
-        )
+        aspects = calculator.get_transits_to_natal(natal_dt, (51.5074, -0.1278), transit_dt)
 
         natal_targets = {a["natal_planet"] for a in aspects}
         # Must include all 12 house cusps
@@ -527,6 +535,7 @@ class TestAstrologyTransitFixes:
         """Bazi interactions must check Year, Month, Day, AND Hour branch pairs.
         Bug: only transit_day_branch was checked against natal pillars."""
         from datetime import datetime
+
         import pytz
 
         natal_dt = datetime(1995, 10, 15, 8, 30, tzinfo=pytz.UTC)
@@ -546,8 +555,8 @@ class TestAstrologyTransitFixes:
                     "bazi": {
                         "year": "甲辰/Jia-Chen-Dragon",
                         "month": "丙申/Bing-Shen-Monkey",
-                        "day":   "戊子/Wu-Zi-Rat",
-                        "hour":  "甲寅/Jia-Yin-Tiger",
+                        "day": "戊子/Wu-Zi-Rat",
+                        "hour": "甲寅/Jia-Yin-Tiger",
                     }
                 }
             else:
@@ -555,8 +564,8 @@ class TestAstrologyTransitFixes:
                     "bazi": {
                         "year": "甲戌/Jia-Xu-Dog",
                         "month": "丙申/Bing-Shen-Monkey",
-                        "day":   "戊午/Wu-Wu-Horse",
-                        "hour":  "甲申/Jia-Shen-Monkey",
+                        "day": "戊午/Wu-Wu-Horse",
+                        "hour": "甲申/Jia-Shen-Monkey",
                     }
                 }
 
@@ -592,8 +601,9 @@ class TestAstrologyTransitFixes:
         not installed the function self-heals and Chiron is absent — that path is
         accepted but the houses assertion is still strict."""
         from datetime import datetime
-        import pytz
+
         import pytest
+        import pytz
 
         dt = datetime(1995, 10, 15, 8, 30, tzinfo=pytz.timezone("Europe/London"))
         data = calculator.get_comprehensive_astrology(dt, (51.5074, -0.1278))
@@ -606,53 +616,49 @@ class TestAstrologyTransitFixes:
             key = f"house_{i}"
             assert key in houses, f"missing {key}"
             cusp = houses[key]
-            assert {"longitude", "sign", "degree", "formatted"} <= set(cusp.keys()), (
-                f"{key} missing keys: {cusp}"
-            )
+            assert {"longitude", "sign", "degree", "formatted"} <= set(cusp.keys()), f"{key} missing keys: {cusp}"
 
         positions = western.get("positions") or {}
         if "chiron" in positions:
             chiron = positions["chiron"]
             assert {"sign", "degree", "formatted"} <= set(chiron.keys())
         else:
-            pytest.skip(
-                "Chiron ephemeris (seas_18.se1) not installed; positions are self-healing"
-            )
+            pytest.skip("Chiron ephemeris (seas_18.se1) not installed; positions are self-healing")
 
 
 @pytest.mark.unit
 class TestAstrologyService:
     def test_astrology_service_methods(self):
         from modules.astrology import AstrologyService
-        
+
         svc = AstrologyService()
-        
+
         # Test get_status
         status = svc.get_status()
         assert status["astrology_engine"] is True
         assert status["astrocartography"] is True
-        
+
         # Test get_planetary_positions
         positions = svc.get_planetary_positions()
         assert positions["status"] == "success"
         assert "positions" in positions
-        
+
         # Test calculate_natal_chart
         dt = datetime(1990, 6, 15, 8, 30)
         chart = svc.calculate_natal_chart(dt, 51.5074, -0.1278)
         assert chart["status"] == "success"
         assert "chart" in chart
-        
+
         # Test get_current_transits
         transits = svc.get_current_transits(chart["chart"])
         assert transits["status"] == "success"
         assert "transits" in transits
-        
+
         # Test analyze_location_energy
         analysis = svc.analyze_location_energy(chart["chart"], 37.7749, -122.4194)
         assert analysis["status"] == "success"
         assert "analysis" in analysis
-        
+
         # Test find_power_places
         places = svc.find_power_places(chart["chart"], "benefic")
         assert places["status"] == "success"

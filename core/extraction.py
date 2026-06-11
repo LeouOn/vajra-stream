@@ -316,9 +316,7 @@ def generate_time_grid(cfg: TimeGridConfig) -> list[datetime]:
         weekday = cfg.weekday % 7
         hour = max(0, min(23, int(cfg.hour)))
         delta_days = (weekday - start.weekday()) % 7
-        first = (start + timedelta(days=delta_days)).replace(
-            hour=hour, minute=0, second=0, microsecond=0
-        )
+        first = (start + timedelta(days=delta_days)).replace(hour=hour, minute=0, second=0, microsecond=0)
         if first < start:
             first += timedelta(days=7)
         out = []
@@ -345,9 +343,7 @@ def generate_time_grid(cfg: TimeGridConfig) -> list[datetime]:
 # ---------------------------------------------------------------------------
 
 
-def _scan_astronomical_events(
-    start: datetime, end: datetime, events: list[str]
-) -> list[datetime]:
+def _scan_astronomical_events(start: datetime, end: datetime, events: list[str]) -> list[datetime]:
     """Scan daily from ``start`` to ``end`` for the requested events.
 
     For moon events we look for days where the daily illumination reading
@@ -372,15 +368,15 @@ def _scan_astronomical_events(
         return []
 
     out: list[datetime] = []
-    last_full_moon: Optional[datetime] = None
-    last_new_moon: Optional[datetime] = None
-    last_solar: Optional[datetime] = None
+    last_full_moon: datetime | None = None
+    last_new_moon: datetime | None = None
+    last_solar: datetime | None = None
 
     # Sample the day BEFORE start so we can detect a threshold crossing
     # that occurs on start itself.
     prev_dt = start - timedelta(days=1)
 
-    prev_solar: Optional[float] = None
+    prev_solar: float | None = None
     if want_solar:
         prev_solar = calc.get_planetary_positions(prev_dt)["sun"]["longitude"]
 
@@ -441,25 +437,19 @@ def _scan_astronomical_events(
 
 
 #: Regex for a comma-separated list of ISO dates (YYYY-MM-DD).
-_ISO_DATE_LIST_RE = re.compile(
-    r"^\s*\d{4}-\d{2}-\d{2}(\s*,\s*\d{4}-\d{2}-\d{2})*\s*$"
-)
+_ISO_DATE_LIST_RE = re.compile(r"^\s*\d{4}-\d{2}-\d{2}(\s*,\s*\d{4}-\d{2}-\d{2})*\s*$")
 
 #: Regex for "every N days" (N >= 1).
 _EVERY_N_DAYS_RE = re.compile(r"^\s*every\s+(\d+)\s+days?\s*$", re.IGNORECASE)
 
 #: Regex for "every <weekday> HH:MM" (weekday may be a name or number 0-6).
-_EVERY_WEEKDAY_RE = re.compile(
-    r"^\s*every\s+([A-Za-z]+|\d)\s+(\d{1,2}):(\d{2})\s*$", re.IGNORECASE
-)
+_EVERY_WEEKDAY_RE = re.compile(r"^\s*every\s+([A-Za-z]+|\d)\s+(\d{1,2}):(\d{2})\s*$", re.IGNORECASE)
 
 #: Regex for an optional 4-digit year (1900-2099).
 _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
 
 
-def generate_time_grid_from_string(
-    s: str, start: datetime, end: datetime
-) -> list[datetime]:
+def generate_time_grid_from_string(s: str, start: datetime, end: datetime) -> list[datetime]:
     """Parse a terse DSL string and return a generated time grid.
 
     Supported patterns (case-insensitive, whitespace-flexible):
@@ -524,8 +514,7 @@ def generate_time_grid_from_string(
         else:
             if wd_token not in WEEKDAY_NAMES:
                 raise ValueError(
-                    f"Unknown weekday {wd_token!r} in DSL: {s!r}. "
-                    f"Expected one of: {sorted(WEEKDAY_NAMES)}."
+                    f"Unknown weekday {wd_token!r} in DSL: {s!r}. Expected one of: {sorted(WEEKDAY_NAMES)}."
                 )
             weekday = WEEKDAY_NAMES[wd_token]
         hour = int(m.group(2))
@@ -599,8 +588,7 @@ def _has_content(value: Any) -> bool:
 def _find_positions_payload(chart: dict) -> tuple[str, dict] | None:
     generic = chart.get("positions")
     if isinstance(generic, dict) and any(
-        isinstance(v, dict) and ("sign" in v or "longitude" in v)
-        for v in generic.values()
+        isinstance(v, dict) and ("sign" in v or "longitude" in v) for v in generic.values()
     ):
         return ("", generic)
 
@@ -614,14 +602,10 @@ def _find_positions_payload(chart: dict) -> tuple[str, dict] | None:
             continue
         nested = sys_data.get("positions")
         if isinstance(nested, dict) and any(
-            isinstance(v, dict) and ("sign" in v or "longitude" in v)
-            for v in nested.values()
+            isinstance(v, dict) and ("sign" in v or "longitude" in v) for v in nested.values()
         ):
             return (label, nested)
-        if any(
-            isinstance(v, dict) and ("sign" in v or "longitude" in v)
-            for v in sys_data.values()
-        ):
+        if any(isinstance(v, dict) and ("sign" in v or "longitude" in v) for v in sys_data.values()):
             return (label, sys_data)
     return None
 
@@ -666,9 +650,7 @@ def _section_bullets(data: Any, indent: str = "  ") -> list[str]:
                 lines.append(f"{indent}- **{key}**:")
                 for item in value:
                     if isinstance(item, dict):
-                        rendered = "; ".join(
-                            f"{k}={_format_scalar(v)}" for k, v in item.items()
-                        )
+                        rendered = "; ".join(f"{k}={_format_scalar(v)}" for k, v in item.items())
                         lines.append(f"{indent}  - {rendered}")
                     else:
                         lines.append(f"{indent}  - {_format_scalar(item)}")
@@ -677,9 +659,7 @@ def _section_bullets(data: Any, indent: str = "  ") -> list[str]:
     elif isinstance(data, list):
         for item in data:
             if isinstance(item, dict):
-                rendered = "; ".join(
-                    f"{k}={_format_scalar(v)}" for k, v in item.items()
-                )
+                rendered = "; ".join(f"{k}={_format_scalar(v)}" for k, v in item.items())
                 lines.append(f"{indent}- {rendered}")
             else:
                 lines.append(f"{indent}- {_format_scalar(item)}")
@@ -750,12 +730,8 @@ def format_extraction_run_markdown(run: ExtractionRun) -> str:
 
     for result in run.results:
         lines.append("")
-        lines.append(
-            f"## Tuple {result.tuple_idx} — {result.date_iso} @ {result.lat}, {result.lon}"
-        )
-        status_value = (
-            result.status.value if hasattr(result.status, "value") else str(result.status)
-        )
+        lines.append(f"## Tuple {result.tuple_idx} — {result.date_iso} @ {result.lat}, {result.lon}")
+        status_value = result.status.value if hasattr(result.status, "value") else str(result.status)
         if status_value == "error" or result.error_message:
             err = result.error_message or "unknown error"
             lines.append(f"**Status**: error: {err}")
@@ -791,9 +767,7 @@ def format_extraction_run_json(run: ExtractionRun) -> str:
         "tuples": [],
     }
     for result in run.results:
-        status_value = (
-            result.status.value if hasattr(result.status, "value") else str(result.status)
-        )
+        status_value = result.status.value if hasattr(result.status, "value") else str(result.status)
         entry: dict[str, Any] = {
             "idx": result.tuple_idx,
             "date": result.date_iso,

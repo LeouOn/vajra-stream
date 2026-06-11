@@ -5,12 +5,19 @@ Level 3: Amplified with bass shaker
 Enhanced with prayer bowl synthesis as default
 """
 
+import numpy as np
+
+try:
+    import sounddevice as sd
+
+    SOUNDDEVICE_AVAILABLE = True
+except (ImportError, OSError) as e:
+    print(f"Warning: sounddevice not available in crystal_broadcaster: {e}")
+    sd = None
+    SOUNDDEVICE_AVAILABLE = False
 import os
 import sys
 from datetime import datetime
-
-import numpy as np
-import sounddevice as sd
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -298,7 +305,6 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
                 step_end = min(i + len(t) // 10, len(t))
                 if step_end > step_start:
                     freq = start_freq + (end_freq - start_freq) * (i / len(t))
-                    np.linspace(0, step_duration, step_end - step_start)
                     step_wave = self.enhanced_gen.generate_prayer_bowl_tone(freq, step_duration, pure_sine=False)
                     wave[step_start:step_end] = step_wave
 

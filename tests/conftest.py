@@ -9,6 +9,7 @@ def event_bus():
     yield bus
     bus.clear()
 
+
 @pytest.fixture
 def fresh_container():
     from container import Container
@@ -18,6 +19,7 @@ def fresh_container():
     c.__init__()
     yield c
     c.reset()
+
 
 @pytest.fixture
 def tmp_output_dir(tmp_path):
@@ -130,11 +132,19 @@ def _deterministic_geocoding(monkeypatch):
     attribute on the class at call time.
     """
     import importlib.util
+    import os
 
-    gs_path = r"C:\Users\Y\proj\vajra-stream\backend\core\services\geocoding_service.py"
-    spec = importlib.util.spec_from_file_location(
-        "_test_geocoding_service_module", gs_path
+    gs_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "backend",
+        "core",
+        "services",
+        "geocoding_service.py",
     )
+    if not os.path.exists(gs_path):
+        # Geocoding service may not exist in some checkout variants; skip patch
+        return
+    spec = importlib.util.spec_from_file_location("_test_geocoding_service_module", gs_path)
     gs_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gs_mod)
     monkeypatch.setattr(

@@ -19,9 +19,7 @@ class CreateSessionRequest(BaseModel):
     baseline_tone_arm: float = Field(5.0, ge=0, le=10, description="Starting tone arm position (0-10)")
     sensitivity: float = Field(1.0, ge=0.1, le=5.0, description="Reading sensitivity multiplier")
 
-    model_config = ConfigDict(
-        json_schema_extra={"example": {"baseline_tone_arm": 5.0, "sensitivity": 1.0}}
-    )
+    model_config = ConfigDict(json_schema_extra={"example": {"baseline_tone_arm": 5.0, "sensitivity": 1.0}})
 
 
 class SessionResponse(BaseModel):

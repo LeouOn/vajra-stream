@@ -237,7 +237,7 @@ export default function TransitComparison({ chart }) {
                               size="small"
                               showInfo={false}
                               strokeColor="currentColor"
-                              trailColor="rgba(0,0,0,0.4)"
+                              railColor="rgba(0,0,0,0.4)"
                               style={{ width: '60px', margin: 0 }}
                             />
                             <span className="text-[8px] font-mono leading-none">

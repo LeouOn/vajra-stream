@@ -20,9 +20,12 @@ def test_routing():
     available = llm.list_available_models()
     print("Available models response:")
     import json
+
     print(json.dumps(available, indent=2))
 
-    print("\n--- Test 3: Test route deepseek with missing key (should complain if env is modified or succeed if key is present) ---")
+    print(
+        "\n--- Test 3: Test route deepseek with missing key (should complain if env is modified or succeed if key is present) ---"
+    )
     # Backup key and test missing key behavior
     old_key = os.environ.get("DEEPSEEK_API_KEY")
     try:
@@ -35,6 +38,7 @@ def test_routing():
             os.environ["DEEPSEEK_API_KEY"] = old_key
 
     print("\nDynamic routing sanity check passed!")
+
 
 if __name__ == "__main__":
     test_routing()

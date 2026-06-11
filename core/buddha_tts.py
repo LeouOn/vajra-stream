@@ -15,9 +15,9 @@ from typing import Any
 # ─── Chinese TTS Voices ───
 DEFAULT_VOICE = "zh-CN-XiaoxiaoNeural"  # Female, clear, natural
 ALT_VOICES = [
-    "zh-CN-YunxiNeural",    # Male, warm
-    "zh-CN-XiaoyiNeural",   # Female, lively
-    "zh-TW-HsiaoChenNeural", # Taiwanese female
+    "zh-CN-YunxiNeural",  # Male, warm
+    "zh-CN-XiaoyiNeural",  # Female, lively
+    "zh-TW-HsiaoChenNeural",  # Taiwanese female
     "zh-HK-HiuGaaiNeural",  # Cantonese female
 ]
 
@@ -27,7 +27,7 @@ PREFERRED_VOICE = "zh-CN-YunxiNeural"  # Male voice for sutra chanting — more 
 class BuddhaTTSReciter:
     """
     Chinese TTS recitation engine for the 88-Buddha liturgy.
-    
+
     Uses Microsoft Edge TTS for natural Mandarin pronunciation.
     Supports full confession recitation, individual Buddha name recitation,
     and speed/pitch adjustment.
@@ -41,6 +41,7 @@ class BuddhaTTSReciter:
     def _check_availability(self):
         try:
             import edge_tts
+
             self._available = True
         except ImportError:
             self._available = False
@@ -49,7 +50,9 @@ class BuddhaTTSReciter:
     def available(self) -> bool:
         return self._available
 
-    async def speak(self, text: str, rate: str = "-20%", volume: str = "+0%", output_file: str | None = None) -> str | None:
+    async def speak(
+        self, text: str, rate: str = "-20%", volume: str = "+0%", output_file: str | None = None
+    ) -> str | None:
         """
         Speak Chinese text using edge-tts.
 
@@ -85,7 +88,7 @@ class BuddhaTTSReciter:
         # Parse the name — remove 南無 if present for cleaner TTS, or keep it
         clean_name = name_chinese.replace("南無", "").strip()
         text = f"南無{clean_name}"
-        
+
         # Slower rate for sacred recitation
         return await self.speak(text, rate=rate)
 
@@ -121,7 +124,15 @@ class BuddhaTTSReciter:
         for line in lines:
             stripped = line.strip()
             # Skip empty lines and structural markers
-            if not stripped or stripped.startswith("─") or stripped.startswith("I.") or stripped.startswith("II.") or stripped.startswith("III.") or stripped.startswith("IV.") or stripped.startswith("V."):
+            if (
+                not stripped
+                or stripped.startswith("─")
+                or stripped.startswith("I.")
+                or stripped.startswith("II.")
+                or stripped.startswith("III.")
+                or stripped.startswith("IV.")
+                or stripped.startswith("V.")
+            ):
                 continue
             # Skip lines that are just "... and all"
             if stripped.startswith("..."):
@@ -175,6 +186,7 @@ class BuddhaTTSReciter:
 async def recite_random_buddha():
     """Quick test: recite a random Buddha name."""
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
     svc = get_eighty_eight_buddhas()
     b = svc.random_buddha()
     reciter = BuddhaTTSReciter()
@@ -183,11 +195,12 @@ async def recite_random_buddha():
 
 
 if __name__ == "__main__":
+
     async def main():
         reciter = BuddhaTTSReciter()
         print(f"TTS Available: {reciter.available}")
         print(f"Voice: {reciter.voice}")
-        
+
         # Test single Buddha name
         print("\n=== Testing single Buddha name ===")
         b, path = await recite_random_buddha()
@@ -198,6 +211,7 @@ if __name__ == "__main__":
         # Test sequence
         print("\n=== Testing full confession sequence ===")
         from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
         svc = get_eighty_eight_buddhas()
         seq = svc.get_confession_sequence()
         all_buddhas = seq["fifty_three_past_buddhas"] + seq["thirty_five_confession_buddhas"]

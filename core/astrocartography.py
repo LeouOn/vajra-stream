@@ -746,6 +746,7 @@ class AstrocartographyAnalyzer:
     def analyze_location(self, chart: dict, lat: float, lon: float) -> dict:
         dt_str = chart.get("datetime")
         from datetime import datetime
+
         try:
             dt = datetime.fromisoformat(dt_str)
         except Exception:
@@ -762,12 +763,13 @@ class AstrocartographyAnalyzer:
         return {
             "planetary_lines": lines,
             "local_space": local_space_data,
-            "location": {"latitude": lat, "longitude": lon}
+            "location": {"latitude": lat, "longitude": lon},
         }
 
     def find_power_places(self, chart: dict, intention: str = "general") -> list:
         dt_str = chart.get("datetime")
         from datetime import datetime
+
         try:
             dt = datetime.fromisoformat(dt_str)
         except Exception:

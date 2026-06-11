@@ -1,5 +1,10 @@
 /**
  * UI Store — Zustand state for global UI concerns.
+ *
+ * Manages toast notifications (add/remove/clear), per-key loading
+ * spinners, progress bars, modal open/close state, sidebar toggle,
+ * search bar, quick-actions panel, and keyboard-shortcut toggle.
+ * Not persisted — all state resets on page reload.
  */
 import { create } from 'zustand';
 import type { Toast } from '../types';

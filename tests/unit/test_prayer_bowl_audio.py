@@ -2,6 +2,12 @@
 """
 Vajra.Stream Prayer Bowl Audio Test Script
 Compare original sine waves vs enhanced prayer bowl synthesis
+
+NOTE: All tests in this file call ``sd.play/sd.wait`` to play actual
+audio and block until completion. On headless CI runners (no audio
+device), ``sd.wait()`` hangs indefinitely. Every test is therefore
+marked ``@pytest.mark.slow`` so the default CI command
+(``pytest -m "not slow"``) excludes them.
 """
 
 import os
@@ -13,12 +19,14 @@ import numpy as np
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import pytest
 import sounddevice as sd
 
 from core.audio_generator import ScalarWaveGenerator
 from hardware.crystal_broadcaster import Level2CrystalBroadcaster, Level3AmplifiedBroadcaster
 
 
+@pytest.mark.slow
 def test_single_frequency_comparison():
     """Test single frequency with both modes"""
     print("\n" + "=" * 60)
@@ -49,6 +57,7 @@ def test_single_frequency_comparison():
     print("\nComparison complete! Notice the richer harmonic content in prayer bowl mode.")
 
 
+@pytest.mark.slow
 def test_layered_frequencies():
     """Test multiple frequencies layered together"""
     print("\n" + "=" * 60)
@@ -79,6 +88,7 @@ def test_layered_frequencies():
     print("\nLayered comparison complete!")
 
 
+@pytest.mark.slow
 def test_crystal_broadcaster_modes():
     """Test crystal broadcaster with both modes"""
     print("\n" + "=" * 60)
@@ -141,6 +151,7 @@ def test_crystal_broadcaster_modes():
     print("\nCrystal broadcaster comparison complete!")
 
 
+@pytest.mark.slow
 def test_bass_shaker_optimization():
     """Test bass shaker optimization"""
     print("\n" + "=" * 60)

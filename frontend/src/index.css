@@ -17,15 +17,15 @@
 /* Custom utility styles */
 @layer utilities {
   .text-shadow-glow {
-    text-shadow: 0 0 10px rgba(0, 188, 212, 0.5);
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
   }
   
   .bg-gradient-vajra {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
   }
   
   .bg-gradient-sacred {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
   }
   
   .animate-pulse-glow {
@@ -68,24 +68,6 @@
     box-shadow: 0 0 40px rgba(0, 188, 212, 0.6);
   }
 }
-
-/* Scrollbar styles */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-gray-900;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-700 rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-600;
-}
-
 /* Visualization container */
 .visualization-container {
   @apply relative w-full h-full bg-gray-900 rounded-lg overflow-hidden;

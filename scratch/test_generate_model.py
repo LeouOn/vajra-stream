@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 def main():
     from backend.app.main import app
+
     client = TestClient(app)
 
     payload = {
@@ -18,7 +19,7 @@ def main():
         "genre": "victory",
         "model": "g4-runic-oarfish-26b-a4b-v1.2-i1",
         "randomize_realm": True,
-        "randomize_characters": True
+        "randomize_characters": True,
     }
 
     print("Testing generate_single with model 'g4-runic-oarfish-26b-a4b-v1.2-i1'...")
@@ -32,6 +33,7 @@ def main():
         print(f"Narrative ID: {data.get('id')}")
     else:
         print(res.text)
+
 
 if __name__ == "__main__":
     main()
