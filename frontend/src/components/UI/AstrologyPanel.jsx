@@ -186,6 +186,7 @@ export default function AstrologyPanel() {
     if (charts.length > 0 && !activeChart) {
       setActiveChart(charts[0]);
       setTransitChart(charts[0]);
+      setIsLiveMode(false);
     }
   }, [charts, activeChart]);
 
