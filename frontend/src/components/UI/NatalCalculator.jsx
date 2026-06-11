@@ -16,7 +16,7 @@ export default function NatalCalculator({
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   });
-  const [city, setCity] = useState('');
+  const [city, setCity] = useState('San Francisco');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
@@ -37,9 +37,9 @@ export default function NatalCalculator({
       setNotes(editingChart.notes || '');
       setSaveToDb(true); // Must save to DB for updates
     } else {
-      // Clear fields for new charts (except date defaults)
+      // Clear fields for new charts (except date defaults and city default)
       setName('');
-      setCity('');
+      setCity('San Francisco');
       setDescription('');
       setTags('');
       setNotes('');
