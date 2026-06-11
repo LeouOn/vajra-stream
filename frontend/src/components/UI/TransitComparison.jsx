@@ -31,13 +31,6 @@ const GOCHARA_DESCRIPTIONS = {
   12: "Expenses, spiritual retreat, sleep patterns, and isolation."
 };
 
-const ASPECT_INTERPRETATIONS = {
-  Conjunction: "Fuses and concentrates the energies of both planets in the same area.",
-  Trine: "Indicates a flowing harmony where talents and blessings manifest with ease.",
-  Sextile: "Offers supportive connections that present opportunities through minor effort.",
-  Square: "Creates dynamic tension requiring action, adjustments, and courage to solve.",
-  Opposition: "Brings awareness of relationship polarities, calling for balance or compromise.",
-};
 
 const PILLAR_ORDER = ['Year', 'Month', 'Day', 'Hour'];
 const PILLAR_LABELS = {
@@ -228,9 +221,6 @@ export default function TransitComparison({ chart }) {
                             <span className="text-[13px]">{aspectChar}</span>
                             <span className="capitalize text-slate-300">{natalDisplayName(asp.natal_planet)}</span>
                           </div>
-                          <p className="text-[10px] opacity-75 mb-1.5 leading-relaxed">
-                            {ASPECT_INTERPRETATIONS[asp.aspect]}
-                          </p>
                           <div className="flex items-center gap-2">
                             <Progress
                               percent={Math.round(asp.exactness * 100)}
@@ -241,7 +231,7 @@ export default function TransitComparison({ chart }) {
                               style={{ width: '60px', margin: 0 }}
                             />
                             <span className="text-[8px] font-mono leading-none">
-                              {Math.round(asp.exactness * 100)}% exact Â· {asp.orb}Â° orb
+                              {Math.round(asp.exactness * 100)}% exact · {asp.orb}° orb
                             </span>
                           </div>
                         </div>
@@ -292,7 +282,7 @@ export default function TransitComparison({ chart }) {
                         </Tag>
                       </div>
                       <div className="text-[9px] text-amber-500 font-mono">
-                        {data.transit_rashi} ({data.transit_degree.toFixed(2)}Â°)
+                        {data.transit_rashi} ({data.transit_degree.toFixed(2)}°)
                       </div>
                       <p className="text-[10px] text-gray-400 leading-snug mb-0 pt-1 border-t border-white/5">
                         {GOCHARA_DESCRIPTIONS[data.gochara_house]}
@@ -307,7 +297,7 @@ export default function TransitComparison({ chart }) {
           {activeTab === 'Chinese Pillars' && (
             <div className="space-y-4">
               <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-1">
-                BaZi Four Pillars: Transit Ã— Natal Interactions
+                BaZi Four Pillars: Transit × Natal Interactions
               </h4>
               <p className="text-[10px] text-gray-500 italic leading-relaxed">
                 Each transit pillar (Year, Month, Day, Hour) is compared against its natal counterpart.
