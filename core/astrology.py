@@ -2830,6 +2830,47 @@ class AstrologicalCalculator:
 
         return results
 
+    def get_planet_house_map(self, dt: datetime, location: tuple[float, float] | None, house_system: str = "Placidus") -> dict:
+        positions = self.get_planetary_positions(dt, location)
+
+        if location is None:
+            for name in positions:
+                positions[name]["house_placidus"] = None
+                positions[name]["house_whole_sign"] = None
+            return positions
+
+        lat, lon = location
+        jd = self.get_julian_day(dt)
+        cusps, ascmc = swe.houses(jd, lat, lon, b"P")
+
+        asc_lon = ascmc[0]
+        mc_lon = ascmc[1]
+        asc_sign_index = int(asc_lon / 30) % 12
+
+        for name, info in positions.items():
+            planet_lon = info["longitude"]
+            info["house_placidus"] = self._get_house_from_cusps(planet_lon, cusps)
+            planet_sign_index = int(planet_lon / 30) % 12
+            info["house_whole_sign"] = (planet_sign_index - asc_sign_index) % 12 + 1
+
+        positions["ascendant"] = {
+            "sign": self.SIGNS[int(asc_lon / 30) % 12],
+            "degree": asc_lon % 30,
+            "longitude": asc_lon,
+            "house_placidus": 1,
+            "house_whole_sign": 1,
+        }
+
+        positions["midheaven"] = {
+            "sign": self.SIGNS[int(mc_lon / 30) % 12],
+            "degree": mc_lon % 30,
+            "longitude": mc_lon,
+            "house_placidus": self._get_house_from_cusps(mc_lon, cusps),
+            "house_whole_sign": (int(mc_lon / 30) % 12 - asc_sign_index) % 12 + 1,
+        }
+
+        return positions
+
 
 def _wrap_lon(lon: float) -> float:
     """Normalize a longitude to ``[-180, 180]``.

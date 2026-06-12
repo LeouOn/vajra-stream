@@ -1,12 +1,13 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity } from 'lucide-react';
-import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty } from 'antd';
+import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity, Clipboard } from 'lucide-react';
+import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty, message } from 'antd';
 import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 import {
   aspectCategory, aspectGlyph, planetGlyph,
   isHouseCusp, houseLabel, natalDisplayName,
 } from '../../lib/astroHelpers';
+import { formatTransitExportMarkdown, formatTransitExportJSON } from '../../lib/transitExport';
 
 const ASPECT_COLORS = {
   conjunction: 'text-green-400 border-green-500/20 bg-green-500/10',
@@ -31,13 +32,6 @@ const GOCHARA_DESCRIPTIONS = {
   12: "Expenses, spiritual retreat, sleep patterns, and isolation."
 };
 
-const ASPECT_INTERPRETATIONS = {
-  Conjunction: "Fuses and concentrates the energies of both planets in the same area.",
-  Trine: "Indicates a flowing harmony where talents and blessings manifest with ease.",
-  Sextile: "Offers supportive connections that present opportunities through minor effort.",
-  Square: "Creates dynamic tension requiring action, adjustments, and courage to solve.",
-  Opposition: "Brings awareness of relationship polarities, calling for balance or compromise.",
-};
 
 const PILLAR_ORDER = ['Year', 'Month', 'Day', 'Hour'];
 const PILLAR_LABELS = {
@@ -70,6 +64,8 @@ export default function TransitComparison({ chart }) {
   const [transitData, setTransitData] = useState(null);
   const [activeTab, setActiveTab] = useState('Western');
   const [aspectFilter, setAspectFilter] = useState('all');
+  const [exportFormat, setExportFormat] = useState('markdown');
+  const [exporting, setExporting] = useState(false);
 
   const fetchTransits = async () => {
     if (!chart) return;
@@ -100,6 +96,30 @@ export default function TransitComparison({ chart }) {
       fetchTransits();
     }
   }, [chart]);
+
+  const handleExport = async () => {
+    if (!transitData || !chart) return;
+    setExporting(true);
+    try {
+      const response = await fetch(`${API_BASE}/astrology/charts/${chart.id}/transit-export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      const data = result.data || result;
+      const formatted = exportFormat === 'json'
+        ? formatTransitExportJSON(data)
+        : formatTransitExportMarkdown(data);
+      await navigator.clipboard.writeText(formatted);
+      message.success('Copied to clipboard!');
+    } catch (e) {
+      message.error('Export failed: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const aspects = useMemo(() => {
     const raw = transitData?.aspects || [];
@@ -182,6 +202,31 @@ export default function TransitComparison({ chart }) {
         />
       </div>
 
+      {transitData && (
+        <div className="flex items-center justify-end gap-2 mb-4">
+          <Segmented
+            size="small"
+            value={exportFormat}
+            onChange={setExportFormat}
+            options={[
+              { label: 'Markdown', value: 'markdown' },
+              { label: 'JSON', value: 'json' },
+            ]}
+            className="bg-black/40 border border-white/5 text-[10px]"
+          />
+          <Button
+            size="small"
+            icon={<Clipboard size={12} />}
+            onClick={handleExport}
+            loading={exporting}
+            className="text-[10px]"
+            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', color: '#fff' }}
+          >
+            Copy for LLM
+          </Button>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center italic text-gray-500 text-xs py-16 animate-pulse">
           Recalculating planetary geometries...
@@ -228,9 +273,6 @@ export default function TransitComparison({ chart }) {
                             <span className="text-[13px]">{aspectChar}</span>
                             <span className="capitalize text-slate-300">{natalDisplayName(asp.natal_planet)}</span>
                           </div>
-                          <p className="text-[10px] opacity-75 mb-1.5 leading-relaxed">
-                            {ASPECT_INTERPRETATIONS[asp.aspect]}
-                          </p>
                           <div className="flex items-center gap-2">
                             <Progress
                               percent={Math.round(asp.exactness * 100)}
@@ -241,7 +283,7 @@ export default function TransitComparison({ chart }) {
                               style={{ width: '60px', margin: 0 }}
                             />
                             <span className="text-[8px] font-mono leading-none">
-                              {Math.round(asp.exactness * 100)}% exact Â· {asp.orb}Â° orb
+                              {Math.round(asp.exactness * 100)}% exact · {asp.orb}° orb
                             </span>
                           </div>
                         </div>
@@ -292,7 +334,7 @@ export default function TransitComparison({ chart }) {
                         </Tag>
                       </div>
                       <div className="text-[9px] text-amber-500 font-mono">
-                        {data.transit_rashi} ({data.transit_degree.toFixed(2)}Â°)
+                        {data.transit_rashi} ({data.transit_degree.toFixed(2)}°)
                       </div>
                       <p className="text-[10px] text-gray-400 leading-snug mb-0 pt-1 border-t border-white/5">
                         {GOCHARA_DESCRIPTIONS[data.gochara_house]}
@@ -307,7 +349,7 @@ export default function TransitComparison({ chart }) {
           {activeTab === 'Chinese Pillars' && (
             <div className="space-y-4">
               <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-1">
-                BaZi Four Pillars: Transit Ã— Natal Interactions
+                BaZi Four Pillars: Transit × Natal Interactions
               </h4>
               <p className="text-[10px] text-gray-500 italic leading-relaxed">
                 Each transit pillar (Year, Month, Day, Hour) is compared against its natal counterpart.

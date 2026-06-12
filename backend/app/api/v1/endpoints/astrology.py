@@ -517,6 +517,10 @@ class TransitToNatalRequest(BaseModel):
     transit_time_iso: str | None = None
 
 
+class TransitExportRequest(BaseModel):
+    transit_time_iso: str | None = None
+
+
 class SavedChartsImportRequest(BaseModel):
     charts: list[SavedChartBase]
 
@@ -898,6 +902,84 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
         raise
     except Exception as e:
         logger.error(f"Transit-to-natal error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+HARMONIOUS_ASPECTS = {"Conjunction", "Trine", "Sextile"}
+CHALLENGING_ASPECTS = {"Square", "Opposition"}
+
+
+@router.post("/charts/{chart_id}/transit-export")
+async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
+    """Export transit data with dual house systems, sorted aspects, Gochara, and BaZi."""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM saved_natal_charts WHERE id = ?", (chart_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            raise HTTPException(status_code=404, detail="Chart not found")
+
+        chart = dict(row)
+
+        import datetime as dt_mod
+
+        import pytz
+        from dateutil import parser
+
+        from core.astrology import AstrologicalCalculator
+
+        calc = AstrologicalCalculator()
+
+        birth_dt = parser.parse(chart["birth_time_iso"])
+        if birth_dt.tzinfo is None:
+            birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
+
+        if req.transit_time_iso:
+            transit_dt = parser.parse(req.transit_time_iso)
+            if transit_dt.tzinfo is None:
+                transit_dt = pytz.timezone(chart["timezone"]).localize(transit_dt)
+        else:
+            transit_dt = dt_mod.datetime.now(pytz.timezone(chart["timezone"]))
+
+        location = (chart["latitude"], chart["longitude"])
+
+        western_aspects = calc.get_transits_to_natal(birth_dt, location, transit_dt)
+        gochara = calc.get_vedic_gochara(birth_dt, location, transit_dt)
+        bazi_transits = calc.compare_bazi_transits(birth_dt, transit_dt)
+        natal_houses = calc.get_planet_house_map(birth_dt, location)
+        transit_houses = calc.get_planet_house_map(transit_dt, location)
+
+        sorted_aspects = sorted(western_aspects, key=lambda a: a.get("exactness", 0), reverse=True)
+
+        top_harmonious = [
+            a for a in sorted_aspects if a.get("aspect") in HARMONIOUS_ASPECTS
+        ][:10]
+        top_challenging = [
+            a for a in sorted_aspects if a.get("aspect") in CHALLENGING_ASPECTS
+        ][:10]
+
+        return {
+            "status": "success",
+            "data": {
+                "name": chart["name"],
+                "birth_time_iso": chart["birth_time_iso"],
+                "transit_time": transit_dt.isoformat(),
+                "natal_houses": natal_houses,
+                "transit_houses": transit_houses,
+                "top_harmonious": top_harmonious,
+                "top_challenging": top_challenging,
+                "gochara": gochara,
+                "bazi_clashes": bazi_transits,
+                "house_systems": ["Placidus", "Whole Sign"],
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Transit export error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

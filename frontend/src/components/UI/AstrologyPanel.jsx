@@ -182,6 +182,14 @@ export default function AstrologyPanel() {
     return () => clearInterval(interval);
   }, [isLiveMode]);
 
+  useEffect(() => {
+    if (charts.length > 0 && !activeChart) {
+      setActiveChart(charts[0]);
+      setTransitChart(charts[0]);
+      setIsLiveMode(false);
+    }
+  }, [charts, activeChart]);
+
   // Helper: extract error detail from a failed fetch response
   const _readError = async (response) => {
     try {
