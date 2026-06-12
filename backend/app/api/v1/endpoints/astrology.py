@@ -4,9 +4,12 @@ Astrology API endpoints for Vajra.Stream
 
 import asyncio
 import datetime
+import json
 import logging
+import sqlite3
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -14,26 +17,31 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-import sqlite3
-import json
-import os
-from pathlib import Path
-from backend.app.config import settings
 
 def get_db_path():
-    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.isabs(db_path):
-        project_root = Path(__file__).parent.parent.parent.parent.parent
-        db_path = str((project_root / db_path).resolve())
-    return db_path
+    """Resolve the SQLite database path.
+
+    Delegates to ``core.schema.get_db_path`` so that this endpoint and
+    :func:`core.schema.init_db` operate on the *same* DB file. Previously
+    this function walked up 5 parents from the endpoint file, landing
+    inside ``backend/`` and creating a *second* ``vajra_stream.db`` that
+    lacked every table defined in the centralized schema — leading to
+    ``no such table: saved_natal_charts`` errors on fresh checkouts.
+    """
+    from core.schema import get_db_path as _core_get_db_path
+
+    return _core_get_db_path()
+
 
 def init_db():
     from core.schema import init_db as _core_init_db  # noqa: WPS433
 
     _core_init_db()
 
+
 # Initialize saved charts table
 init_db()
+
 
 def _get_aspect_influence(p1: str, p2: str, aspect: str) -> str:
     influences = {
@@ -41,7 +49,7 @@ def _get_aspect_influence(p1: str, p2: str, aspect: str) -> str:
         "trine": "Harmonious flow of energy. Talent and opportunities open up naturally.",
         "sextile": "Supportive connections. Minor effort yields positive opportunities.",
         "square": "Tension and challenge. Friction calls for adjustments and action.",
-        "opposition": "Polarization and relationship awareness. Conflict or balance needed."
+        "opposition": "Polarization and relationship awareness. Conflict or balance needed.",
     }
     return influences.get(aspect.lower(), "Astrological interaction of planetary energies.")
 
@@ -271,15 +279,23 @@ async def get_current_transits():
 
         transits = []
         for asp in aspects:
-            transits.append({
-                "planet": asp["planet1"].title(),
-                "type": asp["aspect"].lower(),
-                "aspecting_planet": asp["planet2"].title(),
-                "orb": round(abs(asp["angle"] - {
-                    "Conjunction": 0, "Sextile": 60, "Square": 90, "Trine": 120, "Opposition": 180
-                }.get(asp["aspect"], 0)), 2),
-                "influence": _get_aspect_influence(asp["planet1"], asp["planet2"], asp["aspect"])
-            })
+            transits.append(
+                {
+                    "planet": asp["planet1"].title(),
+                    "type": asp["aspect"].lower(),
+                    "aspecting_planet": asp["planet2"].title(),
+                    "orb": round(
+                        abs(
+                            asp["angle"]
+                            - {"Conjunction": 0, "Sextile": 60, "Square": 90, "Trine": 120, "Opposition": 180}.get(
+                                asp["aspect"], 0
+                            )
+                        ),
+                        2,
+                    ),
+                    "influence": _get_aspect_influence(asp["planet1"], asp["planet2"], asp["aspect"]),
+                }
+            )
 
         return {
             "status": "success",
@@ -322,16 +338,15 @@ async def get_elemental_balance():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 def _get_moon_phase_description(phase_input) -> str:
     """Get description of moon phase"""
     if isinstance(phase_input, dict):
         phase = phase_input.get("phase_name", "unknown")
     else:
         phase = phase_input
-        
+
     phase = str(phase).lower()
-    
+
     if "new" in phase:
         key = "new"
     elif "waxing" in phase or "first quarter" in phase:
@@ -388,49 +403,58 @@ def _get_element(sign: str) -> str:
 
 # ---- New Geocoding & Charting Endpoints ----
 
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
 
 class GeocodeRequest(BaseModel):
     city_name: str
+
 
 @router.post("/geocode")
 async def geocode_city(req: GeocodeRequest):
     """Search for a city and return its lat, lon, and timezone"""
     from backend.core.services.geocoding_service import geocoding_service
+
     result = geocoding_service.get_coordinates_and_timezone(req.city_name)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
 
 class NatalChartRequest(BaseModel):
     name: str
     birth_time_iso: str
     birth_city: str
 
+
 @router.post("/natal-chart")
 async def generate_natal_chart(req: NatalChartRequest):
     """Generate a natal chart and export raw JSON data"""
     from backend.core.services.astrology_chart_service import astrology_chart_service
+
     result = astrology_chart_service.get_natal_chart(req.name, req.birth_time_iso, req.birth_city)
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
 
+
 class TransitRequest(BaseModel):
     name: str
     birth_time_iso: str
     birth_city: str
-    current_time_iso: Optional[str] = None
+    current_time_iso: str | None = None
+
 
 @router.post("/daily-horoscope")
 async def generate_daily_horoscope(req: TransitRequest):
     """Generate a daily transit horoscope compared against natal chart"""
     from backend.core.services.astrology_chart_service import astrology_chart_service
-    result = astrology_chart_service.get_daily_transit(req.name, req.birth_time_iso, req.birth_city, req.current_time_iso)
+
+    result = astrology_chart_service.get_daily_transit(
+        req.name, req.birth_time_iso, req.birth_city, req.current_time_iso
+    )
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
+
 
 class SynastryRequest(BaseModel):
     name_a: str
@@ -440,11 +464,15 @@ class SynastryRequest(BaseModel):
     time_b: str
     city_b: str
 
+
 @router.post("/synastry")
 async def generate_synastry(req: SynastryRequest):
     """Generate synastry (compatibility) aspects between two charts"""
     from backend.core.services.astrology_chart_service import astrology_chart_service
-    result = astrology_chart_service.get_synastry(req.name_a, req.time_a, req.city_a, req.name_b, req.time_b, req.city_b)
+
+    result = astrology_chart_service.get_synastry(
+        req.name_a, req.time_a, req.city_a, req.name_b, req.time_b, req.city_b
+    )
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
@@ -457,46 +485,52 @@ class SavedChartBase(BaseModel):
     longitude: float
     timezone: str
     city: str
-    description: Optional[str] = ""
-    tags: Optional[str] = ""
-    notes: Optional[str] = ""
+    description: str | None = ""
+    tags: str | None = ""
+    notes: str | None = ""
+
 
 class SavedChartCreate(BaseModel):
     name: str
     birth_time_iso: str
     city: str
-    description: Optional[str] = ""
-    tags: Optional[str] = ""
-    notes: Optional[str] = ""
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    timezone: Optional[str] = None
+    description: str | None = ""
+    tags: str | None = ""
+    notes: str | None = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    timezone: str | None = None
+
 
 class SavedChartResponse(SavedChartBase):
     id: int
-    cached_chart_data: Optional[str] = None
+    cached_chart_data: str | None = None
     created_at: str
     updated_at: str
+
 
 class RecalculateRequest(BaseModel):
     pass
 
+
 class TransitToNatalRequest(BaseModel):
-    transit_time_iso: Optional[str] = None
+    transit_time_iso: str | None = None
+
 
 class TransitExportRequest(BaseModel):
     transit_time_iso: str | None = None
 
 
 class SavedChartsImportRequest(BaseModel):
-    charts: List[SavedChartBase]
+    charts: list[SavedChartBase]
+
 
 class SavedChartsCompareRequest(BaseModel):
     chart_id_a: int
     chart_id_b: int
 
 
-@router.get("/charts", response_model=List[SavedChartResponse])
+@router.get("/charts", response_model=list[SavedChartResponse])
 async def list_saved_charts():
     """List all saved charts"""
     try:
@@ -519,10 +553,12 @@ async def export_saved_charts():
         conn = sqlite3.connect(get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT name, birth_time_iso, latitude, longitude, timezone, city, description, tags, notes, cached_chart_data FROM saved_natal_charts")
+        cursor.execute(
+            "SELECT name, birth_time_iso, latitude, longitude, timezone, city, description, tags, notes, cached_chart_data FROM saved_natal_charts"
+        )
         rows = cursor.fetchall()
         conn.close()
-        
+
         charts_list = []
         for row in rows:
             d = dict(row)
@@ -533,13 +569,14 @@ async def export_saved_charts():
                     d["cached_data"] = None
             d.pop("cached_chart_data", None)
             charts_list.append(d)
-            
+
         import datetime as dt_mod
+
         return {
             "version": "2.0",
             "exported_at": dt_mod.datetime.now().isoformat(),
             "system": "vajra-stream-astrology",
-            "charts": charts_list
+            "charts": charts_list,
         }
     except Exception as e:
         logger.error(f"Export error: {e}")
@@ -577,6 +614,7 @@ async def create_saved_chart(chart: SavedChartCreate):
         # Geocode if not fully provided (preserve original city name)
         if lat is None or lon is None or tz is None:
             from backend.core.services.geocoding_service import geocoding_service
+
             geo = geocoding_service.get_coordinates_and_timezone(chart.city)
             if "error" in geo:
                 raise HTTPException(status_code=400, detail=f"Geocoding failed for {chart.city}: {geo['error']}")
@@ -585,10 +623,11 @@ async def create_saved_chart(chart: SavedChartCreate):
             tz = geo["timezone"]
 
         # Pre-calculate and cache chart data
-        from core.astrology import AstrologicalCalculator
         import pytz
         from dateutil import parser
-        
+
+        from core.astrology import AstrologicalCalculator
+
         calc = AstrologicalCalculator()
         dt = parser.parse(chart.birth_time_iso)
         if dt.tzinfo is None:
@@ -597,14 +636,30 @@ async def create_saved_chart(chart: SavedChartCreate):
         cached_data = json.dumps(chart_data)
 
         now_str = datetime.datetime.now().isoformat()
-        
+
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO saved_natal_charts 
+        cursor.execute(
+            """
+            INSERT INTO saved_natal_charts
             (name, birth_time_iso, latitude, longitude, timezone, city, description, tags, notes, cached_chart_data, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (chart.name, chart.birth_time_iso, lat, lon, tz, chart.city, chart.description, chart.tags, chart.notes, cached_data, now_str, now_str))
+        """,
+            (
+                chart.name,
+                chart.birth_time_iso,
+                lat,
+                lon,
+                tz,
+                chart.city,
+                chart.description,
+                chart.tags,
+                chart.notes,
+                cached_data,
+                now_str,
+                now_str,
+            ),
+        )
         chart_id = cursor.lastrowid
         conn.commit()
         conn.close()
@@ -622,7 +677,7 @@ async def create_saved_chart(chart: SavedChartCreate):
             "notes": chart.notes,
             "cached_chart_data": cached_data,
             "created_at": now_str,
-            "updated_at": now_str
+            "updated_at": now_str,
         }
     except HTTPException:
         raise
@@ -642,6 +697,7 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
         # Geocode if not fully provided (preserve original city name)
         if lat is None or lon is None or tz is None:
             from backend.core.services.geocoding_service import geocoding_service
+
             geo = geocoding_service.get_coordinates_and_timezone(chart.city)
             if "error" in geo:
                 raise HTTPException(status_code=400, detail=f"Geocoding failed for {chart.city}: {geo['error']}")
@@ -650,10 +706,11 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
             tz = geo["timezone"]
 
         # Pre-calculate and cache chart data
-        from core.astrology import AstrologicalCalculator
         import pytz
         from dateutil import parser
-        
+
+        from core.astrology import AstrologicalCalculator
+
         calc = AstrologicalCalculator()
         dt = parser.parse(chart.birth_time_iso)
         if dt.tzinfo is None:
@@ -662,10 +719,10 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
         cached_data = json.dumps(chart_data)
 
         now_str = datetime.datetime.now().isoformat()
-        
+
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
-        
+
         # Verify it exists
         cursor.execute("SELECT created_at FROM saved_natal_charts WHERE id = ?", (chart_id,))
         row = cursor.fetchone()
@@ -674,12 +731,28 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
             raise HTTPException(status_code=404, detail="Chart not found")
         created_at = row[0]
 
-        cursor.execute("""
-            UPDATE saved_natal_charts 
+        cursor.execute(
+            """
+            UPDATE saved_natal_charts
             SET name = ?, birth_time_iso = ?, latitude = ?, longitude = ?, timezone = ?, city = ?, description = ?, tags = ?, notes = ?, cached_chart_data = ?, updated_at = ?
             WHERE id = ?
-        """, (chart.name, chart.birth_time_iso, lat, lon, tz, chart.city, chart.description, chart.tags, chart.notes, cached_data, now_str, chart_id))
-        
+        """,
+            (
+                chart.name,
+                chart.birth_time_iso,
+                lat,
+                lon,
+                tz,
+                chart.city,
+                chart.description,
+                chart.tags,
+                chart.notes,
+                cached_data,
+                now_str,
+                chart_id,
+            ),
+        )
+
         conn.commit()
         conn.close()
 
@@ -696,7 +769,7 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
             "notes": chart.notes,
             "cached_chart_data": cached_data,
             "created_at": created_at,
-            "updated_at": now_str
+            "updated_at": now_str,
         }
     except HTTPException:
         raise
@@ -732,30 +805,34 @@ async def recalculate_chart(chart_id: int):
         if not row:
             conn.close()
             raise HTTPException(status_code=404, detail="Chart not found")
-        
+
         chart = dict(row)
-        from core.astrology import AstrologicalCalculator
         import pytz
         from dateutil import parser
-        
+
+        from core.astrology import AstrologicalCalculator
+
         calc = AstrologicalCalculator()
         dt = parser.parse(chart["birth_time_iso"])
         if dt.tzinfo is None:
             dt = pytz.timezone(chart["timezone"]).localize(dt)
-        
+
         chart_data = calc.get_comprehensive_astrology(dt, (chart["latitude"], chart["longitude"]))
         cached_data = json.dumps(chart_data)
-        
+
         now_str = datetime.datetime.now().isoformat()
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE saved_natal_charts
             SET cached_chart_data = ?, updated_at = ?
             WHERE id = ?
-        """, (cached_data, now_str, chart_id))
-        
+        """,
+            (cached_data, now_str, chart_id),
+        )
+
         conn.commit()
         conn.close()
-        
+
         return {"status": "success", "cached_chart_data": chart_data}
     except HTTPException:
         raise
@@ -776,21 +853,23 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
         conn.close()
         if not row:
             raise HTTPException(status_code=404, detail="Chart not found")
-            
+
         chart = dict(row)
-        
-        from core.astrology import AstrologicalCalculator
+
+        import datetime as dt_mod
+
         import pytz
         from dateutil import parser
-        import datetime as dt_mod
-        
+
+        from core.astrology import AstrologicalCalculator
+
         calc = AstrologicalCalculator()
-        
+
         # Parse birth date
         birth_dt = parser.parse(chart["birth_time_iso"])
         if birth_dt.tzinfo is None:
             birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
-            
+
         # Parse transit date
         if req.transit_time_iso:
             transit_dt = parser.parse(req.transit_time_iso)
@@ -798,16 +877,16 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
                 transit_dt = pytz.timezone(chart["timezone"]).localize(transit_dt)
         else:
             transit_dt = dt_mod.datetime.now(pytz.timezone(chart["timezone"]))
-            
+
         # 1. Western Transit aspects
         western_aspects = calc.get_transits_to_natal(birth_dt, (chart["latitude"], chart["longitude"]), transit_dt)
-        
+
         # 2. Vedic Gochara
         gochara = calc.get_vedic_gochara(birth_dt, (chart["latitude"], chart["longitude"]), transit_dt)
-        
+
         # 3. Chinese BaZi Day Pillar clash
         bazi_transits = calc.compare_bazi_transits(birth_dt, transit_dt)
-        
+
         return {
             "status": "success",
             "data": {
@@ -816,8 +895,8 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
                 "transit_time": transit_dt.isoformat(),
                 "aspects": western_aspects,
                 "gochara": gochara,
-                "bazi_clashes": bazi_transits
-            }
+                "bazi_clashes": bazi_transits,
+            },
         }
     except HTTPException:
         raise
@@ -916,18 +995,19 @@ async def get_chart_vedic_dasha(chart_id: int):
         conn.close()
         if not row:
             raise HTTPException(status_code=404, detail="Chart not found")
-            
+
         chart = dict(row)
-        
-        from core.astrology import AstrologicalCalculator
+
         import pytz
         from dateutil import parser
-        
+
+        from core.astrology import AstrologicalCalculator
+
         calc = AstrologicalCalculator()
         birth_dt = parser.parse(chart["birth_time_iso"])
         if birth_dt.tzinfo is None:
             birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
-            
+
         dashas = calc.calculate_vimshottari_dasha(birth_dt, (chart["latitude"], chart["longitude"]))
         return {"status": "success", "dashas": dashas}
     except HTTPException:
@@ -944,40 +1024,45 @@ async def compare_saved_charts(req: SavedChartsCompareRequest):
         conn = sqlite3.connect(get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
+
         # Fetch Subject A
         cursor.execute("SELECT * FROM saved_natal_charts WHERE id = ?", (req.chart_id_a,))
         row_a = cursor.fetchone()
-        
+
         # Fetch Subject B
         cursor.execute("SELECT * FROM saved_natal_charts WHERE id = ?", (req.chart_id_b,))
         row_b = cursor.fetchone()
-        
+
         conn.close()
-        
+
         if not row_a or not row_b:
             raise HTTPException(status_code=404, detail="One or both charts not found")
-            
+
         chart_a = dict(row_a)
         chart_b = dict(row_b)
-        
+
         from backend.core.services.astrology_chart_service import astrology_chart_service
+
         result = astrology_chart_service.get_synastry(
-            chart_a["name"], chart_a["birth_time_iso"], chart_a["city"],
-            chart_b["name"], chart_b["birth_time_iso"], chart_b["city"]
+            chart_a["name"],
+            chart_a["birth_time_iso"],
+            chart_a["city"],
+            chart_b["name"],
+            chart_b["birth_time_iso"],
+            chart_b["city"],
         )
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
-            
+
         # Calculate element harmony scoring
         data_a = json.loads(chart_a["cached_chart_data"]) if chart_a.get("cached_chart_data") else None
         data_b = json.loads(chart_b["cached_chart_data"]) if chart_b.get("cached_chart_data") else None
-        
+
         scoring = {}
         if data_a and data_b:
             elem_a = data_a.get("western", {}).get("dominant_element", "")
             elem_b = data_b.get("western", {}).get("dominant_element", "")
-            
+
             harmony_matrix = {
                 ("Fire", "Fire"): "High passion and energy alignment.",
                 ("Fire", "Air"): "Excellent combination, air feeds fire's inspiration.",
@@ -988,31 +1073,31 @@ async def compare_saved_charts(req: SavedChartsCompareRequest):
                 ("Earth", "Air"): "Highly intellectual but can lack emotional depth.",
                 ("Air", "Air"): "Exceptional mental alignment, constant communication.",
                 ("Air", "Water"): "Can create emotional detachment vs sensitivity friction.",
-                ("Water", "Water"): "Extreme emotional resonance, highly intuitive bond."
+                ("Water", "Water"): "Extreme emotional resonance, highly intuitive bond.",
             }
-            
+
             pair = tuple(sorted([elem_a, elem_b]))
             harmony_desc = harmony_matrix.get(pair, "Compatibility description unavailable.")
-            
+
             # Count aspect types
             aspects = result.get("data", {}).get("aspects", [])
             harmonious = {"trine", "sextile", "conjunction"}
             challenging = {"square", "opposition"}
             harmonies = len([a for a in aspects if a.get("aspect", "").lower() in harmonious])
             tensions = len([a for a in aspects if a.get("aspect", "").lower() in challenging])
-            
+
             score = 50 + (harmonies * 5) - (tensions * 5)
             score = max(0, min(100, score))
-            
+
             scoring = {
                 "compatibility_score": score,
                 "harmony_count": harmonies,
                 "tension_count": tensions,
                 "description": harmony_desc,
                 "element_a": elem_a,
-                "element_b": elem_b
+                "element_b": elem_b,
             }
-            
+
         result["data"]["scoring"] = scoring
         return result
     except HTTPException:
@@ -1029,12 +1114,13 @@ async def import_saved_charts(req: dict):
         charts = req.get("charts", [])
         if not charts and isinstance(req, list):
             charts = req
-            
+
         import datetime as dt_mod
+
         now_str = dt_mod.datetime.now().isoformat()
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
-        
+
         imported_count = 0
         for chart in charts:
             name = chart.get("name")
@@ -1046,19 +1132,20 @@ async def import_saved_charts(req: dict):
             description = chart.get("description", "")
             tags = ",".join(chart.get("tags", [])) if isinstance(chart.get("tags"), list) else chart.get("tags", "")
             notes = chart.get("notes", "")
-            
+
             cached_data = None
             if "cached_data" in chart and chart["cached_data"]:
                 cached_data = json.dumps(chart["cached_data"])
             elif "cached_chart_data" in chart and chart["cached_chart_data"]:
                 cached_data = chart["cached_chart_data"]
-                
+
             if not cached_data:
                 try:
-                    from core.astrology import AstrologicalCalculator
                     import pytz
                     from dateutil import parser
-                    
+
+                    from core.astrology import AstrologicalCalculator
+
                     calc = AstrologicalCalculator()
                     dt = parser.parse(birth_time_iso)
                     if dt.tzinfo is None:
@@ -1070,22 +1157,28 @@ async def import_saved_charts(req: dict):
 
             cursor.execute("SELECT id FROM saved_natal_charts WHERE name = ? AND city = ?", (name, city))
             existing = cursor.fetchone()
-            
+
             if existing:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE saved_natal_charts
                     SET birth_time_iso = ?, latitude = ?, longitude = ?, timezone = ?, description = ?, tags = ?, notes = ?, cached_chart_data = ?, updated_at = ?
                     WHERE id = ?
-                """, (birth_time_iso, lat, lon, tz, description, tags, notes, cached_data, now_str, existing[0]))
+                """,
+                    (birth_time_iso, lat, lon, tz, description, tags, notes, cached_data, now_str, existing[0]),
+                )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO saved_natal_charts
                     (name, birth_time_iso, latitude, longitude, timezone, city, description, tags, notes, cached_chart_data, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (name, birth_time_iso, lat, lon, tz, city, description, tags, notes, cached_data, now_str, now_str))
-                
+                """,
+                    (name, birth_time_iso, lat, lon, tz, city, description, tags, notes, cached_data, now_str, now_str),
+                )
+
             imported_count += 1
-            
+
         conn.commit()
         conn.close()
         return {"status": "success", "imported": imported_count}
@@ -1103,10 +1196,11 @@ async def import_saved_charts(req: dict):
 # `AstrologicalCalculator` is reconstructed per request so requests are
 # stateless and safe to call concurrently.
 
-from pydantic import BaseModel, Field, field_validator  # noqa: E402
 from typing import Literal  # noqa: E402
-from dateutil import parser as _dt_parser  # noqa: E402
+
 import pytz  # noqa: E402
+from dateutil import parser as _dt_parser  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
 
 def _parse_dt(date_iso: str) -> datetime.datetime:
@@ -1135,9 +1229,7 @@ class DateLocationRequest(BaseModel):
 
 
 class LotsRequest(DateLocationRequest):
-    sect: Literal["day", "night"] = Field(
-        "day", description="Day/night birth sect for Fortune/Spirit swap"
-    )
+    sect: Literal["day", "night"] = Field("day", description="Day/night birth sect for Fortune/Spirit swap")
 
 
 class OrbRequest(DateLocationRequest):
@@ -1263,9 +1355,7 @@ async def post_secondary_progressions(req: SecondaryProgressionsRequest):
         natal_dt = _parse_dt(req.natal_date_iso)
         target_dt = _parse_dt(req.target_date_iso)
         calc = AstrologicalCalculator()
-        result = calc.get_secondary_progressions(
-            natal_dt, (req.natal_lat, req.natal_lon), target_dt
-        )
+        result = calc.get_secondary_progressions(natal_dt, (req.natal_lat, req.natal_lon), target_dt)
         return {"status": "success", "progressions": result}
     except HTTPException:
         raise
@@ -1325,9 +1415,7 @@ async def post_solar_arc(req: SolarArcRequest):
         natal_dt = _parse_dt(req.natal_date_iso)
         target_dt = _parse_dt(req.target_date_iso)
         calc = AstrologicalCalculator()
-        result = calc.get_solar_arc_directions(
-            natal_dt, (req.natal_lat, req.natal_lon), target_dt
-        )
+        result = calc.get_solar_arc_directions(natal_dt, (req.natal_lat, req.natal_lon), target_dt)
         return {"status": "success", "solar_arc": result}
     except HTTPException:
         raise
@@ -1376,4 +1464,3 @@ async def post_astrocartography(req: AstrocartographyRequest):
     except Exception as e:
         logger.error(f"astrocartography endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

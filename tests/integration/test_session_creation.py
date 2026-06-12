@@ -117,7 +117,7 @@ def test_incorrect_payload(base_url: str = "http://localhost:8001"):
             try:
                 error_data = response.json()
                 print(json.dumps(error_data, indent=2))
-            except:
+            except Exception:
                 print(response.text)
             return True
         else:

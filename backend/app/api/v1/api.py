@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from backend.app.api.v1.endpoints import agent_suggestions as agent_suggestions_endpoint
 from backend.app.api.v1.endpoints import anatomy as anatomy_endpoint
 from backend.app.api.v1.endpoints import astrology as astrology_endpoint
 from backend.app.api.v1.endpoints import audio as audio_endpoint
@@ -19,15 +20,14 @@ from backend.app.api.v1.endpoints import populations as populations_endpoint
 from backend.app.api.v1.endpoints import prayer_wheel as prayer_wheel_endpoint
 from backend.app.api.v1.endpoints import radionics as radionics_endpoint
 from backend.app.api.v1.endpoints import radionics_narratives as radionics_narratives_endpoint
+from backend.app.api.v1.endpoints import ritual_engine as ritual_engine_endpoint
 from backend.app.api.v1.endpoints import rng_attunement as rng_endpoint
 from backend.app.api.v1.endpoints import scalar_waves as scalar_endpoint
 from backend.app.api.v1.endpoints import sessions as sessions_endpoint
 from backend.app.api.v1.endpoints import sigils as sigils_endpoint
 from backend.app.api.v1.endpoints import time_cycles as time_cycles_endpoint
-from backend.app.api.v1.endpoints import visualization as visualization_endpoint
-from backend.app.api.v1.endpoints import agent_suggestions as agent_suggestions_endpoint
 from backend.app.api.v1.endpoints import tts as tts_endpoint
-from backend.app.api.v1.endpoints import ritual_engine as ritual_engine_endpoint
+from backend.app.api.v1.endpoints import visualization as visualization_endpoint
 
 api_router = APIRouter()
 

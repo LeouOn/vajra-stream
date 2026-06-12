@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RecitationState:
     """Mutable state for the recitation loop."""
+
     running: bool = False
     intention: str = ""
     current_index: int = 0
@@ -79,8 +80,24 @@ class BuddhaRecitationLoop:
     def _load_buddhas(self):
         """Load the full 88-Buddha list for recitation."""
         seq = self._svc.get_confession_sequence()
-        past = [{"name_chinese": b["name_chinese"], "name_pinyin": b["name_pinyin"], "name_sanskrit": b["name_sanskrit"], "category": "past"} for b in seq.get("fifty_three_past_buddhas", [])]
-        conf = [{"name_chinese": b["name_chinese"], "name_pinyin": b["name_pinyin"], "name_sanskrit": b["name_sanskrit"], "category": "confession"} for b in seq.get("thirty_five_confession_buddhas", [])]
+        past = [
+            {
+                "name_chinese": b["name_chinese"],
+                "name_pinyin": b["name_pinyin"],
+                "name_sanskrit": b["name_sanskrit"],
+                "category": "past",
+            }
+            for b in seq.get("fifty_three_past_buddhas", [])
+        ]
+        conf = [
+            {
+                "name_chinese": b["name_chinese"],
+                "name_pinyin": b["name_pinyin"],
+                "name_sanskrit": b["name_sanskrit"],
+                "category": "confession",
+            }
+            for b in seq.get("thirty_five_confession_buddhas", [])
+        ]
         self._buddhas = past + conf
 
     def on_name_recited(self, callback):
@@ -138,14 +155,19 @@ class BuddhaRecitationLoop:
         self._voice_override = voice
 
         # Broadcast WS event
-        self._broadcast_ws("BUDDHA_RECITATION_STARTED", {
-            "intention": intention, "total_buddhas": len(self._buddhas),
-        })
+        self._broadcast_ws(
+            "BUDDHA_RECITATION_STARTED",
+            {
+                "intention": intention,
+                "total_buddhas": len(self._buddhas),
+            },
+        )
 
         # Initialize TTS if not explicitly disabled
         if self._tts is None:
             try:
                 from core.tts_provider import get_tts_provider
+
                 self._provider = get_tts_provider()
                 # Apply project_id on the provider for per-project overrides
                 if project_id is not None:
@@ -162,6 +184,7 @@ class BuddhaRecitationLoop:
                 self._provider = None
                 try:
                     from core.buddha_tts import BuddhaTTSReciter
+
                     self._tts = BuddhaTTSReciter(voice=voice)
                 except Exception:
                     self._tts = False  # Sentinel: TTS unavailable
@@ -174,8 +197,10 @@ class BuddhaRecitationLoop:
         """Broadcast a recitation event to all WebSocket clients."""
         try:
             import asyncio
+
             from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
-            payload = {"type": event_type, "data": data, "timestamp": __import__('time').time()}
+
+            payload = {"type": event_type, "data": data, "timestamp": __import__("time").time()}
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():

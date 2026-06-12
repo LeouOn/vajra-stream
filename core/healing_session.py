@@ -253,9 +253,7 @@ class HealingSession:
 
         # --- Phase 2: Main Practice (60% of duration) ---
         main_sec = int(duration_minutes * 60 * 0.6)
-        self._run_main_practice(
-            intention, log.frequencies_used, log.mantras_used, main_sec, with_audio, with_voice
-        )
+        self._run_main_practice(intention, log.frequencies_used, log.mantras_used, main_sec, with_audio, with_voice)
         log.phases_completed.append("main_practice")
 
         # --- Phase 3: Closing / Integration (20% of duration) ---

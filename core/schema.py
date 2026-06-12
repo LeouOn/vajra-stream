@@ -33,10 +33,9 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
-
 
 SCHEMA_VERSION: int = 1
 SCHEMA_DESCRIPTION: str = (
@@ -397,9 +396,7 @@ def apply_schema(conn: sqlite3.Connection) -> None:
 def _current_schema_version(conn: sqlite3.Connection) -> int | None:
     """Return the highest ``_schema_version.version`` row, or None if empty."""
     try:
-        row = conn.execute(
-            "SELECT MAX(version) FROM _schema_version"
-        ).fetchone()
+        row = conn.execute("SELECT MAX(version) FROM _schema_version").fetchone()
     except sqlite3.OperationalError:
         # Table doesn't exist yet — caller is about to create it.
         return None
@@ -465,9 +462,7 @@ def list_tables(conn: sqlite3.Connection | None = None) -> list[str]:
     if own_conn:
         conn = init_db()
     try:
-        rows = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        ).fetchall()
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
         return [r[0] for r in rows if r[0] != "_schema_version"]
     finally:
         if own_conn:

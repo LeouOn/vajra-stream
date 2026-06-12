@@ -6,9 +6,9 @@ __init__.py exports are not updated (or vice versa). The
 __init__.py is unused for routing but provides `from .endpoints
 import X` access for tests and tooling.
 """
+
 import importlib
 from pathlib import Path
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 API_FILE = PROJECT_ROOT / "backend" / "app" / "api" / "v1" / "api.py"
@@ -32,6 +32,7 @@ def _read_api_registrations() -> set[str]:
 
 def test_init_exports_match_api_registrations():
     from backend.app.api.v1.endpoints import __all__ as exports
+
     registered = _read_api_registrations()
 
     missing = registered - set(exports)
@@ -49,6 +50,7 @@ def test_init_exports_match_api_registrations():
 def test_all_endpoint_modules_importable():
     """Every module in __all__ must be importable without error."""
     from backend.app.api.v1.endpoints import __all__ as exports
+
     for name in exports:
         mod = importlib.import_module(f"backend.app.api.v1.endpoints.{name}")
         assert hasattr(mod, "router"), f"{name} has no `router` attribute"

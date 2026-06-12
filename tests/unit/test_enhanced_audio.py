@@ -2,6 +2,11 @@
 """
 Test Enhanced Audio Features
 Demonstrates the improved prayer bowl synthesis with natural modulation
+
+NOTE: These tests play actual audio through the default output device
+and block on ``sd.wait()``. On headless CI runners (no audio device),
+``sd.wait()`` can hang indefinitely. The ``@pytest.mark.slow`` marker
+excludes them from the default CI command (``pytest -m "not slow"``).
 """
 
 import os
@@ -12,11 +17,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import time
 
+import pytest
 import sounddevice as sd
 
 from core.enhanced_audio_generator import EnhancedAudioGenerator
 
 
+@pytest.mark.slow
 def test_lfo_modulation():
     """Test LFO modulation effects"""
     print("\n" + "=" * 60)
@@ -52,6 +59,7 @@ def test_lfo_modulation():
     return True
 
 
+@pytest.mark.slow
 def test_harmonic_content():
     """Test harmonic richness of prayer bowl synthesis"""
     print("\n" + "=" * 60)
@@ -77,6 +85,7 @@ def test_harmonic_content():
     return True
 
 
+@pytest.mark.slow
 def test_adsr_envelope():
     """Test ADSR envelope shaping"""
     print("\n" + "=" * 60)

@@ -6,6 +6,7 @@ from backend.app.main import app
 
 client = TestClient(app)
 
+
 @pytest.fixture(autouse=True)
 def clean_db():
     """Clean the outlook narratives table before and after test execution."""
@@ -20,6 +21,7 @@ def clean_db():
     cursor.execute("DELETE FROM outlook_narratives")
     conn.commit()
     conn.close()
+
 
 def test_export_import_workflow():
     # 1. Export initial (should be empty after clean_db)
@@ -41,7 +43,7 @@ def test_export_import_workflow():
         "astrology_context": "Sun conjunct Jupiter",
         "divination_context": "Hexagram 1: The Creative",
         "divination_raw": {"hexagram": 1, "lines": [9, 9, 9, 9, 9, 9]},
-        "entities_invoked": "Tara, Medicine Buddha"
+        "entities_invoked": "Tara, Medicine Buddha",
     }
 
     res_import = client.post("/api/v1/outlook/import", json=[dummy_narrative])

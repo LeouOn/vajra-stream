@@ -22,14 +22,14 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Fix Windows console encoding for Chinese/emoji output
-if sys.platform == 'win32':
+if sys.platform == "win32":
     try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
 
-from core.eighty_eight_buddhas import get_eighty_eight_buddhas
 from core.buddha_tts import BuddhaTTSReciter
+from core.eighty_eight_buddhas import get_eighty_eight_buddhas
 
 # ─── Config ────────────────────────────────────────────────
 
@@ -43,6 +43,7 @@ INTENTION = "愿一切众生离苦得乐，早证菩提。\nMay all beings be fr
 
 # ─── Helpers ───────────────────────────────────────────────
 
+
 def format_time(seconds: float) -> str:
     m, s = divmod(int(seconds), 60)
     return f"{m}:{s:02d}"
@@ -51,8 +52,9 @@ def format_time(seconds: float) -> str:
 async def play_audio_file(path: str):
     """Play an MP3 file through system speakers."""
     try:
-        import soundfile as sf
         import sounddevice as sd
+        import soundfile as sf
+
         data, samplerate = sf.read(path)
         sd.play(data, samplerate)
         sd.wait()
@@ -64,9 +66,10 @@ async def play_audio_file(path: str):
 
 # ─── Main Practice ─────────────────────────────────────────
 
+
 async def run_practice():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     print("=" * 60)
     print("  八十八佛大懺悔文 · 88 BUDDHAS GREAT REPENTANCE")
     print("  ×3 Cycles · TTS Audio · Live Sound Output")
@@ -128,7 +131,7 @@ async def run_practice():
         print(f"{'═' * 60}")
         print(f"🔄 CYCLE {cycle_num}/{CYCLES}")
         print(f"{'═' * 60}")
-        
+
         for i, buddha in enumerate(all_buddhas):
             name = buddha.get("name_chinese", "")
             pinyin = buddha.get("name_pinyin", "")
@@ -143,13 +146,16 @@ async def run_practice():
             rate_per_min = (total_recited / elapsed * 60) if elapsed > 0 else 0
             remaining = (CYCLES * total - total_recited) / max(rate_per_min, 1)
             pct = (total_recited / (CYCLES * total)) * 100
-            
+
             bar_len = 30
             filled = int(bar_len * (i + 1) / total)
             bar = "█" * filled + "░" * (bar_len - filled)
 
-            print(f"\r  [{bar}] {pct:5.1f}% | #{total_recited}: {name[:20]} | "
-                  f"{format_time(elapsed)} elapsed | ~{format_time(remaining)} remaining", end="")
+            print(
+                f"\r  [{bar}] {pct:5.1f}% | #{total_recited}: {name[:20]} | "
+                f"{format_time(elapsed)} elapsed | ~{format_time(remaining)} remaining",
+                end="",
+            )
 
             # Recite via TTS
             text = f"南無{name}" if not name.startswith("南無") else name
@@ -217,6 +223,7 @@ async def run_practice():
     # Save manifest
     manifest_path = OUTPUT_DIR / f"manifest_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     import json
+
     manifest = {
         "practice": "88 Buddhas Great Repentance ×3",
         "completed_at": datetime.now().isoformat(),

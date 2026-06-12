@@ -13,11 +13,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from modules.interfaces import BlessingGenerated, EventBus
-from core.ritual_sequencer import RitualSequencer, RitualContext
 from backend.core.services.rng_attunement_service import get_rng_service
+from core.ritual_sequencer import RitualContext, RitualSequencer
+from modules.interfaces import BlessingGenerated, EventBus
 
 logger = logging.getLogger(__name__)
+
 
 def get_project_root() -> Path:
     current = Path(__file__).resolve()
@@ -256,13 +257,12 @@ class OutlookService:
 
     async def _run_broadcast_loop(self):
         try:
-            loop = asyncio.get_running_loop()
             while self._loop_running:
                 logger.info("Executing scheduled narrative broadcast generation...")
                 try:
                     config = self._loop_config.copy()
                     config["date"] = datetime.now()
-                    
+
                     # Cycle genre if enabled
                     if config.get("cycle_genres", False) and self.generator.genres:
                         genres = self.generator.genres
@@ -277,16 +277,18 @@ class OutlookService:
                         genre=config.get("genre", "healing"),
                         lat=config.get("lat", 34.0522),
                         lon=config.get("lon", -118.2437),
-                        target_intention=config.get("custom_context") or ""
+                        target_intention=config.get("custom_context") or "",
                     )
-                    
+
                     # Instantiate and execute the workflow engine sequence
                     sequencer = RitualSequencer(outlook_generator=self.generator, event_bus=self.event_bus)
                     final_context = await sequencer.execute_ritual(context)
 
                     # Store last generated narrative
                     self._last_generated_narrative = final_context.invocation_narrative
-                    logger.info(f"Ritual Broadcast completed successfully. Narrative Length: {len(self._last_generated_narrative)}")
+                    logger.info(
+                        f"Ritual Broadcast completed successfully. Narrative Length: {len(self._last_generated_narrative)}"
+                    )
 
                     # Save to DB
                     try:

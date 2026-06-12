@@ -172,9 +172,7 @@ def _compute_chart_for_tuple(
                 chart["fixed_stars"] = calc.get_fixed_stars(dt, location)
             elif key == "progressions":
                 # v1 spec: use this tuple as the natal when no natal_dt is provided.
-                chart["progressions"] = calc.get_secondary_progressions(
-                    dt, location, dt
-                )
+                chart["progressions"] = calc.get_secondary_progressions(dt, location, dt)
             elif key == "returns":
                 chart["returns"] = calc.get_solar_return(
                     natal_dt=dt,
@@ -184,9 +182,7 @@ def _compute_chart_for_tuple(
                 )
             elif key == "directions":
                 # v1 spec: use this tuple as the natal when no natal_dt is provided.
-                chart["directions"] = calc.get_solar_arc_directions(
-                    dt, location, dt
-                )
+                chart["directions"] = calc.get_solar_arc_directions(dt, location, dt)
             elif key == "year_ahead":
                 # v1 spec: use this tuple as the natal when no natal_dt is provided.
                 chart["year_ahead"] = calc.get_year_ahead_timeline(dt, location)
@@ -195,12 +191,8 @@ def _compute_chart_for_tuple(
             else:
                 chart.setdefault("_unknown_systems", []).append(system)
         except Exception as exc:  # per-system failure must not abort the batch
-            logger.exception(
-                "System %r failed for tuple %s: %s", system, dt.isoformat(), exc
-            )
-            chart.setdefault("_system_errors", {})[key] = (
-                f"{type(exc).__name__}: {exc}"
-            )
+            logger.exception("System %r failed for tuple %s: %s", system, dt.isoformat(), exc)
+            chart.setdefault("_system_errors", {})[key] = f"{type(exc).__name__}: {exc}"
     return chart
 
 
@@ -349,7 +341,6 @@ async def _process_run(
     """Background task: walk every tuple, persist results, update the run row."""
     db_path = get_db_path()
     total = len(raw_tuples)
-    algo_version = derive_algo_version()
     completed = 0
     any_error = False
     all_error = True
@@ -401,13 +392,9 @@ async def _process_run(
 
         try:
             _persist_result_row(db_path, run_id, result)
-            _update_run_status(
-                db_path, run_id, completed_tuples=completed
-            )
+            _update_run_status(db_path, run_id, completed_tuples=completed)
         except Exception:
-            logger.exception(
-                "Failed to persist result for run %d tuple %d", run_id, idx
-            )
+            logger.exception("Failed to persist result for run %d tuple %d", run_id, idx)
 
     if total == 0:
         run_status = RunStatus.DONE
@@ -535,8 +522,7 @@ def _load_run_from_db(db_path: str, run_id: int) -> ExtractionRun | None:
         if run_row is None:
             return None
         result_rows = conn.execute(
-            "SELECT * FROM extraction_results WHERE run_id = ? "
-            "ORDER BY tuple_idx ASC, id ASC",
+            "SELECT * FROM extraction_results WHERE run_id = ? ORDER BY tuple_idx ASC, id ASC",
             (int(run_id),),
         ).fetchall()
     finally:
@@ -629,13 +615,11 @@ async def list_runs(
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        f"Unknown status filter: {status!r}. "
-                        "Expected one of: queued, running, done, error, partial."
+                        f"Unknown status filter: {status!r}. Expected one of: queued, running, done, error, partial."
                     ),
                 )
             rows = conn.execute(
-                "SELECT * FROM extraction_runs WHERE status = ? "
-                "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                "SELECT * FROM extraction_runs WHERE status = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
                 (status_value, safe_limit, safe_offset),
             ).fetchall()
             total_row = conn.execute(
@@ -644,8 +628,7 @@ async def list_runs(
             ).fetchone()
         else:
             rows = conn.execute(
-                "SELECT * FROM extraction_runs "
-                "ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+                "SELECT * FROM extraction_runs ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
                 (safe_limit, safe_offset),
             ).fetchall()
             total_row = conn.execute("SELECT COUNT(*) FROM extraction_runs").fetchone()
@@ -711,10 +694,7 @@ async def get_run_results(run_id: int, format: str = "markdown") -> Response:
         return Response(content=body, media_type="application/json; charset=utf-8")
     raise HTTPException(
         status_code=400,
-        detail=(
-            f"Unknown format: {format!r}. "
-            "Expected one of: markdown, json, raw."
-        ),
+        detail=(f"Unknown format: {format!r}. Expected one of: markdown, json, raw."),
     )
 
 
@@ -796,10 +776,7 @@ async def export_run_results(run_id: int, fmt: str = "jsonl") -> Response:
         )
     raise HTTPException(
         status_code=400,
-        detail=(
-            f"Unknown export format: {fmt!r}. "
-            "Expected one of: jsonl, csv, md."
-        ),
+        detail=(f"Unknown export format: {fmt!r}. Expected one of: jsonl, csv, md."),
     )
 
 

@@ -2,6 +2,12 @@
 """
 Test Intelligent Audio Composition
 Demonstrates harmonic frequency selection and intelligent composition patterns
+
+NOTE: Tests that call ``sd.play/sd.wait`` (composition_patterns,
+complete_blessing, chakra_healing) are marked ``@pytest.mark.slow``
+because they block on real audio output and hang on headless CI
+where no audio device is present. The default CI command excludes
+slow tests (``pytest -m "not slow"``).
 """
 
 import os
@@ -12,6 +18,7 @@ import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
+import pytest
 import sounddevice as sd
 
 from core.intelligent_composer import HARMONIC_BLESSING_SETS, AudioOrchestrator
@@ -60,6 +67,7 @@ def test_frequency_selection():
     print(f"Selected {len(selected)} out of {len(test_frequencies)} frequencies")
 
 
+@pytest.mark.slow
 def test_composition_patterns():
     """Test different composition patterns"""
     print("\n" + "=" * 60)
@@ -108,6 +116,7 @@ def test_spatial_panning():
         print(f"  {num_freqs} frequencies: {panning}")
 
 
+@pytest.mark.slow
 def test_complete_blessing():
     """Test complete blessing composition"""
     print("\n" + "=" * 60)
@@ -137,6 +146,7 @@ def test_complete_blessing():
         print("\nTest interrupted by user.")
 
 
+@pytest.mark.slow
 def test_chakra_healing():
     """Test chakra healing composition"""
     print("\n" + "=" * 60)

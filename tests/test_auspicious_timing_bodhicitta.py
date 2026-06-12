@@ -1,5 +1,7 @@
 """Tests for core/auspicious_timing.py Bodhicitta transmutations."""
+
 import pytest
+
 from core.auspicious_timing import AuspiciousTiming
 
 
@@ -9,8 +11,13 @@ def timing():
 
 
 BODHICITTA_GENRES = [
-    "healing", "compassion", "wisdom", "creativity",
-    "prosperity", "protection", "victory",
+    "healing",
+    "compassion",
+    "wisdom",
+    "creativity",
+    "prosperity",
+    "protection",
+    "victory",
 ]
 
 
@@ -25,12 +32,8 @@ def test_bodhicitta_transmutations_exist_for_all_genres(timing):
 def test_bodhicitta_transmutations_have_non_empty_message_and_mantra(timing):
     for genre in BODHICITTA_GENRES:
         message, mantra = timing._get_transmutation(genre, "Bodhicitta")
-        assert isinstance(message, str) and len(message) > 20, (
-            f"{genre}: message too short: {message!r}"
-        )
-        assert isinstance(mantra, str) and len(mantra) > 5, (
-            f"{genre}: mantra too short: {mantra!r}"
-        )
+        assert isinstance(message, str) and len(message) > 20, f"{genre}: message too short: {message!r}"
+        assert isinstance(mantra, str) and len(mantra) > 5, f"{genre}: mantra too short: {mantra!r}"
         assert mantra.startswith("Om ") or mantra.startswith("Gate "), (
             f"{genre}: mantra should start with 'Om ' or 'Gate ': {mantra!r}"
         )
@@ -65,9 +68,7 @@ def test_bodhicitta_mantras_are_known_phrases(timing):
 
 def test_bodhicitta_uses_unique_mantras_across_genres(timing):
     mantras = [timing._get_transmutation(g, "Bodhicitta")[1] for g in BODHICITTA_GENRES]
-    assert len(set(mantras)) >= 4, (
-        f"expected at least 4 distinct mantras, got {len(set(mantras))} from {mantras}"
-    )
+    assert len(set(mantras)) >= 4, f"expected at least 4 distinct mantras, got {len(set(mantras))} from {mantras}"
 
 
 def test_non_bodhicitta_combinations_still_work(timing):

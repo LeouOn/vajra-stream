@@ -7,8 +7,10 @@ from backend.app.main import app
 
 client = TestClient(app)
 
+
 def is_lm_studio_running():
     import requests
+
     try:
         url = os.getenv("LM_STUDIO_URL", "http://localhost:1234/v1")
         requests.get(f"{url}/models", timeout=2)
@@ -16,9 +18,10 @@ def is_lm_studio_running():
     except Exception:
         return False
 
+
 @pytest.mark.skipif(
     not (os.getenv("RUN_LIVE_LLM_TESTS") and is_lm_studio_running()),
-    reason="Requires RUN_LIVE_LLM_TESTS env var and LM Studio running"
+    reason="Requires RUN_LIVE_LLM_TESTS env var and LM Studio running",
 )
 def test_outlook_generate_single_with_lm_studio_default():
     """
@@ -37,7 +40,7 @@ def test_outlook_generate_single_with_lm_studio_default():
         "custom_context": "test initialization",
         "include_astrology": False,
         "include_tarot": False,
-        "include_iching": False
+        "include_iching": False,
     }
 
     response = client.post("/api/v1/outlook/generate_single", json=payload)
@@ -45,5 +48,7 @@ def test_outlook_generate_single_with_lm_studio_default():
     data = response.json()
 
     narrative = data.get("narrative", "")
-    assert "No LLM initialized" not in narrative, "Should not return 'No LLM initialized' when LM studio is running and auto-detected"
+    assert "No LLM initialized" not in narrative, (
+        "Should not return 'No LLM initialized' when LM studio is running and auto-detected"
+    )
     assert len(narrative) > 50, f"Narrative too short: {narrative}"

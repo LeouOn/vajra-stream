@@ -67,6 +67,7 @@ class TTSRoleOverrideRequest(BaseModel):
 async def get_tts_config():
     """Return full TTS catalog — available backends, voices, speakers, and current config."""
     from core.tts_provider import get_tts_provider, list_project_overrides
+
     provider = get_tts_provider()
     payload = provider.get_available_configs()
     payload["project_overrides"] = list_project_overrides()
@@ -77,6 +78,7 @@ async def get_tts_config():
 async def update_tts_config(request: TTSConfigUpdateRequest):
     """Update TTS backend, voice, model, or language settings."""
     from core.tts_provider import get_tts_provider
+
     provider = get_tts_provider()
 
     updates = request.model_dump(exclude_none=True)
@@ -103,6 +105,7 @@ async def set_role_override(request: TTSRoleOverrideRequest):
         list_project_overrides,
         set_project_speaker,
     )
+
     if request.clear:
         if request.project_id == "default":
             clear_project_speakers(request.project_id)
@@ -127,6 +130,7 @@ async def set_role_override(request: TTSRoleOverrideRequest):
 async def speak_text(request: TTSSpeakRequest):
     """Generate speech and return the audio file path."""
     from core.tts_provider import get_tts_provider
+
     provider = get_tts_provider()
 
     # Temporarily switch backend if requested
@@ -166,6 +170,7 @@ async def speak_text(request: TTSSpeakRequest):
 async def speak_batch(request: TTSSpeakBatchRequest):
     """Batch speech generation — faster on Qwen3-TTS (single GPU pass)."""
     from core.tts_provider import get_tts_provider
+
     provider = get_tts_provider()
 
     original_project = provider.config.project_id
@@ -200,6 +205,7 @@ async def stream_speech(request: TTSStreamRequest):
         X-TTS-Chars     — input text length
     """
     from core.tts_provider import get_tts_provider
+
     provider = get_tts_provider()
 
     original_backend = provider.config.backend

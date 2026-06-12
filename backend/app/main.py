@@ -73,6 +73,7 @@ async def lifespan(app: FastAPI):
     # Start Autonomous Operator Daemon
     try:
         from container import container
+
         print("Starting Autonomous Radionics Operator daemon...")
         container.operator.start_autonomous_mode(interval_seconds=60)
         print("Autonomous Radionics Operator daemon activated successfully on startup")
@@ -89,6 +90,7 @@ async def lifespan(app: FastAPI):
     # Stop Autonomous Operator Daemon
     try:
         from container import container
+
         print("Stopping Autonomous Radionics Operator daemon...")
         container.operator.stop_autonomous_mode()
         print("Autonomous Radionics Operator daemon stopped")
@@ -163,14 +165,43 @@ async def websocket_stats():
 # Include central API router
 app.include_router(api_router, prefix="/api/v1")
 
+
 # Story search endpoint (used by commandStore)
 @app.get("/api/v1/stories/search")
 async def search_stories(q: str = ""):
     tales = [
-        {"id":"burning_house","title":"The Burning House","source":"Lotus Sutra","tradition":"Mahayana","theme":"impermanence","summary":"A father lures his children from a burning house with promises of toys."},
-        {"id":"the_arrow","title":"The Arrow","source":"Acintita Sutra","tradition":"Theravada","theme":"wisdom","summary":"A man wounded by a poison arrow refuses treatment, demanding to know who shot it."},
-        {"id":"the_raft","title":"The Raft","source":"Majjhima Nikaya","tradition":"Theravada","theme":"letting_go","summary":"A man crosses a river using a raft, then must decide whether to carry it further."},
-        {"id":"cup_of_tea","title":"A Cup of Tea","source":"Zen","tradition":"Zen","theme":"emptiness","summary":"Nan-in serves tea, overfilling the cup to teach about emptying the mind."},
+        {
+            "id": "burning_house",
+            "title": "The Burning House",
+            "source": "Lotus Sutra",
+            "tradition": "Mahayana",
+            "theme": "impermanence",
+            "summary": "A father lures his children from a burning house with promises of toys.",
+        },
+        {
+            "id": "the_arrow",
+            "title": "The Arrow",
+            "source": "Acintita Sutra",
+            "tradition": "Theravada",
+            "theme": "wisdom",
+            "summary": "A man wounded by a poison arrow refuses treatment, demanding to know who shot it.",
+        },
+        {
+            "id": "the_raft",
+            "title": "The Raft",
+            "source": "Majjhima Nikaya",
+            "tradition": "Theravada",
+            "theme": "letting_go",
+            "summary": "A man crosses a river using a raft, then must decide whether to carry it further.",
+        },
+        {
+            "id": "cup_of_tea",
+            "title": "A Cup of Tea",
+            "source": "Zen",
+            "tradition": "Zen",
+            "theme": "emptiness",
+            "summary": "Nan-in serves tea, overfilling the cup to teach about emptying the mind.",
+        },
     ]
     results = [t for t in tales if q.lower() in t["title"].lower() or q.lower() in t["theme"].lower()] if q else tales
     return {"results": results, "query": q}

@@ -168,7 +168,9 @@ class EnhancedAudioGenerator:
 
         return wave
 
-    def layer_frequencies(self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False) -> "np.ndarray":
+    def layer_frequencies(
+        self, frequency_list: list[tuple[float, float]], duration: int = 60, pure_sine: bool = False
+    ) -> "np.ndarray":
         """Layer multiple frequencies together into a single waveform.
 
         Each frequency in the list is generated as a prayer bowl tone (or pure

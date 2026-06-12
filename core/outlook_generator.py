@@ -70,7 +70,7 @@ class OutlookGenerator:
 
         self.genres = ["healing", "victory", "fun_parable", "alchemist", "dharani"]
         self.supported_languages = ["English", "Sanskrit", "Tibetan", "Chinese", "Latin", "Greek", "Hebrew"]
-        
+
         self.sigil = sigil_service
         if RadionicsAnalyzer and SignatureCalculator:
             self.radionics_analyzer = RadionicsAnalyzer()
@@ -82,7 +82,7 @@ class OutlookGenerator:
     def _calculate_radionics_and_sigils(self, genre: str, intention: str) -> tuple[str, dict]:
         parts = []
         raw = {}
-        
+
         # 1. Select Kamea & Frequencies based on genre
         genre = genre.lower()
         if genre in ["healing", "peace"]:
@@ -97,36 +97,31 @@ class OutlookGenerator:
         else:
             kamea = "saturn"
             freq = "432Hz (Harmonic Resonance)"
-            
+
         parts.append(f"Vibrational Frequencies locked to {freq}.")
         parts.append(f"Kamea Grid Selected: The Planetary Square of {kamea.capitalize()}.")
-        
+
         # 2. Calculate Signature Rates
         if self.signature_calc and self.radionics_analyzer:
             sig_rate = self.signature_calc.text_to_rate(intention, num_dials=3)
             parts.append(f"Base Radionic Signature Rate: {sig_rate}")
-            
+
             balancing = self.radionics_analyzer.find_balancing_rates(intention, num_rates=1)
             if balancing:
                 parts.append(f"Complementary Balancing Rate: {balancing[0]}")
-                
-            raw["rates"] = {
-                "signature": sig_rate.to_dict(),
-                "balancing": [r.to_dict() for r in balancing]
-            }
-            
+
+            raw["rates"] = {"signature": sig_rate.to_dict(), "balancing": [r.to_dict() for r in balancing]}
+
         # 3. Trace Sigil Coordinates
         if self.sigil:
             coords = self.sigil.text_to_coordinates(intention, kamea)
             reduced_text = self.sigil.reduce_text(intention)
             coord_str = " -> ".join([f"({c['x']},{c['y']})" for c in coords])
-            parts.append(f"Sigil traced over {kamea.capitalize()} grid via reduction '{reduced_text}'. Coordinates: {coord_str}")
-            raw["sigil"] = {
-                "kamea": kamea,
-                "reduced": reduced_text,
-                "coordinates": coords
-            }
-            
+            parts.append(
+                f"Sigil traced over {kamea.capitalize()} grid via reduction '{reduced_text}'. Coordinates: {coord_str}"
+            )
+            raw["sigil"] = {"kamea": kamea, "reduced": reduced_text, "coordinates": coords}
+
         return " ".join(parts), raw
 
     def _load_sacred_entities(self) -> dict[str, Any]:
@@ -139,7 +134,7 @@ class OutlookGenerator:
     def _gather_astrology_context(self, lat: float, lon: float, date: datetime = None) -> str:
         if not self.astro_engine:
             return "Astrological alignment: The stars dance in unknown but auspicious patterns."
-        if not hasattr(self.astro_engine, 'calculate_chart'):
+        if not hasattr(self.astro_engine, "calculate_chart"):
             return "Astrological alignment: The celestial calculator is currently unavailable."
         try:
             target_date = date or datetime.now()
@@ -254,7 +249,9 @@ class OutlookGenerator:
         except Exception as e:
             return f"Astrological context unavailable: {e}"
 
-    def _gather_divination_data(self, include_tarot: bool = True, include_iching: bool = True, include_geomancy: bool = True) -> tuple[str, dict]:
+    def _gather_divination_data(
+        self, include_tarot: bool = True, include_iching: bool = True, include_geomancy: bool = True
+    ) -> tuple[str, dict]:
         if not self.divination:
             return "The oracles remain silent.", {}
         parts = []
@@ -264,7 +261,9 @@ class OutlookGenerator:
                 tarot = self.divination.draw_tarot(1)[0]
                 tarot_desc = f"The Tarot reveals {tarot['name']} ({tarot['orientation']}). Meaning: {tarot['meaning']}."
                 if tarot.get("hebrew"):
-                    tarot_desc += f" Letter: {tarot['hebrew']}, Ruler: {tarot.get('ruler')}, Element: {tarot.get('element')}."
+                    tarot_desc += (
+                        f" Letter: {tarot['hebrew']}, Ruler: {tarot.get('ruler')}, Element: {tarot.get('element')}."
+                    )
                 parts.append(tarot_desc)
                 raw["tarot"] = {
                     "name": tarot.get("name"),
@@ -279,7 +278,7 @@ class OutlookGenerator:
                 primary_hex = iching.get("primary", {})
                 relating_hex = iching.get("relating", {})
                 lines = iching.get("changing_lines", [])
-                
+
                 iching_desc = f"The I Ching casts Hexagram {primary_hex.get('name')}: {primary_hex.get('meaning')}."
                 if lines:
                     iching_desc += f" Changing lines {lines} transform it into Hexagram {relating_hex.get('name')}."
@@ -300,7 +299,7 @@ class OutlookGenerator:
                     geo_desc = f"Geomancy cast shield. Mothers: {m1['name']}, {m2['name']}, {m3['name']}, {m4['name']}. Judge: {judge['name']} ({judge['meaning']})."
                     parts.append(geo_desc)
                     raw["geomancy"] = geomancy
-                
+
             text = " ".join(parts) if parts else "The oracles remain silent."
             return text, raw
         except Exception as e:
@@ -362,7 +361,7 @@ class OutlookGenerator:
             return
         try:
             with open(filename, "a", encoding="utf-8") as f:
-                f.write(f"\n\n# LLM Response Log\n")
+                f.write("\n\n# LLM Response Log\n")
                 if error:
                     f.write(f"# ERROR Encountered:\n{error}\n")
                 else:
@@ -378,7 +377,7 @@ class OutlookGenerator:
         """The Critic Model: evaluate a generated ritual for esoteric resonance."""
         if not self.llm:
             return {"score": 5, "feedback": "LLM not available for critique."}
-            
+
         critic_prompt = f"""You are a Master Esoteric Critic.
 Read the original prompt and the generated ritual narrative. Score the resonance, alignment, and esoteric depth from 1 to 10.
 Provide a brief feedback summary.
@@ -396,10 +395,10 @@ Generated Ritual:
             result = self.llm.generate(critic_prompt, max_tokens=500, temperature=0.3, model=model)
             if not result or "No LLM initialized" in result:
                 return {"score": 5, "feedback": "LLM critique unavailable."}
-                
+
             score = 5
             feedback = result
-            for line in result.split('\n'):
+            for line in result.split("\n"):
                 if line.startswith("SCORE:"):
                     try:
                         score = int(line.split(":")[1].strip())
@@ -463,12 +462,12 @@ Generated Ritual:
         divination_context, divination_raw = self._gather_divination_data(
             include_tarot=include_tarot, include_iching=include_iching, include_geomancy=include_geomancy
         )
-        
+
         # Calculate Radionics and Sigils
         intention = custom_context if custom_context else f"Blessing for {lat},{lon}"
         radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention)
         divination_raw.update(radionics_raw)
-        
+
         entity_context = self._select_sacred_entities()
 
         detailed_context = []
@@ -490,12 +489,14 @@ Generated Ritual:
                 char = get_character_manager().get_character(c_id)
                 if char:
                     get_character_manager().record_character_feature(c_id)
-                    char_desc = f"- {char.name} ({char.role.value}): {char.description}. Dialogue Style: {char.dialogue_style}"
-                    if getattr(char, 'grounding_sense', None):
+                    char_desc = (
+                        f"- {char.name} ({char.role.value}): {char.description}. Dialogue Style: {char.dialogue_style}"
+                    )
+                    if getattr(char, "grounding_sense", None):
                         char_desc += f". Grounding: {char.grounding_sense}"
-                    if getattr(char, 'channeling_state', None):
+                    if getattr(char, "channeling_state", None):
                         char_desc += f". Channeling: {char.channeling_state}"
-                    if getattr(char, 'anchoring_ritual', None):
+                    if getattr(char, "anchoring_ritual", None):
                         char_desc += f". Anchoring: {char.anchoring_ritual}"
                     char_texts.append(char_desc)
             if char_texts:
@@ -560,7 +561,9 @@ Length: 5-8 paragraphs of dense, visionary prose.
         # Default to DeepSeek (fast MoE) if no model specified and auto-detect might fail
         effective_model = model or "deepseek:deepseek-chat"
 
-        print(f"[DEBUG generate_single_outlook] model={model!r}, effective_model={effective_model!r}, self.llm={type(self.llm).__name__ if self.llm else 'None'}")
+        print(
+            f"[DEBUG generate_single_outlook] model={model!r}, effective_model={effective_model!r}, self.llm={type(self.llm).__name__ if self.llm else 'None'}"
+        )
         if self.llm:
             try:
                 result = self.llm.generate(
@@ -618,6 +621,9 @@ Length: 5-8 paragraphs of dense, visionary prose.
         """
         Orchestrates a multi-stage (e.g. 9-12 stages) epic narrative outlook.
         """
+        # Resolve LLM model up-front so all dialogue/stage generations share it.
+        epic_model = model or "deepseek:deepseek-chat"
+
         if randomize_realm and get_location_manager:
             active_locs = get_location_manager().get_active_locations()
             if active_locs:
@@ -645,11 +651,11 @@ Length: 5-8 paragraphs of dense, visionary prose.
         divination_context, divination_raw = self._gather_divination_data(
             include_tarot=include_tarot, include_iching=include_iching, include_geomancy=include_geomancy
         )
-        
+
         intention = custom_context if custom_context else f"Blessing for {lat},{lon}"
         radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention)
         divination_raw.update(radionics_raw)
-        
+
         entity_context = self._select_sacred_entities()
 
         detailed_context = []
@@ -668,20 +674,22 @@ Length: 5-8 paragraphs of dense, visionary prose.
         if character_ids and get_character_manager:
             char_texts = []
             council_intentions = []
-            
+
             for c_id in character_ids:
                 char = get_character_manager().get_character(c_id)
                 if char:
                     get_character_manager().record_character_feature(c_id)
-                    char_desc = f"- {char.name} ({char.role.value}): {char.description}. Dialogue Style: {char.dialogue_style}"
-                    if getattr(char, 'grounding_sense', None):
+                    char_desc = (
+                        f"- {char.name} ({char.role.value}): {char.description}. Dialogue Style: {char.dialogue_style}"
+                    )
+                    if getattr(char, "grounding_sense", None):
                         char_desc += f". Grounding: {char.grounding_sense}"
-                    if getattr(char, 'channeling_state', None):
+                    if getattr(char, "channeling_state", None):
                         char_desc += f". Channeling: {char.channeling_state}"
-                    if getattr(char, 'anchoring_ritual', None):
+                    if getattr(char, "anchoring_ritual", None):
                         char_desc += f". Anchoring: {char.anchoring_ritual}"
                     char_texts.append(char_desc)
-                    
+
                     # Part 3: The Debate Model (Autonomous Council)
                     if include_dialogue and self.llm:
                         council_prompt = (
@@ -693,16 +701,20 @@ Length: 5-8 paragraphs of dense, visionary prose.
                             "Do not write anything else, just your spoken dialogue."
                         )
                         try:
-                            intention = self.llm.generate(council_prompt, max_tokens=150, temperature=0.8, model=epic_model)
+                            intention = self.llm.generate(
+                                council_prompt, max_tokens=150, temperature=0.8, model=epic_model
+                            )
                             if intention and "No LLM" not in intention:
-                                council_intentions.append(f"{char.name} declares: \"{intention.strip()}\"")
+                                council_intentions.append(f'{char.name} declares: "{intention.strip()}"')
                         except Exception:
                             pass
-                            
+
             if char_texts:
                 detailed_context.append("Esoteric Characters present:\n" + "\n".join(char_texts))
             if council_intentions:
-                detailed_context.append("Character Council Intentions (Weave these into the narrative):\n" + "\n".join(council_intentions))
+                detailed_context.append(
+                    "Character Council Intentions (Weave these into the narrative):\n" + "\n".join(council_intentions)
+                )
 
         if population_ids and get_population_manager:
             pop_texts = []
@@ -731,9 +743,8 @@ Length: 5-8 paragraphs of dense, visionary prose.
 
         if not self.llm:
             return {"status": "error", "message": "LLM required for epic generation"}
-        
+
         # Default to DeepSeek (fast MoE) if no model specified
-        epic_model = model or "deepseek:deepseek-chat"
         is_fallback = False
 
         # Stage 1: Invocation
@@ -784,18 +795,20 @@ Seal the dharani, resolve the oracle's prophecy ({divination_context}), and show
         log_filename_final = self._debug_log_prompt(prompt_final, f"{genre}_epic_final", lat, lon)
 
         if is_fallback:
-            chap_final = f"LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
+            chap_final = (
+                "LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
+            )
             self._debug_log_response(log_filename_final, chap_final)
         else:
             try:
                 chap_final = self.llm.generate(prompt_final, max_tokens=2000, temperature=0.7, model=epic_model)
                 if chap_final and "No LLM initialized" in chap_final:
-                    chap_final = f"LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
+                    chap_final = "LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
                 self._debug_log_response(log_filename_final, chap_final)
             except Exception as e:
                 self._debug_log_response(log_filename_final, None, error=str(e))
                 chap_final = f"Error generating final chapter: {e}"
-                
+
         epic_narrative.append({"chapter": stages, "title": "The Sealing", "content": chap_final})
 
         # Part 1: The Critic Evaluation
@@ -823,5 +836,5 @@ Seal the dharani, resolve the oracle's prophecy ({divination_context}), and show
             "divination_raw": divination_raw,
             "entities_used": entity_context,
             "narrative_parts": epic_narrative,
-            "critic_score": eval_result.get('score', 0) if not is_fallback else 0,
+            "critic_score": eval_result.get("score", 0) if not is_fallback else 0,
         }

@@ -89,22 +89,21 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
         thermal_monitor.update()
 
         import time
+
         start_time = time.time()
 
         # Use the container service to ensure events are emitted
         from container import container
 
         result = container.scalar_waves.generate(
-            method=request.method,
-            count=request.count,
-            intensity=request.intensity
+            method=request.method, count=request.count, intensity=request.intensity
         )
 
         # The container service returns a dict like:
         # {'status': 'success', 'mops': X, 'generation_time': Y, 'count': Z}
 
-        generation_time = result.get('generation_time', time.time() - start_time)
-        mops = result.get('mops', (request.count / generation_time) / 1_000_000)
+        generation_time = result.get("generation_time", time.time() - start_time)
+        mops = result.get("mops", (request.count / generation_time) / 1_000_000)
 
         # Since the service doesn't return the raw values, we don't have full stats
         # But for Terra MOPS scaling, we don't need to return million-element arrays anyway

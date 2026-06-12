@@ -99,6 +99,7 @@ target-version = "py310"
 line-length = 120
 exclude = [
     "ai_integration_project/**",
+    "scratch/**",
 ]
 
 [tool.ruff.lint]

@@ -4,13 +4,9 @@ from backend.app.main import app
 
 client = TestClient(app)
 
+
 def test_massive_mops():
-    payload = {
-        "method": "hybrid",
-        "count": 1000,
-        "intensity": 1.0,
-        "duration": 5.0
-    }
+    payload = {"method": "hybrid", "count": 1000, "intensity": 1.0, "duration": 5.0}
 
     # Initialize container to ensure EventBus is active
     # EventBus is active on import
@@ -23,6 +19,7 @@ def test_massive_mops():
     assert data["status"] == "success"
     assert data["count"] == 1000
     assert "mops" in data
+
 
 if __name__ == "__main__":
     test_massive_mops()
