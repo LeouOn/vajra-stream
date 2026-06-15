@@ -74,6 +74,7 @@ async def lifespan(app: FastAPI):
             MinimaxProvider,
             OpenAIProvider,
             OpenRouterProvider,
+            ZAIProvider,
         )
         from core.llm.registry import ProviderRegistry
 
@@ -91,6 +92,8 @@ async def lifespan(app: FastAPI):
             registry.register(AnthropicProvider(priority=60))
         if os.getenv("OPENAI_API_KEY"):
             registry.register(OpenAIProvider(priority=50))
+        if os.getenv("ZAI_API_KEY") or os.getenv("Z_AI_API_KEY"):
+            registry.register(ZAIProvider(priority=65))
         if os.getenv("MINIMAX_API_KEY"):
             registry.register(MinimaxProvider(priority=40))
         if os.path.isdir(os.getenv("LLM_LOCAL_MODELS_DIR", "./models")):

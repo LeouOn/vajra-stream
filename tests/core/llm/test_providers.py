@@ -10,6 +10,7 @@ from core.llm.providers import (
     MinimaxProvider,
     OpenAIProvider,
     OpenRouterProvider,
+    ZAIProvider,
 )
 
 
@@ -100,3 +101,27 @@ def test_local_gguf_provider_construction(tmp_path):
 def test_local_gguf_provider_no_models(tmp_path):
     p = LocalGGUFProvider(models_dir=str(tmp_path))
     assert p.default_model == "unknown"
+
+
+def test_z_ai_provider_construction(monkeypatch):
+    monkeypatch.setenv("ZAI_API_KEY", "zai-test")
+    p = ZAIProvider()
+    assert p.name == "z_ai"
+    assert p.priority == 65
+    assert p.default_model == "glm-4.5"
+    assert "api.z.ai" in str(p._client.base_url)
+
+
+def test_z_ai_provider_accepts_legacy_key_name(monkeypatch):
+    """Z_AI_API_KEY (legacy) should be accepted as an alias for ZAI_API_KEY."""
+    monkeypatch.delenv("ZAI_API_KEY", raising=False)
+    monkeypatch.setenv("Z_AI_API_KEY", "zai-via-legacy")
+    p = ZAIProvider()
+    assert p.name == "z_ai"
+
+
+def test_z_ai_provider_requires_key(monkeypatch):
+    monkeypatch.delenv("ZAI_API_KEY", raising=False)
+    monkeypatch.delenv("Z_AI_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="ZAI_API_KEY"):
+        ZAIProvider()
