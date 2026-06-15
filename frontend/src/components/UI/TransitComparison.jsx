@@ -7,7 +7,7 @@ import {
   aspectCategory, aspectGlyph, planetGlyph,
   isHouseCusp, houseLabel, natalDisplayName,
 } from '../../lib/astroHelpers';
-import { formatTransitExportMarkdown, formatTransitExportJSON } from '../../lib/transitExport';
+import { formatTransitReportMarkdown, formatTransitReportJSON } from '../../lib/astrologyExport';
 
 const ASPECT_COLORS = {
   conjunction: 'text-green-400 border-green-500/20 bg-green-500/10',
@@ -110,8 +110,8 @@ export default function TransitComparison({ chart }) {
       const result = await response.json();
       const data = result.data || result;
       const formatted = exportFormat === 'json'
-        ? formatTransitExportJSON(data)
-        : formatTransitExportMarkdown(data);
+        ? formatTransitReportJSON(data)
+        : formatTransitReportMarkdown(data);
       await navigator.clipboard.writeText(formatted);
       message.success('Copied to clipboard!');
     } catch (e) {

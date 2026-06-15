@@ -7,6 +7,7 @@ import {
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload
 } from 'lucide-react';
 import { Card, Row, Col, Tag, Button, Space, Segmented, message } from 'antd';
+import { CopyOutlined } from '@ant-design/icons';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import VedicPanchanga from './VedicPanchanga';
@@ -411,6 +412,35 @@ export default function AstrologyPanel() {
     }
   };
 
+  const handleCopyNatalChart = async () => {
+    if (!activeChart?.id) {
+      message.error("Load a saved chart first to copy its natal data");
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE}/astrology/charts/${activeChart.id}/natal-export`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      const data = result.data || result;
+      const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
+      const markdown = formatNatalChartMarkdown(data);
+      await navigator.clipboard.writeText(markdown);
+      message.success("Natal chart copied for LLM");
+    } catch (e) {
+      console.error(e);
+      message.error("Natal chart copy failed: " + e.message);
+    }
+  };
+
   const handleResetToLive = () => {
     setIsLiveMode(true);
     setActiveChart(null);
@@ -538,7 +568,24 @@ export default function AstrologyPanel() {
                         </Tag>
                       </Col>
                       <Col>
-                        <span className="text-[10px] text-gray-500 font-mono">COORD: GEOCENTRIC</span>
+                        <Space size={8} align="center">
+                          {activeChart && (
+                            <Button
+                              size="small"
+                              icon={<CopyOutlined />}
+                              onClick={handleCopyNatalChart}
+                              className="text-[10px]"
+                              style={{
+                                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                border: 'none',
+                                color: '#fff',
+                              }}
+                            >
+                              Copy Natal Chart
+                            </Button>
+                          )}
+                          <span className="text-[10px] text-gray-500 font-mono">COORD: GEOCENTRIC</span>
+                        </Space>
                       </Col>
                     </Row>
                     
