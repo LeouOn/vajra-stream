@@ -35,6 +35,7 @@ import Dashboard from './components/UI/Dashboard';
 import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
+import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
 
 function AppContent() {
@@ -474,8 +475,10 @@ function App() {
   return (
     <ConfigProvider
       theme={{
+        ...antdTheme,
         algorithm: theme.darkAlgorithm,
         token: {
+          ...antdTheme.token,
           colorPrimary: COLORS.primary, // vajra-purple (--primary in globals.css)
           colorInfo: COLORS.secondary, // vajra-cyan (--secondary in globals.css)
         },
