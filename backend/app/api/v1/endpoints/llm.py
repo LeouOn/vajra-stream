@@ -885,13 +885,13 @@ async def _build_system_prompt_with_context(request: ChatRequest) -> str:
     builder.register(AnatomyContextModule())
     builder.register(HardwareContextModule())
     try:
-        context_str = await builder.compose(context_request)
+        # SystemPromptBuilder.compose() now accepts base_prompt directly,
+        # so we don't need to concatenate here. The builder returns
+        # `base_prompt + "\n\n" + <rendered sections>` when sections exist.
+        return await builder.compose(context_request, base_prompt=base_prompt)
     except Exception as exc:  # noqa: BLE001 — context failure must not break chat
         logger.warning("SystemPromptBuilder compose failed: %s", exc)
-        context_str = ""
-    if context_str:
-        return f"{base_prompt}\n\nCURRENT ENVIRONMENTAL & SYSTEM METRICS:\n{context_str}"
-    return base_prompt
+        return base_prompt
 
 
 async def _select_provider_via_registry(

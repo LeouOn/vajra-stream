@@ -50,13 +50,18 @@ class SystemPromptBuilder:
         """Append *module* to the composition pipeline."""
         self._modules.append(module)
 
-    async def compose(self, request: ContextRequest) -> str:
+    async def compose(
+        self, request: ContextRequest, base_prompt: str = ""
+    ) -> str:
         """Gather all modules in parallel, render sequentially, skip failures.
 
-        Returns the joined Markdown sections separated by blank lines.
+        The optional ``base_prompt`` is prepended so callers don't need to
+        concatenate strings themselves. If provided, the returned string is
+        ``base_prompt + "\n\n" + <rendered sections>``. If no modules
+        contribute anything, ``base_prompt`` is returned verbatim.
         """
         if not self._modules:
-            return ""
+            return base_prompt
 
         results = await asyncio.gather(
             *(self._safe_gather(m, request) for m in self._modules),
@@ -71,7 +76,10 @@ class SystemPromptBuilder:
             if rendered:
                 sections.append(rendered)
 
-        return "\n\n".join(sections)
+        body = "\n\n".join(sections)
+        if base_prompt and body:
+            return f"{base_prompt}\n\n{body}"
+        return body or base_prompt
 
     # -- internal helpers ---------------------------------------------------
 
