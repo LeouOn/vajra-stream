@@ -146,7 +146,17 @@ def _deterministic_geocoding(monkeypatch):
         return
     spec = importlib.util.spec_from_file_location("_test_geocoding_service_module", gs_path)
     gs_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(gs_mod)
+    try:
+        spec.loader.exec_module(gs_mod)
+    except Exception as exc:  # noqa: BLE001 — defensive: unrelated tests must not fail
+        # If the geocoding service cannot be imported (missing geopy dep, syntax
+        # error, circular import, etc.), skip the patch rather than failing
+        # unrelated tests. Log at debug level for diagnosability.
+        import logging
+        logging.getLogger(__name__).debug(
+            "Skipping geocoding patch: %s: %s", type(exc).__name__, exc
+        )
+        return
     monkeypatch.setattr(
         gs_mod.GeocodingService,
         "get_coordinates_and_timezone",
