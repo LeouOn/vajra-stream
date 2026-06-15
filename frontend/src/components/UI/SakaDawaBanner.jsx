@@ -6,43 +6,24 @@
  * with the 100,000x merit multiplier, practice description, and
  * a one-click button to start a Saka Dawa blessing session.
  *
- * Polls every 60s. Only renders when in the Saka Dawa window.
+ * Subscribes to the SAKA_DAWA_CHECK WebSocket broadcast via
+ * useWebSocketStable (no REST polling). Only renders when in the
+ * Saka Dawa window. Callers may still override with a `sakaDawa`
+ * prop; otherwise the WS value is used.
  *
  * @component
  */
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Moon, Sparkles, Zap, ChevronRight, Clock } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
-export default function SakaDawaBanner({ sakaDawa }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function SakaDawaBanner({ sakaDawa: sakaDawaProp }) {
+  const { sakaDawa: sakaDawaWS } = useWebSocketStable();
+  const data = sakaDawaProp || sakaDawaWS;
 
-  useEffect(() => {
-    if (sakaDawa) {
-      setData(sakaDawa);
-      setLoading(false);
-      return;
-    }
-
-    const fetchSakaDawa = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/operator/saka-dawa`);
-        if (res.ok) {
-          const d = await res.json();
-          setData(d);
-        }
-      } catch {}
-      setLoading(false);
-    };
-    fetchSakaDawa();
-    const interval = setInterval(fetchSakaDawa, 60000);
-    return () => clearInterval(interval);
-  }, [sakaDawa]);
-
-  // Don't show banner on first load while checking
-  if (loading) return null;
+  // No data yet (WS hasn't delivered a SAKA_DAWA_CHECK frame) — hide banner.
+  if (!data) return null;
   // Only show when in Saka Dawa window
   if (!data?.in_saka_dawa_window) return null;
 
