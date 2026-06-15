@@ -27,6 +27,7 @@ import ChakraBodyMap from './components/2D/ChakraBodyMap';
 import MainLayout from './components/Layout/MainLayout';
 import CommandCenter from './components/UI/CommandCenter';
 import BuddhasPage from './routes/Buddhas';
+import ProviderSettings from './components/Settings/ProviderSettings';
 import OperationsPanel from './components/UI/OperationsPanel';
 import AstrologyPanel from './components/UI/AstrologyPanel';
 import BroadcastPanel from './components/UI/BroadcastPanel';
@@ -164,6 +165,12 @@ function AppContent() {
         <Route path="/buddhas" element={
           <div className="flex-1 h-full overflow-y-auto">
             <BuddhasPage />
+          </div>
+        } />
+        
+        <Route path="/settings" element={
+          <div className="flex-1 h-full overflow-y-auto">
+            <ProviderSettings />
           </div>
         } />
         

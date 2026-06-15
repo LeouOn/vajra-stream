@@ -29,6 +29,7 @@ import {
   Video,
   BookOpen,
   Volume2,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -49,6 +50,7 @@ export const ROUTES: RouteEntry[] = [
   { key: 'visualizers', label: 'Visualizer', icon: Video },
   { key: 'grimoire', label: 'Grimoire', icon: BookOpen },
   { key: 'tts', label: 'TTS', icon: Volume2 },
+  { key: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export const DEFAULT_ROUTE = 'command-center';
