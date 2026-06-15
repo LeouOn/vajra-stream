@@ -1118,6 +1118,103 @@ async def _run_anthropic_tool_loop(
     return "*(Anthropic reached maximum reasoning turns without finishing.)*"
 
 
+async def _chat_via_registry(
+    http_request: Request,
+    request: ChatRequest,
+    provider_name: str,
+    system_prompt_holder: list[str] | None = None,
+) -> ChatResponse:
+    """Registry-first chat path. Uses the registered provider for the request.
+
+    The legacy code path (env-var lookups + copy-pasted tool loops) is preserved
+    below as a fallback for deployments without an initialized registry or
+    providers that aren't registered.
+
+    ``system_prompt_holder`` is unused here (kept for signature symmetry with the
+    fallback path); system prompt is built inside this function.
+    """
+    from core.context import (
+        SystemPromptBuilder,
+        ContextRequest,
+        AstrologyContextModule,
+        AnatomyContextModule,
+        HardwareContextModule,
+    )
+    from core.llm.retry import retry_with_backoff
+    from core.llm.models import ChatResponse as _ChatResponse
+
+    registry = http_request.app.state.llm_registry
+    # Build system prompt with context modules
+    system_prompt = await _build_system_prompt_with_context(request)
+
+    # Pick the requested provider from the registry (already verified `provider in registry`)
+    chosen = None
+    for p in registry.providers:
+        if p.name == provider_name:
+            chosen = p
+            break
+    if chosen is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Provider '{provider_name}' is registered but not selectable",
+        )
+
+    chat_request = request.model_copy(update={"system_prompt": system_prompt})
+
+    async def _do_generate():
+        return await chosen.generate(chat_request)
+
+    try:
+        response = await retry_with_backoff(
+            _do_generate, max_retries=1, initial_backoff=0.5
+        )
+    except Exception as e:
+        # Failover to next healthy provider
+        chain = await registry.failover_chain()
+        logger.info(
+            "Provider %s failed (%s), trying failover chain of %d",
+            provider_name, e, len(chain),
+        )
+        for next_provider in chain:
+            if next_provider.name == provider_name:
+                continue  # already tried
+            try:
+                response = await next_provider.generate(chat_request)
+                logger.info("Failover succeeded via %s", next_provider.name)
+                break
+            except Exception as e2:
+                logger.warning(
+                    "Failover to %s failed: %s", next_provider.name, e2
+                )
+                continue
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"All providers failed. Primary: {e}",
+            )
+
+    # Convert the new core.llm.models.ChatResponse to the local ChatResponse
+    # (which the endpoint advertises as response_model).
+    return ChatResponse(
+        response=response.content,
+        tool_calls=[
+            ToolCallLog(name=tc.get("name", ""), args=tc.get("arguments", {}), result="")
+            for tc in (response.tool_calls or [])
+        ],
+        debug_info=(
+            {
+                "provider": response.provider,
+                "model": response.model,
+                "input_tokens": response.input_tokens,
+                "output_tokens": response.output_tokens,
+                "finish_reason": response.finish_reason,
+            }
+            if request.debug_mode
+            else None
+        ),
+    )
+
+
 # ============================ Chat Endpoint ============================
 
 
@@ -1151,6 +1248,17 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
         registry_choice = await _select_provider_via_registry(http_request, "auto")
         if registry_choice:
             provider = registry_choice
+
+    # 2b) NEW: If the registry has a healthy registered provider matching the
+    # requested name, route through it. This is the new "registry-first" path
+    # that bypasses the env-var lookups in the legacy branches below. The
+    # legacy branches remain as a fallback for cases where the registry is
+    # not initialized (e.g. older deployments) or no provider matched.
+    registry = getattr(http_request.app.state, "llm_registry", None)
+    if registry is not None and len(registry) > 0 and provider in registry:
+        return await _chat_via_registry(
+            http_request, request, provider, system_prompt_holder=None
+        )
 
     # Retrieve key from request or env (used by the API-backed branches below).
     api_key = (
