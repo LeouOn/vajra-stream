@@ -105,17 +105,29 @@ def test_local_gguf_provider_no_models(tmp_path):
 
 def test_z_ai_provider_construction(monkeypatch):
     monkeypatch.setenv("ZAI_API_KEY", "zai-test")
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     p = ZAIProvider()
     assert p.name == "z_ai"
     assert p.priority == 65
-    assert p.default_model == "glm-4.5"
+    assert p.default_model == "glm-4.6"
+    # AsyncAnthropic client should point at the coding plan endpoint.
     assert "api.z.ai" in str(p._client.base_url)
 
 
 def test_z_ai_provider_accepts_legacy_key_name(monkeypatch):
     """Z_AI_API_KEY (legacy) should be accepted as an alias for ZAI_API_KEY."""
     monkeypatch.delenv("ZAI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     monkeypatch.setenv("Z_AI_API_KEY", "zai-via-legacy")
+    p = ZAIProvider()
+    assert p.name == "z_ai"
+
+
+def test_z_ai_provider_accepts_anthropic_token(monkeypatch):
+    """ANTHROPIC_AUTH_TOKEN should also work on the coding plan endpoint."""
+    monkeypatch.delenv("ZAI_API_KEY", raising=False)
+    monkeypatch.delenv("Z_AI_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "ant-via-auth-token")
     p = ZAIProvider()
     assert p.name == "z_ai"
 
@@ -123,5 +135,6 @@ def test_z_ai_provider_accepts_legacy_key_name(monkeypatch):
 def test_z_ai_provider_requires_key(monkeypatch):
     monkeypatch.delenv("ZAI_API_KEY", raising=False)
     monkeypatch.delenv("Z_AI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     with pytest.raises(ValueError, match="ZAI_API_KEY"):
         ZAIProvider()
