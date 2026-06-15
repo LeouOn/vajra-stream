@@ -60,6 +60,84 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(traceback.format_exc())
 
+    # Initialize LLM Provider Registry
+    health_task = None
+    try:
+        import os
+
+        from backend.app.config import get_llm_config
+        from core.llm.providers import (
+            AnthropicProvider,
+            DeepSeekProvider,
+            LMStudioProvider,
+            LocalGGUFProvider,
+            MinimaxProvider,
+            OpenAIProvider,
+            OpenRouterProvider,
+        )
+        from core.llm.registry import ProviderRegistry
+
+        config = get_llm_config()
+        registry = ProviderRegistry(health_cache_ttl=config.model_cache_ttl_seconds)
+
+        # Register only providers with credentials available
+        if os.getenv("OPENROUTER_API_KEY"):
+            registry.register(OpenRouterProvider(priority=90))
+        if os.getenv("LM_STUDIO_BASE_URL") or os.path.exists("./models/lmstudio"):
+            registry.register(LMStudioProvider(priority=80))
+        if os.getenv("DEEPSEEK_API_KEY"):
+            registry.register(DeepSeekProvider(priority=70))
+        if os.getenv("ANTHROPIC_API_KEY"):
+            registry.register(AnthropicProvider(priority=60))
+        if os.getenv("OPENAI_API_KEY"):
+            registry.register(OpenAIProvider(priority=50))
+        if os.getenv("MINIMAX_API_KEY"):
+            registry.register(MinimaxProvider(priority=40))
+        if os.path.isdir(os.getenv("LLM_LOCAL_MODELS_DIR", "./models")):
+            registry.register(LocalGGUFProvider(priority=30))
+
+        app.state.llm_registry = registry
+        print(f"LLM registry initialized: {[p.name for p in registry.providers]}")
+    except Exception as e:
+        print(f"Failed to initialize LLM registry: {e}")
+        logger.error(f"Failed to initialize LLM registry: {e}")
+        logger.error(traceback.format_exc())
+
+    # Start LLM health heartbeat
+    if hasattr(app.state, "llm_registry") and len(app.state.llm_registry) > 0:
+        try:
+            from backend.app.config import get_llm_config
+            from core.llm.health import start_health_heartbeat
+
+            config = get_llm_config()
+
+            async def publish_health(statuses):
+                try:
+                    await stable_connection_manager_v2.broadcast(
+                        {
+                            "type": "PROVIDER_HEALTH",
+                            "statuses": [s.model_dump() for s in statuses],
+                        }
+                    )
+                except Exception as e:
+                    logger.debug(f"PROVIDER_HEALTH broadcast failed: {e}")
+
+            health_task = asyncio.create_task(
+                start_health_heartbeat(
+                    app.state.llm_registry,
+                    interval_seconds=config.health_check_interval_seconds,
+                    on_update=publish_health,
+                )
+            )
+            print(
+                f"LLM health heartbeat started "
+                f"(interval={config.health_check_interval_seconds}s)"
+            )
+        except Exception as e:
+            print(f"Failed to start health heartbeat: {e}")
+            logger.error(f"Failed to start health heartbeat: {e}")
+            logger.error(traceback.format_exc())
+
     # Start real-time streaming with stable manager v2
     streaming_task = None
     try:
@@ -96,6 +174,22 @@ async def lifespan(app: FastAPI):
         print("Autonomous Radionics Operator daemon stopped")
     except Exception as e:
         print(f"Failed to stop Autonomous Operator daemon: {e}")
+
+    # Close LLM registry and cancel health heartbeat
+    if hasattr(app.state, "llm_registry"):
+        try:
+            await app.state.llm_registry.close_all()
+            print("LLM registry closed")
+        except Exception as e:
+            print(f"Failed to close LLM registry: {e}")
+            logger.error(f"Failed to close LLM registry: {e}")
+
+    if health_task:
+        health_task.cancel()
+        try:
+            await health_task
+        except asyncio.CancelledError:
+            pass
 
     if streaming_task:
         streaming_task.cancel()
