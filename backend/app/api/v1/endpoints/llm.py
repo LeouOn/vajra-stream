@@ -10,7 +10,7 @@ import re
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 try:
@@ -1792,3 +1792,22 @@ async def list_models():
             "default_model": "",
             "lm_studio_connected": False,
         }
+
+
+@router.get("/providers/health")
+async def get_providers_health(request: Request) -> dict:
+    """Return current health status for all registered providers."""
+    registry = getattr(request.app.state, "llm_registry", None)
+    if registry is None or len(registry) == 0:
+        return {
+            "providers": [],
+            "healthy_count": 0,
+            "total_count": 0,
+            "message": "LLM registry not initialized",
+        }
+    statuses = await registry.health_check_all()
+    return {
+        "providers": [s.model_dump() for s in statuses],
+        "healthy_count": sum(1 for s in statuses if s.healthy),
+        "total_count": len(statuses),
+    }
