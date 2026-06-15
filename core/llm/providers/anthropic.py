@@ -34,11 +34,18 @@ class AnthropicProvider:
         priority: int = 60,
         timeout_seconds: int = 120,
     ) -> None:
-        key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+        # Accept either ANTHROPIC_API_KEY (Anthropic's documented name) or
+        # ANTHROPIC_AUTH_TOKEN (Anthropic SDK / proxy convention).
+        key = (
+            api_key
+            or os.getenv("ANTHROPIC_API_KEY")
+            or os.getenv("ANTHROPIC_AUTH_TOKEN")
+            or ""
+        )
         if not key:
             raise ValueError(
-                "Anthropic provider requires ANTHROPIC_API_KEY env var "
-                "(or api_key argument)"
+                "Anthropic provider requires ANTHROPIC_API_KEY or "
+                "ANTHROPIC_AUTH_TOKEN env var (or api_key argument)"
             )
         self.name = "anthropic"
         self.priority = priority

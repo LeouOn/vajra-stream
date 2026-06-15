@@ -76,8 +76,17 @@ def test_anthropic_provider_construction(monkeypatch):
 
 def test_anthropic_provider_requires_key(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
         AnthropicProvider()
+
+
+def test_anthropic_provider_accepts_auth_token(monkeypatch):
+    """ANTHROPIC_AUTH_TOKEN should be accepted as an alias for ANTHROPIC_API_KEY."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "ant-via-auth-token")
+    p = AnthropicProvider()
+    assert p.name == "anthropic"
 
 
 def test_local_gguf_provider_construction(tmp_path):
