@@ -1,3 +1,14 @@
+# core/llm_integration.py
+# DEPRECATED: This file is the legacy sync LLM client used by ~6 production
+# call sites (vajra_service, blessing_narratives, radionics_operator,
+# modules/llm.py, etc.) and tests/test_llm_routing.py. The new async
+# refactor lives in core/llm/ (ProviderRegistry, BaseLLMProvider Protocol,
+# OpenAICompatibleProvider base). A follow-up PR will:
+#   1. Add a LegacyLLMIntegration adapter that wraps ProviderRegistry
+#      with the old generate()/list_available_models() API
+#   2. Rewrite the 6 prod call sites + tests/test_llm_routing.py
+#   3. Then delete this file
+# For now, this file is preserved as the sync fallback path.
 """
 LLM Integration — unified interface for API and local language models.
 
@@ -15,7 +26,7 @@ Provides a single abstraction over multiple LLM backends:
 The auto-detection system (``model_type="auto"``) probes in order:
 LM Studio → DeepSeek → local GGUF → Anthropic → OpenAI.
 
-All API calls are tracked via :class:`~core.llm_usage.LLMUsageTracker` for
+All API calls are tracked via :class:`~core.llm.usage.LLMUsageTracker` for
 token counting, cost estimation, and balance management.
 
 Exports:
@@ -39,7 +50,7 @@ import os
 import time
 
 try:
-    from core.llm_usage import LLMUsageTracker, UsageRecord
+    from core.llm.usage import LLMUsageTracker, UsageRecord
 
     HAS_USAGE_TRACKER = True
 except ImportError:
@@ -59,7 +70,7 @@ class LLMIntegration:
       ``OPENAI_API_KEY``, and a model name to use any compatible endpoint.
     - ``"local"`` — loads a GGUF model via llama-cpp-python.
 
-    Every ``generate()`` call is tracked via :class:`~core.llm_usage.LLMUsageTracker`
+    Every ``generate()`` call is tracked via :class:`~core.llm.usage.LLMUsageTracker`
     (token counts, cost estimation, latency). Use :meth:`get_usage_summary` to
     retrieve the JSON-serialisable summary for the frontend.
 
@@ -767,7 +778,7 @@ class LLMIntegration:
     ) -> str:
         """Generate using OpenAI API (or LM Studio / DeepSeek / any compatible endpoint).
 
-        Tracks usage via :class:`~core.llm_usage.LLMUsageTracker`.
+        Tracks usage via :class:`~core.llm.usage.LLMUsageTracker`.
         """
         messages = []
 
