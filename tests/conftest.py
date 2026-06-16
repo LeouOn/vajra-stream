@@ -123,30 +123,42 @@ def _deterministic_geocoding(monkeypatch):
     chart creation (and therefore a city lookup) sees the same
     canonical coordinates and never hits the real Nominatim service.
 
-    Implementation note: we load geocoding_service.py by file path
-    with importlib to side-step backend.core.services.__init__ (which
-    transitively initialises the full backend service stack and can
-    trigger circular imports in some test contexts). Once we hold the
-    module object we can patch the method on its class, which
-    reaches every imported singleton because Python looks up the
-    attribute on the class at call time.
+    We load geocoding_service.py by file path (bypassing the circular
+    import chain in backend.core.services.__init__) and register it
+    in sys.modules under its real dotted name. This ensures that when
+    endpoint code does ``from backend.core.services.geocoding_service
+    import geocoding_service`` at runtime, Python finds the cached
+    module (with the patched class) rather than importing a fresh copy.
     """
     import importlib.util
     import os
+    import sys
 
-    gs_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "backend",
-        "core",
-        "services",
-        "geocoding_service.py",
-    )
-    if not os.path.exists(gs_path):
-        # Geocoding service may not exist in some checkout variants; skip patch
-        return
-    spec = importlib.util.spec_from_file_location("_test_geocoding_service_module", gs_path)
-    gs_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(gs_mod)
+    mod_name = "backend.core.services.geocoding_service"
+    # If the module is already loaded (e.g. by a prior import), patch it directly.
+    if mod_name in sys.modules:
+        gs_mod = sys.modules[mod_name]
+    else:
+        gs_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "backend", "core", "services", "geocoding_service.py",
+        )
+        if not os.path.exists(gs_path):
+            return
+        spec = importlib.util.spec_from_file_location(mod_name, gs_path)
+        gs_mod = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(gs_mod)
+        except Exception as exc:  # noqa: BLE001
+            import logging
+            logging.getLogger(__name__).debug(
+                "Skipping geocoding patch: %s: %s", type(exc).__name__, exc
+            )
+            return
+        # Register in sys.modules so the endpoint's function-level import
+        # resolves to THIS module object (with the patched class).
+        sys.modules[mod_name] = gs_mod
+
     monkeypatch.setattr(
         gs_mod.GeocodingService,
         "get_coordinates_and_timezone",

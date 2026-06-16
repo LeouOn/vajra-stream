@@ -1,9 +1,35 @@
+"""Legacy prefix-routing tests.
+
+These tests verified that ``LLMIntegration.generate(model="provider:name")``
+dispatched to the correct sync SDK client (``openai.OpenAI``,
+``anthropic.Anthropic``, ``llama_cpp.Llama``) inside the old
+``core/llm_integration.py`` monolith.
+
+The monolith has been deleted. The replacement
+(:class:`core.llm.legacy_adapter.LegacyLLMIntegration`) preserves the
+``model="provider:name"`` routing contract, but routes through async
+providers (:class:`core.llm.registry.ProviderRegistry`) rather than
+constructing sync SDK clients directly. Mocking the SDK constructors no
+longer intercepts the call path.
+
+The prefix-routing behaviour itself is now covered by the provider and
+registry tests under ``tests/core/llm/`` (notably ``test_registry.py``
+and ``test_providers.py``). These legacy tests are retained (skipped)
+for historical reference; delete once the migration is fully validated.
+"""
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch  # noqa: F401  (retained for historical reference)
 
 import pytest
 
-from core.llm_integration import LLMIntegration
+from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
+
+# All tests in this module are skipped: they mock sync SDK constructors
+# (``openai.OpenAI`` etc.) that the new async provider layer never calls.
+# See module docstring for details.
+pytestmark = pytest.mark.skip(
+    reason="migrated to ProviderRegistry; routing now covered by tests/core/llm/"
+)
 
 
 @pytest.fixture

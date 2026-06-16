@@ -4,7 +4,7 @@ import sys
 # Ensure project root is in path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from core.llm_integration import LLMIntegration
+from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
 
 def test_routing():

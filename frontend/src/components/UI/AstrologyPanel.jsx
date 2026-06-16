@@ -7,6 +7,7 @@ import {
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload
 } from 'lucide-react';
 import { Card, Row, Col, Tag, Button, Space, Segmented, message } from 'antd';
+import { CopyOutlined } from '@ant-design/icons';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import VedicPanchanga from './VedicPanchanga';
@@ -411,6 +412,53 @@ export default function AstrologyPanel() {
     }
   };
 
+  const handleCopyForLLM = async () => {
+    // Live mode: copy current day/location astrology (no saved chart needed)
+    if (isLiveMode) {
+      if (!liveData) {
+        message.error("Live data not yet loaded — wait for it to fetch");
+        return;
+      }
+      try {
+        const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
+        const markdown = formatLiveAstrologyMarkdown(liveData);
+        await navigator.clipboard.writeText(markdown);
+        message.success("Current astrology copied for LLM");
+      } catch (e) {
+        console.error(e);
+        message.error("Live astrology copy failed: " + e.message);
+      }
+      return;
+    }
+    // Natal mode: copy saved chart's natal data
+    if (!activeChart?.id) {
+      message.error("Load a saved chart first to copy its natal data");
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE}/astrology/charts/${activeChart.id}/natal-export`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      const data = result.data || result;
+      const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
+      const markdown = formatNatalChartMarkdown(data);
+      await navigator.clipboard.writeText(markdown);
+      message.success("Natal chart copied for LLM");
+    } catch (e) {
+      console.error(e);
+      message.error("Natal chart copy failed: " + e.message);
+    }
+  };
+
   const handleResetToLive = () => {
     setIsLiveMode(true);
     setActiveChart(null);
@@ -463,18 +511,50 @@ export default function AstrologyPanel() {
               <p className="text-xs text-gray-400">Tropical · Sidereal · BaZi — Swiss Ephemeris v2.10</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {['all','western','vedic','chinese'].map(sys => (
-              <button key={sys} onClick={() => setActiveSystem(sys)} className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider border transition-all ${
-                activeSystem === sys ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_8px_rgba(168,85,247,0.3)]' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-              }`}>{sys}</button>
+              <Button
+                key={sys}
+                size="small"
+                shape="round"
+                type={activeSystem === sys ? 'primary' : 'default'}
+                onClick={() => setActiveSystem(sys)}
+                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                {sys}
+              </Button>
             ))}
-            <button onClick={handleResetToLive} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
-              isLiveMode ? 'bg-green-600 border-green-400 text-white animate-pulse' : 'bg-white/5 border-white/10 text-gray-400'
-            }`}>🔴 LIVE</button>
-            <button onClick={() => isLiveMode ? fetchLiveAstrology() : (activeChart ? loadNatalChart(activeChart) : fetchLiveAstrology())} className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400">
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <Button
+              size="small"
+              shape="round"
+              type={isLiveMode ? 'primary' : 'default'}
+              danger={isLiveMode}
+              onClick={handleResetToLive}
+              style={{ fontSize: 10, fontWeight: 700 }}
+              className={isLiveMode ? 'animate-pulse' : ''}
+            >
+              🔴 LIVE
+            </Button>
+            <Button
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={handleCopyForLLM}
+              className="text-[10px]"
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                border: 'none',
+                color: '#fff',
+              }}
+            >
+              Copy for LLM
+            </Button>
+            <Button
+              size="small"
+              shape="circle"
+              type="text"
+              onClick={() => isLiveMode ? fetchLiveAstrology() : (activeChart ? loadNatalChart(activeChart) : fetchLiveAstrology())}
+              icon={<RefreshCw className={loading ? 'animate-spin' : ''} />}
+            />
           </div>
         </div>
       </div>
@@ -538,7 +618,9 @@ export default function AstrologyPanel() {
                         </Tag>
                       </Col>
                       <Col>
-                        <span className="text-[10px] text-gray-500 font-mono">COORD: GEOCENTRIC</span>
+                        <Space size={8} align="center">
+                          <span className="text-[10px] text-gray-500 font-mono">COORD: GEOCENTRIC</span>
+                        </Space>
                       </Col>
                     </Row>
                     

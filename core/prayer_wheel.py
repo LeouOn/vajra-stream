@@ -111,7 +111,7 @@ class PrayerWheel:
         """
         if use_llm and self.llm:
             # Generate fresh prayer using LLM
-            from core.llm_integration import DharmaLLM
+            from core.llm.legacy_adapter import LegacyDharmaLLM as DharmaLLM
 
             dharma = DharmaLLM(self.llm)
             prayer = dharma.generate_prayer(intention, tradition)

@@ -41,7 +41,7 @@ except ImportError:
     HAS_BLESSINGS = False
 
 try:
-    from core.llm_integration import LLMIntegration
+    from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
     HAS_LLM = True
 except ImportError:

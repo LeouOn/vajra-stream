@@ -983,6 +983,89 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/charts/{chart_id}/natal-export")
+async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
+    """Export natal chart data optimised for LLM copy-paste.
+
+    Returns Western positions/elements/aspects, Vedic Panchanga and
+    sidereal positions, plus the dual Placidus / Whole Sign house map.
+    Reuses ``TransitExportRequest`` for signature compatibility with the
+    transit-export endpoint; the body is accepted but not required.
+    """
+    try:
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM saved_natal_charts WHERE id = ?", (chart_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            raise HTTPException(status_code=404, detail="Chart not found")
+
+        chart = dict(row)
+
+        import pytz
+        from dateutil import parser
+
+        from core.astrology import AstrologicalCalculator
+
+        calc = AstrologicalCalculator()
+
+        birth_dt = parser.parse(chart["birth_time_iso"])
+        if birth_dt.tzinfo is None:
+            birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
+
+        location = (chart["latitude"], chart["longitude"])
+
+        western = calc.get_western_astrology(birth_dt, location)
+        indian = calc.get_indian_astrology(birth_dt, location)
+        houses = calc.get_planet_house_map(birth_dt, location)
+
+        # Flatten the Vedic payload into the shape the LLM formatter expects:
+        # top-level Panchanga factors plus ascendant / planets split out.
+        sidereal = indian.get("sidereal_positions", {}) or {}
+        panchanga = indian.get("panchanga", {}) or {}
+        vedic = {
+            "tithi": panchanga.get("tithi", {}),
+            "nakshatra": panchanga.get("nakshatra", {}),
+            "yoga": panchanga.get("yoga", {}),
+            "karana": panchanga.get("karana", {}),
+            "vara": panchanga.get("vara", {}),
+            "ascendant": sidereal.get("ascendant", {}),
+            "planets": {k: v for k, v in sidereal.items() if k != "ascendant"},
+            "ayanamsa": indian.get("ayanamsa"),
+        }
+
+        return {
+            "status": "success",
+            "data": {
+                "name": chart["name"],
+                "birth_time_iso": chart["birth_time_iso"],
+                "birth_location": {
+                    "latitude": chart["latitude"],
+                    "longitude": chart["longitude"],
+                },
+                "timezone": chart.get("timezone"),
+                "city": chart.get("city"),
+                "western": {
+                    "positions": western.get("positions", {}),
+                    "elements": western.get("elements", {}),
+                    "modalities": western.get("modalities", {}),
+                    "dominant_element": western.get("dominant_element"),
+                    "dominant_modality": western.get("dominant_modality"),
+                    "aspects": western.get("aspects", []),
+                },
+                "vedic": vedic,
+                "houses": houses,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Natal export error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/charts/{chart_id}/vedic-dasha")
 async def get_chart_vedic_dasha(chart_id: int):
     """Vimshottari Dasha periods for the saved chart"""

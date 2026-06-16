@@ -37,7 +37,7 @@ except ImportError:
     EnhancedAudioGenerator, PrayerBowlGenerator = None, None
 
 try:
-    from core.llm_integration import LLMIntegration
+    from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 except ImportError:
     LLMIntegration = None
 

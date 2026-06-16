@@ -101,3 +101,43 @@
   max-height: 100% !important;
   display: block;
 }
+
+/* Tarot card 3D flip — face-down reveal animation */
+.tarot-perspective {
+  perspective: 1000px;
+}
+
+.tarot-flip-container {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease;
+}
+
+.tarot-flip-container.flipped {
+  transform: rotateY(180deg);
+}
+
+.tarot-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tarot-back {
+  transform: rotateY(180deg);
+}
+
+/* Subtle entrance for freshly-revealed cards */
+.tarot-reveal-enter {
+  animation: tarotRevealPulse 0.6s ease-out;
+}
+
+@keyframes tarotRevealPulse {
+  0% { filter: drop-shadow(0 0 0 rgba(168, 85, 247, 0)); }
+  50% { filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.8)); }
+  100% { filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.4)); }
+}

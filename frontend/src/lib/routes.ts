@@ -29,6 +29,7 @@ import {
   Video,
   BookOpen,
   Volume2,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -40,6 +41,7 @@ export interface RouteEntry {
 
 export const ROUTES: RouteEntry[] = [
   { key: 'command-center', label: 'Command Center', icon: LayoutDashboard },
+  { key: 'buddhas', label: '88 Buddhas', icon: BookOpen },
   { key: 'operations', label: 'Operations', icon: Compass },
   { key: 'astrology', label: 'Cosmic Clock', icon: Clock },
   { key: 'outlook', label: 'Outlook', icon: FileText },
@@ -48,6 +50,7 @@ export const ROUTES: RouteEntry[] = [
   { key: 'visualizers', label: 'Visualizer', icon: Video },
   { key: 'grimoire', label: 'Grimoire', icon: BookOpen },
   { key: 'tts', label: 'TTS', icon: Volume2 },
+  { key: 'settings', label: 'Settings', icon: Settings },
 ];
 
 export const DEFAULT_ROUTE = 'command-center';
