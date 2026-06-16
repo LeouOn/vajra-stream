@@ -10,7 +10,7 @@ import re
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 try:
@@ -18,11 +18,24 @@ try:
 except ImportError:
     aiohttp = None
 
+from backend.app.api.v1.endpoints.agent_suggestions import (
+    FailedToolCallSchema,
+    log_failed_tool_call,
+)
 from backend.core.llm_agent.tools import TOOL_REGISTRY, get_tool_schemas
 from backend.core.services.blessing_scheduler import get_scheduler
 from backend.core.services.population_manager import get_population_manager
 from backend.core.services.rng_attunement_service import get_rng_service
-from backend.app.api.v1.endpoints.agent_suggestions import log_failed_tool_call, FailedToolCallSchema
+
+# New async LLM / context layer (Phase 1 — ProviderRegistry + ContextModule).
+from core.context import (
+    AnatomyContextModule,
+    AstrologyContextModule,
+    ContextRequest,
+    HardwareContextModule,
+    SystemPromptBuilder,
+)
+from core.llm.retry import retry_with_backoff
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -327,6 +340,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
                 "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS."}
     elif name == "start_buddha_recitation":
         import asyncio
+
         from core.buddha_recitation_loop import get_recitation_loop
         loop = get_recitation_loop()
         if loop.state.running:
@@ -353,6 +367,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         return get_recitation_loop().get_status()
     elif name == "check_saka_dawa":
         from datetime import datetime as dt
+
         from core.models.practice import Practice
         practices = Practice.get_default_practices()
         saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
@@ -376,8 +391,8 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         sheet = gen.generate(use_llm=False)
         return sheet.to_dict()
     elif name == "start_character_journey" or name == "advance_journey" or name == "get_journey_status" or name == "run_full_journey":
-        from modules.radionics_operator import ToolDispatcher
         from container import container
+        from modules.radionics_operator import ToolDispatcher
         disp = ToolDispatcher(container)
         return disp.dispatch(name, args)
     else:
@@ -838,284 +853,21 @@ async def run_rule_based_fallback(query: str) -> ChatResponse:
     return ChatResponse(response=response_text, tool_calls=tool_calls)
 
 
-async def compile_astrology_context(astro_data: dict = None) -> str:
-    try:
-        if not astro_data:
-            from backend.core.services.vajra_service import vajra_service
-
-            astro_data = await vajra_service._get_astrology_data()
-
-        if not astro_data:
-            return ""
-
-        # Extract planetary hours context
-        planetary_hours = astro_data.get("planetary_hours", {})
-        if not planetary_hours:
-            # Fallback to legacy/top-level keys if any
-            planetary_hours = {
-                "current_planetary_hour": astro_data.get("planetary_hour", "N/A"),
-                "day_planet": astro_data.get("day_planet", "N/A"),
-                "day_of_week": astro_data.get("day_of_week", "N/A"),
-            }
-
-        moon = astro_data.get("moon_phase") or {}
-
-        # Resolve solar term/jieqi
-        solar_term = "N/A"
-        if isinstance(astro_data.get("solar_terms"), dict):
-            solar_term = astro_data.get("solar_terms").get("current_term", "N/A")
-        elif astro_data.get("solar_term"):
-            solar_term = astro_data.get("solar_term")
-        elif isinstance(astro_data.get("chinese"), dict):
-            solar_term = astro_data.get("chinese").get("solar_term", "N/A")
-
-        lines = [
-            "### 🔮 COSMIC CLOCKWORK SYSTEM",
-            f"- **Datetime (Local)**: {astro_data.get('datetime', 'N/A')}",
-            f"- **Location (Geocentric)**: Lat: {astro_data.get('location', {}).get('latitude', 'N/A') if isinstance(astro_data.get('location'), dict) else 'N/A'}, Lon: {astro_data.get('location', {}).get('longitude', 'N/A') if isinstance(astro_data.get('location'), dict) else 'N/A'}",
-            f"- **Planetary Hour**: {planetary_hours.get('current_planetary_hour', 'N/A')}",
-            f"- **Day Ruler**: {planetary_hours.get('day_planet', 'N/A')} ({planetary_hours.get('day_of_week', 'N/A')})",
-            f"- **Moon Phase**: {moon.get('phase_name', 'N/A')} (Illumination: {moon.get('illumination', 0.0):.1f}%, Angle: {moon.get('phase_angle', 0.0):.1f}°)",
-            f"- **Solar Term (Jie Qi)**: {solar_term}",
-            "",
-        ]
-
-        # -------------------------------------------------------------
-        # I. Western Tropical Astrology
-        # -------------------------------------------------------------
-        western = astro_data.get("western", {})
-        if western:
-            lines.append("#### I. Western Tropical Astrology (Transit Wheel & Aspects)")
-            positions = western.get("positions", {})
-            if positions:
-                # Highlight Big Three (Sun, Moon, Ascendant)
-                sun_info = positions.get("sun", {})
-                moon_info = positions.get("moon", {})
-                asc_info = positions.get("ascendant", {})
-
-                lines.append(
-                    f"- **☀️ Sun**: {sun_info.get('sign', 'N/A')} {sun_info.get('degree', 0.0):.2f}° ({sun_info.get('house', 'N/A')} House)"
-                )
-                lines.append(
-                    f"- **🌙 Moon**: {moon_info.get('sign', 'N/A')} {moon_info.get('degree', 0.0):.2f}° ({moon_info.get('house', 'N/A')} House)"
-                )
-                lines.append(
-                    f"- **🏹 Ascendant (Rising)**: {asc_info.get('sign', 'N/A')} {asc_info.get('degree', 0.0):.2f}°"
-                )
-
-                # Modalities & Elements
-                elems = western.get("elements", {})
-                mods = western.get("modalities", {})
-                lines.append(
-                    f"- **Elemental Balance**: Fire: {elems.get('Fire', 0)} pts | Earth: {elems.get('Earth', 0)} pts | Air: {elems.get('Air', 0)} pts | Water: {elems.get('Water', 0)} pts (Dominant: {western.get('dominant_element', 'N/A')})"
-                )
-                lines.append(
-                    f"- **Modalities**: Cardinal: {mods.get('Cardinal', 0)} pts | Fixed: {mods.get('Fixed', 0)} pts | Mutable: {mods.get('Mutable', 0)} pts (Dominant: {western.get('dominant_modality', 'N/A')})"
-                )
-
-                # Coordinate grid
-                lines.append("- **Planetary Coordinates**:")
-                for planet, pos in positions.items():
-                    house_str = f" ({pos.get('house')} House)" if pos.get("house") else ""
-                    lines.append(
-                        f"  - *{planet.replace('_', ' ').title()}*: {pos.get('sign')} {pos.get('degree', 0.0):.2f}°{house_str}"
-                    )
-
-            # Aspects
-            aspects = western.get("aspects", [])
-            if aspects:
-                lines.append("- **Active Transit Aspects**:")
-                for asp in aspects:
-                    lines.append(f"  - {asp.get('description', '')} [{asp.get('aspect', '')}]")
-            lines.append("")
-
-        # -------------------------------------------------------------
-        # II. Indian Vedic Astrology
-        # -------------------------------------------------------------
-        indian = astro_data.get("indian", {})
-        if indian:
-            lines.append("#### II. Indian Vedic Astrology (Panchang & Grahas)")
-            panchanga = indian.get("panchanga", {})
-            if panchanga:
-                tithi = panchanga.get("tithi", {})
-                nakshatra = panchanga.get("nakshatra", {})
-                yoga = panchanga.get("yoga", {})
-                karana = panchanga.get("karana", {})
-                vara = panchanga.get("vara", {})
-
-                lines.append(
-                    f"- **Tithi (Lunar Day)**: {tithi.get('name', 'N/A')} ({tithi.get('paksha', 'N/A')} Paksha, Progress: {tithi.get('progress', 0.0) * 100:.1f}%)"
-                )
-                lines.append(
-                    f"- **Nakshatra (Lunar Mansion)**: {nakshatra.get('name', 'N/A')} (Progress: {nakshatra.get('progress', 0.0) * 100:.1f}%)"
-                )
-                lines.append(
-                    f"- **Yoga (Synergy)**: {yoga.get('name', 'N/A')} (Progress: {yoga.get('progress', 0.0) * 100:.1f}%)"
-                )
-                lines.append(f"- **Karana (Half Tithi)**: {karana.get('name', 'N/A')}")
-                lines.append(f"- **Vara (Solar Day)**: {vara.get('name', 'N/A')}")
-
-            sidereal = indian.get("sidereal_positions", {})
-            if sidereal:
-                lines.append("- **Sidereal Graha Coordinates (Lahiri Ayanamsa)**:")
-                for graha, pos in sidereal.items():
-                    lines.append(f"  - *{graha.title()}*: {pos.get('rashi', 'N/A')} {pos.get('degree', 0.0):.2f}°")
-
-            lines.append(f"- **Ayanamsa Offset**: {indian.get('ayanamsa', 0.0):.4f}°")
-            lines.append("")
-
-        # -------------------------------------------------------------
-        # III. Chinese Lunisolar Astrology
-        # -------------------------------------------------------------
-        chinese = astro_data.get("chinese", {})
-        if chinese:
-            lines.append("#### III. Chinese Lunisolar Astrology & BaZi")
-            lunar_date = chinese.get("lunar_date", {})
-            lines.append(
-                f"- **Lunar Date**: {lunar_date.get('formatted', 'N/A')} (Leap: {lunar_date.get('is_leap', False)})"
-            )
-            lines.append(f"- **Zodiac Animal**: {chinese.get('zodiac_animal', 'N/A')}")
-
-            bazi = chinese.get("bazi", {})
-            if bazi:
-                lines.append("- **BaZi Four Pillars of Destiny**:")
-                lines.append(f"  - *Year*: {bazi.get('year', 'N/A')}")
-                lines.append(f"  - *Month*: {bazi.get('month', 'N/A')}")
-                lines.append(f"  - *Day*: {bazi.get('day', 'N/A')}")
-                lines.append(f"  - *Hour*: {bazi.get('hour', 'N/A')}")
-
-                # Calculate Wu Xing counts in Python
-                counts = {"Wood": 0, "Fire": 0, "Earth": 0, "Metal": 0, "Water": 0}
-                char_map = {"木": "Wood", "火": "Fire", "土": "Earth", "金": "Metal", "水": "Water"}
-                for val in bazi.values():
-                    if not isinstance(val, str):
-                        continue
-                    # Match content inside parentheses, or fallback to matching directly
-                    match = re.search(r"\(([^)]+)\)", val)
-                    elements_str = match.group(1) if match else val
-                    for char in elements_str:
-                        eng_name = char_map.get(char)
-                        if eng_name:
-                            counts[eng_name] += 1
-
-                total_elements = sum(counts.values()) or 8
-                lines.append("- **Wu Xing Element Balance**:")
-                for elem, count in counts.items():
-                    percentage = (count / total_elements) * 100
-                    lines.append(f"  - *{elem}*: {count} / {total_elements} ({percentage:.1f}%)")
-
-            shichen = chinese.get("shichen", {})
-            if shichen:
-                lines.append(
-                    f"- **Shichen**: {shichen.get('name', 'N/A')} (Earthly Branch: {shichen.get('branch', 'N/A')})"
-                )
-            lines.append("")
-
-        return "\n".join(lines) + "\n\n"
-    except Exception as e:
-        logger.error(f"Error compiling astrology context: {e}")
-        return "### Astrological Context\nUnavailable.\n\n"
+# ============================ Context + Provider Helpers ============================
+# These helpers replace the old inline compile_*_context() functions and the
+# 6 copy-pasted tool-calling loops inside chat_interaction.  They are used by
+# the registry-backed chat endpoint below.
 
 
-def compile_anatomy_context() -> str:
-    try:
-        from modules.personal_healing import PersonalHealingModule
+async def _build_system_prompt_with_context(request: ChatRequest) -> str:
+    """Build the base operator system prompt and append composable context modules.
 
-        phm = PersonalHealingModule()
-
-        lines = [
-            "### Subtle Body & Energetic Anatomy Context",
-            "**Active Chakra Radiance Levels & Solfeggio Correspondence**:",
-        ]
-
-        for name, info in phm.chakra_data.items():
-            freqs = ", ".join(f"{k}: {v}Hz" for k, v in info.get("frequencies", {}).items())
-            lines.append(f"- **{info.get('name')}**:")
-            lines.append(f"  - Sanskrit: {info.get('sanskrit')}")
-            lines.append(f"  - Governs: {info.get('governs')}")
-            lines.append(f"  - Frequencies: {freqs}")
-            lines.append(f"  - Crystals: {', '.join(info.get('crystals', []))}")
-            lines.append(f"  - Affirmations: {'; '.join(info.get('affirmations', []))}")
-
-        lines.append("\n**12 Classical Meridians & Organ Networks**:")
-        for name, info in phm.meridian_data.items():
-            lines.append(
-                f"- **{name.replace('_', ' ').title()} Meridian**: Element: {info.get('element')}, Emotion: {info.get('emotion')}, Frequency: {info.get('frequency')}Hz, Color: {info.get('color')}"
-            )
-
-        return "\n".join(lines) + "\n\n"
-    except Exception as e:
-        logger.error(f"Error compiling anatomy context: {e}")
-        return "### Subtle Body Context\nUnavailable.\n\n"
-
-
-def compile_hardware_context() -> str:
-    try:
-        from backend.core.services.vajra_service import vajra_service
-
-        sys_status = vajra_service.get_system_status()
-        sessions = vajra_service.get_all_sessions()
-
-        lines = [
-            "### Active Hardware & Session Metrics",
-            f"- **WebSocket Clients Connected**: {sys_status.get('websocket_connections', 0)}",
-            f"- **Active Audio Stream**: {'ON' if sys_status.get('streaming_active') else 'OFF'}",
-        ]
-
-        if sessions:
-            lines.append("- **Active Operations Sessions**:")
-            for s_id, s in sessions.items():
-                lines.append(
-                    f"  - Session ID `{s_id}`: Name: {s.get('name')}, Type: {s.get('type')}, Status: {s.get('status')}"
-                )
-        else:
-            lines.append("- **Active Operations Sessions**: None")
-
-        try:
-            from backend.core.orchestrator_bridge import orchestrator_bridge
-
-            if hasattr(orchestrator_bridge, "mops_tracker") and orchestrator_bridge.mops_tracker:
-                stats = orchestrator_bridge.mops_tracker.get_statistics()
-                lines.append("- **Computational Merit Rates (MOPS)**:")
-                lines.append(
-                    f"  - Scalar Generation Rate: {stats.get('scalar_pulses', {}).get('10s', 0):,.2f} pulses/sec"
-                )
-                lines.append(f"  - Mantra Chanting Rate: {stats.get('mantras', {}).get('10s', 0):,.2f} repetitions/sec")
-                lines.append(f"  - Crystal Charging Rate: {stats.get('crystals', {}).get('10s', 0):,.2f} pulses/sec")
-        except Exception:
-            pass
-
-        return "\n".join(lines) + "\n\n"
-    except Exception as e:
-        logger.error(f"Error compiling hardware/session context: {e}")
-        return "### Hardware & Session Context\nUnavailable.\n\n"
-
-
-@router.post("/chat", response_model=ChatResponse)
-async def chat_interaction(request: ChatRequest):
+    Uses :class:`SystemPromptBuilder` + the ContextModule registry (``core.context``)
+    to assemble astrology / anatomy / hardware sections concurrently.  Every module
+    is defensive — a single broken module never prevents the others from
+    contributing, and a total builder failure falls back to the bare base prompt.
     """
-    Chat with the AI Command Center to run magical computer operations.
-    Integrates with OpenAI/Anthropic tool calling with local rule-based fallback.
-    """
-    if not request.messages:
-        raise HTTPException(status_code=400, detail="Message list cannot be empty")
-
-    query = request.messages[-1].content
-    provider = request.provider
-
-    if provider == "auto" and request.model:
-        if request.model.startswith("lm_studio:"):
-            provider = "lm_studio"
-        elif request.model.startswith("local:"):
-            provider = "local"
-
-    # Retrieve key from request or env
-    api_key = request.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("MINIMAX_API_KEY")
-    provider = provider or "auto"
-    tool_schemas = get_tool_schemas()
-
-    # Build System Prompt
-    system_prompt = (
+    base_prompt = (
         "You are the Vajra.Stream AI Operator, a wise assistant designed to control a "
         "radionics board, crystal broadcasters, scalar wave generators, and blessing slideshows. "
         "Your goal is to run operations based on the user's intent. "
@@ -1124,22 +876,406 @@ async def chat_interaction(request: ChatRequest):
         "Do not explain the tools, just call them. Once you receive the tool results, explain the outcome "
         "with deep compassion and wisdom, invoking the digital dharma theme."
     )
+    context_request = ContextRequest(
+        include_astrology=bool(request.include_astrology),
+        include_anatomy=bool(request.include_anatomy),
+        include_hardware=bool(request.include_hardware),
+        astrology_data=request.astrology_data,
+    )
+    builder = SystemPromptBuilder()
+    builder.register(AstrologyContextModule())
+    builder.register(AnatomyContextModule())
+    builder.register(HardwareContextModule())
+    try:
+        # SystemPromptBuilder.compose() now accepts base_prompt directly,
+        # so we don't need to concatenate here. The builder returns
+        # `base_prompt + "\n\n" + <rendered sections>` when sections exist.
+        return await builder.compose(context_request, base_prompt=base_prompt)
+    except Exception as exc:  # noqa: BLE001 — context failure must not break chat
+        logger.warning("SystemPromptBuilder compose failed: %s", exc)
+        return base_prompt
 
-    # Dynamic context injection based on request flags
-    context_str = ""
-    if request.include_astrology:
-        context_str += await compile_astrology_context(request.astrology_data)
-    if request.include_anatomy:
-        context_str += compile_anatomy_context()
-    if request.include_hardware:
-        context_str += compile_hardware_context()
 
-    if context_str:
-        system_prompt += "\n\nCURRENT ENVIRONMENTAL & SYSTEM METRICS:\n" + context_str
+async def _select_provider_via_registry(
+    http_request: Request, requested_provider: str
+) -> str | None:
+    """Consult :meth:`ProviderRegistry.pick_best` to resolve ``"auto"``.
+
+    Returns the chosen provider name (e.g. ``"openrouter"``, ``"lm_studio"``), or
+    ``None`` when the registry is unavailable / empty / unhealthy.  Explicit
+    (non-``"auto"``) requests are honoured only when the named provider is
+    actually registered and currently healthy; otherwise ``None`` is returned so
+    the caller falls through to env-var based detection.
+    """
+    registry = getattr(http_request.app.state, "llm_registry", None)
+    if registry is None or len(registry) == 0:
+        return None
+
+    if requested_provider and requested_provider != "auto":
+        if requested_provider not in registry:
+            return None
+        try:
+            statuses = await registry.health_check_all()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("registry health check failed: %s", exc)
+            return None
+        if any(s.provider == requested_provider and s.healthy for s in statuses):
+            return requested_provider
+        return None
+
+    try:
+        best = await retry_with_backoff(
+            lambda: registry.pick_best(),
+            max_retries=1,
+            initial_backoff=0.5,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ProviderRegistry.pick_best failed: %s", exc)
+        return None
+    return best.name if best is not None else None
+
+
+def _build_openai_tools(tool_schemas: list[dict]) -> list[dict]:
+    """Convert internal tool schemas into OpenAI function-tool descriptors."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": s["name"],
+                "description": s["description"],
+                "parameters": s["parameters"],
+            },
+        }
+        for s in tool_schemas
+    ]
+
+
+async def _run_openai_compatible_tool_loop(
+    *,
+    client: Any,
+    model_name: str,
+    messages: list[dict],
+    tools: list[dict],
+    tool_logs: list[ToolCallLog],
+    max_turns: int = 5,
+    provider_label: str = "provider",
+    create_kwargs: dict | None = None,
+) -> str:
+    """Run the chat-completions tool-calling loop for any OpenAI-compatible client.
+
+    Unifies the 5 previously copy-pasted loops (OpenAI, OpenRouter, DeepSeek,
+    MiniMax, LM Studio).  Returns the final assistant text — either the model's
+    terminal message or a ``"*(... reached maximum reasoning turns ...)*"``
+    notice when the loop exhausts ``max_turns``.
+    """
+    extra_kwargs = create_kwargs or {}
+    for turn in range(max_turns):
+        logger.info(f"{provider_label} turn {turn} with model {model_name}...")
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            tools=tools if tools else None,
+            tool_choice="auto" if tools else None,
+            temperature=0.7,
+            **extra_kwargs,
+        )
+
+        msg = response.choices[0].message
+        messages.append(msg)
+
+        if not msg.tool_calls:
+            return msg.content or ""
+
+        for tc in msg.tool_calls:
+            name = tc.function.name
+            try:
+                args = json.loads(tc.function.arguments)
+            except Exception as json_err:  # noqa: BLE001
+                logger.error(f"{provider_label} returned malformed tool args: {json_err}")
+                args = {}
+            try:
+                result = await execute_tool_locally(name, args)
+                tool_logs.append(
+                    ToolCallLog(tool_name=name, arguments=args, status="success", result=result)
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "name": name,
+                        "content": json.dumps(result),
+                    }
+                )
+            except Exception as ex:
+                logger.error(f"Error executing {provider_label} tool {name}: {ex}")
+                try:
+                    log_failed_tool_call(
+                        FailedToolCallSchema(
+                            tool_name=name,
+                            arguments=json.dumps(args),
+                            error_message=str(ex),
+                        )
+                    )
+                except Exception as log_ex:  # noqa: BLE001
+                    logger.error(f"Failed to log tool failure to DB: {log_ex}")
+                tool_logs.append(
+                    ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex))
+                )
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "name": name,
+                        "content": json.dumps({"error": str(ex)}),
+                    }
+                )
+
+    return f"*({provider_label} reached maximum reasoning turns without finishing.)*"
+
+
+async def _run_anthropic_tool_loop(
+    *,
+    client: Any,
+    model_name: str,
+    system_prompt: str,
+    messages: list[dict],
+    tools: list[dict],
+    tool_logs: list[ToolCallLog],
+    max_turns: int = 5,
+) -> str:
+    """Run the Anthropic messages tool-calling loop (block-based content format)."""
+    for turn in range(max_turns):
+        logger.info(f"Anthropic turn {turn}...")
+        response = client.messages.create(
+            model=model_name,
+            system=system_prompt,
+            messages=messages,
+            tools=tools,
+            temperature=0.7,
+            max_tokens=2000,
+        )
+
+        assistant_content: list[dict] = []
+        tool_requests = []
+        for block in response.content:
+            if block.type == "text":
+                assistant_content.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                tool_requests.append(block)
+                assistant_content.append(
+                    {
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    }
+                )
+
+        messages.append({"role": "assistant", "content": assistant_content})
+
+        if not tool_requests:
+            return "".join(b.text for b in response.content if b.type == "text")
+
+        tool_results_content = []
+        for tool_use in tool_requests:
+            name = tool_use.name
+            args = tool_use.input
+            try:
+                result = await execute_tool_locally(name, args)
+                tool_logs.append(
+                    ToolCallLog(tool_name=name, arguments=args, status="success", result=result)
+                )
+                tool_results_content.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_use.id,
+                        "content": json.dumps(result),
+                    }
+                )
+            except Exception as ex:
+                logger.error(f"Error executing Anthropic tool {name}: {ex}")
+                try:
+                    log_failed_tool_call(
+                        FailedToolCallSchema(
+                            tool_name=name,
+                            arguments=json.dumps(args),
+                            error_message=str(ex),
+                        )
+                    )
+                except Exception as log_ex:  # noqa: BLE001
+                    logger.error(f"Failed to log tool failure to DB: {log_ex}")
+                tool_logs.append(
+                    ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex))
+                )
+                tool_results_content.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_use.id,
+                        "content": json.dumps({"error": str(ex)}),
+                    }
+                )
+
+        messages.append({"role": "user", "content": tool_results_content})
+
+    return "*(Anthropic reached maximum reasoning turns without finishing.)*"
+
+
+async def _chat_via_registry(
+    http_request: Request,
+    request: ChatRequest,
+    provider_name: str,
+    system_prompt_holder: list[str] | None = None,
+) -> ChatResponse:
+    """Registry-first chat path. Uses the registered provider for the request.
+
+    The legacy code path (env-var lookups + copy-pasted tool loops) is preserved
+    below as a fallback for deployments without an initialized registry or
+    providers that aren't registered.
+
+    ``system_prompt_holder`` is unused here (kept for signature symmetry with the
+    fallback path); system prompt is built inside this function.
+    """
+    from core.llm.retry import retry_with_backoff
+
+    registry = http_request.app.state.llm_registry
+    # Build system prompt with context modules
+    system_prompt = await _build_system_prompt_with_context(request)
+
+    # Pick the requested provider from the registry (already verified `provider in registry`)
+    chosen = None
+    for p in registry.providers:
+        if p.name == provider_name:
+            chosen = p
+            break
+    if chosen is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Provider '{provider_name}' is registered but not selectable",
+        )
+
+    chat_request = request.model_copy(update={"system_prompt": system_prompt})
+
+    async def _do_generate():
+        return await chosen.generate(chat_request)
+
+    try:
+        response = await retry_with_backoff(
+            _do_generate, max_retries=1, initial_backoff=0.5
+        )
+    except Exception as e:
+        # Failover to next healthy provider
+        chain = await registry.failover_chain()
+        logger.info(
+            "Provider %s failed (%s), trying failover chain of %d",
+            provider_name, e, len(chain),
+        )
+        for next_provider in chain:
+            if next_provider.name == provider_name:
+                continue  # already tried
+            try:
+                response = await next_provider.generate(chat_request)
+                logger.info("Failover succeeded via %s", next_provider.name)
+                break
+            except Exception as e2:
+                logger.warning(
+                    "Failover to %s failed: %s", next_provider.name, e2
+                )
+                continue
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"All providers failed. Primary: {e}",
+            )
+
+    # Convert the new core.llm.models.ChatResponse to the local ChatResponse
+    # (which the endpoint advertises as response_model).
+    return ChatResponse(
+        response=response.content,
+        tool_calls=[
+            ToolCallLog(name=tc.get("name", ""), args=tc.get("arguments", {}), result="")
+            for tc in (response.tool_calls or [])
+        ],
+        debug_info=(
+            {
+                "provider": response.provider,
+                "model": response.model,
+                "input_tokens": response.input_tokens,
+                "output_tokens": response.output_tokens,
+                "finish_reason": response.finish_reason,
+            }
+            if request.debug_mode
+            else None
+        ),
+    )
+
+
+# ============================ Chat Endpoint ============================
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat_interaction(request: ChatRequest, http_request: Request):
+    """
+    Chat with the AI Command Center to run magical computer operations.
+
+    Routes through the new :class:`ProviderRegistry` +
+    :class:`SystemPromptBuilder` pipeline with health-aware failover, then falls
+    back to a rule-based local interpreter when no provider is reachable.  The
+    six previously copy-pasted tool-calling loops are unified into
+    :func:`_run_openai_compatible_tool_loop` (5 OpenAI-compatible providers) and
+    :func:`_run_anthropic_tool_loop` (Anthropic block format).
+    """
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="Message list cannot be empty")
+
+    query = request.messages[-1].content
+    provider = request.provider or "auto"
+
+    # 1) Model-prefix hint wins over everything else (preserves legacy behaviour).
+    if provider == "auto" and request.model:
+        if request.model.startswith("lm_studio:"):
+            provider = "lm_studio"
+        elif request.model.startswith("local:"):
+            provider = "local"
+
+    # 2) Resolve 'auto' through the ProviderRegistry when one is available.
+    if provider == "auto":
+        registry_choice = await _select_provider_via_registry(http_request, "auto")
+        if registry_choice:
+            provider = registry_choice
+
+    # 2b) NEW: If the registry has a healthy registered provider matching the
+    # requested name, route through it. This is the new "registry-first" path
+    # that bypasses the env-var lookups in the legacy branches below. The
+    # legacy branches remain as a fallback for cases where the registry is
+    # not initialized (e.g. older deployments) or no provider matched.
+    registry = getattr(http_request.app.state, "llm_registry", None)
+    if registry is not None and len(registry) > 0 and provider in registry:
+        return await _chat_via_registry(
+            http_request, request, provider, system_prompt_holder=None
+        )
+
+    # Retrieve key from request or env (used by the API-backed branches below).
+    api_key = (
+        request.api_key
+        or os.getenv("OPENAI_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or os.getenv("ANTHROPIC_API_KEY")
+        or os.getenv("DEEPSEEK_API_KEY")
+        or os.getenv("MINIMAX_API_KEY")
+    )
+    tool_schemas = get_tool_schemas()
+    openai_tools = _build_openai_tools(tool_schemas)
+    claude_tools = [
+        {"name": s["name"], "description": s["description"], "input_schema": s["parameters"]}
+        for s in tool_schemas
+    ]
+
+    # 3) Build system prompt + composable context modules.
+    system_prompt = await _build_system_prompt_with_context(request)
 
     tool_logs: list[ToolCallLog] = []
 
-    # Prepare debug payload
+    # Prepare debug payload (only populated when explicitly requested).
     debug_payload = None
     if request.debug_mode:
         debug_payload = {
@@ -1153,217 +1289,86 @@ async def chat_interaction(request: ChatRequest):
 
     def wrap_res(res):
         if isinstance(res, str):
-            res = ChatResponse(response=res, tool_calls=tool_logs)
+            res = ChatResponse(response=res, tool_logs=tool_logs)
         if request.debug_mode:
             res.debug_info = debug_payload
         return res
 
-    # If no provider API key and provider isn't local or lm_studio, use rule-based fallback
+    # 4) No credentials and no local provider → rule-based fallback.
     if not api_key and provider not in ("local", "lm_studio"):
         logger.info("No API keys found. Falling back to rule-based parser.")
         return wrap_res(await run_rule_based_fallback(query))
 
-    # Handle OpenAI Client Tool Calling
-    if api_key and (provider == "openai" or (provider == "auto" and os.getenv("OPENAI_API_KEY"))):
-        try:
+    full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
+
+    # 5) Route to the matching provider branch. Each branch constructs its client
+    #    and delegates the tool-calling loop to one of the two unified helpers.
+    try:
+        # ---- OpenAI ----
+        if api_key and (
+            provider == "openai"
+            or (provider == "auto" and os.getenv("OPENAI_API_KEY"))
+        ):
             import openai
 
             client = openai.OpenAI(api_key=api_key)
-
-            # Format messages
-            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
-
-            # Format tools for OpenAI
-            openai_tools = []
-            for schema in tool_schemas:
-                openai_tools.append(
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": schema["name"],
-                            "description": schema["description"],
-                            "parameters": schema["parameters"],
-                        },
-                    }
-                )
-
-            max_turns = 5
-            for turn in range(max_turns):
-                logger.info(f"OpenAI turn {turn}...")
-                response = client.chat.completions.create(
-                    model=request.model or "gpt-4o-mini",
-                    messages=openai_messages,
-                    tools=openai_tools if openai_tools else None,
-                    tool_choice="auto" if openai_tools else None,
-                    temperature=0.7,
-                )
-
-                msg = response.choices[0].message
-                openai_messages.append(msg)
-
-                # Check if tool calls exist
-                if not msg.tool_calls:
-                    return wrap_res(ChatResponse(response=msg.content or "", tool_calls=tool_logs))
-
-                # Process tool calls
-                for tool_call in msg.tool_calls:
-                    name = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments)
-
-                    try:
-                        result = await execute_tool_locally(name, args)
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
-                        # Append tool output message
-                        openai_messages.append(
-                            {"role": "tool", "tool_call_id": tool_call.id, "name": name, "content": json.dumps(result)}
-                        )
-                    except Exception as ex:
-                        logger.error(f"Error executing tool {name}: {ex}")
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
-                        openai_messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "name": name,
-                                "content": json.dumps({"error": str(ex)}),
-                            }
-                        )
-
-        except Exception as e:
-            logger.error(f"OpenAI execution failed: {e}. Falling back to rule-based parser.")
-            fallback_res = await run_rule_based_fallback(query)
-            fallback_res.response = (
-                f"*(OpenAI Call Failed: {str(e)} - Switched to Local Interpreter)*\n\n" + fallback_res.response
+            response_text = await _run_openai_compatible_tool_loop(
+                client=client,
+                model_name=request.model or "gpt-4o-mini",
+                messages=openai_messages,
+                tools=openai_tools,
+                tool_logs=tool_logs,
+                provider_label="OpenAI",
             )
-            return wrap_res(fallback_res)
+            return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
-    # Handle OpenRouter (OpenAI-compatible) Tool Calling
-    elif os.getenv("OPENROUTER_API_KEY") and (provider == "openrouter" or (provider == "auto" and not os.getenv("OPENAI_API_KEY") and not os.getenv("DEEPSEEK_API_KEY"))):
-        try:
+        # ---- OpenRouter ----
+        if os.getenv("OPENROUTER_API_KEY") and (
+            provider == "openrouter"
+            or (
+                provider == "auto"
+                and not os.getenv("OPENAI_API_KEY")
+                and not os.getenv("DEEPSEEK_API_KEY")
+            )
+        ):
             import openai as openai_lib
 
-            or_key = os.getenv("OPENROUTER_API_KEY")
-            or_base = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
             client = openai_lib.OpenAI(
-                api_key=or_key,
-                base_url=or_base,
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
                 timeout=float(os.getenv("OPENROUTER_TIMEOUT", "120")),
             )
-
-            openai_tools = []
-            for t in tool_schemas:
-                openai_tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": t["name"],
-                        "description": t["description"],
-                        "parameters": t["parameters"]
-                    }
-                })
-
-            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+            model_name = request.model or os.getenv(
+                "OPENROUTER_MODEL", "google/gemini-2.0-flash-001"
+            )
+            response_text = await _run_openai_compatible_tool_loop(
+                client=client,
+                model_name=model_name,
+                messages=openai_messages,
+                tools=openai_tools,
+                tool_logs=tool_logs,
+                provider_label="OpenRouter",
+            )
+            return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
-            model_name = request.model or os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
-            max_turns = 5
-            response_text = ""
-
-            for turn in range(max_turns):
-                logger.info(f"OpenRouter turn {turn} with model {model_name}...")
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=openai_messages,
-                    tools=openai_tools if openai_tools else None,
-                    tool_choice="auto" if openai_tools else None,
-                    temperature=0.7,
-                )
-
-                msg = response.choices[0].message
-                openai_messages.append(msg)
-
-                if not msg.tool_calls:
-                    response_text = msg.content
-                    break
-
-                for tc in msg.tool_calls:
-                    name = tc.function.name
-                    args = json.loads(tc.function.arguments)
-
-                    try:
-                        result = await execute_tool_locally(name, args)
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
-                        openai_messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "name": name,
-                            "content": json.dumps(result)
-                        })
-                    except Exception as ex:
-                        logger.error(f"Error executing OpenRouter tool {name}: {ex}")
-                        try:
-                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
-                        except Exception as log_ex:
-                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
-                        openai_messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "name": name,
-                            "content": json.dumps({"error": str(ex)})
-                        })
-            else:
-                response_text = "*(OpenRouter reached maximum reasoning turns without finishing.)*"
-
-            return wrap_res(ChatResponse(response=response_text or "", tool_calls=tool_logs))
-        except Exception as e:
-            err_str = str(e).lower()
-            logger.error(f"OpenRouter execution failed: {e}. Falling back to rule-based parser.")
-            fallback_res = await run_rule_based_fallback(query)
-            if "timeout" in err_str or "timed out" in err_str:
-                prefix = "*(OpenRouter Request Timed Out - Switched to Local Interpreter)*"
-            elif "connection" in err_str or "refused" in err_str or "name resolution" in err_str:
-                prefix = "*(OpenRouter Not Reachable - Switched to Local Interpreter)*"
-            else:
-                prefix = f"*(OpenRouter Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*"
-            fallback_res.response = f"{prefix}\n\n" + fallback_res.response
-            return wrap_res(fallback_res)
-
-    # Handle LM Studio Local Model Tool Calling
-    elif provider == "local" or provider == "lm_studio" or (provider == "auto" and not api_key):
-        try:
+        # ---- LM Studio / Local GGUF ----
+        if (
+            provider == "local"
+            or provider == "lm_studio"
+            or (provider == "auto" and not api_key)
+        ):
             import openai as openai_lib
 
-            lm_studio_config = {
-                "base_url": os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234"),
-                "api_key": "not-required",
-                "timeout": float(os.getenv("LM_STUDIO_TIMEOUT", "300")),  # 5 min default — large models need time
-            }
+            base_url = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234")
+            timeout = float(os.getenv("LM_STUDIO_TIMEOUT", "300"))
             client = openai_lib.OpenAI(
-                api_key=lm_studio_config["api_key"],
-                base_url=f"{lm_studio_config['base_url']}/v1",
-                timeout=lm_studio_config["timeout"],
+                api_key="not-required",
+                base_url=f"{base_url}/v1",
+                timeout=timeout,
             )
 
-            # Format messages
-            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
-            openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
-
-            # Format tools for OpenAI-compatible LM Studio API
-            openai_tools = []
-            for schema in tool_schemas:
-                openai_tools.append(
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": schema["name"],
-                            "description": schema["description"],
-                            "parameters": schema["parameters"],
-                        },
-                    }
-                )
-
-            # Dynamically check for currently loaded model in LM Studio
             model_name = request.model
             if model_name and model_name.startswith("lm_studio:"):
                 model_name = model_name.replace("lm_studio:", "", 1)
@@ -1371,375 +1376,140 @@ async def chat_interaction(request: ChatRequest):
             if not model_name:
                 try:
                     models_res = client.models.list()
-                    if models_res and models_res.data:
-                        model_name = models_res.data[0].id
-                        logger.info(f"Dynamically detected loaded model: {model_name}")
-                    else:
-                        raise HTTPException(
-                            status_code=503,
-                            detail="No model is currently loaded in LM Studio. Please load a model in LM Studio first, then retry.",
-                        )
-                except HTTPException:
-                    raise
                 except Exception as models_err:
                     logger.error(f"Failed to fetch models from LM Studio: {models_err}")
                     raise HTTPException(
                         status_code=503,
                         detail="Cannot reach LM Studio. Ensure LM Studio is running with a model loaded.",
                     ) from models_err
-
-            max_turns = 5
-            for turn in range(max_turns):
-                logger.info(f"LM Studio turn {turn} with model {model_name}...")
-                logger.info(
-                    f"Sending messages to LM Studio: {len(openai_messages)} messages, {len(openai_tools)} tools"
-                )
-                try:
-                    response = client.chat.completions.create(
-                        model=model_name,
-                        messages=openai_messages,
-                        tools=openai_tools if openai_tools else None,
-                        tool_choice="auto" if openai_tools else None,
-                        temperature=0.7,
-                        timeout=float(os.getenv("LM_STUDIO_TIMEOUT", "300")),
+                if not (models_res and models_res.data):
+                    raise HTTPException(
+                        status_code=503,
+                        detail="No model is currently loaded in LM Studio. Please load a model in LM Studio first, then retry.",
                     )
-                    logger.info(f"LM Studio response received, finish_reason: {response.choices[0].finish_reason}")
-                except Exception as timeout_err:
-                    err_str = str(timeout_err).lower()
-                    if "timeout" in err_str or "timed out" in err_str or "timed-out" in err_str:
-                        logger.error(f"LM Studio request timed out: {timeout_err}")
-                        fallback_res = await run_rule_based_fallback(query)
-                        fallback_res.response = (
-                            "*(LM Studio Request Timed Out - Switched to Local Interpreter)*\n\n"
-                            + fallback_res.response
-                        )
-                        return wrap_res(fallback_res)
-                    raise
+                model_name = models_res.data[0].id
+                logger.info(f"Dynamically detected loaded model: {model_name}")
 
-                msg = response.choices[0].message
-                openai_messages.append(msg)
-
-                # Check if tool calls exist
-                if not msg.tool_calls:
-                    return wrap_res(ChatResponse(response=msg.content or "", tool_calls=tool_logs))
-
-                # Process tool calls
-                for tool_call in msg.tool_calls:
-                    name = tool_call.function.name
-                    args = json.loads(tool_call.function.arguments)
-
-                    try:
-                        result = await execute_tool_locally(name, args)
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
-                        openai_messages.append(
-                            {"role": "tool", "tool_call_id": tool_call.id, "name": name, "content": json.dumps(result)}
-                        )
-                    except Exception as ex:
-                        logger.error(f"Error executing tool {name}: {ex}")
-                        try:
-                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
-                        except Exception as log_ex:
-                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
-                        openai_messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": tool_call.id,
-                                "name": name,
-                                "content": json.dumps({"error": str(ex)}),
-                            }
-                        )
-
-        except Exception as e:
-            err_str = str(e).lower()
-            logger.error(f"LM Studio execution failed: {e}")
-            fallback_res = await run_rule_based_fallback(query)
-            if "jinja" in err_str or "no user query" in err_str or "prompt template" in err_str:
-                fallback_res.response = (
-                    "*(LM Studio Prompt Template Error - Check model prompt template settings in LM Studio)*\n\n"
-                    + fallback_res.response
+            openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+            try:
+                response_text = await _run_openai_compatible_tool_loop(
+                    client=client,
+                    model_name=model_name,
+                    messages=openai_messages,
+                    tools=openai_tools,
+                    tool_logs=tool_logs,
+                    provider_label="LM Studio",
+                    create_kwargs={"timeout": timeout},
                 )
-            elif "timeout" in err_str or "timed out" in err_str:
-                fallback_res.response = (
-                    "*(LM Studio Request Timed Out - Switched to Local Interpreter)*\n\n" + fallback_res.response
-                )
-            elif "connection" in err_str or "refused" in err_str:
-                fallback_res.response = (
-                    "*(LM Studio Not Available (Connection Refused) - Switched to Local Interpreter)*\n\n"
-                    + fallback_res.response
-                )
-            else:
-                fallback_res.response = (
-                    f"*(LM Studio Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n"
-                    + fallback_res.response
-                )
-            return wrap_res(fallback_res)
+            except Exception as loop_err:
+                err_str = str(loop_err).lower()
+                if "timeout" in err_str or "timed out" in err_str or "timed-out" in err_str:
+                    logger.error(f"LM Studio request timed out: {loop_err}")
+                    fallback_res = await run_rule_based_fallback(query)
+                    fallback_res.response = (
+                        "*(LM Studio Request Timed Out - Switched to Local Interpreter)*\n\n"
+                        + fallback_res.response
+                    )
+                    return wrap_res(fallback_res)
+                raise
+            return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
-    # Handle DeepSeek Client Tool Calling
-    elif api_key and (provider == "deepseek" or (provider == "auto" and os.getenv("DEEPSEEK_API_KEY") and not os.getenv("OPENAI_API_KEY"))):
-        try:
+        # ---- DeepSeek ----
+        if api_key and (
+            provider == "deepseek"
+            or (
+                provider == "auto"
+                and os.getenv("DEEPSEEK_API_KEY")
+                and not os.getenv("OPENAI_API_KEY")
+            )
+        ):
             import openai as openai_lib
-            # For DeepSeek, we use the OpenAI client with custom base URL
+
             client = openai_lib.OpenAI(
                 api_key=api_key,
-                base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+                base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
             )
-
-            # Format tools if provided
-            openai_tools = []
-            for t in tool_schemas:
-                openai_tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": t["name"],
-                        "description": t["description"],
-                        "parameters": t["parameters"]
-                    }
-                })
-
-            # Format messages
-            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
-
-            model_name = request.model or "deepseek-chat"
-            max_turns = 5
-
-            for turn in range(max_turns):
-                logger.info(f"DeepSeek turn {turn}...")
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=openai_messages,
-                    tools=openai_tools if openai_tools else None,
-                    tool_choice="auto" if openai_tools else None,
-                    temperature=0.7,
-                )
-
-                msg = response.choices[0].message
-                openai_messages.append(msg)
-
-                if not msg.tool_calls:
-                    response_text = msg.content
-                    break
-
-                # Process tool calls
-                for tc in msg.tool_calls:
-                    name = tc.function.name
-                    args = json.loads(tc.function.arguments)
-
-                    try:
-                        result = await execute_tool_locally(name, args)
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
-                        openai_messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "name": name,
-                            "content": json.dumps(result)
-                        })
-                    except Exception as ex:
-                        logger.error(f"Error executing tool {name}: {ex}")
-                        try:
-                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
-                        except Exception as log_ex:
-                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
-                        openai_messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "name": name,
-                            "content": json.dumps({"error": str(ex)})
-                        })
-            else:
-                # If we exit the loop without breaking, we hit max_turns
-                response_text = "*(DeepSeek reached maximum reasoning turns without finishing.)*"
-
-            return wrap_res(ChatResponse(response=response_text or "", tool_calls=tool_logs))
-        except Exception as e:
-            err_str = str(e).lower()
-            logger.error(f"DeepSeek execution failed: {e}. Falling back to rule-based parser.")
-            fallback_res = await run_rule_based_fallback(query)
-            fallback_res.response = (
-                f"*(DeepSeek Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*\n\n"
-                + fallback_res.response
+            response_text = await _run_openai_compatible_tool_loop(
+                client=client,
+                model_name=request.model or "deepseek-chat",
+                messages=openai_messages,
+                tools=openai_tools,
+                tool_logs=tool_logs,
+                provider_label="DeepSeek",
             )
-            return wrap_res(fallback_res)
+            return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
-    # Handle minimax.io (OpenAI-compatible) Tool Calling
-    elif api_key and (provider == "minimax" or (provider == "auto" and os.getenv("MINIMAX_API_KEY") and not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"))):
-        try:
+        # ---- MiniMax ----
+        if api_key and (
+            provider == "minimax"
+            or (
+                provider == "auto"
+                and os.getenv("MINIMAX_API_KEY")
+                and not os.getenv("OPENAI_API_KEY")
+                and not os.getenv("ANTHROPIC_API_KEY")
+            )
+        ):
             import openai as openai_lib
-            # minimax.io exposes an OpenAI-compatible API; use the OpenAI client.
+
             client = openai_lib.OpenAI(
                 api_key=api_key,
                 base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
                 timeout=float(os.getenv("MINIMAX_TIMEOUT", "120")),
             )
-
-            openai_tools = []
-            for t in tool_schemas:
-                openai_tools.append({
-                    "type": "function",
-                    "function": {
-                        "name": t["name"],
-                        "description": t["description"],
-                        "parameters": t["parameters"]
-                    }
-                })
-
-            full_system_prompt, chat_messages = format_messages_for_llm(request.messages, system_prompt)
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+            response_text = await _run_openai_compatible_tool_loop(
+                client=client,
+                model_name=request.model or "MiniMax-M3",
+                messages=openai_messages,
+                tools=openai_tools,
+                tool_logs=tool_logs,
+                provider_label="minimax",
+            )
+            return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
-            model_name = request.model or "MiniMax-M3"
-            max_turns = 5
-            response_text = ""
-
-            for turn in range(max_turns):
-                logger.info(f"minimax turn {turn} with model {model_name}...")
-                response = client.chat.completions.create(
-                    model=model_name,
-                    messages=openai_messages,
-                    tools=openai_tools if openai_tools else None,
-                    tool_choice="auto" if openai_tools else None,
-                    temperature=0.7,
-                )
-
-                msg = response.choices[0].message
-                openai_messages.append(msg)
-
-                if not msg.tool_calls:
-                    response_text = msg.content
-                    break
-
-                for tc in msg.tool_calls:
-                    name = tc.function.name
-                    args = json.loads(tc.function.arguments)
-
-                    try:
-                        result = await execute_tool_locally(name, args)
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
-                        openai_messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "name": name,
-                            "content": json.dumps(result)
-                        })
-                    except Exception as ex:
-                        logger.error(f"Error executing minimax tool {name}: {ex}")
-                        try:
-                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
-                        except Exception as log_ex:
-                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
-                        openai_messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "name": name,
-                            "content": json.dumps({"error": str(ex)})
-                        })
-            else:
-                response_text = "*(minimax reached maximum reasoning turns without finishing.)*"
-
-            return wrap_res(ChatResponse(response=response_text or "", tool_calls=tool_logs))
-        except Exception as e:
-            err_str = str(e).lower()
-            logger.error(f"minimax execution failed: {e}. Falling back to rule-based parser.")
-            fallback_res = await run_rule_based_fallback(query)
-            if "timeout" in err_str or "timed out" in err_str:
-                prefix = "*(minimax Request Timed Out - Switched to Local Interpreter)*"
-            elif "connection" in err_str or "refused" in err_str or "name resolution" in err_str:
-                prefix = "*(minimax Not Reachable - Switched to Local Interpreter)*"
-            else:
-                prefix = f"*(minimax Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*"
-            fallback_res.response = f"{prefix}\n\n" + fallback_res.response
-            return wrap_res(fallback_res)
-
-    # Handle Anthropic Client Tool Calling
-    elif api_key and (provider == "anthropic" or (provider == "auto" and os.getenv("ANTHROPIC_API_KEY"))):
-        try:
+        # ---- Anthropic ----
+        if api_key and (
+            provider == "anthropic"
+            or (provider == "auto" and os.getenv("ANTHROPIC_API_KEY"))
+        ):
             import anthropic
 
             client = anthropic.Anthropic(api_key=api_key)
-
-            # Format messages for Claude (system is a top-level parameter)
-            full_system_prompt, claude_messages = format_messages_for_llm(request.messages, system_prompt)
-
-            # Format tools for Claude
-            claude_tools = []
-            for schema in tool_schemas:
-                claude_tools.append(
-                    {"name": schema["name"], "description": schema["description"], "input_schema": schema["parameters"]}
-                )
-
-            max_turns = 5
-            for turn in range(max_turns):
-                logger.info(f"Anthropic turn {turn}...")
-                response = client.messages.create(
-                    model=request.model or "claude-3-5-haiku-20241022",
-                    system=full_system_prompt,
-                    messages=claude_messages,
-                    tools=claude_tools,
-                    temperature=0.7,
-                    max_tokens=2000,
-                )
-
-                # Append assistant message
-                # Note: Claude returns response.content which is a list of blocks
-                assistant_content = []
-                tool_requests = []
-
-                for block in response.content:
-                    if block.type == "text":
-                        assistant_content.append({"type": "text", "text": block.text})
-                    elif block.type == "tool_use":
-                        tool_requests.append(block)
-                        assistant_content.append(
-                            {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
-                        )
-
-                claude_messages.append({"role": "assistant", "content": assistant_content})
-
-                if not tool_requests:
-                    # Extract final text response
-                    text_resp = "".join([b.text for b in response.content if b.type == "text"])
-                    return wrap_res(ChatResponse(response=text_resp, tool_calls=tool_logs))
-
-                # Process tool calls
-                tool_results_content = []
-                for tool_use in tool_requests:
-                    name = tool_use.name
-                    args = tool_use.input
-
-                    try:
-                        result = await execute_tool_locally(name, args)
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
-                        tool_results_content.append(
-                            {"type": "tool_result", "tool_use_id": tool_use.id, "content": json.dumps(result)}
-                        )
-                    except Exception as ex:
-                        logger.error(f"Error executing Anthropic tool {name}: {ex}")
-                        try:
-                            log_failed_tool_call(FailedToolCallSchema(tool_name=name, arguments=json.dumps(args), error_message=str(ex)))
-                        except Exception as log_ex:
-                            logger.error(f"Failed to log tool failure to DB: {log_ex}")
-                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
-                        tool_results_content.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": tool_use.id,
-                                "content": json.dumps({"error": str(ex)}),
-                            }
-                        )
-
-                claude_messages.append({"role": "user", "content": tool_results_content})
-
-        except Exception as e:
-            logger.error(f"Anthropic execution failed: {e}. Falling back to rule-based parser.")
-            fallback_res = await run_rule_based_fallback(query)
-            fallback_res.response = (
-                f"*(Anthropic Call Failed: {str(e)} - Switched to Local Interpreter)*\n\n" + fallback_res.response
+            response_text = await _run_anthropic_tool_loop(
+                client=client,
+                model_name=request.model or "claude-3-5-haiku-20241022",
+                system_prompt=full_system_prompt,
+                messages=chat_messages,
+                tools=claude_tools,
+                tool_logs=tool_logs,
             )
-            return wrap_res(fallback_res)
+            return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
-    # Default fallback
+    except Exception as e:
+        logger.error(f"{provider} execution failed: {e}. Falling back to rule-based parser.")
+        fallback_res = await run_rule_based_fallback(query)
+        err_str = str(e).lower()
+        if "timeout" in err_str or "timed out" in err_str:
+            prefix = f"*({provider} Request Timed Out - Switched to Local Interpreter)*"
+        elif (
+            "connection" in err_str
+            or "refused" in err_str
+            or "name resolution" in err_str
+        ):
+            prefix = f"*({provider} Not Reachable - Switched to Local Interpreter)*"
+        elif "jinja" in err_str or "no user query" in err_str or "prompt template" in err_str:
+            prefix = (
+                f"*({provider} Prompt Template Error - Check model prompt template settings)*"
+            )
+        else:
+            prefix = (
+                f"*({provider} Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*"
+            )
+        fallback_res.response = f"{prefix}\n\n" + fallback_res.response
+        return wrap_res(fallback_res)
+
+    # 6) Default fallback when no branch matched.
     return wrap_res(await run_rule_based_fallback(query))
 
 
@@ -1747,7 +1517,7 @@ async def chat_interaction(request: ChatRequest):
 async def list_models():
     """List available local GGUF models and API configurations."""
     try:
-        from core.llm_integration import LLMIntegration
+        from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
         llm = LLMIntegration(model_type="auto")
         available = llm.list_available_models()
@@ -1792,3 +1562,22 @@ async def list_models():
             "default_model": "",
             "lm_studio_connected": False,
         }
+
+
+@router.get("/providers/health")
+async def get_providers_health(request: Request) -> dict:
+    """Return current health status for all registered providers."""
+    registry = getattr(request.app.state, "llm_registry", None)
+    if registry is None or len(registry) == 0:
+        return {
+            "providers": [],
+            "healthy_count": 0,
+            "total_count": 0,
+            "message": "LLM registry not initialized",
+        }
+    statuses = await registry.health_check_all()
+    return {
+        "providers": [s.model_dump() for s in statuses],
+        "healthy_count": sum(1 for s in statuses if s.healthy),
+        "total_count": len(statuses),
+    }

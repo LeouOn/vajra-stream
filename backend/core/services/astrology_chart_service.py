@@ -1,13 +1,14 @@
 """
 Astrology Chart Service using Kerykeion (v5.x factory API)
 Provides Natal, Transit, and Synastry calculations and structured exports.
+
+kerykeion is imported lazily so the module can be imported without the
+optional dependency being installed.
 """
 
 import datetime
 import logging
 from typing import Any
-
-from kerykeion import AspectsFactory, AstrologicalSubjectFactory
 
 from backend.core.services.geocoding_service import geocoding_service
 
@@ -33,6 +34,7 @@ _SIGN_NORMALIZE = {
 class AstrologyChartService:
     def _create_subject(self, name: str, dt_str: str, city_name: str):
         """Helper to create Kerykeion subject from ISO string and city using the v5 factory API."""
+        from kerykeion import AstrologicalSubjectFactory
         # Parse datetime
         if dt_str.endswith("Z"):
             dt_str = dt_str[:-1] + "+00:00"
@@ -138,6 +140,7 @@ class AstrologyChartService:
         self, name: str, birth_time_iso: str, birth_city: str, current_time_iso: str | None = None
     ) -> dict[str, Any]:
         """Compare natal chart with current transits using the v5 AspectsFactory."""
+        from kerykeion import AspectsFactory, AstrologicalSubjectFactory
         try:
             natal_subject = self._create_subject(name, birth_time_iso, birth_city)
 
@@ -193,6 +196,7 @@ class AstrologyChartService:
         self, name_a: str, time_a: str, city_a: str, name_b: str, time_b: str, city_b: str
     ) -> dict[str, Any]:
         """Compare two natal charts for compatibility using the v5 AspectsFactory."""
+        from kerykeion import AspectsFactory
         try:
             subject_a = self._create_subject(name_a, time_a, city_a)
             subject_b = self._create_subject(name_b, time_b, city_b)

@@ -23,7 +23,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.astrology import AstrologicalCalculator, format_astrological_report
 from core.audio_generator import ScalarWaveGenerator
 from core.intelligent_composer import IntelligentComposer
-from core.llm_integration import DharmaLLM, LLMIntegration
+from core.llm.legacy_adapter import LegacyDharmaLLM as DharmaLLM
+from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 from core.prayer_wheel import PrayerWheel
 from core.rothko_generator import RothkoGenerator
 from core.tts_engine import TTSEngine

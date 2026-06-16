@@ -19,6 +19,30 @@ import ChakraBodyMap from '../2D/ChakraBodyMap';
 
 import { API_BASE } from '../../utils/api';
 
+// Face-down card back: a symmetric neon mandala that matches the deck aesthetic.
+const TAROT_CARD_BACK = `<svg viewBox="0 0 240 380" xmlns="http://www.w3.org/2000/svg" style="background:#0b132b; border-radius:16px;">
+  <defs>
+    <filter id="back-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="10" y="10" width="220" height="360" rx="12" fill="none" stroke="#a855f7" stroke-width="2" filter="url(#back-glow)"/>
+  <rect x="18" y="18" width="204" height="344" rx="9" fill="none" stroke="#a855f7" stroke-width="1" opacity="0.4"/>
+  <circle cx="120" cy="190" r="60" fill="none" stroke="#06b6d4" stroke-width="1.5" opacity="0.7" filter="url(#back-glow)"/>
+  <circle cx="120" cy="190" r="42" fill="none" stroke="#a855f7" stroke-width="1.2" opacity="0.6"/>
+  <circle cx="120" cy="190" r="24" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0.8"/>
+  <g transform="translate(120 190)">
+    <line x1="0" y1="-70" x2="0" y2="-24" stroke="#a855f7" stroke-width="1" opacity="0.5"/>
+    <line x1="0" y1="24" x2="0" y2="70" stroke="#a855f7" stroke-width="1" opacity="0.5"/>
+    <line x1="-70" y1="0" x2="-24" y2="0" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
+    <line x1="24" y1="0" x2="70" y2="0" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
+  </g>
+  <polygon points="120,170 124,186 140,186 127,196 132,212 120,202 108,212 113,196 100,186 116,186" fill="none" stroke="#06b6d4" stroke-width="1.4" filter="url(#back-glow)"/>
+  <circle cx="120" cy="190" r="5" fill="#a855f7" opacity="0.8"/>
+  <text x="120" y="330" fill="#a855f7" font-size="9" font-family="monospace" text-anchor="middle" letter-spacing="3" opacity="0.7">VAJRA STREAM</text>
+</svg>`;
+
 export default function OperationsPanel() {
   const { updateSettings } = useAudioStore();
   const [activeSubTab, setActiveSubTab] = useState('divination');
@@ -27,6 +51,8 @@ export default function OperationsPanel() {
   // Divination state
   const [tarotDrawCount, setTarotDrawCount] = useState(3);
   const [tarotResult, setTarotResult] = useState(null);
+  const [tarotSpread, setTarotSpread] = useState([]);
+  const [tarotFlipped, setTarotFlipped] = useState([]);
   const [ichingResult, setIchingResult] = useState(null);
   const [geomancyResult, setGeomancyResult] = useState(null);
   const [geoBalance, setGeoBalance] = useState(null);
@@ -78,7 +104,19 @@ export default function OperationsPanel() {
       if (response.ok) {
         const data = await response.json();
         setTarotResult(data.cards);
+        setTarotSpread(data.spread || []);
+        // Start with all cards face-down, then stagger-reveal each one.
+        setTarotFlipped(new Array(data.cards.length).fill(false));
         audioFeedback.playSuccess();
+        data.cards.forEach((_, idx) => {
+          setTimeout(() => {
+            setTarotFlipped(prev => {
+              const next = [...prev];
+              next[idx] = true;
+              return next;
+            });
+          }, 350 + idx * 220);
+        });
       }
     } catch (e) {
       console.error(e);
@@ -325,22 +363,72 @@ export default function OperationsPanel() {
 
               {tarotResult && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-4">
-                  {tarotResult.map((card, idx) => (
-                    <Card
-                      key={card.id}
-                      hoverable
-                      size="small"
-                      className="text-center bg-gray-950/60 border-white/10 hover:border-purple-500/40 transition-all duration-300"
-                      styles={{ body: { padding: '12px 8px' } }}
-                    >
-                      <div className="w-20 h-32 mx-auto flex items-center justify-center relative overflow-hidden rounded-lg mb-2">
-                        <div dangerouslySetInnerHTML={{ __html: card.svg }} className="divination-card-container w-full h-full flex justify-center" />
-                      </div>
-                      <Tag color="purple" className="text-[9px] mb-1">CARD #{idx+1}</Tag>
-                      <h4 className="text-xs font-bold text-white mb-0.5">{card.name}</h4>
-                      <p className="text-[10px] text-purple-300/80 italic leading-tight line-clamp-2">{card.meaning}</p>
-                    </Card>
-                  ))}
+                  {tarotResult.map((card, idx) => {
+                    const position = card.position || tarotSpread[idx];
+                    const isFlipped = tarotFlipped[idx];
+                    const isReversed = card.reversed;
+                    return (
+                      <Card
+                        key={`${card.id}-${idx}`}
+                        hoverable
+                        size="small"
+                        className="text-center bg-gray-950/60 border-white/10 hover:border-purple-500/40 transition-all duration-300"
+                        styles={{ body: { padding: '10px 8px' } }}
+                      >
+                        {/* Spread position label */}
+                        {position && (
+                          <Tag color="cyan" className="text-[9px] mb-1 block text-center">{position.name}</Tag>
+                        )}
+
+                        {/* 3D flip card — face-down back reveals to the actual card */}
+                        <div className="tarot-perspective w-20 h-32 mx-auto mb-2">
+                          <div className={`tarot-flip-container w-full h-full ${isFlipped ? 'flipped' : ''}`}>
+                            <div
+                              className="tarot-face tarot-front rounded-lg overflow-hidden"
+                              dangerouslySetInnerHTML={{ __html: TAROT_CARD_BACK }}
+                            />
+                            <div
+                              className="tarot-face tarot-back rounded-lg overflow-hidden"
+                              dangerouslySetInnerHTML={{ __html: card.svg }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Card index + reversed indicator */}
+                        <div className="flex items-center justify-center gap-1 mb-1 flex-wrap">
+                          <Tag color="purple" className="text-[9px]">#{idx + 1}</Tag>
+                          {isReversed && (
+                            <Tag color="red" className="text-[9px]">↩ Reversed</Tag>
+                          )}
+                        </div>
+
+                        <h4 className={`text-xs font-bold text-white mb-0.5 ${isReversed ? 'opacity-70 italic' : ''}`}>
+                          {card.name}
+                        </h4>
+
+                        {/* Keyword tags — revealed once flipped */}
+                        {isFlipped && card.keywords && card.keywords.length > 0 && (
+                          <div className="flex flex-wrap gap-0.5 justify-center mb-1">
+                            {card.keywords.slice(0, 3).map(kw => (
+                              <span
+                                key={kw}
+                                className="text-[8px] px-1 py-0.5 bg-purple-900/40 text-purple-200 rounded border border-purple-500/20"
+                              >
+                                {kw}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Meaning — hidden until the card is flipped face-up */}
+                        {isFlipped ? (
+                          <p className="text-[10px] text-purple-300/80 italic leading-tight line-clamp-2">{card.meaning}</p>
+                        ) : (
+                          <p className="text-[10px] text-gray-600 italic leading-tight">Concealed…</p>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>

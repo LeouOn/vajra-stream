@@ -18,6 +18,7 @@ import type {
   ApiResponse,
   RecitationStatus,
   SakaDawaResult,
+  ProviderHealthStatus,
 } from '../types';
 
 export interface UseWebSocketStableReturn {
@@ -33,6 +34,9 @@ export interface UseWebSocketStableReturn {
   rngData: Record<string, unknown> | null;
   buddhaStatus: RecitationStatus | null;
   sakaDawa: SakaDawaResult | null;
+  ritualStatus: Record<string, unknown> | null;
+  providerHealth: ProviderHealthStatus[];
+  lastProviderHealthUpdate: number | null;
   error: string | null;
   startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
   stopSession: (sessionId: string) => Promise<ApiResponse>;
@@ -57,6 +61,9 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
   const [rngData, setRngData] = useState<Record<string, unknown> | null>(null);
   const [buddhaStatus, setBuddhaStatus] = useState<RecitationStatus | null>(null);
   const [sakaDawa, setSakaDawa] = useState<SakaDawaResult | null>(null);
+  const [ritualStatus, setRitualStatus] = useState<Record<string, unknown> | null>(null);
+  const [providerHealth, setProviderHealth] = useState<ProviderHealthStatus[]>([]);
+  const [lastProviderHealthUpdate, setLastProviderHealthUpdate] = useState<number | null>(null);
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -205,6 +212,13 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'SAKA_DAWA_CHECK':
               setSakaDawa(data.data as SakaDawaResult);
               break;
+            case 'RITUAL_ENGINE_STATUS':
+              setRitualStatus(data.data as Record<string, unknown>);
+              break;
+            case 'PROVIDER_HEALTH':
+              setProviderHealth((data as { statuses?: ProviderHealthStatus[] }).statuses || []);
+              setLastProviderHealthUpdate(Date.now());
+              break;
             case 'BLESSING_STARTED':
               console.log('Blessing started:', data.data);
               break;
@@ -348,6 +362,9 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     rngData,
     buddhaStatus,
     sakaDawa,
+    ritualStatus,
+    providerHealth,
+    lastProviderHealthUpdate,
     error,
     startSession,
     stopSession,

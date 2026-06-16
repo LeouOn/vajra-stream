@@ -9,12 +9,17 @@
  * - Merit accumulation stats (today + total)
  * - Start/Stop/Configure controls
  *
- * Connects to: GET /api/v1/ritual/status, POST /start, /stop, /trigger, /config
- * WebSocket: RITUAL_PHASE, RITUAL_COMPLETED, RITUAL_ENGINE_STATUS, PLANETARY_HOUR_SHIFT
+ * Live engine state arrives via WebSocket (RITUAL_ENGINE_STATUS broadcast →
+ * ritualStatus from useWebSocketStable). History + merit are not broadcast
+ * over WS, so a one-shot initial REST fetch is performed on mount and the
+ * action handlers (start/stop/trigger) refetch after each mutation.
+ * No periodic polling.
+ *
+ * Mutations: POST /api/v1/ritual/start, /stop, /trigger, /config
  *
  * @component
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Play, Square, Zap, Clock, Activity, Sparkles,
   Heart, TrendingUp, Settings, RefreshCw, Radio,
@@ -27,6 +32,7 @@ import {
 } from 'antd';
 import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -43,22 +49,22 @@ const QUALITY_COLORS = {
 };
 
 export default function RitualMonitor({ compact = false }) {
-  const [status, setStatus] = useState(null);
+  const { ritualStatus } = useWebSocketStable();
+  const [restStatus, setRestStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const pollRef = useRef(null);
 
+  // One-shot initial fetch for full payload (status + history + merit).
+  // Engine state updates flow in live via WS RITUAL_ENGINE_STATUS → ritualStatus.
   useEffect(() => {
     fetchStatus();
-    pollRef.current = setInterval(fetchStatus, 5000);
-    return () => clearInterval(pollRef.current);
   }, []);
 
   const fetchStatus = async () => {
     try {
       const res = await fetch(`${API_BASE}/ritual/status`);
-      if (res.ok) setStatus(await res.json());
+      if (res.ok) setRestStatus(await res.json());
     } catch {}
     setLoading(false);
   };
@@ -98,11 +104,11 @@ export default function RitualMonitor({ compact = false }) {
     setActionLoading(false);
   };
 
-  const s = status?.status || {};
+  const s = ritualStatus || restStatus?.status || {};
   const isRunning = s.state === 'running' || s.state === 'executing';
   const isExecuting = s.state === 'executing';
-  const history = status?.history || [];
-  const merit = status?.merit || {};
+  const history = restStatus?.history || [];
+  const merit = restStatus?.merit || {};
   const schedule = s.schedule || [];
 
   if (loading) return <Spin><div className="py-10" /></Spin>;

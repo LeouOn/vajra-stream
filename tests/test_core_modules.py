@@ -237,20 +237,20 @@ class TestLLMUsageTracker:
     """Test the token/cost tracking system."""
 
     def test_import(self):
-        from core.llm_usage import LLMUsageTracker
+        from core.llm.usage import LLMUsageTracker
 
         tracker = LLMUsageTracker.get(log_path=os.path.join(tempfile.gettempdir(), "test_usage.jsonl"))
         assert tracker is not None
 
     def test_singleton(self):
-        from core.llm_usage import LLMUsageTracker
+        from core.llm.usage import LLMUsageTracker
 
         t1 = LLMUsageTracker.get()
         t2 = LLMUsageTracker.get()
         assert t1 is t2
 
     def test_record_and_summary(self):
-        from core.llm_usage import LLMUsageTracker, UsageRecord
+        from core.llm.usage import LLMUsageTracker, UsageRecord
 
         tracker = LLMUsageTracker.get(log_path=os.path.join(tempfile.gettempdir(), "test_usage.jsonl"))
         calls_before = tracker.total_calls
@@ -274,7 +274,7 @@ class TestLLMUsageTracker:
         assert summary["total_cost_usd"] >= 0.000126
 
     def test_multiple_providers(self):
-        from core.llm_usage import LLMUsageTracker, UsageRecord
+        from core.llm.usage import LLMUsageTracker, UsageRecord
 
         tracker = LLMUsageTracker.get(log_path=os.path.join(tempfile.gettempdir(), "test_usage.jsonl"))
         calls_before = tracker.total_calls
@@ -306,14 +306,14 @@ class TestLLMUsageTracker:
         assert "openai" in summary["provider_stats"]
 
     def test_token_estimation(self):
-        from core.llm_usage import LLMUsageTracker
+        from core.llm.usage import LLMUsageTracker
 
         tracker = LLMUsageTracker.get()
         tokens = tracker.estimate_tokens("Hello world")  # 11 chars, estimate = 2
         assert tokens >= 1
 
     def test_cost_estimation_deepseek(self):
-        from core.llm_usage import LLMUsageTracker
+        from core.llm.usage import LLMUsageTracker
 
         tracker = LLMUsageTracker.get()
         cost = tracker.estimate_cost("deepseek", "deepseek-chat", prompt_tokens=1_000_000, completion_tokens=1_000_000)
@@ -321,7 +321,7 @@ class TestLLMUsageTracker:
         assert 0.30 <= cost <= 0.55
 
     def test_cost_estimation_local_is_zero(self):
-        from core.llm_usage import LLMUsageTracker
+        from core.llm.usage import LLMUsageTracker
 
         tracker = LLMUsageTracker.get()
         cost = tracker.estimate_cost("local", "any-model", 1000000, 1000000)

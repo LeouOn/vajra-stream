@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.core.services.divination_service import divination_service
+from backend.core.services.divination_service import SPREAD_POSITIONS, divination_service
 from backend.core.services.grimoire_service import grimoire_service
 from backend.core.services.mops_engine import mops_engine
 
@@ -33,7 +33,13 @@ async def draw_tarot(payload: DrawTarotRequest):
         mops_engine.record_event("divination", 500)
 
         cards = divination_service.draw_tarot(payload.count)
-        return {"status": "success", "cards": cards, "count": len(cards), "timestamp": asyncio.get_event_loop().time()}
+        return {
+            "status": "success",
+            "cards": cards,
+            "count": len(cards),
+            "spread": [dict(p) for p in SPREAD_POSITIONS.get(payload.count, [])],
+            "timestamp": asyncio.get_event_loop().time(),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

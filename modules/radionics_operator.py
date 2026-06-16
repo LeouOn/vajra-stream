@@ -710,7 +710,7 @@ class RadionicsOperator:
             try:
                 import os
 
-                from core.llm_integration import LLMIntegration
+                from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
                 model_name = os.getenv("LM_STUDIO_ORCHESTRATOR_MODEL")
                 self._llm = LLMIntegration(model_type="auto", model_name=model_name)
@@ -728,7 +728,7 @@ class RadionicsOperator:
             try:
                 import os
 
-                from core.llm_integration import LLMIntegration
+                from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
                 creative_model = os.getenv("LM_STUDIO_CREATIVE_MODEL")
                 if creative_model:

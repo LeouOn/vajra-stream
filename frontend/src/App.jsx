@@ -26,6 +26,8 @@ import ChakraBodyMap from './components/2D/ChakraBodyMap';
 
 import MainLayout from './components/Layout/MainLayout';
 import CommandCenter from './components/UI/CommandCenter';
+import BuddhasPage from './routes/Buddhas';
+import ProviderSettings from './components/Settings/ProviderSettings';
 import OperationsPanel from './components/UI/OperationsPanel';
 import AstrologyPanel from './components/UI/AstrologyPanel';
 import BroadcastPanel from './components/UI/BroadcastPanel';
@@ -35,6 +37,7 @@ import Dashboard from './components/UI/Dashboard';
 import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
+import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
 
 function AppContent() {
@@ -156,6 +159,18 @@ function AppContent() {
               buddhaStatus={buddhaStatus}
               sakaDawa={sakaDawa}
             />
+          </div>
+        } />
+        
+        <Route path="/buddhas" element={
+          <div className="flex-1 h-full overflow-y-auto">
+            <BuddhasPage />
+          </div>
+        } />
+        
+        <Route path="/settings" element={
+          <div className="flex-1 h-full overflow-y-auto">
+            <ProviderSettings />
           </div>
         } />
         
@@ -474,8 +489,10 @@ function App() {
   return (
     <ConfigProvider
       theme={{
+        ...antdTheme,
         algorithm: theme.darkAlgorithm,
         token: {
+          ...antdTheme.token,
           colorPrimary: COLORS.primary, // vajra-purple (--primary in globals.css)
           colorInfo: COLORS.secondary, // vajra-cyan (--secondary in globals.css)
         },

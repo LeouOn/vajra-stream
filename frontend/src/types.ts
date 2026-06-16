@@ -81,6 +81,12 @@ export interface WSRngReading extends WSMessageBase {
   timestamp: number;
 }
 
+export interface WSProviderHealth extends WSMessageBase {
+  type: 'PROVIDER_HEALTH';
+  statuses: ProviderHealthStatus[];
+  timestamp?: number;
+}
+
 export type WSMessage =
   | WSRealtimeData
   | WSAudioSpectrum
@@ -94,6 +100,7 @@ export type WSMessage =
   | WSBuddhaRecitationUpdate
   | WSSakaDawaCheck
   | WSRngReading
+  | WSProviderHealth
   | WSError
   | WSMessageBase;
 
@@ -109,6 +116,15 @@ export interface CrystalStatus {
 export interface ScalarStatus {
   active: boolean;
   rate: number;
+}
+
+export interface ProviderHealthStatus {
+  provider: string;
+  healthy: boolean;
+  latency_ms: number;
+  error: string | null;
+  last_checked: number;
+  models_available: number;
 }
 
 export type WSConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
