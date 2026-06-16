@@ -511,15 +511,30 @@ export default function AstrologyPanel() {
               <p className="text-xs text-gray-400">Tropical · Sidereal · BaZi — Swiss Ephemeris v2.10</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {['all','western','vedic','chinese'].map(sys => (
-              <button key={sys} onClick={() => setActiveSystem(sys)} className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider border transition-all ${
-                activeSystem === sys ? 'bg-purple-600 border-purple-400 text-white shadow-[0_0_8px_rgba(168,85,247,0.3)]' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'
-              }`}>{sys}</button>
+              <Button
+                key={sys}
+                size="small"
+                shape="round"
+                type={activeSystem === sys ? 'primary' : 'default'}
+                onClick={() => setActiveSystem(sys)}
+                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+              >
+                {sys}
+              </Button>
             ))}
-            <button onClick={handleResetToLive} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
-              isLiveMode ? 'bg-green-600 border-green-400 text-white animate-pulse' : 'bg-white/5 border-white/10 text-gray-400'
-            }`}>🔴 LIVE</button>
+            <Button
+              size="small"
+              shape="round"
+              type={isLiveMode ? 'primary' : 'default'}
+              danger={isLiveMode}
+              onClick={handleResetToLive}
+              style={{ fontSize: 10, fontWeight: 700 }}
+              className={isLiveMode ? 'animate-pulse' : ''}
+            >
+              🔴 LIVE
+            </Button>
             <Button
               size="small"
               icon={<CopyOutlined />}
@@ -533,9 +548,13 @@ export default function AstrologyPanel() {
             >
               Copy for LLM
             </Button>
-            <button onClick={() => isLiveMode ? fetchLiveAstrology() : (activeChart ? loadNatalChart(activeChart) : fetchLiveAstrology())} className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400">
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <Button
+              size="small"
+              shape="circle"
+              type="text"
+              onClick={() => isLiveMode ? fetchLiveAstrology() : (activeChart ? loadNatalChart(activeChart) : fetchLiveAstrology())}
+              icon={<RefreshCw className={loading ? 'animate-spin' : ''} />}
+            />
           </div>
         </div>
       </div>
