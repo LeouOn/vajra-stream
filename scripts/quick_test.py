@@ -82,7 +82,7 @@ def test_llm():
     print("=" * 60)
 
     try:
-        from core.llm_integration import LLMIntegration
+        from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
         llm = LLMIntegration(model_type="auto")
 

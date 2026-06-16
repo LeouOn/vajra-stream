@@ -24,7 +24,8 @@ class LLMService:
         """Get LLM integration"""
         if self._llm is None:
             try:
-                from core.llm_integration import LLMIntegration
+                # TODO: This file calls methods that don't exist on LLMIntegration. Needs rewriting against core/llm/dharma.py
+                from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
                 self._llm = LLMIntegration()
             except ImportError:

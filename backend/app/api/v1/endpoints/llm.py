@@ -1523,7 +1523,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
 async def list_models():
     """List available local GGUF models and API configurations."""
     try:
-        from core.llm_integration import LLMIntegration
+        from core.llm.legacy_adapter import LegacyLLMIntegration as LLMIntegration
 
         llm = LLMIntegration(model_type="auto")
         available = llm.list_available_models()

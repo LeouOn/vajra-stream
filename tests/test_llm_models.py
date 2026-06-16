@@ -12,7 +12,7 @@ def client():
 
 
 def test_models_endpoint(client):
-    with patch("core.llm_integration.LLMIntegration") as mock_llm_class:
+    with patch("core.llm.legacy_adapter.LegacyLLMIntegration") as mock_llm_class:
         mock_llm_instance = MagicMock()
         mock_llm_instance.list_available_models.return_value = {
             "local": ["test-model.gguf"],
