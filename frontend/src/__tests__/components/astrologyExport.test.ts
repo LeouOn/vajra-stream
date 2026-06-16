@@ -3,6 +3,7 @@ import {
   formatNatalChartMarkdown,
   formatTransitReportMarkdown,
   formatTransitReportJSON,
+  formatLiveAstrologyMarkdown,
 } from '../../lib/astrologyExport';
 
 // Glyphs that must NEVER appear in LLM-optimized output.
@@ -277,5 +278,138 @@ describe('formatTransitReportJSON', () => {
   it('handles null input', () => {
     const result = formatTransitReportJSON(null);
     expect(JSON.parse(result)).toBeNull();
+  });
+});
+
+// ----------------------------------------------------------------------
+// formatLiveAstrologyMarkdown
+// ----------------------------------------------------------------------
+
+const liveData = {
+  datetime: '2026-06-15T14:30:00+00:00',
+  location: { latitude: 37.7749, longitude: -122.4194 },
+  western: {
+    positions: {
+      sun: { sign: 'Gemini', degree: 24.61, house: 11 },
+      moon: { sign: 'Cancer', degree: 3.01, house: 11 },
+      mercury: { sign: 'Cancer', degree: 19.11, house: 12 },
+      pluto: { sign: 'Aquarius', degree: 5.16, house: 6, retrograde: true },
+      ascendant: { sign: 'Leo', degree: 16.47 },
+    },
+    elements: { Fire: 4, Earth: 2, Air: 5, Water: 6 },
+    modalities: { Cardinal: 10, Fixed: 4, Mutable: 5 },
+    aspects: [
+      { planet1: 'sun', planet2: 'moon', aspect: 'Conjunction', orb: 7.96 },
+      { planet1: 'moon', planet2: 'neptune', aspect: 'Square', orb: 1.74 },
+    ],
+  },
+  indian: {
+    tithi: { name: 'Prathama', paksha: 'Shukla', percentage: 16 },
+    nakshatra: { name: 'Ardra', percentage: 16 },
+    yoga: { name: 'Ganda' },
+    karana: { name: 'Bava' },
+    vara: { name: 'Ravivara', lord: 'Sun' },
+    ascendant: { sign: 'Karka', degree: 22.2 },
+    planets: {
+      sun: { sign: 'Mithuna', degree: 0.4 },
+      moon: { sign: 'Mithuna', degree: 8.8 },
+    },
+  },
+  chinese: {
+    sheng_xiao: 'Horse',
+    four_pillars: { year: 'Bing-Wu', month: 'Jia-Wu', day: 'Xin-You', hour: 'Wu-Zi' },
+    five_elements_balance: { wood: 1, fire: 3, earth: 1, metal: 2, water: 1 },
+  },
+  moon_phase: { phase_name: 'Waxing Crescent', illumination: 0.5 },
+  auspicious_times: { sunrise: '06:12', sunset: '20:34' },
+  timestamp: 1781548000,
+};
+
+describe('formatLiveAstrologyMarkdown', () => {
+  it('renders the current datetime and location in the header', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('# Current Astrology');
+    expect(result).toContain('2026-06-15 14:30');
+    expect(result).toContain('37.7749');
+    expect(result).toContain('-122.4194');
+  });
+
+  it('includes moon phase section', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('## Moon Phase');
+    expect(result).toContain('Waxing Crescent');
+    expect(result).toContain('0.5');
+  });
+
+  it('renders Western planet table with houses', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('## Western Tropical');
+    expect(result).toContain('| Planet | Sign | Degree | House |');
+    expect(result).toContain('| Sun | Gemini | 24.61');
+    expect(result).toContain('| Moon | Cancer | 3.01');
+  });
+
+  it('marks retrograde planets with (R)', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('Pluto');
+    expect(result).toContain('(R)');
+  });
+
+  it('includes elements and modalities sections', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('### Elements');
+    expect(result).toContain('Fire: 4 points');
+    expect(result).toContain('Dominant: Water');
+    expect(result).toContain('### Modalities');
+    expect(result).toContain('Cardinal: 10');
+  });
+
+  it('renders active aspects with orb', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('### Active Aspects');
+    expect(result).toContain('Sun Conjunction Moon');
+    expect(result).toContain('orb 7.96');
+    expect(result).toContain('Moon Square Neptune');
+  });
+
+  it('renders Vedic panchanga', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('## Vedic Sidereal');
+    expect(result).toContain('Tithi: Prathama (Shukla)');
+    expect(result).toContain('Nakshatra: Ardra (16%)');
+    expect(result).toContain('Yoga: Ganda');
+    expect(result).toContain('Karana: Bava');
+    expect(result).toContain('Vara: Ravivara (Sun)');
+  });
+
+  it('renders Chinese BaZi four pillars', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('## Chinese Lunisolar');
+    expect(result).toContain('Sheng Xiao: Horse');
+    expect(result).toContain('Year: Bing-Wu');
+  });
+
+  it('includes auspicious times', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    expect(result).toContain('## Auspicious Times');
+    expect(result).toContain('Sunrise: 06:12');
+  });
+
+  it('is completely glyph-free', () => {
+    const result = formatLiveAstrologyMarkdown(liveData);
+    for (const g of FORBIDDEN_GLYPHS) {
+      expect(result).not.toContain(g);
+    }
+  });
+
+  it('handles empty data gracefully', () => {
+    const result = formatLiveAstrologyMarkdown({});
+    expect(result).toContain('# Current Astrology');
+    expect(typeof result).toBe('string');
+  });
+
+  it('handles null input with a fallback message', () => {
+    const result = formatLiveAstrologyMarkdown(null);
+    expect(result).toContain('No data available');
   });
 });

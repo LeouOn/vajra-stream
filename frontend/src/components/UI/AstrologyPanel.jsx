@@ -412,7 +412,25 @@ export default function AstrologyPanel() {
     }
   };
 
-  const handleCopyNatalChart = async () => {
+  const handleCopyForLLM = async () => {
+    // Live mode: copy current day/location astrology (no saved chart needed)
+    if (isLiveMode) {
+      if (!liveData) {
+        message.error("Live data not yet loaded — wait for it to fetch");
+        return;
+      }
+      try {
+        const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
+        const markdown = formatLiveAstrologyMarkdown(liveData);
+        await navigator.clipboard.writeText(markdown);
+        message.success("Current astrology copied for LLM");
+      } catch (e) {
+        console.error(e);
+        message.error("Live astrology copy failed: " + e.message);
+      }
+      return;
+    }
+    // Natal mode: copy saved chart's natal data
     if (!activeChart?.id) {
       message.error("Load a saved chart first to copy its natal data");
       return;
@@ -505,7 +523,7 @@ export default function AstrologyPanel() {
             <Button
               size="small"
               icon={<CopyOutlined />}
-              onClick={handleCopyNatalChart}
+              onClick={handleCopyForLLM}
               className="text-[10px]"
               style={{
                 background: 'linear-gradient(135deg, #f59e0b, #d97706)',

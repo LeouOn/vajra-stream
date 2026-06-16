@@ -492,3 +492,242 @@ export function formatTransitReportMarkdown(data) {
 export function formatTransitReportJSON(data) {
   return JSON.stringify(data ?? null, null, 2);
 }
+
+// ----------------------------------------------------------------------
+// Live astrology export (current day / location)
+// ----------------------------------------------------------------------
+// Accepts the full shape returned by GET /astrology/current:
+//   {
+//     datetime: ISO string,
+//     location: { latitude, longitude },
+//     western:  { positions, elements, modalities, aspects },
+//     indian:   { tithi, nakshatra, yoga, karana, vara, ascendant, planets },
+//     chinese:  { ... },
+//     moon_phase: { phase_name, illumination, ... },
+//     planetary_positions: alias of western.positions,
+//     auspicious_times: { ... },
+//     timestamp,
+//   }
+// ----------------------------------------------------------------------
+
+function buildLiveWesternPlanetTable(positions) {
+  if (!positions || typeof positions !== 'object') return [];
+  const rows = [];
+  for (const [key, info] of Object.entries(positions)) {
+    if (!info || typeof info !== 'object') continue;
+    const sign = info.sign || '\u2014';
+    const degree = formatDegree(info.degree);
+    const house = info.house != null ? info.house : (info.house_placidus ?? '\u2014');
+    const retro = info.retrograde ? ' (R)' : '';
+    const label = planetLabel(key);
+    rows.push(`| ${label} | ${sign}${retro} | ${degree} | ${house} |`);
+  }
+  return rows;
+}
+
+function buildLiveAspectLines(aspects) {
+  if (!Array.isArray(aspects) || aspects.length === 0) return ['_No active aspects._'];
+  const lines = [];
+  for (const a of aspects) {
+    const p1 = titleCase(a.planet1 || '');
+    const p2 = titleCase(a.planet2 || '');
+    const aspect = titleCase(a.aspect || '');
+    const orb = formatOrb(a.orb);
+    lines.push(`- ${p1} ${aspect} ${p2} \u2014 orb ${orb}\u00B0`);
+  }
+  return lines;
+}
+
+function buildLiveElementLines(elements) {
+  if (!elements || typeof elements !== 'object') return [];
+  const rows = [];
+  const order = ['fire', 'earth', 'air', 'water'];
+  for (const e of order) {
+    const cap = titleCase(e);
+    const v = elements[e] != null ? elements[e] : (elements[cap] ?? '\u2014');
+    rows.push(`- ${cap}: ${v} points`);
+  }
+  const dom = dominantKey(elements);
+  if (dom) rows.push(`- Dominant: ${titleCase(dom)}`);
+  return rows;
+}
+
+function buildLiveModalityLines(modalities) {
+  if (!modalities || typeof modalities !== 'object') return [];
+  const rows = [];
+  const order = ['cardinal', 'fixed', 'mutable'];
+  for (const m of order) {
+    const cap = titleCase(m);
+    const v = modalities[m] != null ? modalities[m] : (modalities[cap] ?? '\u2014');
+    rows.push(`- ${cap}: ${v} points`);
+  }
+  return rows;
+}
+
+function buildLiveVedicLines(indian) {
+  if (!indian || typeof indian !== 'object') return [];
+  const lines = [];
+  // Panchanga fields
+  const tithi = indian.tithi;
+  if (tithi) {
+    const name = tithi.name || '\u2014';
+    const paksha = tithi.paksha || '';
+    const pct = tithi.percentage != null ? `${Math.round(tithi.percentage)}%` : '';
+    lines.push(`- Tithi: ${name}${paksha ? ' (' + paksha + ')' : ''}${pct ? ', ' + pct : ''}`);
+  }
+  if (indian.nakshatra) {
+    const n = indian.nakshatra;
+    lines.push(`- Nakshatra: ${n.name || '\u2014'}${n.percentage != null ? ' (' + Math.round(n.percentage) + '%)' : ''}`);
+  }
+  if (indian.yoga) lines.push(`- Yoga: ${indian.yoga.name || '\u2014'}`);
+  if (indian.karana) lines.push(`- Karana: ${indian.karana.name || '\u2014'}`);
+  if (indian.vara) {
+    const v = indian.vara;
+    lines.push(`- Vara: ${v.name || '\u2014'}${v.lord ? ' (' + v.lord + ')' : ''}`);
+  }
+  if (indian.ascendant) {
+    const a = indian.ascendant;
+    lines.push(`- Ascendant: ${a.formatted || (a.sign || '\u2014') + ' ' + formatDegree(a.degree) + '\u00B0'}`);
+  }
+  if (indian.planets && typeof indian.planets === 'object') {
+    for (const [key, info] of Object.entries(indian.planets)) {
+      if (!info) continue;
+      const label = planetLabel(key);
+      const sign = info.sign || '\u2014';
+      const degree = formatDegree(info.degree);
+      const retro = info.retrograde ? ' (R)' : '';
+      lines.push(`- ${label}: ${sign}${retro} ${degree}\u00B0`);
+    }
+  }
+  return lines;
+}
+
+function buildLiveMoonPhaseLines(moonPhase) {
+  if (!moonPhase || typeof moonPhase !== 'object') return [];
+  const lines = [];
+  const name = moonPhase.phase_name || moonPhase.name || '\u2014';
+  const illum = moonPhase.illumination != null
+    ? `${Number(moonPhase.illumination).toFixed(1)}%`
+    : '';
+  const desc = moonPhase.description || '';
+  lines.push(`- **${name}**${illum ? ' (' + illum + ' illuminated)' : ''}`);
+  if (desc) lines.push(`- ${desc}`);
+  return lines;
+}
+
+function buildLiveAuspiciousLines(auspicious) {
+  if (!auspicious || typeof auspicious !== 'object') return [];
+  const lines = [];
+  // Filter out obviously non-useful keys
+  const skip = new Set(['description']);
+  for (const [k, v] of Object.entries(auspicious)) {
+    if (skip.has(k) || v == null) continue;
+    const label = titleCase(k.replace(/_/g, ' '));
+    let val = v;
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
+      // ISO datetime \u2014 keep as-is
+      val = v;
+    } else if (typeof v === 'object') {
+      val = JSON.stringify(v);
+    }
+    lines.push(`- ${label}: ${val}`);
+  }
+  return lines;
+}
+
+export function formatLiveAstrologyMarkdown(data) {
+  if (!data || typeof data !== 'object') {
+    return '# Current Astrology\n\nNo data available.';
+  }
+
+  const sections = [];
+  // --- Header -----------------------------------------------------------
+  const dt = data.datetime || (data.timestamp ? new Date(data.timestamp * 1000).toISOString() : '');
+  const loc = data.location;
+  const locStr = loc && (loc.latitude != null && loc.longitude != null)
+    ? `${Number(loc.latitude).toFixed(4)}, ${Number(loc.longitude).toFixed(4)}`
+    : '';
+  const titleLine = `# Current Astrology${dt ? ' \u2014 ' + dt.slice(0, 16).replace('T', ' ') : ''}`;
+  sections.push([titleLine, '']);
+  if (locStr) sections.push([`**Location:** ${locStr}`, '']);
+  sections.push(['**Systems:** Tropical / Vedic (Lahiri) / BaZi (Lahiri ayanamsa)', '']);
+
+  // --- Moon Phase --------------------------------------------------------
+  if (data.moon_phase) {
+    sections.push(['## Moon Phase', '', ...buildLiveMoonPhaseLines(data.moon_phase), '']);
+  }
+
+  // --- Western ----------------------------------------------------------
+  const western = data.western;
+  if (western) {
+    sections.push(['## Western Tropical', '']);
+    if (western.positions && Object.keys(western.positions).length > 0) {
+      const planetRows = buildLiveWesternPlanetTable(western.positions);
+      if (planetRows.length > 0) {
+        sections.push([
+          '| Planet | Sign | Degree | House |',
+          '|--------|------|--------|-------|',
+          ...planetRows,
+          '',
+        ]);
+      }
+    }
+    if (western.elements) {
+      sections.push(['### Elements', '', ...buildLiveElementLines(western.elements), '']);
+    }
+    if (western.modalities) {
+      sections.push(['### Modalities', '', ...buildLiveModalityLines(western.modalities), '']);
+    }
+    if (Array.isArray(western.aspects) && western.aspects.length > 0) {
+      sections.push([
+        '### Active Aspects',
+        '',
+        ...buildLiveAspectLines(western.aspects),
+        '',
+      ]);
+    }
+  }
+
+  // --- Vedic (Indian) ---------------------------------------------------
+  if (data.indian) {
+    const vedicLines = buildLiveVedicLines(data.indian);
+    if (vedicLines.length > 0) {
+      sections.push(['## Vedic Sidereal (Lahiri)', '', ...vedicLines, '']);
+    }
+  }
+
+  // --- Chinese (BaZi) ---------------------------------------------------
+  if (data.chinese && typeof data.chinese === 'object') {
+    const c = data.chinese;
+    const chineseLines = [];
+    if (c.sheng_xiao || c.zodiac_animal) {
+      chineseLines.push(`- Sheng Xiao: ${c.sheng_xiao || c.zodiac_animal || '\u2014'}`);
+    }
+    if (c.solar_term) chineseLines.push(`- Solar Term: ${c.solar_term}`);
+    if (c.four_pillars && typeof c.four_pillars === 'object') {
+      for (const [k, v] of Object.entries(c.four_pillars)) {
+        chineseLines.push(`- ${titleCase(k)}: ${v}`);
+      }
+    }
+    if (c.five_elements_balance) {
+      const fb = c.five_elements_balance;
+      if (typeof fb === 'object' && !Array.isArray(fb)) {
+        const lines = Object.entries(fb).map(([elem, count]) => `- ${titleCase(elem)}: ${count}`);
+        chineseLines.push('- Element Balance:', ...lines);
+      }
+    }
+    if (chineseLines.length > 0) {
+      sections.push(['## Chinese Lunisolar (BaZi)', '', ...chineseLines, '']);
+    }
+  }
+
+  // --- Auspicious Times -------------------------------------------------
+  if (data.auspicious_times && Object.keys(data.auspicious_times).length > 0) {
+    const lines = buildLiveAuspiciousLines(data.auspicious_times);
+    if (lines.length > 0) {
+      sections.push(['## Auspicious Times', '', ...lines, '']);
+    }
+  }
+
+  return joinLines(sections);
+}
