@@ -340,6 +340,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
                 "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS."}
     elif name == "start_buddha_recitation":
         import asyncio
+
         from core.buddha_recitation_loop import get_recitation_loop
         loop = get_recitation_loop()
         if loop.state.running:
@@ -366,6 +367,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         return get_recitation_loop().get_status()
     elif name == "check_saka_dawa":
         from datetime import datetime as dt
+
         from core.models.practice import Practice
         practices = Practice.get_default_practices()
         saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
@@ -389,8 +391,8 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         sheet = gen.generate(use_llm=False)
         return sheet.to_dict()
     elif name == "start_character_journey" or name == "advance_journey" or name == "get_journey_status" or name == "run_full_journey":
-        from modules.radionics_operator import ToolDispatcher
         from container import container
+        from modules.radionics_operator import ToolDispatcher
         disp = ToolDispatcher(container)
         return disp.dispatch(name, args)
     else:
@@ -1133,15 +1135,7 @@ async def _chat_via_registry(
     ``system_prompt_holder`` is unused here (kept for signature symmetry with the
     fallback path); system prompt is built inside this function.
     """
-    from core.context import (
-        SystemPromptBuilder,
-        ContextRequest,
-        AstrologyContextModule,
-        AnatomyContextModule,
-        HardwareContextModule,
-    )
     from core.llm.retry import retry_with_backoff
-    from core.llm.models import ChatResponse as _ChatResponse
 
     registry = http_request.app.state.llm_registry
     # Build system prompt with context modules

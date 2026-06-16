@@ -665,7 +665,7 @@ class LegacyLLMIntegration:
 # Imported here (not at module top) to avoid an import cycle:
 # dharma.py imports only registry/models, but keeping it lazy is safer.
 def _load_async_dharma():
-    from core.llm.dharma import AsyncDharmaLLM, DHARMA_SYSTEM_PROMPT
+    from core.llm.dharma import DHARMA_SYSTEM_PROMPT, AsyncDharmaLLM
 
     return AsyncDharmaLLM, DHARMA_SYSTEM_PROMPT
 
@@ -689,7 +689,7 @@ class LegacyDharmaLLM:
         print(dharma.generate_prayer("peace and healing for all beings"))
     """
 
-    def __init__(self, llm: "LegacyLLMIntegration | ProviderRegistry") -> None:
+    def __init__(self, llm: LegacyLLMIntegration | ProviderRegistry) -> None:
         """Initialize the dharma adapter.
 
         Args:

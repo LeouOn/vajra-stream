@@ -22,7 +22,6 @@ from __future__ import annotations
 import logging
 import os
 
-from core.llm.registry import ProviderRegistry
 from core.llm.providers import (
     AnthropicProvider,
     DeepSeekProvider,
@@ -33,6 +32,7 @@ from core.llm.providers import (
     OpenRouterProvider,
     ZAIProvider,
 )
+from core.llm.registry import ProviderRegistry
 
 logger = logging.getLogger(__name__)
 
