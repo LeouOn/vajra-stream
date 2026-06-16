@@ -11,22 +11,24 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Send, Terminal, Cpu, Activity, Wifi, AlertTriangle, 
-  Sparkles, Shield, Compass, BookOpen, Clock, Play, Square, X, Moon, Sun
+  Send, Terminal, Cpu, AlertTriangle, 
+  Sparkles, Shield, Compass, BookOpen, Clock, Play, Square, X, Sun
 } from 'lucide-react';
-import { Card, Input, Button, Select, Switch, Tag, Modal, Tabs, Badge, Space, Statistic } from 'antd';
+import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 import { API_BASE } from '../../utils/api';
-import ScalarWaveVisualizer from '../2D/ScalarWaveVisualizer';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import { AttunementChart } from './AttunementChart';
 import SakaDawaBanner from './SakaDawaBanner';
 import JourneyCard from './JourneyCard';
 import BuddhaContemplationWidget from './BuddhaContemplationWidget';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
 import { RichMarkdownRenderer } from '../CommandCenter/RichMarkdownRenderer';
 import { quickCommands, createOperatorActions } from '../CommandCenter/constants';
+import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
+import CosmicAlignmentCard from '../CommandCenter/CosmicAlignmentCard';
+import LogsCard from '../CommandCenter/LogsCard';
+import ZoomModal from '../CommandCenter/ZoomModal';
 
 export default function CommandCenter({ 
   isConnected, 
@@ -544,404 +546,35 @@ export default function CommandCenter({
         <BuddhaContemplationWidget buddhaStatus={buddhaStatus} />
         
         {/* Status Monitors Card */}
-        <Card
-          title={<span className="text-white text-sm tracking-wider font-bold"><Activity className="w-4 h-4 text-purple-400 inline mr-2" />SYSTEM MONITORS</span>}
-          className="bg-gray-900/80 border-purple-500/20"
-          styles={{ body: { padding: '16px' } }}
-        >
-          
-          <div className="space-y-4">
-            
-            {/* Scalar Wave Interference Visualizer */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-gray-400 font-medium">Scalar Wave Field</span>
-              <div className="h-20">
-                <ScalarWaveVisualizer />
-              </div>
-            </div>
-
-            {/* Aura Field Coherence VU Meter */}
-            <div className="bg-white/5 p-3 rounded-lg border border-white/5">
-              <div className="flex justify-between items-center text-xs text-gray-400 font-medium mb-1.5">
-                <span>Aura Field Coherence</span>
-                <span className="text-purple-400 font-mono font-bold animate-pulse">{auraCoherence}%</span>
-              </div>
-              <div className="flex gap-0.5 h-2.5 bg-black/60 rounded p-0.5 overflow-hidden border border-white/5">
-                {Array.from({ length: 20 }).map((_, idx) => {
-                  const threshold = (idx / 20) * 100;
-                  const active = auraCoherence > threshold;
-                  let color = "bg-purple-950";
-                  if (active) {
-                    if (idx < 12) color = "bg-purple-500 shadow-[0_0_4px_rgba(168,85,247,0.7)]";
-                    else if (idx < 17) color = "bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.7)]";
-                    else color = "bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.7)]";
-                  }
-                  return <div key={idx} className={`flex-1 rounded-sm transition-all duration-300 ${color}`} />;
-                })}
-              </div>
-              <div className="flex justify-between text-[8px] text-gray-500 font-mono mt-1 select-none">
-                <span>MIN (0.0)</span>
-                <span>CALIBRATED (1.0)</span>
-                <span>PEAK</span>
-              </div>
-            </div>
-
-            {/* Live Attunement Metrics Chart */}
-            <div className="mt-2">
-              <AttunementChart />
-            </div>
-
-            {/* Connection Status */}
-            <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
-              <span className="text-xs text-gray-400 font-medium">Link Status</span>
-              <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex items-center gap-1.5 ${
-                isConnected 
-                  ? 'bg-green-950/80 border border-green-500/30 text-green-400' 
-                  : 'bg-red-950/80 border border-red-500/30 text-red-400'
-              }`}>
-                <Wifi className="w-3 h-3" />
-                {isConnected ? 'LIVE CONNECTED' : 'OFFLINE'}
-              </span>
-            </div>
-
-            {/* Freq generator status */}
-            <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
-              <span className="text-xs text-gray-400 font-medium">Audio Carrier</span>
-              <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex items-center gap-1.5 ${
-                isPlaying 
-                  ? 'bg-cyan-950/80 border border-cyan-500/30 text-cyan-400 animate-pulse' 
-                  : 'bg-gray-800/80 border border-white/10 text-gray-400'
-              }`}>
-                {isPlaying ? `${frequency.toFixed(1)} Hz` : 'INACTIVE'}
-              </span>
-            </div>
-
-            {/* Crystal Broadcaster Grid status */}
-            <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
-              <span className="text-xs text-gray-400 font-medium">Crystal Broadcaster</span>
-              <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
-                crystalStatus?.is_programmed
-                  ? 'bg-yellow-950/80 border border-yellow-500/30 text-yellow-400'
-                  : 'bg-gray-800/80 border border-white/10 text-gray-400'
-              }`}>
-                {crystalStatus?.is_programmed ? 'PROGRAMMED' : 'STANDBY'}
-              </span>
-            </div>
-
-            {/* Scalar status */}
-            <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
-              <span className="text-xs text-gray-400 font-medium">Scalar Array Rate</span>
-              <span className="text-xs font-mono text-indigo-300 font-bold bg-indigo-950/40 px-2 py-0.5 border border-indigo-500/20 rounded">
-                {scalarStatus?.rate || '0.00 / 0.00'}
-              </span>
-            </div>
-
-            {/* Active session count */}
-            <div className="bg-white/5 p-3 rounded-lg border border-white/5">
-              <div className="text-xs text-gray-400 font-medium mb-2">Active Blessing Rotations</div>
-              {Object.keys(sessions).length > 0 ? (
-                <div className="space-y-1.5 max-h-24 overflow-y-auto">
-                  {Object.values(sessions).map(session => (
-                    <div key={session.id} className="flex justify-between items-center text-xs">
-                      <span className="text-purple-300 truncate max-w-[70%]">{session.name}</span>
-                      <span className="text-[10px] bg-green-950 text-green-400 border border-green-500/30 px-1.5 py-0.2 rounded-full uppercase">
-                        {session.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-gray-500 italic">No operations active</div>
-              )}
-            </div>
-          </div>
-
-        </Card>
+        <SystemMonitorsCard
+          auraCoherence={auraCoherence}
+          isConnected={isConnected}
+          isPlaying={isPlaying}
+          frequency={frequency}
+          crystalStatus={crystalStatus}
+          scalarStatus={scalarStatus}
+          sessions={sessions}
+        />
 
         {/* Cosmic Alignment Widget */}
-        <Card
-          title={<span className="text-white text-sm tracking-wider font-bold"><Moon className="w-4 h-4 text-cyan-400 inline mr-2" />COSMIC ALIGNMENT</span>}
-          className="bg-gray-900/80 border-purple-500/20"
-          styles={{ body: { padding: '16px' } }}
-        >
-
-          {astroData ? (
-            <div className="space-y-4 text-xs">
-              
-              {/* Planetary Hour */}
-              <div className="p-3 bg-yellow-950/20 border border-yellow-500/20 rounded-xl flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-yellow-400 font-mono tracking-wider block uppercase">PLANETARY HOUR</span>
-                  <span className="text-sm font-bold text-white mt-0.5 block">{astroData.planetary_hours?.current_planetary_hour} hour</span>
-                </div>
-                <span className="text-xs font-mono text-gray-400">Day: {astroData.planetary_hours?.day_planet}</span>
-              </div>
-
-              {/* Vedic Panchang */}
-              <div className="p-3 bg-purple-950/20 border border-purple-500/20 rounded-xl space-y-1.5">
-                <span className="text-[10px] text-purple-400 font-mono tracking-wider block uppercase">VEDIC PANCHANG</span>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Tithi:</span>
-                  <span className="text-gray-200 font-bold">{astroData.indian?.panchanga?.tithi?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Nakshatra:</span>
-                  <span className="text-gray-200 font-bold">{astroData.indian?.panchanga?.nakshatra?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Yoga:</span>
-                  <span className={`font-bold ${astroData.indian?.panchanga?.yoga?.name === 'Vajra' ? 'text-yellow-300 animate-pulse glow-text' : 'text-gray-200'}`}>
-                    {astroData.indian?.panchanga?.yoga?.name}
-                  </span>
-                </div>
-              </div>
-
-              {/* Chinese Pillar summary */}
-              <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl space-y-1.5">
-                <span className="text-[10px] text-cyan-400 font-mono tracking-wider block uppercase">CHINESE LUNAR</span>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Zodiac:</span>
-                  <span className="text-gray-200 font-bold">{astroData.chinese?.zodiac_animal} (Year)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Lunar Date:</span>
-                  <span className="text-gray-200 font-bold">Month {astroData.chinese?.lunar_date?.month} Day {astroData.chinese?.lunar_date?.day}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Shichen:</span>
-                  <span className="text-gray-200 font-bold">{astroData.chinese?.shichen?.name} ({astroData.chinese?.shichen?.branch})</span>
-                </div>
-              </div>
-
-            </div>
-          ) : (
-            <div className="text-xs text-gray-500 italic py-2 text-center">Tuning astronomical clocks...</div>
-          )}
-        </Card>
+        <CosmicAlignmentCard astroData={astroData} />
 
         {/* Tool Execution / LLM Debug Logs (Terminal UI) */}
-        <Card
-          className="flex-1 min-h-[220px] bg-gray-900/80 border-purple-500/20 font-mono"
-          styles={{ body: { padding: '12px', display: 'flex', flexDirection: 'column', flex: 1 } }}
-          title={
-            <Tabs
-              size="small"
-              activeKey={activeLogTab}
-              onChange={(key) => { setActiveLogTab(key); audioFeedback.playClick(); }}
-              style={{ marginBottom: 0 }}
-              items={[
-                { key: 'tools', label: 'TOOLS' },
-                { key: 'debug', label: 'LLM DEBUG' }
-              ]}
-            />
-          }
-          extra={
-            activeLogTab === 'tools' ? (
-              <Button size="small" type="text" onClick={() => { setToolLogs([]); audioFeedback.playClick(); }} style={{ color: '#9ca3af', fontSize: '10px' }}>CLEAR</Button>
-            ) : (
-              <Button size="small" type="text" onClick={() => { setDebugPayload(null); audioFeedback.playClick(); }} style={{ color: '#9ca3af', fontSize: '10px' }}>RESET</Button>
-            )
-          }
-        >
-          
-          {activeLogTab === 'tools' ? (
-            <div className="flex-1 overflow-y-auto space-y-2 text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
-              {toolLogs.map((log, i) => (
-                <div key={i} className="flex items-start gap-1">
-                  <span className="text-gray-600 select-none">[{log.timestamp}]</span>
-                  <span className={`font-bold select-none ${
-                    log.type === 'tool' ? 'text-cyan-400' :
-                    log.type === 'llm' ? 'text-purple-400' :
-                    log.type === 'system' ? 'text-yellow-400' : 'text-gray-500'
-                  }`}>
-                    {log.type.toUpperCase()}:
-                  </span>
-                  <span className={`
-                    ${log.status === 'success' ? 'text-green-400' :
-                      log.status === 'error' ? 'text-red-400' :
-                      log.status === 'pending' ? 'text-yellow-400 animate-pulse' : 'text-gray-300'
-                    }
-                  `}>
-                    {log.message}
-                  </span>
-                </div>
-              ))}
-              <div ref={logEndRef} />
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto text-[10px] font-mono leading-normal text-cyan-300/90 whitespace-pre scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent bg-black/45 p-2 rounded border border-white/5 select-text selection:bg-purple-950/80">
-              {debugPayload ? (
-                JSON.stringify(debugPayload, null, 2)
-              ) : (
-                <span className="text-gray-500 italic">No telemetry data. Enable "Debug Payload" checkbox and submit a query.</span>
-              )}
-            </div>
-          )}
-        </Card>
+        <LogsCard
+          activeLogTab={activeLogTab}
+          toolLogs={toolLogs}
+          debugPayload={debugPayload}
+          logEndRef={logEndRef}
+          onTabChange={setActiveLogTab}
+          onClearLogs={() => setToolLogs([])}
+          onResetDebug={() => setDebugPayload(null)}
+        />
 
       </div>
     </div>
 
       {/* Zoom Modal */}
-      <Modal
-        open={!!activeZoomItem}
-        onCancel={() => setActiveZoomItem(null)}
-        footer={null}
-        width={800}
-        centered
-        styles={{ body: { padding: '24px', background: '#0a0a0a', display: 'flex', gap: '24px', maxHeight: '80vh', overflowY: 'auto' } }}
-      >
-        {activeZoomItem && (
-          <>
-            {/* Left: Graphic Container */}
-            <div className="flex-1 flex items-center justify-center bg-gray-900/60 rounded-xl p-4 border border-white/5 min-h-[300px]">
-              {activeZoomItem.type === 'sigil' && activeZoomItem.svg && (
-                <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[280px] h-full flex items-center justify-center shadow-lg" />
-              )}
-              {activeZoomItem.type === 'sigil_ai' && activeZoomItem.ai_image && (
-                <img src={activeZoomItem.ai_image} alt={activeZoomItem.title} className="w-full max-w-[280px] object-contain rounded-xl shadow-lg border border-purple-500/20" />
-              )}
-              {activeZoomItem.type === 'tarot' && activeZoomItem.svg && (
-                <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[160px] h-full flex items-center justify-center shadow-lg" />
-              )}
-              {activeZoomItem.type === 'iching' && activeZoomItem.svg && (
-                <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[320px] h-full flex items-center justify-center shadow-lg" />
-              )}
-              {activeZoomItem.type === 'geomancy' && activeZoomItem.svg && (
-                <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[360px] h-full flex items-center justify-center shadow-lg" />
-              )}
-            </div>
-
-            {/* Right: Info details */}
-            <div className="flex-1 flex flex-col justify-start space-y-4">
-              <div>
-                <span className="text-[10px] text-purple-400 font-mono font-bold tracking-widest block uppercase">VAJRA.STREAM ORACLE</span>
-                <h3 className="text-xl font-bold text-white font-serif">{activeZoomItem.title}</h3>
-              </div>
-
-              {/* Tarot details */}
-              {activeZoomItem.type === 'tarot' && activeZoomItem.card && (
-                <div className="space-y-3 text-sm text-gray-300">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2 py-0.5 bg-purple-950 text-purple-300 border border-purple-500/20 rounded-md text-[10px] font-mono">
-                      ELEMENT: {activeZoomItem.card.element}
-                    </span>
-                    {activeZoomItem.card.ruler && (
-                      <span className="px-2 py-0.5 bg-cyan-950 text-cyan-300 border border-cyan-500/20 rounded-md text-[10px] font-mono">
-                        RULER: {activeZoomItem.card.ruler}
-                      </span>
-                    )}
-                    {activeZoomItem.card.hebrew && (
-                      <span className="px-2 py-0.5 bg-yellow-950 text-yellow-300 border border-yellow-500/20 rounded-md text-[10px] font-mono">
-                        LETTER: {activeZoomItem.card.hebrew}
-                      </span>
-                    )}
-                    <span className="px-2 py-0.5 bg-gray-800 text-gray-200 border border-white/5 rounded-md text-[10px] font-mono">
-                      {activeZoomItem.card.orientation.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="space-y-2 border-t border-white/10 pt-3">
-                    <h4 className="text-xs font-bold text-white font-mono uppercase">Esoteric Meaning</h4>
-                    <p className="italic text-purple-200 bg-purple-900/10 p-3 rounded-lg border border-purple-500/10">
-                      "{activeZoomItem.card.meaning}"
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Sigil details */}
-              {(activeZoomItem.type === 'sigil' || activeZoomItem.type === 'sigil_ai') && (
-                <div className="space-y-3 text-sm text-gray-300">
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-bold text-cyan-400 font-mono uppercase">Intention Focus</h4>
-                    <p className="italic text-cyan-100 bg-cyan-900/10 p-3 rounded-lg border border-cyan-500/10">
-                      "{activeZoomItem.intention}"
-                    </p>
-                  </div>
-                  <div className="border-t border-white/10 pt-3 text-xs text-gray-400 leading-relaxed font-mono">
-                    <p>Frequencies tuned. Kamea grid calculation completed. Scalar intention broadcast set at peak resonance.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* I Ching details */}
-              {activeZoomItem.type === 'iching' && activeZoomItem.cast && (
-                <div className="space-y-3 text-sm text-gray-300">
-                  <div className="space-y-2">
-                    <span className="text-xs font-bold text-white font-mono uppercase block">Primary Hexagram</span>
-                    <div className="p-3 bg-gray-900/60 rounded-lg border border-white/5">
-                      <span className="font-bold text-cyan-400 block">{activeZoomItem.cast.primary?.name}</span>
-                      <p className="text-xs text-gray-300 mt-1">{activeZoomItem.cast.primary?.meaning}</p>
-                    </div>
-                  </div>
-                  
-                  {activeZoomItem.cast.has_changes && (
-                    <div className="space-y-2 pt-2 border-t border-white/10">
-                      <span className="text-xs font-bold text-purple-300 font-mono uppercase block">Relating Hexagram (After Changes)</span>
-                      <div className="p-3 bg-gray-900/60 rounded-lg border border-purple-500/10">
-                        <span className="font-bold text-purple-300 block">{activeZoomItem.cast.relating?.name}</span>
-                        <p className="text-xs text-gray-300 mt-1">{activeZoomItem.cast.relating?.meaning}</p>
-                      </div>
-                      <div className="text-[10px] text-gray-400 font-mono">
-                        Changing Lines: {activeZoomItem.cast.changing_lines.join(', ')}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Geomancy details */}
-              {activeZoomItem.type === 'geomancy' && activeZoomItem.chart && (
-                <div className="space-y-3 text-sm text-gray-300">
-                  <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                    <div className="p-2 bg-gray-900/60 border border-white/5 rounded">
-                      <span className="text-gray-500 block">THE JUDGE</span>
-                      <span className="text-yellow-400 font-bold">{activeZoomItem.chart.figures?.Judge?.name}</span>
-                    </div>
-                    <div className="p-2 bg-gray-900/60 border border-white/5 rounded">
-                      <span className="text-gray-500 block">RECONCILER</span>
-                      <span className="text-yellow-400 font-bold">{activeZoomItem.chart.figures?.Reconciler?.name}</span>
-                    </div>
-                    <div className="p-2 bg-gray-900/60 border border-white/5 rounded">
-                      <span className="text-gray-500 block">RIGHT WITNESS</span>
-                      <span className="text-gray-300">{activeZoomItem.chart.figures?.['Right Witness']?.name}</span>
-                    </div>
-                    <div className="p-2 bg-gray-900/60 border border-white/5 rounded">
-                      <span className="text-gray-500 block">LEFT WITNESS</span>
-                      <span className="text-gray-300">{activeZoomItem.chart.figures?.['Left Witness']?.name}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t border-white/10 pt-3 space-y-2">
-                    <h4 className="text-xs font-bold text-white font-mono uppercase">Geomantic Meaning (Judge)</h4>
-                    <p className="italic text-yellow-200 bg-yellow-950/10 p-3 rounded-lg border border-yellow-500/10">
-                      "{activeZoomItem.chart.figures?.Judge?.meaning}"
-                    </p>
-                  </div>
-
-                  <div className="border-t border-white/10 pt-3">
-                    <h4 className="text-xs font-bold text-white font-mono uppercase mb-2">Astrological House Projection</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px] max-h-32 overflow-y-auto pr-1">
-                      {Array.from({ length: 12 }).map((_, idx) => {
-                        const houseNum = idx + 1;
-                        const figure = activeZoomItem.chart.houses?.[houseNum];
-                        if (!figure) return null;
-                        return (
-                          <div key={houseNum} className="p-1.5 bg-black/40 border border-white/5 rounded flex flex-col justify-between">
-                            <span className="text-gray-500 font-bold">House {houseNum}</span>
-                            <span className="text-purple-300 font-semibold truncate">{figure.name}</span>
-                            <span className="text-[8px] text-gray-400 font-mono truncate">{figure.element} / {figure.ruler}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </Modal>
+      <ZoomModal activeZoomItem={activeZoomItem} onClose={() => setActiveZoomItem(null)} />
 
     </div>
   );
