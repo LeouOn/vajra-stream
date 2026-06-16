@@ -502,6 +502,19 @@ export default function AstrologyPanel() {
             <button onClick={handleResetToLive} className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
               isLiveMode ? 'bg-green-600 border-green-400 text-white animate-pulse' : 'bg-white/5 border-white/10 text-gray-400'
             }`}>🔴 LIVE</button>
+            <Button
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={handleCopyNatalChart}
+              className="text-[10px]"
+              style={{
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                border: 'none',
+                color: '#fff',
+              }}
+            >
+              Copy for LLM
+            </Button>
             <button onClick={() => isLiveMode ? fetchLiveAstrology() : (activeChart ? loadNatalChart(activeChart) : fetchLiveAstrology())} className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -569,21 +582,6 @@ export default function AstrologyPanel() {
                       </Col>
                       <Col>
                         <Space size={8} align="center">
-                          {activeChart && (
-                            <Button
-                              size="small"
-                              icon={<CopyOutlined />}
-                              onClick={handleCopyNatalChart}
-                              className="text-[10px]"
-                              style={{
-                                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                border: 'none',
-                                color: '#fff',
-                              }}
-                            >
-                              Copy Natal Chart
-                            </Button>
-                          )}
                           <span className="text-[10px] text-gray-500 font-mono">COORD: GEOCENTRIC</span>
                         </Space>
                       </Col>
