@@ -1,0 +1,115 @@
+================================================================================
+Wave 4 Task 24 — WebSocket message drift reconciliation (remediation-24)
+================================================================================
+
+PURPOSE
+  Reconcile WebSocket message-type drift in BOTH directions between the active
+  backend emit sites and the frontend useWebSocketStable switch, using strict
+  TDD. Source of truth: .omo/evidence/wave0-task3-ws-whitelist.json (Wave 0 T3).
+
+CANONICAL WHITELIST (18 backend-emitted types)
+  - 14 matched (backend emits + frontend handles)
+  - 4 backend_only (backend emits, frontend must handle)
+      * ERROR (uppercase)        — fixed in Wave 1 Task 10 (pre-existing)
+      * SESSION_STARTED          — ADDED this task
+      * settings_updated         — ADDED this task
+      * system_error             — ADDED this task
+
+DRIFT RECONCILED
+  Backend-only (3 cases ADDED to useWebSocketStable.ts):
+    + SESSION_STARTED    handler: console.log(session_id, intention)
+    + settings_updated   handler: console.log(message)
+    + system_error       handler: console.error + setError(message || fallback)
+
+  Frontend-only (9 DEAD case branches DELETED from useWebSocketStable.ts):
+    - audio_spectrum
+    - RITUAL_ENGINE_STATUS
+    - BLESSING_STARTED
+    - JOURNEY_STAGE_STARTED
+    - JOURNEY_STAGE_COMPLETED
+    - JOURNEY_COMPLETED
+    - BUDDHA_RECITATION_STARTED
+    - BUDDHA_NAME_RECITED
+    - BUDDHA_RECITATION_STOPPED
+
+TDD EVIDENCE (RED -> GREEN)
+  RED (before fix): 4 failing assertions
+    - frontend had 24 case labels; canonical backend set has 18
+    - missing:  [SESSION_STARTED, settings_updated, system_error]
+    - dead:     [audio_spectrum, RITUAL_ENGINE_STATUS, BLESSING_STARTED,
+                 JOURNEY_STAGE_STARTED, JOURNEY_STAGE_COMPLETED, JOURNEY_COMPLETED,
+                 BUDDHA_RECITATION_STARTED, BUDDHA_NAME_RECITED,
+                 BUDDHA_RECITATION_STOPPED]
+
+  GREEN (after fix): 4 passing assertions
+    - frontend case set (18) == canonical backend set (18), exact equality
+    - reconnect survival: every backend type now has an explicit case, so
+      receiving any backend message cannot break the connection (onmessage
+      try/catch + exhaustive cases).
+
+ARTIFACTS
+  Test (RED->GREEN):  frontend/src/__tests__/hooks/ws-contract.test.ts
+                      (4 tests, static-analysis bidirectional contract)
+  Implementation:     frontend/src/hooks/useWebSocketStable.ts (switch block)
+  CI audit guard:     scripts/audit_ws_contract.py (exits 0 on match, 1 on drift)
+
+VERIFICATION COMMANDS + RESULTS
+  1. python scripts/audit_ws_contract.py
+       RESULT: PASS - backend and frontend message-type sets match exactly.
+       Backend-emitted types: 18 | Frontend case labels: 18 | Matched: 18
+       EXIT_CODE=0
+
+  2. cd frontend; npm run build
+       vite v4.5.14 building for production...
+       6570 modules transformed.
+       built in 17.68s
+       BUILD_EXIT=0
+       (warnings are pre-existing: chunk-size + three-mesh-bvh BatchedMesh;
+        unrelated to this change.)
+
+  3. cd frontend; npx vitest run --config vitest.config.ts
+       Test Files  27 passed (27)
+       Tests       372 passed (372)
+       VITEST_EXIT=0
+       (stderr warnings are pre-existing antd act(...) / Space.deprecated noise;
+        unrelated to this change.)
+
+SCOPE / CONSTRAINTS HONORED
+  [x] Wave 0 Task 3 whitelist used as single source of truth
+  [x] Lowercase 'error' AND uppercase 'ERROR' handlers preserved (Task 10)
+  [x] No backend code touched
+  [x] WebSocket transport layer (heartbeat, reconnect, timeout) untouched
+  [x] No backend emitters added for dead frontend branches (deleted, not wired)
+  [x] Audit script committed as the regression-prevention mechanism
+
+POST-FIX FRONTEND SWITCH CASES (canonical 18, alphabetical)
+  BLESSING_STARTED            [deleted]
+  BUDDHA_NAME_RECITED         [deleted]
+  BUDDHA_RECITATION_STARTED   [deleted]
+  BUDDHA_RECITATION_STOPPED   [deleted]
+  BUDDHA_RECITATION_UPDATE    [kept]
+  CRYSTAL_BROADCAST_STARTED   [kept]
+  ERROR                       [kept, Task 10]
+  JOURNEY_COMPLETED           [deleted]
+  JOURNEY_STAGE_COMPLETED     [deleted]
+  JOURNEY_STAGE_STARTED       [deleted]
+  PROVIDER_HEALTH             [kept]
+  RADIONICS_RATE_BROADCAST    [kept]
+  RNG_READING                 [kept]
+  SAKA_DAWA_CHECK             [kept]
+  SCALAR_WAVE_ACTIVE          [kept]
+  SESSION_STARTED             [ADDED]
+  audio_spectrum              [deleted]
+  connection_status           [kept]
+  error                       [kept]
+  heartbeat                   [kept]
+  ping                        [kept]
+  pong                        [kept]
+  realtime_data               [kept]
+  session_update              [kept]
+  settings_updated            [ADDED]
+  system_error                [ADDED]
+  RITUAL_ENGINE_STATUS        [deleted]
+  ---
+  total after fix: 18 cases == 18 backend types (zero drift)
+================================================================================

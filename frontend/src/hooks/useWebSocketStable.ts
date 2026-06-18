@@ -185,11 +185,13 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
               setSessions(data.active_sessions || {});
               setLastUpdate(new Date(data.timestamp * 1000));
               break;
-            case 'audio_spectrum':
-              setAudioSpectrum(data.data || []);
-              break;
             case 'session_update':
               setSessions(prev => ({ ...prev, [data.data.id]: data.data }));
+              break;
+            // Backend: connection_manager_stable_v2.py:124 — session lifecycle event.
+            // Informational; session_update delivers the actual session data payload.
+            case 'SESSION_STARTED':
+              console.log('Session started:', data.session_id, data.intention);
               break;
             case 'connection_status':
               setConnectionStatus(data.status as WSConnectionState);
@@ -212,15 +214,9 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'SAKA_DAWA_CHECK':
               setSakaDawa(data.data as SakaDawaResult);
               break;
-            case 'RITUAL_ENGINE_STATUS':
-              setRitualStatus(data.data as Record<string, unknown>);
-              break;
             case 'PROVIDER_HEALTH':
               setProviderHealth((data as { statuses?: ProviderHealthStatus[] }).statuses || []);
               setLastProviderHealthUpdate(Date.now());
-              break;
-            case 'BLESSING_STARTED':
-              console.log('Blessing started:', data.data);
               break;
             case 'CRYSTAL_BROADCAST_STARTED':
               setCrystalStatus({ active: true, intention: data.data.intention });
@@ -231,23 +227,25 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'SCALAR_WAVE_ACTIVE':
               setScalarStatus(prev => ({ ...prev, active: data.data.active }));
               break;
-            case 'JOURNEY_STAGE_STARTED':
-            case 'JOURNEY_STAGE_COMPLETED':
-            case 'JOURNEY_COMPLETED':
-              console.log(`Journey event: ${data.type}`, data.data);
-              break;
-            case 'BUDDHA_RECITATION_STARTED':
-            case 'BUDDHA_NAME_RECITED':
-            case 'BUDDHA_RECITATION_STOPPED':
-              console.log(`Recitation event: ${data.type}`, data.data);
+            // Backend: connection_manager_stable_v2.py:137 — settings-change ack.
+            // No settings store lives in this hook; surface as informational log.
+            case 'settings_updated':
+              console.log('Settings updated:', data.message);
               break;
             // Backend emits BOTH uppercase 'ERROR' (connection_manager_stable_v2.py:109,131)
             // AND lowercase 'error' (lines 89,93). Explicit fall-through so both surface
             // to the user via setError(); previously uppercase ERROR silently hit default.
+            // (Wave 1 Task 10 added the uppercase ERROR branch.)
             case 'ERROR':
             case 'error':
               console.error('Server error:', data.message);
               setError(data.message);
+              break;
+            // Backend: connection_manager_stable_v2.py:277 — system-level error.
+            // Surface to the user alongside the ERROR/error branches.
+            case 'system_error':
+              console.error('System error:', data.message);
+              setError(data.message || 'System error occurred');
               break;
             default:
               console.log('Unknown WebSocket message type:', data.type);
