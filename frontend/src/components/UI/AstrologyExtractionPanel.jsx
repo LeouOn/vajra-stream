@@ -387,7 +387,7 @@ const AstrologyExtractionPanel = () => {
       setLocationsLoading(true);
       setLocationsError(null);
       try {
-        const res = await fetch(`${API_BASE}/api/v1/astrology/locations`);
+        const res = await fetch(`${API_BASE}/astrology/locations`);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
