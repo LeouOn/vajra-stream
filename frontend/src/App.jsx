@@ -292,12 +292,12 @@ function AppContent() {
                     frequency={frequency}
                     pattern={mandalaSettings.pattern}
                     chakra={mandalaSettings.chakra}
-                    complejidad={mandalaSettings.complejidad}
+                    complexity={mandalaSettings.complexity}
                   />
                   <MandalaControls
                     pattern={mandalaSettings.pattern}
                     chakra={mandalaSettings.chakra}
-                    complejidad={mandalaSettings.complejidad}
+                    complexity={mandalaSettings.complexity}
                     onSettingsChange={setMandalaSettings}
                   />
                   <OrbitControls enableZoom={true} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.4} />

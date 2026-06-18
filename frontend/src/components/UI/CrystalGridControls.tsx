@@ -5,9 +5,8 @@ import { Gem, Settings, Save, RotateCcw } from 'lucide-react';
  * Crystal Grid Configuration Panel
  * Allows users to customize crystal grid visualization settings
  *
- * Note: the emitted settings object has consistent field names
- * (unlike MandalaControls which intentionally renames complexity →
- * complejidad for the parent canvas). The parent visualization
+ * The emitted settings object uses English canonical field names
+ * (consistent with MandalaControls). The parent visualization
  * (CrystalGrid canvas) reads each key under its English name.
  */
 

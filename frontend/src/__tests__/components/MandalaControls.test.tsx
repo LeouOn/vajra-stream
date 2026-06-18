@@ -62,6 +62,6 @@ describe('<MandalaControls />', () => {
     expect(captured).not.toBeNull();
     expect(captured).toHaveProperty('pattern');
     expect(captured).toHaveProperty('chakra');
-    expect(captured).toHaveProperty('complejidad'); // note: existing prop is Spanish
+    expect(captured).toHaveProperty('complexity'); // complexity prop is English canonical
   });
 });
