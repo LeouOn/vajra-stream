@@ -9,6 +9,10 @@
  * Design mirrors the sanctuary aesthetic: no bright tags, no busy stats.
  * Just quiet typographic rows separated by hairline dividers.
  *
+ * NOTE: Colors are hardcoded (not CSS variables) because the Drawer renders
+ * in a portal at document.body — outside the .sanctuary-root scope where
+ * the CSS custom properties are defined.
+ *
  * @component
  * @param {Object} props
  * @param {boolean} props.open             Drawer visibility.
@@ -19,9 +23,23 @@
  */
 import React from 'react';
 import { Drawer, Typography, Empty, Button } from 'antd';
-import { History } from 'lucide-react';
 
 const { Text } = Typography;
+
+// --- Sanctuary palette (mirrors StyleBlock in index.jsx) ---
+const C = {
+  bg:          '#0c0c16',
+  surface:     'rgba(245, 240, 230, 0.035)',
+  surfaceHover:'rgba(245, 240, 230, 0.06)',
+  border:      'rgba(245, 240, 230, 0.07)',
+  text:        '#e6dfd2',
+  textSoft:    'rgba(230, 223, 210, 0.62)',
+  textFaint:   'rgba(230, 223, 210, 0.38)',
+  gold:        '#c9a572',
+  goldSoft:    'rgba(201, 165, 114, 0.5)',
+  goldFaint:   'rgba(201, 165, 114, 0.18)',
+  serif:       'Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif',
+};
 
 /** Order of the arc — used to label the furthest phase reached. */
 const PHASE_ORDER = ['arrival', 'seeing', 'meeting', 'release', 'dedication', 'completed'];
@@ -36,7 +54,6 @@ const PHASE_LABEL = {
 
 function phaseReachedLabel(phasesCompleted) {
   if (!Array.isArray(phasesCompleted) || phasesCompleted.length === 0) return 'Arrival';
-  // The furthest phase the session touched.
   let furthestIdx = 0;
   for (const p of phasesCompleted) {
     const idx = PHASE_ORDER.indexOf(p);
@@ -75,7 +92,13 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
   return (
     <Drawer
       title={
-        <span style={{ fontFamily: 'var(--sanctuary-serif)', letterSpacing: '0.14em', textTransform: 'uppercase', fontSize: 12, color: 'var(--sanctuary-text-soft)' }}>
+        <span style={{
+          fontFamily: C.serif,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          fontSize: 12,
+          color: C.textSoft,
+        }}>
           Past Sessions
         </span>
       }
@@ -84,44 +107,54 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
       onClose={onClose}
       size="default"
       styles={{
-        header: { borderBottom: '1px solid var(--sanctuary-surface-border)' },
-        body: { padding: 0 },
-        mask: { background: 'rgba(4,4,8,0.55)', backdropFilter: 'blur(2px)' },
+        header: {
+          borderBottom: `1px solid ${C.border}`,
+          background: C.bg,
+        },
+        body: {
+          padding: 0,
+          background: C.bg,
+        },
+        mask: {
+          background: 'rgba(4,4,8,0.55)',
+          backdropFilter: 'blur(2px)',
+        },
+        content: {
+          background: C.bg,
+        },
       }}
-      style={{ background: 'var(--sanctuary-bg-elev)' }}
     >
-      <History
-        size={0}
-        style={{ display: 'none' }}
-        aria-hidden="true"
-      />
       {rows.length === 0 ? (
-        <div style={{ padding: '40px 24px' }}>
+        <div style={{ padding: '40px 24px', background: C.bg }}>
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
-              <Text style={{ color: 'var(--sanctuary-text-faint)', fontSize: 13, fontFamily: 'var(--sanctuary-serif)' }}>
+              <Text style={{
+                color: C.textFaint,
+                fontSize: 13,
+                fontFamily: C.serif,
+              }}>
                 No previous sessions. The space is open.
               </Text>
             }
           />
         </div>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, background: C.bg }}>
           {rows.map((s) => {
             const id = s.session_id ?? s.id;
             const isCurrent = currentSessionId != null && String(id) === String(currentSessionId);
             const reached = phaseReachedLabel(s.phases_completed);
             const snip = snippet(s.summary);
             return (
-              <li key={id} style={{ borderBottom: '1px solid var(--sanctuary-surface-border)' }}>
+              <li key={id} style={{ borderBottom: `1px solid ${C.border}` }}>
                 <button
                   type="button"
                   onClick={() => onSelect && onSelect(id)}
                   style={{
                     width: '100%',
                     textAlign: 'left',
-                    background: isCurrent ? 'rgba(201,165,114,0.06)' : 'transparent',
+                    background: isCurrent ? C.goldFaint : 'transparent',
                     border: 'none',
                     padding: '18px 24px',
                     cursor: 'pointer',
@@ -129,7 +162,7 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
                     transition: 'background 240ms ease',
                   }}
                   onMouseEnter={(e) => {
-                    if (!isCurrent) e.currentTarget.style.background = 'rgba(245,240,230,0.025)';
+                    if (!isCurrent) e.currentTarget.style.background = C.surfaceHover;
                   }}
                   onMouseLeave={(e) => {
                     if (!isCurrent) e.currentTarget.style.background = 'transparent';
@@ -143,41 +176,52 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
                         height: 6,
                         borderRadius: '50%',
                         flex: '0 0 6px',
-                        background: isCurrent ? 'var(--sanctuary-gold)' : 'var(--sanctuary-text-faint)',
-                        boxShadow: isCurrent ? '0 0 8px var(--sanctuary-gold-soft)' : 'none',
+                        background: isCurrent ? C.gold : C.textFaint,
+                        boxShadow: isCurrent ? `0 0 8px ${C.goldSoft}` : 'none',
                       }}
                     />
                     <span
                       style={{
-                        fontFamily: 'var(--sanctuary-serif)',
+                        fontFamily: C.serif,
                         fontSize: 12,
                         letterSpacing: '0.12em',
                         textTransform: 'uppercase',
-                        color: isCurrent ? 'var(--sanctuary-gold)' : 'var(--sanctuary-text-soft)',
+                        color: isCurrent ? C.gold : C.textSoft,
                       }}
                     >
                       {reached}
                     </span>
                     {s.ended_at && (
-                      <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--sanctuary-text-faint)', letterSpacing: '0.08em' }}>
+                      <span style={{
+                        marginLeft: 'auto',
+                        fontSize: 10,
+                        color: C.textFaint,
+                        letterSpacing: '0.08em',
+                        fontFamily: C.serif,
+                      }}>
                         sealed
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--sanctuary-text-faint)', fontFamily: 'var(--sanctuary-serif)', marginBottom: snip ? 8 : 0 }}>
+                  <div style={{
+                    fontSize: 11,
+                    color: C.textFaint,
+                    fontFamily: C.serif,
+                    marginBottom: snip ? 8 : 0,
+                  }}>
                     {formatStartedAt(s.started_at) || `Session ${id}`}
                   </div>
                   {snip && (
                     <div
                       style={{
-                        fontFamily: 'var(--sanctuary-serif)',
+                        fontFamily: C.serif,
                         fontSize: 13,
                         lineHeight: 1.6,
-                        color: 'var(--sanctuary-text-soft)',
+                        color: C.textSoft,
                         fontStyle: 'italic',
                       }}
                     >
-                      “{snip}”
+                      "{snip}"
                     </div>
                   )}
                 </button>
@@ -188,8 +232,21 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
       )}
 
       {rows.length > 0 && (
-        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--sanctuary-surface-border)' }}>
-          <Button type="text" block onClick={onClose} style={{ color: 'var(--sanctuary-text-faint)', fontFamily: 'var(--sanctuary-serif)', letterSpacing: '0.08em' }}>
+        <div style={{
+          padding: '16px 24px',
+          borderTop: `1px solid ${C.border}`,
+          background: C.bg,
+        }}>
+          <Button
+            type="text"
+            block
+            onClick={onClose}
+            style={{
+              color: C.textFaint,
+              fontFamily: C.serif,
+              letterSpacing: '0.08em',
+            }}
+          >
             Close
           </Button>
         </div>
