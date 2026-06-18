@@ -109,6 +109,10 @@ ignore = [
     "E741",  # ambiguous variable name 'l' — idiomatic in comprehensions
 ]
 
+# FROZEN per remediation-30 — no new suppressions allowed (Guardrail G10).
+# Do NOT add file patterns or append rule codes here without raising the
+# snapshot in tests/unit/test_no_new_ruff_suppressions.py (and justifying why).
+# Current baseline: 11 file-pattern entries, 22 total rule-code suppressions.
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "ANN"]
 "scripts/**" = ["D", "ANN", "E722", "F841", "E402", "F401"]
