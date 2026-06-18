@@ -46,6 +46,35 @@ class HealingSessionCompleted(DomainEvent):
 
 
 @dataclass
+class RecitationStarted(DomainEvent):
+    """Event: 88-Buddha recitation loop has started.
+
+    Emitted by :meth:`BuddhaRecitationLoop.start` after the DB session row
+    has been inserted. ``session_id`` is the integer primary key of the new
+    ``buddha_recitation_sessions`` row.
+    """
+
+    intention: str
+    session_id: int
+
+
+@dataclass
+class RecitationCompleted(DomainEvent):
+    """Event: 88-Buddha recitation loop has stopped.
+
+    Emitted by :meth:`BuddhaRecitationLoop.stop` after the DB row has been
+    finalized with ``ended_at`` + ``summary``. Carries the final counters
+    and the dedication text so downstream consumers (DailyStreak, event log)
+    can react without re-querying the DB.
+    """
+
+    session_id: int
+    cycles_completed: int
+    total_recited: int
+    dedication_text: str | None
+
+
+@dataclass
 class ScalarWavesGenerated(DomainEvent):
     """Event: Scalar waves have been generated"""
 
