@@ -68,6 +68,54 @@ class OutlookService:
             self._generator = OutlookGenerator()
         return self._generator
 
+    def _fetch_healing_context(self) -> str | None:
+        """Fetch the latest completed healing dialogue summary for outlook enrichment.
+
+        Mirrors the RNG sensor fetch pattern — pulls the most recent completed
+        healing session summary from the DB and formats it as additional context
+        for the outlook generator. Returns None if no completed sessions exist.
+        """
+        try:
+            import sqlite3
+
+            from core.schema import get_db_path
+
+            conn = sqlite3.connect(get_db_path())
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT summary, key_insights_json, phases_completed, started_at
+                   FROM healing_dialogue_sessions
+                   WHERE summary IS NOT NULL AND ended_at IS NOT NULL
+                   ORDER BY ended_at DESC LIMIT 1""",
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                return None
+
+            summary = row["summary"] or ""
+            insights_raw = row["key_insights_json"]
+            insights_text = ""
+            if insights_raw:
+                try:
+                    insights = json.loads(insights_raw)
+                    if isinstance(insights, dict):
+                        parts = []
+                        for key, val in insights.items():
+                            if val:
+                                parts.append(f"  {key}: {val}")
+                        if parts:
+                            insights_text = "\nKey insights:\n" + "\n".join(parts)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            healing_context = f"Recent healing dialogue summary: {summary}{insights_text}"
+            return healing_context
+        except Exception as e:
+            logger.debug(f"No healing context available for outlook: {e}")
+            return None
+
     def generate_single(
         self,
         lat: float,
@@ -103,6 +151,10 @@ class OutlookService:
                     sensor_context = f"Entropy: {summary.get('avg_entropy', 0):.2f}, Coherence: {summary.get('avg_coherence', 0):.2f}, Floating Needles: {summary.get('floating_needle_count', 0)}"
         except Exception as e:
             logger.error(f"Failed to gather sensor context for single outlook: {e}")
+
+        healing_context = self._fetch_healing_context()
+        if healing_context:
+            custom_context = f"{custom_context}\n\n{healing_context}" if custom_context else healing_context
 
         result = self.generator.generate_single_outlook(
             lat=lat,
@@ -174,6 +226,10 @@ class OutlookService:
                     sensor_context = f"Entropy: {summary.get('avg_entropy', 0):.2f}, Coherence: {summary.get('avg_coherence', 0):.2f}, Floating Needles: {summary.get('floating_needle_count', 0)}"
         except Exception as e:
             logger.error(f"Failed to gather sensor context for epic outlook: {e}")
+
+        healing_context = self._fetch_healing_context()
+        if healing_context:
+            custom_context = f"{custom_context}\n\n{healing_context}" if custom_context else healing_context
 
         result = self.generator.generate_epic_outlook(
             lat=lat,
