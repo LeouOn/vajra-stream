@@ -11,10 +11,9 @@ tests/
 ├── e2e/                   # End-to-end tests (future)
 ├── scripts/               # Utility test scripts (deprecated - being migrated)
 ├── test_foundation.py     # Core foundation tests
-├── test_integration_phase2.py
-├── test_api_endpoints.py  # API endpoint tests
 ├── test_radionics_enhancer.py
 └── README.md             # This file
+<!-- removed: two deleted test files (ghost path per remediation-18 / Issue 5.8) -->
 ```
 
 ## Running Tests

@@ -91,10 +91,8 @@ core/
 ├── radionics_engine.py            # Radionics rate calculations
 ├── rothko_generator.py            # Rothko-style visualization
 ├── time_cycle_broadcaster.py      # Time-based broadcasting
-├── services/                      # Shared core services
-│   ├── audio_service.py
-│   └── vajra_service.py
 └── __init__.py
+<!-- removed: ghost services subpackage (ghost path per remediation-18 / Issue 5.8) -->
 ```
 
 **Key Files:**
@@ -189,8 +187,8 @@ Application configuration files.
 
 ```
 config/
-├── settings.py                    # Core settings (audio, hardware, paths)
-└── enhanced_settings.py           # Enhanced configuration management
+└── settings.py                    # Core settings (audio, hardware, paths)
+<!-- removed: ghost enhanced settings module (ghost path per remediation-18 / Issue 5.8) -->
 ```
 
 ## Knowledge (`knowledge/`)
@@ -225,7 +223,7 @@ scripts/
 ├── vajra_orchestrator.py
 ├── astrocartography_analysis.py   # CLI tool for astrocartography
 ├── radionics_operation.py
-├── visualizer.py
+<!-- removed: ghost visualizer script (ghost path per remediation-18 / Issue 5.8) -->
 └── ... (25+ utility scripts)
 ```
 
@@ -319,10 +317,8 @@ Essential files in project root:
 ├── .flake8                        # ✓ Flake8 config (NEW)
 ├── requirements.txt               # Python dependencies
 ├── requirements-minimal.txt       # Minimal dependencies
-├── container.py                   # Dependency injection container
-├── vajra_stream.py                # Main entry point
-├── vajra_stream_v2.py
-└── start_full_system.py           # System launcher
+└── container.py                   # Dependency injection container
+<!-- removed: deleted root entrypoints (ghost path per remediation-18 / Issue 5.8) -->
 ```
 
 ## File Naming Conventions

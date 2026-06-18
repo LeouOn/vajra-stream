@@ -71,9 +71,9 @@ python scripts/setup_database.py
 The easiest way to get started - beautiful browser-based interface:
 
 ```bash
-# Start the web server
-python start_web_server.py
-# Or on Windows: start_web_server.bat
+<!-- removed: deleted web-server launchers (ghost path per remediation-18 / Issue 5.8).
+     Web visualization is now launched via the canonical backend entrypoint;
+     see docs/OPERATIONS_GUIDE.md. -->
 
 # Then open in your browser:
 # http://localhost:8000/visualizations
@@ -93,7 +93,7 @@ See [docs/FEATURES_REFERENCE.md](docs/FEATURES_REFERENCE.md) for details.
 
 ```bash
 # Interactive menu
-python vajra_stream_v2.py --interactive
+<!-- removed: deleted interactive entrypoint (ghost path per remediation-18 / Issue 5.8) -->
 
 # Run a simple blessing with prayer bowl synthesis
 python scripts/run_blessing.py --intention "May all beings be happy" --duration 300
@@ -111,18 +111,11 @@ python scripts/test_prayer_bowl_audio.py
 #### Python API
 
 ```python
-from vajra_stream_v2 import VajraStream
-
-vs = VajraStream()
-
-# Generate scalar waves
-vs.generate_scalar_waves('hybrid', duration_seconds=10)
-
-# Broadcast healing
-vs.broadcast_healing("John Doe", duration_minutes=10)
-
-# Visualize chakras
-chakra_path = vs.visualize_chakras()
+# NOTE: The legacy Python-API example referenced a deleted entrypoint
+# (ghost path removed per remediation-18 / Issue 5.8).
+# The canonical runtime API now lives under backend/app; for current usage see:
+#   - docs/OPERATIONS_GUIDE.md
+#   - API_DOCUMENTATION.md
 ```
 
 ## 🔮 Radionics System
@@ -199,8 +192,8 @@ vajra-stream/
 The backend has been consolidated for clarity:
 - **backend/app/main.py** is now the single, canonical FastAPI application
 - All previous main_*.py variants have been moved to **backend/app/archived/**
-- The new main.py is based on main_fixed5_stable.py (the most stable version)
-- All startup scripts (start_web_server.py, start_full_system.py) now use this unified backend
+<!-- removed: reference to a deleted main variant (ghost path per remediation-18 / Issue 5.8) -->
+- All startup scripts now use this unified backend
 
 ## Configuration
 
