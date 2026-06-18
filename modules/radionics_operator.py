@@ -250,7 +250,12 @@ class ToolDispatcher:
                 from core.buddha_recitation_loop import get_recitation_loop
 
                 loop = get_recitation_loop()
-                loop.stop()
+                # dispatch() is sync but always called from an async context;
+                # schedule the async stop() on the running loop.
+                try:
+                    asyncio.ensure_future(loop.stop())
+                except RuntimeError:
+                    pass
                 return loop.get_status()
 
             elif tool_name == "get_buddha_recitation_status":

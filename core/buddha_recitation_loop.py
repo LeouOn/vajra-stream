@@ -76,6 +76,8 @@ class BuddhaRecitationLoop:
         self._buddhas: list[dict] = []
         self._voice_override: str | None = None
         self._provider = None
+        # Stored so stop() can cancel it; prevents fire-and-forget task leaks.
+        self._task: asyncio.Task | None = None
 
     def _load_buddhas(self):
         """Load the full 88-Buddha list for recitation."""
@@ -190,7 +192,7 @@ class BuddhaRecitationLoop:
                     self._tts = False  # Sentinel: TTS unavailable
 
         # Run the loop as a background task
-        asyncio.create_task(self._run_loop(interval_seconds, dedication_interval, mala_cycles))
+        self._task = asyncio.create_task(self._run_loop(interval_seconds, dedication_interval, mala_cycles))
         return self.state
 
     def _broadcast_ws(self, event_type: str, data: dict):
@@ -210,9 +212,17 @@ class BuddhaRecitationLoop:
         except Exception:
             pass
 
-    def stop(self) -> RecitationState:
-        """Stop the recitation loop."""
+    async def stop(self) -> RecitationState:
+        """Stop the recitation loop and cancel the background task."""
         self.state.running = False
+        task = self._task
+        self._task = None
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
         self._broadcast_ws("BUDDHA_RECITATION_STOPPED", self.get_status())
         return self.state
 

@@ -360,7 +360,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
     elif name == "stop_buddha_recitation":
         from core.buddha_recitation_loop import get_recitation_loop
         loop = get_recitation_loop()
-        loop.stop()
+        await loop.stop()
         return loop.get_status()
     elif name == "get_buddha_recitation_status":
         from core.buddha_recitation_loop import get_recitation_loop

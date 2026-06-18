@@ -633,7 +633,7 @@ async def stop_recitation():
 
     try:
         loop = get_recitation_loop()
-        loop.stop()
+        await loop.stop()
         return loop.get_status()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
