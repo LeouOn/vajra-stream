@@ -1,7 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity, Clipboard } from 'lucide-react';
 import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty, message } from 'antd';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 import {
   aspectCategory, aspectGlyph, planetGlyph,
@@ -71,7 +70,7 @@ export default function TransitComparison({ chart }) {
     if (!chart) return;
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/astrology/charts/${chart.id}/transits`, {
+      const response = await fetch(`/api/v1/astrology/charts/${chart.id}/transits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transit_time_iso: transitTime })
@@ -101,7 +100,7 @@ export default function TransitComparison({ chart }) {
     if (!transitData || !chart) return;
     setExporting(true);
     try {
-      const response = await fetch(`${API_BASE}/astrology/charts/${chart.id}/transit-export`, {
+      const response = await fetch(`/api/v1/astrology/charts/${chart.id}/transit-export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})

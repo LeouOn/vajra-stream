@@ -15,7 +15,6 @@ import {
   RefreshCw, Check, ChevronDown,
 } from 'lucide-react';
 import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty, message } from 'antd';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 const { Text, Title } = Typography;
@@ -40,7 +39,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
   const fetchConfig = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/tts/config`);
+      const res = await fetch(`/api/v1/tts/config`);
       if (res.ok) {
         const data = await res.json();
         setConfig(data);
@@ -68,7 +67,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
       if (!updates.qwen_speaker) body.qwen_speaker = qwenSpeaker;
       if (!updates.qwen_language) body.qwen_language = qwenLanguage;
 
-      const res = await fetch(`${API_BASE}/tts/config`, {
+      const res = await fetch(`/api/v1/tts/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

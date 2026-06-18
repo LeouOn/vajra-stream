@@ -7,7 +7,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Activity, TrendingUp, TrendingDown, Minus, Zap, AlertCircle, CheckCircle } from 'lucide-react';
 
-import { API_BASE } from '../../utils/api';
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 
 // Needle state colors
@@ -48,7 +47,7 @@ const RNGAttunement = ({ className = '' }) => {
   // Create session
   const createSession = async () => {
     try {
-      const response = await fetch(`${API_BASE}/rng-attunement/session/create`, {
+      const response = await fetch(`/api/v1/rng-attunement/session/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,7 +70,7 @@ const RNGAttunement = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/rng-attunement/reading/${sessionId}`);
+      const response = await fetch(`/api/v1/rng-attunement/reading/${sessionId}`);
       if (response.ok) {
         const data = await response.json();
         setReading(data);
@@ -87,7 +86,7 @@ const RNGAttunement = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/rng-attunement/session/${sessionId}/summary`);
+      const response = await fetch(`/api/v1/rng-attunement/session/${sessionId}/summary`);
       if (response.ok) {
         const data = await response.json();
         setSummary(data);
@@ -102,7 +101,7 @@ const RNGAttunement = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      await fetch(`${API_BASE}/rng-attunement/session/${sessionId}/stop`, {
+      await fetch(`/api/v1/rng-attunement/session/${sessionId}/stop`, {
         method: 'POST'
       });
       setIsActive(false);

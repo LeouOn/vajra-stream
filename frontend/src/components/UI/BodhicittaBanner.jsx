@@ -15,7 +15,6 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Heart, Sparkles, Zap, Sun, Moon, Star, Flame, Wind, RefreshCw } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 const AFFIRMATIONS = [
@@ -56,7 +55,7 @@ export default function BodhicittaBanner() {
     // Check timing for bodhicitta practices
     const checkTiming = async () => {
       try {
-        const res = await fetch(`${API_BASE}/operator/dispatch`, {
+        const res = await fetch(`/api/v1/operator/dispatch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tool_name: 'check_auspicious_timing', arguments: { genre: 'compassion' } }),

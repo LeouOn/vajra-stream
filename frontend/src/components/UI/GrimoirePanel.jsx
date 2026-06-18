@@ -9,8 +9,6 @@ import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, Help
 import DharmaTales from './DharmaTales';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-import { API_BASE } from '../../utils/api';
-
 export default function GrimoirePanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -36,7 +34,7 @@ export default function GrimoirePanel() {
   const handleSearch = async (query) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/divination/grimoire/search?query=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/v1/divination/grimoire/search?query=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
         setResults(data.results || []);

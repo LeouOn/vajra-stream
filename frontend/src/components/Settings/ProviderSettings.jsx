@@ -24,8 +24,6 @@ import {
   Activity, Server, AlertTriangle, CheckCircle2, Cpu,
 } from 'lucide-react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
-import { API_BASE } from '../../utils/api';
-
 const { Title, Text, Paragraph } = Typography;
 
 /**
@@ -49,7 +47,7 @@ export default function ProviderSettings() {
    */
   const fetchHealthOnce = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/llm/providers/health`);
+      const res = await fetch(`/api/v1/llm/providers/health`);
       if (!res.ok) {
         console.warn(
           'ProviderSettings: initial health fetch non-OK status',

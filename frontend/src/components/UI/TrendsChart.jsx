@@ -15,8 +15,6 @@
  */
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { TrendingUp, Sparkles, Loader2, RefreshCw } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
-
 const CHART_W = 320;
 const CHART_H = 96;
 const CHART_PAD = 4;
@@ -188,7 +186,7 @@ function TrendsChartInner({ sessionHistory }) {
   const fetchTrends = useCallback(async () => {
     setTrendsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/operator/trends`);
+      const res = await fetch(`/api/v1/operator/trends`);
       if (res.ok) {
         const data = await res.json();
         setLlmTrends(data);

@@ -10,8 +10,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Square, Heart, Sparkles, Users, Clock, SkipForward, Info } from 'lucide-react';
 
-import { API_BASE } from '../../utils/api';
-
 const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
   // Session state
   const [sessionId, setSessionId] = useState(null);
@@ -55,7 +53,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
 
   const loadMantras = async () => {
     try {
-      const response = await fetch(`${API_BASE}/blessing-slideshow/info/mantras`);
+      const response = await fetch(`/api/v1/blessing-slideshow/info/mantras`);
       const data = await response.json();
       setMantras(data);
     } catch (error) {
@@ -65,7 +63,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
 
   const loadIntentions = async () => {
     try {
-      const response = await fetch(`${API_BASE}/blessing-slideshow/info/intentions`);
+      const response = await fetch(`/api/v1/blessing-slideshow/info/intentions`);
       const data = await response.json();
       setIntentions(data);
     } catch (error) {
@@ -76,7 +74,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
   // Create session
   const createSession = async () => {
     try {
-      const response = await fetch(`${API_BASE}/blessing-slideshow/session/create`, {
+      const response = await fetch(`/api/v1/blessing-slideshow/session/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,14 +120,14 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
     if (!id) return;
 
     try {
-      const response = await fetch(`${API_BASE}/blessing-slideshow/slide/current/${id}`);
+      const response = await fetch(`/api/v1/blessing-slideshow/slide/current/${id}`);
       if (response.ok) {
         const data = await response.json();
         setCurrentSlide(data);
 
         // Load image
         const imgResponse = await fetch(
-          `${API_BASE}/blessing-slideshow/photo/${id}/${data.session.current_index}`
+          `/api/v1/blessing-slideshow/photo/${id}/${data.session.current_index}`
         );
         if (imgResponse.ok) {
           const blob = await imgResponse.blob();
@@ -152,7 +150,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
 
     try {
       const response = await fetch(
-        `${API_BASE}/blessing-slideshow/slide/advance/${sessionId}?record_blessing=true`,
+        `/api/v1/blessing-slideshow/slide/advance/${sessionId}?record_blessing=true`,
         { method: 'POST' }
       );
 
@@ -171,7 +169,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/blessing-slideshow/session/${sessionId}/stats`);
+      const response = await fetch(`/api/v1/blessing-slideshow/session/${sessionId}/stats`);
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -186,7 +184,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
     if (!sessionId) return;
 
     try {
-      await fetch(`${API_BASE}/blessing-slideshow/session/${sessionId}/pause`, {
+      await fetch(`/api/v1/blessing-slideshow/session/${sessionId}/pause`, {
         method: 'POST'
       });
       setIsPaused(true);
@@ -201,7 +199,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
     if (!sessionId) return;
 
     try {
-      await fetch(`${API_BASE}/blessing-slideshow/session/${sessionId}/resume`, {
+      await fetch(`/api/v1/blessing-slideshow/session/${sessionId}/resume`, {
         method: 'POST'
       });
       setIsPaused(false);
@@ -216,7 +214,7 @@ const BlessingSlideshow = ({ className = '', onSessionChange = null }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/blessing-slideshow/session/${sessionId}/stop`, {
+      const response = await fetch(`/api/v1/blessing-slideshow/session/${sessionId}/stop`, {
         method: 'POST'
       });
       if (response.ok) {

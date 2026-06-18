@@ -15,8 +15,6 @@
  *
  * @see components/UI/CommandCenter.jsx for the original inline definitions.
  */
-import { API_BASE } from '../../utils/api';
-
 /**
  * Quick-command suggestion chips rendered above the input bar.
  * @type {Array<{label: string, text: string}>}
@@ -49,7 +47,7 @@ export function createOperatorActions({ frequency, isPlaying, sessions, crystalS
       label: 'Analyze intention',
       icon: '🎯',
       prompt: 'help my friend with chronic back pain',
-      endpoint: `${API_BASE}/operator/analyze`,
+      endpoint: `/api/v1/operator/analyze`,
       body: () => ({ intention: 'help my friend with chronic back pain' }),
     },
     {
@@ -57,7 +55,7 @@ export function createOperatorActions({ frequency, isPlaying, sessions, crystalS
       label: 'Suggest rates',
       icon: '📊',
       prompt: 'emotional healing after loss',
-      endpoint: `${API_BASE}/operator/suggest-rates`,
+      endpoint: `/api/v1/operator/suggest-rates`,
       body: () => ({ intention_or_condition: 'emotional healing after loss', count: 5 }),
     },
     {
@@ -65,7 +63,7 @@ export function createOperatorActions({ frequency, isPlaying, sessions, crystalS
       label: 'Session insight',
       icon: '👁',
       prompt: 'what do my current readings suggest?',
-      endpoint: `${API_BASE}/operator/insights`,
+      endpoint: `/api/v1/operator/insights`,
       body: () => ({
         session_context: {
           currentFrequency: frequency,

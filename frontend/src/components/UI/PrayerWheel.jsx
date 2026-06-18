@@ -8,8 +8,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HelpCircle, Play, RefreshCw, Award, Heart, Check, BookOpen } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-import { API_BASE } from '../../utils/api';
-
 const TRADITIONAL_MANTRAS = [
   { mantra: "Om Mani Padme Hum", deity: "Chenrezig (Compassion)", benefit: "Purifies negative karma, develops infinite compassion" },
   { mantra: "Om Tare Tuttare Ture Soha", deity: "Green Tara (Protection)", benefit: "Overcomes fear, protects from obstacles and sickness" },
@@ -53,7 +51,7 @@ export default function PrayerWheel() {
     setGeneratingPrayer(true);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`${API_BASE}/prayer-wheel/generate-prayer`, {
+      const res = await fetch(`/api/v1/prayer-wheel/generate-prayer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention, use_llm: true, tradition: 'universal' })
@@ -80,7 +78,7 @@ export default function PrayerWheel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`${API_BASE}/prayer-wheel/spin`, {
+      const res = await fetch(`/api/v1/prayer-wheel/spin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

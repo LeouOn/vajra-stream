@@ -22,7 +22,6 @@ import {
   Card, Input, Select, Button, Tag as AntTag, Space, Typography,
   List, Divider, Empty, Spin, message, Segmented,
 } from 'antd';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 const { Text, Paragraph, Title } = Typography;
@@ -50,7 +49,7 @@ export default function GeneratedContentGallery({ compact = false }) {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/outlook/history?limit=50`);
+      const res = await fetch(`/api/v1/outlook/history?limit=50`);
       if (res.ok) {
         const data = await res.json();
         setItems(data.history || []);
@@ -88,7 +87,7 @@ export default function GeneratedContentGallery({ compact = false }) {
     setPlayingId(id);
     audioFeedback.playTelemetry();
     try {
-      await fetch(`${API_BASE}/tts/speak`, {
+      await fetch(`/api/v1/tts/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text.slice(0, 1000) }),
@@ -100,7 +99,7 @@ export default function GeneratedContentGallery({ compact = false }) {
 
   const handleExport = async () => {
     try {
-      const res = await fetch(`${API_BASE}/outlook/export`);
+      const res = await fetch(`/api/v1/outlook/export`);
       if (res.ok) {
         const data = await res.json();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

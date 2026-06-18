@@ -21,7 +21,6 @@ import {
   BookOpen, Sparkles, Compass, Zap, Activity, Play, Square, Loader2,
 } from 'lucide-react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 import IntentionEditor from './IntentionEditor';
 import DedicationText from './DedicationText';
@@ -152,9 +151,9 @@ export default function BuddhasPage() {
     audioFeedback.playTelemetry();
     try {
       if (running) {
-        await fetch(`${API_BASE}/operator/buddhas/recitation/stop`, { method: 'POST' });
+        await fetch(`/api/v1/operator/buddhas/recitation/stop`, { method: 'POST' });
       } else {
-        await fetch(`${API_BASE}/operator/buddhas/recitation/start`, {
+        await fetch(`/api/v1/operator/buddhas/recitation/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

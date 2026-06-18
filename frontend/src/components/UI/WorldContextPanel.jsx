@@ -6,8 +6,6 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Globe, AlertTriangle, Heart, Moon, Sun, Compass, RefreshCw, Loader2, Radio } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
-
 const SEVERITY_COLORS = {
   critical: 'text-red-400 bg-red-950/40 border-red-500/30',
   high: 'text-orange-400 bg-orange-950/40 border-orange-500/30',
@@ -24,7 +22,7 @@ export default function WorldContextPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/operator/world-context`);
+      const res = await fetch(`/api/v1/operator/world-context`);
       if (res.ok) {
         const data = await res.json();
         setContext(data);

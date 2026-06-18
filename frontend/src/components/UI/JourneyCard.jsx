@@ -15,7 +15,6 @@ import {
   Sparkles, Play, ChevronRight, User, Zap, Shield, Heart,
   Moon, Sun, Star, RefreshCw, Award, Swords, Eye, Brain, Footprints
 } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 const STAGE_NAMES = {
@@ -63,7 +62,7 @@ export default function JourneyCard() {
   useEffect(() => {
     const poll = async () => {
       try {
-        const res = await fetch(`${API_BASE}/operator/journey/status`);
+        const res = await fetch(`/api/v1/operator/journey/status`);
         if (res.ok) {
           const data = await res.json();
           if (data.active) {
@@ -87,7 +86,7 @@ export default function JourneyCard() {
   const fetchCharacter = async () => {
     try {
       // The journey status includes character data inline
-      const res = await fetch(`${API_BASE}/operator/journey/generate-character`, { method: 'POST' });
+      const res = await fetch(`/api/v1/operator/journey/generate-character`, { method: 'POST' });
     } catch {}
     // Character data comes from the journey status poll
   };
@@ -96,7 +95,7 @@ export default function JourneyCard() {
     setAdvancing(true);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`${API_BASE}/operator/journey/advance`, { method: 'POST' });
+      const res = await fetch(`/api/v1/operator/journey/advance`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setJourney(prev => ({ ...prev, ...data }));

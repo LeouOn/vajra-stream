@@ -30,8 +30,6 @@ import {
 } from 'antd';
 import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
-
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
@@ -72,7 +70,7 @@ function ReplayTab({ onView, onRecompute }) {
   const fetchRuns = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${API_BASE}/astrology/runs`);
+      const r = await fetch(`/api/v1/astrology/runs`);
       if (r.ok) setRuns(await r.json());
     } catch (e) {
       message.error('Failed to load runs: ' + e.message);
@@ -85,7 +83,7 @@ function ReplayTab({ onView, onRecompute }) {
 
   const handleDelete = async (id) => {
     try {
-      const r = await fetch(`${API_BASE}/astrology/runs/${id}`, { method: 'DELETE' });
+      const r = await fetch(`/api/v1/astrology/runs/${id}`, { method: 'DELETE' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       message.success(`Run ${id} deleted`);
       fetchRuns();
@@ -96,7 +94,7 @@ function ReplayTab({ onView, onRecompute }) {
 
   const handleRecompute = async (id) => {
     try {
-      const r = await fetch(`${API_BASE}/astrology/runs/${id}/recompute`, { method: 'POST' });
+      const r = await fetch(`/api/v1/astrology/runs/${id}/recompute`, { method: 'POST' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       message.success(`Recompute started: run ${data.run_id}`);
@@ -109,7 +107,7 @@ function ReplayTab({ onView, onRecompute }) {
 
   const handleExport = (id, fmt) => {
     const a = document.createElement('a');
-    a.href = `${API_BASE}/astrology/runs/${id}/results/export?fmt=${fmt}`;
+    a.href = `/api/v1/astrology/runs/${id}/results/export?fmt=${fmt}`;
     a.download = `run-${id}.${fmt}`;
     document.body.appendChild(a);
     a.click();
@@ -166,7 +164,7 @@ function ResultsTab({ currentRunId }) {
     if (!currentRunId) return;
     setLoading(true);
     setError(null);
-    fetch(`${API_BASE}/astrology/runs/${currentRunId}/results?format=markdown`)
+    fetch(`/api/v1/astrology/runs/${currentRunId}/results?format=markdown`)
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then(setMarkdown)
       .catch((e) => setError(e.message))
@@ -179,7 +177,7 @@ function ResultsTab({ currentRunId }) {
       if (fmt === 'markdown') {
         text = markdown;
       } else {
-        const r = await fetch(`${API_BASE}/astrology/runs/${currentRunId}/results?format=json`);
+        const r = await fetch(`/api/v1/astrology/runs/${currentRunId}/results?format=json`);
         text = await r.text();
       }
       await navigator.clipboard.writeText(text);
@@ -193,7 +191,7 @@ function ResultsTab({ currentRunId }) {
 
   const handleDownload = (fmt) => {
     const a = document.createElement('a');
-    a.href = `${API_BASE}/astrology/runs/${currentRunId}/results/export?fmt=${fmt}`;
+    a.href = `/api/v1/astrology/runs/${currentRunId}/results/export?fmt=${fmt}`;
     a.download = `run-${currentRunId}.${fmt}`;
     document.body.appendChild(a);
     a.click();
@@ -261,7 +259,7 @@ const SweepTab = ({ setupState, onComplete }) => {
         lat: t.lat,
         lon: t.lon,
       }));
-      const r = await fetch(`${API_BASE}/astrology/extract`, {
+      const r = await fetch(`/api/v1/astrology/extract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -292,7 +290,7 @@ const SweepTab = ({ setupState, onComplete }) => {
     }, 1000);
     const poll = async () => {
       try {
-        const r = await fetch(`${API_BASE}/astrology/runs/${currentRunId}`);
+        const r = await fetch(`/api/v1/astrology/runs/${currentRunId}`);
         if (r.ok) {
           const data = await r.json();
           setRunStatus(data.status);
@@ -387,7 +385,7 @@ const AstrologyExtractionPanel = () => {
       setLocationsLoading(true);
       setLocationsError(null);
       try {
-        const res = await fetch(`${API_BASE}/astrology/locations`);
+        const res = await fetch(`/api/v1/astrology/locations`);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }

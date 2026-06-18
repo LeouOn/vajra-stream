@@ -7,8 +7,6 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Clock, Zap, Heart, Shield, Sparkles } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
-
 const INTENTION_ICONS = {
   healing: Heart,
   liberation: Sparkles,

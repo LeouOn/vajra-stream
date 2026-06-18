@@ -23,7 +23,6 @@ import {
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
-import { API_BASE } from '../../utils/api';
 import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
@@ -137,11 +136,11 @@ export default function OutlookDashboard() {
   const fetchUniverseData = useCallback(async () => {
     try {
       const [realmsRes, charsRes, popsRes, rolesRes, typesRes] = await Promise.all([
-        fetch(`${API_BASE}/outlook/locations`),
-        fetch(`${API_BASE}/outlook/characters`),
-        fetch(`${API_BASE}/populations/`),
-        fetch(`${API_BASE}/outlook/characters/roles/list`),
-        fetch(`${API_BASE}/outlook/locations/types/list`),
+        fetch(`/api/v1/outlook/locations`),
+        fetch(`/api/v1/outlook/characters`),
+        fetch(`/api/v1/populations/`),
+        fetch(`/api/v1/outlook/characters/roles/list`),
+        fetch(`/api/v1/outlook/locations/types/list`),
       ]);
       if (realmsRes.ok) setRealms(await realmsRes.json());
       if (charsRes.ok) setCharacters(await charsRes.json());
@@ -156,7 +155,7 @@ export default function OutlookDashboard() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/outlook/history?limit=15`);
+      const res = await fetch(`/api/v1/outlook/history?limit=15`);
       if (res.ok) setHistoryList((await res.json()).history || []);
     } catch (e) {
       console.error('History fetch failed:', e);
@@ -166,7 +165,7 @@ export default function OutlookDashboard() {
 
   const fetchModels = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/llm/models`);
+      const res = await fetch(`/api/v1/llm/models`);
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'success') {
@@ -182,7 +181,7 @@ export default function OutlookDashboard() {
 
   const fetchLoopStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/outlook/loop/status`);
+      const res = await fetch(`/api/v1/outlook/loop/status`);
       if (res.ok) {
         const data = await res.json();
         setLoopActive(data.active);
@@ -276,7 +275,7 @@ export default function OutlookDashboard() {
       };
       if (isEpic) body.stages = parseInt(stages);
 
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      const res = await fetch(`/api/v1${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -310,7 +309,7 @@ export default function OutlookDashboard() {
       const intention = customContext
         || currentNarrative.genre
         || 'spiritual practice';
-      const res = await fetch(`${API_BASE}/radionics/affirmation/generate`, {
+      const res = await fetch(`/api/v1/radionics/affirmation/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention, style: 'empowering' }),
@@ -353,7 +352,7 @@ export default function OutlookDashboard() {
         include_astrology: includeAstrology, include_tarot: includeTarot, include_iching: includeIching,
         randomize_realm: randomizeRealm, randomize_characters: randomizeCharacters,
       };
-      const res = await fetch(`${API_BASE}/outlook/loop/start`, {
+      const res = await fetch(`/api/v1/outlook/loop/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       if (res.ok) { setLoopActive(true); message.success(`Loop active — every ${loopInterval} min.`); fetchLoopStatus(); }
@@ -362,7 +361,7 @@ export default function OutlookDashboard() {
 
   const handleStopLoop = async () => {
     try {
-      await fetch(`${API_BASE}/outlook/loop/stop`, { method: 'POST' });
+      await fetch(`/api/v1/outlook/loop/stop`, { method: 'POST' });
       setLoopActive(false);
       message.success('Loop stopped.');
     } catch (e) { message.error('Failed to stop loop.'); }
@@ -395,8 +394,8 @@ export default function OutlookDashboard() {
       else { payload.latitude = parseFloat(payload.latitude); payload.longitude = parseFloat(payload.longitude); }
 
       const url = editingRealm
-        ? `${API_BASE}/outlook/locations/${editingRealm.id}`
-        : `${API_BASE}/outlook/locations`;
+        ? `/api/v1/outlook/locations/${editingRealm.id}`
+        : `/api/v1/outlook/locations`;
       const method = editingRealm ? 'PUT' : 'POST';
 
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -415,7 +414,7 @@ export default function OutlookDashboard() {
       okText: 'Delete', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
         try {
-          const res = await fetch(`${API_BASE}/outlook/locations/${id}`, { method: 'DELETE' });
+          const res = await fetch(`/api/v1/outlook/locations/${id}`, { method: 'DELETE' });
           if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
           message.success('Realm deleted.');
           fetchUniverseData();
@@ -443,8 +442,8 @@ export default function OutlookDashboard() {
     try {
       const values = await charForm.validateFields();
       const url = editingChar
-        ? `${API_BASE}/outlook/characters/${editingChar.id}`
-        : `${API_BASE}/outlook/characters`;
+        ? `/api/v1/outlook/characters/${editingChar.id}`
+        : `/api/v1/outlook/characters`;
       const method = editingChar ? 'PUT' : 'POST';
 
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
@@ -463,7 +462,7 @@ export default function OutlookDashboard() {
       okText: 'Exile', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
         try {
-          const res = await fetch(`${API_BASE}/outlook/characters/${id}`, { method: 'DELETE' });
+          const res = await fetch(`/api/v1/outlook/characters/${id}`, { method: 'DELETE' });
           if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
           message.success('Character exiled.');
           fetchUniverseData();

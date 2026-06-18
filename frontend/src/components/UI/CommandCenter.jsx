@@ -17,7 +17,6 @@ import {
 import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-import { API_BASE } from '../../utils/api';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import SakaDawaBanner from './SakaDawaBanner';
 import JourneyCard from './JourneyCard';
@@ -81,7 +80,7 @@ export default function CommandCenter({
           params.append('longitude', lon.toString());
         }
         
-        const res = await fetch(`${API_BASE}/astrology/current?${params.toString()}`);
+        const res = await fetch(`/api/v1/astrology/current?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           setAstroData(data.astrology);
@@ -107,7 +106,7 @@ export default function CommandCenter({
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const res = await fetch(`${API_BASE}/llm/models`);
+        const res = await fetch(`/api/v1/llm/models`);
         if (res.ok) {
           const data = await res.json();
           if (data.status === 'success') {
@@ -220,7 +219,7 @@ export default function CommandCenter({
     try {
       addToolLog('llm', 'Analyzing intent and planning operations...', 'pending');
       
-      const chatResponse = await fetch(`${API_BASE}/llm/chat`, {
+      const chatResponse = await fetch(`/api/v1/llm/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

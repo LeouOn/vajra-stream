@@ -36,8 +36,6 @@ const LazyFallback = () => (
   </div>
 );
 
-import { API_BASE } from '../../utils/api';
-
 const getOrdinalSuffix = (num) => {
   if (!num) return '';
   const s = ["th", "st", "nd", "rd"];
@@ -121,7 +119,7 @@ export default function AstrologyPanel() {
   // Load saved charts from database
   const fetchSavedCharts = async () => {
     try {
-      const response = await fetch(`${API_BASE}/astrology/charts`);
+      const response = await fetch(`/api/v1/astrology/charts`);
       if (response.ok) {
         const data = await response.json();
         setCharts(data);
@@ -146,7 +144,7 @@ export default function AstrologyPanel() {
           params.append('longitude', lon.toString());
         }
         
-        const response = await fetch(`${API_BASE}/astrology/current?${params.toString()}`);
+        const response = await fetch(`/api/v1/astrology/current?${params.toString()}`);
         if (response.ok) {
           const result = await response.json();
           setLiveData(result.astrology);
@@ -204,7 +202,7 @@ export default function AstrologyPanel() {
   // Helper: compute and display a chart from raw birth data (city + time)
   const _computeTemporaryChart = async (birthTimeIso, cityName) => {
     // Resolve coordinates via geocode
-    const geoResponse = await fetch(`${API_BASE}/astrology/geocode`, {
+    const geoResponse = await fetch(`/api/v1/astrology/geocode`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ city_name: cityName })
@@ -221,7 +219,7 @@ export default function AstrologyPanel() {
       latitude: geo.latitude.toString(),
       longitude: geo.longitude.toString()
     }).toString();
-    const response = await fetch(`${API_BASE}/astrology/current?${params}`);
+    const response = await fetch(`/api/v1/astrology/current?${params}`);
     if (!response.ok) {
       const err = await _readError(response);
       throw new Error(`Chart calculation failed: ${err}`);
@@ -254,7 +252,7 @@ export default function AstrologyPanel() {
         let savedChart = null;
         if (editingChart) {
           setLoadingStatus('Updating saved profile…');
-          const response = await fetch(`${API_BASE}/astrology/charts/${editingChart.id}`, {
+          const response = await fetch(`/api/v1/astrology/charts/${editingChart.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -270,7 +268,7 @@ export default function AstrologyPanel() {
           }
         } else {
           setLoadingStatus('Saving to database…');
-          const response = await fetch(`${API_BASE}/astrology/charts`, {
+          const response = await fetch(`/api/v1/astrology/charts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -337,7 +335,7 @@ export default function AstrologyPanel() {
   const recalculateChart = async (id) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/astrology/charts/${id}/recalculate`, {
+      const response = await fetch(`/api/v1/astrology/charts/${id}/recalculate`, {
         method: 'POST'
       });
       if (response.ok) {
@@ -357,7 +355,7 @@ export default function AstrologyPanel() {
 
   const handleDeleteChart = async (id) => {
     try {
-      const response = await fetch(`${API_BASE}/astrology/charts/${id}`, {
+      const response = await fetch(`/api/v1/astrology/charts/${id}`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -374,7 +372,7 @@ export default function AstrologyPanel() {
 
   const handleExportCharts = async () => {
     try {
-      const response = await fetch(`${API_BASE}/astrology/charts/export`);
+      const response = await fetch(`/api/v1/astrology/charts/export`);
       if (response.ok) {
         const data = await response.json();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -394,7 +392,7 @@ export default function AstrologyPanel() {
 
   const handleImportCharts = async (jsonData) => {
     try {
-      const response = await fetch(`${API_BASE}/astrology/charts/import`, {
+      const response = await fetch(`/api/v1/astrology/charts/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jsonData)
@@ -437,7 +435,7 @@ export default function AstrologyPanel() {
     }
     try {
       const response = await fetch(
-        `${API_BASE}/astrology/charts/${activeChart.id}/natal-export`,
+        `/api/v1/astrology/charts/${activeChart.id}/natal-export`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

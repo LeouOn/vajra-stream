@@ -17,8 +17,6 @@ import DharaniReciter from './DharaniReciter';
 import TimeCycles from './TimeCycles';
 import ChakraBodyMap from '../2D/ChakraBodyMap';
 
-import { API_BASE } from '../../utils/api';
-
 // Face-down card back: a symmetric neon mandala that matches the deck aesthetic.
 const TAROT_CARD_BACK = `<svg viewBox="0 0 240 380" xmlns="http://www.w3.org/2000/svg" style="background:#0b132b; border-radius:16px;">
   <defs>
@@ -70,19 +68,19 @@ export default function OperationsPanel() {
 
   const fetchAstrology = async () => {
     try {
-      const currentRes = await fetch(`${API_BASE}/astrology/current`);
+      const currentRes = await fetch(`/api/v1/astrology/current`);
       if (currentRes.ok) {
         const d = await currentRes.json();
         setAstrologyData(d.astrology);
       }
       
-      const hoursRes = await fetch(`${API_BASE}/astrology/planetary-hours`);
+      const hoursRes = await fetch(`/api/v1/astrology/planetary-hours`);
       if (hoursRes.ok) {
         const d = await hoursRes.json();
         setPlanetaryHours(d);
       }
 
-      const transitsRes = await fetch(`${API_BASE}/astrology/transits`);
+      const transitsRes = await fetch(`/api/v1/astrology/transits`);
       if (transitsRes.ok) {
         const d = await transitsRes.json();
         setTransits(d.transits || []);
@@ -96,7 +94,7 @@ export default function OperationsPanel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const response = await fetch(`${API_BASE}/divination/tarot/draw`, {
+      const response = await fetch(`/api/v1/divination/tarot/draw`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: tarotDrawCount })
@@ -130,7 +128,7 @@ export default function OperationsPanel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const response = await fetch(`${API_BASE}/divination/iching/cast`, {
+      const response = await fetch(`/api/v1/divination/iching/cast`, {
         method: 'POST'
       });
       if (response.ok) {
@@ -150,7 +148,7 @@ export default function OperationsPanel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const response = await fetch(`${API_BASE}/divination/geomancy/shield`, {
+      const response = await fetch(`/api/v1/divination/geomancy/shield`, {
         method: 'POST'
       });
       if (response.ok) {
@@ -158,7 +156,7 @@ export default function OperationsPanel() {
         setGeomancyResult(data.chart);
         // Also fetch elemental balance comparison
         try {
-          const balRes = await fetch(`${API_BASE}/divination/geomancy/elemental-balance`);
+          const balRes = await fetch(`/api/v1/divination/geomancy/elemental-balance`);
           if (balRes.ok) setGeoBalance(await balRes.json());
         } catch {}
         audioFeedback.playSuccess();
@@ -197,7 +195,7 @@ export default function OperationsPanel() {
 
     // Step 1: Draw a tarot card for guidance
     await executeStep(0, async () => {
-      const res = await fetch(`${API_BASE}/divination/tarot/draw`, {
+      const res = await fetch(`/api/v1/divination/tarot/draw`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 1 })
       });
@@ -217,7 +215,7 @@ export default function OperationsPanel() {
 
     // Step 3: Forge a sigil for the intention
     await executeStep(2, async () => {
-      await fetch(`${API_BASE}/sigils/forge`, {
+      await fetch(`/api/v1/sigils/forge`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention: 'Ritual Sequence Alignment', kamea: 'saturn' })
       });
@@ -226,7 +224,7 @@ export default function OperationsPanel() {
 
     // Step 4: Trigger scalar wave generation
     await executeStep(3, async () => {
-      await fetch(`${API_BASE}/scalar/generate`, {
+      await fetch(`/api/v1/scalar/generate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ method: 'hybrid', count: 10000, intensity: 0.8 })
       });

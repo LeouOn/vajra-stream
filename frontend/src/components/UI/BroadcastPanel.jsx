@@ -15,8 +15,6 @@ import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
 
-import { API_BASE } from '../../utils/api';
-
 export default function BroadcastPanel() {
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
   const { isPlaying, frequency, updateSettings } = useAudioStore();
@@ -60,7 +58,7 @@ export default function BroadcastPanel() {
     if (!sigilIntention.trim() || isForging) return;
     setIsForging(true);
     try {
-      const res = await fetch(`${API_BASE}/sigils/forge`, {
+      const res = await fetch(`/api/v1/sigils/forge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention: sigilIntention.trim(), kamea: 'saturn' })
@@ -80,7 +78,7 @@ export default function BroadcastPanel() {
 
   const fetchPopulations = async () => {
     try {
-      const res = await fetch(`${API_BASE}/populations`);
+      const res = await fetch(`/api/v1/populations`);
       if (res.ok) {
         const data = await res.json();
         setPopulations(data);
@@ -513,7 +511,7 @@ export default function BroadcastPanel() {
               onClick={() => {
                 if (latestSigil) {
                   // Broadcast the sigil intention
-                  fetch(`${API_BASE}/sigils/broadcast`, {
+                  fetch(`/api/v1/sigils/broadcast`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

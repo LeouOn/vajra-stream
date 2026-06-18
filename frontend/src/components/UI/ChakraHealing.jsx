@@ -7,8 +7,6 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Zap, RefreshCw, ChevronRight, Play, Square } from 'lucide-react';
 
-import { API_BASE } from '../../utils/api';
-
 const CHAKRA_LIST = [
   'root', 'sacral', 'solar_plexus', 'heart', 'throat', 'third_eye', 'crown'
 ];
@@ -38,7 +36,7 @@ const ChakraHealing = ({ className = '' }) => {
   const loadChakras = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/healing/chakra/all`);
+      const response = await fetch(`/api/v1/healing/chakra/all`);
       if (response.ok) {
         const data = await response.json();
         setChakras(data.chakras || {});
@@ -51,7 +49,7 @@ const ChakraHealing = ({ className = '' }) => {
 
   const getChakraInfo = async (chakraName) => {
     try {
-      const response = await fetch(`${API_BASE}/healing/chakra/info/${chakraName}`);
+      const response = await fetch(`/api/v1/healing/chakra/info/${chakraName}`);
       if (response.ok) {
         const data = await response.json();
         setChakraInfo(data.chakra);
@@ -65,7 +63,7 @@ const ChakraHealing = ({ className = '' }) => {
   const createSequence = async (type = 'full') => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/healing/chakra/balance`, {
+      const response = await fetch(`/api/v1/healing/chakra/balance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention, sequence_type: type })
@@ -85,14 +83,14 @@ const ChakraHealing = ({ className = '' }) => {
     setPlayingChakra(chakraName);
     try {
       // 1. Generate the tone in the backend
-      const genResponse = await fetch(`${API_BASE}/audio/generate_chakra`, {
+      const genResponse = await fetch(`/api/v1/audio/generate_chakra`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chakra_name: chakraName, duration: 30.0 })
       });
       if (genResponse.ok) {
         // 2. Play it on the hardware
-        await fetch(`${API_BASE}/audio/play`, {
+        await fetch(`/api/v1/audio/play`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ hardware_level: 2 })
@@ -107,7 +105,7 @@ const ChakraHealing = ({ className = '' }) => {
 
   const stopAudio = async () => {
     try {
-      await fetch(`${API_BASE}/audio/stop`, { method: 'POST' });
+      await fetch(`/api/v1/audio/stop`, { method: 'POST' });
     } catch (e) {
       console.error('Failed to stop audio', e);
     }

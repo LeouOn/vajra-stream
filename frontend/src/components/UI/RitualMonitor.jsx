@@ -30,7 +30,6 @@ import {
   List, Switch, Select, Slider, InputNumber, Divider, Spin, Empty,
   Progress, message, Badge,
 } from 'antd';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
@@ -63,7 +62,7 @@ export default function RitualMonitor({ compact = false }) {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch(`${API_BASE}/ritual/status`);
+      const res = await fetch(`/api/v1/ritual/status`);
       if (res.ok) setRestStatus(await res.json());
     } catch {}
     setLoading(false);
@@ -73,7 +72,7 @@ export default function RitualMonitor({ compact = false }) {
     setActionLoading(true);
     audioFeedback.playTelemetry();
     try {
-      await fetch(`${API_BASE}/ritual/start`, { method: 'POST' });
+      await fetch(`/api/v1/ritual/start`, { method: 'POST' });
       message.success('Ritual Engine started');
       await fetchStatus();
     } catch { message.error('Failed to start'); }
@@ -83,7 +82,7 @@ export default function RitualMonitor({ compact = false }) {
   const handleStop = async () => {
     setActionLoading(true);
     try {
-      await fetch(`${API_BASE}/ritual/stop`, { method: 'POST' });
+      await fetch(`/api/v1/ritual/stop`, { method: 'POST' });
       message.success('Ritual Engine stopped');
       await fetchStatus();
     } catch { message.error('Failed to stop'); }
@@ -94,7 +93,7 @@ export default function RitualMonitor({ compact = false }) {
     setActionLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`${API_BASE}/ritual/trigger`, { method: 'POST' });
+      const res = await fetch(`/api/v1/ritual/trigger`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'executed') {
         message.success(`Ritual executed: ${data.ritual.practice_name}`);

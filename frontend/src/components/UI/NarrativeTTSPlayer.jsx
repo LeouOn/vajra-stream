@@ -14,7 +14,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Volume2, Square, Loader2, AlertTriangle, Settings2 } from 'lucide-react';
 import { Button, Slider, Switch, Space, Tooltip, Tag, message } from 'antd';
-import { API_BASE } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 export default function NarrativeTTSPlayer({
@@ -73,7 +72,7 @@ export default function NarrativeTTSPlayer({
     setError(null);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`${API_BASE}/outlook/speak`, {
+      const res = await fetch(`/api/v1/outlook/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -219,6 +219,39 @@ BLESSING_FREQUENCIES = [7.83, 136.1, 528, 639, 741]
 DB_PATH = 'vajra_stream.db'
 ```
 
+### Frontend URL Strategy
+
+The frontend uses **proxy-relative URLs** (`/api/v1/...`) for all backend
+HTTP traffic, as defined in [ADR 004](docs/decisions/004-url-strategy.md).
+In development, the Vite dev server proxies `/api` and `/ws` to the
+backend on `localhost:8008` (see `frontend/vite.config.ts`). In production,
+a reverse proxy (nginx, Caddy, Cloudflare, etc.) must route `/api/*` and
+`/ws` to the backend — this is the standard same-origin deployment pattern.
+
+To compose an API URL in frontend code, import the helper:
+
+```ts
+import { apiUrl } from './utils/api';
+const res = await fetch(apiUrl('/healing/chakra/all'));
+// → '/api/v1/healing/chakra/all' (proxy-relative)
+```
+
+#### `VITE_API_BASE` (build-time override)
+
+For non-localhost deployments that **cannot** use a reverse proxy, set
+`VITE_API_BASE` at build time to an absolute origin. Every `apiUrl()`
+call will then resolve against that origin:
+
+```bash
+# Build with an absolute API origin
+cd frontend
+VITE_API_BASE=https://api.example.com npm run build
+# apiUrl('/foo') → 'https://api.example.com/api/v1/foo'
+```
+
+Default is empty (proxy-relative). Trailing slashes are stripped
+automatically. See `frontend/src/utils/api.ts` and ADR 004 for details.
+
 ## Knowledge Base
 
 Pre-loaded reference data:

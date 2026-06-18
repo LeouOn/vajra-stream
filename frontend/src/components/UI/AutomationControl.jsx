@@ -8,8 +8,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Square, RotateCw, Clock, Users, Zap, TrendingUp, Info } from 'lucide-react';
 
-import { API_BASE } from '../../utils/api';
-
 const AutomationControl = ({ className = '' }) => {
   const [sessionId, setSessionId] = useState(null);
   const [isActive, setIsActive] = useState(false);
@@ -46,7 +44,7 @@ const AutomationControl = ({ className = '' }) => {
 
   const startAutomation = async () => {
     try {
-      const response = await fetch(`${API_BASE}/automation/start`, {
+      const response = await fetch(`/api/v1/automation/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -77,7 +75,7 @@ const AutomationControl = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/automation/${sessionId}/stop`, {
+      const response = await fetch(`/api/v1/automation/${sessionId}/stop`, {
         method: 'POST'
       });
 
@@ -97,7 +95,7 @@ const AutomationControl = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      await fetch(`${API_BASE}/automation/${sessionId}/pause`, {
+      await fetch(`/api/v1/automation/${sessionId}/pause`, {
         method: 'POST'
       });
       setIsPaused(true);
@@ -110,7 +108,7 @@ const AutomationControl = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      await fetch(`${API_BASE}/automation/${sessionId}/resume`, {
+      await fetch(`/api/v1/automation/${sessionId}/resume`, {
         method: 'POST'
       });
       setIsPaused(false);
@@ -123,7 +121,7 @@ const AutomationControl = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/automation/${sessionId}/status`);
+      const response = await fetch(`/api/v1/automation/${sessionId}/status`);
       if (response.ok) {
         const data = await response.json();
         setCurrentStatus(data);
@@ -137,7 +135,7 @@ const AutomationControl = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/automation/${sessionId}/queue`);
+      const response = await fetch(`/api/v1/automation/${sessionId}/queue`);
       if (response.ok) {
         const data = await response.json();
         setQueue(data);
@@ -151,7 +149,7 @@ const AutomationControl = ({ className = '' }) => {
     if (!sessionId) return;
 
     try {
-      const response = await fetch(`${API_BASE}/automation/${sessionId}/stats`);
+      const response = await fetch(`/api/v1/automation/${sessionId}/stats`);
       if (response.ok) {
         const data = await response.json();
         setStats(data);

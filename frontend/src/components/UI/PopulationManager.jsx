@@ -8,8 +8,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit2, Trash2, Folder, Globe, AlertCircle, Check, X } from 'lucide-react';
 
-import { API_BASE } from '../../utils/api';
-
 const PopulationManager = ({ className = '' }) => {
   const [populations, setPopulations] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -46,7 +44,7 @@ const PopulationManager = ({ className = '' }) => {
   const loadPopulations = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/populations/`);
+      const response = await fetch(`/api/v1/populations/`);
       if (response.ok) {
         const data = await response.json();
         setPopulations(data);
@@ -59,7 +57,7 @@ const PopulationManager = ({ className = '' }) => {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch(`${API_BASE}/populations/categories/list`);
+      const response = await fetch(`/api/v1/populations/categories/list`);
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
@@ -71,7 +69,7 @@ const PopulationManager = ({ className = '' }) => {
 
   const loadSourceTypes = async () => {
     try {
-      const response = await fetch(`${API_BASE}/populations/source-types/list`);
+      const response = await fetch(`/api/v1/populations/source-types/list`);
       if (response.ok) {
         const data = await response.json();
         setSourceTypes(data);
@@ -83,7 +81,7 @@ const PopulationManager = ({ className = '' }) => {
 
   const createPopulation = async () => {
     try {
-      const response = await fetch(`${API_BASE}/populations/create`, {
+      const response = await fetch(`/api/v1/populations/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -101,7 +99,7 @@ const PopulationManager = ({ className = '' }) => {
 
   const updatePopulation = async (id) => {
     try {
-      const response = await fetch(`${API_BASE}/populations/${id}`, {
+      const response = await fetch(`/api/v1/populations/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -121,7 +119,7 @@ const PopulationManager = ({ className = '' }) => {
     if (!confirm('Delete this population? This cannot be undone.')) return;
 
     try {
-      const response = await fetch(`${API_BASE}/populations/${id}`, {
+      const response = await fetch(`/api/v1/populations/${id}`, {
         method: 'DELETE'
       });
 
@@ -135,7 +133,7 @@ const PopulationManager = ({ className = '' }) => {
 
   const toggleActive = async (id, currentActive) => {
     try {
-      await fetch(`${API_BASE}/populations/${id}`, {
+      await fetch(`/api/v1/populations/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !currentActive })
