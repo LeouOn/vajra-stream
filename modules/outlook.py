@@ -116,6 +116,49 @@ class OutlookService:
             logger.debug(f"No healing context available for outlook: {e}")
             return None
 
+    def _fetch_buddha_context(self) -> str | None:
+        """Fetch the latest completed 88 Buddhas recitation session for outlook enrichment.
+
+        Mirrors :meth:`_fetch_healing_context` — pulls the most recent
+        completed recitation session (``ended_at IS NOT NULL``) from
+        ``buddha_recitation_sessions`` and formats it as additional context
+        for the outlook generator. Returns ``None`` when no completed
+        sessions exist or the DB is unavailable (defensive).
+        """
+        try:
+            import sqlite3
+
+            from core.schema import get_db_path
+
+            conn = sqlite3.connect(get_db_path())
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT intention, cycles_completed, total_recited, dedication_text
+                   FROM buddha_recitation_sessions
+                   WHERE ended_at IS NOT NULL
+                   ORDER BY ended_at DESC LIMIT 1""",
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                return None
+
+            intention = row["intention"] or ""
+            cycles = row["cycles_completed"] or 0
+            total = row["total_recited"] or 0
+            dedication = row["dedication_text"] or ""
+
+            parts = [f"Recent 88 Buddhas recitation — intention: {intention}"]
+            parts.append(f"cycles completed: {cycles}")
+            parts.append(f"total recited: {total}")
+            if dedication:
+                parts.append(f"dedication: {dedication}")
+            return ", ".join(parts)
+        except Exception as e:
+            logger.debug(f"No buddha context available for outlook: {e}")
+            return None
+
     def generate_single(
         self,
         lat: float,
@@ -155,6 +198,10 @@ class OutlookService:
         healing_context = self._fetch_healing_context()
         if healing_context:
             custom_context = f"{custom_context}\n\n{healing_context}" if custom_context else healing_context
+
+        buddha_context = self._fetch_buddha_context()
+        if buddha_context:
+            custom_context = f"{custom_context}\n\n{buddha_context}" if custom_context else buddha_context
 
         result = self.generator.generate_single_outlook(
             lat=lat,
@@ -230,6 +277,10 @@ class OutlookService:
         healing_context = self._fetch_healing_context()
         if healing_context:
             custom_context = f"{custom_context}\n\n{healing_context}" if custom_context else healing_context
+
+        buddha_context = self._fetch_buddha_context()
+        if buddha_context:
+            custom_context = f"{custom_context}\n\n{buddha_context}" if custom_context else buddha_context
 
         result = self.generator.generate_epic_outlook(
             lat=lat,
