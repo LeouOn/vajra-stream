@@ -1,6 +1,6 @@
 # ADR 002: Settings System Canonical Selection
 
-- **Status:** Accepted (2026-06-18)
+- **Status:** Accepted (2026-06-18); Step 2 (shim) implemented 2026-06-18 by Wave 4 Task 27
 - **Deciders:** Wave 2 remediation
 - **References:** evaluation Issue 5.2; README "Configuration" section (lines 205–227); ADR 001
 - **Gates:** Blocks Wave 4 Task 27 (settings consolidation / shim deletion)
@@ -90,6 +90,8 @@ settings = Settings()
 ### Step 3 — Delete the shim (Task 27, after one release)
 
 After one release cycle with the shim in place (emitting a `DeprecationWarning` on import), `backend/app/config.py` is deleted entirely and the LLM provider config is moved to its own module. Task 27 owns this deletion; this ADR only records the decision.
+
+> **Status (updated 2026-06-18 by Wave 4 Task 27):** Step 2 is now implemented — `backend/app/config.py` is a re-export shim of `config.settings`, and the pydantic `Settings` class wraps the canonical constants. Step 3 (full deletion of the shim + relocation of `LLMConfig`/`get_llm_config` to their own module) is **deferred to the release after Task 27**. The regression guard `tests/unit/test_settings_shim.py` locks in the agreement between the shim and `config.settings` so the historical drift (e.g. `MAX_VOLUME` 0.5 vs 0.8) cannot recur during the deprecation window.
 
 ## Alternatives Considered
 
