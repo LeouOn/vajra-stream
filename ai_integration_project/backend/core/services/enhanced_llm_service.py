@@ -207,7 +207,7 @@ You draw from Theravada, Mahayana, and Vajrayana traditions as appropriate.""",
                 "max_tokens": 8000,
                 "temperature": 0.7,
                 "preferred_models": [
-                    # TODO add latest Qwen 3.6 and Qwopus models
+                    # TODO(remediation): add latest Qwen 3.6 and Qwopus models (deferred — see eval Issue 5.11)
                     "openai_gpt-oss-120b-neo-imatrix",
                     "aquif-3.5-max-42b-a3b-i1",
                     "nvidia_qwen3-nemotron-32b-rlbff",

@@ -380,7 +380,7 @@ class TTSNarrator:
         elif engine_type == TTSEngineType.EDGE_TTS:
             if not HAS_EDGE_TTS:
                 raise RuntimeError("edge-tts not available")
-            # TODO: Implement EdgeTTSEngine
+            # TODO(remediation): Implement EdgeTTSEngine (deferred stub — see eval Issue 5.11)
             raise NotImplementedError("edge-tts engine not yet implemented")
 
         else:

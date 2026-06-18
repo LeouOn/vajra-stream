@@ -76,7 +76,7 @@ class ConnectionManager:
 
     async def _handle_update_settings(self, data: dict):
         """Handle settings update"""
-        # TODO: Implement settings update logic
+        # TODO(remediation): Implement settings update logic (deferred stub — see eval Issue 5.11)
         logger.info(f"Settings update requested: {data}")
 
     def disconnect(self, websocket: WebSocket):
