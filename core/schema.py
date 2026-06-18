@@ -37,11 +37,12 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION: int = 1
+SCHEMA_VERSION: int = 2
 SCHEMA_DESCRIPTION: str = (
-    "Initial centralized schema: extraction_runs, extraction_results, "
-    "astrology_locations, plus idempotent CREATE TABLE IF NOT EXISTS for all "
-    "pre-existing vajra-stream tables."
+    "v2: adds healing_dialogue_sessions (multi-turn LLM-guided healing "
+    "container — full transcript, summary, insights, linked chart/outlook). "
+    "v1: extraction_runs, extraction_results, astrology_locations, plus "
+    "idempotent CREATE TABLE IF NOT EXISTS for all pre-existing tables."
 )
 
 
@@ -161,6 +162,34 @@ _TABLE_DDL: tuple[tuple[str, str], ...] = (
     (
         "astrology_locations_idx_category",
         "CREATE INDEX IF NOT EXISTS idx_astrology_locations_category ON astrology_locations (category)",
+    ),
+    # --- v2: healing dialogue sessions (multi-turn LLM-guided healing container) ---
+    # See docs/specs/2026-06-17-healing-dialogue-design.md section 5.
+    # Stores full transcript + LLM-generated summary (fed to outlook) +
+    # structured key insights + linked chart + linked outlook.
+    (
+        "healing_dialogue_sessions",
+        """
+        CREATE TABLE IF NOT EXISTS healing_dialogue_sessions (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            chart_id              INTEGER,
+            session_type          TEXT DEFAULT 'dialogue',
+            started_at            TIMESTAMP NOT NULL,
+            ended_at              TIMESTAMP,
+            transcript_json       TEXT NOT NULL,
+            summary               TEXT,
+            key_insights_json     TEXT,
+            phases_completed      TEXT,
+            recommended_practice  TEXT,
+            dedication_text       TEXT,
+            linked_outlook_id     INTEGER,
+            FOREIGN KEY (chart_id) REFERENCES saved_natal_charts(id)
+        )
+        """,
+    ),
+    (
+        "healing_dialogue_sessions_idx_chart_id",
+        "CREATE INDEX IF NOT EXISTS idx_healing_dialogue_sessions_chart_id ON healing_dialogue_sessions (chart_id)",
     ),
     # --- Pre-existing: outlook_narratives ---
     # DDL must match the column list created in
