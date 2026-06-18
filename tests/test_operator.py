@@ -13,12 +13,17 @@ import pytest
 @pytest.fixture
 def operator():
     """Create a RadionicsOperator without LLM or container."""
+    from infrastructure.event_bus import EnhancedEventBus
     from modules.radionics_operator import RadionicsOperator
 
-    op = RadionicsOperator(llm=MagicMock())  # Mock LLM to force fallback paths
+    # Wave 4 Task 23 / ADR 003: event_bus is now required injection (no
+    # silent fallback). Mint a private bus for these isolated unit tests.
+    bus = EnhancedEventBus()
+    op = RadionicsOperator(event_bus=bus, llm=MagicMock())  # Mock LLM to force fallback paths
     op._llm.client = None
     op._llm.local_model = None
-    return op
+    yield op
+    bus.clear()
 
 
 @pytest.fixture

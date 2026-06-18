@@ -37,7 +37,6 @@ from core.context_builder import (
     search_rates,
 )
 from core.radionics_tools import RADIONICS_TOOLS, get_tools_for_provider
-from infrastructure.event_bus import EnhancedEventBus
 from modules.interfaces import EventBus
 
 logger = logging.getLogger(__name__)
@@ -686,7 +685,8 @@ class RadionicsOperator:
 
     def __init__(self, container=None, event_bus: EventBus | None = None, llm=None):
         self._container = container
-        self.event_bus = event_bus or EnhancedEventBus()
+        # Injected only — no private fallback bus. See ADR 003 (pub/sub split).
+        self.event_bus = event_bus
         self._llm = llm
         self._creative_llm = None  # Lazy-loaded via creative_llm property
         self._dispatcher = ToolDispatcher(container)
