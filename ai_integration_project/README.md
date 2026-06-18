@@ -1,3 +1,7 @@
+> ⚠️ **Experimental — not wired into main app.**
+> 
+> This directory is a parallel project tree that is NOT imported by `backend/app/main.py` or any production code path. It is excluded from mypy and ruff. Kept for reference only. See evaluation Issue 5.6 and ADRs in `docs/decisions/`.
+
 # Vajra.Stream AI Integration Project
 
 ## 🎯 Overview

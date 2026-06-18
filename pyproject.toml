@@ -135,6 +135,7 @@ exclude = [
     "generated/",
     ".venv/",
     "node_modules/",
+    "ai_integration_project*",
 ]
 
 [[tool.mypy.overrides]]
