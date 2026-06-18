@@ -30,6 +30,7 @@ import {
   BookOpen,
   Volume2,
   Settings,
+  Heart,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +42,7 @@ export interface RouteEntry {
 
 export const ROUTES: RouteEntry[] = [
   { key: 'command-center', label: 'Command Center', icon: LayoutDashboard },
+  { key: 'sanctuary', label: 'Sanctuary', icon: Heart },
   { key: 'buddhas', label: '88 Buddhas', icon: BookOpen },
   { key: 'operations', label: 'Operations', icon: Compass },
   { key: 'astrology', label: 'Cosmic Clock', icon: Clock },

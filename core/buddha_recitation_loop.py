@@ -18,12 +18,15 @@ Speaker resolution:
 
 import asyncio
 import logging
+import sqlite3
 import time
+import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+from modules.interfaces import EventBus, RecitationCompleted, RecitationStarted
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +50,11 @@ class RecitationState:
     role: str = "buddhist_chant"
     project_id: str | None = None
     stats: dict[str, Any] = field(default_factory=dict)
+    # DB primary key of the row in ``buddha_recitation_sessions`` for this
+    # invocation. ``None`` when the session has not been persisted yet (or
+    # when persistence is unavailable, e.g. tests with no DB). All DB
+    # operations are defensive — the in-memory loop still runs if this is None.
+    session_db_id: int | None = None
 
 
 class BuddhaRecitationLoop:
@@ -61,14 +69,19 @@ class BuddhaRecitationLoop:
     - Callback hooks for UI updates
     """
 
-    def __init__(self, tts_reciter=None):
+    def __init__(self, tts_reciter=None, event_bus: EventBus | None = None):
         """
         Args:
             tts_reciter: Optional pre-built TTS engine. If None, the loop will
                 use the unified TTSProvider (Qwen3-TTS or Edge) on start().
+            event_bus: Optional event bus (implements ``publish(event)``). When
+                supplied, :class:`RecitationStarted` / :class:`RecitationCompleted`
+                domain events are published on start/stop. Persistence and the
+                WebSocket broadcasts work regardless of this argument.
         """
         self._svc = get_eighty_eight_buddhas()
         self._tts = tts_reciter
+        self.event_bus = event_bus
         self.state = RecitationState()
         self._on_name: list[callable] = []
         self._on_dedication: list[callable] = []
@@ -99,6 +112,111 @@ class BuddhaRecitationLoop:
             for b in seq.get("thirty_five_confession_buddhas", [])
         ]
         self._buddhas = past + conf
+
+    # ------------------------------------------------------------------
+    # DB persistence helpers (defensive — never break the in-memory loop)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _connect() -> sqlite3.Connection:
+        """Open a short-lived SQLite connection.
+
+        Same pattern as :class:`modules.healing_dialogue.HealingDialogueService`:
+        ``check_same_thread=False`` is unnecessary here because every call
+        opens its own connection and immediately commits, but ``Row`` factory
+        gives consistent dict-style access for the read helpers.
+        """
+        from core.schema import get_db_path
+
+        conn = sqlite3.connect(get_db_path())
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _persist_session_start(self, intention: str, started_at_iso: str) -> int | None:
+        """INSERT a new row in ``buddha_recitation_sessions``.
+
+        Returns the new row id, or ``None`` on failure (the in-memory loop
+        continues regardless — persistence is additive).
+        """
+        try:
+            with self._connect() as conn:
+                cursor = conn.execute(
+                    """
+                    INSERT INTO buddha_recitation_sessions
+                        (intention, started_at, cycles_completed, total_recited)
+                    VALUES (?, ?, 0, 0)
+                    """,
+                    (intention, started_at_iso),
+                )
+                conn.commit()
+                return cursor.lastrowid
+        except Exception as exc:  # noqa: BLE001 — DB must not break the loop
+            logger.warning("buddha_recitation: failed to persist session start: %s", exc)
+            return None
+
+    def _persist_session_progress(self) -> None:
+        """UPDATE the current row with the latest counters.
+
+        Called from the loop after each name recitation and after each full
+        cycle. No-op when :attr:`RecitationState.session_db_id` is unset.
+        """
+        sid = self.state.session_db_id
+        if sid is None:
+            return
+        try:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE buddha_recitation_sessions
+                    SET cycles_completed = ?,
+                        total_recited    = ?
+                    WHERE id = ?
+                    """,
+                    (self.state.current_cycle, self.state.total_recited, sid),
+                )
+                conn.commit()
+        except Exception as exc:  # noqa: BLE001 — DB must not break the loop
+            logger.debug("buddha_recitation: progress persist failed: %s", exc)
+
+    def _persist_session_end(
+        self, ended_at_iso: str, summary: str, dedication_text: str | None
+    ) -> None:
+        """FINALIZE the current row with ``ended_at``, ``summary``, ``dedication_text``."""
+        sid = self.state.session_db_id
+        if sid is None:
+            return
+        try:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    UPDATE buddha_recitation_sessions
+                    SET ended_at        = ?,
+                        cycles_completed = ?,
+                        total_recited    = ?,
+                        dedication_text  = ?,
+                        summary          = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        ended_at_iso,
+                        self.state.current_cycle,
+                        self.state.total_recited,
+                        dedication_text,
+                        summary,
+                        sid,
+                    ),
+                )
+                conn.commit()
+        except Exception as exc:  # noqa: BLE001 — DB must not break the loop
+            logger.warning("buddha_recitation: failed to persist session end: %s", exc)
+
+    def _safe_publish(self, event: Any) -> None:
+        """Publish ``event`` on the event bus if one is wired."""
+        if self.event_bus is None:
+            return
+        try:
+            self.event_bus.publish(event)
+        except Exception as exc:  # noqa: BLE001 — event bus must not break the loop
+            logger.warning("buddha_recitation: event publish failed: %s", exc)
 
     def on_name_recited(self, callback):
         """Register callback invoked after each Buddha name is recited."""
@@ -154,6 +272,12 @@ class BuddhaRecitationLoop:
         )
         self._voice_override = voice
 
+        # Persist the new session row. DB failures are non-fatal — the
+        # in-memory loop continues to work with ``session_db_id = None``.
+        self.state.session_db_id = self._persist_session_start(
+            intention, self.state.started_at
+        )
+
         # Broadcast WS event
         self._broadcast_ws(
             "BUDDHA_RECITATION_STARTED",
@@ -162,6 +286,17 @@ class BuddhaRecitationLoop:
                 "total_buddhas": len(self._buddhas),
             },
         )
+
+        # Publish domain event (best-effort).
+        if self.state.session_db_id is not None:
+            self._safe_publish(
+                RecitationStarted(
+                    timestamp=datetime.now(timezone.utc),
+                    event_id=str(uuid.uuid4()),
+                    intention=intention,
+                    session_id=self.state.session_db_id,
+                )
+            )
 
         # Initialize TTS if not explicitly disabled
         if self._tts is None:
@@ -213,6 +348,33 @@ class BuddhaRecitationLoop:
     def stop(self) -> RecitationState:
         """Stop the recitation loop."""
         self.state.running = False
+
+        # Finalize the DB row + emit the completed domain event. Best-effort:
+        # a failure here does not affect the in-memory state.
+        ended_at_iso = datetime.now().isoformat()
+        dedication_text = (
+            "愿以此功德 普及于一切 我等与众生 皆共成佛道"
+        )
+        summary = (
+            f"Recited {self.state.total_recited} Buddha names across "
+            f"{self.state.current_cycle} full cycle(s) with "
+            f"{self.state.dedications} dedication(s). "
+            f"Intention: {self.state.intention}"
+        )
+        self._persist_session_end(ended_at_iso, summary, dedication_text)
+
+        if self.state.session_db_id is not None:
+            self._safe_publish(
+                RecitationCompleted(
+                    timestamp=datetime.now(timezone.utc),
+                    event_id=str(uuid.uuid4()),
+                    session_id=self.state.session_db_id,
+                    cycles_completed=self.state.current_cycle,
+                    total_recited=self.state.total_recited,
+                    dedication_text=dedication_text,
+                )
+            )
+
         self._broadcast_ws("BUDDHA_RECITATION_STOPPED", self.get_status())
         return self.state
 
@@ -301,6 +463,11 @@ class BuddhaRecitationLoop:
                 if self.state.total_recited % 3 == 0:
                     self._broadcast_ws("BUDDHA_NAME_RECITED", self.get_status())
 
+                # Persist progress (every name; defensive — see helper).
+                # SQLite local writes are sub-ms and the default interval is
+                # 3s/name, so this is cheap and matches the spec.
+                self._persist_session_progress()
+
                 # Dedication interval
                 if self.state.mala_count > 0 and self.state.mala_count % dedication_interval == 0:
                     self.state.dedications += 1
@@ -328,6 +495,8 @@ class BuddhaRecitationLoop:
 
             # Cycle complete
             self.state.current_cycle += 1
+            # Persist the bumped cycle counter immediately.
+            self._persist_session_progress()
             for cb in self._on_cycle_complete:
                 try:
                     cb(self.state)
@@ -354,3 +523,122 @@ def get_recitation_loop() -> BuddhaRecitationLoop:
     if _recitation_loop is None:
         _recitation_loop = BuddhaRecitationLoop()
     return _recitation_loop
+
+
+# ---------------------------------------------------------------------------
+# Read-side helpers (for SessionHistory / DailyStreak frontend components)
+# ---------------------------------------------------------------------------
+# These are module-level functions rather than classmethods because they have
+# no dependency on the running loop instance — they just read the
+# ``buddha_recitation_sessions`` table. Endpoint code can call them directly.
+
+
+def _open_recitation_db() -> sqlite3.Connection:
+    """Open a short-lived read connection with Row factory."""
+    from core.schema import get_db_path
+
+    conn = sqlite3.connect(get_db_path())
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def get_recent_sessions(limit: int = 20) -> list[dict[str, Any]]:
+    """Return the most recent recitation sessions, newest first.
+
+    Each row is shaped for the ``SessionHistory.jsx`` component:
+    ``session_id``, ``intention``, ``started_at``, ``ended_at``,
+    ``cycles_completed``, ``total_recited``, ``dedication_text``,
+    ``summary``, ``linked_healing_session_id``. Returns an empty list when
+    the table is missing or unreadable (defensive — frontend still renders).
+    """
+    limit = max(1, min(int(limit), 200))
+    try:
+        with _open_recitation_db() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, intention, started_at, ended_at,
+                       cycles_completed, total_recited, dedication_text,
+                       summary, linked_healing_session_id
+                FROM buddha_recitation_sessions
+                ORDER BY started_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+    except sqlite3.OperationalError as exc:
+        # Table not created yet — fresh install before first init_db().
+        logger.debug("buddha_recitation: get_recent_sessions: %s", exc)
+        return []
+    except Exception as exc:  # noqa: BLE001 — read helper must not raise
+        logger.warning("buddha_recitation: get_recent_sessions failed: %s", exc)
+        return []
+
+    return [
+        {
+            "session_id": row["id"],
+            "intention": row["intention"],
+            "started_at": row["started_at"],
+            "ended_at": row["ended_at"],
+            "cycles_completed": row["cycles_completed"],
+            "total_recited": row["total_recited"],
+            "dedication_text": row["dedication_text"],
+            "summary": row["summary"],
+            "linked_healing_session_id": row["linked_healing_session_id"],
+        }
+        for row in rows
+    ]
+
+
+def get_streak() -> int:
+    """Return the current consecutive-day recitation streak.
+
+    Counts consecutive UTC days (ending today, or ending on the most recent
+    session date if no session happened today) that contain at least one
+    started session. Returns ``0`` when there are no sessions or the table
+    is unavailable.
+
+    The streak is forgiving: it walks back from the most recent session's
+    day, so a streak doesn't break until a full day passes with no session.
+    """
+    try:
+        with _open_recitation_db() as conn:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT DATE(started_at) AS day
+                FROM buddha_recitation_sessions
+                WHERE started_at IS NOT NULL
+                ORDER BY day DESC
+                """,
+            ).fetchall()
+    except sqlite3.OperationalError as exc:
+        logger.debug("buddha_recitation: get_streak: %s", exc)
+        return 0
+    except Exception as exc:  # noqa: BLE001 — read helper must not raise
+        logger.warning("buddha_recitation: get_streak failed: %s", exc)
+        return 0
+
+    if not rows:
+        return 0
+
+    # Parse distinct days into a set for O(1) membership checks.
+    days: set[str] = {row["day"] for row in rows if row["day"]}
+
+    # Anchor: the most recent session day. Walk back counting consecutive
+    # days that have a session.
+    most_recent = max(days)
+    try:
+        cursor_date = datetime.fromisoformat(most_recent).date()
+    except (ValueError, TypeError):
+        return 0
+
+    streak = 0
+    # Cap at 10_000 iterations as a hard safety net against pathological data.
+    for _ in range(10_000):
+        if cursor_date.isoformat() not in days:
+            break
+        streak += 1
+        try:
+            cursor_date = cursor_date.fromordinal(cursor_date.toordinal() - 1)
+        except (ValueError, OverflowError):
+            break
+    return streak
