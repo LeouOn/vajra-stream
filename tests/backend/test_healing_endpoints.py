@@ -301,8 +301,9 @@ def test_send_message_endpoint_422_for_empty_message(healing_app):
     assert resp.status_code == 422
 
 
-def test_send_message_endpoint_advances_phase_on_llm_hint(healing_app):
-    """When the LLM returns a forward phase_hint, the endpoint's phase advances."""
+def test_send_message_endpoint_returns_hint_without_advancing(healing_app):
+    """The LLM may suggest a phase transition, but the phase stays the same.
+    The hint is returned so the frontend can offer an Advance button."""
     healing_app.dialogue.next_response = {
         "content": "Shall we see what the stars say about this?",
         "phase_hint": "seeing",
@@ -316,7 +317,9 @@ def test_send_message_endpoint_advances_phase_on_llm_hint(healing_app):
         json={"message": "why did this happen?"},
     )
     assert resp.status_code == 200
-    assert resp.json()["phase"] == "seeing"
+    data = resp.json()
+    assert data["phase"] == "arrival"  # phase UNCHANGED
+    assert data["phase_hint"] == "seeing"  # hint returned as suggestion
 
 
 # ---------------------------------------------------------------------------

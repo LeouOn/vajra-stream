@@ -407,32 +407,17 @@ class HealingDialogueService:
         state.append_message("assistant", content)
         self._merge_insights(state, insights_update)
 
-        # Phase transition handling.
-        next_phase_value = self._resolve_phase_hint(state, phase_hint)
-        if next_phase_value is not None:
-            self._apply_phase_advance(state, next_phase_value)
+        # Phase transition is NOT automatic. The phase_hint is returned as a
+        # suggestion — the user decides whether to advance by calling the
+        # /advance endpoint. This gives the user control over pacing.
+        #
+        # The /advance endpoint handles:
+        #   - state.advance_phase()
+        #   - astrology context pull on SEEING entry
+        #   - summarize_session on COMPLETED
 
-        # Pull astrology context on first entry to SEEING.
-        if (
-            state.current_phase is DialoguePhase.SEEING
-            and state.astrology_context is None
-            and state.chart_id is not None
-        ):
-            state.astrology_context = self._pull_astrology_context(state.chart_id)
-
-        # Persist state.
+        # Persist state (with updated messages + insights, but SAME phase).
         self._save_state_to_db(session_id, state)
-
-        # On completion, summarize + emit HealingSessionCompleted.
-        if state.current_phase is DialoguePhase.COMPLETED:
-            try:
-                await self.summarize_session(session_id)
-            except Exception as exc:  # noqa: BLE001 — summary is best-effort
-                logger.warning(
-                    "healing dialogue: summarize_session failed for id=%s: %s",
-                    session_id,
-                    exc,
-                )
 
         return {
             "session_id": session_id,

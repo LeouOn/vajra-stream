@@ -203,8 +203,9 @@ async def test_process_message_merges_insights(healing_service):
     assert loaded["accumulated_insights"]["body_locations"] == ["chest"]
 
 
-async def test_process_message_advances_phase_on_hint(healing_service):
-    """When the LLM returns a forward phase_hint, the phase advances one step."""
+async def test_process_message_returns_hint_without_advancing(healing_service):
+    """The LLM may suggest a phase transition, but the phase does NOT change
+    automatically. The hint is returned so the user can decide to advance."""
     healing_service.dialogue.next_response = {
         "content": "I hear you. Shall we see what the stars say?",
         "phase_hint": "seeing",
@@ -214,7 +215,8 @@ async def test_process_message_advances_phase_on_hint(healing_service):
     assert session["phase"] == "arrival"
 
     result = await healing_service.process_message(session["session_id"], "why did this happen?")
-    assert result["phase"] == "seeing"
+    assert result["phase"] == "arrival"  # phase UNCHANGED
+    assert result["phase_hint"] == "seeing"  # hint returned as suggestion
 
 
 async def test_process_message_ignores_backward_phase_hint(healing_service):
