@@ -4,6 +4,12 @@
 - **Deciders:** Wave 2 remediation
 - **References:** `.omo/evidence/wave0-task5-audio-matrix.md` (Wave 0 Task 5), evaluation Issue 3.4
 - **Gates:** Blocks Wave 3 Task 16 (delete duplicates), Wave 4 Task 26 (audio consolidation)
+- **Amendments:**
+  - 2026-06-18 (Wave 4 Task 26): scope of `modules/audio.py:AudioService` clarified in
+    its class docstring (LLM-tool integration only; user-facing path is
+    `vajra_service.py`). New finding recorded in §"Open issue (Task 26)" —
+    `RadionicsOperator.generate_audio` tool passes a `mode=` kwarg that
+    `AudioService.generate_tone` does not currently accept.
 
 ## Context
 
@@ -81,3 +87,15 @@ frontend/src/components/UI/ChakraHealing.jsx:88,95,110                  │
 ### (c) Keep all four; document instead of deleting
 
 **Rejected.** Two of the four are fully unreachable from HTTP and referenced only by stale tests. Keeping them invites accidental imports and future "which AudioService?" confusion — exactly the problem this ADR exists to end.
+
+## Open issue (Task 26 — observed but out of scope)
+
+While locking the `container.audio` LLM-tool pathway in Wave 4 Task 26, an interface mismatch was observed between the LLM tool schema / dispatcher and `modules/audio.py:AudioService`:
+
+- `core/radionics_tools.py:484-506` declares the `generate_audio` tool with three parameters: `frequency_hz`, `duration_seconds`, and `mode` (enum: `prayer_bowl | sine`).
+- `modules/radionics_operator.py:510-519` dispatches it as `svc.generate_tone(frequency=..., duration=..., mode=mode)`.
+- `modules/audio.py:AudioService.generate_tone(self, frequency=432.0, duration=10.0, volume=0.5)` does **not** declare a `mode` parameter. A live tool call would raise `TypeError`.
+
+This is pre-existing behaviour and **not** in scope for Task 26 (the task explicitly forbids modifying `AudioService` logic). The new lock test (`tests/unit/test_container_audio_llm_tools.py`) asserts the **documented** working interface (`frequency=`, `duration=`); the `mode` plumbing — either adding `mode` to `AudioService.generate_tone` (with prayer_bowl/sine selection logic) or stripping it from the dispatcher / tool schema — is deferred to a future audio-focused task. Recorded here so the next maintainer of either side knows the contract is currently violated on the `mode` axis.
+
+The two-subsystem split itself (§Decision 1 vs §Decision 3) remains correct; the mismatch is intra-subsystem (dispatcher ↔ service) and does not change the canonical-path decision.
