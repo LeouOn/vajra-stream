@@ -168,6 +168,16 @@ async def lifespan(app: FastAPI):
     print("Vajra.Stream API shutting down...")
     stable_connection_manager_v2.stop_realtime_streaming()
 
+    # Shutdown Orchestrator Bridge (cancel the crystal broadcast daemon thread)
+    try:
+        from backend.core.orchestrator_bridge import orchestrator_bridge
+
+        orchestrator_bridge.shutdown()
+        print("Orchestrator Bridge shut down")
+    except Exception as e:
+        print(f"Failed to shut down Orchestrator Bridge: {e}")
+        logger.error(f"Failed to shut down Orchestrator Bridge: {e}")
+
     # Stop Autonomous Operator Daemon
     try:
         from container import container
