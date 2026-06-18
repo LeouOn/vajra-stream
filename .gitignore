@@ -115,3 +115,7 @@ frontend/playwright-report/
 .playwright-mcp/
 generated/
 scripts/eval_system.py
+
+# Scratch / dev-only test scripts and JSON fixtures (runtime scratch space)
+# Refer to .omo/evidence/wave0-task6-artifacts.md for classification rationale.
+scratch/
