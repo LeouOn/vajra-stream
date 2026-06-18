@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, Component } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
@@ -35,6 +35,7 @@ import GrimoirePanel from './components/UI/GrimoirePanel';
 import OutlookDashboard from './components/UI/OutlookDashboard';
 import Dashboard from './components/UI/Dashboard';
 import ChakraAlignmentStrip from './components/UI/ChakraAlignmentStrip';
+import ErrorBoundary from './components/UI/ErrorBoundary';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
 import { antdTheme } from './theme/antdTheme';
@@ -446,45 +447,6 @@ function AppContent() {
   );
 }
 
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex h-screen w-full items-center justify-center bg-gray-950 text-white p-4">
-          <div className="max-w-md w-full bg-gray-900 border border-red-500/30 p-6 rounded-xl shadow-2xl">
-            <h2 className="text-xl font-bold text-red-400 mb-2">UI Render Error</h2>
-            <p className="text-sm text-gray-300 mb-4">The application encountered an unexpected error while rendering.</p>
-            <pre className="bg-black/50 p-3 rounded text-xs text-red-300 overflow-x-auto whitespace-pre-wrap mb-4">
-              {this.state.error?.toString()}
-            </pre>
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full py-2 bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/50 rounded transition-colors"
-            >
-              Reload Application
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children; 
-  }
-}
-
 function App() {
   return (
     <ConfigProvider
@@ -498,7 +460,7 @@ function App() {
         },
       }}
     >
-      <ErrorBoundary>
+      <ErrorBoundary fallbackTitle="Application failed to render">
         <BrowserRouter>
           <AppContent />
         </BrowserRouter>
