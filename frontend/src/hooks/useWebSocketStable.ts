@@ -241,6 +241,10 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'BUDDHA_RECITATION_STOPPED':
               console.log(`Recitation event: ${data.type}`, data.data);
               break;
+            // Backend emits BOTH uppercase 'ERROR' (connection_manager_stable_v2.py:109,131)
+            // AND lowercase 'error' (lines 89,93). Explicit fall-through so both surface
+            // to the user via setError(); previously uppercase ERROR silently hit default.
+            case 'ERROR':
             case 'error':
               console.error('Server error:', data.message);
               setError(data.message);
