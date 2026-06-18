@@ -4,6 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
+import { DEFAULT_LAT, DEFAULT_LNG } from './lib/geo';
 
 // Ant Design
 import { ConfigProvider, theme, Result } from 'antd';
@@ -316,7 +317,7 @@ function AppContent() {
                     audioSpectrum={audioSpectrum}
                     isPlaying={isPlaying}
                     frequency={frequency}
-                    birthLocation={{ lat: 37.7749, lon: -122.4194, name: 'San Francisco' }}
+                    birthLocation={{ lat: DEFAULT_LAT, lon: DEFAULT_LNG, name: 'San Francisco' }}
                     showPowerSpots={true}
                     autoRotate={true}
                   />
