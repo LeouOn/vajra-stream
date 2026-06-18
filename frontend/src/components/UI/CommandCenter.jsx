@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 
 import { useWebSocket } from '../../hooks/useWebSocket';
 import SakaDawaBanner from './SakaDawaBanner';
@@ -90,12 +91,8 @@ export default function CommandCenter({
       }
     };
 
-    // Default to San Francisco, CA — only use geolocation if user explicitly requests "use my location"
-    const SF_LAT = 37.7749;
-    const SF_LON = -122.4194;
-
     const fetchAstro = async () => {
-      doFetch(SF_LAT, SF_LON);
+      doFetch(DEFAULT_LAT, DEFAULT_LNG);
     };
     
     fetchAstro();

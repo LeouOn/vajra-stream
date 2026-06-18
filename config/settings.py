@@ -33,6 +33,11 @@ DB_PATH = "vajra_stream.db"
 DEFAULT_DURATION = 300  # seconds (5 minutes)
 DEFAULT_INTENTION = "May all beings be happy and free from suffering"
 
+# Default coordinates (San Francisco) — used as fallback when user location unavailable.
+# Frontend mirrors these in frontend/src/lib/geo.ts (DEFAULT_LAT / DEFAULT_LNG).
+DEFAULT_LATITUDE = 37.7749
+DEFAULT_LONGITUDE = -122.4194
+
 # Crystal Grid
 CRYSTAL_COUNT = 6
 GRID_PATTERN = "hexagon"  # hexagon, circle, flower_of_life

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import TrendsChart from './TrendsChart';
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
+import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useCrystalStore } from '../../stores/crystalStore';
@@ -80,7 +81,7 @@ const Dashboard = () => {
       .catch(() => setSessionHistory([]));
     fetchCrystalGrid();
     getRateCategories();
-    fetch('/api/v1/astrology/current?latitude=37.7749&longitude=-122.4194')
+    fetch(`/api/v1/astrology/current?latitude=${DEFAULT_LAT}&longitude=${DEFAULT_LNG}`)
       .then(r => r.json())
       .then(d => setQuickAstro(d.astrology || null))
       .catch(() => {});

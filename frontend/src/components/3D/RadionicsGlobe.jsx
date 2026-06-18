@@ -8,6 +8,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
+import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 // ─── Approximate country → lat/lon for disaster markers ───
 const COUNTRY_COORDS = {
   'japan': [36, 138], 'indonesia': [-2, 118], 'philippines': [13, 122],
@@ -477,7 +478,7 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }) {
     };
     const fetchAstro = async () => {
       try {
-        const res = await fetch(`/api/v1/astrology/current?latitude=37.7749&longitude=-122.4194`);
+        const res = await fetch(`/api/v1/astrology/current?latitude=${DEFAULT_LAT}&longitude=${DEFAULT_LNG}`);
         if (res.ok) {
           const data = await res.json();
           const western = data.astrology?.western;
