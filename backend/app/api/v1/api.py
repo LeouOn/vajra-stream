@@ -10,6 +10,7 @@ from backend.app.api.v1.endpoints import blessings as blessings_endpoint
 from backend.app.api.v1.endpoints import dharma_tales as dharma_tales_endpoint
 from backend.app.api.v1.endpoints import divination as divination_endpoint
 from backend.app.api.v1.endpoints import extraction as extraction_endpoint
+from backend.app.api.v1.endpoints import healing_dialogue as healing_dialogue_endpoint
 from backend.app.api.v1.endpoints import llm as llm_endpoint
 from backend.app.api.v1.endpoints import locations as locations_endpoint
 from backend.app.api.v1.endpoints import mops as mops_endpoint
@@ -51,6 +52,7 @@ api_router.include_router(populations_endpoint.router, prefix="/populations", ta
 api_router.include_router(automation_endpoint.router, tags=["automation"])
 api_router.include_router(dharma_tales_endpoint.router, prefix="/dharma", tags=["dharma-tales"])
 api_router.include_router(personal_healing_endpoint.router, prefix="/healing", tags=["healing"])
+api_router.include_router(healing_dialogue_endpoint.router, tags=["healing-dialogue"])
 api_router.include_router(llm_endpoint.router, tags=["llm"])
 api_router.include_router(mops_endpoint.router, tags=["mops"])
 api_router.include_router(sigils_endpoint.router, tags=["sigils"])

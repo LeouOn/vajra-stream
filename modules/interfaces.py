@@ -30,6 +30,22 @@ class HealingSessionStarted(DomainEvent):
 
 
 @dataclass
+class HealingSessionCompleted(DomainEvent):
+    """Event: Healing dialogue session has completed.
+
+    Emitted when the multi-turn healing dialogue reaches the ``COMPLETED``
+    phase (after the Dedication phase lands). Carries the session id, the
+    generated summary text, and the structured key insights so downstream
+    consumers (OutlookService feedback loop, event log, etc.) can react
+    without re-querying the DB.
+    """
+
+    session_id: str
+    summary: str
+    key_insights: dict
+
+
+@dataclass
 class ScalarWavesGenerated(DomainEvent):
     """Event: Scalar waves have been generated"""
 
