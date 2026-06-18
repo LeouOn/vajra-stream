@@ -24,6 +24,7 @@
  * @route /sanctuary
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Input, Button, Typography, Spin } from 'antd';
 import { Send, Plus, Archive } from 'lucide-react';
 import { API_BASE } from '../../utils/api';
@@ -661,6 +662,13 @@ function CompletedSeal({ seal, onNewSession }) {
       <button type="button" className="sanctuary-seal-new" onClick={onNewSession}>
         Begin a new session
       </button>
+      <p className="sanctuary-seal-continuation">
+        If you'd like to continue with 88 Buddhas recitation,{' '}
+        <Link to="/buddhas" className="sanctuary-seal-continuation-link">
+          enter the practice space
+        </Link>
+        .
+      </p>
     </div>
   );
 }
@@ -1112,6 +1120,27 @@ function StyleBlock() {
       .sanctuary-seal-new:hover {
         background: var(--sanctuary-gold-faint);
         box-shadow: 0 0 18px var(--sanctuary-gold-faint);
+      }
+      .sanctuary-seal-continuation {
+        margin: 18px auto 0;
+        max-width: 460px;
+        font-family: var(--sanctuary-serif);
+        font-style: italic;
+        font-size: 13px;
+        line-height: 1.75;
+        color: var(--sanctuary-text-faint);
+        text-align: center;
+      }
+      .sanctuary-seal-continuation-link {
+        color: var(--sanctuary-gold-soft);
+        text-decoration: none;
+        border-bottom: 1px dotted rgba(201, 165, 114, 0.35);
+        padding-bottom: 1px;
+        transition: color 240ms ease, border-color 240ms ease;
+      }
+      .sanctuary-seal-continuation-link:hover {
+        color: var(--sanctuary-gold);
+        border-bottom-color: var(--sanctuary-gold);
       }
 
       /* ---- Footer / input ---- */
