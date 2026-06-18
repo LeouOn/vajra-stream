@@ -82,7 +82,7 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
       placement="right"
       open={open}
       onClose={onClose}
-      width={Math.min(420, (typeof window !== 'undefined' ? window.innerWidth : 420) - 32)}
+      size="default"
       styles={{
         header: { borderBottom: '1px solid var(--sanctuary-surface-border)' },
         body: { padding: 0 },

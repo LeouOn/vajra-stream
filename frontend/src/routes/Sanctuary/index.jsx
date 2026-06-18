@@ -109,7 +109,8 @@ export default function SanctuaryPage() {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Boot — fetch recent sessions; create one if none exist.
+  // Boot — fetch recent sessions for the drawer. Do NOT auto-create.
+  // The user triggers session creation by clicking "Begin".
   // -------------------------------------------------------------------------
 
   useEffect(() => {
@@ -120,39 +121,16 @@ export default function SanctuaryPage() {
         const recent = await fetchSessions();
         if (cancelled) return;
         setSessions(recent);
-
-        if (recent.length === 0) {
-          const created = await createSession();
-          if (cancelled) return;
-          setSessionId(created.session_id);
-          setCurrentPhase(created.phase || 'arrival');
-          setMessages([]);
-          setCompletedSeal(null);
-          // Prepend to the drawer list.
-          setSessions((prev) => [
-            {
-              session_id: created.session_id,
-              started_at: created.started_at,
-              phases_completed: ['arrival'],
-              summary: null,
-              ended_at: null,
-            },
-            ...prev,
-          ]);
-        } else {
-          // Load the most recent session into the space.
-          const latest = recent[0];
+        // If there are past sessions, load the most recent one so the user
+        // can continue where they left off. But if none exist, leave
+        // sessionId null — the landing screen will show a "Begin" button.
+        if (recent.length > 0) {
           try {
-            const full = await loadSession(latest.session_id);
+            const full = await loadSession(recent[0].session_id);
             if (cancelled) return;
             hydrateFromSession(full);
           } catch (err) {
             console.warn('Sanctuary: load latest wavered', err);
-            // Fall back to a fresh session.
-            const created = await createSession();
-            if (cancelled) return;
-            setSessionId(created.session_id);
-            setCurrentPhase(created.phase || 'arrival');
           }
         }
       } catch (err) {
@@ -447,6 +425,36 @@ export default function SanctuaryPage() {
               <Spin size="small" />
               <Text className="sanctuary-held-text">The space is being held…</Text>
             </div>
+          ) : !sessionId ? (
+            /* Landing — no session yet. User clicks Begin to enter. */
+            <div className="sanctuary-landing" style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+              <Text style={{
+                display: 'block', fontSize: '1.5rem', fontFamily: 'Georgia, serif',
+                color: 'var(--sanctuary-text-soft, #c4b8a8)', marginBottom: '1rem',
+              }}>
+                The Sanctuary
+              </Text>
+              <Text style={{
+                display: 'block', fontSize: '0.9rem', lineHeight: 1.8,
+                color: 'var(--sanctuary-text-faint, #8a8074)', maxWidth: 420, margin: '0 auto 2rem',
+              }}>
+                A space to sit with loss, grief, and disruption.<br/>
+                When you are ready, you may begin.
+              </Text>
+              <button
+                type="button"
+                onClick={handleNewSession}
+                style={{
+                  padding: '0.6rem 2rem', fontSize: '0.85rem', fontFamily: 'Georgia, serif',
+                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                  background: 'var(--sanctuary-gold, #c9a45c)', color: '#1a1410',
+                  border: 'none', borderRadius: '2px', cursor: 'pointer',
+                  transition: 'box-shadow 0.3s',
+                }}
+              >
+                Begin
+              </button>
+            </div>
           ) : messages.length === 0 ? (
             <OpeningPhrase isCompleted={isCompleted} />
           ) : (
@@ -489,7 +497,8 @@ export default function SanctuaryPage() {
         </div>
       </main>
 
-      {/* Input — pinned, calm, disabled while the LLM holds the space */}
+      {/* Input — pinned, calm, hidden until a session is active */}
+      {sessionId != null && (
       <footer className="sanctuary-footer">
         <div className="sanctuary-input-wrap">
           <Input.TextArea
@@ -528,6 +537,7 @@ export default function SanctuaryPage() {
           {isLoading ? 'Listening…' : isCompleted ? 'Sealed.' : 'Enter to send · Shift+Enter for a new line'}
         </div>
       </footer>
+      )}
 
       <SessionList
         open={drawerOpen}
