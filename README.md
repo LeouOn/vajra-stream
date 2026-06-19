@@ -252,6 +252,23 @@ VITE_API_BASE=https://api.example.com npm run build
 Default is empty (proxy-relative). Trailing slashes are stripped
 automatically. See `frontend/src/utils/api.ts` and ADR 004 for details.
 
+### Frontend Styling Boundary (Tailwind ↔ Ant Design)
+
+The frontend intentionally uses **both** Tailwind CSS and Ant Design. The
+split is documented in **[docs/frontend-styling-guide.md](docs/frontend-styling-guide.md)**:
+
+- **Tailwind** — layout, spacing, color utilities, typography, animations,
+  and custom visual primitives (`.glassmorphism`, `.vajra-button-*`, ...).
+- **Ant Design** — interactive widgets (`Table`, `Modal`, `Drawer`, `Form`,
+  `Select`, `DatePicker`, `Tabs`, `Popconfirm`, toasts, ...) driven by their
+  props and `ConfigProvider` theme tokens.
+- **Brand colors** have a single source of truth in
+  `frontend/src/lib/colors.js`, mirrored to CSS variables
+  (`globals.css`), Tailwind tokens (`tailwind.config.js`), and AntD tokens
+  (`App.jsx` `ConfigProvider`).
+
+When adding new UI, consult the guide before reaching for either system.
+
 ## Knowledge Base
 
 Pre-loaded reference data:
