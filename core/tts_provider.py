@@ -24,13 +24,11 @@ Configuration via API:
     POST /api/v1/tts/speak      — generate TTS audio
 """
 
-import asyncio
 import logging
 import os
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -150,7 +148,6 @@ class TTSConfig:
             (edge_voice, qwen_speaker) tuple — either may be None if not relevant.
         """
         active_role = role or self.role
-        backend_key = self.backend.value
         # Edge auto-mode → resolve to Edge fallback
         # Qwen auto-mode → resolve to Qwen speaker
         edge_v = self.edge_voice
@@ -353,7 +350,6 @@ class TTSProvider:
         """
         backend = self.active_backend
         edge_v, qwen_s = self._resolve_voice(voice, role)
-        active_role = role or self.config.role
 
         if backend == TTSBackend.QWEN:
             return await self._speak_qwen(text, qwen_s, language, output_file)

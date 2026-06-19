@@ -133,7 +133,6 @@ def test_no_silent_private_bus_when_event_bus_not_injected():
     subscribe then fails loudly with ``AttributeError``, making the missed
     injection visible at the call site instead of silently dropping events.
     """
-    from infrastructure.event_bus import EnhancedEventBus
     from modules.radionics_operator import RadionicsOperator
 
     # Bypass the container — simulates a missed arg in a future refactor or

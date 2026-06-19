@@ -227,21 +227,21 @@ async def get_history(limit: int = 20):
             langs = []
             try:
                 langs = json.loads(row["languages"])
-            except:
+            except Exception:
                 langs = [row["languages"]]
 
             content_val = row["content"]
             if row["type"] == "epic":
                 try:
                     content_val = json.loads(row["content"])
-                except:
+                except Exception:
                     pass
 
             div_raw = {}
             if row["divination_raw"]:
                 try:
                     div_raw = json.loads(row["divination_raw"])
-                except:
+                except Exception:
                     pass
 
             history.append(

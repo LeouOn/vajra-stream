@@ -1030,7 +1030,7 @@ class AstrologicalCalculator:
         Returns Lunar Date, Sheng Xiao (Zodiac), BaZi, and Shichen.
         """
         try:
-            from lunar_python import Lunar, Solar
+            from lunar_python import Solar
 
             # Convert timezone to China Standard Time (UTC+8) which Chinese calendar uses
             dt_china = dt.astimezone(pytz.timezone("Asia/Shanghai"))

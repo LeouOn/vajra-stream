@@ -1,4 +1,4 @@
-"""Wave 5 Task 30 — Freeze ruff ``per-file-ignores`` baseline.
+"""Freeze ruff ``per-file-ignores`` baseline at zero.
 
 Guards Guardrail G10 and the Metis deferred-suppression trap: once a
 remediation wave has burned down ruff violations, the debt must not
@@ -20,6 +20,9 @@ is itself a visible, reviewable signal).
 If you genuinely need to raise the baseline, update the two
 ``*_MAX`` constants below AND add a justification comment referencing
 the remediation/trade-off that warranted it.
+
+History: remediation-30 froze 11 legacy entries; deferred-1 removed
+them all by fixing the underlying lint errors. The baseline is now 0/0.
 """
 
 from __future__ import annotations
@@ -44,13 +47,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 
 # ---------------------------------------------------------------------------
-# FROZEN BASELINE — remediation-30 (Guardrail G10)
+# BASELINE — deferred-1 cleanup removed all 11 legacy per-file-ignores.
 # ---------------------------------------------------------------------------
 # These are UPPER BOUNDS. Reductions are welcome; increases are not.
 # To raise them you must (a) justify why a new suppression is unavoidable,
 # (b) update the constant, and (c) reference the decision in the commit.
-PER_FILE_IGNORES_ENTRY_MAX = 11      # number of file-pattern keys
-PER_FILE_IGNORES_RULE_MAX = 22       # total rule codes across all entries
+PER_FILE_IGNORES_ENTRY_MAX = 0       # number of file-pattern keys
+PER_FILE_IGNORES_RULE_MAX = 0        # total rule codes across all entries
 
 
 def _load_per_file_ignores() -> dict[str, list[str]]:

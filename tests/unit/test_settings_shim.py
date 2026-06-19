@@ -17,6 +17,14 @@ from __future__ import annotations
 
 import pytest
 
+# Legacy shim — must agree with canonical for shared constants.
+from backend.app.config import (
+    LLMConfig,
+    Settings,
+    get_llm_config,
+    settings,
+)
+
 # Canonical constants — the single source of truth per ADR 002.
 from config.settings import (
     AMPLIFIER_CONNECTED,
@@ -29,15 +37,6 @@ from config.settings import (
     PRAYER_BOWL_MODE,
     SAMPLE_RATE,
 )
-
-# Legacy shim — must agree with canonical for shared constants.
-from backend.app.config import (
-    LLMConfig,
-    Settings,
-    get_llm_config,
-    settings,
-)
-
 
 # ---------------------------------------------------------------------------
 # 1. Pydantic Settings mirrors config.settings for shared audio/hardware

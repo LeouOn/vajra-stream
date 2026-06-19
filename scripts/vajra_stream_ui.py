@@ -25,11 +25,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     from rich import box
     from rich.console import Console
-    from rich.layout import Layout
     from rich.panel import Panel
-    from rich.progress import Progress, SpinnerColumn, TextColumn
     from rich.table import Table
-    from rich.text import Text
 
     HAS_RICH = True
 except ImportError:
@@ -318,27 +315,27 @@ class VajraStreamUI:
             # Check components
             try:
                 table.add_row("Scalar Waves", "✅ Ready", "Terra MOPS capable")
-            except:
+            except Exception:
                 table.add_row("Scalar Waves", "⚠️  Limited", "Install numpy for full power")
 
             try:
                 table.add_row("Blessing System", "✅ Ready", "Database available")
-            except:
+            except Exception:
                 table.add_row("Blessing System", "⚠️  Limited", "Basic functions only")
 
             try:
                 table.add_row("Energetic Anatomy", "✅ Ready", "3 traditions loaded")
-            except:
+            except Exception:
                 table.add_row("Energetic Anatomy", "❌ Unavailable", "")
 
             try:
                 table.add_row("Visualization", "✅ Ready", "PIL/Pillow available")
-            except:
+            except Exception:
                 table.add_row("Visualization", "❌ Unavailable", "Install Pillow")
 
             try:
                 table.add_row("TTS Narration", "✅ Ready", "Multi-engine support")
-            except:
+            except Exception:
                 table.add_row("TTS Narration", "⚠️  Limited", "Install pyttsx3 or gTTS")
 
             self.console.print(table)

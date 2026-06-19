@@ -27,6 +27,8 @@ Contract preserved here:
 
 from __future__ import annotations
 
+from pydantic_settings import BaseSettings
+
 # ---------------------------------------------------------------------------
 # 1. Re-export the canonical constants.
 # ---------------------------------------------------------------------------
@@ -67,9 +69,6 @@ from config.settings import (  # noqa: F401 — explicit re-export for tooling
     VISUAL_MODE,
     WARNING_ENABLED,
 )
-
-from pydantic_settings import BaseSettings
-
 
 # ---------------------------------------------------------------------------
 # 2. Pydantic Settings — wraps the canonical constants so legacy importers

@@ -186,7 +186,6 @@ class OutlookGenerator:
 
             # --- Elements & Modalities ---
             elements = western.get("elements", {})
-            modalities = western.get("modalities", {})
             dom_elem = western.get("dominant_element", "")
             dom_mod = western.get("dominant_modality", "")
             if elements:

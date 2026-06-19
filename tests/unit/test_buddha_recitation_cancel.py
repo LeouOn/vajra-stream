@@ -20,8 +20,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from core.buddha_recitation_loop import BuddhaRecitationLoop
 
 

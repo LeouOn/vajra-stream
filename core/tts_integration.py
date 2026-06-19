@@ -34,7 +34,7 @@ except ImportError:
     HAS_GTTS = False
 
 try:
-    import edge_tts
+    import edge_tts  # noqa: F401 — availability probe; HAS_EDGE_TTS is the runtime flag
 
     HAS_EDGE_TTS = True
 except ImportError:

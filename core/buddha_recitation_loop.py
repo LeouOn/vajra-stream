@@ -18,7 +18,6 @@ Speaker resolution:
 
 import asyncio
 import logging
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -280,9 +279,6 @@ class BuddhaRecitationLoop:
 
     async def _run_loop(self, interval_seconds: float, dedication_interval: int, max_cycles: int | None):
         """Internal: main recitation loop."""
-        total = len(self._buddhas)
-        opening = "大慈大悲愍众生 大喜大舍济含识 南無"
-
         while self.state.running:
             for i, buddha in enumerate(self._buddhas):
                 if not self.state.running:

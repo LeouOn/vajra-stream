@@ -28,12 +28,11 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
 
 # --- Optional imports — all degrade gracefully ---
 
 try:
-    from core.protocol_selector import ConditionProtocol, ProtocolSelector
+    from core.protocol_selector import ProtocolSelector
 
     HAS_PROTOCOL = True
 except ImportError:

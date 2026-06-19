@@ -109,22 +109,10 @@ ignore = [
     "E741",  # ambiguous variable name 'l' — idiomatic in comprehensions
 ]
 
-# FROZEN per remediation-30 — no new suppressions allowed (Guardrail G10).
-# Do NOT add file patterns or append rule codes here without raising the
-# snapshot in tests/unit/test_no_new_ruff_suppressions.py (and justifying why).
-# Current baseline: 11 file-pattern entries, 22 total rule-code suppressions.
+# No per-file-ignores — deferred-1 cleanup removed all 11 legacy entries.
+# Guardrail G10 still applies: do NOT add new suppressions here. The freeze
+# test in tests/unit/test_no_new_ruff_suppressions.py snapshots at 0/0.
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D", "ANN"]
-"scripts/**" = ["D", "ANN", "E722", "F841", "E402", "F401"]
-"backend/tests/**" = ["D", "ANN", "F401"]
-"backend/app/main.py" = ["E402"]
-"backend/app/api/v1/endpoints/blessings.py" = ["F401"]
-"backend/core/llm_agent/tools.py" = ["F401"]
-"core/**" = ["F401", "F841", "E722"]
-"modules/**" = ["F401", "E722"]
-"infrastructure/**" = ["E722"]
-"backend/app/api/v1/endpoints/outlook.py" = ["E722"]
-"backend/core/services/vajra_service.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

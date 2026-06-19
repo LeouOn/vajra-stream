@@ -13,7 +13,7 @@ from modules.interfaces import AnatomyVisualizer, EventBus
 
 # Try to import visualization - will fail if PIL not available
 try:
-    from core.meridian_visualization import BodyPosition, MeridianVisualizer
+    from core.meridian_visualization import MeridianVisualizer
 
     HAS_VISUALIZATION = True
 except (ImportError, RuntimeError) as e:
@@ -22,7 +22,7 @@ except (ImportError, RuntimeError) as e:
 
 # Database should always be available
 try:
-    from core.energetic_anatomy import EnergeticAnatomyDatabase, Tradition
+    import core.energetic_anatomy  # noqa: F401 — availability probe; HAS_DATABASE is the runtime flag
 
     HAS_DATABASE = True
 except ImportError:

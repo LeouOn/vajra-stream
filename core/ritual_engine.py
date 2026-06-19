@@ -31,10 +31,9 @@ API:
 import asyncio
 import json
 import logging
-import os
 import sqlite3
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -209,10 +208,6 @@ class PracticeSelector:
             reasons.append("novel practice")
 
         # ── 4. Genre diversity bonus (10%) ──
-        recent_genres = []
-        for rid in self._recent_practices[:max_recent]:
-            for p2 in self._recent_practices:
-                pass  # We only have IDs, not full objects — skip for now
         total += 0.10  # Default full bonus
         reasons.append("genre diversity OK")
 
@@ -733,7 +728,6 @@ class RitualScheduler:
 
     def _get_upcoming_schedule(self) -> list[dict]:
         """Predict favorable hours for the next 24 hours."""
-        from core.auspicious_timing import AuspiciousTiming
 
         # Simplified: just list the Chaldean order forward
         chaldean = ["Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"]

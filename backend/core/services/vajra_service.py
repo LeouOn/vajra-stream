@@ -66,11 +66,13 @@ try:
 except ImportError:
     Level2CrystalBroadcaster, Level3CrystalBroadcaster = None, None
 
+try:
+    from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
+except ImportError:
+    AudioConfig, SessionConfig = None, None
+
 ENHANCED_MODE = AstrologicalCalculator is not None
 print(f"Service running with Astrological Calculations: {AstrologicalCalculator is not None}")
-
-
-from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
 
 
 class VajraStreamService:

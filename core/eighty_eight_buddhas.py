@@ -19,7 +19,6 @@ Usage:
 """
 
 import json
-import os
 import random
 from dataclasses import dataclass
 from datetime import datetime
@@ -199,7 +198,6 @@ class EightyEightBuddhas:
         Selects 7 representative Buddhas (one per day of the week concept),
         generates a narrative for each, and composes a confession liturgy.
         """
-        narrative_llm = llm or self.llm
         # Select 7 representative Buddhas spanning both categories
         past = [b for b in self._buddhas if b.category == "past"]
         confession = [b for b in self._buddhas if b.category == "confession"]

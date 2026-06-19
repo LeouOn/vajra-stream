@@ -10,22 +10,23 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load environment variables early so os.getenv works everywhere
+# Load environment variables early so os.getenv works for the FastAPI
+# middleware/router configuration performed by the imports below.
 load_dotenv()
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import HTMLResponse  # noqa: E402
+from fastapi.templating import Jinja2Templates  # noqa: E402
 
 # Import stable connection manager v2
-from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2  # noqa: E402
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from backend.app.api.v1.api import api_router
+from backend.app.api.v1.api import api_router  # noqa: E402
 
 # Setup templates
 template_dir = Path(__file__).parent.parent.parent.parent / "templates"

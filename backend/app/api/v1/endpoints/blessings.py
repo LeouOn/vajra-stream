@@ -15,8 +15,8 @@ from pydantic import BaseModel, Field
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 try:
-    from core.blessing_narratives import BlessingNarrativeGenerator, BlessingTarget
-    from core.compassionate_blessings import BlessingTradition, CompassionateBlessingGenerator
+    from core.blessing_narratives import BlessingNarrativeGenerator
+    from core.compassionate_blessings import CompassionateBlessingGenerator
 
     HAS_BLESSING_MODULES = True
 except ImportError:

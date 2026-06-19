@@ -1,5 +1,4 @@
 import asyncio
-import sys
 
 from playwright.async_api import async_playwright
 
@@ -13,7 +12,6 @@ async def main():
         print("Testing Vajra.Stream Frontend End-to-End Orchestration...")
 
         # Listen to console
-        errors = []
         page.on(
             "console",
             lambda msg: (

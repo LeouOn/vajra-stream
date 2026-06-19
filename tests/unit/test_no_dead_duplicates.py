@@ -24,7 +24,6 @@ Reference: ``.omo/evidence/wave0-task5-audio-matrix.md``,
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest

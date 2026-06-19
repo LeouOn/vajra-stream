@@ -17,7 +17,7 @@ from enum import Enum
 from pathlib import Path
 
 try:
-    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    from PIL import Image, ImageDraw, ImageFont
 
     HAS_PIL = True
 except ImportError:
@@ -25,7 +25,7 @@ except ImportError:
     print("Note: PIL not available - visualization disabled")
 
 try:
-    from core.energetic_anatomy import Element, EnergeticAnatomyDatabase, Tradition
+    from core.energetic_anatomy import Element, EnergeticAnatomyDatabase
 
     HAS_ANATOMY = True
 except ImportError:
@@ -233,7 +233,7 @@ class MeridianVisualizer:
         # Add labels
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
-        except:
+        except Exception:
             font = ImageFont.load_default()
 
         labels = {
@@ -322,7 +322,7 @@ class MeridianVisualizer:
             # Label
             try:
                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
-            except:
+            except Exception:
                 font = ImageFont.load_default()
 
             if points:
@@ -381,7 +381,7 @@ class MeridianVisualizer:
         # Add title
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
-        except:
+        except Exception:
             font = ImageFont.load_default()
 
         self.draw.text((self.width // 2 - 200, 30), "Three Channels (Nadis)", fill=(255, 255, 255, 255), font=font)
@@ -389,7 +389,7 @@ class MeridianVisualizer:
         # Add legend
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
-        except:
+        except Exception:
             font = ImageFont.load_default()
 
         legend_x = 50
@@ -419,7 +419,7 @@ class MeridianVisualizer:
         try:
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
             font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
-        except:
+        except Exception:
             font = ImageFont.load_default()
             font_small = font
 

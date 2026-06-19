@@ -315,7 +315,7 @@ def create_display_window(img: Image, title: str = "Vajra.Stream - Visual Medita
     """
     try:
         img.show(title=title)
-    except:
+    except Exception:
         print("Display not available (running headless)")
 
 

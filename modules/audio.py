@@ -172,7 +172,7 @@ class AudioService:
 
         try:
             return tts_engine.get_voices()
-        except:
+        except Exception:
             return ["default"]
 
     def get_status(self) -> dict[str, Any]:

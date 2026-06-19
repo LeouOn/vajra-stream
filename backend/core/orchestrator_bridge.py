@@ -5,7 +5,6 @@ Singleton bridge to expose the UnifiedOrchestrator to the FastAPI application.
 
 import logging
 import threading
-from typing import Optional
 
 from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
 from scripts.unified_orchestrator import UnifiedOrchestrator
@@ -21,7 +20,7 @@ class OrchestratorBridge:
             cls._instance = super().__new__(cls)
             cls._instance.orchestrator = None
             cls._instance.initialized = False
-            cls._instance._crystal_thread: Optional[threading.Thread] = None
+            cls._instance._crystal_thread: threading.Thread | None = None
             cls._instance._shutdown_event = threading.Event()
         return cls._instance
 

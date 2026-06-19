@@ -33,14 +33,14 @@ from core.tts_engine import TTSEngine
 try:
     from core.enhanced_tts import EnhancedTTSEngine
     HAS_ENHANCED_TTS = True
-except:
+except Exception:
     HAS_ENHANCED_TTS = False
 
 try:
     from core.visual_renderer_simple import SimpleVisualRenderer
 
     HAS_VISUAL = True
-except:
+except Exception:
     HAS_VISUAL = False
 
 # Enhanced radionics capabilities
@@ -48,7 +48,7 @@ try:
     from core.radionics_engine import GeneralVitalityMeter, RadionicsAnalyzer, RateDatabase
 
     HAS_RADIONICS_ENGINE = True
-except:
+except Exception:
     HAS_RADIONICS_ENGINE = False
 
 # Astrocartography capabilities
@@ -56,7 +56,7 @@ try:
     from core.astrocartography import AstrocartographyCalculator, HistoricalChartCalculator
 
     HAS_ASTROCARTOGRAPHY = True
-except:
+except Exception:
     HAS_ASTROCARTOGRAPHY = False
 
 
@@ -106,7 +106,7 @@ class RadionicsOperation:
                     self.tts = TTSEngine()
                     print("✓ Basic TTS system ready")
                     self.enhanced_tts = False
-                except:
+                except Exception:
                     print("ℹ TTS not available (silent mode)")
                     self.enhanced_tts = False
         else:
@@ -114,21 +114,21 @@ class RadionicsOperation:
                 self.tts = TTSEngine()
                 print("✓ Basic TTS system ready")
                 self.enhanced_tts = False
-            except:
+            except Exception:
                 print("ℹ TTS not available (silent mode)")
                 self.enhanced_tts = False
 
         try:
             self.visual_gen = RothkoGenerator()
             print("✓ Visual generator ready (Rothko meditation images)")
-        except:
+        except Exception:
             print("ℹ Visual generator not available")
 
         if HAS_VISUAL:
             try:
                 self.visual_renderer = SimpleVisualRenderer()
                 print("✓ Visual renderer ready (mandalas)")
-            except:
+            except Exception:
                 print("ℹ Visual renderer not available")
 
         # Prayer wheel
