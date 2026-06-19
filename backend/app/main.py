@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse  # noqa: E402
 from fastapi.templating import Jinja2Templates  # noqa: E402
 
 # Import stable connection manager v2
-from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2  # noqa: E402
+from backend.websocket.connection_manager import stable_connection_manager_v2  # noqa: E402
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

@@ -32,7 +32,7 @@ import pytest
 # unit test must be able to load this module in isolation.
 #
 # We also stub ``scripts.unified_orchestrator`` and
-# ``backend.websocket.connection_manager_stable_v2`` so the bridge module
+# ``backend.websocket.connection_manager`` so the bridge module
 # body — which imports ``UnifiedOrchestrator`` at class-definition time —
 # does not pull in the rest of the application graph.
 _REPO_ROOT = os.path.abspath(
@@ -44,10 +44,10 @@ if "scripts.unified_orchestrator" not in sys.modules:
     _stub_scripts = ModuleType("scripts.unified_orchestrator")
     _stub_scripts.UnifiedOrchestrator = object  # placeholder, never instantiated here
     sys.modules["scripts.unified_orchestrator"] = _stub_scripts
-if "backend.websocket.connection_manager_stable_v2" not in sys.modules:
-    _stub_ws = ModuleType("backend.websocket.connection_manager_stable_v2")
+if "backend.websocket.connection_manager" not in sys.modules:
+    _stub_ws = ModuleType("backend.websocket.connection_manager")
     _stub_ws.stable_connection_manager_v2 = object()
-    sys.modules["backend.websocket.connection_manager_stable_v2"] = _stub_ws
+    sys.modules["backend.websocket.connection_manager"] = _stub_ws
 
 _BRIDGE_PATH = os.path.join(
     _REPO_ROOT, "backend", "core", "orchestrator_bridge.py"

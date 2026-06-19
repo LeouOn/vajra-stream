@@ -55,6 +55,10 @@ DEAD_FILES: list[tuple[str, str]] = [
         "connection_manager_stable.py (superseded by connection_manager_stable_v2.py)",
     ),
     (
+        "backend/websocket/connection_manager_stable_v2.py",
+        "connection_manager_stable_v2.py (merged into connection_manager.py per deferred Task 4)",
+    ),
+    (
         "tests/unit/test_backend_audio_playback.py",
         "test_backend_audio_playback.py (stale — only ref to audio_service.py)",
     ),
@@ -82,14 +86,12 @@ def test_canonical_audio_subsystem_files_remain() -> None:
 
     * ``modules/audio.py`` is the canonical LLM-tool audio container (ADR 001) and
       MUST be preserved.
-    * ``backend/websocket/connection_manager_stable_v2.py`` is the canonical live
-      WebSocket manager and MUST be preserved.
-    * ``backend/websocket/connection_manager.py`` (bare original) is intentionally
-      left in place per Task 16 instructions (may have other refs).
+    * ``backend/websocket/connection_manager.py`` is the canonical (and now sole)
+      WebSocket manager — the former ``connection_manager_stable_v2.py`` was
+      merged into it per deferred Task 4 and MUST stay deleted.
     """
     must_keep = [
         "modules/audio.py",
-        "backend/websocket/connection_manager_stable_v2.py",
         "backend/websocket/connection_manager.py",
     ]
     missing = [p for p in must_keep if not (REPO_ROOT / p).exists()]

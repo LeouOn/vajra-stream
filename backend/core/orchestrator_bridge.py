@@ -6,7 +6,7 @@ Singleton bridge to expose the UnifiedOrchestrator to the FastAPI application.
 import logging
 import threading
 
-from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+from backend.websocket.connection_manager import stable_connection_manager_v2
 from scripts.unified_orchestrator import UnifiedOrchestrator
 
 logger = logging.getLogger(__name__)

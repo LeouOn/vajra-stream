@@ -412,7 +412,7 @@ class VajraStreamService:
 
         # Notify via WebSocket that broadcast started
         try:
-            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            from backend.websocket.connection_manager import stable_connection_manager_v2
 
             asyncio.create_task(
                 stable_connection_manager_v2.broadcast(
@@ -459,7 +459,7 @@ class VajraStreamService:
             idle_count = 0
 
             try:
-                from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+                from backend.websocket.connection_manager import stable_connection_manager_v2
 
                 # Count running sessions
                 running = [s for s in self.active_sessions.values() if s.get("status") == "running"]

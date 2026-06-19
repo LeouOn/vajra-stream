@@ -239,7 +239,7 @@ class RitualExecutionEngine:
     async def _broadcast_ws(self, event_type: str, data: dict):
         """Send event to all WebSocket clients."""
         try:
-            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            from backend.websocket.connection_manager import stable_connection_manager_v2
 
             payload = {"type": event_type, "data": data, "timestamp": time.time()}
             await stable_connection_manager_v2.broadcast(payload)
@@ -752,7 +752,7 @@ class RitualScheduler:
     async def _broadcast_status(self):
         """Send engine status to WebSocket clients."""
         try:
-            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            from backend.websocket.connection_manager import stable_connection_manager_v2
 
             await stable_connection_manager_v2.broadcast(
                 {
@@ -767,7 +767,7 @@ class RitualScheduler:
     async def _broadcast_ws(self, event_type: str, data: dict):
         """Send event to WebSocket."""
         try:
-            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            from backend.websocket.connection_manager import stable_connection_manager_v2
 
             await stable_connection_manager_v2.broadcast(
                 {
