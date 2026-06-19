@@ -28,7 +28,7 @@ export default defineConfig({
           // Vendor splits reduce initial parse cost and improve cache hit rate
           // (vendor code changes less often than app code).
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-antd': ['antd', '@ant-design/icons'],
+          'vendor-antd': ['antd'],
           'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
           'vendor-recharts': ['recharts'],
           'vendor-icons': ['lucide-react'],

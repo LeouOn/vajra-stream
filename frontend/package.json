@@ -13,7 +13,6 @@
     "e2e:install": "playwright install chromium"
   },
   "dependencies": {
-    "@ant-design/icons": "^6.2.5",
     "@react-three/drei": "^9.88.0",
     "@react-three/fiber": "^8.15.0",
     "antd": "^6.4.3",

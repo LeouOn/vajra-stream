@@ -28,8 +28,7 @@ import {
   Progress,
   Statistic,
 } from 'antd';
-import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
-import { Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
+import { Copy, Download, Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
@@ -208,10 +207,10 @@ function ResultsTab({ currentRunId }) {
           title={`Run ${currentRunId} Results`}
           extra={
             <Space>
-              <Button icon={<CopyOutlined />} onClick={() => handleCopy('markdown')}>
+              <Button icon={<Copy />} onClick={() => handleCopy('markdown')}>
                 {copied === 'markdown' ? 'Copied!' : 'Copy MD'}
               </Button>
-              <Button icon={<CopyOutlined />} onClick={() => handleCopy('json')}>
+              <Button icon={<Copy />} onClick={() => handleCopy('json')}>
                 {copied === 'json' ? 'Copied!' : 'Copy JSON'}
               </Button>
               <Dropdown
@@ -223,7 +222,7 @@ function ResultsTab({ currentRunId }) {
                   ],
                 }}
               >
-                <Button icon={<DownloadOutlined />}>Download</Button>
+                <Button icon={<Download />}>Download</Button>
               </Dropdown>
             </Space>
           }

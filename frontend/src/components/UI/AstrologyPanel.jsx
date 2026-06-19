@@ -3,11 +3,10 @@
  * Handles saved natal charts, transit analysis, synastry comparison, and backup exports.
  */
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
-import { 
-  Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload
+import {
+  Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload, Copy
 } from 'lucide-react';
 import { Card, Row, Col, Tag, Button, Space, Segmented, message } from 'antd';
-import { CopyOutlined } from '@ant-design/icons';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import VedicPanchanga from './VedicPanchanga';
@@ -535,7 +534,7 @@ export default function AstrologyPanel() {
             </Button>
             <Button
               size="small"
-              icon={<CopyOutlined />}
+              icon={<Copy />}
               onClick={handleCopyForLLM}
               className="text-[10px]"
               style={{
