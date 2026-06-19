@@ -6,15 +6,17 @@ This directory contains all automated tests for the Vajra.Stream project.
 
 ```
 tests/
-├── unit/                  # Unit tests for individual modules
-├── integration/           # Integration tests for module interactions
-├── e2e/                   # End-to-end tests (future)
-├── scripts/               # Utility test scripts (deprecated - being migrated)
-├── test_foundation.py     # Core foundation tests
-├── test_radionics_enhancer.py
-└── README.md             # This file
-<!-- removed: two deleted test files (ghost path per remediation-18 / Issue 5.8) -->
+├── conftest.py            # Shared fixtures (event_bus, fresh_container, geocoding patch)
+├── README.md              # This file
+├── unit/                  # Unit tests — single module/function in isolation
+├── integration/           # Integration tests — multiple modules / TestClient / DB
+├── e2e/                   # End-to-end tests — full user workflows
+├── backend/               # Tests for backend/app config & endpoints
+└── core/                  # Tests for core subsystems (llm/, context/)
 ```
+
+No `test_*.py` files live at the `tests/` root — every test belongs to exactly
+one of the structured subdirectories above (see `Issue 5.9` / deferred Task 5).
 
 ## Running Tests
 
@@ -48,29 +50,37 @@ pytest -vv  # Extra verbose
 ## Test Categories
 
 ### Unit Tests (`tests/unit/`)
-Tests for individual functions, classes, and modules in isolation.
+Tests for individual functions, classes, and modules in isolation (no HTTP
+server, no DB, no external services). Marked with `@pytest.mark.unit`.
 
-**Currently includes:**
-- Audio generation and playback tests
-- RNG API and service tests
-- TTS system tests
-- Basic functionality tests
-- Visualization tests
-- Server tests
+**Includes:** foundation/event-bus, ritual engine & scheduler, prayer wheel,
+radionics enhancer/operator, divination, sigils, RNG service, astrology
+calculator, auspicious timing, core modules, LLM routing/tool-schemas, transit
+export, endpoints init sync, and several structural guardrails
+(no-dead-duplicates, no-new-ruff-suppressions, docs-no-ghost-paths, etc.).
 
 ### Integration Tests (`tests/integration/`)
-Tests for interactions between multiple modules and system components.
+Tests for interactions between multiple modules and system components, often
+via `TestClient(app)` against the real FastAPI app or a SQLite DB. Marked with
+`@pytest.mark.integration`.
 
-**Currently includes:**
-- Full system integration tests
-- WebSocket connection tests
-- Module connection tests
-- Session creation tests
-- Full stack simulation tests
-- Data loading tests
+**Includes:** server health, audio API, container modules, services, outlook
+loop/import-export, LLM models & routing integration, extraction, and the
+cross-module integration suite.
 
 ### End-to-End Tests (`tests/e2e/`)
-Tests that simulate real user workflows (to be implemented).
+Tests that simulate real user workflows across the full stack. Marked with
+`@pytest.mark.e2e`. Some require a live LM Studio instance and are skipped
+when unavailable.
+
+**Includes:** full workflow, astrology e2e, extraction e2e, LLM e2e,
+orchestration, autonomous agent, outlook API/generator e2e.
+
+### Backend & Core Subdirs (`tests/backend/`, `tests/core/`)
+`tests/backend/` covers `backend/app` config and endpoint smoke tests.
+`tests/core/` mirrors the `core/` package layout with `core/llm/` (provider,
+registry, retry, cache, health, models, base) and `core/context/` (system
+prompt builder, hardware, astrology, anatomy).
 
 ## Writing Tests
 
@@ -103,15 +113,19 @@ async def test_async_function():
 
 ## Test Configuration
 
-Tests are configured via `pyproject.toml` (to be added):
+Tests are configured via `pyproject.toml`:
 ```toml
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "--cov=. --cov-report=html --cov-report=term"
+markers = ["unit", "integration", "e2e", "slow"]
+asyncio_mode = "auto"
 ```
+
+`tests/__init__.py` and `tests/unit/__init__.py` make those directories proper
+packages so that test modules sharing a basename (e.g. `test_astrology.py` in
+both `tests/unit/` and `tests/core/context/`) import under distinct dotted
+names (`tests.unit.test_astrology` vs bare `test_astrology`) — no collection
+collisions.
 
 ## Coverage
 

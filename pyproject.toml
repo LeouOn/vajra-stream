@@ -135,7 +135,7 @@ module = ["modules.*", "core.*", "backend.*", "infrastructure.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests", "tests"]
+testpaths = ["tests"]
 markers = [
     "unit: fast isolated tests",
     "integration: tests that wire multiple modules together",

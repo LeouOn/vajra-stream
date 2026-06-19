@@ -22,7 +22,8 @@ try:
 except ImportError:  # pragma: no cover — exercised only in environments with the circular import
     _here = os.path.dirname(os.path.abspath(__file__))
     _mod_path = os.path.join(
-        os.path.dirname(_here), "backend", "core", "services", "divination_service.py"
+        os.path.dirname(os.path.dirname(_here)),
+        "backend", "core", "services", "divination_service.py",
     )
     _spec = importlib.util.spec_from_file_location("_test_divination_service", _mod_path)
     _mod = importlib.util.module_from_spec(_spec)

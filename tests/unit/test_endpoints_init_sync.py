@@ -10,7 +10,7 @@ import X` access for tests and tooling.
 import importlib
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 API_FILE = PROJECT_ROOT / "backend" / "app" / "api" / "v1" / "api.py"
 
 
