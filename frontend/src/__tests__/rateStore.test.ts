@@ -112,7 +112,7 @@ describe('useRateStore', () => {
       useRateStore.getState().saveRate({ values: [10, 10, 10], name: 'A' });
       await new Promise(r => setTimeout(r, 2));
       useRateStore.getState().saveRate({ values: [20, 20, 20], name: 'B' });
-      const idA = useRateStore.getState().customRates.find(r => r.name === 'A').id;
+      const idA = useRateStore.getState().customRates.find(r => r.name === 'A')!.id;
       useRateStore.getState().deleteRate(idA);
       expect(useRateStore.getState().customRates).toHaveLength(1);
       expect(useRateStore.getState().customRates[0].name).toBe('B');
@@ -237,11 +237,11 @@ describe('useRateStore', () => {
         ],
       });
       const stats = useRateStore.getState().getRateStatistics();
-      expect(stats.totalRates).toBe(2);
-      expect(stats.avgValues[0]).toBeCloseTo(20);
-      expect(stats.avgValues[1]).toBeCloseTo(30);
-      expect(stats.avgValues[2]).toBeCloseTo(40);
-      expect(stats.mostUsedCategory).toBe('healing');
+      expect(stats!.totalRates).toBe(2);
+      expect(stats!.avgValues[0]).toBeCloseTo(20);
+      expect(stats!.avgValues[1]).toBeCloseTo(30);
+      expect(stats!.avgValues[2]).toBeCloseTo(40);
+      expect(stats!.mostUsedCategory).toBe('healing');
     });
   });
 });

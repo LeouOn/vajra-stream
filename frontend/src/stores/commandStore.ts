@@ -7,8 +7,59 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { CommandDef } from '../types';
 
-const commandRegistry = [
+/** A registered command (static catalogue). */
+export type Command = CommandDef;
+
+/** A command previously invoked by the user (recent history). */
+export interface RecentCommand {
+  id: string;
+  label?: string;
+  category?: string;
+  icon?: string;
+  [key: string]: unknown;
+}
+
+/** Search context filter for the palette. */
+export type SearchContext = 'all' | 'stories' | 'rates' | 'crystals' | 'commands' | null;
+
+/**
+ * Unified search-result item. Discriminated by `type`; uses an index
+ * signature because each backend entity (story / rate / crystal / command)
+ * surfaces different fields and we deliberately keep the union permissive.
+ */
+export interface SearchResultItem {
+  type: string;
+  id: string | number;
+  label?: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  score?: number;
+  values?: number[];
+  [key: string]: unknown;
+}
+
+export interface CommandState {
+  isOpen: boolean;
+  query: string;
+  selectedIndex: number;
+  recentCommands: RecentCommand[];
+  searchResults: SearchResultItem[];
+  searchContext: SearchContext;
+
+  setIsOpen: (open: boolean) => void;
+  setQuery: (query: string) => void;
+  selectResult: (index: number) => void;
+  executeSelected: () => SearchResultItem | null;
+  addToRecent: (command: RecentCommand) => void;
+  setSearchContext: (context: Exclude<SearchContext, null>) => void;
+  performSearch: (query: string) => Promise<void>;
+  getScore: (query: string, text: string) => number;
+}
+
+const commandRegistry: Command[] = [
   // Audio & Broadcasting
   { id: 'audio.generate', label: 'Generate Audio', category: 'Audio', shortcut: 'Ctrl+G', icon: 'play' },
   { id: 'audio.play', label: 'Play Audio', category: 'Audio', shortcut: 'Ctrl+P', icon: 'play' },
@@ -49,7 +100,7 @@ const commandRegistry = [
   { id: 'settings', label: 'Settings', category: 'Settings', shortcut: 'Ctrl+,', icon: 'settings' },
 ];
 
-export const useCommandStore = create(
+export const useCommandStore = create<CommandState>()(
   persist(
     (set, get) => ({
       isOpen: false,
@@ -77,33 +128,34 @@ export const useCommandStore = create(
 
       executeSelected: () => {
         const { selectedIndex, searchResults, query } = get();
-        
+
         if (searchResults.length > 0 && selectedIndex < searchResults.length) {
           const selected = searchResults[selectedIndex];
           set({ isOpen: false, query: '' });
           return selected;
         }
-        
+
         // If no search results and query matches a command
         if (query) {
-          const command = commandRegistry.find(cmd => 
-            cmd.id === query.toLowerCase().replace(/[^a-z0-9]/g, '') ||
-            cmd.label.toLowerCase().includes(query.toLowerCase())
+          const command = commandRegistry.find(
+            (cmd) =>
+              cmd.id === query.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+              cmd.label.toLowerCase().includes(query.toLowerCase()),
           );
           if (command) {
             set({ isOpen: false, query: '' });
             return { type: 'command', ...command };
           }
         }
-        
+
         return null;
       },
 
       addToRecent: (command) => {
         set((state) => {
-          const filtered = state.recentCommands.filter(c => c.id !== command.id);
+          const filtered = state.recentCommands.filter((c) => c.id !== command.id);
           return {
-            recentCommands: [command, ...filtered].slice(0, 10)
+            recentCommands: [command, ...filtered].slice(0, 10),
           };
         });
       },
@@ -122,11 +174,11 @@ export const useCommandStore = create(
         }
 
         const state = get();
-        const results = [];
+        const results: SearchResultItem[] = [];
 
         // Search commands
         if (state.searchContext === 'all' || state.searchContext === 'commands') {
-          commandRegistry.forEach(cmd => {
+          commandRegistry.forEach((cmd) => {
             const score = state.getScore(query, [cmd.label, cmd.id, cmd.category].join(' '));
             if (score > 0) {
               results.push({ type: 'command', ...cmd, score });
@@ -135,40 +187,59 @@ export const useCommandStore = create(
         }
 
         // Search stories (if backend available)
-        if ((state.searchContext === 'all' || state.searchContext === 'stories')) {
+        if (state.searchContext === 'all' || state.searchContext === 'stories') {
           try {
             const response = await fetch('/api/v1/stories/search?q=' + encodeURIComponent(query));
             if (response.ok) {
               const data = await response.json();
-              data.stories?.forEach(story => {
-                const score = state.getScore(query, [story.title, story.content, ...(story.tags || []), story.theme, story.tradition].join(' '));
+              data.stories?.forEach((story: Record<string, unknown>) => {
+                const tags = Array.isArray(story.tags) ? story.tags : [];
+                const parts = [story.title, story.content, ...tags, story.theme, story.tradition]
+                  .map((p) => (typeof p === 'string' ? p : ''))
+                  .join(' ');
+                const score = state.getScore(query, parts);
                 if (score > 0) {
-                  results.push({ type: 'story', ...story, score });
+                  results.push({ type: 'story', ...story, id: story.id as string | number, score });
                 }
               });
             }
           } catch {
             // Fallback to local stories
-            const savedTales = JSON.parse(localStorage.getItem('dharma-tales') || '[]');
-            savedTales.forEach(story => {
-              const score = state.getScore(query, [story.tale, story.theme, story.tradition].join(' '));
+            const savedTales: Array<Record<string, unknown>> = JSON.parse(
+              localStorage.getItem('dharma-tales') || '[]',
+            );
+            savedTales.forEach((story) => {
+              const tale = typeof story.tale === 'string' ? story.tale : '';
+              const theme = typeof story.theme === 'string' ? story.theme : '';
+              const tradition = typeof story.tradition === 'string' ? story.tradition : '';
+              const score = state.getScore(query, [tale, theme, tradition].join(' '));
               if (score > 0) {
-                results.push({ type: 'story', ...story, id: story.id, title: story.tale.slice(0, 50) + '...', score });
+                results.push({
+                  type: 'story',
+                  ...story,
+                  id: story.id as string | number,
+                  title: tale.slice(0, 50) + '...',
+                  score,
+                });
               }
             });
           }
         }
 
         // Search rates
-        if ((state.searchContext === 'all' || state.searchContext === 'rates')) {
+        if (state.searchContext === 'all' || state.searchContext === 'rates') {
           try {
             const response = await fetch('/api/v1/radionics/rates/search?query=' + encodeURIComponent(query));
             if (response.ok) {
               const data = await response.json();
-              data.results?.forEach(rate => {
-                const score = state.getScore(query, [rate.name, rate.description, rate.values?.join('-'), rate.category].join(' '));
+              data.results?.forEach((rate: Record<string, unknown>) => {
+                const values = Array.isArray(rate.values) ? rate.values : [];
+                const parts = [rate.name, rate.description, values.join('-'), rate.category]
+                  .map((p) => (typeof p === 'string' ? p : ''))
+                  .join(' ');
+                const score = state.getScore(query, parts);
                 if (score > 0) {
-                  results.push({ type: 'rate', ...rate, score });
+                  results.push({ type: 'rate', ...rate, id: rate.id as string | number, score });
                 }
               });
             }
@@ -179,8 +250,8 @@ export const useCommandStore = create(
         }
 
         // Search crystals
-        if ((state.searchContext === 'all' || state.searchContext === 'crystals')) {
-          const crystalLibrary = [
+        if (state.searchContext === 'all' || state.searchContext === 'crystals') {
+          const crystalLibrary: Array<Record<string, unknown>> = [
             { id: 'quartz', name: 'Clear Quartz', properties: ['amplification', 'clarity', 'healing'], chakras: ['crown'], description: 'Master healer, amplifies energy and intention' },
             { id: 'amethyst', name: 'Amethyst', properties: ['protection', 'purification', 'spiritual'], chakras: ['third_eye', 'crown'], description: 'Spiritual protection and enhanced intuition' },
             { id: 'rose-quartz', name: 'Rose Quartz', properties: ['love', 'compassion', 'peace'], chakras: ['heart'], description: 'Unconditional love and emotional healing' },
@@ -190,18 +261,23 @@ export const useCommandStore = create(
             { id: 'lapis-lazuli', name: 'Lapis Lazuli', properties: ['wisdom', 'truth', 'awareness'], chakras: ['third_eye', 'throat'], description: 'Deep wisdom, truth and inner awareness' },
             { id: 'carnelian', name: 'Carnelian', properties: ['vitality', 'creativity', 'courage'], chakras: ['sacral'], description: 'Vitality, creativity and motivation' },
           ];
-          crystalLibrary.forEach(crystal => {
-            const score = state.getScore(query, [crystal.name, crystal.description, ...crystal.properties, ...crystal.chakras].join(' '));
+          crystalLibrary.forEach((crystal) => {
+            const name = typeof crystal.name === 'string' ? crystal.name : '';
+            const description = typeof crystal.description === 'string' ? crystal.description : '';
+            const properties = Array.isArray(crystal.properties) ? crystal.properties : [];
+            const chakras = Array.isArray(crystal.chakras) ? crystal.chakras : [];
+            const parts = [name, description, ...properties, ...chakras].join(' ');
+            const score = state.getScore(query, parts);
             if (score > 0) {
-              results.push({ type: 'crystal', ...crystal, score });
+              results.push({ type: 'crystal', ...crystal, id: crystal.id as string, score });
             }
           });
         }
 
         // Sort by score and remove duplicates
         const sortedResults = results
-          .sort((a, b) => b.score - a.score)
-          .filter((item, index, arr) => arr.findIndex(i => i.id === item.id) === index)
+          .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+          .filter((item, index, arr) => arr.findIndex((i) => i.id === item.id) === index)
           .slice(0, 10);
 
         set({ searchResults: sortedResults, selectedIndex: 0 });
@@ -209,13 +285,13 @@ export const useCommandStore = create(
 
       getScore: (query, text) => {
         if (!query || !text) return 0;
-        
-        const terms = query.toLowerCase().split(' ').filter(t => t);
+
+        const terms = query.toLowerCase().split(' ').filter((t) => t);
         let score = 0;
-        
+
         const textLower = text.toLowerCase();
-        
-        terms.forEach(term => {
+
+        terms.forEach((term) => {
           if (textLower.includes(term)) {
             score += 10;
           } else if (textLower.includes(term.substring(0, Math.min(3, term.length)))) {
@@ -223,7 +299,7 @@ export const useCommandStore = create(
           } else if (textLower.includes(term.charAt(0))) {
             score += 2;
           }
-          
+
           // Bonus for word match
           if (textLower === term || textLower.endsWith(' ' + term) || textLower.startsWith(term + ' ')) {
             score += 5;
@@ -231,15 +307,15 @@ export const useCommandStore = create(
         });
 
         return score;
-      }
+      },
     }),
     {
       name: 'command-storage',
       partialize: (state) => ({
-        recentCommands: state.recentCommands.slice(0, 10)
-      })
-    }
-  )
+        recentCommands: state.recentCommands.slice(0, 10),
+      }),
+    },
+  ),
 );
 
 export { commandRegistry };

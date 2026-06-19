@@ -8,12 +8,145 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export const useCrystalStore = create(
+/** The seven primary chakras used throughout the crystal work module. */
+export type ChakraName =
+  | 'root'
+  | 'sacral'
+  | 'solar_plexus'
+  | 'heart'
+  | 'throat'
+  | 'third_eye'
+  | 'crown';
+
+/** A user-added crystal in the inventory. */
+export interface Crystal {
+  id: number;
+  name?: string;
+  type?: string;
+  addedAt: string;
+  programmed: boolean;
+  lastCharged: string | null;
+  [key: string]: unknown;
+}
+
+/** Static library entry describing a crystal type. */
+export interface CrystalLibraryEntry {
+  id: string;
+  name: string;
+  color: string;
+  emissive: string;
+  properties: string[];
+  chakras: string[];
+  description: string;
+}
+
+/** Active grid configuration rendered in the 3D scene. */
+export interface GridConfig {
+  type: string;
+  crystalType: string;
+  radius: number;
+  showEnergyField: boolean;
+  intention: string;
+  crystalCount: number;
+}
+
+/** Saved grid geometry template. */
+export interface GridTemplate {
+  id: string;
+  name: string;
+  description: string;
+  crystalCount: number;
+}
+
+/** Crystal programming ritual state. */
+export interface ProgrammingState {
+  isActive: boolean;
+  crystalIndex: number | null;
+  intention: string;
+  step: number;
+  startTime: string | null;
+}
+
+/** Crystal attunement ritual state (one step per chakra). */
+export interface AttunementState {
+  isActive: boolean;
+  step: number;
+  totalSteps: number;
+  chakras: ChakraName[];
+  currentChakra: ChakraName;
+}
+
+/** Breath meditation state paced alongside crystal work. */
+export interface MeditationState {
+  isActive: boolean;
+  duration: number;
+  elapsed: number;
+  breathPhase: 'inhale' | 'hold' | 'exhale';
+  breathCount: number;
+}
+
+export interface CrystalState {
+  crystals: Crystal[];
+  gridConfig: GridConfig;
+  programming: ProgrammingState;
+  attunement: AttunementState;
+  meditation: MeditationState;
+  crystalLibrary: CrystalLibraryEntry[];
+  gridTemplates: GridTemplate[];
+
+  // Grid configuration mutations
+  setGridConfig: (config: Partial<GridConfig>) => void;
+  setGridType: (type: string) => void;
+  setCrystalType: (crystalType: string) => void;
+  setIntention: (intention: string) => void;
+
+  // Crystal inventory management
+  addCrystal: (crystal: Partial<Crystal>) => void;
+  removeCrystal: (id: number) => void;
+  updateCrystal: (id: number, updates: Partial<Crystal>) => void;
+
+  // Programming
+  startProgramming: (crystalIndex: number, intention: string) => void;
+  advanceProgrammingStep: () => void;
+  completeProgramming: () => void;
+
+  // Attunement
+  startAttunement: () => void;
+  advanceAttunementStep: () => void;
+  stopAttunement: () => void;
+
+  // Meditation
+  startMeditation: (duration?: number) => void;
+  updateMeditation: (elapsed: number) => void;
+  stopMeditation: () => void;
+
+  // Library lookups
+  getCrystalByType: (typeId: string) => CrystalLibraryEntry | undefined;
+  getCrystalsByChakra: (chakra: string) => CrystalLibraryEntry[];
+  getCrystalsByProperty: (property: string) => CrystalLibraryEntry[];
+
+  // Async backend operations
+  fetchCrystalGrid: () => Promise<unknown>;
+  programCrystal: (crystalId: string, intention: string) => Promise<unknown>;
+  broadcastCrystal: (duration?: number, hardwareLevel?: number) => Promise<unknown>;
+}
+
+const SEVEN_CHAKRAS: ChakraName[] = [
+  'root',
+  'sacral',
+  'solar_plexus',
+  'heart',
+  'throat',
+  'third_eye',
+  'crown',
+];
+
+export const useCrystalStore = create<CrystalState>()(
   persist(
     (set, get) => ({
       // Crystal inventory
       crystals: [],
-      
+
       // Active grid configuration
       gridConfig: {
         type: 'double-hexagon',
@@ -21,36 +154,36 @@ export const useCrystalStore = create(
         radius: 4,
         showEnergyField: true,
         intention: 'May all beings be happy',
-        crystalCount: 13
+        crystalCount: 13,
       },
-      
+
       // Crystal programming state
       programming: {
         isActive: false,
         crystalIndex: null,
         intention: '',
         step: 0,
-        startTime: null
+        startTime: null,
       },
-      
+
       // Crystal attunement state
       attunement: {
         isActive: false,
         step: 0,
         totalSteps: 7,
-        chakras: ['root', 'sacral', 'solar_plexus', 'heart', 'throat', 'third_eye', 'crown'],
-        currentChakra: 'root'
+        chakras: SEVEN_CHAKRAS,
+        currentChakra: 'root',
       },
-      
+
       // Crystal meditation state
       meditation: {
         isActive: false,
         duration: 300,
         elapsed: 0,
         breathPhase: 'inhale',
-        breathCount: 0
+        breathCount: 0,
       },
-      
+
       // Crystal library data
       crystalLibrary: [
         { id: 'quartz', name: 'Clear Quartz', color: '#ffffff', emissive: '#ccccff', properties: ['amplification', 'clarity', 'healing'], chakras: ['crown'], description: 'Master healer, amplifies energy and intention' },
@@ -60,69 +193,70 @@ export const useCrystalStore = create(
         { id: 'black-tourmaline', name: 'Black Tourmaline', color: '#222222', emissive: '#111111', properties: ['protection', 'grounding', 'shielding'], chakras: ['root'], description: 'Powerful protection and EMF shielding' },
         { id: 'selenite', name: 'Selenite', color: '#ffffff', emissive: '#ffffee', properties: ['purification', 'connection', 'peace'], chakras: ['crown'], description: 'High vibration cleansing and connection' },
         { id: 'lapis-lazuli', name: 'Lapis Lazuli', color: '#1a3a6c', emissive: '#2244aa', properties: ['wisdom', 'truth', 'awareness'], chakras: ['third_eye', 'throat'], description: 'Deep wisdom, truth and inner awareness' },
-        { id: 'carnelian', name: 'Carnelian', color: '#e04000', emissive: '#cc3300', properties: ['vitality', 'creativity', 'courage'], chakras: ['sacral'], description: 'Vitality, creativity and motivation' }
+        { id: 'carnelian', name: 'Carnelian', color: '#e04000', emissive: '#cc3300', properties: ['vitality', 'creativity', 'courage'], chakras: ['sacral'], description: 'Vitality, creativity and motivation' },
       ],
-      
+
       // Saved grid templates
       gridTemplates: [
         { id: 'hexagon', name: 'Hexagon (6)', description: 'Basic 6-crystal grid', crystalCount: 6 },
         { id: 'double-hexagon', name: 'Double Hexagon (13)', description: 'Inner + outer hexagon with center', crystalCount: 13 },
         { id: 'star', name: 'Star of David (13)', description: 'Sacred geometry star pattern', crystalCount: 13 },
-        { id: 'grid', name: '3x3 Grid (9)', description: 'Square grid arrangement', crystalCount: 9 }
+        { id: 'grid', name: '3x3 Grid (9)', description: 'Square grid arrangement', crystalCount: 9 },
       ],
-      
+
       // Actions
       setGridConfig: (config) => {
         set((state) => ({
-          gridConfig: { ...state.gridConfig, ...config }
+          gridConfig: { ...state.gridConfig, ...config },
         }));
       },
-      
+
       setGridType: (type) => {
         set((state) => ({
-          gridConfig: { ...state.gridConfig, type }
+          gridConfig: { ...state.gridConfig, type },
         }));
       },
-      
+
       setCrystalType: (crystalType) => {
         set((state) => ({
-          gridConfig: { ...state.gridConfig, crystalType }
+          gridConfig: { ...state.gridConfig, crystalType },
         }));
       },
-      
+
       setIntention: (intention) => {
         set((state) => ({
-          gridConfig: { ...state.gridConfig, intention }
+          gridConfig: { ...state.gridConfig, intention },
         }));
       },
-      
+
       // Crystal inventory management
       addCrystal: (crystal) => {
         set((state) => ({
-          crystals: [...state.crystals, {
-            id: Date.now(),
-            ...crystal,
-            addedAt: new Date().toISOString(),
-            programmed: false,
-            lastCharged: null
-          }]
+          crystals: [
+            ...state.crystals,
+            {
+              id: Date.now(),
+              ...crystal,
+              addedAt: new Date().toISOString(),
+              programmed: false,
+              lastCharged: null,
+            },
+          ],
         }));
       },
-      
+
       removeCrystal: (id) => {
         set((state) => ({
-          crystals: state.crystals.filter(c => c.id !== id)
+          crystals: state.crystals.filter((c) => c.id !== id),
         }));
       },
-      
+
       updateCrystal: (id, updates) => {
         set((state) => ({
-          crystals: state.crystals.map(c => 
-            c.id === id ? { ...c, ...updates } : c
-          )
+          crystals: state.crystals.map((c) => (c.id === id ? { ...c, ...updates } : c)),
         }));
       },
-      
+
       // Programming
       startProgramming: (crystalIndex, intention) => {
         set({
@@ -131,20 +265,20 @@ export const useCrystalStore = create(
             crystalIndex,
             intention,
             step: 0,
-            startTime: new Date().toISOString()
-          }
+            startTime: new Date().toISOString(),
+          },
         });
       },
-      
+
       advanceProgrammingStep: () => {
         set((state) => ({
           programming: {
             ...state.programming,
-            step: state.programming.step + 1
-          }
+            step: state.programming.step + 1,
+          },
         }));
       },
-      
+
       completeProgramming: () => {
         set({
           programming: {
@@ -152,11 +286,11 @@ export const useCrystalStore = create(
             crystalIndex: null,
             intention: '',
             step: 0,
-            startTime: null
-          }
+            startTime: null,
+          },
         });
       },
-      
+
       // Attunement
       startAttunement: () => {
         set({
@@ -164,11 +298,11 @@ export const useCrystalStore = create(
             ...get().attunement,
             isActive: true,
             step: 0,
-            currentChakra: 'root'
-          }
+            currentChakra: 'root',
+          },
         });
       },
-      
+
       advanceAttunementStep: () => {
         const state = get();
         const nextStep = state.attunement.step + 1;
@@ -177,30 +311,30 @@ export const useCrystalStore = create(
             attunement: {
               ...state.attunement,
               isActive: false,
-              step: 0
-            }
+              step: 0,
+            },
           });
         } else {
           set({
             attunement: {
               ...state.attunement,
               step: nextStep,
-              currentChakra: state.attunement.chakras[nextStep]
-            }
+              currentChakra: state.attunement.chakras[nextStep],
+            },
           });
         }
       },
-      
+
       stopAttunement: () => {
         set({
           attunement: {
             ...get().attunement,
             isActive: false,
-            step: 0
-          }
+            step: 0,
+          },
         });
       },
-      
+
       // Meditation
       startMeditation: (duration = 300) => {
         set({
@@ -209,51 +343,51 @@ export const useCrystalStore = create(
             duration,
             elapsed: 0,
             breathPhase: 'inhale',
-            breathCount: 0
-          }
+            breathCount: 0,
+          },
         });
       },
-      
+
       updateMeditation: (elapsed) => {
         set((state) => {
           const breathCycle = 12; // seconds per breath cycle
           const totalBreaths = Math.floor(elapsed / breathCycle);
-          const phase = (elapsed % breathCycle) < 4 ? 'inhale' : 
-                        (elapsed % breathCycle) < 8 ? 'hold' : 'exhale';
+          const phase: MeditationState['breathPhase'] =
+            elapsed % breathCycle < 4 ? 'inhale' : elapsed % breathCycle < 8 ? 'hold' : 'exhale';
           return {
             meditation: {
               ...state.meditation,
               elapsed,
               breathPhase: phase,
-              breathCount: totalBreaths
-            }
+              breathCount: totalBreaths,
+            },
           };
         });
       },
-      
+
       stopMeditation: () => {
         set({
           meditation: {
             ...get().meditation,
             isActive: false,
-            elapsed: 0
-          }
+            elapsed: 0,
+          },
         });
       },
-      
+
       // Get crystal by type
       getCrystalByType: (typeId) => {
-        return get().crystalLibrary.find(c => c.id === typeId);
+        return get().crystalLibrary.find((c) => c.id === typeId);
       },
-      
+
       // Get crystals by chakra
       getCrystalsByChakra: (chakra) => {
-        return get().crystalLibrary.filter(c => c.chakras.includes(chakra));
+        return get().crystalLibrary.filter((c) => c.chakras.includes(chakra));
       },
-      
+
       // Get crystals by property
       getCrystalsByProperty: (property) => {
-        return get().crystalLibrary.filter(c => c.properties.includes(property));
+        return get().crystalLibrary.filter((c) => c.properties.includes(property));
       },
 
       fetchCrystalGrid: async () => {
@@ -302,8 +436,8 @@ export const useCrystalStore = create(
       name: 'crystal-storage',
       partialize: (state) => ({
         crystals: state.crystals,
-        gridConfig: state.gridConfig
-      })
-    }
-  )
+        gridConfig: state.gridConfig,
+      }),
+    },
+  ),
 );
