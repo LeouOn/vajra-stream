@@ -1,10 +1,62 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
 import { DEFAULT_LAT, DEFAULT_LNG } from './lib/geo';
+
+/** MOPS throughput windows (matches MainLayout.MopsData structural shape). */
+interface MopsWindow {
+  [window: string]: number;
+}
+
+interface MopsData {
+  scalar_pulses?: MopsWindow;
+  mantras?: MopsWindow;
+  crystals?: MopsWindow;
+  divination?: MopsWindow;
+  tuning?: MopsWindow;
+}
+
+/** Crystal-grid settings (mirrors CrystalGridControls.AppliedSettings). */
+type GridType = 'hexagon' | 'double-hexagon' | 'star' | 'grid';
+type CrystalType = 'quartz' | 'amethyst' | 'rose-quartz' | 'citrine' | 'black-tourmaline' | 'selenite';
+
+interface CrystalGridSettings {
+  gridType: GridType;
+  crystalType: CrystalType;
+  showEnergyField: boolean;
+  intention: string;
+}
+
+/** Sacred-mandala settings (mirrors MandalaControls.AppliedSettings). */
+type MandalaPattern = 'sri-yantra' | 'metatron' | 'seed-of-life' | 'tree-of-life';
+type MandalaChakra = 'root' | 'sacral' | 'solar-plexus' | 'heart' | 'throat' | 'third-eye' | 'crown';
+type MandalaComplexity = 'simple' | 'medium' | 'complex';
+
+interface MandalaSettings {
+  pattern: MandalaPattern;
+  chakra: MandalaChakra;
+  complexity: MandalaComplexity;
+}
+
+/**
+ * Session shape used for rendering the active-session list, chakra strip,
+ * and broadcast target list. The WebSocket store types sessions as
+ * `Record<string, unknown>`, so we narrow via a cast at the call site.
+ */
+interface SessionData {
+  id: string;
+  name: string;
+  status: string;
+  intention?: string;
+  config?: {
+    chakras_enabled?: string[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
 
 // Ant Design
 import { ConfigProvider, theme, Result } from 'antd';
@@ -42,18 +94,18 @@ import { COLORS } from './lib/colors';
 import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
 
-function AppContent() {
-  const [visualizationType, setVisualizationType] = useState('sacred-geometry');
-  const [mopsData, setMopsData] = useState(null);
+function AppContent(): React.ReactElement {
+  const [visualizationType, setVisualizationType] = useState<string>('sacred-geometry');
+  const [mopsData, setMopsData] = useState<MopsData | null>(null);
   // Settings for the viz control panels (lifted state so the viz
   // components and the panels stay in sync via the parent).
-  const [crystalGridSettings, setCrystalGridSettings] = useState({
+  const [crystalGridSettings, setCrystalGridSettings] = useState<CrystalGridSettings>({
     gridType: 'double-hexagon',
     crystalType: 'quartz',
     showEnergyField: true,
     intention: 'May all beings be happy',
   });
-  const [mandalaSettings, setMandalaSettings] = useState({
+  const [mandalaSettings, setMandalaSettings] = useState<MandalaSettings>({
     pattern: 'sri-yantra',
     chakra: 'heart',
     complexity: 'medium',
@@ -62,14 +114,14 @@ function AppContent() {
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
   
   useEffect(() => {
-    const fetchMops = async () => {
+    const fetchMops = async (): Promise<void> => {
       try {
         const res = await fetch('/api/v1/mops/current');
         if (res.ok) {
           const data = await res.json();
-          setMopsData(data.mops);
+          setMopsData(data.mops as MopsData);
         }
-      } catch (e) {
+      } catch {
         // Ignore connectivity warnings
       }
     };
@@ -114,7 +166,7 @@ function AppContent() {
     });
   }, [updateSettings]);
 
-  const isFirstRender = React.useRef(true);
+  const isFirstRender = useRef<boolean>(true);
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -128,7 +180,7 @@ function AppContent() {
     audioFeedback.playClick();
   }, [visualizationType]);
 
-  const handleVisualizationChange = (type) => {
+  const handleVisualizationChange = (type: string): void => {
     setVisualizationType(type);
   };
 
@@ -139,9 +191,9 @@ function AppContent() {
       frequency={frequency}
       volume={volume}
       prayerBowlMode={prayerBowlMode}
-      generateAudio={generateAudio}
-      playAudio={playAudio}
-      stopAudio={stopAudio}
+      generateAudio={async (): Promise<void> => { await generateAudio(); }}
+      playAudio={async (): Promise<void> => { await playAudio(); }}
+      stopAudio={(): void => { void stopAudio(); }}
       mopsData={mopsData}
       visualizationType={visualizationType}
       handleVisualizationChange={handleVisualizationChange}
@@ -378,7 +430,9 @@ function AppContent() {
                   />
                 </div>
                 <ChakraAlignmentStrip
-                  activeChakras={Object.values(sessions || {}).filter(s => s.status === 'running').flatMap(s => s.config?.chakras_enabled || [])}
+                  activeChakras={(Object.values(sessions || {}) as SessionData[])
+                    .filter(s => s.status === 'running')
+                    .flatMap(s => s.config?.chakras_enabled || [])}
                   onSelectChakra={(chakra) => {
                     updateSettings({ frequency: chakra.frequency });
                   }}
@@ -386,7 +440,12 @@ function AppContent() {
               </div>
             ) : visualizationType === 'globe' ? (
               <div className="w-full h-full">
-                <RadionicsGlobe disasters={[]} broadcastTargets={Object.values(sessions || {}).filter(s => s.status === 'running').map(s => ({ name: s.name, location: s.intention }))} />
+                <RadionicsGlobe
+                  disasters={[]}
+                  broadcastTargets={(Object.values(sessions || {}) as SessionData[])
+                    .filter(s => s.status === 'running')
+                    .map(s => ({ name: s.name, location: s.intention }))}
+                />
               </div>
             ) : visualizationType === 'waterfall' ? (
               <div className="w-full h-full p-4">
@@ -408,7 +467,7 @@ function AppContent() {
               <h3 className="text-sm font-semibold mb-3 text-vajra-cyan glow-cyan">Active Session</h3>
               {Object.keys(sessions || {}).length > 0 ? (
                 <div className="space-y-2 text-sm">
-                  {Object.values(sessions).slice(0, 3).map((session) => (
+                  {(Object.values(sessions || {}) as SessionData[]).slice(0, 3).map((session) => (
                     <div key={session.id} className="flex justify-between items-center p-2 bg-white/5 border border-white/5 rounded-lg pointer-events-auto">
                       <span className="truncate mr-2 text-purple-300">{session.name}</span>
                       <span className={`px-2 py-1 text-xs rounded-full ${
@@ -448,7 +507,7 @@ function AppContent() {
   );
 }
 
-function App() {
+function App(): React.ReactElement {
   return (
     <ConfigProvider
       theme={{
