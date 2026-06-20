@@ -665,46 +665,34 @@ async def stop_recitation():
 
 @router.get("/saka-dawa", summary="Check Saka Dawa holy month status")
 async def check_saka_dawa():
-    """Check if we are currently in the Saka Dawa holy month window."""
-    from datetime import datetime
+    """Check if we are currently in the Saka Dawa holy month (4th Tibetan lunar month).
 
-    from core.models.practice import Practice
+    Uses the real lunar calendar via ``core.auspicious_timing.check_saka_dawa()``
+    (lunar_python), not hardcoded Gregorian months.
+    """
+    from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
+    from core.practices.practice import Practice
 
     try:
+        lunar_status = _check_saka_dawa()
         practices = Practice.get_default_practices()
-        saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
-        if not saka_dawa:
-            return {"error": "Saka Dawa practice not found"}
+        saka_practice = next(
+            (p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()),
+            None,
+        )
 
-        now = datetime.now()
-        in_window = now.month in (5, 6)
-
-        return {
-            "in_saka_dawa_window": in_window,
-            "current_month": now.month,
-            "saka_dawa_months": [5, 6],
-            "practice": {
-                "id": saka_dawa.id,
-                "name": saka_dawa.name,
-                "tradition": saka_dawa.tradition,
-                "description": saka_dawa.description,
-                "genre": saka_dawa.genre,
-                "merit_multiplier": saka_dawa.merit_multiplier,
-                "blessing_prompt": saka_dawa.base_prompt_template,
-                "preferred_hours": saka_dawa.preferred_planetary_hours,
-            },
-            "message": (
-                "We ARE in the Saka Dawa holy month — the 4th Tibetan month where merit is multiplied 100,000 times! "
-                "All compassionate practices are profoundly amplified."
-                if in_window
-                else "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
-                "Consider timing your major practice for that period when merit multiplies 100,000x."
-            ),
-            "suggested_action": (
-                "Perform the Saka Dawa Blessing — generate the epic three-part sutra now while the cosmic multiplier is active!"
-                if in_window
-                else "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
-            ),
-        }
+        response: dict = {**lunar_status}
+        if saka_practice:
+            response["practice"] = {
+                "id": saka_practice.id,
+                "name": saka_practice.name,
+                "tradition": getattr(saka_practice, "tradition", ""),
+                "description": getattr(saka_practice, "description", ""),
+                "genre": saka_practice.genre,
+                "merit_multiplier": saka_practice.merit_multiplier,
+                "blessing_prompt": saka_practice.base_prompt_template,
+                "preferred_hours": saka_practice.preferred_planetary_hours,
+            }
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

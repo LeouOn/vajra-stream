@@ -1,0 +1,18 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.8, pytest-8.4.1, pluggy-1.6.0 -- C:\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\llama\OneDrive\proj\vajra-stream
+configfile: pyproject.toml
+plugins: anyio-4.13.0, asyncio-1.4.0, cov-6.2.1, mock-3.14.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+tests/backend/test_saka_dawa_endpoint.py::test_saka_dawa_endpoint_returns_lunar_fields_not_hardcoded_months PASSED [100%]
+
+============================== warnings summary ===============================
+tests/backend/test_saka_dawa_endpoint.py::test_saka_dawa_endpoint_returns_lunar_fields_not_hardcoded_months
+  C:\Users\llama\OneDrive\proj\vajra-stream\backend\app\config.py:158: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class LLMConfig(BaseSettings):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 1 warning in 5.96s =========================
