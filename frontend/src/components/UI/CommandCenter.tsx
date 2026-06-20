@@ -475,24 +475,22 @@ export default function CommandCenter({
               )}
               {availableModels.api && availableModels.api.length > 0 && (
                 <Select.OptGroup label="API Providers">
-                  {availableModels.api.map(m => {
-                    let providerVal = 'openai';
-                    let defaultName = 'gpt-4o-mini';
-                    if (m.toLowerCase().includes('deepseek')) {
-                      providerVal = 'deepseek';
-                      const match = m.match(/\(([^)]+)\)/);
-                      defaultName = match ? match[1] : 'deepseek-chat';
-                    } else if (m.toLowerCase().includes('anthropic')) {
-                      providerVal = 'anthropic';
-                      defaultName = 'claude-3-5-haiku-20241022';
-                    } else if (m.toLowerCase().includes('openai')) {
-                      providerVal = 'openai';
-                      defaultName = 'gpt-4o-mini';
-                    }
-                    return (
-                      <Select.Option key={`${providerVal}:${defaultName}`} value={`${providerVal}:${defaultName}`}>{m}</Select.Option>
-                    );
-                  })}
+                  {availableModels.api
+                    .map(m => {
+                      // Backend returns strings shaped "provider_name (default_model)".
+                      // Parse both pieces directly so every registered provider
+                      // (openrouter, z_ai, minimax, deepseek, anthropic, openai, ...)
+                      // routes to itself; never fall through to OpenAI.
+                      const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+                      if (!match) return null;
+                      const providerVal = match[1];
+                      const defaultName = match[2];
+                      const value = `${providerVal}:${defaultName}`;
+                      return (
+                        <Select.Option key={value} value={value}>{m}</Select.Option>
+                      );
+                    })
+                    .filter((node): node is React.ReactElement => node !== null)}
                 </Select.OptGroup>
               )}
             </Select>

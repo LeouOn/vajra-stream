@@ -250,6 +250,7 @@ export default function OutlookDashboard() {
   const [randomModel, setRandomModel] = useState<boolean>(false);
   const [randomLoop, setRandomLoop] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
+  const [healthyProviders, setHealthyProviders] = useState<Record<string, boolean>>({});
 
   // ─── Data Fetching ───────────────────────────────────────
 
@@ -303,6 +304,21 @@ export default function OutlookDashboard() {
     }
   }, [selectedModel, addToast]);
 
+  const fetchProvidersHealth = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/llm/providers/health`);
+      if (!res.ok) return;
+      const data = await res.json() as {
+        providers?: Array<{ provider: string; healthy: boolean }>;
+      };
+      const map: Record<string, boolean> = {};
+      (data.providers || []).forEach(p => { map[p.provider] = p.healthy; });
+      setHealthyProviders(map);
+    } catch (e) {
+      console.error('Providers health fetch failed:', e);
+    }
+  }, []);
+
   const fetchLoopStatus = useCallback(async (): Promise<void> => {
     try {
       const res = await fetch(`/api/v1/outlook/loop/status`);
@@ -328,6 +344,7 @@ export default function OutlookDashboard() {
     fetchUniverseData();
     fetchHistory();
     fetchModels();
+    fetchProvidersHealth();
     fetchLoopStatus();
   }, []);
 
@@ -636,16 +653,38 @@ export default function OutlookDashboard() {
   // ─── Model Options ───────────────────────────────────────
 
   const modelOptions = useMemo<ModelSelectOption[]>(() => {
-    // Sentinel values sent to the backend: '' → auto-detect provider;
-    // '<provider>:auto' / '<provider>:default' → provider picks its own model.
+    // Sentinel: '' → backend auto-detect (registry.pick_best()).
     const opts: ModelSelectOption[] = [
       { value: '', label: '✨ Auto-detect (default)' },
-      { value: 'openrouter:auto', label: '🧭 OpenRouter (auto)' },
-      { value: 'z_ai:auto', label: '🔮 Z.AI (auto)' },
-      { value: 'anthropic:claude-3-5-haiku-20241022', label: '🤖 Anthropic Claude Haiku' },
-      { value: 'minimax:auto', label: '🚀 MiniMax (auto)' },
-      { value: 'local:default', label: '💻 Local LLM' },
     ];
+
+    // API providers: built from the ACTUAL healthy providers reported by
+    // /llm/providers/health, cross-referenced with /llm/models so each
+    // option carries the provider's real default_model. No static list —
+    // unhealthy or unregistered providers simply do not appear.
+    const PROVIDER_LABEL: Record<string, { icon: string; name: string }> = {
+      openrouter: { icon: '🧭', name: 'OpenRouter' },
+      lm_studio: { icon: '🧪', name: 'LM Studio' },
+      deepseek: { icon: '🐉', name: 'DeepSeek' },
+      z_ai: { icon: '🔮', name: 'Z.AI' },
+      anthropic: { icon: '🤖', name: 'Anthropic' },
+      openai: { icon: '🧠', name: 'OpenAI' },
+      minimax: { icon: '🚀', name: 'MiniMax' },
+      local: { icon: '💻', name: 'Local' },
+    };
+    (outlookModels.api || []).forEach(entry => {
+      const m = entry.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+      if (!m) return;
+      const providerKey = m[1];
+      const defaultModel = m[2];
+      if (healthyProviders[providerKey] === false) return;
+      const meta = PROVIDER_LABEL[providerKey] || { icon: '✨', name: providerKey };
+      opts.push({
+        value: `${providerKey}:${defaultModel}`,
+        label: `${meta.icon} ${meta.name} (${defaultModel})`,
+      });
+    });
+
     (outlookModels.lm_studio || []).forEach(m =>
       opts.push({ value: `lm_studio:${m}`, label: `🧪 LM Studio: ${m}` }),
     );
@@ -654,7 +693,7 @@ export default function OutlookDashboard() {
     );
     const seen = new Set<string>();
     return opts.filter(o => { const k = o.value; if (seen.has(k)) return false; seen.add(k); return true; });
-  }, [outlookModels]);
+  }, [outlookModels, healthyProviders]);
 
   // ─── Render ──────────────────────────────────────────────
 

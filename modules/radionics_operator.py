@@ -959,12 +959,17 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         self._session.record_event("insight_generated", result)
         return result
 
-    def chat(self, message: str) -> dict[str, Any]:
+    def chat(self, message: str, model_override: str | None = None) -> dict[str, Any]:
         """
         Open-ended chat with the radionics operator.
 
         The LLM can use tools to answer questions, make recommendations,
         and execute radionics operations.
+
+        ``model_override`` optionally pins a specific model for this call.
+        When ``None`` (the default), the operator uses the ProviderRegistry
+        primary (``self.llm.model_name``). The operator chat path is NOT
+        user-selectable from the UI today.
         """
         if self.llm is None:
             return {"reply": "LLM not available. Please configure an API key or local model.", "type": "error"}
@@ -975,9 +980,9 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
 
         try:
             if self._provider == "openai":
-                return self._chat_openai(message, system_prompt, tools)
+                return self._chat_openai(message, system_prompt, tools, model_override=model_override)
             elif self._provider == "anthropic":
-                return self._chat_anthropic(message, system_prompt, tools)
+                return self._chat_anthropic(message, system_prompt, tools, model_override=model_override)
             else:
                 # Local model — no tool calling, just text generation
                 reply = self.llm.generate(
@@ -985,6 +990,7 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
                     system_prompt=system_prompt,
                     max_tokens=500,
                     temperature=0.7,
+                    model=model_override,
                 )
                 return {"reply": reply.strip(), "type": "text"}
 
@@ -1501,15 +1507,28 @@ Return JSON with:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _chat_openai(self, message: str, system_prompt: str, tools: list) -> dict[str, Any]:
-        """Chat with OpenAI, handling tool calls."""
+    def _chat_openai(
+        self,
+        message: str,
+        system_prompt: str,
+        tools: list,
+        model_override: str | None = None,
+    ) -> dict[str, Any]:
+        """Chat with OpenAI, handling tool calls.
+
+        ``model_override`` lets a caller pin a specific model. When ``None``
+        (the default) the operator uses ``self.llm.model_name`` — the
+        ProviderRegistry's primary model. The operator chat path is NOT
+        user-selectable from the UI; supply ``model_override`` explicitly
+        to override.
+        """
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": message},
         ]
 
         response = self.llm.client.chat.completions.create(
-            model=self.llm.model_name,
+            model=model_override or self.llm.model_name,
             messages=messages,
             tools=tools,
             tool_choice="auto",
@@ -1542,10 +1561,23 @@ Return JSON with:
 
         return {"reply": choice.message.content, "type": "text"}
 
-    def _chat_anthropic(self, message: str, system_prompt: str, tools: list) -> dict[str, Any]:
-        """Chat with Anthropic Claude, handling tool use."""
+    def _chat_anthropic(
+        self,
+        message: str,
+        system_prompt: str,
+        tools: list,
+        model_override: str | None = None,
+    ) -> dict[str, Any]:
+        """Chat with Anthropic Claude, handling tool use.
+
+        ``model_override`` lets a caller pin a specific model. When ``None``
+        (the default) the operator uses ``self.llm.model_name`` — the
+        ProviderRegistry's primary model. The operator chat path is NOT
+        user-selectable from the UI; supply ``model_override`` explicitly
+        to override.
+        """
         response = self.llm.client.messages.create(
-            model=self.llm.model_name,
+            model=model_override or self.llm.model_name,
             system=system_prompt,
             messages=[{"role": "user", "content": message}],
             tools=tools,

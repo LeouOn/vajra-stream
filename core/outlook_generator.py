@@ -557,8 +557,11 @@ Length: 5-8 paragraphs of dense, visionary prose.
         # Debug: log the full prompt for verification
         log_filename = self._debug_log_prompt(prompt, genre, lat, lon)
 
-        # Default to DeepSeek (fast MoE) if no model specified and auto-detect might fail
-        effective_model = model or "deepseek:deepseek-chat"
+        # Propagate ``None`` so the registry's pick_best() selects the best
+        # HEALTHY registered provider at call time. Hardcoding a provider here
+        # caused "Provider 'deepseek' is not registered" when DeepSeek was not
+        # configured. See _generate_async() in core/llm/legacy_adapter.py.
+        effective_model = model
 
         print(
             f"[DEBUG generate_single_outlook] model={model!r}, effective_model={effective_model!r}, self.llm={type(self.llm).__name__ if self.llm else 'None'}"
@@ -620,8 +623,10 @@ Length: 5-8 paragraphs of dense, visionary prose.
         """
         Orchestrates a multi-stage (e.g. 9-12 stages) epic narrative outlook.
         """
-        # Resolve LLM model up-front so all dialogue/stage generations share it.
-        epic_model = model or "deepseek:deepseek-chat"
+        # Propagate ``None`` so registry.pick_best() selects the best healthy
+        # provider. Hardcoding a provider here caused registration errors when
+        # that provider was not configured. See core/llm/legacy_adapter.py.
+        epic_model = model
 
         if randomize_realm and get_location_manager:
             active_locs = get_location_manager().get_active_locations()
@@ -743,7 +748,8 @@ Length: 5-8 paragraphs of dense, visionary prose.
         if not self.llm:
             return {"status": "error", "message": "LLM required for epic generation"}
 
-        # Default to DeepSeek (fast MoE) if no model specified
+        # Model resolution is handled per-call by the registry; no hardcoded
+        # default here. See epic_model initialization above.
         is_fallback = False
 
         # Stage 1: Invocation
