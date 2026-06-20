@@ -8,20 +8,25 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAudioStore } from '../../stores/audioStore';
 
-const LiveWaveVisualizer = () => {
-  const canvasRef = useRef(null);
-  const animationRef = useRef(null);
+type WaveType = 'sine' | 'sawtooth' | 'scalar' | 'combined';
+
+const WAVE_TYPES: WaveType[] = ['sine', 'sawtooth', 'scalar', 'combined'];
+
+const LiveWaveVisualizer: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number | null>(null);
   const { audioSpectrum } = useWebSocket();
   const { frequency, isPlaying } = useAudioStore();
-  const [waveType, setWaveType] = useState('sine');
+  const [waveType, setWaveType] = useState<WaveType>('sine');
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     let phase = 0;
 
-    const draw = () => {
+    const draw = (): void => {
       const width = canvas.width;
       const height = canvas.height;
 
@@ -54,7 +59,7 @@ const LiveWaveVisualizer = () => {
       animationRef.current = requestAnimationFrame(draw);
     };
 
-    const drawSineWave = (ctx, width, height, phase, color) => {
+    const drawSineWave = (ctx: CanvasRenderingContext2D, width: number, height: number, phase: number, color: string): void => {
       ctx.beginPath();
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
@@ -66,7 +71,7 @@ const LiveWaveVisualizer = () => {
       ctx.stroke();
     };
 
-    const drawSawtoothWave = (ctx, width, height, phase, color) => {
+    const drawSawtoothWave = (ctx: CanvasRenderingContext2D, width: number, height: number, phase: number, color: string): void => {
       ctx.beginPath();
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
@@ -79,7 +84,7 @@ const LiveWaveVisualizer = () => {
       ctx.stroke();
     };
 
-    const drawScalarWave = (ctx, width, height, phase, color) => {
+    const drawScalarWave = (ctx: CanvasRenderingContext2D, width: number, height: number, phase: number, color: string): void => {
       ctx.beginPath();
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.5;
@@ -92,7 +97,7 @@ const LiveWaveVisualizer = () => {
       ctx.stroke();
     };
 
-    const resize = () => {
+    const resize = (): void => {
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
     };
@@ -102,7 +107,9 @@ const LiveWaveVisualizer = () => {
     draw();
 
     return () => {
-      cancelAnimationFrame(animationRef.current);
+      if (animationRef.current !== null) {
+        cancelAnimationFrame(animationRef.current);
+      }
       window.removeEventListener('resize', resize);
     };
   }, [audioSpectrum, frequency, isPlaying, waveType]);
@@ -111,7 +118,7 @@ const LiveWaveVisualizer = () => {
     <div className="relative w-full h-full">
       <canvas ref={canvasRef} className="w-full h-full" />
       <div className="absolute top-2 right-2 flex gap-1">
-        {['sine', 'sawtooth', 'scalar', 'combined'].map((type) => (
+        {WAVE_TYPES.map((type) => (
           <button
             key={type}
             onClick={() => setWaveType(type)}

@@ -7,7 +7,25 @@
 import React, { useRef, useEffect } from 'react';
 import { Activity } from 'lucide-react';
 
-const SOLFEGGIO = [
+interface SolfeggioEntry {
+  hz: number;
+  name: string;
+  color: string;
+  chakra: string;
+}
+
+interface PlanetaryEntry {
+  hz: number;
+  name: string;
+  color: string;
+}
+
+interface FrequencyWaterfallProps {
+  frequency?: number;
+  isPlaying?: boolean;
+}
+
+const SOLFEGGIO: SolfeggioEntry[] = [
   { hz: 396, name: 'Liberation', color: '#ff4444', chakra: 'Root' },
   { hz: 417, name: 'Undoing', color: '#ff8c00', chakra: 'Sacral' },
   { hz: 528, name: 'DNA Repair', color: '#ffdd00', chakra: 'Solar Plexus' },
@@ -17,7 +35,7 @@ const SOLFEGGIO = [
   { hz: 963, name: 'Divine', color: '#cc66ff', chakra: 'Crown' },
 ];
 
-const PLANETARY = [
+const PLANETARY: PlanetaryEntry[] = [
   { hz: 136.1, name: 'Earth/OM', color: '#22d3ee' },
   { hz: 126.22, name: 'Sun', color: '#fbbf24' },
   { hz: 210.42, name: 'Moon', color: '#c0c0c0' },
@@ -25,20 +43,21 @@ const PLANETARY = [
 
 const HISTORY_LENGTH = 180; // 3 minutes at 1 row/sec
 
-export default function FrequencyWaterfall({ frequency = 136.1, isPlaying = false }) {
-  const canvasRef = useRef(null);
-  const historyRef = useRef([]);
+const FrequencyWaterfall: React.FC<FrequencyWaterfallProps> = ({ frequency = 136.1, isPlaying = false }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const historyRef = useRef<number[][]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const W = canvas.width = canvas.offsetWidth;
     const H = canvas.height = canvas.offsetHeight;
 
-    const draw = () => {
+    const draw = (): void => {
       // Shift history
-      const row = new Array(W).fill(0);
+      const row: number[] = new Array(W).fill(0);
       // Mark active frequencies
       SOLFEGGIO.forEach((s) => {
         const x = Math.round((s.hz / 1000) * W);
@@ -62,7 +81,7 @@ export default function FrequencyWaterfall({ frequency = 136.1, isPlaying = fals
       const imageData = ctx.createImageData(W, H);
       for (let y = 0; y < H; y++) {
         const hIdx = Math.floor((y / H) * historyRef.current.length);
-        const histRow = historyRef.current[Math.min(hIdx, historyRef.current.length - 1)] || new Array(W).fill(0);
+        const histRow: number[] = historyRef.current[Math.min(hIdx, historyRef.current.length - 1)] || new Array<number>(W).fill(0);
         for (let x = 0; x < W; x++) {
           const idx = (y * W + x) * 4;
           const intensity = histRow[x] || 0;
@@ -111,4 +130,6 @@ export default function FrequencyWaterfall({ frequency = 136.1, isPlaying = fals
       </div>
     </div>
   );
-}
+};
+
+export default FrequencyWaterfall;

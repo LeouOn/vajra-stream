@@ -5,14 +5,25 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 
-const AudioSpectrum = ({ spectrum, isPlaying, frequency }) => {
-  const canvasRef = useRef();
-  const animationRef = useRef();
-  const [dimensions, setDimensions] = useState({ width: 800, height: 400 });
+interface AudioSpectrumProps {
+  spectrum: number[];
+  isPlaying: boolean;
+  frequency: number;
+}
+
+interface CanvasDimensions {
+  width: number;
+  height: number;
+}
+
+const AudioSpectrum: React.FC<AudioSpectrumProps> = ({ spectrum, isPlaying, frequency }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number | null>(null);
+  const [dimensions, setDimensions] = useState<CanvasDimensions>({ width: 800, height: 400 });
 
   // Update canvas dimensions on resize
   useEffect(() => {
-    const handleResize = () => {
+    const handleResize = (): void => {
       const container = canvasRef.current?.parentElement;
       if (container) {
         setDimensions({
@@ -33,13 +44,15 @@ const AudioSpectrum = ({ spectrum, isPlaying, frequency }) => {
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
     const { width, height } = dimensions;
     
     // Set canvas size
     canvas.width = width;
     canvas.height = height;
     
-    const draw = () => {
+    const draw = (): void => {
       // Clear canvas with fade effect
       ctx.fillStyle = 'rgba(17, 24, 39, 0.1)'; // bg-gray-900 with transparency
       ctx.fillRect(0, 0, width, height);
@@ -122,7 +135,7 @@ const AudioSpectrum = ({ spectrum, isPlaying, frequency }) => {
     };
     
     // Animation loop
-    const animate = () => {
+    const animate = (): void => {
       draw();
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -130,7 +143,7 @@ const AudioSpectrum = ({ spectrum, isPlaying, frequency }) => {
     animate();
     
     return () => {
-      if (animationRef.current) {
+      if (animationRef.current !== null) {
         cancelAnimationFrame(animationRef.current);
       }
     };
