@@ -13,7 +13,6 @@ import React, { useEffect, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PlayCircle, PauseCircle } from 'lucide-react';
 import { ToastContainer } from '../UI/Toast';
-import VisualizationSelector from '../UI/VisualizationSelector';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { COLORS } from '../../lib/colors';
 import { ROUTES, DEFAULT_ROUTE } from '../../lib/routes';
@@ -46,8 +45,6 @@ interface Props {
   playAudio: () => Promise<void>;
   stopAudio: () => void;
   mopsData: MopsData | null;
-  visualizationType: string;
-  handleVisualizationChange: (type: string) => void;
 }
 
 const MainLayout: React.FC<Props> = ({
@@ -61,8 +58,6 @@ const MainLayout: React.FC<Props> = ({
   playAudio,
   stopAudio,
   mopsData,
-  visualizationType,
-  handleVisualizationChange
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -75,19 +70,14 @@ const MainLayout: React.FC<Props> = ({
         switch (e.key) {
           case 'b':
             e.preventDefault();
-            navigate(activeTab === DEFAULT_ROUTE ? '/visualizers' : `/${DEFAULT_ROUTE}`);
-            break;
-          case 'd':
-            e.preventDefault();
-            handleVisualizationChange('trends');
-            navigate('/visualizers');
+            navigate(activeTab === DEFAULT_ROUTE ? '/practice' : `/${DEFAULT_ROUTE}`);
             break;
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, navigate, handleVisualizationChange]);
+  }, [activeTab, navigate]);
 
   const handleMenuClick = (e: { key: string }) => {
     audioFeedback.playTick();
@@ -126,15 +116,6 @@ const MainLayout: React.FC<Props> = ({
           items={menuItems}
           style={{ flex: 1, minWidth: 0, background: 'transparent', borderBottom: 'none' }}
         />
-
-        <Space style={{ marginLeft: 'auto' }}>
-          {activeTab === 'visualizers' && (
-            <VisualizationSelector
-              currentType={visualizationType}
-              onChange={handleVisualizationChange}
-            />
-          )}
-        </Space>
       </Header>
 
       <Content style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>

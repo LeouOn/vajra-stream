@@ -34,7 +34,6 @@ import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
 
 function AppContent(): React.ReactElement {
-  const [visualizationType, setVisualizationType] = useState<string>('sacred-geometry');
   const [mopsData, setMopsData] = useState<MopsData | null>(null);
   const location = useLocation();
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
@@ -98,11 +97,7 @@ function AppContent(): React.ReactElement {
   useEffect(() => {
     if (isFirstRender.current) return;
     audioFeedback.playClick();
-  }, [visualizationType]);
-
-  const handleVisualizationChange = (type: string): void => {
-    setVisualizationType(type);
-  };
+  }, [activeTab]);
 
   return (
     <MainLayout
@@ -115,8 +110,6 @@ function AppContent(): React.ReactElement {
       playAudio={async (): Promise<void> => { await playAudio(); }}
       stopAudio={(): void => { void stopAudio(); }}
       mopsData={mopsData}
-      visualizationType={visualizationType}
-      handleVisualizationChange={handleVisualizationChange}
     >
       <Routes>
         <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />
