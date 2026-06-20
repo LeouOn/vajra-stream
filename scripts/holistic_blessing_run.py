@@ -31,14 +31,14 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
-# Core imports
-from backend.core.services.population_manager import get_population_manager
-from core.radionics_engine import RadionicsAnalyzer
-from infrastructure.event_bus import DomainEvent
-from modules.blessing_router import BlessingRouted
-from modules.crystal import CrystalBroadcastCompleted, CrystalBroadcastStarted
-from modules.interfaces import BlessingGenerated
-from scripts.unified_orchestrator import UnifiedOrchestrator
+# Core imports — must follow sys.path setup and Windows console encoding above.
+from backend.core.services.population_manager import get_population_manager  # noqa: E402
+from core.radionics_engine import RadionicsAnalyzer  # noqa: E402
+from infrastructure.event_bus import DomainEvent  # noqa: E402
+from modules.blessing_router import BlessingRouted  # noqa: E402
+from modules.crystal import CrystalBroadcastCompleted, CrystalBroadcastStarted  # noqa: E402
+from modules.interfaces import BlessingGenerated  # noqa: E402
+from scripts.unified_orchestrator import UnifiedOrchestrator  # noqa: E402
 
 
 def print_title(title):

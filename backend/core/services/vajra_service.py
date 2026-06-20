@@ -66,11 +66,13 @@ try:
 except ImportError:
     Level2CrystalBroadcaster, Level3CrystalBroadcaster = None, None
 
+try:
+    from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
+except ImportError:
+    AudioConfig, SessionConfig = None, None
+
 ENHANCED_MODE = AstrologicalCalculator is not None
 print(f"Service running with Astrological Calculations: {AstrologicalCalculator is not None}")
-
-
-from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
 
 
 class VajraStreamService:
@@ -410,7 +412,7 @@ class VajraStreamService:
 
         # Notify via WebSocket that broadcast started
         try:
-            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            from backend.websocket.connection_manager import stable_connection_manager_v2
 
             asyncio.create_task(
                 stable_connection_manager_v2.broadcast(
@@ -457,7 +459,7 @@ class VajraStreamService:
             idle_count = 0
 
             try:
-                from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+                from backend.websocket.connection_manager import stable_connection_manager_v2
 
                 # Count running sessions
                 running = [s for s in self.active_sessions.values() if s.get("status") == "running"]

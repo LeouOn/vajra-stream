@@ -35,14 +35,14 @@ except ImportError:
     HAS_BLESSINGS = False
 
 try:
-    from core.astrocartography import AstrocartographyCalculator, CalendarConverter, HistoricalChartCalculator
+    from core.astrocartography import AstrocartographyCalculator, HistoricalChartCalculator
 
     HAS_ASTRO = True
 except ImportError:
     HAS_ASTRO = False
 
 try:
-    from core.energetic_visualization import RothkoVisualizer, SacredGeometryVisualizer, create_chakra_meditation
+    from core.energetic_visualization import RothkoVisualizer
 
     HAS_VIZ = True
 except ImportError:
@@ -157,7 +157,7 @@ class TimeCycleBroadcaster:
         try:
             self.blessing_db.add_target(main_target)
             target_ids.append(main_target.identifier)
-        except:
+        except Exception:
             pass  # May already exist
 
         # Create targets for each primary location
@@ -180,7 +180,7 @@ class TimeCycleBroadcaster:
             try:
                 self.blessing_db.add_target(loc_target)
                 target_ids.append(loc_target.identifier)
-            except:
+            except Exception:
                 pass  # May already exist
 
         return target_ids
@@ -375,7 +375,7 @@ class TimeCycleBroadcaster:
             from PIL import ImageFont
 
             font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 36)
-        except:
+        except Exception:
             font = None
 
         if font:
@@ -391,7 +391,7 @@ class TimeCycleBroadcaster:
                 small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
                 intention_text = "May all who suffered find peace and liberation"
                 viz.draw.text((50, 1020), intention_text, fill=(160, 160, 160), font=small_font)
-            except:
+            except Exception:
                 pass
 
         viz.save(str(filepath))

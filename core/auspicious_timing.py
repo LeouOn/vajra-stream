@@ -8,7 +8,6 @@ favorable and unfavorable planetary conditions. The engine checks current
 conditions and returns a go/no-go signal with timing recommendations.
 """
 
-import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -500,7 +499,6 @@ class AuspiciousTiming:
         """Find minutes until the next favorable planetary hour."""
         now = datetime.now()
         current_idx = (now.hour + now.weekday() * 2) % 7
-        current_planet = self.CHALDEAN_ORDER[current_idx]
 
         # Search forward through the Chaldean cycle
         for offset in range(1, 25):  # Check up to 24 hours ahead
@@ -509,7 +507,6 @@ class AuspiciousTiming:
             if planet in favorable_hours:
                 minutes = offset * 60  # Rough: each planet rules ~1 hour
                 # More precise: calculate actual minutes to that hour
-                target_hour = (now.hour + offset) % 24
                 current_minutes = now.minute
                 minutes = offset * 60 - current_minutes
                 if minutes < 1:

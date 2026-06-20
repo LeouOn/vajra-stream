@@ -4,12 +4,6 @@ import { Hexagon, Settings, Save, RotateCcw } from 'lucide-react';
 /**
  * Sacred Mandala Configuration Panel
  * Allows users to select sacred geometry patterns and chakra colors
- *
- * Note: handleApplySettings emits the field as `complejidad` (Spanish
- * for complexity) because the parent visualization (the
- * SacredMandala canvas) reads it under that key. handleReset emits
- * it as `complexity` (English) — this asymmetry is pre-existing
- * and intentional, do not "fix" it without updating the consumer.
  */
 
 type PatternId = 'sri-yantra' | 'metatron' | 'seed-of-life' | 'tree-of-life';
@@ -37,14 +31,12 @@ interface Chakra {
   icon: string;
 }
 
-// Shape emitted to the parent visualization. Note `complejidad` vs
-// `complexity` mismatch is intentional — the canvas reads
-// `complejidad` and we send what it asks for.
+// Shape emitted to the parent visualization. Field names are English
+// canonical — the SacredMandala canvas reads `complexity` directly.
 interface AppliedSettings {
   pattern: PatternId;
   chakra: ChakraId;
-  complejidad: ComplexityId;
-  complexity?: ComplexityId; // for handleReset path
+  complexity: ComplexityId;
 }
 
 interface Props {
@@ -184,7 +176,7 @@ const MandalaControls: React.FC<Props> = ({
       onSettingsChange({
         pattern,
         chakra,
-        complejidad: complexity
+        complexity
       });
     }
   };

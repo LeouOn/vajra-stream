@@ -134,7 +134,6 @@ async def run_practice():
 
         for i, buddha in enumerate(all_buddhas):
             name = buddha.get("name_chinese", "")
-            pinyin = buddha.get("name_pinyin", "")
             if not name:
                 continue
 

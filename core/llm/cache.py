@@ -7,7 +7,7 @@ dict on top, checked lazily on :meth:`get`.
 """
 import asyncio
 import time
-from typing import Any, Optional
+from typing import Any
 
 from cachetools import TTLCache as _TTLCache
 

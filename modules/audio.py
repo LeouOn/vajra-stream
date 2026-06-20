@@ -13,7 +13,23 @@ from modules.interfaces import EventBus
 
 
 class AudioService:
-    """Unified audio and TTS service"""
+    """LLM-tool audio service exposed via ``container.audio``.
+
+    This is **NOT** the user-facing audio path. The canonical user-facing
+    audio subsystem is ``backend/core/services/vajra_service.py`` (
+    ``VajraStreamService``, singleton ``vajra_service`` @ L774) — see
+    ADR 001 §Decision 1.
+
+    This module exists as a **separate concern** (ADR 001 §Decision 3):
+    it is wired through the project-root DI container
+    (``container.py:122-129``) and consumed by the RadionicsOperator LLM
+    tool path (``modules/radionics_operator.py:511`` →
+    ``svc = self._container.audio`` → ``svc.generate_tone(...)``).
+    Its constructor signature (``event_bus``) and its delegates
+    (``core/audio_generator``, ``core/enhanced_audio_generator``,
+    ``core/tts_engine``) serve agent / LLM tool calls, not HTTP audio.
+    The two subsystems MUST NOT be merged (different concerns).
+    """
 
     def __init__(self, event_bus: EventBus = None):
         self.event_bus = event_bus
@@ -156,7 +172,7 @@ class AudioService:
 
         try:
             return tts_engine.get_voices()
-        except:
+        except Exception:
             return ["default"]
 
     def get_status(self) -> dict[str, Any]:

@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./src/__tests__/setup.ts'],
-    include: ['src/__tests__/**/*.{test,spec}.{ts,tsx}'],
+    include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
     environmentMatchGlobs: [
       ['src/__tests__/components/**', 'happy-dom'],
     ],

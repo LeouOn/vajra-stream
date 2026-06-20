@@ -1,0 +1,3 @@
+# Deliberate one-time archive for stale documentation (Wave 3 Task 18).
+# Created per Oracle Phase-1 finding / Evaluation Issue 5.8.
+# Docs moved here via `git mv` carry a top-of-file deprecation banner.

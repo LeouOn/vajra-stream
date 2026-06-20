@@ -34,7 +34,7 @@ from enum import Enum
 from typing import Optional
 
 try:
-    from core.compassionate_blessings import BlessingCategory, BlessingTarget
+    from core.compassionate_blessings import BlessingTarget  # noqa: F401 — string type annotation in signatures below
 
     HAS_BLESSINGS = True
 except ImportError:

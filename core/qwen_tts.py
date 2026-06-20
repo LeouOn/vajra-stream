@@ -20,7 +20,7 @@ Gracefully degrades: returns None if qwen_tts not installed or GPU unavailable.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # numpy is an optional runtime dep — only required for actual TTS inference.

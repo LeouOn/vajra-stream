@@ -71,9 +71,9 @@ python scripts/setup_database.py
 The easiest way to get started - beautiful browser-based interface:
 
 ```bash
-# Start the web server
-python start_web_server.py
-# Or on Windows: start_web_server.bat
+<!-- removed: deleted web-server launchers (ghost path per remediation-18 / Issue 5.8).
+     Web visualization is now launched via the canonical backend entrypoint;
+     see docs/OPERATIONS_GUIDE.md. -->
 
 # Then open in your browser:
 # http://localhost:8000/visualizations
@@ -93,7 +93,7 @@ See [docs/FEATURES_REFERENCE.md](docs/FEATURES_REFERENCE.md) for details.
 
 ```bash
 # Interactive menu
-python vajra_stream_v2.py --interactive
+<!-- removed: deleted interactive entrypoint (ghost path per remediation-18 / Issue 5.8) -->
 
 # Run a simple blessing with prayer bowl synthesis
 python scripts/run_blessing.py --intention "May all beings be happy" --duration 300
@@ -111,18 +111,11 @@ python scripts/test_prayer_bowl_audio.py
 #### Python API
 
 ```python
-from vajra_stream_v2 import VajraStream
-
-vs = VajraStream()
-
-# Generate scalar waves
-vs.generate_scalar_waves('hybrid', duration_seconds=10)
-
-# Broadcast healing
-vs.broadcast_healing("John Doe", duration_minutes=10)
-
-# Visualize chakras
-chakra_path = vs.visualize_chakras()
+# NOTE: The legacy Python-API example referenced a deleted entrypoint
+# (ghost path removed per remediation-18 / Issue 5.8).
+# The canonical runtime API now lives under backend/app; for current usage see:
+#   - docs/OPERATIONS_GUIDE.md
+#   - API_DOCUMENTATION.md
 ```
 
 ## 🔮 Radionics System
@@ -199,8 +192,8 @@ vajra-stream/
 The backend has been consolidated for clarity:
 - **backend/app/main.py** is now the single, canonical FastAPI application
 - All previous main_*.py variants have been moved to **backend/app/archived/**
-- The new main.py is based on main_fixed5_stable.py (the most stable version)
-- All startup scripts (start_web_server.py, start_full_system.py) now use this unified backend
+<!-- removed: reference to a deleted main variant (ghost path per remediation-18 / Issue 5.8) -->
+- All startup scripts now use this unified backend
 
 ## Configuration
 
@@ -225,6 +218,56 @@ BLESSING_FREQUENCIES = [7.83, 136.1, 528, 639, 741]
 # Database
 DB_PATH = 'vajra_stream.db'
 ```
+
+### Frontend URL Strategy
+
+The frontend uses **proxy-relative URLs** (`/api/v1/...`) for all backend
+HTTP traffic, as defined in [ADR 004](docs/decisions/004-url-strategy.md).
+In development, the Vite dev server proxies `/api` and `/ws` to the
+backend on `localhost:8008` (see `frontend/vite.config.ts`). In production,
+a reverse proxy (nginx, Caddy, Cloudflare, etc.) must route `/api/*` and
+`/ws` to the backend — this is the standard same-origin deployment pattern.
+
+To compose an API URL in frontend code, import the helper:
+
+```ts
+import { apiUrl } from './utils/api';
+const res = await fetch(apiUrl('/healing/chakra/all'));
+// → '/api/v1/healing/chakra/all' (proxy-relative)
+```
+
+#### `VITE_API_BASE` (build-time override)
+
+For non-localhost deployments that **cannot** use a reverse proxy, set
+`VITE_API_BASE` at build time to an absolute origin. Every `apiUrl()`
+call will then resolve against that origin:
+
+```bash
+# Build with an absolute API origin
+cd frontend
+VITE_API_BASE=https://api.example.com npm run build
+# apiUrl('/foo') → 'https://api.example.com/api/v1/foo'
+```
+
+Default is empty (proxy-relative). Trailing slashes are stripped
+automatically. See `frontend/src/utils/api.ts` and ADR 004 for details.
+
+### Frontend Styling Boundary (Tailwind ↔ Ant Design)
+
+The frontend intentionally uses **both** Tailwind CSS and Ant Design. The
+split is documented in **[docs/frontend-styling-guide.md](docs/frontend-styling-guide.md)**:
+
+- **Tailwind** — layout, spacing, color utilities, typography, animations,
+  and custom visual primitives (`.glassmorphism`, `.vajra-button-*`, ...).
+- **Ant Design** — interactive widgets (`Table`, `Modal`, `Drawer`, `Form`,
+  `Select`, `DatePicker`, `Tabs`, `Popconfirm`, toasts, ...) driven by their
+  props and `ConfigProvider` theme tokens.
+- **Brand colors** have a single source of truth in
+  `frontend/src/lib/colors.js`, mirrored to CSS variables
+  (`globals.css`), Tailwind tokens (`tailwind.config.js`), and AntD tokens
+  (`App.jsx` `ConfigProvider`).
+
+When adding new UI, consult the guide before reaching for either system.
 
 ## Knowledge Base
 

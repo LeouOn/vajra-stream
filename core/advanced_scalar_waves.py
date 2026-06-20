@@ -30,7 +30,7 @@ from enum import Enum
 
 # Try to import optimization libraries
 try:
-    import numpy as np
+    import numpy as np  # noqa: F401 — availability probe; HAS_NUMPY is the runtime flag
 
     HAS_NUMPY = True
 except ImportError:
@@ -110,7 +110,7 @@ class ThermalMonitor:
         try:
             with open("/proc/loadavg") as f:
                 self.state.load_average = float(f.read().split()[0])
-        except:
+        except Exception:
             self.state.load_average = 0.5  # Default estimate
 
         # Estimate temp from load (rough approximation)

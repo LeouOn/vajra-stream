@@ -562,7 +562,7 @@ class IntegratedHealingProtocol:
 
 # === FOR OFFLINE DEVELOPMENT ===
 #
-# TODO: Fill in the following areas:
+# TODO(remediation): Fill in the following areas: (offline-development stub; deferred — see eval Issue 5.11)
 #
 # 1. CHAKRA SYSTEM - Complete all fields marked None:
 #    - deities for each chakra

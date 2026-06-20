@@ -20,7 +20,7 @@ from enum import Enum
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 try:
-    from core.energetic_anatomy import Chakra, Element, EnergeticAnatomyDatabase, Meridian, get_chakra_by_name
+    import core.energetic_anatomy  # noqa: F401 — availability probe; HAS_ANATOMY is the runtime flag
 
     HAS_ANATOMY = True
 except ImportError:
@@ -378,7 +378,7 @@ class RothkoVisualizer(BaseVisualizer):
             # Try to load a font, fall back to default
             try:
                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 48)
-            except:
+            except Exception:
                 font = ImageFont.load_default()
 
             # Add chakra name at bottom

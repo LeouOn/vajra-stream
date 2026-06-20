@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "vajra-stream"
@@ -109,18 +109,10 @@ ignore = [
     "E741",  # ambiguous variable name 'l' — idiomatic in comprehensions
 ]
 
+# No per-file-ignores — deferred-1 cleanup removed all 11 legacy entries.
+# Guardrail G10 still applies: do NOT add new suppressions here. The freeze
+# test in tests/unit/test_no_new_ruff_suppressions.py snapshots at 0/0.
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["D", "ANN"]
-"scripts/**" = ["D", "ANN", "E722", "F841", "E402", "F401"]
-"backend/tests/**" = ["D", "ANN", "F401"]
-"backend/app/main.py" = ["E402"]
-"backend/app/api/v1/endpoints/blessings.py" = ["F401"]
-"backend/core/llm_agent/tools.py" = ["F401"]
-"core/**" = ["F401", "F841", "E722"]
-"modules/**" = ["F401", "E722"]
-"infrastructure/**" = ["E722"]
-"backend/app/api/v1/endpoints/outlook.py" = ["E722"]
-"backend/core/services/vajra_service.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -135,6 +127,7 @@ exclude = [
     "generated/",
     ".venv/",
     "node_modules/",
+    "ai_integration_project*",
 ]
 
 [[tool.mypy.overrides]]
@@ -142,7 +135,7 @@ module = ["modules.*", "core.*", "backend.*", "infrastructure.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests", "tests"]
+testpaths = ["tests"]
 markers = [
     "unit: fast isolated tests",
     "integration: tests that wire multiple modules together",

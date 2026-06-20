@@ -14,7 +14,6 @@ import json
 # works no matter how this script is invoked.
 import pathlib
 import sys
-from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 

@@ -122,7 +122,7 @@ def main():
             print("Cancelled.")
             return 0
 
-        # TODO: Implement database clearing
+        # TODO(remediation): Implement database clearing (deferred stub — see eval Issue 5.11)
         print("✓ Database cleared")
 
     # Get populations directory

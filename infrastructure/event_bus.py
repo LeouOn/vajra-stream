@@ -194,7 +194,7 @@ class EnhancedEventBus:
             # For dataclass objects
             try:
                 data = asdict(event)
-            except:
+            except Exception:
                 data = event.__dict__
         elif isinstance(event, dict):
             data = event

@@ -10,22 +10,23 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load environment variables early so os.getenv works everywhere
+# Load environment variables early so os.getenv works for the FastAPI
+# middleware/router configuration performed by the imports below.
 load_dotenv()
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import HTMLResponse  # noqa: E402
+from fastapi.templating import Jinja2Templates  # noqa: E402
 
 # Import stable connection manager v2
-from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+from backend.websocket.connection_manager import stable_connection_manager_v2  # noqa: E402
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from backend.app.api.v1.api import api_router
+from backend.app.api.v1.api import api_router  # noqa: E402
 
 # Setup templates
 template_dir = Path(__file__).parent.parent.parent.parent / "templates"
@@ -63,42 +64,9 @@ async def lifespan(app: FastAPI):
     # Initialize LLM Provider Registry
     health_task = None
     try:
-        import os
+        from core.llm.bootstrap import build_default_registry
 
-        from backend.app.config import get_llm_config
-        from core.llm.providers import (
-            AnthropicProvider,
-            DeepSeekProvider,
-            LMStudioProvider,
-            LocalGGUFProvider,
-            MinimaxProvider,
-            OpenAIProvider,
-            OpenRouterProvider,
-            ZAIProvider,
-        )
-        from core.llm.registry import ProviderRegistry
-
-        config = get_llm_config()
-        registry = ProviderRegistry(health_cache_ttl=config.model_cache_ttl_seconds)
-
-        # Register only providers with credentials available
-        if os.getenv("OPENROUTER_API_KEY"):
-            registry.register(OpenRouterProvider(priority=90))
-        if os.getenv("LM_STUDIO_BASE_URL") or os.path.exists("./models/lmstudio"):
-            registry.register(LMStudioProvider(priority=80))
-        if os.getenv("DEEPSEEK_API_KEY"):
-            registry.register(DeepSeekProvider(priority=70))
-        if os.getenv("ANTHROPIC_API_KEY"):
-            registry.register(AnthropicProvider(priority=60))
-        if os.getenv("OPENAI_API_KEY"):
-            registry.register(OpenAIProvider(priority=50))
-        if os.getenv("ZAI_API_KEY") or os.getenv("Z_AI_API_KEY"):
-            registry.register(ZAIProvider(priority=65))
-        if os.getenv("MINIMAX_API_KEY"):
-            registry.register(MinimaxProvider(priority=40))
-        if os.path.isdir(os.getenv("LLM_LOCAL_MODELS_DIR", "./models")):
-            registry.register(LocalGGUFProvider(priority=30))
-
+        registry = build_default_registry()
         app.state.llm_registry = registry
         print(f"LLM registry initialized: {[p.name for p in registry.providers]}")
     except Exception as e:
@@ -167,6 +135,16 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("Vajra.Stream API shutting down...")
     stable_connection_manager_v2.stop_realtime_streaming()
+
+    # Shutdown Orchestrator Bridge (cancel the crystal broadcast daemon thread)
+    try:
+        from backend.core.orchestrator_bridge import orchestrator_bridge
+
+        orchestrator_bridge.shutdown()
+        print("Orchestrator Bridge shut down")
+    except Exception as e:
+        print(f"Failed to shut down Orchestrator Bridge: {e}")
+        logger.error(f"Failed to shut down Orchestrator Bridge: {e}")
 
     # Stop Autonomous Operator Daemon
     try:

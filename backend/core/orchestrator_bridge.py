@@ -4,8 +4,9 @@ Singleton bridge to expose the UnifiedOrchestrator to the FastAPI application.
 """
 
 import logging
+import threading
 
-from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+from backend.websocket.connection_manager import stable_connection_manager_v2
 from scripts.unified_orchestrator import UnifiedOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,8 @@ class OrchestratorBridge:
             cls._instance = super().__new__(cls)
             cls._instance.orchestrator = None
             cls._instance.initialized = False
+            cls._instance._crystal_thread: threading.Thread | None = None
+            cls._instance._shutdown_event = threading.Event()
         return cls._instance
 
     def initialize(self):
@@ -47,8 +50,6 @@ class OrchestratorBridge:
     def _on_session_started(self, event):
         """Handle session started event - trigger crystal broadcast as background task"""
         try:
-            import threading
-
             crystal = self.orchestrator.services.get("crystal")
             if crystal and event.session_id:
 
@@ -58,13 +59,50 @@ class OrchestratorBridge:
                             intention=event.name,
                             duration=3600,
                             hardware_level=2,
+                            stop_event=self._shutdown_event,
                         )
+                    except TypeError:
+                        # Crystal signature predates stop_event support.
+                        # Fall back to the uninterruptible call; the thread
+                        # is still tracked and joined (best-effort) on
+                        # shutdown because it is a daemon.
+                        try:
+                            crystal.broadcast_intention(
+                                intention=event.name,
+                                duration=3600,
+                                hardware_level=2,
+                            )
+                        except Exception as e:
+                            logger.error(f"Crystal broadcast error: {e}")
                     except Exception as e:
                         logger.error(f"Crystal broadcast error: {e}")
 
-                threading.Thread(target=run_broadcast, daemon=True).start()
+                # Reset the shutdown event in case the bridge is reused
+                # across multiple sessions within a single process.
+                self._shutdown_event.clear()
+                self._crystal_thread = threading.Thread(
+                    target=run_broadcast, daemon=True
+                )
+                self._crystal_thread.start()
         except Exception as e:
             logger.error(f"Error handling SessionStarted: {e}")
+
+    def shutdown(self):
+        """Signal the crystal broadcast thread to stop and join it.
+
+        Sets the internal shutdown event so any cooperative broadcast
+        loop can exit, then joins the tracked daemon thread with a
+        bounded timeout. Idempotent — safe to call multiple times.
+        """
+        self._shutdown_event.set()
+        thread = self._crystal_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=5.0)
+            if thread.is_alive():
+                logger.warning(
+                    "OrchestratorBridge crystal thread did not exit "
+                    "within 5s on shutdown (daemon will not block process exit)"
+                )
 
     async def _forward_event_to_websocket(self, event):
         """Forward domain events to WebSocket clients"""

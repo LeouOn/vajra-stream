@@ -187,11 +187,13 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
               setSessions(data.active_sessions || {});
               setLastUpdate(new Date(data.timestamp * 1000));
               break;
-            case 'audio_spectrum':
-              setAudioSpectrum(data.data || []);
-              break;
             case 'session_update':
               setSessions(prev => ({ ...prev, [data.data.id]: data.data }));
+              break;
+            // Backend: connection_manager_stable_v2.py:124 — session lifecycle event.
+            // Informational; session_update delivers the actual session data payload.
+            case 'SESSION_STARTED':
+              console.log('Session started:', data.session_id, data.intention);
               break;
             case 'connection_status':
               setConnectionStatus(data.status as WSConnectionState);
@@ -211,18 +213,44 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'BUDDHA_RECITATION_UPDATE':
               setBuddhaStatus(data.data as RecitationStatus);
               break;
+            // Backend: core/buddha_recitation_loop.py:196,425,267 — lifecycle events for
+            // the 88-Buddhas recitation. Same payload shape as BUDDHA_RECITATION_UPDATE;
+            // wire them to the same setter so the UI updates regardless of which fires.
+            // (Restored after remediation Task 24 regressively deleted these branches.)
+            case 'BUDDHA_RECITATION_STARTED':
+            case 'BUDDHA_NAME_RECITED':
+            case 'BUDDHA_RECITATION_STOPPED':
+              setBuddhaStatus(data.data as RecitationStatus);
+              break;
+            // Backend: core/ritual_engine.py:759,297,317,337,348,368,617 — ritual engine
+            // lifecycle + planetary-hour shift. RITUAL_ENGINE_STATUS/RITUAL_PHASE/
+            // RITUAL_COMPLETED mutate the ritual status the UI reads; the hour shift is
+            // informational only. (Restored after remediation Task 24 regression.)
+            case 'RITUAL_ENGINE_STATUS':
+            case 'RITUAL_PHASE':
+            case 'RITUAL_COMPLETED':
+              setRitualStatus(data.data);
+              break;
+            case 'PLANETARY_HOUR_SHIFT':
+              console.log('Planetary hour shift:', data.data);
+              break;
+            // Backend: core/character_journey.py:175,266,255 — journey lifecycle events.
+            // Informational only; no journey state lives in this hook.
+            case 'JOURNEY_STAGE_STARTED':
+              console.log('Journey stage started:', data.data);
+              break;
+            case 'JOURNEY_STAGE_COMPLETED':
+              console.log('Journey stage completed:', data.data);
+              break;
+            case 'JOURNEY_COMPLETED':
+              console.log('Journey completed:', data.data);
+              break;
             case 'SAKA_DAWA_CHECK':
               setSakaDawa(data.data as SakaDawaResult);
-              break;
-            case 'RITUAL_ENGINE_STATUS':
-              setRitualStatus(data.data as Record<string, unknown>);
               break;
             case 'PROVIDER_HEALTH':
               setProviderHealth((data as { statuses?: ProviderHealthStatus[] }).statuses || []);
               setLastProviderHealthUpdate(Date.now());
-              break;
-            case 'BLESSING_STARTED':
-              console.log('Blessing started:', data.data);
               break;
             case 'CRYSTAL_BROADCAST_STARTED':
               setCrystalStatus({ active: true, intention: data.data.intention });
@@ -233,19 +261,25 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'SCALAR_WAVE_ACTIVE':
               setScalarStatus(prev => ({ ...prev, active: data.data.active }));
               break;
-            case 'JOURNEY_STAGE_STARTED':
-            case 'JOURNEY_STAGE_COMPLETED':
-            case 'JOURNEY_COMPLETED':
-              console.log(`Journey event: ${data.type}`, data.data);
+            // Backend: connection_manager_stable_v2.py:137 — settings-change ack.
+            // No settings store lives in this hook; surface as informational log.
+            case 'settings_updated':
+              console.log('Settings updated:', data.message);
               break;
-            case 'BUDDHA_RECITATION_STARTED':
-            case 'BUDDHA_NAME_RECITED':
-            case 'BUDDHA_RECITATION_STOPPED':
-              console.log(`Recitation event: ${data.type}`, data.data);
-              break;
+            // Backend emits BOTH uppercase 'ERROR' (connection_manager_stable_v2.py:109,131)
+            // AND lowercase 'error' (lines 89,93). Explicit fall-through so both surface
+            // to the user via setError(); previously uppercase ERROR silently hit default.
+            // (Wave 1 Task 10 added the uppercase ERROR branch.)
+            case 'ERROR':
             case 'error':
               console.error('Server error:', data.message);
               setError(data.message);
+              break;
+            // Backend: connection_manager_stable_v2.py:277 — system-level error.
+            // Surface to the user alongside the ERROR/error branches.
+            case 'system_error':
+              console.error('System error:', data.message);
+              setError(data.message || 'System error occurred');
               break;
             default:
               console.log('Unknown WebSocket message type:', data.type);

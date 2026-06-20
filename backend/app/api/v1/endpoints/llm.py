@@ -360,7 +360,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
     elif name == "stop_buddha_recitation":
         from core.buddha_recitation_loop import get_recitation_loop
         loop = get_recitation_loop()
-        loop.stop()
+        await loop.stop()
         return loop.get_status()
     elif name == "get_buddha_recitation_status":
         from core.buddha_recitation_loop import get_recitation_loop
@@ -1212,6 +1212,26 @@ async def _chat_via_registry(
 # ============================ Chat Endpoint ============================
 
 
+def _provider_default_model(provider_class) -> str | None:
+    """Read a provider class's declared ``default_model`` without instantiating it.
+
+    Instantiating the provider class just to read the default would trigger
+    HTTP-client construction and env-var validation. Introspecting the
+    ``__init__`` signature is side-effect-free and tracks future changes to
+    the provider's configured default automatically.
+    """
+    import inspect
+
+    try:
+        sig = inspect.signature(provider_class.__init__)
+        param = sig.parameters.get("default_model")
+        if param and param.default is not inspect.Parameter.empty:
+            return param.default
+    except Exception as e:
+        logger.debug("Could not introspect default_model on %s: %s", provider_class, e)
+    return None
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat_interaction(request: ChatRequest, http_request: Request):
     """
@@ -1313,9 +1333,11 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
 
             client = openai.OpenAI(api_key=api_key)
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+            from core.llm.providers.openai import OpenAIProvider
+
             response_text = await _run_openai_compatible_tool_loop(
                 client=client,
-                model_name=request.model or "gpt-4o-mini",
+                model_name=request.model or _provider_default_model(OpenAIProvider) or "gpt-4o-mini",
                 messages=openai_messages,
                 tools=openai_tools,
                 tool_logs=tool_logs,
@@ -1340,9 +1362,11 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                 timeout=float(os.getenv("OPENROUTER_TIMEOUT", "120")),
             )
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
-            model_name = request.model or os.getenv(
-                "OPENROUTER_MODEL", "google/gemini-2.0-flash-001"
-            )
+            from core.llm.providers.openrouter import OpenRouterProvider
+
+            model_name = request.model or _provider_default_model(
+                OpenRouterProvider
+            ) or os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
             response_text = await _run_openai_compatible_tool_loop(
                 client=client,
                 model_name=model_name,
@@ -1430,9 +1454,11 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                 base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
             )
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+            from core.llm.providers.deepseek import DeepSeekProvider
+
             response_text = await _run_openai_compatible_tool_loop(
                 client=client,
-                model_name=request.model or "deepseek-chat",
+                model_name=request.model or _provider_default_model(DeepSeekProvider) or "deepseek-chat",
                 messages=openai_messages,
                 tools=openai_tools,
                 tool_logs=tool_logs,
@@ -1458,9 +1484,11 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                 timeout=float(os.getenv("MINIMAX_TIMEOUT", "120")),
             )
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+            from core.llm.providers.minimax import MinimaxProvider
+
             response_text = await _run_openai_compatible_tool_loop(
                 client=client,
-                model_name=request.model or "MiniMax-M3",
+                model_name=request.model or _provider_default_model(MinimaxProvider) or "MiniMax-Text-01",
                 messages=openai_messages,
                 tools=openai_tools,
                 tool_logs=tool_logs,
@@ -1476,9 +1504,11 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
             import anthropic
 
             client = anthropic.Anthropic(api_key=api_key)
+            from core.llm.providers.anthropic import AnthropicProvider
+
             response_text = await _run_anthropic_tool_loop(
                 client=client,
-                model_name=request.model or "claude-3-5-haiku-20241022",
+                model_name=request.model or _provider_default_model(AnthropicProvider) or "claude-3-5-haiku-20241022",
                 system_prompt=full_system_prompt,
                 messages=chat_messages,
                 tools=claude_tools,
@@ -1528,7 +1558,7 @@ async def list_models():
         import urllib.request
 
         lm_studio_models = []
-        lm_studio_url = os.getenv("LM_STUDIO_URL", "http://localhost:1234")
+        lm_studio_url = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234")
         try:
             req = urllib.request.Request(f"{lm_studio_url}/v1/models")
             with urllib.request.urlopen(req, timeout=1.5) as response:

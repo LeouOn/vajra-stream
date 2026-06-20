@@ -1,0 +1,133 @@
+============================================================
+Wave 4 Task 25 — Frontend URL Standardization (ADR 004)
+============================================================
+Date:           2026-06-18
+Approach:       Strict TDD (RED -> GREEN -> REFACTOR)
+ADR:            docs/decisions/004-url-strategy.md
+Prior art:      Wave 1 Task 8 / commit c8aa56e (doubled-prefix bugfix)
+                Wave 0 Task 2 (preflight: zero VITE_API_BASE / import.meta.env)
+                Metis EC3 (production build without backend)
+
+------------------------------------------------------------
+1. STRATEGY
+------------------------------------------------------------
+Replaced the absolute `${API_BASE}` template form
+(`${protocol}//${hostname}:8008/api/v1`) with proxy-relative URLs of
+the form `/api/v1/...` across the frontend source tree. The Vite dev
+proxy (`frontend/vite.config.ts`) already forwards `/api` to
+`localhost:8008`. Production deployments route `/api/*` to the backend
+via a reverse proxy (nginx/Caddy/Cloudflare) — the standard same-origin
+pattern.
+
+`apiUrl(path)` helper added to `frontend/src/utils/api.ts`:
+    const baseUrl = import.meta.env?.VITE_API_BASE?.replace(/\/+$/, '') ?? '';
+    export function apiUrl(path: string): string { ... }
+Default: baseUrl === '' (proxy-relative).
+Override: `VITE_API_BASE=https://api.example.com` at build time.
+
+`API_BASE` kept as a deprecated backward-compatible alias
+(`apiUrl('')` === '/api/v1') so any unmigrated call site continues to
+resolve. New code MUST use `apiUrl('/foo')` or the `/api/v1/foo` literal.
+
+WebSocket strategy UNCHANGED per ADR 004 (already proxy-relative at
+`frontend/src/hooks/useWebSocketStable.ts`).
+
+------------------------------------------------------------
+2. TDD ARTIFACTS
+------------------------------------------------------------
+Test file:       frontend/src/utils/__tests__/api-url.test.ts
+                 (4 tests, vitest default node environment)
+RED observation: 2 of 4 tests failed pre-migration
+                 - `${API_BASE}` offenders detected in ~30 source files
+                 - apiUrl() undefined (not exported)
+GREEN:           4/4 pass after api.ts rewrite + 31-file migration.
+
+------------------------------------------------------------
+3. ACCEPTANCE CRITERIA (all pass)
+------------------------------------------------------------
+[1] Select-String -Path "frontend\src\**\*" -Pattern "http://(localhost|127\.0\.0\.1):[0-9]+/api"
+    => 0 matches  (PASS)
+
+[2] Select-String -Path "frontend\src\**\*" -Pattern '\$\{API_BASE\}'
+    => 0 matches  (PASS)
+
+[3] VITE_API_BASE documented in README.md (Configuration > Frontend URL Strategy)
+    => 3 occurrences  (PASS)
+
+[4] cd frontend; npm run build
+    => exit code 0  (PASS)  [vite v4.5.14 built in ~16s]
+
+[5] cd frontend; npx vitest run
+    => 27 test files passed, 372 tests passed, exit code 0  (PASS)
+
+------------------------------------------------------------
+4. FILES TOUCHED
+------------------------------------------------------------
+api.ts rewrite (1):
+  frontend/src/utils/api.ts
+    - Removed absolute resolveApiBase() with hardcoded :8008
+    - Added apiUrl() helper with VITE_API_BASE override
+    - Kept API_BASE as deprecated alias (= apiUrl(''))
+    - WS_URL simplified to window.location.host-based form (still proxy-relative)
+
+Test added (1):
+  frontend/src/utils/__tests__/api-url.test.ts (new)
+
+Migration (31 files, mechanical `${API_BASE}` -> `/api/v1` substitution
+plus removal of the `import { API_BASE } from '../../utils/api'` line):
+
+  frontend/src/components/3D/RadionicsGlobe.jsx                  ( 2 calls)
+  frontend/src/components/CommandCenter/constants.js             ( 3 calls)
+  frontend/src/components/Settings/ProviderSettings.jsx          ( 1 call )
+  frontend/src/components/UI/AstrologyExtractionPanel.jsx        (10 calls)
+  frontend/src/components/UI/AstrologyPanel.jsx                  (11 calls)
+  frontend/src/components/UI/AutomationControl.jsx               ( 7 calls)
+  frontend/src/components/UI/BlessingSlideshow.jsx               (10 calls)
+  frontend/src/components/UI/BodhicittaBanner.jsx                ( 1 call )
+  frontend/src/components/UI/BroadcastPanel.jsx                  ( 3 calls)
+  frontend/src/components/UI/ChakraHealing.jsx                   ( 6 calls)
+  frontend/src/components/UI/CommandCenter.jsx                   ( 3 calls)
+  frontend/src/components/UI/DharmaTales.jsx                     ( 3 calls, local const removed)
+  frontend/src/components/UI/ExportPanel.jsx                     ( 1 call )
+  frontend/src/components/UI/GeneratedContentGallery.jsx         ( 3 calls)
+  frontend/src/components/UI/GrimoirePanel.jsx                   ( 1 call )
+  frontend/src/components/UI/JourneyCard.jsx                     ( 3 calls)
+  frontend/src/components/UI/NarrativeTTSPlayer.jsx              ( 1 call )
+  frontend/src/components/UI/OperationsPanel.jsx                 (10 calls)
+  frontend/src/components/UI/OutlookDashboard.jsx                (18 calls, incl. `${API_BASE}${endpoint}` -> `/api/v1${endpoint}`)
+  frontend/src/components/UI/PopulationManager.jsx               ( 7 calls)
+  frontend/src/components/UI/PrayerWheel.jsx                     ( 2 calls)
+  frontend/src/components/UI/RitualMonitor.jsx                   ( 4 calls)
+  frontend/src/components/UI/RNGAttunement.jsx                   ( 4 calls)
+  frontend/src/components/UI/SessionTimeline.jsx                 (dead import removed; already used /api/v1 literal)
+  frontend/src/components/UI/SynastryViewer.jsx                  ( 1 call )
+  frontend/src/components/UI/TimeCycles.jsx                      ( 3 calls)
+  frontend/src/components/UI/TransitComparison.jsx               ( 2 calls)
+  frontend/src/components/UI/TrendsChart.jsx                     ( 1 call )
+  frontend/src/components/UI/TTSSettingsPanel.jsx                ( 2 calls)
+  frontend/src/components/UI/WorldContextPanel.jsx               ( 1 call )
+  frontend/src/routes/Buddhas/index.jsx                          ( 2 calls)
+
+Total source call-sites migrated: 113 ${API_BASE} -> /api/v1 substitutions.
+
+Documentation (1):
+  README.md - added "Frontend URL Strategy" subsection under Configuration.
+
+------------------------------------------------------------
+5. GUARDRAILS HONORED
+------------------------------------------------------------
+[x] WebSocket URLs NOT touched (useWebSocketStable.ts unchanged behavior)
+[x] scripts/ NOT touched (Guardrail G1)
+[x] vite.config.ts NOT touched (proxy already correct)
+[x] API_BASE not deleted (kept as deprecated alias per MUST NOT section)
+[x] VITE_API_BASE documented in README
+[x] Wave 1 Task 8 / c8aa56e cited (doubled-prefix bug class eliminated)
+[x] Metis EC3 acknowledged (proxy-relative returns clean 502/404 from
+    reverse proxy rather than DNS/TLS failure on hardcoded :8008)
+
+------------------------------------------------------------
+6. DEVIATIONS
+------------------------------------------------------------
+None. Migration was purely mechanical and uniform. The pre-existing
+utils.test.ts (which asserts API_BASE ends with /api/v1) continues to
+pass because API_BASE = apiUrl('') = '/api/v1'.

@@ -20,14 +20,14 @@ from datetime import datetime
 from enum import Enum
 
 try:
-    from core.advanced_scalar_waves import HybridScalarWaveGenerator, KuramotoOscillator, MOPSMetrics
+    from core.advanced_scalar_waves import HybridScalarWaveGenerator
 
     HAS_SCALAR = True
 except ImportError:
     HAS_SCALAR = False
 
 try:
-    from core.compassionate_blessings import BlessingCategory, BlessingDatabase, BlessingTarget
+    from core.compassionate_blessings import BlessingDatabase
 
     HAS_BLESSINGS = True
 except ImportError:

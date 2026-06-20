@@ -152,7 +152,7 @@ class CharacterJourney:
         try:
             import asyncio
 
-            from backend.websocket.connection_manager_stable_v2 import stable_connection_manager_v2
+            from backend.websocket.connection_manager import stable_connection_manager_v2
 
             payload = {"type": event_type, "data": data, "timestamp": time.time()}
             try:

@@ -42,7 +42,7 @@ def is_lm_studio_running():
     import requests
 
     try:
-        url = os.getenv("LM_STUDIO_URL", "http://localhost:1234/v1")
+        url = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
         requests.get(f"{url}/models", timeout=2)
         return True
     except Exception:

@@ -1,7 +1,7 @@
 # core/llm/models.py
 """Pydantic models for the LLM provider layer."""
 import time
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 

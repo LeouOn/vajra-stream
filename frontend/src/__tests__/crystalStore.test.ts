@@ -77,7 +77,7 @@ describe('useCrystalStore', () => {
       useCrystalStore.getState().addCrystal({ name: 'A' });
       await new Promise(r => setTimeout(r, 2));
       useCrystalStore.getState().addCrystal({ name: 'B' });
-      const idA = useCrystalStore.getState().crystals.find(c => c.name === 'A').id;
+      const idA = useCrystalStore.getState().crystals.find(c => c.name === 'A')!.id;
       useCrystalStore.getState().removeCrystal(idA);
       expect(useCrystalStore.getState().crystals).toHaveLength(1);
       expect(useCrystalStore.getState().crystals[0].name).toBe('B');
@@ -219,8 +219,8 @@ describe('useCrystalStore', () => {
     it('getCrystalByType returns matching crystal', () => {
       const c = useCrystalStore.getState().getCrystalByType('amethyst');
       expect(c).toBeDefined();
-      expect(c.id).toBe('amethyst');
-      expect(c.chakras).toContain('third_eye');
+      expect(c!.id).toBe('amethyst');
+      expect(c!.chakras).toContain('third_eye');
     });
 
     it('getCrystalByType returns undefined for unknown type', () => {

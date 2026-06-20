@@ -5,11 +5,8 @@ Supports full liturgy recitation with configurable speed and voice.
 """
 
 import asyncio
-import json
 import os
 import tempfile
-from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 # ─── Chinese TTS Voices ───
@@ -40,7 +37,7 @@ class BuddhaTTSReciter:
 
     def _check_availability(self):
         try:
-            import edge_tts
+            import edge_tts  # noqa: F401 — availability probe; the import IS the capability test
 
             self._available = True
         except ImportError:

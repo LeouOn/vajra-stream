@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 from datetime import datetime
@@ -87,7 +88,6 @@ except Exception as e:
 
 
 print("\n--- Testing Backend Service Integration ---")
-import asyncio
 
 
 async def test_service():

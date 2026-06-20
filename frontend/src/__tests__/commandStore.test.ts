@@ -169,7 +169,7 @@ describe('commandStore', () => {
       });
       const result = useCommandStore.getState().executeSelected();
       expect(result).toBeTruthy();
-      expect(result.id).toBe('audio.play');
+      expect(result!.id).toBe('audio.play');
       expect(useCommandStore.getState().isOpen).toBe(false);
     });
 
@@ -177,7 +177,7 @@ describe('commandStore', () => {
       useCommandStore.setState({ query: 'play audio', searchResults: [] });
       const result = useCommandStore.getState().executeSelected();
       expect(result).toBeTruthy();
-      expect(result.type).toBe('command');
+      expect(result!.type).toBe('command');
     });
   });
 });

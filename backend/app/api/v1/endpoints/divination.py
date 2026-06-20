@@ -717,7 +717,7 @@ async def stop_eighty_eight_recitation():
         from core.buddha_recitation_loop import get_recitation_loop
 
         loop = get_recitation_loop()
-        loop.stop()
+        await loop.stop()
         return loop.get_status()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -10,8 +10,6 @@ Supports the 6-stage Character Journey arc:
   Initiation → Training → Working → Overcoming → Utopia → Multiverse
 """
 
-import math
-import random
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime
