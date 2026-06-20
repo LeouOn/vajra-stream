@@ -5,13 +5,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { planetGlyph } from '../../lib/astroHelpers';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-const PLANET_GLYPHS = {
+const PLANET_GLYPHS: Record<string, string> = {
   sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂',
   jupiter:'♃', saturn:'♄', uranus:'♅', neptune:'♆', pluto:'♇',
   north_node:'☊', south_node:'☋', chiron: '⚷', mean_node: '☊'
 };
 
-const ASPECT_COLORS = {
+const ASPECT_COLORS: Record<string, string> = {
   conjunction: '#10b981',
   trine: '#3b82f6',
   sextile: '#a855f7',
@@ -21,7 +21,7 @@ const ASPECT_COLORS = {
   quintile: '#64748b',
 };
 
-const ASPECT_LABEL_COLORS = {
+const ASPECT_LABEL_COLORS: Record<string, string> = {
   conjunction: 'green',
   trine: 'blue',
   sextile: 'purple',
@@ -34,7 +34,7 @@ const ASPECT_LABEL_COLORS = {
 const HARMONIOUS = new Set(['trine', 'sextile', 'conjunction']);
 const CHALLENGING = new Set(['square', 'opposition']);
 
-const ASPECT_GLYPHS = {
+const ASPECT_GLYPHS: Record<string, string> = {
   conjunction: '☌',
   sextile: '⚹',
   square: '□',
@@ -44,14 +44,78 @@ const ASPECT_GLYPHS = {
   quintile: '⛶',
 };
 
-const aspectCategory = (name) => {
+type AspectCategory = 'harmonious' | 'challenging' | 'minor';
+
+const aspectCategory = (name: string | undefined): AspectCategory => {
   const n = (name || '').toLowerCase();
   if (HARMONIOUS.has(n)) return 'harmonious';
   if (CHALLENGING.has(n)) return 'challenging';
   return 'minor';
 };
 
-const aspectGlyph = (name) => ASPECT_GLYPHS[(name || '').toLowerCase()] || '○';
+const aspectGlyph = (name: string | undefined): string => ASPECT_GLYPHS[(name || '').toLowerCase()] || '○';
+
+interface SavedChart {
+  id: string;
+  name: string;
+  city: string;
+  [key: string]: unknown;
+}
+
+interface SynastryAspect {
+  person_a_planet: string;
+  aspect: string;
+  person_b_planet: string;
+  orb: number;
+  [key: string]: unknown;
+}
+
+interface SynastryScoring {
+  compatibility_score?: number;
+  element_a?: string;
+  element_b?: string;
+  description?: string;
+  harmony_count?: number;
+  tension_count?: number;
+  [key: string]: unknown;
+}
+
+interface SynastryDataPayload {
+  aspects?: SynastryAspect[];
+  scoring?: SynastryScoring;
+  [key: string]: unknown;
+}
+
+interface SynastryResponse {
+  data?: SynastryDataPayload;
+  [key: string]: unknown;
+}
+
+interface DistributionEntry {
+  name: string;
+  label: string;
+  count: number;
+  category: AspectCategory;
+  glyph: string;
+}
+
+interface HarmonyRatio {
+  harmonious: number;
+  challenging: number;
+  neutral: number;
+}
+
+interface TooltipFormatterItem {
+  payload: { label: string };
+}
+
+interface SynastryViewerProps {
+  charts: SavedChart[];
+  subjectA?: SavedChart | null;
+  subjectB?: SavedChart | null;
+  onSetSubjectA: (chart: SavedChart | undefined) => void;
+  onSetSubjectB: (chart: SavedChart | undefined) => void;
+}
 
 export default function SynastryViewer({
   charts,
@@ -59,9 +123,9 @@ export default function SynastryViewer({
   subjectB,
   onSetSubjectA,
   onSetSubjectB
-}) {
-  const [loading, setLoading] = useState(false);
-  const [synastryData, setSynastryData] = useState(null);
+}: SynastryViewerProps) {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [synastryData, setSynastryData] = useState<SynastryResponse | null>(null);
 
   const fetchSynastry = async () => {
     if (!subjectA || !subjectB) return;
@@ -76,7 +140,7 @@ export default function SynastryViewer({
         })
       });
       if (response.ok) {
-        const result = await response.json();
+        const result: SynastryResponse = await response.json();
         setSynastryData(result);
         audioFeedback.playSuccess();
       } else {
@@ -101,23 +165,23 @@ export default function SynastryViewer({
     label: `${c.name} (${c.city})`
   }));
 
-  const handleSelectA = (id) => {
+  const handleSelectA = (id: unknown) => {
     const selected = charts.find(c => c.id === id);
     onSetSubjectA(selected);
     audioFeedback.playClick();
   };
 
-  const handleSelectB = (id) => {
+  const handleSelectB = (id: unknown) => {
     const selected = charts.find(c => c.id === id);
     onSetSubjectB(selected);
     audioFeedback.playClick();
   };
 
-  const aspects = synastryData?.data?.aspects || [];
-  const scoring = synastryData?.data?.scoring || {};
+  const aspects: SynastryAspect[] = synastryData?.data?.aspects || [];
+  const scoring: SynastryScoring = synastryData?.data?.scoring || {};
 
-  const distribution = useMemo(() => {
-    const counts = {};
+  const distribution = useMemo<DistributionEntry[]>(() => {
+    const counts: Record<string, number> = {};
     for (const a of aspects) {
       const k = (a.aspect || '').toLowerCase();
       counts[k] = (counts[k] || 0) + 1;
@@ -133,7 +197,7 @@ export default function SynastryViewer({
       .sort((a, b) => b.count - a.count);
   }, [aspects]);
 
-  const harmonyRatio = useMemo(() => {
+  const harmonyRatio = useMemo<HarmonyRatio>(() => {
     if (!aspects.length) return { harmonious: 0, challenging: 0, neutral: 0 };
     let h = 0, c = 0, m = 0;
     for (const a of aspects) {
@@ -155,7 +219,7 @@ export default function SynastryViewer({
       title: 'Subject A Planet',
       dataIndex: 'person_a_planet',
       key: 'person_a_planet',
-      render: (text) => (
+      render: (text: string) => (
         <span className="capitalize font-mono flex items-center gap-1.5 text-xs text-purple-300">
           <span className="text-sm font-sans">{planetGlyph(text)}</span> {text.replace('_', ' ')}
         </span>
@@ -165,7 +229,7 @@ export default function SynastryViewer({
       title: 'Aspect',
       dataIndex: 'aspect',
       key: 'aspect',
-      render: (text) => {
+      render: (text: string) => {
         const key = (text || '').toLowerCase();
         return (
           <Tag color={ASPECT_LABEL_COLORS[key] || 'default'} className="font-mono text-[9px] uppercase font-bold">
@@ -178,7 +242,7 @@ export default function SynastryViewer({
       title: 'Subject B Planet',
       dataIndex: 'person_b_planet',
       key: 'person_b_planet',
-      render: (text) => (
+      render: (text: string) => (
         <span className="capitalize font-mono flex items-center gap-1.5 text-xs text-cyan-300">
           <span className="text-sm font-sans">{planetGlyph(text)}</span> {text.replace('_', ' ')}
         </span>
@@ -188,7 +252,7 @@ export default function SynastryViewer({
       title: 'Orb',
       dataIndex: 'orb',
       key: 'orb',
-      render: (val) => <span className="font-mono text-[10px] text-gray-400">{(val ?? 0).toFixed(2)}°</span>
+      render: (val: number | null | undefined) => <span className="font-mono text-[10px] text-gray-400">{(val ?? 0).toFixed(2)}°</span>
     }
   ];
 
@@ -254,7 +318,7 @@ export default function SynastryViewer({
                         '100%': '#8b5cf6',
                       }}
                       width={100}
-                      format={(percent) => (
+                      format={(percent?: number) => (
                         <div className="text-white font-mono">
                           <div className="text-xl font-bold">{percent}%</div>
                           <div className="text-[8px] text-gray-400">Harmony</div>
@@ -355,9 +419,9 @@ export default function SynastryViewer({
                                 color: '#e2e8f0',
                               }}
                               cursor={{ fill: 'rgba(148, 163, 184, 0.08)' }}
-                              formatter={(value, _name, props) => [
+                              formatter={(value, _name, item) => [
                                 `${value} aspect${value === 1 ? '' : 's'}`,
-                                props.payload.label,
+                                (item as TooltipFormatterItem).payload.label,
                               ]}
                             />
                             <Bar dataKey="count" radius={[4, 4, 0, 0]}>

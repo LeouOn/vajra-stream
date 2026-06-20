@@ -9,8 +9,11 @@ import { Activity, TrendingUp, TrendingDown, Minus, Zap, AlertCircle, CheckCircl
 
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 
+type NeedleState = 'floating' | 'rising' | 'falling' | 'rockslam' | 'theta_bop' | 'stuck' | string;
+type SignalQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'disrupted' | string;
+
 // Needle state colors
-const NEEDLE_COLORS = {
+const NEEDLE_COLORS: Record<string, string> = {
   floating: '#10b981',    // green - release/EP
   rising: '#f59e0b',      // amber - building charge
   falling: '#3b82f6',     // blue - releasing
@@ -20,7 +23,7 @@ const NEEDLE_COLORS = {
 };
 
 // Quality level colors
-const QUALITY_COLORS = {
+const QUALITY_COLORS: Record<string, string> = {
   excellent: '#10b981',   // green
   good: '#3b82f6',        // blue
   fair: '#f59e0b',        // amber
@@ -28,21 +31,51 @@ const QUALITY_COLORS = {
   disrupted: '#dc2626'    // dark red
 };
 
-const RNGAttunement = ({ className = '' }) => {
-  const [sessionId, setSessionId] = useState(null);
-  const [isActive, setIsActive] = useState(false);
-  const [reading, setReading] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [refreshRate, setRefreshRate] = useState(1000); // ms
-  const [sensitivity, setSensitivity] = useState(1.0);
-  const [baselineToneArm, setBaselineToneArm] = useState(5.0);
-  const [summary, setSummary] = useState(null);
+interface RngReading {
+  session_id?: string;
+  tone_arm: number;
+  needle_position: number;
+  needle_state: NeedleState;
+  coherence: number;
+  floating_needle_score: number;
+  trend?: number;
+  quality?: SignalQuality;
+  [key: string]: unknown;
+}
+
+interface RngSummary {
+  total_readings: number;
+  floating_needle_count: number;
+  avg_tone_arm?: number;
+  avg_coherence: number;
+  [key: string]: unknown;
+}
+
+interface CreateSessionResponse {
+  session_id: string;
+  [key: string]: unknown;
+}
+
+interface RNGAttunementProps {
+  className?: string;
+}
+
+const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [reading, setReading] = useState<RngReading | null>(null);
+  const [history, setHistory] = useState<RngReading[]>([]);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
+  const [refreshRate, setRefreshRate] = useState<number>(1000); // ms
+  const [sensitivity, setSensitivity] = useState<number>(1.0);
+  const [baselineToneArm, setBaselineToneArm] = useState<number>(5.0);
+  const [summary, setSummary] = useState<RngSummary | null>(null);
 
   const { rngData } = useWebSocket();
+  const wsReading = rngData as unknown as RngReading | null;
 
-  const intervalRef = useRef(null);
-  const canvasRef = useRef(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Create session
   const createSession = async () => {
@@ -55,7 +88,7 @@ const RNGAttunement = ({ className = '' }) => {
           sensitivity: sensitivity
         })
       });
-      const data = await response.json();
+      const data: CreateSessionResponse = await response.json();
       setSessionId(data.session_id);
       setIsActive(true);
       setHistory([]);
@@ -72,7 +105,7 @@ const RNGAttunement = ({ className = '' }) => {
     try {
       const response = await fetch(`/api/v1/rng-attunement/reading/${sessionId}`);
       if (response.ok) {
-        const data = await response.json();
+        const data: RngReading = await response.json();
         setReading(data);
         setHistory(prev => [...prev.slice(-99), data]); // Keep last 100
       }
@@ -88,7 +121,7 @@ const RNGAttunement = ({ className = '' }) => {
     try {
       const response = await fetch(`/api/v1/rng-attunement/session/${sessionId}/summary`);
       if (response.ok) {
-        const data = await response.json();
+        const data: RngSummary = await response.json();
         setSummary(data);
       }
     } catch (error) {
@@ -114,11 +147,11 @@ const RNGAttunement = ({ className = '' }) => {
 
   // Auto-refresh readings via WebSocket
   useEffect(() => {
-    if (autoRefresh && isActive && rngData && rngData.session_id === sessionId) {
-      setReading(rngData);
-      setHistory(prev => [...prev.slice(-99), rngData]);
+    if (autoRefresh && isActive && wsReading && wsReading.session_id === sessionId) {
+      setReading(wsReading);
+      setHistory(prev => [...prev.slice(-99), wsReading]);
     }
-  }, [rngData, autoRefresh, isActive, sessionId]);
+  }, [wsReading, autoRefresh, isActive, sessionId]);
 
   // Draw needle visualization
   useEffect(() => {
@@ -126,6 +159,7 @@ const RNGAttunement = ({ className = '' }) => {
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const width = canvas.width;
     const height = canvas.height;
     const centerX = width / 2;

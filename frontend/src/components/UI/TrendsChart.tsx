@@ -15,6 +15,7 @@
  */
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { TrendingUp, Sparkles, Loader2, RefreshCw } from 'lucide-react';
+
 const CHART_W = 320;
 const CHART_H = 96;
 const CHART_PAD = 4;
@@ -25,9 +26,56 @@ const COLOR_LINE = '#a855f7';
 const COLOR_AXIS = '#1e293b';
 const COLOR_LABEL = '#64748b';
 
-function BarChart({ data, valueKey, nameKey }) {
+interface ChartDatum {
+  name: string;
+  [key: string]: string | number;
+}
+
+interface RateHistoryEntry {
+  rate?: number;
+  values?: number[];
+  [key: string]: unknown;
+}
+
+interface SessionHistoryEntry {
+  config?: { name?: string; duration?: number };
+  total_runtime?: number;
+  duration?: number;
+  name?: string;
+}
+
+interface ChartDataPoint {
+  name: string;
+  duration: number;
+}
+
+interface RateDataPoint {
+  name: string;
+  rate: number;
+}
+
+interface LlmTrends {
+  analysis?: string;
+  patterns?: string[];
+  recommendations?: string[];
+  most_used_frequency?: number | string;
+  most_common_intention_theme?: string;
+  chart_data?: {
+    labels?: (string | number)[];
+    values?: number[];
+  };
+  [key: string]: unknown;
+}
+
+interface BarChartProps {
+  data: ChartDataPoint[];
+  valueKey: string;
+  nameKey: string;
+}
+
+function BarChart({ data, valueKey, nameKey }: BarChartProps) {
   if (!data || data.length === 0) return null;
-  const values = data.map((d) => d[valueKey] || 0);
+  const values = data.map((d) => (d[valueKey] as number) || 0);
   const max = Math.max(...values, 1);
   const barW = (CHART_W - CHART_PAD * 2) / Math.max(data.length, 1);
   const innerH = CHART_H - CHART_PAD * 2;
@@ -45,7 +93,7 @@ function BarChart({ data, valueKey, nameKey }) {
     >
       <rect x={CHART_PAD} y={CHART_PAD} width={CHART_W - CHART_PAD * 2} height={innerH} fill={COLOR_BAR_FILL} />
       {data.map((d, i) => {
-        const h = (d[valueKey] || 0) / max * usableH;
+        const h = ((d[valueKey] as number) || 0) / max * usableH;
         const x = CHART_PAD + i * barW + barW * 0.1;
         const w = barW * 0.8;
         const y = CHART_PAD + innerH - h - 12;
@@ -77,10 +125,18 @@ function BarChart({ data, valueKey, nameKey }) {
   );
 }
 
-function LineChartSimple({ data, valueKey, nameKey, min, max }) {
+interface LineChartSimpleProps {
+  data: RateDataPoint[];
+  valueKey: string;
+  nameKey: string;
+  min?: number;
+  max?: number;
+}
+
+function LineChartSimple({ data, valueKey, nameKey, min, max }: LineChartSimpleProps) {
   if (!data || data.length === 0) return null;
-  const lo = min ?? Math.min(...data.map((d) => d[valueKey] || 0), 0);
-  const hi = max ?? Math.max(...data.map((d) => d[valueKey] || 0), 100);
+  const lo = min ?? Math.min(...data.map((d) => (d[valueKey] as number) || 0), 0);
+  const hi = max ?? Math.max(...data.map((d) => (d[valueKey] as number) || 0), 100);
   const range = hi - lo || 1;
   const innerH = CHART_H - CHART_PAD * 2;
   const usableH = innerH - 12;
@@ -89,8 +145,8 @@ function LineChartSimple({ data, valueKey, nameKey, min, max }) {
 
   const points = data.map((d, i) => {
     const x = CHART_PAD + i * stepX;
-    const y = CHART_PAD + innerH - ((d[valueKey] || 0) - lo) / range * usableH - 12;
-    return { x, y, v: d[valueKey] };
+    const y = CHART_PAD + innerH - ((d[valueKey] as number) || 0 - lo) / range * usableH - 12;
+    return { x, y, v: d[valueKey] as number };
   });
   const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
 
@@ -137,9 +193,13 @@ function LineChartSimple({ data, valueKey, nameKey, min, max }) {
   );
 }
 
-function TrendsChartInner({ sessionHistory }) {
-  const [rateHistory, setRateHistory] = useState([]);
-  const [llmTrends, setLlmTrends] = useState(null);
+interface TrendsChartInnerProps {
+  sessionHistory?: SessionHistoryEntry[];
+}
+
+function TrendsChartInner({ sessionHistory }: TrendsChartInnerProps) {
+  const [rateHistory, setRateHistory] = useState<RateHistoryEntry[]>([]);
+  const [llmTrends, setLlmTrends] = useState<LlmTrends | null>(null);
   const [trendsLoading, setTrendsLoading] = useState(false);
   const fetchedOnceRef = useRef(false);
 
@@ -148,13 +208,13 @@ function TrendsChartInner({ sessionHistory }) {
       const stored = localStorage.getItem('rate-storage');
       if (stored) {
         const parsed = JSON.parse(stored);
-        const history = parsed?.state?.rateHistory || [];
+        const history: RateHistoryEntry[] = parsed?.state?.rateHistory || [];
         setRateHistory(history.slice(0, 20));
       }
     } catch {}
   }, []);
 
-  const sessionData = useMemo(
+  const sessionData = useMemo<ChartDataPoint[]>(
     () => (sessionHistory || []).slice(-10).map((s, i) => ({
       name: (s.config?.name || s.name || `S${i}`).slice(0, 8),
       duration: s.config?.duration
@@ -166,7 +226,7 @@ function TrendsChartInner({ sessionHistory }) {
     [sessionHistory]
   );
 
-  const rateData = useMemo(
+  const rateData = useMemo<RateDataPoint[]>(
     () => rateHistory.map((r, i) => ({
       name: `R${i}`,
       rate: r.rate || r.values?.[0] || 50,
@@ -174,7 +234,7 @@ function TrendsChartInner({ sessionHistory }) {
     [rateHistory]
   );
 
-  const chartData = useMemo(() => {
+  const chartData = useMemo<ChartDataPoint[]>(() => {
     const labels = llmTrends?.chart_data?.labels || sessionData.map((d) => d.name);
     const values = llmTrends?.chart_data?.values || sessionData.map((d) => d.duration);
     return labels.map((label, i) => ({
@@ -188,7 +248,7 @@ function TrendsChartInner({ sessionHistory }) {
     try {
       const res = await fetch(`/api/v1/operator/trends`);
       if (res.ok) {
-        const data = await res.json();
+        const data: LlmTrends = await res.json();
         setLlmTrends(data);
       }
     } catch {}

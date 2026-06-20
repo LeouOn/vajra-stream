@@ -5,6 +5,36 @@ import {
 import { Card, Input, Button, Tag as AntTag, Space, Tooltip, Popconfirm, Select } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
+export interface SavedChart {
+  id: string;
+  name: string;
+  city: string;
+  birth_time_iso: string;
+  description?: string;
+  tags?: string;
+  [key: string]: unknown;
+}
+
+export interface ImportedChartsPayload {
+  charts?: SavedChart[];
+  [key: string]: unknown;
+}
+
+interface SavedChartsDrawerProps {
+  charts: SavedChart[];
+  onLoadNatal: (chart: SavedChart) => void;
+  onSelectTransit: (chart: SavedChart) => void;
+  onSetSubjectA: (chart: SavedChart) => void;
+  onSetSubjectB: (chart: SavedChart) => void;
+  onEdit: (chart: SavedChart) => void;
+  onDelete: (chartId: string) => void;
+  onExport: () => void;
+  onImport: (data: ImportedChartsPayload) => void;
+  subjectA?: SavedChart | null;
+  subjectB?: SavedChart | null;
+  activeChartId?: string;
+}
+
 export default function SavedChartsDrawer({ 
   charts, 
   onLoadNatal, 
@@ -18,9 +48,9 @@ export default function SavedChartsDrawer({
   subjectA,
   subjectB,
   activeChartId
-}) {
+}: SavedChartsDrawerProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTag, setSelectedTag] = useState('All');
+  const [selectedTag, setSelectedTag] = useState<string>('All');
 
   // Extract all unique tags
   const allTags = ['All', ...new Set(charts.flatMap(c => c.tags ? c.tags.split(',').map(t => t.trim()) : []))];
@@ -33,13 +63,13 @@ export default function SavedChartsDrawer({
     return matchesSearch && matchesTag;
   });
 
-  const handleImportChange = (e) => {
-    const file = e.target.files[0];
+  const handleImportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = async (event) => {
         try {
-          const data = JSON.parse(event.target.result);
+          const data = JSON.parse(event.target?.result as string);
           onImport(data);
         } catch (err) {
           console.error("Invalid JSON file for import", err);

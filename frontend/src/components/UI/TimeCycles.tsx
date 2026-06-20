@@ -8,21 +8,63 @@ import React, { useState, useEffect } from 'react';
 import { HelpCircle, Play, RefreshCw, Compass, Moon, Sun, Clock, Calendar, Check, AlertTriangle } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 
+interface TimeCycleEvent {
+  id: string;
+  name: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  [key: string]: unknown;
+}
+
+interface TimeCycleServiceStatus {
+  [key: string]: unknown;
+}
+
+type BroadcastLogType = 'info' | 'success' | 'error' | 'pending';
+
+interface BroadcastLogEntry {
+  timestamp: string;
+  message: string;
+  type: BroadcastLogType;
+}
+
+interface BroadcastAction {
+  type: string;
+  status?: string;
+  data?: string;
+  mantras?: number;
+  targets?: number;
+  duration?: number;
+  intention?: string;
+  [key: string]: unknown;
+}
+
+interface BroadcastResponse {
+  actions?: BroadcastAction[];
+  [key: string]: unknown;
+}
+
+interface EventsResponse {
+  events?: TimeCycleEvent[];
+  [key: string]: unknown;
+}
+
 export default function TimeCycles() {
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
-  const [stepDays, setStepDays] = useState(1);
-  const [durationPerDay, setDurationPerDay] = useState(5);
-  const [createVisualizations, setCreateVisualizations] = useState(true);
+  const [events, setEvents] = useState<TimeCycleEvent[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [stepDays, setStepDays] = useState<number>(1);
+  const [durationPerDay, setDurationPerDay] = useState<number>(5);
+  const [createVisualizations, setCreateVisualizations] = useState<boolean>(true);
 
   // Operation state
   const [loading, setLoading] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-  const [currentDate, setCurrentDate] = useState("");
-  const [progressPercent, setProgressPercent] = useState(0);
-  const [broadcastLogs, setBroadcastLogs] = useState([]);
-  const [totalMantrasSent, setTotalMantrasSent] = useState(0);
-  const [serviceStatus, setServiceStatus] = useState(null);
+  const [currentDate, setCurrentDate] = useState<string>("");
+  const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [broadcastLogs, setBroadcastLogs] = useState<BroadcastLogEntry[]>([]);
+  const [totalMantrasSent, setTotalMantrasSent] = useState<number>(0);
+  const [serviceStatus, setServiceStatus] = useState<TimeCycleServiceStatus | null>(null);
 
   useEffect(() => {
     fetchEvents();
@@ -33,7 +75,7 @@ export default function TimeCycles() {
     try {
       const res = await fetch(`/api/v1/time-cycles/events`);
       if (res.ok) {
-        const data = await res.json();
+        const data: EventsResponse = await res.json();
         setEvents(data.events || []);
         if (data.events && data.events.length > 0) {
           setSelectedEventId(data.events[0].id);
@@ -48,7 +90,7 @@ export default function TimeCycles() {
     try {
       const res = await fetch(`/api/v1/time-cycles/status`);
       if (res.ok) {
-        const data = await res.json();
+        const data: TimeCycleServiceStatus = await res.json();
         setServiceStatus(data);
       }
     } catch (e) {
@@ -56,11 +98,11 @@ export default function TimeCycles() {
     }
   };
 
-  const getActiveEvent = () => {
+  const getActiveEvent = (): TimeCycleEvent | undefined => {
     return events.find(e => e.id === selectedEventId);
   };
 
-  const addBroadcastLog = (msg, type = 'info') => {
+  const addBroadcastLog = (msg: string, type: BroadcastLogType = 'info') => {
     setBroadcastLogs(prev => [
       {
         timestamp: new Date().toLocaleTimeString(),
@@ -117,14 +159,14 @@ export default function TimeCycles() {
         });
 
         if (res.ok) {
-          const data = await res.json();
+          const data: BroadcastResponse = await res.json();
           // Print logs for each successful action
-          data.actions.forEach(action => {
+          (data.actions || []).forEach(action => {
             if (action.type === 'astrocartography' && action.status === 'success') {
               addBroadcastLog(`  ✓ Astro transits locked: ${action.data}`, 'info');
             } else if (action.type === 'blessing_dedication' && action.status === 'success') {
               addBroadcastLog(`  ✓ Dedicated ${action.mantras} mantras to ${action.targets} victims`, 'info');
-              setTotalMantrasSent(prev => prev + action.mantras);
+              setTotalMantrasSent(prev => prev + (action.mantras || 0));
             } else if (action.type === 'radionics_broadcast') {
               addBroadcastLog(`  ✓ Radionics scalar broadcast completed for ${action.duration}s. Intention: "${action.intention}"`, 'success');
             }
@@ -133,11 +175,11 @@ export default function TimeCycles() {
           addBroadcastLog(`  ⚠ API error broadcasting to date ${dateStr}`, 'error');
         }
       } catch (err) {
-        addBroadcastLog(`  ⚠ Connection failure for ${dateStr}: ${err.message}`, 'error');
+        addBroadcastLog(`  ⚠ Connection failure for ${dateStr}: ${(err as Error).message}`, 'error');
       }
 
       // Wait for duration per day
-      await new Promise(resolve => setTimeout(resolve, durationPerDay * 1000));
+      await new Promise<void>(resolve => setTimeout(resolve, durationPerDay * 1000));
 
       // Advance by stepDays
       current.setDate(current.getDate() + stepDays);

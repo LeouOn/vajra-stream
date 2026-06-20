@@ -8,7 +8,7 @@ import {
 } from '../../lib/astroHelpers';
 import { formatTransitReportMarkdown, formatTransitReportJSON } from '../../lib/astrologyExport';
 
-const ASPECT_COLORS = {
+const ASPECT_COLORS: Record<string, string> = {
   conjunction: 'text-green-400 border-green-500/20 bg-green-500/10',
   trine: 'text-blue-400 border-blue-500/20 bg-blue-500/10',
   sextile: 'text-purple-400 border-purple-500/20 bg-purple-500/10',
@@ -16,7 +16,7 @@ const ASPECT_COLORS = {
   opposition: 'text-orange-400 border-orange-500/20 bg-orange-500/10',
 };
 
-const GOCHARA_DESCRIPTIONS = {
+const GOCHARA_DESCRIPTIONS: Record<number, string> = {
   1: "Focus on health, self-projection, and personal initiative.",
   2: "Financial developments, family affairs, and speech dynamics.",
   3: "Initiative, courage, mental agility, and communication.",
@@ -33,14 +33,19 @@ const GOCHARA_DESCRIPTIONS = {
 
 
 const PILLAR_ORDER = ['Year', 'Month', 'Day', 'Hour'];
-const PILLAR_LABELS = {
+const PILLAR_LABELS: Record<string, string> = {
   'Year': 'Year Pillar (ancestry, social)',
   'Month': 'Month Pillar (parents, work)',
   'Day': 'Day Pillar (self, spouse)',
   'Hour': 'Hour Pillar (children, old age)',
 };
 
-function NatalPillar({ label, pillar }) {
+interface NatalPillarProps {
+  label: string;
+  pillar?: string;
+}
+
+function NatalPillar({ label, pillar }: NatalPillarProps) {
   return (
     <div className="p-3 bg-black/40 border border-white/5 rounded-xl flex-1 min-w-[140px]">
       <div className="text-[8px] text-gray-500 font-mono font-bold tracking-widest uppercase mb-1">
@@ -53,18 +58,67 @@ function NatalPillar({ label, pillar }) {
   );
 }
 
-export default function TransitComparison({ chart }) {
-  const [transitTime, setTransitTime] = useState(() => {
+interface TransitChart {
+  id: string;
+  name: string;
+  [key: string]: unknown;
+}
+
+interface TransitAspect {
+  transit_planet: string;
+  natal_planet: string;
+  aspect: string;
+  orb: number;
+  exactness: number;
+  [key: string]: unknown;
+}
+
+interface GocharaEntry {
+  gochara_house: number;
+  transit_rashi: string;
+  transit_degree: number;
+  [key: string]: unknown;
+}
+
+interface BaziInteraction {
+  type: string;
+  pillar: string;
+  description: string;
+  [key: string]: unknown;
+}
+
+interface BaziClashes {
+  interactions?: BaziInteraction[];
+  [key: string]: unknown;
+}
+
+interface TransitDataPayload {
+  aspects?: TransitAspect[];
+  gochara?: Record<string, GocharaEntry>;
+  bazi_clashes?: BaziClashes;
+  [key: string]: unknown;
+}
+
+type TransitTab = 'Western' | 'Vedic Gochara' | 'Chinese Pillars';
+type AspectFilter = 'all' | 'harmonious' | 'challenging';
+type ExportFormat = 'markdown' | 'json';
+
+interface TransitComparisonProps {
+  chart?: TransitChart | null;
+}
+
+export default function TransitComparison({ chart }: TransitComparisonProps) {
+  const [transitTime, setTransitTime] = useState<string>(() => {
     const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
+    const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   });
-  const [loading, setLoading] = useState(false);
-  const [transitData, setTransitData] = useState(null);
-  const [activeTab, setActiveTab] = useState('Western');
-  const [aspectFilter, setAspectFilter] = useState('all');
-  const [exportFormat, setExportFormat] = useState('markdown');
-  const [exporting, setExporting] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [transitData, setTransitData] = useState<TransitDataPayload | null>(null);
+  const [activeTab, setActiveTab] = useState<TransitTab>('Western');
+  const [aspectFilter, setAspectFilter] = useState<AspectFilter>('all');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
+  const [exporting, setExporting] = useState<boolean>(false);
 
   const fetchTransits = async () => {
     if (!chart) return;
@@ -77,7 +131,7 @@ export default function TransitComparison({ chart }) {
       });
       if (response.ok) {
         const result = await response.json();
-        setTransitData(result.data);
+        setTransitData(result.data as TransitDataPayload);
         audioFeedback.playSuccess();
       } else {
         audioFeedback.playError();
@@ -114,13 +168,13 @@ export default function TransitComparison({ chart }) {
       await navigator.clipboard.writeText(formatted);
       message.success('Copied to clipboard!');
     } catch (e) {
-      message.error('Export failed: ' + e.message);
+      message.error('Export failed: ' + (e as Error).message);
     } finally {
       setExporting(false);
     }
   };
 
-  const aspects = useMemo(() => {
+  const aspects = useMemo<TransitAspect[]>(() => {
     const raw = transitData?.aspects || [];
     if (aspectFilter === 'all') return raw;
     return raw.filter((a) => aspectCategory(a.aspect) === aspectFilter);
@@ -138,10 +192,10 @@ export default function TransitComparison({ chart }) {
     return { total: all.length, harmonious, challenging, minor };
   }, [transitData]);
 
-  const baziInteractions = transitData?.bazi_clashes?.interactions || [];
+  const baziInteractions: BaziInteraction[] = transitData?.bazi_clashes?.interactions || [];
 
-  const baziByPillar = useMemo(() => {
-    const groups = { 'Year': [], 'Month': [], 'Day': [], 'Hour': [] };
+  const baziByPillar = useMemo<Record<string, BaziInteraction[]>>(() => {
+    const groups: Record<string, BaziInteraction[]> = { 'Year': [], 'Month': [], 'Day': [], 'Hour': [] };
     for (const ix of baziInteractions) {
       const label = ix.pillar || '';
       const m = label.match(/^([A-Za-z]+)/);
@@ -159,7 +213,7 @@ export default function TransitComparison({ chart }) {
     );
   }
 
-  const gochara = transitData?.gochara || {};
+  const gochara: Record<string, GocharaEntry> = transitData?.gochara || {};
 
   return (
     <Card
@@ -196,7 +250,7 @@ export default function TransitComparison({ chart }) {
         <Segmented
           options={['Western', 'Vedic Gochara', 'Chinese Pillars']}
           value={activeTab}
-          onChange={(val) => { audioFeedback.playTabChange(); setActiveTab(val); }}
+          onChange={(val) => { audioFeedback.playTabChange(); setActiveTab(val as TransitTab); }}
           className="bg-black/40 border border-white/5 p-1 text-xs"
         />
       </div>
@@ -206,7 +260,7 @@ export default function TransitComparison({ chart }) {
           <Segmented
             size="small"
             value={exportFormat}
-            onChange={setExportFormat}
+            onChange={(v) => setExportFormat(v as ExportFormat)}
             options={[
               { label: 'Markdown', value: 'markdown' },
               { label: 'JSON', value: 'json' },
@@ -241,7 +295,7 @@ export default function TransitComparison({ chart }) {
                 <Segmented
                   size="small"
                   value={aspectFilter}
-                  onChange={(v) => { audioFeedback.playTabChange(); setAspectFilter(v); }}
+                  onChange={(v) => { audioFeedback.playTabChange(); setAspectFilter(v as AspectFilter); }}
                   options={[
                     { label: `All (${aspectStats.total})`, value: 'all' },
                     { label: `Harmonious (${aspectStats.harmonious})`, value: 'harmonious' },

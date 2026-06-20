@@ -7,7 +7,10 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Clock, Zap, Heart, Shield, Sparkles } from 'lucide-react';
-const INTENTION_ICONS = {
+
+type IntentionType = 'healing' | 'liberation' | 'empowerment' | 'protection' | 'peace' | 'love' | 'wisdom';
+
+const INTENTION_ICONS: Record<IntentionType, typeof Heart> = {
   healing: Heart,
   liberation: Sparkles,
   empowerment: Zap,
@@ -16,7 +19,7 @@ const INTENTION_ICONS = {
   love: Heart,
   wisdom: Sparkles,
 };
-const INTENTION_COLORS = {
+const INTENTION_COLORS: Record<IntentionType, string> = {
   healing: '#22c55e',
   liberation: '#a855f7',
   empowerment: '#f59e0b',
@@ -26,7 +29,37 @@ const INTENTION_COLORS = {
   wisdom: '#8b5cf6',
 };
 
-function getIntentionType(intention) {
+interface ActiveSession {
+  id: string;
+  name?: string;
+  intention?: string;
+  duration?: number;
+  status?: string;
+  start_time?: string;
+}
+
+interface SessionConfig {
+  name?: string;
+  intention?: string;
+  duration?: number;
+}
+
+interface HistoryEntry {
+  id?: string;
+  name?: string;
+  config?: SessionConfig;
+  status?: string;
+  start_time?: string;
+  duration?: number;
+  total_runtime?: number;
+  intention?: string;
+}
+
+interface SessionTimelineProps {
+  sessions?: Record<string, ActiveSession>;
+}
+
+function getIntentionType(intention: string | undefined): IntentionType {
   if (!intention) return 'healing';
   const low = intention.toLowerCase();
   if (low.includes('heal') || low.includes('health') || low.includes('pain')) return 'healing';
@@ -39,8 +72,8 @@ function getIntentionType(intention) {
   return 'healing';
 }
 
-export default function SessionTimeline({ sessions }) {
-  const [history, setHistory] = useState([]);
+export default function SessionTimeline({ sessions }: SessionTimelineProps) {
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -50,7 +83,8 @@ export default function SessionTimeline({ sessions }) {
         const res = await fetch('/api/v1/sessions/history');
         if (res.ok) {
           const data = await res.json();
-          setHistory((data.history || data || []).slice(-30));
+          const list: HistoryEntry[] = data.history || data || [];
+          setHistory(list.slice(-30));
         }
       } catch {}
       setLoading(false);
@@ -58,7 +92,7 @@ export default function SessionTimeline({ sessions }) {
     fetchHistory();
   }, [sessions]);
 
-  const allSessions = [...history];
+  const allSessions: HistoryEntry[] = [...history];
   if (allSessions.length === 0 && sessions) {
     Object.values(sessions).forEach((s) => {
       allSessions.push({
@@ -90,7 +124,7 @@ export default function SessionTimeline({ sessions }) {
       </div>
       <div className="p-2 space-y-1.5 max-h-64 overflow-y-auto">
         {allSessions.slice(-20).map((s, i) => {
-          const cfg = s.config || {};
+          const cfg: SessionConfig = s.config || {};
           const name = cfg.name || s.name || s.id || `S${i}`;
           const intention = cfg.intention || s.intention || '';
           const duration = cfg.duration || s.duration || 3600;

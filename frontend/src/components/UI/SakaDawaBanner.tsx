@@ -18,9 +18,28 @@ import { Moon, Sparkles, Zap, ChevronRight, Clock } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
-export default function SakaDawaBanner({ sakaDawa: sakaDawaProp }) {
+interface SakaDawaPractice {
+  description: string;
+  tradition: string;
+  genre: string;
+  preferred_hours?: string[];
+  blessing_prompt: string;
+}
+
+export interface SakaDawaBannerData {
+  in_saka_dawa_window: boolean;
+  practice: SakaDawaPractice;
+  [key: string]: unknown;
+}
+
+interface SakaDawaBannerProps {
+  sakaDawa?: SakaDawaBannerData | null;
+}
+
+export default function SakaDawaBanner({ sakaDawa: sakaDawaProp }: SakaDawaBannerProps) {
   const { sakaDawa: sakaDawaWS } = useWebSocketStable();
-  const data = sakaDawaProp || sakaDawaWS;
+  const wsData = sakaDawaWS as unknown as SakaDawaBannerData | null;
+  const data: SakaDawaBannerData | null = sakaDawaProp || wsData;
 
   // No data yet (WS hasn't delivered a SAKA_DAWA_CHECK frame) — hide banner.
   if (!data) return null;

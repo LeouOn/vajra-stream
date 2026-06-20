@@ -6,7 +6,24 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Globe, AlertTriangle, Heart, Moon, Sun, Compass, RefreshCw, Loader2, Radio } from 'lucide-react';
-const SEVERITY_COLORS = {
+
+type Severity = 'critical' | 'high' | 'medium' | 'low';
+
+interface WorldEvent {
+  title: string;
+  location?: string;
+  severity: Severity;
+}
+
+interface WorldContext {
+  planetary_hour?: string;
+  day_ruler?: string;
+  summary?: string;
+  events?: WorldEvent[];
+  [key: string]: unknown;
+}
+
+const SEVERITY_COLORS: Record<Severity, string> = {
   critical: 'text-red-400 bg-red-950/40 border-red-500/30',
   high: 'text-orange-400 bg-orange-950/40 border-orange-500/30',
   medium: 'text-yellow-400 bg-yellow-950/40 border-yellow-500/30',
@@ -14,9 +31,9 @@ const SEVERITY_COLORS = {
 };
 
 export default function WorldContextPanel() {
-  const [context, setContext] = useState(null);
+  const [context, setContext] = useState<WorldContext | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchContext = async () => {
     setLoading(true);
@@ -24,7 +41,7 @@ export default function WorldContextPanel() {
     try {
       const res = await fetch(`/api/v1/operator/world-context`);
       if (res.ok) {
-        const data = await res.json();
+        const data: WorldContext = await res.json();
         setContext(data);
       } else {
         setError('Unable to fetch world context');

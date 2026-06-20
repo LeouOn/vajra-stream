@@ -19,13 +19,78 @@ import { audioFeedback } from '../../utils/audioFeedback';
 
 const { Text, Title } = Typography;
 
-export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
-  const [config, setConfig] = useState(null);
+interface EdgeVoice {
+  id: string;
+  style?: string;
+  description?: string;
+  gender?: string;
+  [key: string]: unknown;
+}
+
+interface QwenSpeaker {
+  id: string;
+  native: string;
+  description?: string;
+  gender?: string;
+  age?: string;
+  [key: string]: unknown;
+}
+
+interface GpuDevice {
+  id: string | number;
+  name: string;
+  vram_gb: number;
+}
+
+interface GpuInfo {
+  gpu_available: boolean;
+  backend: string;
+  devices?: GpuDevice[];
+}
+
+interface TtsConfig {
+  active_backend: string;
+  edge?: {
+    voices?: EdgeVoice[];
+    [key: string]: unknown;
+  };
+  qwen?: {
+    available?: boolean;
+    voices?: EdgeVoice[];
+    speakers?: QwenSpeaker[];
+    ritual_speakers?: Record<string, string>;
+    voice_design_presets?: string[];
+    models?: Record<string, string>;
+    languages?: string[];
+    [key: string]: unknown;
+  };
+  gpu?: GpuInfo;
+  current_config?: {
+    backend?: string;
+    edge_voice?: string;
+    edge_rate?: string;
+    qwen_model?: string;
+    qwen_speaker?: string;
+    qwen_language?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface TTSSettingsPanelProps {
+  onConfigChange?: (config: TtsConfig) => void;
+  compact?: boolean;
+}
+
+type Backend = 'auto' | 'edge' | 'qwen';
+
+export default function TTSSettingsPanel({ onConfigChange, compact = false }: TTSSettingsPanelProps) {
+  const [config, setConfig] = useState<TtsConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Local form state
-  const [backend, setBackend] = useState('auto');
+  const [backend, setBackend] = useState<Backend>('auto');
   const [edgeVoice, setEdgeVoice] = useState('zh-CN-YunxiNeural');
   const [edgeRate, setEdgeRate] = useState('-25%');
   const [qwenModel, setQwenModel] = useState('Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice');
@@ -41,11 +106,10 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
     try {
       const res = await fetch(`/api/v1/tts/config`);
       if (res.ok) {
-        const data = await res.json();
+        const data: TtsConfig = await res.json();
         setConfig(data);
-        // Sync local state from server config
         const cc = data.current_config || {};
-        setBackend(cc.backend || 'auto');
+        setBackend((cc.backend as Backend) || 'auto');
         setEdgeVoice(cc.edge_voice || 'zh-CN-YunxiNeural');
         setEdgeRate(cc.edge_rate || '-25%');
         setQwenModel(cc.qwen_model || 'Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice');
@@ -56,10 +120,10 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
     setLoading(false);
   };
 
-  const saveConfig = async (updates = {}) => {
+  const saveConfig = async (updates: Record<string, unknown> = {}) => {
     setSaving(true);
     try {
-      const body = { ...updates };
+      const body: Record<string, unknown> = { ...updates };
       if (!updates.backend) body.backend = backend;
       if (!updates.edge_voice) body.edge_voice = edgeVoice;
       if (!updates.edge_rate) body.edge_rate = edgeRate;
@@ -75,7 +139,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
       if (res.ok) {
         message.success('TTS settings saved');
         audioFeedback.playSuccess();
-        const data = await res.json();
+        const data: TtsConfig = await res.json();
         if (onConfigChange) onConfigChange(data);
       }
     } catch {}
@@ -105,7 +169,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
         <Select
           size="small"
           value={backend}
-          onChange={v => { setBackend(v); saveConfig({ backend: v }); }}
+          onChange={(v) => { const b = v as Backend; setBackend(b); saveConfig({ backend: b }); }}
           style={{ width: 100 }}
           options={[
             { value: 'auto', label: '🤖 Auto' },
@@ -117,7 +181,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
           <Select
             size="small"
             value={qwenSpeaker}
-            onChange={v => { setQwenSpeaker(v); saveConfig({ qwen_speaker: v }); }}
+            onChange={(v) => { const val = String(v); setQwenSpeaker(val); saveConfig({ qwen_speaker: val }); }}
             style={{ width: 130 }}
             options={qwenSpeakers.map(s => ({ value: s.id, label: `${s.id} (${s.native})` }))}
           />
@@ -125,7 +189,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
           <Select
             size="small"
             value={edgeVoice}
-            onChange={v => { setEdgeVoice(v); saveConfig({ edge_voice: v }); }}
+            onChange={(v) => { const val = String(v); setEdgeVoice(val); saveConfig({ edge_voice: val }); }}
             style={{ width: 180 }}
             options={edgeVoices.map(v => ({ value: v.id, label: `${v.id.split('-').pop()} (${v.style})` }))}
           />
@@ -151,7 +215,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
           <Text strong style={{ fontSize: 12 }}>TTS Backend</Text>
           <Select
             value={backend}
-            onChange={v => { setBackend(v); saveConfig({ backend: v }); }}
+            onChange={(v) => { const b = v as Backend; setBackend(b); saveConfig({ backend: b }); }}
             className="w-full"
             style={{ marginTop: 4 }}
             options={[
@@ -175,7 +239,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
             <Text strong style={{ fontSize: 12, color: '#06b6d4' }}>⚡ Edge TTS Voice</Text>
             <Select
               value={edgeVoice}
-              onChange={v => { setEdgeVoice(v); saveConfig({ edge_voice: v }); }}
+              onChange={(v) => { const val = String(v); setEdgeVoice(val); saveConfig({ edge_voice: val }); }}
               className="w-full"
               options={edgeVoices.map(v => ({
                 value: v.id,
@@ -187,7 +251,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
               <Slider
                 min={0} max={5} step={1}
                 value={['-50%','-35%','-25%','-10%','+0%','+20%'].indexOf(edgeRate)}
-                onChange={i => {
+                onChange={(i: number) => {
                   const rates = ['-50%','-35%','-25%','-10%','+0%','+20%'];
                   setEdgeRate(rates[i]);
                 }}
@@ -206,7 +270,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
             <Text strong style={{ fontSize: 12, color: '#a855f7' }}>🧠 Qwen3-TTS Model</Text>
             <Select
               value={qwenModel}
-              onChange={v => { setQwenModel(v); saveConfig({ qwen_model: v }); }}
+              onChange={(v) => { const val = String(v); setQwenModel(val); saveConfig({ qwen_model: val }); }}
               className="w-full"
               options={Object.entries(qwenModels).map(([label, value]) => ({
                 value, label: `${label} — ${value}`,
@@ -216,7 +280,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
             <Text strong style={{ fontSize: 12, color: '#a855f7' }}>Speaker</Text>
             <Select
               value={qwenSpeaker}
-              onChange={v => { setQwenSpeaker(v); saveConfig({ qwen_speaker: v }); }}
+              onChange={(v) => { const val = String(v); setQwenSpeaker(val); saveConfig({ qwen_speaker: val }); }}
               className="w-full"
               options={qwenSpeakers.map(s => ({
                 value: s.id,
@@ -245,7 +309,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }) {
               <Text strong style={{ fontSize: 12 }}>Language</Text>
               <Select
                 value={qwenLanguage}
-                onChange={v => { setQwenLanguage(v); saveConfig({ qwen_language: v }); }}
+                onChange={(v) => { const val = String(v); setQwenLanguage(val); saveConfig({ qwen_language: val }); }}
                 className="w-full"
                 style={{ marginTop: 4 }}
                 options={(config.qwen?.languages || ['Chinese','English']).map(l => ({ value: l, label: l }))}
