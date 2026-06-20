@@ -13,12 +13,12 @@ import {
   Compass, Sparkles, Globe, Clock, Shield, Users, Settings,
   History, RefreshCw, Copy, CheckCircle, Play, Square,
   Plus, Edit2, Trash2, Search, Filter, ArrowUpDown, X,
-  BookOpen, Sun, Moon, Layers,
+  BookOpen, Sun, Moon, Layers, Shuffle, Dices,
 } from 'lucide-react';
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
   Segmented, Row, Col, Space, Slider, Collapse, List, Typography,
-  Spin, Empty, Divider, Badge, Tooltip, message, Modal,
+  Spin, Empty, Divider, Badge, Tooltip, message, Modal, Checkbox,
 } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -247,6 +247,8 @@ export default function OutlookDashboard() {
 
   // ─── Model Selection ─────────────────────────────────────
   const [selectedModel, setSelectedModel] = useState<string>('');
+  const [randomModel, setRandomModel] = useState<boolean>(false);
+  const [randomLoop, setRandomLoop] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
 
   // ─── Data Fetching ───────────────────────────────────────
@@ -392,7 +394,8 @@ export default function OutlookDashboard() {
         character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
         excluded_forces: excludedForcesText ? excludedForcesText.split(',').map(s => s.trim()) : null,
         include_dialogue: includeDialogue,
-        model: selectedModel || null,
+        model: randomModel ? null : (selectedModel || null),
+        random: randomModel || null,
         include_astrology: includeAstrology,
         include_tarot: includeTarot,
         include_iching: includeIching,
@@ -474,7 +477,9 @@ export default function OutlookDashboard() {
         population_ids: selectedPopIds.length > 0 ? selectedPopIds : null,
         character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
         excluded_forces: excludedForcesText ? excludedForcesText.split(',').map(s => s.trim()) : null,
-        include_dialogue: includeDialogue, loop_mode: loopMode, model: selectedModel || null,
+        include_dialogue: includeDialogue, loop_mode: loopMode,
+        model: randomLoop ? null : (selectedModel || null),
+        random: randomLoop || null,
         include_astrology: includeAstrology, include_tarot: includeTarot, include_iching: includeIching,
         randomize_realm: randomizeRealm, randomize_characters: randomizeCharacters,
       };
@@ -631,19 +636,22 @@ export default function OutlookDashboard() {
   // ─── Model Options ───────────────────────────────────────
 
   const modelOptions = useMemo<ModelSelectOption[]>(() => {
+    // Sentinel values sent to the backend: '' → auto-detect provider;
+    // '<provider>:auto' / '<provider>:default' → provider picks its own model.
     const opts: ModelSelectOption[] = [
-      { value: '', label: 'Auto-detect (default)' },
-      { value: 'deepseek:deepseek-chat', label: '⚡ DeepSeek V4 (fast MoE)' },
+      { value: '', label: '✨ Auto-detect (default)' },
+      { value: 'openrouter:auto', label: '🧭 OpenRouter (auto)' },
+      { value: 'z_ai:auto', label: '🔮 Z.AI (auto)' },
+      { value: 'anthropic:claude-3-5-haiku-20241022', label: '🤖 Anthropic Claude Haiku' },
+      { value: 'minimax:auto', label: '🚀 MiniMax (auto)' },
+      { value: 'local:default', label: '💻 Local LLM' },
     ];
-    (outlookModels.lm_studio || []).forEach(m => opts.push({ value: `lm_studio:${m}`, label: `LM Studio: ${m}` }));
-    (outlookModels.local || []).forEach(m => opts.push({ value: `local:${m}`, label: `Local: ${m}` }));
-    (outlookModels.api || []).forEach(m => {
-      let val = 'openai:gpt-4o-mini';
-      if (m.toLowerCase().includes('deepseek')) val = `deepseek:deepseek-chat`;
-      else if (m.toLowerCase().includes('anthropic')) val = `anthropic:claude-3-5-haiku-20241022`;
-      opts.push({ value: val, label: m });
-    });
-    // Remove duplicates by value
+    (outlookModels.lm_studio || []).forEach(m =>
+      opts.push({ value: `lm_studio:${m}`, label: `🧪 LM Studio: ${m}` }),
+    );
+    (outlookModels.local || []).forEach(m =>
+      opts.push({ value: `local:${m}`, label: `💻 Local: ${m}` }),
+    );
     const seen = new Set<string>();
     return opts.filter(o => { const k = o.value; if (seen.has(k)) return false; seen.add(k); return true; });
   }, [outlookModels]);
@@ -830,7 +838,17 @@ export default function OutlookDashboard() {
 
                   {/* Model */}
                   <div>
-                    <Text strong style={{ fontSize: 12 }}>LLM Model</Text>
+                    <Row justify="space-between" align="middle">
+                      <Col><Text strong style={{ fontSize: 12 }}>LLM Model</Text></Col>
+                      <Col>
+                        <Tooltip title="Let the backend pick a random provider each run">
+                          <Space size={4}>
+                            <Switch size="small" checked={randomModel} onChange={setRandomModel} />
+                            <Text style={{ fontSize: 11 }}><Dices className="w-3 h-3 inline mr-1" />🎲 Random</Text>
+                          </Space>
+                        </Tooltip>
+                      </Col>
+                    </Row>
                     <Select
                       size="small"
                       value={selectedModel || undefined}
@@ -839,7 +857,13 @@ export default function OutlookDashboard() {
                       style={{ marginTop: 4 }}
                       options={modelOptions}
                       placeholder="Auto-detect"
+                      disabled={randomModel}
                     />
+                    {randomModel && (
+                      <Text type="secondary" style={{ fontSize: 10, display: 'block', marginTop: 2 }}>
+                        <Shuffle className="w-3 h-3 inline mr-1" />Provider rolled at generation time — selection disabled.
+                      </Text>
+                    )}
                   </div>
 
                   <Divider style={{ margin: '4px 0' }} />
@@ -986,6 +1010,23 @@ export default function OutlookDashboard() {
                       { label: 'Consecutive', value: 'consecutive' },
                     ]}
                   />
+                  <Row justify="space-between" align="middle">
+                    <Col>
+                      <Checkbox
+                        checked={randomLoop}
+                        onChange={e => setRandomLoop(e.target.checked)}
+                        disabled={loopActive}
+                        style={{ fontSize: 12 }}
+                      >
+                        <Shuffle className="w-3 h-3 inline mr-1" />🔀 Random per iteration
+                      </Checkbox>
+                    </Col>
+                  </Row>
+                  {randomLoop && (
+                    <Text type="secondary" style={{ fontSize: 10 }}>
+                      Each loop tick rolls a fresh provider — ignores the LLM Model selection above.
+                    </Text>
+                  )}
                   <Button
                     block
                     type={loopActive ? 'default' : 'primary'}

@@ -211,6 +211,38 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'BUDDHA_RECITATION_UPDATE':
               setBuddhaStatus(data.data as RecitationStatus);
               break;
+            // Backend: core/buddha_recitation_loop.py:196,425,267 — lifecycle events for
+            // the 88-Buddhas recitation. Same payload shape as BUDDHA_RECITATION_UPDATE;
+            // wire them to the same setter so the UI updates regardless of which fires.
+            // (Restored after remediation Task 24 regressively deleted these branches.)
+            case 'BUDDHA_RECITATION_STARTED':
+            case 'BUDDHA_NAME_RECITED':
+            case 'BUDDHA_RECITATION_STOPPED':
+              setBuddhaStatus(data.data as RecitationStatus);
+              break;
+            // Backend: core/ritual_engine.py:759,297,317,337,348,368,617 — ritual engine
+            // lifecycle + planetary-hour shift. RITUAL_ENGINE_STATUS/RITUAL_PHASE/
+            // RITUAL_COMPLETED mutate the ritual status the UI reads; the hour shift is
+            // informational only. (Restored after remediation Task 24 regression.)
+            case 'RITUAL_ENGINE_STATUS':
+            case 'RITUAL_PHASE':
+            case 'RITUAL_COMPLETED':
+              setRitualStatus(data.data);
+              break;
+            case 'PLANETARY_HOUR_SHIFT':
+              console.log('Planetary hour shift:', data.data);
+              break;
+            // Backend: core/character_journey.py:175,266,255 — journey lifecycle events.
+            // Informational only; no journey state lives in this hook.
+            case 'JOURNEY_STAGE_STARTED':
+              console.log('Journey stage started:', data.data);
+              break;
+            case 'JOURNEY_STAGE_COMPLETED':
+              console.log('Journey stage completed:', data.data);
+              break;
+            case 'JOURNEY_COMPLETED':
+              console.log('Journey completed:', data.data);
+              break;
             case 'SAKA_DAWA_CHECK':
               setSakaDawa(data.data as SakaDawaResult);
               break;

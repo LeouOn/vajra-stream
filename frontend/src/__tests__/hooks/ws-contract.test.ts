@@ -34,7 +34,8 @@ import { resolve } from 'node:path';
 
 /**
  * Canonical backend-emitted WS message types.
- * Union of wave0-task3-ws-whitelist.json#matched (14) + #backend_only (4) = 18.
+ * Originally 18 (wave0-task3 whitelist union); 10 more restored after
+ * remediation Task 24 regressively deleted their case branches. Total = 28.
  * DO NOT edit this set without first updating the whitelist evidence file.
  */
 const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
@@ -58,6 +59,20 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'SESSION_STARTED',
   'settings_updated',
   'system_error',
+  // --- restored after remediation Task 24 regression (core/ emitters) ---
+  // 88-Buddhas recitation lifecycle (core/buddha_recitation_loop.py).
+  'BUDDHA_RECITATION_STARTED',
+  'BUDDHA_NAME_RECITED',
+  'BUDDHA_RECITATION_STOPPED',
+  // Ritual engine lifecycle + planetary-hour shift (core/ritual_engine.py).
+  'RITUAL_ENGINE_STATUS',
+  'RITUAL_PHASE',
+  'RITUAL_COMPLETED',
+  'PLANETARY_HOUR_SHIFT',
+  // Character journey lifecycle (core/character_journey.py).
+  'JOURNEY_STAGE_STARTED',
+  'JOURNEY_STAGE_COMPLETED',
+  'JOURNEY_COMPLETED',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');

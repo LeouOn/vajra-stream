@@ -44,6 +44,34 @@ ACTIVE_BACKEND_SOURCES = [
     "backend/app/main.py",
 ]
 
+# Canonical supplement: backend-emitted types whose source files are NOT in
+# ACTIVE_BACKEND_SOURCES (they live under core/, not backend/) OR whose emit
+# site uses an indirection helper (e.g. `_broadcast_ws(event_type, ...)`)
+# that the BACKEND_TYPE_RE regex cannot statically resolve.
+#
+# These types are part of the active runtime contract — the frontend switch
+# in useWebSocketStable.ts MUST handle them — so they are unioned into the
+# canonical set the audit compares against.
+#
+# Sources:
+#   - core/buddha_recitation_loop.py (BUDDHA_RECITATION_STARTED/NAME_RECITED/STOPPED)
+#   - core/ritual_engine.py (RITUAL_ENGINE_STATUS/PHASE/COMPLETED, PLANETARY_HOUR_SHIFT)
+#   - core/character_journey.py (JOURNEY_STAGE_STARTED/COMPLETED, JOURNEY_COMPLETED)
+#
+# Restored after remediation Task 24 regressively deleted their case branches.
+CANONICAL_SUPPLEMENT_TYPES: set[str] = {
+    "BUDDHA_RECITATION_STARTED",
+    "BUDDHA_NAME_RECITED",
+    "BUDDHA_RECITATION_STOPPED",
+    "RITUAL_ENGINE_STATUS",
+    "RITUAL_PHASE",
+    "RITUAL_COMPLETED",
+    "PLANETARY_HOUR_SHIFT",
+    "JOURNEY_STAGE_STARTED",
+    "JOURNEY_STAGE_COMPLETED",
+    "JOURNEY_COMPLETED",
+}
+
 FRONTEND_HOOK = "frontend/src/hooks/useWebSocketStable.ts"
 
 # Capture the message-type string literal from `"type": "<NAME>"` patterns.
@@ -55,7 +83,11 @@ FRONTEND_CASE_RE = re.compile(r'\bcase\s+["\']([A-Za-z_][A-Za-z0-9_]*)["\']\s*:'
 
 
 def extract_backend_types() -> set[str]:
-    """Return the set of WS message types emitted by active backend sources."""
+    """Return the set of WS message types emitted by active backend sources.
+
+    Includes CANONICAL_SUPPLEMENT_TYPES (types emitted from core/ files or via
+    indirection helpers that the static regex cannot resolve).
+    """
     types: set[str] = set()
     for rel in ACTIVE_BACKEND_SOURCES:
         path = REPO_ROOT / rel
@@ -65,6 +97,7 @@ def extract_backend_types() -> set[str]:
         text = path.read_text(encoding="utf-8")
         for m in BACKEND_TYPE_RE.finditer(text):
             types.add(m.group(1))
+    types |= CANONICAL_SUPPLEMENT_TYPES
     return types
 
 
