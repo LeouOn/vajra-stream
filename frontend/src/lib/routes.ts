@@ -18,17 +18,22 @@
  * different prop requirements (some need audioSpectrum, some
  * need sessions, etc.). Keeping that coupling in App.jsx where
  * the state lives avoids prop-drilling.
+ *
+ * ------------------------------------------------------------------
+ * UI rework 2026-06-20 (12 → 7 grouped routes):
+ *   Practice   — tabs: Sanctuary / 88 Buddhas / Meditation / Visualizer
+ *   Operations — tabs: Operations / Broadcast
+ *   Settings   — tabs: LLM Providers / TTS
+ * Legacy flat routes (/sanctuary, /buddhas, /meditation, /visualizers,
+ * /broadcast, /tts) redirect to their new grouped home via <Navigate>
+ * in App.tsx so old bookmarks keep working.
  */
 import {
   LayoutDashboard,
   Compass,
   Clock,
   FileText,
-  Waves,
-  Headphones,
-  Video,
   BookOpen,
-  Volume2,
   Settings,
   Heart,
   type LucideIcon,
@@ -42,16 +47,11 @@ export interface RouteEntry {
 
 export const ROUTES: RouteEntry[] = [
   { key: 'command-center', label: 'Command Center', icon: LayoutDashboard },
-  { key: 'sanctuary', label: 'Sanctuary', icon: Heart },
-  { key: 'buddhas', label: '88 Buddhas', icon: BookOpen },
-  { key: 'operations', label: 'Operations', icon: Compass },
+  { key: 'practice', label: 'Practice', icon: Heart },
   { key: 'astrology', label: 'Cosmic Clock', icon: Clock },
   { key: 'outlook', label: 'Outlook', icon: FileText },
-  { key: 'broadcast', label: 'Broadcast', icon: Waves },
-  { key: 'meditation', label: 'Meditate', icon: Headphones },
-  { key: 'visualizers', label: 'Visualizer', icon: Video },
+  { key: 'operations', label: 'Operations', icon: Compass },
   { key: 'grimoire', label: 'Grimoire', icon: BookOpen },
-  { key: 'tts', label: 'TTS', icon: Volume2 },
   { key: 'settings', label: 'Settings', icon: Settings },
 ];
 
