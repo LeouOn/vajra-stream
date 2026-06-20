@@ -2,7 +2,6 @@
  * Rate Dial — interactive SVG radionics rate knob (0–100).
  * Draggable dial with haptic audio feedback and value label.
  * @component
- * @param {{ value, onChange, label, min, max, step, size }} props
  */
 import React, { useRef, useState, useCallback, useEffect, useId } from 'react';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -10,6 +9,27 @@ import { COLORS } from '../../lib/colors';
 
 const SWEEP_DEGREES = 270;
 const START_ANGLE = 225;
+
+interface RateDialProps {
+  value?: number;
+  onChange?: (value: number) => void;
+  min?: number;
+  max?: number;
+  label?: string;
+  color?: string;
+  size?: number;
+  disabled?: boolean;
+  showValue?: boolean;
+}
+
+interface TickMark {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  isMajor: boolean;
+  value: number;
+}
 
 const RateDial = ({
   value = 50,
@@ -21,22 +41,22 @@ const RateDial = ({
   size = 120,
   disabled = false,
   showValue = true
-}) => {
-  const dialRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [hovered, setHovered] = useState(false);
+}: RateDialProps) => {
+  const dialRef = useRef<HTMLDivElement | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [hovered, setHovered] = useState<boolean>(false);
   const filterId = useId();
 
   const center = size / 2;
   const arcRadius = size / 2 - 15;
   const arcR = arcRadius * 0.9;
 
-  const valueToAngle = useCallback((val) => {
+  const valueToAngle = useCallback((val: number): number => {
     const normalized = (val - min) / (max - min);
     return START_ANGLE - normalized * SWEEP_DEGREES;
   }, [min, max]);
 
-  const computeValueFromPointer = useCallback((clientX, clientY) => {
+  const computeValueFromPointer = useCallback((clientX: number, clientY: number): number => {
     if (!dialRef.current) return value;
 
     const rect = dialRef.current.getBoundingClientRect();
@@ -56,7 +76,7 @@ const RateDial = ({
     return Math.round(min + normalized * (max - min));
   }, [min, max, value]);
 
-  const handleInteraction = useCallback((clientX, clientY) => {
+  const handleInteraction = useCallback((clientX: number, clientY: number): void => {
     if (disabled) return;
     const newValue = computeValueFromPointer(clientX, clientY);
     const clampedValue = Math.max(min, Math.min(max, newValue));
@@ -66,22 +86,22 @@ const RateDial = ({
     audioFeedback.playDialAdjust(clampedValue, min, max);
   }, [disabled, onChange, computeValueFromPointer, min, max]);
 
-  const handleMouseDown = useCallback((e) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>): void => {
     if (disabled) return;
     setIsDragging(true);
     handleInteraction(e.clientX, e.clientY);
   }, [disabled, handleInteraction]);
 
-  const handleMouseMove = useCallback((e) => {
+  const handleMouseMove = useCallback((e: MouseEvent): void => {
     if (!isDragging) return;
     handleInteraction(e.clientX, e.clientY);
   }, [isDragging, handleInteraction]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((): void => {
     setIsDragging(false);
   }, []);
 
-  const handleWheel = useCallback((e) => {
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>): void => {
     if (disabled) return;
     e.preventDefault();
     const delta = e.deltaY > 0 ? -1 : 1;
@@ -92,7 +112,7 @@ const RateDial = ({
     audioFeedback.playDialAdjust(roundedValue, min, max);
   }, [disabled, value, min, max, onChange]);
 
-  const handleKeyDown = useCallback((e) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (disabled) return;
     let delta = 0;
     switch (e.key) {
@@ -161,7 +181,7 @@ const RateDial = ({
   const sweepDeg = valueNormalized * SWEEP_DEGREES;
   const largeArc = sweepDeg > 180 ? 1 : 0;
 
-  const tickMarks = [];
+  const tickMarks: TickMark[] = [];
   for (let i = min; i <= max; i += 10) {
     const angle = valueToAngle(i);
     const rad = (angle * Math.PI) / 180;

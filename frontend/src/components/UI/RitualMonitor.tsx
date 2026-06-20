@@ -35,24 +35,84 @@ import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
 const { Text, Title, Paragraph } = Typography;
 
-const PHASE_ICONS = {
+type PhaseKey = 'preparation' | 'invocation' | 'broadcast' | 'dedication';
+
+const PHASE_ICONS: Record<PhaseKey, React.ComponentType<{ className?: string }>> = {
   preparation: Sparkles, invocation: Zap, broadcast: Radio, dedication: Heart,
 };
-const PHASE_LABELS = {
+const PHASE_LABELS: Record<PhaseKey, string> = {
   preparation: 'Preparation', invocation: 'Invocation',
   broadcast: 'Broadcast', dedication: 'Dedication',
 };
-const QUALITY_COLORS = {
+const QUALITY_COLORS: Record<string, string> = {
   excellent: 'green', good: 'cyan', challenging: 'orange',
   transmutative: 'purple', neutral: 'default',
 };
 
-export default function RitualMonitor({ compact = false }) {
+interface ScheduleEntry {
+  hour_offset: number;
+  planet: string;
+  favorable_genres: string[];
+  [key: string]: unknown;
+}
+
+interface CurrentRitualInfo {
+  practice_name: string;
+  planetary_hour?: string;
+  timing_quality?: string;
+  narrative_preview?: string;
+  [key: string]: unknown;
+}
+
+interface RitualStatus {
+  state?: string;
+  schedule?: ScheduleEntry[];
+  current_ritual?: CurrentRitualInfo;
+  [key: string]: unknown;
+}
+
+interface RitualHistoryItem {
+  practice_name: string;
+  planetary_hour?: string;
+  timing_quality?: string;
+  merit_multiplier?: number;
+  tts_generated?: boolean;
+  completed_at?: string;
+  narrative_length?: number;
+  [key: string]: unknown;
+}
+
+interface RitualMerit {
+  today_merit?: number;
+  today_rituals?: number;
+  total_merit?: number;
+  total_rituals?: number;
+  [key: string]: unknown;
+}
+
+interface RitualRestStatus {
+  status?: RitualStatus;
+  history?: RitualHistoryItem[];
+  merit?: RitualMerit;
+  [key: string]: unknown;
+}
+
+interface RitualTriggerResponse {
+  status?: string;
+  ritual?: { practice_name?: string; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+interface RitualMonitorProps {
+  compact?: boolean;
+}
+
+export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
   const { ritualStatus } = useWebSocketStable();
-  const [restStatus, setRestStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
+  const [restStatus, setRestStatus] = useState<RitualRestStatus | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [configOpen, setConfigOpen] = useState<boolean>(false);
 
   // One-shot initial fetch for full payload (status + history + merit).
   // Engine state updates flow in live via WS RITUAL_ENGINE_STATUS → ritualStatus.
@@ -60,15 +120,15 @@ export default function RitualMonitor({ compact = false }) {
     fetchStatus();
   }, []);
 
-  const fetchStatus = async () => {
+  const fetchStatus = async (): Promise<void> => {
     try {
       const res = await fetch(`/api/v1/ritual/status`);
-      if (res.ok) setRestStatus(await res.json());
-    } catch {}
+      if (res.ok) setRestStatus(await res.json() as RitualRestStatus);
+    } catch { }
     setLoading(false);
   };
 
-  const handleStart = async () => {
+  const handleStart = async (): Promise<void> => {
     setActionLoading(true);
     audioFeedback.playTelemetry();
     try {
@@ -79,7 +139,7 @@ export default function RitualMonitor({ compact = false }) {
     setActionLoading(false);
   };
 
-  const handleStop = async () => {
+  const handleStop = async (): Promise<void> => {
     setActionLoading(true);
     try {
       await fetch(`/api/v1/ritual/stop`, { method: 'POST' });
@@ -89,21 +149,21 @@ export default function RitualMonitor({ compact = false }) {
     setActionLoading(false);
   };
 
-  const handleTrigger = async () => {
+  const handleTrigger = async (): Promise<void> => {
     setActionLoading(true);
     audioFeedback.playTelemetry();
     try {
       const res = await fetch(`/api/v1/ritual/trigger`, { method: 'POST' });
-      const data = await res.json();
+      const data = await res.json() as RitualTriggerResponse;
       if (data.status === 'executed') {
-        message.success(`Ritual executed: ${data.ritual.practice_name}`);
+        message.success(`Ritual executed: ${data.ritual?.practice_name ?? ''}`);
       }
       await fetchStatus();
     } catch { message.error('Trigger failed'); }
     setActionLoading(false);
   };
 
-  const s = ritualStatus || restStatus?.status || {};
+  const s: RitualStatus = (ritualStatus as RitualStatus | null) || restStatus?.status || {};
   const isRunning = s.state === 'running' || s.state === 'executing';
   const isExecuting = s.state === 'executing';
   const history = restStatus?.history || [];

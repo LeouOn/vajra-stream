@@ -7,14 +7,19 @@
 import React, { useState, useCallback } from 'react';
 import { Sliders, Save, RotateCcw, Search, Star, Play, Square, Zap, ChevronDown, X, Bookmark } from 'lucide-react';
 import RateDial from './RateDial';
-import { useRateStore, RATE_PRESETS } from '../../stores/rateStore';
+import { useRateStore, RATE_PRESETS, type Rate, type SavedRate } from '../../stores/rateStore';
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { COLORS as BRAND_COLORS } from '../../lib/colors';
+import type { RatePreset } from '../../types';
 
-const COLORS = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
+const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
 
-const RateTuner = ({ className = '' }) => {
+interface RateTunerProps {
+  className?: string;
+}
+
+const RateTuner = ({ className = '' }: RateTunerProps) => {
   const {
     currentRate,
     updateRateValue,
@@ -35,17 +40,17 @@ const RateTuner = ({ className = '' }) => {
   
   const { addToast } = useUIStore();
   
-  const [showPresets, setShowPresets] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showSaved, setShowSaved] = useState(false);
-  const [numDials, setNumDials] = useState(currentRate.values.length);
+  const [showPresets, setShowPresets] = useState<boolean>(false);
+  const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [showSaved, setShowSaved] = useState<boolean>(false);
+  const [numDials, setNumDials] = useState<number>(currentRate.values.length);
   
-  const handleValueChange = useCallback((index, value) => {
+  const handleValueChange = useCallback((index: number, value: number): void => {
     updateRateValue(index, value);
   }, [updateRateValue]);
   
-  const handlePresetSelect = useCallback((preset) => {
-    const rate = {
+  const handlePresetSelect = useCallback((preset: RatePreset): void => {
+    const rate: Rate = {
       values: preset.values,
       name: preset.name,
       category: preset.id,
@@ -63,7 +68,7 @@ const RateTuner = ({ className = '' }) => {
     });
   }, [loadRate, addToast]);
   
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback((): void => {
     saveRate();
     audioFeedback.playSuccess();
     addToast({
@@ -74,7 +79,7 @@ const RateTuner = ({ className = '' }) => {
     });
   }, [saveRate, currentRate.name, addToast]);
   
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback((): void => {
     loadRate({
       values: Array(numDials).fill(50),
       name: '',
@@ -84,12 +89,12 @@ const RateTuner = ({ className = '' }) => {
     audioFeedback.playClick();
   }, [loadRate, numDials]);
   
-  const handleLoadRate = useCallback((rate) => {
+  const handleLoadRate = useCallback((rate: Rate): void => {
     loadRate(rate);
     audioFeedback.playSuccess();
   }, [loadRate]);
   
-  const handleAddDial = useCallback(() => {
+  const handleAddDial = useCallback((): void => {
     if (numDials >= 5) {
       audioFeedback.playError();
       return;
@@ -100,7 +105,7 @@ const RateTuner = ({ className = '' }) => {
     audioFeedback.playClick();
   }, [numDials, currentRate, loadRate]);
   
-  const handleRemoveDial = useCallback(() => {
+  const handleRemoveDial = useCallback((): void => {
     if (numDials <= 2) {
       audioFeedback.playError();
       return;

@@ -17,6 +17,77 @@ import DharaniReciter from './DharaniReciter';
 import TimeCycles from './TimeCycles';
 import ChakraBodyMap from '../2D/ChakraBodyMap';
 
+interface TarotCard {
+  id: string | number;
+  name: string;
+  svg: string;
+  reversed?: boolean;
+  keywords?: string[];
+  meaning?: string;
+  position?: { name?: string; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+interface TarotDrawResponse {
+  cards: TarotCard[];
+  spread?: Array<{ name?: string; [key: string]: unknown }>;
+  [key: string]: unknown;
+}
+
+interface IchingLeg {
+  name: string;
+  meaning: string;
+  [key: string]: unknown;
+}
+
+interface IchingCast {
+  svg: string;
+  primary: IchingLeg;
+  relating: IchingLeg;
+  has_changes?: boolean;
+  changing_lines?: number[];
+  [key: string]: unknown;
+}
+
+interface GeomancyFigure {
+  name: string;
+  translation: string;
+  element: string;
+  [key: string]: unknown;
+}
+
+interface GeomancyChart {
+  svg: string;
+  figures: Record<string, GeomancyFigure>;
+  [key: string]: unknown;
+}
+
+interface GeoBalance {
+  geomancy_elements?: Record<string, number>;
+  western_elements?: Record<string, number>;
+  harmony_score?: number;
+  harmony_quality?: string;
+  judge?: { name?: string; meaning?: string; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+type RitualStepStatus = 'pending' | 'running' | 'success';
+
+interface ComposerStep {
+  id: string;
+  label: string;
+  status: RitualStepStatus;
+  description: string;
+}
+
+type DivinationSystem = 'tarot' | 'iching' | 'geomancy';
+type SubTab = 'divination' | 'composer' | 'prayer_wheel' | 'dharani' | 'chakra' | 'time_cycles';
+
+interface ChakraSelection {
+  frequency?: number;
+  [key: string]: unknown;
+}
+
 // Face-down card back: a symmetric neon mandala that matches the deck aesthetic.
 const TAROT_CARD_BACK = `<svg viewBox="0 0 240 380" xmlns="http://www.w3.org/2000/svg" style="background:#0b132b; border-radius:16px;">
   <defs>
@@ -43,46 +114,49 @@ const TAROT_CARD_BACK = `<svg viewBox="0 0 240 380" xmlns="http://www.w3.org/200
 
 export default function OperationsPanel() {
   const { updateSettings } = useAudioStore();
-  const [activeSubTab, setActiveSubTab] = useState('divination');
-  const [divinationSystem, setDivinationSystem] = useState('tarot');
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('divination');
+  const [divinationSystem, setDivinationSystem] = useState<DivinationSystem>('tarot');
   
   // Divination state
-  const [tarotDrawCount, setTarotDrawCount] = useState(3);
-  const [tarotResult, setTarotResult] = useState(null);
-  const [tarotSpread, setTarotSpread] = useState([]);
-  const [tarotFlipped, setTarotFlipped] = useState([]);
-  const [ichingResult, setIchingResult] = useState(null);
-  const [geomancyResult, setGeomancyResult] = useState(null);
-  const [geoBalance, setGeoBalance] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [tarotDrawCount, setTarotDrawCount] = useState<number>(3);
+  const [tarotResult, setTarotResult] = useState<TarotCard[] | null>(null);
+  const [tarotSpread, setTarotSpread] = useState<Array<{ name?: string; [key: string]: unknown }>>([]);
+  const [tarotFlipped, setTarotFlipped] = useState<boolean[]>([]);
+  const [ichingResult, setIchingResult] = useState<IchingCast | null>(null);
+  const [geomancyResult, setGeomancyResult] = useState<GeomancyChart | null>(null);
+  const [geoBalance, setGeoBalance] = useState<GeoBalance | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   
   // Ritual composer state
-  const [composerSteps, setComposerSteps] = useState([
+  const [composerSteps, setComposerSteps] = useState<ComposerStep[]>([
     { id: 'step_1', label: 'Oracle Divination Draw', status: 'pending', description: 'Consult the high-entropy RNG system for guidance' },
     { id: 'step_2', label: 'Planetary Hour Attunement', status: 'pending', description: 'Lock carrier wave frequency to the active planetary ruler' },
     { id: 'step_3', label: 'Program Broadcaster Node', status: 'pending', description: 'Load intention signature code into the active crystal matrix' },
     { id: 'step_4', label: 'Trigger Scalar Wave Emissions', status: 'pending', description: 'Initialize continuous broadcast rotation cycle' }
   ]);
-  const [isRitualRunning, setIsRitualRunning] = useState(false);
-  const [activeStepIndex, setActiveStepIndex] = useState(-1);
+  const [isRitualRunning, setIsRitualRunning] = useState<boolean>(false);
+  const [activeStepIndex, setActiveStepIndex] = useState<number>(-1);
 
-  const fetchAstrology = async () => {
+  const fetchAstrology = async (): Promise<void> => {
     try {
       const currentRes = await fetch(`/api/v1/astrology/current`);
       if (currentRes.ok) {
-        const d = await currentRes.json();
+        const d = await currentRes.json() as { astrology?: unknown };
+        // @ts-expect-error — pre-existing: setter is not declared in this component.
         setAstrologyData(d.astrology);
       }
       
       const hoursRes = await fetch(`/api/v1/astrology/planetary-hours`);
       if (hoursRes.ok) {
         const d = await hoursRes.json();
+        // @ts-expect-error — pre-existing: setter is not declared in this component.
         setPlanetaryHours(d);
       }
 
       const transitsRes = await fetch(`/api/v1/astrology/transits`);
       if (transitsRes.ok) {
-        const d = await transitsRes.json();
+        const d = (await transitsRes.json()) as { transits?: unknown[] };
+        // @ts-expect-error — pre-existing: setter is not declared in this component.
         setTransits(d.transits || []);
       }
     } catch (e) {
@@ -90,7 +164,7 @@ export default function OperationsPanel() {
     }
   };
 
-  const handleDrawTarot = async () => {
+  const handleDrawTarot = async (): Promise<void> => {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
@@ -100,7 +174,7 @@ export default function OperationsPanel() {
         body: JSON.stringify({ count: tarotDrawCount })
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as TarotDrawResponse;
         setTarotResult(data.cards);
         setTarotSpread(data.spread || []);
         // Start with all cards face-down, then stagger-reveal each one.
@@ -124,7 +198,7 @@ export default function OperationsPanel() {
     }
   };
 
-  const handleCastIChing = async () => {
+  const handleCastIChing = async (): Promise<void> => {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
@@ -132,7 +206,7 @@ export default function OperationsPanel() {
         method: 'POST'
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as { cast: IchingCast };
         setIchingResult(data.cast);
         audioFeedback.playSuccess();
       }
@@ -144,7 +218,7 @@ export default function OperationsPanel() {
     }
   };
 
-  const handleCastGeomancy = async () => {
+  const handleCastGeomancy = async (): Promise<void> => {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
@@ -152,13 +226,13 @@ export default function OperationsPanel() {
         method: 'POST'
       });
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as { chart: GeomancyChart };
         setGeomancyResult(data.chart);
         // Also fetch elemental balance comparison
         try {
           const balRes = await fetch(`/api/v1/divination/geomancy/elemental-balance`);
-          if (balRes.ok) setGeoBalance(await balRes.json());
-        } catch {}
+          if (balRes.ok) setGeoBalance(await balRes.json() as GeoBalance);
+        } catch { }
         audioFeedback.playSuccess();
       }
     } catch (e) {
@@ -170,15 +244,15 @@ export default function OperationsPanel() {
   };
 
   // Run Visual Ritual flow — actually executes each step via API
-  const startRitualSequence = async () => {
+  const startRitualSequence = async (): Promise<void> => {
     if (isRitualRunning) return;
     setIsRitualRunning(true);
     audioFeedback.playSuccess();
     
     // Reset all statuses
-    setComposerSteps(prev => prev.map(s => ({ ...s, status: 'pending' })));
+    setComposerSteps(prev => prev.map(s => ({ ...s, status: 'pending' as RitualStepStatus })));
 
-    const executeStep = async (index, action) => {
+    const executeStep = async (index: number, action: () => Promise<void>): Promise<void> => {
       setActiveStepIndex(index);
       setComposerSteps(prev => { const n = [...prev]; n[index].status = 'running'; return n; });
       audioFeedback.playTelemetry();
@@ -200,17 +274,17 @@ export default function OperationsPanel() {
         body: JSON.stringify({ count: 1 })
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as TarotDrawResponse;
         setTarotResult(data.cards);
         setDivinationSystem('tarot');
       }
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise<void>(r => setTimeout(r, 1500));
     });
 
     // Step 2: Fetch planetary hour and align
     await executeStep(1, async () => {
       await fetchAstrology();
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise<void>(r => setTimeout(r, 1000));
     });
 
     // Step 3: Forge a sigil for the intention
@@ -219,7 +293,7 @@ export default function OperationsPanel() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention: 'Ritual Sequence Alignment', kamea: 'saturn' })
       });
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise<void>(r => setTimeout(r, 1500));
     });
 
     // Step 4: Trigger scalar wave generation
@@ -228,7 +302,7 @@ export default function OperationsPanel() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ method: 'hybrid', count: 10000, intensity: 0.8 })
       });
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise<void>(r => setTimeout(r, 2000));
     });
     
     setIsRitualRunning(false);

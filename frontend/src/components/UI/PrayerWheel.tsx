@@ -8,7 +8,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HelpCircle, Play, RefreshCw, Award, Heart, Check, BookOpen } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-const TRADITIONAL_MANTRAS = [
+interface TraditionalMantra {
+  mantra: string;
+  deity: string;
+  benefit: string;
+}
+
+interface PrayerSpinResponse {
+  duration?: number;
+  merit_generated?: number;
+  rotations?: number;
+  mantra?: string;
+  [key: string]: unknown;
+}
+
+interface PrayerGenerateResponse {
+  prayer: string;
+  [key: string]: unknown;
+}
+
+interface SpinHistoryEntry {
+  timestamp: string;
+  mantra: string;
+  rotations: number;
+  merit: number;
+  dedication: string;
+}
+
+const TRADITIONAL_MANTRAS: TraditionalMantra[] = [
   { mantra: "Om Mani Padme Hum", deity: "Chenrezig (Compassion)", benefit: "Purifies negative karma, develops infinite compassion" },
   { mantra: "Om Tare Tuttare Ture Soha", deity: "Green Tara (Protection)", benefit: "Overcomes fear, protects from obstacles and sickness" },
   { mantra: "Om Ah Ra Pa Tsa Na Dhih", deity: "Manjushri (Wisdom)", benefit: "Enhances memory, intelligence, and understanding" },
@@ -17,26 +44,26 @@ const TRADITIONAL_MANTRAS = [
 ];
 
 export default function PrayerWheel() {
-  const [mantra, setMantra] = useState("Om Mani Padme Hum");
-  const [isCustom, setIsCustom] = useState(false);
-  const [customMantra, setCustomMantra] = useState("");
-  const [rotations, setRotations] = useState(108);
-  const [speed, setSpeed] = useState(1.0);
-  const [dedication, setDedication] = useState("May all beings be happy and free from suffering");
+  const [mantra, setMantra] = useState<string>("Om Mani Padme Hum");
+  const [isCustom, setIsCustom] = useState<boolean>(false);
+  const [customMantra, setCustomMantra] = useState<string>("");
+  const [rotations, setRotations] = useState<number>(108);
+  const [speed, setSpeed] = useState<number>(1.0);
+  const [dedication, setDedication] = useState<string>("May all beings be happy and free from suffering");
   
   // App state
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [meritTotal, setMeritTotal] = useState(0);
-  const [rotationsTotal, setRotationsTotal] = useState(0);
-  const [history, setHistory] = useState([]);
-  const [countdown, setCountdown] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [isSpinning, setIsSpinning] = useState<boolean>(false);
+  const [meritTotal, setMeritTotal] = useState<number>(0);
+  const [rotationsTotal, setRotationsTotal] = useState<number>(0);
+  const [history, setHistory] = useState<SpinHistoryEntry[]>([]);
+  const [countdown, setCountdown] = useState<number>(0);
+  const [loading, setLoading] = useState<boolean>(false);
   
   // Custom prayer generation state
-  const [intention, setIntention] = useState("");
-  const [generatingPrayer, setGeneratingPrayer] = useState(false);
+  const [intention, setIntention] = useState<string>("");
+  const [generatingPrayer, setGeneratingPrayer] = useState<boolean>(false);
 
-  const countdownInterval = useRef(null);
+  const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const activeMantra = isCustom ? customMantra : mantra;
 
@@ -46,7 +73,7 @@ export default function PrayerWheel() {
     };
   }, []);
 
-  const handleGeneratePrayer = async () => {
+  const handleGeneratePrayer = async (): Promise<void> => {
     if (!intention.trim()) return;
     setGeneratingPrayer(true);
     audioFeedback.playTelemetry();
@@ -57,7 +84,7 @@ export default function PrayerWheel() {
         body: JSON.stringify({ intention, use_llm: true, tradition: 'universal' })
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as PrayerGenerateResponse;
         setIsCustom(true);
         setCustomMantra(data.prayer);
         audioFeedback.playSuccess();
@@ -72,7 +99,7 @@ export default function PrayerWheel() {
     }
   };
 
-  const handleSpin = async () => {
+  const handleSpin = async (): Promise<void> => {
     if (!activeMantra.trim() || isSpinning) return;
     
     setLoading(true);
@@ -88,7 +115,7 @@ export default function PrayerWheel() {
         })
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as PrayerSpinResponse;
         const spinDuration = data.duration || 10;
         
         setIsSpinning(true);
@@ -100,16 +127,16 @@ export default function PrayerWheel() {
         countdownInterval.current = setInterval(() => {
           setCountdown(prev => {
             if (prev <= 1) {
-              clearInterval(countdownInterval.current);
+              if (countdownInterval.current) clearInterval(countdownInterval.current);
               setIsSpinning(false);
-              setMeritTotal(m => m + data.merit_generated);
-              setRotationsTotal(r => r + data.rotations);
+              setMeritTotal(m => m + (data.merit_generated || 0));
+              setRotationsTotal(r => r + (data.rotations || 0));
               setHistory(h => [
                 {
                   timestamp: new Date().toLocaleTimeString(),
-                  mantra: data.mantra,
-                  rotations: data.rotations,
-                  merit: data.merit_generated,
+                  mantra: data.mantra || activeMantra,
+                  rotations: data.rotations || 0,
+                  merit: data.merit_generated || 0,
                   dedication: dedication || "For the welfare of all sentient beings"
                 },
                 ...h

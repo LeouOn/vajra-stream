@@ -13,16 +13,43 @@ import {
   Sparkles, Zap, Radio, Heart, Activity, Clock, Waves
 } from 'lucide-react';
 
-const PHASES = [
+interface SessionInfo {
+  id?: string;
+  name?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+interface ScalarStatus {
+  active?: boolean;
+  [key: string]: unknown;
+}
+
+interface PhaseDef {
+  key: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  bg: string;
+  desc: string;
+}
+
+const PHASES: PhaseDef[] = [
   { key: 'preparation', label: 'Preparation', icon: Sparkles, color: 'text-purple-400', bg: 'bg-purple-500', desc: 'Gathering intention & aligning energies' },
   { key: 'invocation', label: 'Invocation', icon: Zap, color: 'text-cyan-400', bg: 'bg-cyan-500', desc: 'Calling forth the sacred frequencies' },
   { key: 'broadcast', label: 'Broadcast', icon: Radio, color: 'text-emerald-400', bg: 'bg-emerald-500', desc: 'Transmitting scalar waves & blessings' },
   { key: 'dedication', label: 'Dedication', icon: Heart, color: 'text-amber-400', bg: 'bg-amber-500', desc: 'Sealing merit & dedicating to all beings' },
 ];
 
-export default function RitualPhaseIndicator({ sessions, scalarStatus, frequency }) {
-  const [phaseIndex, setPhaseIndex] = useState(-1);
-  const [blessingCount, setBlessingCount] = useState(0);
+interface RitualPhaseIndicatorProps {
+  sessions?: Record<string, SessionInfo> | null;
+  scalarStatus?: ScalarStatus | null;
+  frequency?: number;
+}
+
+export default function RitualPhaseIndicator({ sessions, scalarStatus, frequency }: RitualPhaseIndicatorProps) {
+  const [phaseIndex, setPhaseIndex] = useState<number>(-1);
+  const [blessingCount, setBlessingCount] = useState<number>(0);
 
   // Derive active phase from sessions
   useEffect(() => {

@@ -8,31 +8,85 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit2, Trash2, Folder, Globe, AlertCircle, Check, X } from 'lucide-react';
 
-const PopulationManager = ({ className = '' }) => {
-  const [populations, setPopulations] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [sourceTypes, setSourceTypes] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [filter, setFilter] = useState('all'); // all, active, urgent
+interface Population {
+  id: string | number;
+  name: string;
+  description?: string;
+  category: string;
+  source_type: string;
+  directory_path?: string;
+  mantra_preference: string;
+  intentions: string[];
+  repetitions_per_photo: number;
+  display_duration_ms: number;
+  priority: number;
+  is_urgent: boolean;
+  is_active: boolean;
+  tags: string[];
+  notes?: string;
+  offline_available?: boolean;
+  photo_count?: number;
+  total_blessings_sent?: number;
+  total_mantras_repeated?: number;
+  [key: string]: unknown;
+}
+
+interface ListOption {
+  value: string;
+  name: string;
+  available?: boolean;
+  [key: string]: unknown;
+}
+
+type PopulationFilter = 'all' | 'active' | 'urgent';
+
+interface PopulationFormState {
+  name: string;
+  description: string;
+  category: string;
+  source_type: string;
+  directory_path: string;
+  mantra_preference: string;
+  intentions: string[];
+  repetitions_per_photo: number;
+  display_duration_ms: number;
+  priority: number;
+  is_urgent: boolean;
+  tags: string[];
+  notes: string;
+}
+
+const DEFAULT_FORM: PopulationFormState = {
+  name: '',
+  description: '',
+  category: 'missing_persons',
+  source_type: 'local_directory',
+  directory_path: '',
+  mantra_preference: 'chenrezig',
+  intentions: ['love', 'healing', 'peace'],
+  repetitions_per_photo: 108,
+  display_duration_ms: 2000,
+  priority: 5,
+  is_urgent: false,
+  tags: [],
+  notes: ''
+};
+
+interface PopulationManagerProps {
+  className?: string;
+}
+
+const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
+  const [populations, setPopulations] = useState<Population[]>([]);
+  const [categories, setCategories] = useState<ListOption[]>([]);
+  const [sourceTypes, setSourceTypes] = useState<ListOption[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [showCreateForm, setShowCreateForm] = useState<boolean>(false);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
+  const [filter, setFilter] = useState<PopulationFilter>('all');
 
   // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    category: 'missing_persons',
-    source_type: 'local_directory',
-    directory_path: '',
-    mantra_preference: 'chenrezig',
-    intentions: ['love', 'healing', 'peace'],
-    repetitions_per_photo: 108,
-    display_duration_ms: 2000,
-    priority: 5,
-    is_urgent: false,
-    tags: [],
-    notes: ''
-  });
+  const [formData, setFormData] = useState<PopulationFormState>(DEFAULT_FORM);
 
   // Load data on mount
   useEffect(() => {
@@ -41,12 +95,12 @@ const PopulationManager = ({ className = '' }) => {
     loadSourceTypes();
   }, []);
 
-  const loadPopulations = async () => {
+  const loadPopulations = async (): Promise<void> => {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/v1/populations/`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as Population[];
         setPopulations(data);
       }
     } catch (error) {
@@ -55,11 +109,11 @@ const PopulationManager = ({ className = '' }) => {
     setIsLoading(false);
   };
 
-  const loadCategories = async () => {
+  const loadCategories = async (): Promise<void> => {
     try {
       const response = await fetch(`/api/v1/populations/categories/list`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as ListOption[];
         setCategories(data);
       }
     } catch (error) {
@@ -67,11 +121,11 @@ const PopulationManager = ({ className = '' }) => {
     }
   };
 
-  const loadSourceTypes = async () => {
+  const loadSourceTypes = async (): Promise<void> => {
     try {
       const response = await fetch(`/api/v1/populations/source-types/list`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as ListOption[];
         setSourceTypes(data);
       }
     } catch (error) {
@@ -79,7 +133,7 @@ const PopulationManager = ({ className = '' }) => {
     }
   };
 
-  const createPopulation = async () => {
+  const createPopulation = async (): Promise<void> => {
     try {
       const response = await fetch(`/api/v1/populations/create`, {
         method: 'POST',
@@ -97,7 +151,7 @@ const PopulationManager = ({ className = '' }) => {
     }
   };
 
-  const updatePopulation = async (id) => {
+  const updatePopulation = async (id: string | number): Promise<void> => {
     try {
       const response = await fetch(`/api/v1/populations/${id}`, {
         method: 'PUT',
@@ -115,8 +169,8 @@ const PopulationManager = ({ className = '' }) => {
     }
   };
 
-  const deletePopulation = async (id) => {
-    if (!confirm('Delete this population? This cannot be undone.')) return;
+  const deletePopulation = async (id: string | number): Promise<void> => {
+    if (!window.confirm('Delete this population? This cannot be undone.')) return;
 
     try {
       const response = await fetch(`/api/v1/populations/${id}`, {
@@ -131,7 +185,7 @@ const PopulationManager = ({ className = '' }) => {
     }
   };
 
-  const toggleActive = async (id, currentActive) => {
+  const toggleActive = async (id: string | number, currentActive: boolean): Promise<void> => {
     try {
       await fetch(`/api/v1/populations/${id}`, {
         method: 'PUT',
@@ -144,31 +198,17 @@ const PopulationManager = ({ className = '' }) => {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      category: 'missing_persons',
-      source_type: 'local_directory',
-      directory_path: '',
-      mantra_preference: 'chenrezig',
-      intentions: ['love', 'healing', 'peace'],
-      repetitions_per_photo: 108,
-      display_duration_ms: 2000,
-      priority: 5,
-      is_urgent: false,
-      tags: [],
-      notes: ''
-    });
+  const resetForm = (): void => {
+    setFormData(DEFAULT_FORM);
   };
 
-  const startEdit = (pop) => {
+  const startEdit = (pop: Population): void => {
     setFormData({
       name: pop.name,
-      description: pop.description,
+      description: pop.description ?? '',
       category: pop.category,
       source_type: pop.source_type,
-      directory_path: pop.directory_path || '',
+      directory_path: pop.directory_path ?? '',
       mantra_preference: pop.mantra_preference,
       intentions: pop.intentions,
       repetitions_per_photo: pop.repetitions_per_photo,
@@ -176,7 +216,7 @@ const PopulationManager = ({ className = '' }) => {
       priority: pop.priority,
       is_urgent: pop.is_urgent,
       tags: pop.tags,
-      notes: pop.notes
+      notes: pop.notes ?? ''
     });
     setEditingId(pop.id);
     setShowCreateForm(true);

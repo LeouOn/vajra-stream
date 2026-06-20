@@ -6,7 +6,39 @@ import {
   toSvgAngle, polarToXY, describeArc, planetGlyph, PLANET_GLYPHS,
 } from '../../lib/astroHelpers';
 
-const PLANET_COLORS = {
+interface PointXY {
+  x: number;
+  y: number;
+}
+
+interface PlanetPosition {
+  longitude: number;
+  degree?: number;
+  formatted?: string;
+  [key: string]: unknown;
+}
+
+interface AnglePosition extends PlanetPosition {}
+
+interface HouseInfo {
+  longitude: number;
+  [key: string]: unknown;
+}
+
+interface ChartWestern {
+  dominant_element?: string;
+  dominant_modality?: string;
+  positions?: Record<string, PlanetPosition>;
+  houses?: Record<string, HouseInfo>;
+  [key: string]: unknown;
+}
+
+interface ChartData {
+  western?: ChartWestern;
+  [key: string]: unknown;
+}
+
+const PLANET_COLORS: Record<string, string> = {
   sun: '#fbbf24', moon: '#e5e7eb', mercury: '#a78bfa', venus: '#f472b6',
   mars: '#ef4444', jupiter: '#fb923c', saturn: '#fde047',
   uranus: '#22d3ee', neptune: '#60a5fa', pluto: '#a855f7',
@@ -20,20 +52,25 @@ const HOUSE_R_INNER = 145;
 const PLANET_R = 130;
 const CENTER = 200;
 
-function SignSegment({ signIndex, ascLon }) {
+interface SignSegmentProps {
+  signIndex: number;
+  ascLon: number;
+}
+
+function SignSegment({ signIndex, ascLon }: SignSegmentProps) {
   const startLon = signIndex * 30;
   const endLon = (signIndex + 1) * 30;
   const startAngle = toSvgAngle(startLon, ascLon);
   const endAngle = toSvgAngle(endLon, ascLon);
   const midAngle = toSvgAngle(startLon + 15, ascLon);
-  const midLabel = polarToXY(CENTER, CENTER, (ZODIAC_R_OUTER + ZODIAC_R_INNER) / 2, midAngle);
+  const midLabel = polarToXY(CENTER, CENTER, (ZODIAC_R_OUTER + ZODIAC_R_INNER) / 2, midAngle) as PointXY;
   const element = SIGN_ELEMENT[signIndex];
   const fill = ELEMENT_COLORS[element];
 
   return (
     <g>
       <path
-        d={`${describeArc(CENTER, CENTER, ZODIAC_R_OUTER, startAngle, endAngle)} L ${polarToXY(CENTER, CENTER, ZODIAC_R_INNER, endAngle).x} ${polarToXY(CENTER, CENTER, ZODIAC_R_INNER, endAngle).y} ${describeArc(CENTER, CENTER, ZODIAC_R_INNER, endAngle, startAngle)} Z`}
+        d={`${describeArc(CENTER, CENTER, ZODIAC_R_OUTER, startAngle, endAngle)} L ${(polarToXY(CENTER, CENTER, ZODIAC_R_INNER, endAngle) as PointXY).x} ${(polarToXY(CENTER, CENTER, ZODIAC_R_INNER, endAngle) as PointXY).y} ${describeArc(CENTER, CENTER, ZODIAC_R_INNER, endAngle, startAngle)} Z`}
         fill={fill}
         fillOpacity={0.15}
         stroke={fill}
@@ -56,11 +93,17 @@ function SignSegment({ signIndex, ascLon }) {
   );
 }
 
-function HouseCusp({ index, longitude, ascLon }) {
+interface HouseCuspProps {
+  index: number;
+  longitude: number;
+  ascLon: number;
+}
+
+function HouseCusp({ index, longitude, ascLon }: HouseCuspProps) {
   const angle = toSvgAngle(longitude, ascLon);
-  const tickInner = polarToXY(CENTER, CENTER, HOUSE_R_INNER - 4, angle);
-  const tickOuter = polarToXY(CENTER, CENTER, HOUSE_R_OUTER, angle);
-  const labelPos = polarToXY(CENTER, CENTER, (HOUSE_R_OUTER + HOUSE_R_INNER) / 2, angle);
+  const tickInner = polarToXY(CENTER, CENTER, HOUSE_R_INNER - 4, angle) as PointXY;
+  const tickOuter = polarToXY(CENTER, CENTER, HOUSE_R_OUTER, angle) as PointXY;
+  const labelPos = polarToXY(CENTER, CENTER, (HOUSE_R_OUTER + HOUSE_R_INNER) / 2, angle) as PointXY;
   return (
     <g>
       <line
@@ -87,11 +130,19 @@ function HouseCusp({ index, longitude, ascLon }) {
   );
 }
 
-function AngleMark({ name, longitude, ascLon, label, color }) {
+interface AngleMarkProps {
+  name: string;
+  longitude: number;
+  ascLon: number;
+  label: string;
+  color: string;
+}
+
+function AngleMark({ name, longitude, ascLon, label, color }: AngleMarkProps) {
   const angle = toSvgAngle(longitude, ascLon);
-  const inner = polarToXY(CENTER, CENTER, PLANET_R - 4, angle);
-  const outer = polarToXY(CENTER, CENTER, ZODIAC_R_OUTER - 2, angle);
-  const labelPos = polarToXY(CENTER, CENTER, ZODIAC_R_OUTER - 14, angle);
+  const inner = polarToXY(CENTER, CENTER, PLANET_R - 4, angle) as PointXY;
+  const outer = polarToXY(CENTER, CENTER, ZODIAC_R_OUTER - 2, angle) as PointXY;
+  const labelPos = polarToXY(CENTER, CENTER, ZODIAC_R_OUTER - 14, angle) as PointXY;
   return (
     <g>
       <line
@@ -116,10 +167,19 @@ function AngleMark({ name, longitude, ascLon, label, color }) {
   );
 }
 
-function PlanetMarker({ name, data, ascLon, index, total, color }) {
+interface PlanetMarkerProps {
+  name: string;
+  data: PlanetPosition;
+  ascLon: number;
+  index: number;
+  total: number;
+  color: string;
+}
+
+function PlanetMarker({ name, data, ascLon, index, color }: PlanetMarkerProps) {
   const angle = toSvgAngle(data.longitude, ascLon);
   const r = PLANET_R - (index * 4);
-  const pos = polarToXY(CENTER, CENTER, r, angle);
+  const pos = polarToXY(CENTER, CENTER, r, angle) as PointXY;
   const glyph = planetGlyph(name);
   const degText = `${Math.floor(data.degree || 0)}°`;
 
@@ -152,7 +212,11 @@ function PlanetMarker({ name, data, ascLon, index, total, color }) {
   );
 }
 
-function Legend({ data }) {
+interface LegendProps {
+  data?: ChartData | null;
+}
+
+function Legend({ data }: LegendProps) {
   if (!data) return null;
   const western = data.western || {};
   return (
@@ -177,16 +241,21 @@ function Legend({ data }) {
   );
 }
 
-export default function NatalChartWheel({ data, name }) {
-  const chart = useMemo(() => {
+interface NatalChartWheelProps {
+  data?: ChartData | string | null;
+  name?: string;
+}
+
+export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
+  const chart = useMemo<ChartData | null>(() => {
     if (!data || typeof data === 'string') {
       try {
-        return typeof data === 'string' ? JSON.parse(data) : data;
+        return typeof data === 'string' ? (JSON.parse(data) as ChartData) : (data as ChartData);
       } catch {
         return null;
       }
     }
-    return data;
+    return data as ChartData;
   }, [data]);
 
   const western = chart?.western;
@@ -256,17 +325,17 @@ export default function NatalChartWheel({ data, name }) {
             color="#22d3ee"
           />
 
-          {planetEntries.map(([name, info], idx) => {
+          {planetEntries.map(([pname, info], idx) => {
             const ringOffset = (idx % 3);
             return (
               <PlanetMarker
-                key={name}
-                name={name}
+                key={pname}
+                name={pname}
                 data={info}
                 ascLon={ascLon}
                 index={ringOffset}
                 total={planetEntries.length}
-                color={PLANET_COLORS[name] || '#94a3b8'}
+                color={PLANET_COLORS[pname] || '#94a3b8'}
               />
             );
           })}

@@ -16,6 +16,16 @@ import { Volume2, Square, Loader2, AlertTriangle, Settings2 } from 'lucide-react
 import { Button, Slider, Switch, Space, Tooltip, Tag, message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
+interface NarrativeTTSPlayerProps {
+  text?: string;
+  role?: string;
+  projectId?: string | null;
+  voice?: string | null;
+  label?: string;
+  size?: 'small' | 'middle' | 'large';
+  showAdvanced?: boolean;
+}
+
 export default function NarrativeTTSPlayer({
   text,
   role = 'outlook_narrative',
@@ -24,15 +34,15 @@ export default function NarrativeTTSPlayer({
   label = 'Speak blessing',
   size = 'small',
   showAdvanced = true,
-}) {
-  const audioRef = useRef(null);
-  const blobUrlRef = useRef(null);
-  const [loading, setLoading] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [error, setError] = useState(null);
-  const [autoSpeak, setAutoSpeak] = useState(false);
-  const [volume, setVolume] = useState(0.85);
-  const lastTextRef = useRef(null);
+}: NarrativeTTSPlayerProps) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [playing, setPlaying] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [autoSpeak, setAutoSpeak] = useState<boolean>(false);
+  const [volume, setVolume] = useState<number>(0.85);
+  const lastTextRef = useRef<string | null>(null);
 
   // Stop + cleanup on unmount
   useEffect(() => {
@@ -52,17 +62,17 @@ export default function NarrativeTTSPlayer({
 
   const stopAndCleanup = () => {
     if (audioRef.current) {
-      try { audioRef.current.pause(); } catch {}
+      try { audioRef.current.pause(); } catch { /* noop */ }
       audioRef.current.src = '';
     }
     if (blobUrlRef.current) {
-      try { URL.revokeObjectURL(blobUrlRef.current); } catch {}
+      try { URL.revokeObjectURL(blobUrlRef.current); } catch { /* noop */ }
       blobUrlRef.current = null;
     }
     setPlaying(false);
   };
 
-  const handleSpeak = async () => {
+  const handleSpeak = async (): Promise<void> => {
     if (!text) {
       message.warning('No narrative to speak.');
       return;
@@ -83,7 +93,7 @@ export default function NarrativeTTSPlayer({
         }),
       });
       if (!res.ok) {
-        const detail = await res.json().catch(() => ({ detail: 'TTS failed' }));
+        const detail = await res.json().catch(() => ({ detail: 'TTS failed' })) as { detail?: string };
         throw new Error(detail.detail || 'TTS generation failed');
       }
       const mimeType = res.headers.get('Content-Type') || 'audio/mpeg';
@@ -110,14 +120,14 @@ export default function NarrativeTTSPlayer({
       message.success(`Streaming via ${backend}`);
       audioFeedback.playSuccess();
     } catch (e) {
-      setError(e.message || String(e));
+      setError(e instanceof Error ? (e.message || String(e)) : String(e));
       audioFeedback.playError();
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStop = () => {
+  const handleStop = (): void => {
     stopAndCleanup();
     audioFeedback.playClick();
   };

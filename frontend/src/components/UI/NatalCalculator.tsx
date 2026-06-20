@@ -3,24 +3,53 @@ import { Compass, Calendar, MapPin, Clock, FileText, Tag, Save, X } from 'lucide
 import { Card, Input, Button, Space, Row, Col, Checkbox } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
-export default function NatalCalculator({ 
-  onSubmit, 
-  loading, 
+interface EditingChart {
+  id?: string | number;
+  name?: string;
+  birth_time_iso?: string;
+  city?: string;
+  description?: string;
+  tags?: string;
+  notes?: string;
+  [key: string]: unknown;
+}
+
+interface NatalCalculatorSubmitPayload {
+  name: string;
+  birth_time_iso: string;
+  city: string;
+  description: string;
+  tags: string;
+  notes: string;
+  saveToDb: boolean;
+}
+
+interface NatalCalculatorProps {
+  onSubmit: (payload: NatalCalculatorSubmitPayload) => void;
+  loading?: boolean;
+  loadingStatus?: string;
+  editingChart?: EditingChart | null;
+  onCancelEdit?: () => void;
+}
+
+export default function NatalCalculator({
+  onSubmit,
+  loading,
   loadingStatus,
-  editingChart, 
-  onCancelEdit 
-}) {
-  const [name, setName] = useState('');
-  const [birthDate, setBirthDate] = useState(() => {
+  editingChart,
+  onCancelEdit
+}: NatalCalculatorProps) {
+  const [name, setName] = useState<string>('');
+  const [birthDate, setBirthDate] = useState<string>(() => {
     const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
+    const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   });
-  const [city, setCity] = useState('San Francisco');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState('');
-  const [notes, setNotes] = useState('');
-  const [saveToDb, setSaveToDb] = useState(true);
+  const [city, setCity] = useState<string>('San Francisco');
+  const [description, setDescription] = useState<string>('');
+  const [tags, setTags] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
+  const [saveToDb, setSaveToDb] = useState<boolean>(true);
 
   // If in edit mode, populate the fields
   useEffect(() => {
@@ -46,7 +75,7 @@ export default function NatalCalculator({
     }
   }, [editingChart]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
     if (!name || !birthDate || !city) {
       audioFeedback.playError();
@@ -65,7 +94,7 @@ export default function NatalCalculator({
     });
   };
 
-  const handleCityPreset = (presetCity) => {
+  const handleCityPreset = (presetCity: string): void => {
     setCity(presetCity);
     audioFeedback.playTick();
   };

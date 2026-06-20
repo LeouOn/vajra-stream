@@ -28,11 +28,129 @@ import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 
 const { Text, Paragraph, Title } = Typography;
-const { Panel } = Collapse;
+
+interface GenreOption {
+  value: string;
+  label: string;
+  desc: string;
+}
+
+interface DifficultyOption {
+  id: string;
+  label: string;
+  desc: string;
+}
+
+interface GlobalIntention {
+  id: string;
+  label: string;
+  planet: string;
+  freq: string;
+  icon: string;
+}
+
+interface Realm {
+  id: string | number;
+  name: string;
+  description?: string;
+  location_type?: string;
+  is_metaphysical?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  dimension_frequency?: number;
+  priority?: number;
+  realm_governor?: string;
+  celestial_coordinates?: string;
+  total_narratives_featured?: number;
+  timezone?: string;
+  astrological_anchor?: string;
+  elemental_affinity?: string;
+  source_type?: string;
+  [key: string]: unknown;
+}
+
+interface Character {
+  id: string | number;
+  name: string;
+  description?: string;
+  role: string;
+  tags?: string[];
+  mantra_preference?: string;
+  elemental_anchor?: string;
+  total_narratives_featured?: number;
+  dialogue_style?: string;
+  priority?: number;
+  source_type?: string;
+  [key: string]: unknown;
+}
+
+interface Population {
+  id: string | number;
+  name: string;
+  description?: string;
+  category?: string;
+  is_active?: boolean;
+  is_urgent?: boolean;
+  priority?: number;
+  intentions?: string[];
+  [key: string]: unknown;
+}
+
+interface HistoryItem {
+  type?: string;
+  date_generated?: string;
+  genre?: string;
+  content?: string;
+  astrology_context?: string;
+  divination_context?: string;
+  divination_raw?: DivinationRaw;
+  entities_invoked?: string;
+  [key: string]: unknown;
+}
+
+interface DivinationCardPayload {
+  svg?: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
+interface DivinationRaw {
+  tarot?: DivinationCardPayload;
+  iching?: DivinationCardPayload;
+  [key: string]: unknown;
+}
+
+interface CurrentNarrative {
+  type?: string;
+  genre?: string;
+  narrative?: string;
+  narrative_parts?: string[] | string;
+  astrology_used?: string;
+  divination_used?: string;
+  divination_raw?: DivinationRaw;
+  entities_used?: string;
+  [key: string]: unknown;
+}
+
+interface OutlookModels {
+  lm_studio?: string[];
+  local?: string[];
+  api?: string[];
+}
+
+interface ModelSelectOption {
+  value: string;
+  label: string;
+}
+
+type ResultTab = 'narrative' | 'affirmation';
+type UniverseTab = 'realms' | 'characters' | 'populations';
+type LoopMode = 'sequential_delay' | 'consecutive';
+type GeneratorTab = 'generator' | 'universe' | 'history';
 
 // ─── Constants ────────────────────────────────────────────
 
-const GENRES = [
+const GENRES: GenreOption[] = [
   { value: 'healing', label: '🌿 Healing', desc: 'Sutra of restoration, pacifying sickness & anxiety' },
   { value: 'victory', label: '🛡️ Victory', desc: 'Overcoming limitations, spiritual warfare & triumph' },
   { value: 'alchemist', label: '⚗️ Alchemist', desc: 'Hermetic parables of chemical transmutations' },
@@ -40,17 +158,17 @@ const GENRES = [
   { value: 'dharani', label: '📿 Dharani', desc: 'Dense mantras and direct invocations of power' },
 ];
 
-const LANGUAGES = [
+const LANGUAGES: string[] = [
   'English', 'Sanskrit', 'Tibetan', 'Chinese', 'Latin', 'Greek', 'Hebrew',
 ];
 
-const DIFFICULTY_OPTIONS = [
+const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   { id: 'mild', label: 'Mild', desc: 'Minor obstacles and everyday challenges' },
   { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
   { id: 'deep', label: 'Deep', desc: 'Profound wounds and life-changing difficulties' },
 ];
 
-const GLOBAL_INTENTIONS = [
+const GLOBAL_INTENTIONS: GlobalIntention[] = [
   { id: 'world peace', label: 'World Peace', planet: 'Jupiter', freq: '852Hz', icon: '🕊️' },
   { id: 'world prosperity', label: 'World Prosperity', planet: 'Venus', freq: '528Hz', icon: '💎' },
   { id: 'end to disease and cancer', label: 'End Disease & Cancer', planet: 'Sun', freq: '528Hz', icon: '☀️' },
@@ -64,76 +182,76 @@ const GLOBAL_INTENTIONS = [
 export default function OutlookDashboard() {
   const { isPlaying } = useAudioStore();
   const { addToast } = useUIStore();
-  const [activeTab, setActiveTab] = useState('generator');
+  const [activeTab, setActiveTab] = useState<GeneratorTab>('generator');
 
   // ─── Generator State ─────────────────────────────────────
-  const [lat, setLat] = useState(34.0522);
-  const [lon, setLon] = useState(-118.2437);
-  const [genre, setGenre] = useState('healing');
-  const [selectedLangs, setSelectedLangs] = useState(['English']);
-  const [isEpic, setIsEpic] = useState(false);
-  const [stages, setStages] = useState(9);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 16));
-  const [selectedRealmId, setSelectedRealmId] = useState('');
-  const [selectedCharIds, setSelectedCharIds] = useState([]);
-  const [selectedPopIds, setSelectedPopIds] = useState([]);
-  const [includeDialogue, setIncludeDialogue] = useState(false);
-  const [customContext, setCustomContext] = useState('');
-  const [difficulty, setDifficulty] = useState('moderate');
-  const [excludedForcesText, setExcludedForcesText] = useState('');
-  const [includeAstrology, setIncludeAstrology] = useState(true);
-  const [includeTarot, setIncludeTarot] = useState(true);
-  const [includeIching, setIncludeIching] = useState(true);
-  const [randomizeRealm, setRandomizeRealm] = useState(false);
-  const [randomizeCharacters, setRandomizeCharacters] = useState(false);
+  const [lat, setLat] = useState<number | null>(34.0522);
+  const [lon, setLon] = useState<number | null>(-118.2437);
+  const [genre, setGenre] = useState<string>('healing');
+  const [selectedLangs, setSelectedLangs] = useState<string[]>(['English']);
+  const [isEpic, setIsEpic] = useState<boolean>(false);
+  const [stages, setStages] = useState<number>(9);
+  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 16));
+  const [selectedRealmId, setSelectedRealmId] = useState<string>('');
+  const [selectedCharIds, setSelectedCharIds] = useState<Array<string | number>>([]);
+  const [selectedPopIds, setSelectedPopIds] = useState<Array<string | number>>([]);
+  const [includeDialogue, setIncludeDialogue] = useState<boolean>(false);
+  const [customContext, setCustomContext] = useState<string>('');
+  const [difficulty, setDifficulty] = useState<string>('moderate');
+  const [excludedForcesText, setExcludedForcesText] = useState<string>('');
+  const [includeAstrology, setIncludeAstrology] = useState<boolean>(true);
+  const [includeTarot, setIncludeTarot] = useState<boolean>(true);
+  const [includeIching, setIncludeIching] = useState<boolean>(true);
+  const [randomizeRealm, setRandomizeRealm] = useState<boolean>(false);
+  const [randomizeCharacters, setRandomizeCharacters] = useState<boolean>(false);
 
   // ─── Loop State ──────────────────────────────────────────
-  const [loopActive, setLoopActive] = useState(false);
-  const [loopInterval, setLoopInterval] = useState(5);
-  const [loopMode, setLoopMode] = useState('sequential_delay');
+  const [loopActive, setLoopActive] = useState<boolean>(false);
+  const [loopInterval, setLoopInterval] = useState<number>(5);
+  const [loopMode, setLoopMode] = useState<LoopMode>('sequential_delay');
 
   // ─── Result State ────────────────────────────────────────
-  const [loading, setLoading] = useState(false);
-  const [currentNarrative, setCurrentNarrative] = useState(null);
-  const [historyList, setHistoryList] = useState([]);
-  const [copied, setCopied] = useState(false);
-  const [resultTab, setResultTab] = useState('narrative');
-  const [affirmation, setAffirmation] = useState(null);
-  const [affirmationLoading, setAffirmationLoading] = useState(false);
-  const [affirmationCopied, setAffirmationCopied] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [currentNarrative, setCurrentNarrative] = useState<CurrentNarrative | null>(null);
+  const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [resultTab, setResultTab] = useState<ResultTab>('narrative');
+  const [affirmation, setAffirmation] = useState<string | null>(null);
+  const [affirmationLoading, setAffirmationLoading] = useState<boolean>(false);
+  const [affirmationCopied, setAffirmationCopied] = useState<boolean>(false);
 
   // ─── Universe Data ───────────────────────────────────────
-  const [realms, setRealms] = useState([]);
-  const [characters, setCharacters] = useState([]);
-  const [populations, setPopulations] = useState([]);
-  const [roles, setRoles] = useState([]);
-  const [locationTypes, setLocationTypes] = useState([]);
+  const [realms, setRealms] = useState<Realm[]>([]);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [populations, setPopulations] = useState<Population[]>([]);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [locationTypes, setLocationTypes] = useState<string[]>([]);
 
   // ─── Universe Sub-tab ────────────────────────────────────
-  const [universeTab, setUniverseTab] = useState('realms');
+  const [universeTab, setUniverseTab] = useState<UniverseTab>('realms');
 
   // ─── CRUD Modals ─────────────────────────────────────────
-  const [realmModalOpen, setRealmModalOpen] = useState(false);
-  const [editingRealm, setEditingRealm] = useState(null);
+  const [realmModalOpen, setRealmModalOpen] = useState<boolean>(false);
+  const [editingRealm, setEditingRealm] = useState<Realm | null>(null);
   const [realmForm] = Form.useForm();
 
-  const [charModalOpen, setCharModalOpen] = useState(false);
-  const [editingChar, setEditingChar] = useState(null);
+  const [charModalOpen, setCharModalOpen] = useState<boolean>(false);
+  const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [charForm] = Form.useForm();
 
   // ─── Filter State ────────────────────────────────────────
-  const [realmSearch, setRealmSearch] = useState('');
-  const [realmTypeFilter, setRealmTypeFilter] = useState('all');
-  const [charSearch, setCharSearch] = useState('');
-  const [charRoleFilter, setCharRoleFilter] = useState('all');
+  const [realmSearch, setRealmSearch] = useState<string>('');
+  const [realmTypeFilter, setRealmTypeFilter] = useState<string>('all');
+  const [charSearch, setCharSearch] = useState<string>('');
+  const [charRoleFilter, setCharRoleFilter] = useState<string>('all');
 
   // ─── Model Selection ─────────────────────────────────────
-  const [selectedModel, setSelectedModel] = useState('');
-  const [outlookModels, setOutlookModels] = useState({ lm_studio: [], local: [], api: [] });
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
 
   // ─── Data Fetching ───────────────────────────────────────
 
-  const fetchUniverseData = useCallback(async () => {
+  const fetchUniverseData = useCallback(async (): Promise<void> => {
     try {
       const [realmsRes, charsRes, popsRes, rolesRes, typesRes] = await Promise.all([
         fetch(`/api/v1/outlook/locations`),
@@ -142,32 +260,36 @@ export default function OutlookDashboard() {
         fetch(`/api/v1/outlook/characters/roles/list`),
         fetch(`/api/v1/outlook/locations/types/list`),
       ]);
-      if (realmsRes.ok) setRealms(await realmsRes.json());
-      if (charsRes.ok) setCharacters(await charsRes.json());
-      if (popsRes.ok) setPopulations(await popsRes.json());
-      if (rolesRes.ok) setRoles(await rolesRes.json());
-      if (typesRes.ok) setLocationTypes(await typesRes.json());
+      if (realmsRes.ok) setRealms(await realmsRes.json() as Realm[]);
+      if (charsRes.ok) setCharacters(await charsRes.json() as Character[]);
+      if (popsRes.ok) setPopulations(await popsRes.json() as Population[]);
+      if (rolesRes.ok) setRoles(await rolesRes.json() as string[]);
+      if (typesRes.ok) setLocationTypes(await typesRes.json() as string[]);
     } catch (e) {
       console.error('Universe fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load realms', message: 'Backend unreachable. Some data may be stale.', duration: 3000 });
     }
   }, [addToast]);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async (): Promise<void> => {
     try {
       const res = await fetch(`/api/v1/outlook/history?limit=15`);
-      if (res.ok) setHistoryList((await res.json()).history || []);
+      if (res.ok) setHistoryList(((await res.json()) as { history?: HistoryItem[] }).history || []);
     } catch (e) {
       console.error('History fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load history', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [addToast]);
 
-  const fetchModels = useCallback(async () => {
+  const fetchModels = useCallback(async (): Promise<void> => {
     try {
       const res = await fetch(`/api/v1/llm/models`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as {
+          status?: string;
+          available?: OutlookModels;
+          default_model?: string;
+        };
         if (data.status === 'success') {
           setOutlookModels(data.available || { lm_studio: [], local: [], api: [] });
           if (!selectedModel && data.default_model) setSelectedModel(data.default_model);
@@ -179,12 +301,16 @@ export default function OutlookDashboard() {
     }
   }, [selectedModel, addToast]);
 
-  const fetchLoopStatus = useCallback(async () => {
+  const fetchLoopStatus = useCallback(async (): Promise<void> => {
     try {
       const res = await fetch(`/api/v1/outlook/loop/status`);
       if (res.ok) {
-        const data = await res.json();
-        setLoopActive(data.active);
+        const data = await res.json() as {
+          active?: boolean;
+          interval_minutes?: number;
+          config?: { loop_mode?: LoopMode; [key: string]: unknown };
+        };
+        setLoopActive(Boolean(data.active));
         if (data.active) {
           setLoopInterval(data.interval_minutes || 5);
           setLoopMode(data.config?.loop_mode || 'sequential_delay');
@@ -216,7 +342,7 @@ export default function OutlookDashboard() {
 
   // ─── Filtered Lists ──────────────────────────────────────
 
-  const filteredRealms = useMemo(() => {
+  const filteredRealms = useMemo<Realm[]>(() => {
     let result = realms;
     if (realmSearch) {
       const q = realmSearch.toLowerCase();
@@ -230,7 +356,7 @@ export default function OutlookDashboard() {
     return result;
   }, [realms, realmSearch, realmTypeFilter]);
 
-  const filteredCharacters = useMemo(() => {
+  const filteredCharacters = useMemo<Character[]>(() => {
     let result = characters;
     if (charSearch) {
       const q = charSearch.toLowerCase();
@@ -246,7 +372,7 @@ export default function OutlookDashboard() {
 
   // ─── Generate Narrative ──────────────────────────────────
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (): Promise<void> => {
     setLoading(true);
     setCurrentNarrative(null);
     setAffirmation(null);
@@ -255,8 +381,8 @@ export default function OutlookDashboard() {
 
     try {
       const endpoint = isEpic ? '/outlook/generate_epic' : '/outlook/generate_single';
-      const body = {
-        lat: parseFloat(lat), lon: parseFloat(lon),
+      const body: Record<string, unknown> = {
+        lat: parseFloat(String(lat)), lon: parseFloat(String(lon)),
         languages: selectedLangs, genre,
         date: new Date(date).toISOString(),
         custom_context: customContext || null,
@@ -273,7 +399,7 @@ export default function OutlookDashboard() {
         randomize_realm: randomizeRealm,
         randomize_characters: randomizeCharacters,
       };
-      if (isEpic) body.stages = parseInt(stages);
+      if (isEpic) body.stages = parseInt(String(stages));
 
       const res = await fetch(`/api/v1${endpoint}`, {
         method: 'POST',
@@ -282,18 +408,18 @@ export default function OutlookDashboard() {
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as CurrentNarrative;
         setCurrentNarrative(data);
         message.success(isEpic ? `Epic journey of ${stages} stages received.` : 'Narrative generated.');
         audioFeedback.playSuccess();
         fetchHistory();
         fetchUniverseData();
       } else {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch(() => ({})) as { detail?: string };
         message.error(err.detail || 'Generation failed.');
         audioFeedback.playError();
       }
-    } catch (e) {
+    } catch {
       message.error('Network error — could not reach backend.');
       audioFeedback.playError();
     } finally {
@@ -301,7 +427,7 @@ export default function OutlookDashboard() {
     }
   };
 
-  const generateAffirmation = async () => {
+  const generateAffirmation = async (): Promise<void> => {
     if (!currentNarrative) return;
     setAffirmationLoading(true);
     audioFeedback.playTelemetry();
@@ -315,7 +441,7 @@ export default function OutlookDashboard() {
         body: JSON.stringify({ intention, style: 'empowering' }),
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as { affirmation?: string; text?: string };
         setAffirmation(data.affirmation || data.text || '');
         setResultTab('affirmation');
         audioFeedback.playSuccess();
@@ -330,7 +456,7 @@ export default function OutlookDashboard() {
     setAffirmationLoading(false);
   };
 
-  const copyAffirmation = () => {
+  const copyAffirmation = (): void => {
     if (!affirmation) return;
     navigator.clipboard.writeText(affirmation);
     setAffirmationCopied(true);
@@ -339,16 +465,16 @@ export default function OutlookDashboard() {
 
   // ─── Loop Controls ───────────────────────────────────────
 
-  const handleStartLoop = async () => {
+  const handleStartLoop = async (): Promise<void> => {
     try {
-      const body = {
-        interval_minutes: parseInt(loopInterval), lat: parseFloat(lat), lon: parseFloat(lon),
+      const body: Record<string, unknown> = {
+        interval_minutes: parseInt(String(loopInterval)), lat: parseFloat(String(lat)), lon: parseFloat(String(lon)),
         languages: selectedLangs, genre, custom_context: customContext || null,
         realm_id: selectedRealmId || null,
         population_ids: selectedPopIds.length > 0 ? selectedPopIds : null,
         character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
         excluded_forces: excludedForcesText ? excludedForcesText.split(',').map(s => s.trim()) : null,
-        include_dialogue, loop_mode: loopMode, model: selectedModel || null,
+        include_dialogue: includeDialogue, loop_mode: loopMode, model: selectedModel || null,
         include_astrology: includeAstrology, include_tarot: includeTarot, include_iching: includeIching,
         randomize_realm: randomizeRealm, randomize_characters: randomizeCharacters,
       };
@@ -356,20 +482,20 @@ export default function OutlookDashboard() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       if (res.ok) { setLoopActive(true); message.success(`Loop active — every ${loopInterval} min.`); fetchLoopStatus(); }
-    } catch (e) { message.error('Failed to start loop.'); }
+    } catch { message.error('Failed to start loop.'); }
   };
 
-  const handleStopLoop = async () => {
+  const handleStopLoop = async (): Promise<void> => {
     try {
       await fetch(`/api/v1/outlook/loop/stop`, { method: 'POST' });
       setLoopActive(false);
       message.success('Loop stopped.');
-    } catch (e) { message.error('Failed to stop loop.'); }
+    } catch { message.error('Failed to stop loop.'); }
   };
 
   // ─── Realm CRUD ──────────────────────────────────────────
 
-  const openRealmModal = (realm = null) => {
+  const openRealmModal = (realm: Realm | null = null): void => {
     setEditingRealm(realm);
     if (realm) {
       realmForm.setFieldsValue({
@@ -386,12 +512,12 @@ export default function OutlookDashboard() {
     setRealmModalOpen(true);
   };
 
-  const saveRealm = async () => {
+  const saveRealm = async (): Promise<void> => {
     try {
-      const values = await realmForm.validateFields();
-      const payload = { ...values };
+      const values = await realmForm.validateFields() as Record<string, unknown>;
+      const payload: Record<string, unknown> = { ...values };
       if (payload.is_metaphysical) { payload.latitude = null; payload.longitude = null; }
-      else { payload.latitude = parseFloat(payload.latitude); payload.longitude = parseFloat(payload.longitude); }
+      else { payload.latitude = parseFloat(String(payload.latitude)); payload.longitude = parseFloat(String(payload.longitude)); }
 
       const url = editingRealm
         ? `/api/v1/outlook/locations/${editingRealm.id}`
@@ -404,10 +530,13 @@ export default function OutlookDashboard() {
         setRealmModalOpen(false);
         fetchUniverseData();
       }
-    } catch (e) { if (e.errorFields) return; message.error('Failed to save realm.'); }
+    } catch (e) {
+      if ((e as { errorFields?: unknown }).errorFields) return;
+      message.error('Failed to save realm.');
+    }
   };
 
-  const deleteRealm = async (id) => {
+  const deleteRealm = async (id: string | number): Promise<void> => {
     Modal.confirm({
       title: 'Exile this realm?',
       content: 'This action cannot be undone.',
@@ -428,7 +557,7 @@ export default function OutlookDashboard() {
 
   // ─── Character CRUD ──────────────────────────────────────
 
-  const openCharModal = (char = null) => {
+  const openCharModal = (char: Character | null = null): void => {
     setEditingChar(char);
     if (char) {
       charForm.setFieldsValue({ ...char, priority: char.priority ?? 5 });
@@ -438,9 +567,9 @@ export default function OutlookDashboard() {
     setCharModalOpen(true);
   };
 
-  const saveCharacter = async () => {
+  const saveCharacter = async (): Promise<void> => {
     try {
-      const values = await charForm.validateFields();
+      const values = await charForm.validateFields() as Record<string, unknown>;
       const url = editingChar
         ? `/api/v1/outlook/characters/${editingChar.id}`
         : `/api/v1/outlook/characters`;
@@ -452,10 +581,13 @@ export default function OutlookDashboard() {
         setCharModalOpen(false);
         fetchUniverseData();
       }
-    } catch (e) { if (e.errorFields) return; message.error('Failed to save character.'); }
+    } catch (e) {
+      if ((e as { errorFields?: unknown }).errorFields) return;
+      message.error('Failed to save character.');
+    }
   };
 
-  const deleteCharacter = async (id) => {
+  const deleteCharacter = async (id: string | number): Promise<void> => {
     Modal.confirm({
       title: 'Exile this character?',
       content: 'They will be removed from all future narratives.',
@@ -476,8 +608,8 @@ export default function OutlookDashboard() {
 
   // ─── History ─────────────────────────────────────────────
 
-  const loadHistoryItem = (item) => {
-    const normalized = {
+  const loadHistoryItem = (item: HistoryItem): void => {
+    const normalized: CurrentNarrative = {
       ...item,
       astrology_used: item.astrology_context,
       divination_used: item.divination_context,
@@ -489,7 +621,7 @@ export default function OutlookDashboard() {
     setCurrentNarrative(normalized);
   };
 
-  const copyNarrative = () => {
+  const copyNarrative = (): void => {
     const text = currentNarrative?.narrative || JSON.stringify(currentNarrative?.narrative_parts || '', null, 2);
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -498,8 +630,8 @@ export default function OutlookDashboard() {
 
   // ─── Model Options ───────────────────────────────────────
 
-  const modelOptions = useMemo(() => {
-    const opts = [
+  const modelOptions = useMemo<ModelSelectOption[]>(() => {
+    const opts: ModelSelectOption[] = [
       { value: '', label: 'Auto-detect (default)' },
       { value: 'deepseek:deepseek-chat', label: '⚡ DeepSeek V4 (fast MoE)' },
     ];
@@ -512,7 +644,7 @@ export default function OutlookDashboard() {
       opts.push({ value: val, label: m });
     });
     // Remove duplicates by value
-    const seen = new Set();
+    const seen = new Set<string>();
     return opts.filter(o => { const k = o.value; if (seen.has(k)) return false; seen.add(k); return true; });
   }, [outlookModels]);
 
