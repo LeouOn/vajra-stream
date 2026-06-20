@@ -19,9 +19,10 @@ Speaker resolution:
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from core.eighty_eight_buddhas import get_eighty_eight_buddhas
 
