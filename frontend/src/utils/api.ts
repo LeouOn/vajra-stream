@@ -46,8 +46,9 @@ function resolveWsUrl(): string {
   if (typeof window !== 'undefined' && window.location) {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const hostname = window.location.hostname === '::1' ? '127.0.0.1' : window.location.hostname;
-    const port = window.location.port || DEFAULT_PORT;
-    return `${wsProtocol}//${hostname}:${port}/ws`;
+    // Always connect directly to the backend port — the Vite proxy is
+    // unreliable for WebSocket upgrades and causes connection failures.
+    return `${wsProtocol}//${hostname}:${DEFAULT_PORT}/ws`;
   }
   return `ws://127.0.0.1:${DEFAULT_PORT}/ws`;
 }

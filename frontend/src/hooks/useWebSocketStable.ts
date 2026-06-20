@@ -10,6 +10,7 @@
  * @param wsUrl — Optional WebSocket endpoint URL (defaults to auto-detected backend).
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { WS_URL } from '../utils/api';
 import type {
   WSMessage,
   CrystalStatus,
@@ -83,8 +84,9 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
   };
 
   const getDefaultWsUrl = (): string => {
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProtocol}//${window.location.host}/ws`;
+    // Use the centralized WS_URL from utils/api which always points
+    // at the backend port (8008), bypassing the unreliable Vite WS proxy.
+    return WS_URL;
   };
 
   const clearTimers = useCallback(() => {

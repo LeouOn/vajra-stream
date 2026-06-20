@@ -80,6 +80,7 @@ import ChakraBodyMap from './components/2D/ChakraBodyMap';
 import MainLayout from './components/Layout/MainLayout';
 import CommandCenter from './components/UI/CommandCenter';
 import BuddhasPage from './routes/Buddhas';
+import SanctuaryPage from './routes/Sanctuary';
 import ProviderSettings from './components/Settings/ProviderSettings';
 import OperationsPanel from './components/UI/OperationsPanel';
 import AstrologyPanel from './components/UI/AstrologyPanel';
@@ -221,7 +222,13 @@ function AppContent(): React.ReactElement {
             <BuddhasPage />
           </div>
         } />
-        
+
+        <Route path="/sanctuary" element={
+          <div className="flex-1 h-full overflow-hidden">
+            <SanctuaryPage />
+          </div>
+        } />
+
         <Route path="/settings" element={
           <div className="flex-1 h-full overflow-y-auto">
             <ProviderSettings />

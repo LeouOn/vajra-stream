@@ -67,6 +67,167 @@ class OutlookService:
             self._generator = OutlookGenerator()
         return self._generator
 
+    def _fetch_healing_context(self) -> tuple[int | None, str | None]:
+        """Fetch the latest completed healing dialogue summary for outlook enrichment.
+
+        Mirrors the RNG sensor fetch pattern — pulls the most recent completed
+        healing session summary from the DB and formats it as additional context
+        for the outlook generator.
+
+        Returns:
+            ``(session_id, context_str)`` tuple. ``session_id`` is the row id of
+            the healing session whose summary was used (or ``None`` if no
+            completed session exists). ``context_str`` is the formatted context
+            (or ``None``). The ``session_id`` is returned so callers can later
+            stamp ``linked_outlook_id`` back into the healing session row via
+            :meth:`_stamp_linked_outlook`.
+        """
+        try:
+            import sqlite3
+
+            from core.schema import get_db_path
+
+            conn = sqlite3.connect(get_db_path())
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT id, summary, key_insights_json, phases_completed, started_at
+                   FROM healing_dialogue_sessions
+                   WHERE summary IS NOT NULL AND ended_at IS NOT NULL
+                   ORDER BY ended_at DESC LIMIT 1""",
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                return None, None
+
+            session_id = row["id"]
+            summary = row["summary"] or ""
+            insights_raw = row["key_insights_json"]
+            insights_text = ""
+            if insights_raw:
+                try:
+                    insights = json.loads(insights_raw)
+                    if isinstance(insights, dict):
+                        parts = []
+                        for key, val in insights.items():
+                            if val:
+                                parts.append(f"  {key}: {val}")
+                        if parts:
+                            insights_text = "\nKey insights:\n" + "\n".join(parts)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            healing_context = f"Recent healing dialogue summary: {summary}{insights_text}"
+            return session_id, healing_context
+        except Exception as e:
+            logger.debug(f"No healing context available for outlook: {e}")
+            return None, None
+
+    def _stamp_linked_outlook(self, session_id: int | None, outlook_info: dict | None) -> bool:
+        """Stamp the generated outlook's identifier back into the healing session row.
+
+        Writes to ``healing_dialogue_sessions.linked_outlook_id`` so future
+        queries can tell which outlook (if any) consumed a given healing
+        session's summary. This closes the back-reference loop opened by
+        :meth:`_fetch_healing_context`.
+
+        Outlooks do not currently carry a stable integer id in their result
+        dict (see ``core/outlook_generator.py`` — the result has ``status``,
+        ``narrative``, ``genre``, etc., but no ``id``). When ``outlook_info``
+        has no integer ``id`` field we fall back to writing the current unix
+        timestamp as a defensive marker so the column is at least non-null and
+        the session is visibly "claimed". This marker is intentionally a
+        best-effort signal rather than a true foreign key; a clean outlook id
+        should be plumbed through once outlooks are persisted with stable ids
+        (tracked as future work).
+
+        Args:
+            session_id: Row id of the healing session to update. If ``None``,
+                this method is a no-op and returns ``False``.
+            outlook_info: The dict returned by
+                ``OutlookGenerator.generate_single_outlook`` /
+                ``generate_epic_outlook``. If it carries an integer ``id`` it is
+                used verbatim; otherwise a unix-timestamp marker is written.
+
+        Returns:
+            ``True`` if the row was updated, ``False`` otherwise (including
+            when ``session_id`` is ``None`` or the DB write fails — failures
+            are logged at ``debug`` level so they never break outlook
+            generation).
+        """
+        if session_id is None:
+            return False
+
+        # Resolve the value to write. Prefer a real integer id from the
+        # outlook result; fall back to a unix-timestamp marker.
+        outlook_id: int
+        if isinstance(outlook_info, dict) and isinstance(outlook_info.get("id"), int):
+            outlook_id = outlook_info["id"]
+        else:
+            outlook_id = int(datetime.now().timestamp())
+
+        try:
+            import sqlite3
+
+            from core.schema import get_db_path
+
+            conn = sqlite3.connect(get_db_path())
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE healing_dialogue_sessions SET linked_outlook_id = ? WHERE id = ?",
+                (outlook_id, session_id),
+            )
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.debug(f"Failed to stamp linked_outlook_id on session {session_id}: {e}")
+            return False
+
+    def _fetch_buddha_context(self) -> str | None:
+        """Fetch the latest completed 88 Buddhas recitation session for outlook enrichment.
+
+        Mirrors :meth:`_fetch_healing_context` — pulls the most recent
+        completed recitation session (``ended_at IS NOT NULL``) from
+        ``buddha_recitation_sessions`` and formats it as additional context
+        for the outlook generator. Returns ``None`` when no completed
+        sessions exist or the DB is unavailable (defensive).
+        """
+        try:
+            import sqlite3
+
+            from core.schema import get_db_path
+
+            conn = sqlite3.connect(get_db_path())
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT intention, cycles_completed, total_recited, dedication_text
+                   FROM buddha_recitation_sessions
+                   WHERE ended_at IS NOT NULL
+                   ORDER BY ended_at DESC LIMIT 1""",
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                return None
+
+            intention = row["intention"] or ""
+            cycles = row["cycles_completed"] or 0
+            total = row["total_recited"] or 0
+            dedication = row["dedication_text"] or ""
+
+            parts = [f"Recent 88 Buddhas recitation — intention: {intention}"]
+            parts.append(f"cycles completed: {cycles}")
+            parts.append(f"total recited: {total}")
+            if dedication:
+                parts.append(f"dedication: {dedication}")
+            return ", ".join(parts)
+        except Exception as e:
+            logger.debug(f"No buddha context available for outlook: {e}")
+            return None
+
     def generate_single(
         self,
         lat: float,
@@ -103,6 +264,14 @@ class OutlookService:
         except Exception as e:
             logger.error(f"Failed to gather sensor context for single outlook: {e}")
 
+        healing_session_id, healing_context = self._fetch_healing_context()
+        if healing_context:
+            custom_context = f"{custom_context}\n\n{healing_context}" if custom_context else healing_context
+
+        buddha_context = self._fetch_buddha_context()
+        if buddha_context:
+            custom_context = f"{custom_context}\n\n{buddha_context}" if custom_context else buddha_context
+
         result = self.generator.generate_single_outlook(
             lat=lat,
             lon=lon,
@@ -124,6 +293,11 @@ class OutlookService:
             randomize_characters=randomize_characters,
             sensor_context=sensor_context,
         )
+
+        # Stamp the generated outlook back into the healing session row so the
+        # back-reference is closed. Best-effort — see _stamp_linked_outlook.
+        if healing_session_id is not None:
+            self._stamp_linked_outlook(healing_session_id, result)
 
         if self.event_bus:
             event = BlessingGenerated(
@@ -174,6 +348,14 @@ class OutlookService:
         except Exception as e:
             logger.error(f"Failed to gather sensor context for epic outlook: {e}")
 
+        healing_session_id, healing_context = self._fetch_healing_context()
+        if healing_context:
+            custom_context = f"{custom_context}\n\n{healing_context}" if custom_context else healing_context
+
+        buddha_context = self._fetch_buddha_context()
+        if buddha_context:
+            custom_context = f"{custom_context}\n\n{buddha_context}" if custom_context else buddha_context
+
         result = self.generator.generate_epic_outlook(
             lat=lat,
             lon=lon,
@@ -196,6 +378,11 @@ class OutlookService:
             randomize_characters=randomize_characters,
             sensor_context=sensor_context,
         )
+
+        # Stamp the generated outlook back into the healing session row so the
+        # back-reference is closed. Best-effort — see _stamp_linked_outlook.
+        if healing_session_id is not None:
+            self._stamp_linked_outlook(healing_session_id, result)
 
         if self.event_bus:
             narratives = [s.get("narrative", "") for s in result.get("stages", [])]

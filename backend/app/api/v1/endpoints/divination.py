@@ -637,6 +637,19 @@ async def interpret_divination(payload: InterpretRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============================================================================
+# 88 Buddhas Endpoints  (LLM TOOL-CALLING ROUTES — DO NOT REMOVE)
+# ----------------------------------------------------------------------------
+# These `/divination/eighty-eight-buddhas/*` routes are the endpoints exposed
+# to the LLM tool-calling system (registered as callable tools for the
+# operator/agent). The web frontend uses a parallel set in operator.py under
+# `/operator/buddhas/*` — see that file for the divergence notes.
+#
+# Both sets ultimately resolve to the same core services
+# (`core.eighty_eight_buddhas` and `core.buddha_recitation_loop`).
+# ============================================================================
+
+
 @router.get("/eighty-eight-buddhas/random")
 async def random_buddha():
     """Return a random Buddha entry from the 88-Buddha collection."""

@@ -515,7 +515,26 @@ async def dispatch_tool(request: ToolDispatchRequest):
 
 
 # ============================================================================
-# 88 Buddhas Endpoints
+# 88 Buddhas Endpoints  (CANONICAL FRONTEND ROUTES — DO NOT REMOVE)
+# ----------------------------------------------------------------------------
+# These `/operator/buddhas/*` routes are the canonical endpoints consumed by
+# the web frontend (see frontend/src/routes/Buddhas/index.jsx). A parallel set
+# of LLM tool-calling routes lives in divination.py under
+# `/divination/eighty-eight-buddhas/*`.
+#
+# NOTE: The two sets are intentionally NOT identical — they serve different
+# consumers and have diverged in surface area:
+#   * `random`        — operator version accepts `category` and inlines a
+#                       contemplation narrative; divination version returns
+#                       the raw Buddha dict and exposes narrative separately.
+#   * `liturgy` here  — calls `svc.get_confession_sequence()` (full liturgy).
+#     `confession`    — in divination.py calls `generate_repentance_narrative()`
+#                       (intention-driven narrative subset).
+#   * `recitation/start` — operator version passes through mala_cycles,
+#                          voice, role, project_id; divination version only
+#                          accepts intention + interval_seconds.
+# Both sets ultimately resolve to the same core services
+# (`core.eighty_eight_buddhas` and `core.buddha_recitation_loop`).
 # ============================================================================
 
 

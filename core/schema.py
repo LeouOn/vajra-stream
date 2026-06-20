@@ -37,11 +37,15 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION: int = 1
+SCHEMA_VERSION: int = 3
 SCHEMA_DESCRIPTION: str = (
-    "Initial centralized schema: extraction_runs, extraction_results, "
-    "astrology_locations, plus idempotent CREATE TABLE IF NOT EXISTS for all "
-    "pre-existing vajra-stream tables."
+    "v3: adds buddha_recitation_sessions (88-Buddha continuous recitation "
+    "container — intention, cycle/recitation counters, dedication, optional "
+    "link to a healing_dialogue_session). "
+    "v2: adds healing_dialogue_sessions (multi-turn LLM-guided healing "
+    "container — full transcript, summary, insights, linked chart/outlook). "
+    "v1: extraction_runs, extraction_results, astrology_locations, plus "
+    "idempotent CREATE TABLE IF NOT EXISTS for all pre-existing tables."
 )
 
 
@@ -161,6 +165,60 @@ _TABLE_DDL: tuple[tuple[str, str], ...] = (
     (
         "astrology_locations_idx_category",
         "CREATE INDEX IF NOT EXISTS idx_astrology_locations_category ON astrology_locations (category)",
+    ),
+    # --- v2: healing dialogue sessions (multi-turn LLM-guided healing container) ---
+    # See docs/specs/2026-06-17-healing-dialogue-design.md section 5.
+    # Stores full transcript + LLM-generated summary (fed to outlook) +
+    # structured key insights + linked chart + linked outlook.
+    (
+        "healing_dialogue_sessions",
+        """
+        CREATE TABLE IF NOT EXISTS healing_dialogue_sessions (
+            id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+            chart_id              INTEGER,
+            session_type          TEXT DEFAULT 'dialogue',
+            started_at            TIMESTAMP NOT NULL,
+            ended_at              TIMESTAMP,
+            transcript_json       TEXT NOT NULL,
+            summary               TEXT,
+            key_insights_json     TEXT,
+            phases_completed      TEXT,
+            recommended_practice  TEXT,
+            dedication_text       TEXT,
+            linked_outlook_id     INTEGER,
+            FOREIGN KEY (chart_id) REFERENCES saved_natal_charts(id)
+        )
+        """,
+    ),
+    (
+        "healing_dialogue_sessions_idx_chart_id",
+        "CREATE INDEX IF NOT EXISTS idx_healing_dialogue_sessions_chart_id ON healing_dialogue_sessions (chart_id)",
+    ),
+    # --- v3: 88-Buddha continuous recitation sessions ---
+    # Tracks one invocation of BuddhaRecitationLoop.start() through .stop().
+    # Counters (cycles_completed, total_recited) are updated in near real-time;
+    # ended_at + summary are stamped on stop(). A recitation session may be
+    # linked to a healing_dialogue_session when run as its dedicated practice.
+    (
+        "buddha_recitation_sessions",
+        """
+        CREATE TABLE IF NOT EXISTS buddha_recitation_sessions (
+            id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+            intention                TEXT,
+            started_at               TIMESTAMP NOT NULL,
+            ended_at                 TIMESTAMP,
+            cycles_completed         INTEGER DEFAULT 0,
+            total_recited            INTEGER DEFAULT 0,
+            dedication_text          TEXT,
+            summary                  TEXT,
+            linked_healing_session_id INTEGER,
+            FOREIGN KEY (linked_healing_session_id) REFERENCES healing_dialogue_sessions(id)
+        )
+        """,
+    ),
+    (
+        "buddha_recitation_sessions_idx_started_at",
+        "CREATE INDEX IF NOT EXISTS idx_buddha_recitation_sessions_started_at ON buddha_recitation_sessions (started_at)",
     ),
     # --- Pre-existing: outlook_narratives ---
     # DDL must match the column list created in

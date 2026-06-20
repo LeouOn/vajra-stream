@@ -30,6 +30,51 @@ class HealingSessionStarted(DomainEvent):
 
 
 @dataclass
+class HealingSessionCompleted(DomainEvent):
+    """Event: Healing dialogue session has completed.
+
+    Emitted when the multi-turn healing dialogue reaches the ``COMPLETED``
+    phase (after the Dedication phase lands). Carries the session id, the
+    generated summary text, and the structured key insights so downstream
+    consumers (OutlookService feedback loop, event log, etc.) can react
+    without re-querying the DB.
+    """
+
+    session_id: str
+    summary: str
+    key_insights: dict
+
+
+@dataclass
+class RecitationStarted(DomainEvent):
+    """Event: 88-Buddha recitation loop has started.
+
+    Emitted by :meth:`BuddhaRecitationLoop.start` after the DB session row
+    has been inserted. ``session_id`` is the integer primary key of the new
+    ``buddha_recitation_sessions`` row.
+    """
+
+    intention: str
+    session_id: int
+
+
+@dataclass
+class RecitationCompleted(DomainEvent):
+    """Event: 88-Buddha recitation loop has stopped.
+
+    Emitted by :meth:`BuddhaRecitationLoop.stop` after the DB row has been
+    finalized with ``ended_at`` + ``summary``. Carries the final counters
+    and the dedication text so downstream consumers (DailyStreak, event log)
+    can react without re-querying the DB.
+    """
+
+    session_id: int
+    cycles_completed: int
+    total_recited: int
+    dedication_text: str | None
+
+
+@dataclass
 class ScalarWavesGenerated(DomainEvent):
     """Event: Scalar waves have been generated"""
 
