@@ -20,41 +20,20 @@ Covers:
 from __future__ import annotations
 
 import sqlite3
-from typing import Any
+import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+# The StubDialogue / FakeEmptyRegistry doubles live in the healing-dialogue
+# conftest and are shared with tests/core/healing_dialogue/test_service.py.
+# Add that directory to sys.path so we can import them here without duplicating.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "healing_dialogue"))
+from conftest import FakeEmptyRegistry, StubDialogue  # noqa: E402
+
 from core.schema import apply_schema
 from modules.healing_dialogue import HealingDialogueService
-
-# ---------------------------------------------------------------------------
-# Test doubles (mirror tests/core/healing_dialogue/test_service.py)
-# ---------------------------------------------------------------------------
-
-
-class StubDialogue:
-    """Stand-in for AsyncHealingDialogue whose respond() returns a canned dict."""
-
-    def __init__(self, response: dict[str, Any] | None = None) -> None:
-        self.next_response: dict[str, Any] = response or {
-            "content": "I am here with you.",
-            "phase_hint": None,
-            "insights_update": {},
-        }
-        self.calls: list[dict[str, Any]] = []
-
-    async def respond(self, **kwargs: Any) -> dict[str, Any]:
-        self.calls.append({"kwargs": dict(kwargs), "result": dict(self.next_response)})
-        return dict(self.next_response)
-
-
-class FakeEmptyRegistry:
-    """Registry stub whose pick_best() returns None (forces fallback summary)."""
-
-    async def pick_best(self):
-        return None
-
 
 # ---------------------------------------------------------------------------
 # Fixture

@@ -23,48 +23,12 @@ Covers:
 from __future__ import annotations
 
 import sqlite3
-from typing import Any
 
 import pytest
 
+from conftest import FakeEmptyRegistry, StubDialogue
 from core.schema import apply_schema
 from modules.healing_dialogue import HealingDialogueService
-
-# ---------------------------------------------------------------------------
-# Test doubles
-# ---------------------------------------------------------------------------
-
-
-class StubDialogue:
-    """Stand-in for AsyncHealingDialogue whose respond() returns a canned dict.
-
-    Tests can mutate ``next_response`` between calls to simulate different LLM
-    turns. ``calls`` records every invocation for assertions.
-    """
-
-    def __init__(self, response: dict[str, Any] | None = None) -> None:
-        self.next_response: dict[str, Any] = response or {
-            "content": "I am here with you.",
-            "phase_hint": None,
-            "insights_update": {},
-        }
-        self.calls: list[dict[str, Any]] = []
-
-    async def respond(self, **kwargs: Any) -> dict[str, Any]:
-        # Record a shallow copy so later mutations don't rewrite history.
-        self.calls.append({"kwargs": dict(kwargs), "result": dict(self.next_response)})
-        return dict(self.next_response)
-
-
-class FakeEmptyRegistry:
-    """Registry stub whose pick_best() always returns None.
-
-    Used so the summary path takes the deterministic fallback (no LLM call).
-    """
-
-    async def pick_best(self):
-        return None
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
