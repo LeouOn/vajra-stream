@@ -6,7 +6,7 @@ scalar wave generation metrics, thermal state, and system load
 from the Terra MOPS engine.
 """
 
-import asyncio
+import time
 
 from fastapi import APIRouter, HTTPException
 
@@ -20,7 +20,7 @@ async def get_current_mops():
     """Get current rolling averages for MOPS telemetry"""
     try:
         averages = mops_engine.get_rolling_averages()
-        return {"status": "success", "mops": averages, "timestamp": asyncio.get_event_loop().time()}
+        return {"status": "success", "mops": averages, "timestamp": time.time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -30,6 +30,6 @@ async def get_mops_history():
     """Get cumulative session statistics for MOPS"""
     try:
         history = mops_engine.get_history()
-        return {"status": "success", "history": history, "timestamp": asyncio.get_event_loop().time()}
+        return {"status": "success", "history": history, "timestamp": time.time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
