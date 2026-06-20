@@ -89,24 +89,10 @@ npm run build
 
 ## 4. Development Roadmap & Milestones
 
-The roadmap outlines the maturation of the platform:
+The platform has evolved through five phases:
 
-```
-┌───────────────────────────┐      ┌───────────────────────────┐
-│     Phase 1: MVP Core     │ ───> │   Phase 2: UI Expansion   │
-│  - Carrier wave synthesis │      │  - React Dashboard panels │
-│  - Basic Crystal Grids    │      │  - Interactive RNG needle │
-└───────────────────────────┘      └───────────────────────────┘
-                                                 │
-                                                 ▼
-┌───────────────────────────┐      ┌───────────────────────────┐
-│   Phase 4: Scaling Out    │ <─── │   Phase 3: Integration    │
-│  - Distributed networks   │      │  - WebSocket state loops  │
-│  - Mobile client outputs  │      │  - Lunar calendar engines │
-└───────────────────────────┘      └───────────────────────────┘
-```
-
--   **Phase 1 (Completed):** Sound synthesis engines, E-meter simulation math, and terminal commands.
--   **Phase 2 (Completed):** React UI widgets, Three.js 3D canvas renderers, and SQLite schema integration.
--   **Phase 3 (Current):** WebSocket real-time event broadcasting, `lunar-python` Saka Dawa integration, and cleaning up documentation drift.
--   **Phase 4 (Future):** Porting outputs to mobile devices, connecting actual hardware transmitters, and implementing multi-session network broadcasting.
+- **Phase 1 (v0.1.0, completed):** Core synthesis engines, E-meter simulation math, terminal commands, FastAPI backend, React/Vite frontend with 3D visualizations, WebSocket streaming, and initial knowledge bases.
+- **Phase 2 (v0.2.0, completed):** Astrology expansion (8 new systems), TTS integration, tooling modernization (ruff, mypy, pytest, CI/CD), session lifecycle events, and 6 new visualization components.
+- **Phase 3 (v0.3.0–v0.4.0, completed):** 33+ remediation items (ghost paths, dead code, hardcoded values), TypeScript migration (50 components to .tsx, 0 .jsx in active code), Ant Design integration, astrology extraction pipeline, and unified TTS provider.
+- **Phase 4 (v0.5.0–v0.7.0, completed):** Async LLM provider refactor (7-provider registry with health-check), healing dialogue system (5-phase container with DB persistence), UI/UX overhaul (12→5 grouped routes), deferred cleanup sweeps (7 deferred items), and sync-and-fixes (6 critical bugs, test suite deduplication 549→~350).
+- **Phase 5 (proposed):** Mobile client outputs, hardware transmitter integration, multi-session network broadcasting, and distributed deployment.

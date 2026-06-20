@@ -4,6 +4,8 @@
 
 This directory contains comprehensive documentation for the Vajra.Stream healing technology system.
 
+> **Recent Activity:** For the 2026-06-20 deep evaluation and cleanup, see `.omo/plans/cleanup-after-evaluation.md`.
+
 ## Directory Structure
 
 ```
@@ -190,5 +192,5 @@ _May the work documented here benefit all beings._
 
 ---
 
-*Last Updated: November 2024*
-*Documentation Version: 1.0*
+*Last Updated: 2026-06-20*
+*Documentation Version: 1.1*
