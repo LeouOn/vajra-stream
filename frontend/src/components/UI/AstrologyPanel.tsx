@@ -121,7 +121,13 @@ export default function AstrologyPanel() {
       const response = await fetch(`/api/v1/astrology/charts`);
       if (response.ok) {
         const data = await response.json();
-        setCharts(data);
+        // Deduplicate by chart id (last write wins) — prevents the same
+        // profile from appearing multiple times in the saved-charts list.
+        const seen = new Map();
+        for (const c of (Array.isArray(data) ? data : [])) {
+          if (c && c.id != null) seen.set(c.id, c);
+        }
+        setCharts(Array.from(seen.values()));
       }
     } catch (e) {
       console.error("Error fetching saved charts:", e);
@@ -179,14 +185,6 @@ export default function AstrologyPanel() {
     }, 20000);
     return () => clearInterval(interval);
   }, [isLiveMode]);
-
-  useEffect(() => {
-    if (charts.length > 0 && !activeChart) {
-      setActiveChart(charts[0]);
-      setTransitChart(charts[0]);
-      setIsLiveMode(false);
-    }
-  }, [charts, activeChart]);
 
   // Helper: extract error detail from a failed fetch response
   const _readError = async (response) => {
@@ -330,6 +328,18 @@ export default function AstrologyPanel() {
       recalculateChart(chart.id);
     }
   };
+
+  // Auto-load the first saved chart's natal data when charts arrive, so the
+  // "Date & Time" header + ephemeris view populate immediately instead of
+  // staying stuck on "Loading…" / "Computing ephemeris…".
+  // Placed AFTER loadNatalChart/recalculateChart so TDZ isn't a concern.
+  useEffect(() => {
+    if (charts.length > 0 && !activeChart) {
+      const first = charts[0];
+      setTransitChart(first);
+      loadNatalChart(first);
+    }
+  }, [charts, activeChart, loadNatalChart]);
 
   const recalculateChart = async (id) => {
     setLoading(true);
@@ -657,7 +667,9 @@ export default function AstrologyPanel() {
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">MOON ILLUMINATION</span>
                           <span className="text-sm font-bold text-cyan-400 block mt-1">
-                            {activeData?.moon_phase?.illumination?.toFixed(1) + '%' || '—'}
+                            {activeData?.moon_phase?.illumination != null
+                              ? activeData.moon_phase.illumination.toFixed(1) + '%'
+                              : '—'}
                           </span>
                         </Card>
                       </Col>
