@@ -318,6 +318,17 @@ class BuddhaRecitationLoop:
                     role=self.state.role,
                 )
                 if path:
+                    try:
+                        import sounddevice as sd
+                        import soundfile as sf
+
+                        data, samplerate = sf.read(path)
+                        sd.play(data, samplerate)
+                        sd.wait()
+                    except Exception as e:
+                        logger.warning(
+                            "TTS playback failed (file synthesized at %s): %s", path, e
+                        )
                     return True
             except Exception as e:
                 logger.debug("TTSProvider speak failed, trying legacy reciter: %s", e)

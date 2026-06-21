@@ -32,134 +32,252 @@ FastAPI web application and API server.
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application entry point
-│   ├── api/v1/endpoints/          # API endpoint modules (14 files)
-│   │   ├── audio.py              # Audio generation/playback
-│   │   ├── sessions.py           # Session management
-│   │   ├── astrology.py          # Astrological calculations
-│   │   ├── scalar_waves.py       # Scalar wave operations
-│   │   ├── radionics.py          # Radionics rates
+│   ├── api/v1/endpoints/          # API endpoint modules (30 files)
+│   │   ├── agent_suggestions.py  # Agent suggestion endpoints
 │   │   ├── anatomy.py            # Energetic anatomy
-│   │   ├── blessings.py          # Blessing generation
-│   │   ├── visualization.py      # Visualization generation
-│   │   ├── rng_attunement.py     # RNG attunement
-│   │   ├── populations.py        # Population management
+│   │   ├── astrology.py          # Astrological calculations
+│   │   ├── audio.py              # Audio generation/playback
 │   │   ├── automation.py         # Automation workflows
-│   │   └── ...
-│   └── config.py                  # API configuration
-├── core/
-│   ├── services/                  # Business logic services (7 files)
-│   │   ├── vajra_service.py
-│   │   ├── audio_service.py
-│   │   ├── blessing_scheduler.py
-│   │   ├── rng_attunement_service.py
-│   │   └── ...
-│   ├── orchestrator_bridge.py     # Event bus bridge
-│   └── __init__.py
+│   │   ├── blessing_slideshow.py # Blessing slideshow
+│   │   ├── blessings.py          # Blessing generation
+│   │   ├── dharma_tales.py       # Dharma tale generation
+│   │   ├── divination.py         # Divination endpoints
+│   │   ├── extraction.py         # Astrology extraction pipeline
+│   │   ├── healing_dialogue.py   # Healing dialogue system (NEW)
+│   │   ├── llm.py                # LLM provider endpoints
+│   │   ├── locations.py          # Astrology locations CRUD
+│   │   ├── mops.py               # MOPS (Multi-Operator System)
+│   │   ├── operator.py           # Operator tools (Saka Dawa, etc.)
+│   │   ├── outlook.py            # Outlook generation
+│   │   ├── personal_healing.py   # Personal healing
+│   │   ├── populations.py        # Population management
+│   │   ├── prayer_wheel.py       # Prayer wheel automation
+│   │   ├── radionics.py          # Radionics rates
+│   │   ├── radionics_narratives.py # Radionics narratives
+│   │   ├── ritual_engine.py      # Ritual engine
+│   │   ├── rng_attunement.py     # RNG attunement
+│   │   ├── scalar_waves.py       # Scalar wave operations
+│   │   ├── sessions.py           # Session management
+│   │   ├── sigils.py             # Sigil generation
+│   │   ├── time_cycles.py        # Time cycle operations
+│   │   ├── tts.py                # Text-to-speech
+│   │   └── visualization.py      # Visualization generation
+│   └── config.py                  # API configuration (shim for config/settings.py)
 ├── websocket/                     # WebSocket connection management
-│   ├── connection_manager_stable_v2.py  # Active WebSocket manager
-│   └── ...
+│   └── connection_manager_stable_v2.py  # Canonical WebSocket manager
 ├── tests/                         # Backend integration tests
-│   ├── test_integration.py
-│   ├── conftest.py
-│   └── __init__.py
 └── requirements.txt               # Backend-specific dependencies
 ```
 
 **Key Files:**
 - **`app/main.py`**: FastAPI app initialization, CORS, routing, lifespan management
-- **`api/v1/endpoints/*.py`**: RESTful API endpoints for each feature module
+- **`api/v1/endpoints/*.py`**: 30 RESTful API endpoint modules covering all feature areas
 - **`websocket/connection_manager_stable_v2.py`**: Real-time WebSocket streaming (10Hz)
 
 ## Core (`core/`)
 
-Core processing engines and algorithms.
+Core processing engines and algorithms (44 Python files).
 
 ```
 core/
-├── audio_generator.py             # Scalar wave and frequency generation
-├── enhanced_audio_generator.py    # Prayer bowl synthesis
-├── astrocartography.py            # Astrocartography calculations (798 lines)
-├── astrology.py                   # Astrological services
-├── blessing_narratives.py         # Blessing narrative generation
-├── compassionate_blessings.py     # Compassionate blessing engine
-├── energetic_anatomy.py           # Chakra and meridian systems
-├── energetic_visualization.py     # Energy field visualization
-├── healing_systems.py             # Healing protocol engine
-├── intelligent_composer.py        # AI-powered audio composition
-├── meridian_visualization.py      # Meridian pathway visualization
-├── prayer_wheel.py                # Prayer wheel automation
-├── radionics_engine.py            # Radionics rate calculations
-├── rothko_generator.py            # Rothko-style visualization
-├── time_cycle_broadcaster.py      # Time-based broadcasting
-└── __init__.py
-<!-- removed: ghost services subpackage (ghost path per remediation-18 / Issue 5.8) -->
+├── astrology.py                   # Astrological services (111 KB — largest core file)
+├── energetic_anatomy.py           # Chakra and meridian systems (56 KB)
+├── blessing_narratives.py         # Blessing narrative generation (40 KB)
+├── radionics_tools.py             # Radionics tool functions (40 KB)
+├── outlook_generator.py           # Outlook generation (39 KB)
+├── extraction.py                  # Astrology extraction pipeline (28 KB)
+├── ritual_engine.py               # Autonomous ritual scheduler (28 KB)
+├── astrocartography.py            # Astrocartography calculations (28 KB)
+├── compassionate_blessings.py     # Compassionate blessing engine (27 KB)
+├── radionics_engine.py            # Radionics rate calculations (26 KB)
+├── enhanced_tts.py                # Enhanced TTS (25 KB)
+├── energetic_visualization.py     # Energy field visualization (25 KB)
+├── healing_systems.py             # Healing protocol engine (24 KB)
+├── auspicious_timing.py           # Auspicious timing calculations (24 KB)
+├── advanced_scalar_waves.py       # Advanced scalar wave generation (21 KB)
+├── tts_provider.py                # Unified TTS provider (20 KB)
+├── tts_integration.py             # TTS integration layer (20 KB)
+├── character_generator.py         # Character generation (20 KB)
+├── time_cycle_broadcaster.py      # Time-based broadcasting (20 KB)
+├── integrated_scalar_radionics.py # Integrated scalar-radionics (19 KB)
+├── schema.py                      # Centralized schema + migration runner (19 KB)
+├── buddha_recitation_loop.py      # 88-Buddha recitation loop (19 KB)
+├── meridian_visualization.py      # Meridian pathway visualization (18 KB)
+├── intelligent_composer.py        # AI-powered audio composition (18 KB)
+├── audio_generator.py             # Scalar wave and frequency generation (18 KB)
+├── context_builder.py             # Context assembly for LLM prompts (18 KB)
+├── assessment.py                  # Assessment engine (17 KB)
+├── prayer_wheel.py                # Prayer wheel automation (17 KB)
+├── qwen_tts.py                    # Qwen3-TTS backend (16 KB)
+├── eighty_eight_buddhas.py        # 88-Buddha practice data (15 KB)
+├── healing_session.py             # Healing session management (15 KB)
+├── dharma_tales.py                # Dharma tale generation (14 KB)
+├── character_journey.py           # Character journey engine (13 KB)
+├── ritual_sequencer.py            # Ritual sequencing (12 KB)
+├── rothko_generator.py            # Rothko-style visualization (12 KB)
+├── enhanced_audio_generator.py    # Prayer bowl synthesis (11 KB)
+├── internet_context.py            # Internet context retrieval (11 KB)
+├── tts_engine.py                  # TTS engine base (10 KB)
+├── knowledge_index.py             # Knowledge indexing (10 KB)
+├── protocol_selector.py           # Protocol selection (8 KB)
+├── buddha_tts.py                  # Buddha-specific TTS (8 KB)
+├── chinese_invocations.py         # Chinese invocation data (7 KB)
+├── visual_renderer_simple.py      # Simple visual renderer (6 KB)
+└── __init__.py                    # Package init
 ```
 
 **Key Files:**
-- **`astrocartography.py`**: Planetary line calculations, parans, local space
+- **`astrology.py`**: Comprehensive astrological calculations (111 KB)
 - **`blessing_narratives.py`**: LLM-powered blessing generation
 - **`radionics_engine.py`**: Radionics rate database and calculations
+- **`buddha_recitation_loop.py`**: 88-Buddha recitation with TTS playback
+- **`schema.py`**: Centralized database schema and migration runner
 
 ## Modules (`modules/`)
 
-Feature modules and integrations.
+Feature modules and integrations (25 Python files).
 
 ```
 modules/
-├── astrology.py                   # Astrology module wrapper
-├── audio.py                       # Audio module
-├── blessings.py                   # Blessing module
-├── healing.py                     # Healing protocols module
-├── radionics.py                   # Radionics module
-├── visualization.py               # Visualization module
-└── __init__.py
+├── radionics_operator.py          # Radionics operator (75 KB — largest module)
+├── healing_dialogue.py            # Healing dialogue system (33 KB — NEW)
+├── outlook.py                     # Outlook module (22 KB)
+├── personal_healing.py            # Personal healing (15 KB)
+├── blessings.py                   # Blessing module (14 KB)
+├── llm.py                         # LLM integration (9 KB)
+├── interfaces.py                  # Module interfaces (8 KB)
+├── audio.py                       # Audio module (7 KB)
+├── anatomy.py                     # Anatomy module (6 KB)
+├── healing.py                     # Healing protocols (6 KB)
+├── visualization.py               # Visualization module (5 KB)
+├── astrology.py                   # Astrology module wrapper (5 KB)
+├── blessing_router.py             # Blessing routing (5 KB)
+├── wave_manager.py                # Wave management (5 KB)
+├── composer.py                    # Audio composition (5 KB)
+├── scalar_waves.py                # Scalar wave module (5 KB)
+├── enhanced_scalar_waves.py       # Enhanced scalar waves (4 KB)
+├── radionics_enhancer.py          # Radionics enhancement (4 KB)
+├── time_cycles.py                 # Time cycle module (4 KB)
+├── prayer_wheel.py                # Prayer wheel module (4 KB)
+├── radionics.py                   # Radionics module (4 KB)
+├── crystal.py                     # Crystal grid module (3 KB)
+├── tts_integration.py             # TTS integration (3 KB)
+├── dharma_tales.py                # Dharma tales module (2 KB)
+└── __init__.py                    # Package init
 ```
+
+**Key Files:**
+- **`radionics_operator.py`**: Full radionics broadcasting system (75 KB)
+- **`healing_dialogue.py`**: 5-phase healing dialogue container with DB persistence (33 KB)
 
 ## Frontend (`frontend/`)
 
-React/Vite web application with 3D visualizations.
+React/Vite web application with 3D visualizations (126 TypeScript/TSX files, 2 legacy JSX files).
 
 ```
 frontend/
 ├── src/
 │   ├── components/
 │   │   ├── 3D/                   # Three.js 3D components
-│   │   │   ├── SacredGeometry.jsx
-│   │   │   ├── Astrocartography.jsx  # NEW: 3D Earth visualization
-│   │   │   ├── CrystalGrid.jsx
-│   │   │   ├── SacredMandala.jsx
-│   │   │   └── RadionicsVisualization.jsx
-│   │   ├── 2D/                   # 2D Canvas components
-│   │   │   └── AudioSpectrum.jsx
-│   │   └── UI/                   # Control panel components
-│   │       ├── ControlPanel.jsx
-│   │       ├── SessionManager.jsx
-│   │       ├── StatusIndicator.jsx
-│   │       ├── VisualizationSelector.jsx
-│   │       ├── RNGAttunement.jsx
-│   │       ├── BlessingSlideshow.jsx
-│   │       ├── PopulationManager.jsx
-│   │       └── AutomationControl.jsx
+│   │   │   ├── SacredGeometry.tsx
+│   │   │   ├── Astrocartography.tsx
+│   │   │   ├── CrystalGrid.tsx
+│   │   │   ├── SacredMandala.tsx
+│   │   │   └── RadionicsVisualization.tsx
+│   │   ├── 2D/                   # 2D Canvas components (.tsx)
+│   │   │   └── AudioSpectrum.tsx
+│   │   └── UI/                   # Control panel components (50 .tsx files)
+│   │       ├── ControlPanel.tsx
+│   │       ├── SessionManager.tsx
+│   │       ├── StatusIndicator.tsx
+│   │       ├── RNGAttunement.tsx
+│   │       ├── BlessingSlideshow.tsx
+│   │       ├── PopulationManager.tsx
+│   │       ├── AutomationControl.tsx
+│   │       ├── BodhicittaBanner.tsx
+│   │       ├── RitualMonitor.tsx
+│   │       ├── AstrologyExtractionPanel.tsx
+│   │       ├── NatalChartWheel.tsx
+│   │       ├── SynastryViewer.tsx
+│   │       ├── ExportPanel.tsx
+│   │       ├── OutlookDashboard.tsx
+│   │       ├── TTSPlayer.tsx
+│   │       └── ... (50 total)
+│   ├── routes/                   # Route-level page components
+│   │   ├── Practice/             # Practice-related routes
+│   │   ├── Sanctuary/            # Healing dialogue sanctuary
+│   │   ├── Buddhas/              # 88-Buddha practice
+│   │   ├── Operations/           # Radionics, scalar waves, etc.
+│   │   └── Settings/             # Configuration and settings
 │   ├── hooks/
-│   │   ├── useWebSocket.js       # WebSocket connection hook
-│   │   └── useWebSocketStable.js
+│   │   ├── useWebSocket.ts       # WebSocket connection hook
+│   │   └── useWebSocketStable.ts
 │   ├── stores/
-│   │   └── audioStore.js         # Zustand state management
-│   ├── App.jsx                   # Main application component
-│   ├── main.jsx                  # React entry point
-│   └── index.css                 # Global styles
+│   │   ├── audioStore.ts         # Audio state (Zustand)
+│   │   └── commandStore.ts       # Command state
+│   ├── lib/
+│   │   └── colors.js             # Brand color single source of truth
+│   ├── utils/
+│   │   └── api.ts                # Proxy-relative URL helper
+│   ├── App.tsx                   # Main application component
+│   ├── main.tsx                  # React entry point
+│   └── index.css                 # Global styles (Tailwind + CSS variables)
 ├── public/                        # Static assets
 ├── package.json                   # Frontend dependencies
-├── vite.config.js                 # Vite configuration (port 3009, proxy to 8008)
+├── vite.config.ts                 # Vite configuration (port 3009, proxy to 8008)
 ├── tailwind.config.js             # Tailwind CSS configuration
 ├── .prettierrc                    # Prettier configuration
 └── .eslintrc.json                 # ESLint configuration
 ```
 
 **Key Files:**
-- **`App.jsx`**: Main app structure with vertical layout (viz top, controls bottom)
-- **`components/3D/Astrocartography.jsx`**: New 3D Earth with planetary lines
-- **`stores/audioStore.js`**: Audio state management with API integration
+- **`App.tsx`**: Main app structure with vertical layout (viz top, controls bottom)
+- **`components/UI/`**: 50 TypeScript control panel components
+- **`routes/`**: 7 grouped routes (Command Center, Practice, Cosmic Clock, Outlook, Operations, Grimoire, Settings); 5 route subdirectories on disk (Practice, Operations, Settings + tab-content dirs Sanctuary, Buddhas)
+- **`stores/audioStore.ts`**: Audio state management with API integration
+
+## Routes (`frontend/src/routes/`)
+
+Route-level page components organized by feature area (consolidated from 12 routes).
+
+```
+frontend/src/routes/
+├── Practice/          # Core practice routes (blessings, healing, astrology, visualization)
+├── Sanctuary/         # Healing dialogue sanctuary with 5-phase container UI
+├── Buddhas/           # 88-Buddha recitation practice
+├── Operations/        # Radionics, scalar waves, MOPS, ritual engine
+└── Settings/          # Configuration, TTS settings, provider management
+```
+
+## Async LLM Layer (`core/llm/`, `core/context/`)
+
+Provider-agnostic LLM integration with structured context assembly.
+
+```
+core/llm/                          # LLM provider layer (12 files)
+├── registry.py                    # 7-provider registry (OpenAI, Anthropic, DeepSeek, MiniMax, Groq, OpenRouter, local)
+├── health.py                      # Health-check heartbeat with provider availability
+├── base.py                        # Base provider interface
+├── models.py                      # Provider model definitions
+├── cache.py                       # Response caching
+├── retry.py                        # Retry logic with backoff
+├── usage.py                       # Usage tracking and quotas
+├── bootstrap.py                   # Provider initialization
+├── legacy_adapter.py              # Legacy LLM adapter
+├── dharma.py                      # Dharma-specific LLM prompts
+├── healing.py                     # Healing-specific LLM prompts
+└── __init__.py
+
+core/context/                      # Context assembly layer (8 files)
+├── base.py                        # Base context module
+├── models.py                      # Context data models
+├── anatomy.py                     # Energetic anatomy context
+├── astrology.py                   # Astrological context
+├── buddha_recitation.py           # Buddha recitation context
+├── hardware.py                    # Hardware state context
+├── healing_dialogue.py            # Healing dialogue context
+└── __init__.py
+```
 
 ## Hardware (`hardware/`)
 
@@ -188,12 +306,11 @@ Application configuration files.
 ```
 config/
 └── settings.py                    # Core settings (audio, hardware, paths)
-<!-- removed: ghost enhanced settings module (ghost path per remediation-18 / Issue 5.8) -->
 ```
 
 ## Knowledge (`knowledge/`)
 
-Knowledge bases and reference data (JSON format).
+Knowledge bases and reference data (25 files, JSON format).
 
 ```
 knowledge/
@@ -215,7 +332,7 @@ knowledge/
 
 ## Scripts (`scripts/`)
 
-Utility and orchestration scripts.
+Utility and orchestration scripts (35 Python files).
 
 ```
 scripts/
@@ -223,40 +340,41 @@ scripts/
 ├── vajra_orchestrator.py
 ├── astrocartography_analysis.py   # CLI tool for astrocartography
 ├── radionics_operation.py
-<!-- removed: ghost visualizer script (ghost path per remediation-18 / Issue 5.8) -->
-└── ... (25+ utility scripts)
+└── ... (35 total utility scripts)
 ```
 
 ## Tests (`tests/`)
 
-**Organized test suite** (reorganized from 37 scattered files).
+**Organized test suite** (~350 Python tests after deduplication).
 
 ```
 tests/
-├── unit/                          # Unit tests (18 files)
+├── unit/                          # Unit tests
 │   ├── test_audio_*.py           # Audio-related tests
 │   ├── test_rng_*.py             # RNG tests
 │   ├── test_tts_system.py
-│   ├── test_basic_functionality.py
 │   └── ...
-├── integration/                   # Integration tests (16 files)
+├── integration/                   # Integration tests
 │   ├── test_full_integration.py
 │   ├── test_websocket_*.py       # WebSocket connection tests
-│   ├── test_module_connections.py
 │   └── ...
-├── e2e/                           # End-to-end tests (placeholder)
-├── scripts/                       # Deprecated (being migrated)
-├── test_foundation.py
-├── test_integration_phase2.py
-├── test_api_endpoints.py
-├── test_radionics_enhancer.py
+├── backend/                       # Backend-specific tests
+│   ├── test_saka_dawa_endpoint.py
+│   └── ...
+├── core/                          # Core module tests
+│   ├── test_buddha_recitation_loop_tts.py
+│   └── ...
+├── e2e/                           # End-to-end tests
+├── conftest.py                    # Shared pytest fixtures
 └── README.md                      # Test suite documentation
 ```
 
 **Test Organization:**
 - **Unit tests**: Individual module/function tests
 - **Integration tests**: Multi-module interaction tests
-- **E2E tests**: Full user workflow tests (to be implemented)
+- **Backend tests**: API endpoint tests
+- **Core tests**: Core engine tests
+- **E2E tests**: Full user workflow tests
 
 ## Documentation (`docs/`)
 
@@ -264,37 +382,15 @@ tests/
 
 ```
 docs/
-├── api/                           # API documentation
-│   ├── BACKEND_API_ENDPOINTS_SPECIFICATION.md
-│   ├── UNIFIED_API_ARCHITECTURE.md
-│   ├── WEB_ARCHITECTURE.md
-│   └── WEBSOCKET_RADIONICS_PROTOCOL.md
-├── architecture/                  # System architecture
-│   ├── COMPREHENSIVE_IMPLEMENTATION_GUIDE.md
-│   ├── UNIFIED_ARCHITECTURE.md
-│   └── ...
-├── features/                      # Feature specifications
-│   ├── FEATURES.md
-│   ├── HEALING_SYSTEMS_SUMMARY.md
-│   └── VISUALIZATION_SPEC.md
-├── guides/                        # User and developer guides
-│   ├── USAGE_GUIDE.md
-│   ├── ASTROCARTOGRAPHY_GUIDE.md
-│   ├── BLESSING_NARRATIVES_GUIDE.md
-│   ├── PRAYER_BOWL_AUDIO.md
-│   ├── SCALAR_WAVE_THEORY.md
-│   └── ...
-├── implementation/                # Implementation details
-│   ├── BACKEND_IMPLEMENTATION.md
-│   ├── FRONTEND_IMPLEMENTATION.md
-│   ├── IMPLEMENTATION_ROADMAP.md
-│   └── ...
-├── radionics/                     # Radionics documentation
-│   ├── RADIONICS_MASTER_GUIDE.md
-│   ├── PHYSICAL_RADIONICS_SETUP.md
-│   └── ...
-├── DEVELOPMENT_ROADMAP.md
-├── PROGRESS_TRACKER.md
+├── _archive/                      # Deprecated/stale docs (deliberate one-time archive)
+├── decisions/                     # Architecture Decision Records (ADRs)
+├── pr-reviews/                    # Pull-request review notes
+├── specs/                         # Specifications
+├── superpowers/                   # Superpowers skill documentation
+├── ARCHITECTURE.md                # System architecture overview
+├── DEVELOPMENT.md                 # Development guide
+├── FEATURES_REFERENCE.md          # Feature reference
+├── OPERATIONS_GUIDE.md            # Operations guide
 └── README.md                      # Documentation index
 ```
 
@@ -304,21 +400,20 @@ Essential files in project root:
 
 ```
 /
-├── README.md                      # ✓ Project overview (KEEP)
-├── START_HERE.md                  # ✓ Quick start guide (KEEP)
-├── QUICKSTART.md                  # ✓ Fast setup (KEEP)
-├── API_DOCUMENTATION.md           # ✓ Comprehensive API docs (KEEP)
-├── CONTRIBUTING.md                # ✓ Contribution guidelines (NEW)
-├── CHANGELOG.md                   # ✓ Version history (NEW)
-├── PROJECT_STRUCTURE.md           # ✓ This file (NEW)
-├── pyproject.toml                 # ✓ Python package config (NEW)
-├── .gitignore                     # ✓ Git ignore rules
-├── .editorconfig                  # ✓ Editor settings (NEW)
-├── .flake8                        # ✓ Flake8 config (NEW)
+├── README.md                      # Project overview
+├── START_HERE.md                  # Quick start guide
+├── QUICKSTART.md                  # Fast setup
+├── API_DOCUMENTATION.md           # Comprehensive API docs
+├── CONTRIBUTING.md                # Contribution guidelines
+├── CHANGELOG.md                   # Version history
+├── PROJECT_STRUCTURE.md           # This file
+├── pyproject.toml                 # Python package config
+├── .gitignore                     # Git ignore rules
+├── .editorconfig                  # Editor settings
+├── .flake8                        # Flake8 config
 ├── requirements.txt               # Python dependencies
 ├── requirements-minimal.txt       # Minimal dependencies
 └── container.py                   # Dependency injection container
-<!-- removed: deleted root entrypoints (ghost path per remediation-18 / Issue 5.8) -->
 ```
 
 ## File Naming Conventions
@@ -328,10 +423,10 @@ Essential files in project root:
 - **Tests**: `test_*.py`
 - **Scripts**: `descriptive_name.py`
 
-### JavaScript Files
-- **Components**: `PascalCase.jsx`
-- **Utilities**: `camelCase.js`
-- **Tests**: `*.test.js` or `*.spec.js`
+### TypeScript Files
+- **Components**: `PascalCase.tsx`
+- **Utilities**: `camelCase.ts`
+- **Tests**: `*.test.ts` or `*.spec.ts`
 
 ### Documentation
 - **Main docs**: `UPPERCASE_WITH_UNDERSCORES.md`
@@ -377,7 +472,7 @@ Essential files in project root:
 ## Version Control
 
 ### What's Tracked
-- Source code (`.py`, `.js`, `.jsx`)
+- Source code (`.py`, `.ts`, `.tsx`)
 - Configuration files
 - Documentation (`.md`)
 - Knowledge bases (`.json`)
@@ -410,12 +505,12 @@ Essential files in project root:
 ### Code Quality
 - **`pyproject.toml`**: Black, isort, pytest, mypy, coverage config
 - **`.flake8`**: Python linting rules
-- **`frontend/.prettierrc`**: JavaScript formatting
-- **`frontend/.eslintrc.json`**: JavaScript linting
+- **`frontend/.prettierrc`**: TypeScript formatting
+- **`frontend/.eslintrc.json`**: TypeScript linting
 - **`.editorconfig`**: Editor consistency
 
 ### Build Tools
-- **`frontend/vite.config.js`**: Vite build configuration
+- **`frontend/vite.config.ts`**: Vite build configuration
 - **`frontend/tailwind.config.js`**: Tailwind CSS configuration
 
 ### Runtime
@@ -432,5 +527,5 @@ See:
 
 ---
 
-**Last Updated:** 2024-11-20
+**Last Updated:** 2026-06-20
 **Maintainer:** Vajra.Stream Development Team

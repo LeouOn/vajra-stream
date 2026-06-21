@@ -9,15 +9,15 @@ Welcome! Your sacred technology system is ready to use.
 # Windows: .venv\Scripts\activate
 # Unix:    source .venv/bin/activate
 
-# Install dependencies
-python run.py install
-
-# Start full system (backend + frontend)
+# Start full system (backend + frontend) — PRIMARY COMMAND
 python run.py full
 
 # Or start individually:
 python run.py serve          # Backend API on port 8008
 python run.py frontend       # Frontend dev server on port 3009
+
+# Install dependencies (first time only)
+python run.py install
 ```
 
 All commands available:

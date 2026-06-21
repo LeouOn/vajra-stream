@@ -1,0 +1,69 @@
+﻿diff --git a/START_HERE.md b/START_HERE.md
+index 23cb4d0..f14ec36 100644
+--- a/START_HERE.md
++++ b/START_HERE.md
+@@ -9,15 +9,15 @@ Welcome! Your sacred technology system is ready to use.
+ # Windows: .venv\Scripts\activate
+ # Unix:    source .venv/bin/activate
+ 
+-# Install dependencies
+-python run.py install
+-
+-# Start full system (backend + frontend)
++# Start full system (backend + frontend) 窶・PRIMARY COMMAND
+ python run.py full
+ 
+ # Or start individually:
+ python run.py serve          # Backend API on port 8008
+ python run.py frontend       # Frontend dev server on port 3009
++
++# Install dependencies (first time only)
++python run.py install
+ ```
+ 
+ All commands available:
+diff --git a/docs/DEVELOPMENT.md b/docs/DEVELOPMENT.md
+index 0210059..e81a8b4 100644
+--- a/docs/DEVELOPMENT.md
++++ b/docs/DEVELOPMENT.md
+@@ -89,24 +89,10 @@ npm run build
+ 
+ ## 4. Development Roadmap & Milestones
+ 
+-The roadmap outlines the maturation of the platform:
++The platform has evolved through five phases:
+ 
+-```
+-笏娯楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・     笏娯楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・-笏・    Phase 1: MVP Core     笏・笏笏笏> 笏・  Phase 2: UI Expansion   笏・-笏・ - Carrier wave synthesis 笏・     笏・ - React Dashboard panels 笏・-笏・ - Basic Crystal Grids    笏・     笏・ - Interactive RNG needle 笏・-笏披楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・     笏披楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・-                                                 笏・-                                                 笆ｼ
+-笏娯楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・     笏娯楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・-笏・  Phase 4: Scaling Out    笏・<笏笏笏 笏・  Phase 3: Integration    笏・-笏・ - Distributed networks   笏・     笏・ - WebSocket state loops  笏・-笏・ - Mobile client outputs  笏・     笏・ - Lunar calendar engines 笏・-笏披楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・     笏披楳笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏・-```
+-
+--   **Phase 1 (Completed):** Sound synthesis engines, E-meter simulation math, and terminal commands.
+--   **Phase 2 (Completed):** React UI widgets, Three.js 3D canvas renderers, and SQLite schema integration.
+--   **Phase 3 (Current):** WebSocket real-time event broadcasting, `lunar-python` Saka Dawa integration, and cleaning up documentation drift.
+--   **Phase 4 (Future):** Porting outputs to mobile devices, connecting actual hardware transmitters, and implementing multi-session network broadcasting.
++- **Phase 1 (v0.1.0, completed):** Core synthesis engines, E-meter simulation math, terminal commands, FastAPI backend, React/Vite frontend with 3D visualizations, WebSocket streaming, and initial knowledge bases.
++- **Phase 2 (v0.2.0, completed):** Astrology expansion (8 new systems), TTS integration, tooling modernization (ruff, mypy, pytest, CI/CD), session lifecycle events, and 6 new visualization components.
++- **Phase 3 (v0.3.0窶砺0.4.0, completed):** 33+ remediation items (ghost paths, dead code, hardcoded values), TypeScript migration (50 components to .tsx, 0 .jsx in active code), Ant Design integration, astrology extraction pipeline, and unified TTS provider.
++- **Phase 4 (v0.5.0窶砺0.7.0, completed):** Async LLM provider refactor (7-provider registry with health-check), healing dialogue system (5-phase container with DB persistence), UI/UX overhaul (12竊・ grouped routes), deferred cleanup sweeps (7 deferred items), and sync-and-fixes (6 critical bugs, test suite deduplication 549竊蓄350).
++- **Phase 5 (proposed):** Mobile client outputs, hardware transmitter integration, multi-session network broadcasting, and distributed deployment.
+diff --git a/docs/README.md b/docs/README.md
+index 7022ab6..b8be5df 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -4,6 +4,8 @@
+ 
+ This directory contains comprehensive documentation for the Vajra.Stream healing technology system.
+ 
++> **Recent Activity:** For the 2026-06-20 deep evaluation and cleanup, see `.omo/plans/cleanup-after-evaluation.md`.
++
+ ## Directory Structure
+ 
+ ```
+@@ -190,5 +192,5 @@ _May the work documented here benefit all beings._
+ 
+ ---
+ 
+-*Last Updated: November 2024*
+-*Documentation Version: 1.0*
++*Last Updated: 2026-06-20*
++*Documentation Version: 1.1*
