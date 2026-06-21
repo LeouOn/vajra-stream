@@ -7,6 +7,7 @@
  *   /buddhas     → /practice/buddhas     (BuddhasPage)
  *   /meditation  → /practice/meditation  (MeditationTab — Rothko fullscreen)
  *   /visualizers → /practice/visualizers (VisualizerTab — 3D sacred geometry)
+ *   /scalar      → /practice/scalar      (ScalarTab — Living Mandala)
  *
  * URL contract:
  *   /practice             → redirects to /practice/sanctuary (App.tsx)
@@ -27,8 +28,9 @@ import SanctuaryPage from '../Sanctuary';
 import BuddhasPage from '../Buddhas';
 import MeditationTab from './MeditationTab';
 import VisualizerTab from './VisualizerTab';
+import ScalarTab from './ScalarTab';
 
-const PRACTICE_TAB_KEYS = ['sanctuary', 'buddhas', 'meditation', 'visualizers'] as const;
+const PRACTICE_TAB_KEYS = ['sanctuary', 'buddhas', 'meditation', 'visualizers', 'scalar'] as const;
 type PracticeTabKey = (typeof PRACTICE_TAB_KEYS)[number];
 
 const DEFAULT_TAB: PracticeTabKey = 'sanctuary';
@@ -82,6 +84,15 @@ export default function PracticePage(): React.ReactElement {
       children: (
         <div style={{ height: PANE_HEIGHT }}>
           <VisualizerTab />
+        </div>
+      ),
+    },
+    {
+      key: 'scalar',
+      label: 'Living Mandala',
+      children: (
+        <div style={{ height: PANE_HEIGHT }} className="overflow-hidden">
+          <ScalarTab />
         </div>
       ),
     },
