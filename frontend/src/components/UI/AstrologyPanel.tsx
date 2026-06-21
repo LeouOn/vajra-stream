@@ -186,17 +186,6 @@ export default function AstrologyPanel() {
     return () => clearInterval(interval);
   }, [isLiveMode]);
 
-  useEffect(() => {
-    if (charts.length > 0 && !activeChart) {
-      // Load the first chart's natal data so activeData (and therefore
-      // the "Date & Time" header + ephemeris view) populate immediately,
-      // instead of staying stuck on "Loading…" / "Computing ephemeris…".
-      const first = charts[0];
-      setTransitChart(first);
-      loadNatalChart(first);
-    }
-  }, [charts, activeChart, loadNatalChart]);
-
   // Helper: extract error detail from a failed fetch response
   const _readError = async (response) => {
     try {
@@ -339,6 +328,18 @@ export default function AstrologyPanel() {
       recalculateChart(chart.id);
     }
   };
+
+  // Auto-load the first saved chart's natal data when charts arrive, so the
+  // "Date & Time" header + ephemeris view populate immediately instead of
+  // staying stuck on "Loading…" / "Computing ephemeris…".
+  // Placed AFTER loadNatalChart/recalculateChart so TDZ isn't a concern.
+  useEffect(() => {
+    if (charts.length > 0 && !activeChart) {
+      const first = charts[0];
+      setTransitChart(first);
+      loadNatalChart(first);
+    }
+  }, [charts, activeChart, loadNatalChart]);
 
   const recalculateChart = async (id) => {
     setLoading(true);
