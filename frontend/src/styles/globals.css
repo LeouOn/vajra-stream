@@ -305,3 +305,34 @@
     }
   }
 }
+
+/* ============================================================ */
+/* Font cascade hardening (Tier 1)                             */
+/*                                                             */
+/* These rules are intentionally UNLAYERED (top-level). AntD   */
+/* v6 cssinjs injects component styles without an @layer, and  */
+/* unlayered CSS beats Tailwind's `@layer base` in the cascade */
+/* (regardless of source order). Declaring the brand fonts     */
+/* here unlayered guarantees they win for raw body text and    */
+/* headings. AntD component fonts are handled separately via   */
+/* `token.fontFamily` in theme/antdTheme.js.                   */
+/* ============================================================ */
+body {
+  font-family: "Alegreya Sans", sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Alegreya", serif;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: "JetBrains Mono", monospace;
+}
