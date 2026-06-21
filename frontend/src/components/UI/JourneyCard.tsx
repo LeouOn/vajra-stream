@@ -37,7 +37,14 @@ interface CharacterSheet {
 
 interface StageResult {
   stage: StageKey | string;
+  name?: string;
+  description?: string;
+  blessing_theme?: string;
   blessings_count: number;
+  blessings?: string[];
+  stat_changes?: Partial<Record<StatKey, number>>;
+  frequency_before?: number;
+  frequency_after?: number;
   completed_at?: string;
 }
 
@@ -58,6 +65,14 @@ const STAGE_NAMES: Record<StageKey, string> = {
   overcoming: 'The Shadow Trial',
   utopia: 'The Golden Age',
   multiverse: 'The Infinite Return',
+};
+const STAGE_DESCRIPTIONS: Record<StageKey, string> = {
+  initiation: 'The character awakens to their calling. First contact with the sacred.',
+  training: 'Rigorous training. The character hones their gifts through discipline.',
+  working: 'The character applies their power. Real quests, real consequences.',
+  overcoming: 'The darkest hour. The character faces their greatest fear or enemy.',
+  utopia: 'Victory achieved. The character basks in the light of accomplishment.',
+  multiverse: 'The character transcends form. Their story echoes across all timelines.',
 };
 const STAGE_COLORS: Record<StageKey, string> = {
   initiation: '#a855f7', training: '#3b82f6', working: '#22c55e',
@@ -304,6 +319,11 @@ export default function JourneyCard() {
                   }}
                 />
               </div>
+              {/* Stage description — prefer the last completed stage's narrative, fall back to the static description. */}
+              <div className="text-[10px] text-slate-500 leading-relaxed mt-1">
+                {journey.stage_results?.[journey.stage_results.length - 1]?.description
+                  || STAGE_DESCRIPTIONS[currentStage]}
+              </div>
             </div>
             {!journey.is_complete && (
               <button
@@ -350,24 +370,50 @@ export default function JourneyCard() {
 
         {/* Stage Results History */}
         {journey.stage_results && journey.stage_results.length > 0 && (
-          <div className="border-t border-white/5 pt-3 space-y-1.5">
+          <div className="border-t border-white/5 pt-3 space-y-2">
             <span className="text-[9px] text-slate-600 font-mono uppercase tracking-wider">Stage Log</span>
             {journey.stage_results.slice(-3).reverse().map((r, i) => {
               const sColor = STAGE_COLORS[r.stage as StageKey] || '#6b7280';
-              const sName = STAGE_NAMES[r.stage as StageKey] || r.stage;
+              const sName = r.name || STAGE_NAMES[r.stage as StageKey] || r.stage;
+              const timestamp = r.completed_at
+                ? new Date(r.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '';
+              const freqShift = r.frequency_before != null
+                && r.frequency_after != null
+                && r.frequency_before !== r.frequency_after;
               return (
-                <div key={i} className="flex items-center gap-2 text-[10px]">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sColor }} />
-                  <span className="text-slate-400">{sName}</span>
-                  <span className="text-slate-600">·</span>
-                  <span className="text-purple-300 font-mono">{r.blessings_count} blessings</span>
-                  {r.completed_at && (
-                    <>
-                      <span className="text-slate-600">·</span>
-                      <span className="text-slate-600 text-[9px]">
-                        {new Date(r.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <div key={i} className="space-y-1">
+                  <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sColor }} />
+                    <span className="text-slate-400 font-medium">{sName}</span>
+                    {/* Stat change badges */}
+                    {r.stat_changes && Object.entries(r.stat_changes).map(([stat, val]) => {
+                      const meta = STAT_META[stat as StatKey];
+                      if (!meta || !val) return null;
+                      return (
+                        <span
+                          key={stat}
+                          className={`px-1 rounded text-[8px] font-mono bg-slate-800/60 ${meta.color}`}
+                        >
+                          +{val} {meta.label}
+                        </span>
+                      );
+                    })}
+                    {/* Frequency shift */}
+                    {freqShift && (
+                      <span className="text-[8px] font-mono text-amber-400">
+                        {r.frequency_before}→{r.frequency_after} Hz
                       </span>
-                    </>
+                    )}
+                    <span className="text-slate-600 ml-auto">
+                      {r.blessings_count} blessings{timestamp ? ` · ${timestamp}` : ''}
+                    </span>
+                  </div>
+                  {/* Blessing narrative text */}
+                  {r.blessings && r.blessings.length > 0 && (
+                    <p className="text-[10px] text-slate-500 italic leading-relaxed pl-4 border-l border-purple-500/20">
+                      {r.blessings[0]}
+                    </p>
                   )}
                 </div>
               );
@@ -376,14 +422,20 @@ export default function JourneyCard() {
         )}
 
         {/* Total Blessings */}
-        {journey.stage_results && journey.stage_results.length > 0 && (
-          <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-purple-950/20 border border-purple-500/10">
-            <Heart className="w-3 h-3 text-pink-400" />
-            <span className="text-[10px] text-purple-300 font-mono font-bold">
-              {journey.stage_results.reduce((sum, r) => sum + (r.blessings_count || 0), 0)} total blessings generated
-            </span>
-          </div>
-        )}
+        {journey.stage_results && journey.stage_results.length > 0 && (() => {
+          const total = journey.stage_results.reduce((sum, r) => sum + (r.blessings_count || 0), 0);
+          return (
+            <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-purple-950/20 border border-purple-500/10">
+              <Heart className="w-3 h-3 text-pink-400" />
+              <span
+                className="text-[10px] font-mono font-bold"
+                style={total > 0 ? { color: '#fbbf24' } : { color: '#d8b4fe' }}
+              >
+                {total} total blessings generated{total > 0 ? ' ✨' : ''}
+              </span>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
