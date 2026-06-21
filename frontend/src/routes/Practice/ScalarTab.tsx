@@ -181,6 +181,7 @@ export default function ScalarTab(): React.ReactElement {
   // ── refs to read latest values inside stable callbacks ─────────────
   const elementKeyRef = useRef(elementKey);
   elementKeyRef.current = elementKey;
+  const prevElementRef = useRef<string | undefined>(undefined);
 
   // ───────────────────────────────────────────────────────────────────
   // EFFECT: poll MOPS telemetry every 2s (top-left readout)
@@ -213,7 +214,6 @@ export default function ScalarTab(): React.ReactElement {
   // ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    const prevElement = useRef<string | undefined>(undefined);
     const poll = async () => {
       try {
         const res = await fetch('/api/v1/operator/journey/status');
@@ -222,8 +222,8 @@ export default function ScalarTab(): React.ReactElement {
         if (cancelled) return;
         setJourney(data.active ? data : null);
         const el = data.character?.element;
-        if (el && el !== prevElement.current) {
-          prevElement.current = el;
+        if (el && el !== prevElementRef.current) {
+          prevElementRef.current = el;
           vizRef.current?.setElementMood(el);
         }
       } catch {
@@ -684,7 +684,7 @@ function ReadoutRow({
   value: string;
   unit: string;
   accent: string;
-}: React.ReactElement {
+}) {
   return (
     <div className="flex items-baseline justify-between">
       <span className="text-[10px] text-purple-300/60 font-medium">{label}</span>

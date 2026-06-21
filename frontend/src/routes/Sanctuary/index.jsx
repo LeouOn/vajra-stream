@@ -27,7 +27,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom';
 import { Input, Button, Typography, Spin } from 'antd';
 import { Send, Plus, Archive } from 'lucide-react';
-import { API_BASE } from '../../utils/api';
+import { apiUrl } from '../../utils/api';
 import SessionList from './SessionList';
 
 const { Text } = Typography;
@@ -83,7 +83,7 @@ export default function SanctuaryPage() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/healing/sessions?limit=30`);
+      const res = await fetch(apiUrl('/healing/sessions?limit=30'));
       if (!res.ok) throw new Error(`list ${res.status}`);
       const data = await res.json();
       return Array.isArray(data?.sessions) ? data.sessions : [];
@@ -94,7 +94,7 @@ export default function SanctuaryPage() {
   }, []);
 
   const createSession = useCallback(async () => {
-    const res = await fetch(`${API_BASE}/healing/sessions`, {
+    const res = await fetch(apiUrl('/healing/sessions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -104,7 +104,7 @@ export default function SanctuaryPage() {
   }, []);
 
   const loadSession = useCallback(async (id) => {
-    const res = await fetch(`${API_BASE}/healing/sessions/${id}`);
+    const res = await fetch(apiUrl(`/healing/sessions/${id}`));
     if (!res.ok) throw new Error(`get ${res.status}`);
     return res.json();
   }, []);
@@ -203,7 +203,7 @@ export default function SanctuaryPage() {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const res = await fetch(`${API_BASE}/healing/sessions/${sessionId}/messages`, {
+      const res = await fetch(apiUrl(`/healing/sessions/${sessionId}/messages`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
@@ -249,7 +249,7 @@ export default function SanctuaryPage() {
     setIsLoading(true);
     setWavered(false);
     try {
-      const res = await fetch(`${API_BASE}/healing/sessions/${sessionId}/advance`, {
+      const res = await fetch(apiUrl(`/healing/sessions/${sessionId}/advance`), {
         method: 'POST',
       });
       if (!res.ok) throw new Error(`advance ${res.status}`);
