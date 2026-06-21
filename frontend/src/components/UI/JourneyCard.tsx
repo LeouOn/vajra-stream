@@ -89,7 +89,6 @@ const ELEMENT_COLORS: Record<string, string> = {
 
 export default function JourneyCard() {
   const [journey, setJourney] = useState<JourneyStatus | null>(null);
-  const [character, setCharacter] = useState<CharacterSheet | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -99,16 +98,12 @@ export default function JourneyCard() {
         const res = await fetch(`/api/v1/operator/journey/status`);
         if (res.ok) {
           const data: JourneyStatus = await res.json();
-          if (data.active) {
-            setJourney(data);
-            // Fetch full character if not already loaded
-            if (!character || character.name !== data.character_name) {
-              fetchCharacter();
-            }
-          } else {
-            setJourney(null);
-            setCharacter(null);
-          }
+          // Character data rides inline on the journey status payload
+          // (its `character` field), so no separate fetch is needed.
+          // (Previously this polled `character` state via a stale closure
+          // with an empty dep array and fired a runaway POST to
+          // /generate-character every 5s — removed.)
+          setJourney(data.active ? data : null);
         }
       } catch {}
     };
@@ -116,14 +111,6 @@ export default function JourneyCard() {
     const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
   }, []);
-
-  const fetchCharacter = async () => {
-    try {
-      // The journey status includes character data inline
-      const res = await fetch(`/api/v1/operator/journey/generate-character`, { method: 'POST' });
-    } catch {}
-    // Character data comes from the journey status poll
-  };
 
   const handleAdvance = async () => {
     setAdvancing(true);
@@ -138,9 +125,8 @@ export default function JourneyCard() {
     setAdvancing(false);
   };
 
-  // Character data is embedded in stage_results or we derive from the journey
-  // For now, use what the journey endpoint gives us
-  const charData: CharacterSheet = character || journey?.character || {};
+  // Character data is embedded in the journey status payload.
+  const charData: CharacterSheet = journey?.character || {};
 
   if (!journey) return null;
 

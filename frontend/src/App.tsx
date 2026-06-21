@@ -197,11 +197,6 @@ function App(): React.ReactElement {
       theme={{
         ...antdTheme,
         algorithm: theme.darkAlgorithm,
-        token: {
-          ...antdTheme.token,
-          colorPrimary: COLORS.primary, // vajra-purple (--primary in globals.css)
-          colorInfo: COLORS.secondary, // vajra-cyan (--secondary in globals.css)
-        },
       }}
     >
       <ErrorBoundary fallbackTitle="Application failed to render">
