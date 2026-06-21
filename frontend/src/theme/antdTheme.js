@@ -13,7 +13,7 @@ export const antdTheme = {
     colorBgBase: '#0F0F1A',       // Dark sacred background
     colorTextBase: '#F5F0E1',     // Cream text
     fontFamily: '"Alegreya Sans", sans-serif',
-    borderRadius: 4,
+    borderRadius: 8,
   },
   components: {
     Button: {
@@ -21,6 +21,8 @@ export const antdTheme = {
     },
     Card: {
       colorBgContainer: '#1A1A2E',
+      borderRadius: 8,
+      paddingLG: 20,
     },
   },
 };

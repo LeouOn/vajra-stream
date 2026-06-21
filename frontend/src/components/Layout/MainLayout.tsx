@@ -98,11 +98,13 @@ const MainLayout: React.FC<Props> = ({
         display: 'flex',
         alignItems: 'center',
         padding: '0 20px',
-        background: '#141414',
-        borderBottom: '1px solid #303030'
+        background: 'rgba(20, 10, 30, 0.7)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(139, 92, 246, 0.2)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', marginRight: '24px' }}>
-          <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: COLORS.secondary }}>
+          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '700', color: COLORS.secondary, textShadow: '0 0 12px rgba(6, 182, 212, 0.4)', letterSpacing: '0.5px' }}>
             🔮 Vajra.Stream
           </h1>
           <Badge status={isConnected ? 'success' : 'error'} text={isConnected ? 'LIVE' : 'OFFLINE'} style={{ marginLeft: 16 }} />
@@ -127,8 +129,10 @@ const MainLayout: React.FC<Props> = ({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '10px 20px',
-        background: '#141414',
-        borderTop: '1px solid #303030',
+        background: 'rgba(20, 10, 30, 0.7)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderTop: '1px solid rgba(139, 92, 246, 0.2)',
         fontSize: '12px'
       }}>
         <div>

@@ -127,6 +127,22 @@
   .mystical-input {
     @apply bg-black/30 border border-purple-500/30 rounded-lg px-4 py-2 text-white placeholder-purple-300/50 focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-400/20 transition-all duration-300;
   }
+
+  /* AntD Card — cosmic floating panel treatment.
+     AntD v6 cssinjs injects unlayered high-specificity rules, so we
+     use !important to ensure the purple-tinted border + glow shadow
+     win. The border + box-shadow create a visible-but-light edge that
+     makes cards read as floating panels over the radial-gradient void. */
+  .ant-card {
+    border-color: rgba(139, 92, 246, 0.2) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(139, 92, 246, 0.08);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .ant-card:hover {
+    border-color: rgba(139, 92, 246, 0.4) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.15), 0 0 20px rgba(139, 92, 246, 0.08);
+  }
   
   .mystical-range {
     @apply w-full h-2 rounded-lg appearance-none cursor-pointer;
