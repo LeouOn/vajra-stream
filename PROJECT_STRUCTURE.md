@@ -233,7 +233,7 @@ frontend/
 **Key Files:**
 - **`App.tsx`**: Main app structure with vertical layout (viz top, controls bottom)
 - **`components/UI/`**: 50 TypeScript control panel components
-- **`routes/`**: 5 grouped route directories (Practice, Sanctuary, Buddhas, Operations, Settings)
+- **`routes/`**: 7 grouped routes (Command Center, Practice, Cosmic Clock, Outlook, Operations, Grimoire, Settings); 5 route subdirectories on disk (Practice, Operations, Settings + tab-content dirs Sanctuary, Buddhas)
 - **`stores/audioStore.ts`**: Audio state management with API integration
 
 ## Routes (`frontend/src/routes/`)

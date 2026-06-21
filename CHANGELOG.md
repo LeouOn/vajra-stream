@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.0] - 2026-06-20
 
 ### Added
-- Route consolidation: 12 routes merged into 5 grouped routes (Practice, Operations, Settings, Sanctuary, Buddhas)
+- Route consolidation: 12 flat routes merged into 7 grouped routes (Command Center, Practice, Cosmic Clock, Outlook, Operations, Grimoire, Settings)
 - UI/UX rework + test cleanup design spec (`docs/specs/`)
 
 ### Changed
@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - 2026-06-17
 
 ### Added
-- Healing Dialogue System: 5-phase container (Ground, Release, Illuminate, Integrate, Radiate)
+- Healing Dialogue System: 5-phase Vajrayana container (Arrival → Seeing → Meeting → Release → Dedication)
 - DB persistence for healing dialogue sessions with domain events
 - Outlook feedback loop: healing summaries injected into outlook generation
 - `/sanctuary` route with dialogue UI and phase indicator
