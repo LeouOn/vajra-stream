@@ -143,7 +143,19 @@
     border-color: rgba(139, 92, 246, 0.4) !important;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.15), 0 0 20px rgba(139, 92, 246, 0.08);
   }
-  
+
+  /* AntD horizontal header Menu — smooth hover/selected transitions.
+     Pairs with the Menu component tokens in theme/antdTheme.js
+     (itemSelectedBg / itemHoverBg). The transition gives the purple
+     hover wash + cyan selected state a fluid, premium feel instead of
+     an instant snap. The !important is needed because AntD v6 cssinjs
+     injects its own transition shorthand unlayered. The reduced-motion
+     media query below neutralises this for users who opt out. */
+  .ant-menu-horizontal > .ant-menu-item,
+  .ant-menu-horizontal > .ant-menu-submenu {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+  }
+
   .mystical-range {
     @apply w-full h-2 rounded-lg appearance-none cursor-pointer;
     background: linear-gradient(to right, #4b0082 0%, #8b5cf6 100%);
