@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Fixture: TestClient wired to the real FastAPI app
 # ---------------------------------------------------------------------------
@@ -100,5 +99,5 @@ def test_saka_dawa_endpoint_returns_lunar_fields_not_hardcoded_months(client):
         f"OLD KEY 'saka_dawa_months' found in response — endpoint still hardcoded: {body.get('saka_dawa_months')}"
     )
     assert "in_saka_dawa_window" not in body, (
-        f"OLD KEY 'in_saka_dawa_window' found in response — endpoint still hardcoded"
+        "OLD KEY 'in_saka_dawa_window' found in response — endpoint still hardcoded"
     )
