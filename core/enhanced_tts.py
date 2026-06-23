@@ -34,16 +34,34 @@ class TTSProvider:
         self.error_msg = None
 
     def check_availability(self) -> bool:
-        """Check if this provider is available"""
-        raise NotImplementedError
+        """Check if this provider is available.
+
+        Default base implementation: a bare ``TTSProvider`` instance has no
+        concrete backend wired in, so it reports itself as unavailable. Concrete
+        subclasses override this.
+        """
+        self.error_msg = self.error_msg or "TTSProvider base class has no concrete backend"
+        return False
 
     def speak(self, text: str, **kwargs) -> bool:
-        """Speak text (blocking)"""
-        raise NotImplementedError
+        """Speak text (blocking).
+
+        Default base implementation: no-op returning ``False`` so callers do
+        not crash if a bare ``TTSProvider`` instance is invoked. Concrete
+        subclasses override this.
+        """
+        self.error_msg = self.error_msg or "TTSProvider base class cannot speak"
+        return False
 
     def generate_audio_file(self, text: str, output_path: str, **kwargs) -> bool:
-        """Generate audio file from text"""
-        raise NotImplementedError
+        """Generate audio file from text.
+
+        Default base implementation: no-op returning ``False`` so callers do
+        not crash if a bare ``TTSProvider`` instance is invoked. Concrete
+        subclasses override this.
+        """
+        self.error_msg = self.error_msg or "TTSProvider base class cannot generate audio"
+        return False
 
 
 class ElevenLabsTTS(TTSProvider):

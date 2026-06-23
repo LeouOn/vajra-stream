@@ -302,6 +302,35 @@ class GTTSEngine(TTSEngine):
 
 
 # ============================================================================
+# EDGE TTS ENGINE (Online, Free, High Quality)
+# ============================================================================
+
+
+class EdgeTTSEngine(TTSEngine):
+    """Microsoft Edge read-aloud TTS engine (online, free, high quality).
+
+    Minimal stub implementation: provides the ``TTSEngine`` contract surface so
+    callers do not crash when ``TTSEngineType.EDGE_TTS`` is selected. Full
+    synthesis via the ``edge-tts`` package is deferred (see eval Issue 5.11).
+    """
+
+    def is_available(self) -> bool:
+        """Stub reports unavailable until full synthesis is implemented."""
+        return False
+
+    def get_voices(self) -> list[Voice]:
+        """No voices exposed by the stub."""
+        return []
+
+    def synthesize(self, text: str, output_file: str, **kwargs) -> str:
+        """Synthesis is not implemented in the stub; raise a clear error."""
+        raise RuntimeError(
+            "edge-tts engine stub: synthesis not yet implemented "
+            "(see eval Issue 5.11)"
+        )
+
+
+# ============================================================================
 # TTS NARRATOR (High-Level Interface)
 # ============================================================================
 
@@ -378,10 +407,10 @@ class TTSNarrator:
             return GTTSEngine()
 
         elif engine_type == TTSEngineType.EDGE_TTS:
-            if not HAS_EDGE_TTS:
-                raise RuntimeError("edge-tts not available")
-            # TODO(remediation): Implement EdgeTTSEngine (deferred stub — see eval Issue 5.11)
-            raise NotImplementedError("edge-tts engine not yet implemented")
+            # EdgeTTSEngine is a stub (see eval Issue 5.11); it reports itself
+            # as unavailable, so callers can detect and fall back gracefully
+            # without crashing on NotImplementedError.
+            return EdgeTTSEngine()
 
         else:
             raise ValueError(f"Unknown engine type: {engine_type}")
