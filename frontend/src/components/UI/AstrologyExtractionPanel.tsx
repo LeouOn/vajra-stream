@@ -1,7 +1,23 @@
 /**
  * AstrologyExtractionPanel — Sweep extraction configuration UI.
- * Tabs: Setup, Sweep, Results, Replay. Only the Setup tab is implemented
- * in this revision; the remaining tabs are placeholders.
+ *
+ * Four tabs:
+ *   - Setup   — Build a sweep: locations, date grid, systems, chart options.
+ *   - Sweep   — Launch the extraction and poll progress to completion.
+ *   - Results — Markdown / JSON view of the active run, with copy + export.
+ *   - Replay  — History table of past runs (view / recompute / delete / export).
+ *
+ * Setup feeds `setupState` into Sweep. When Sweep completes it surfaces the
+ * run id so Results can fetch its markdown/JSON and Replay can list, view,
+ * recompute, delete, and export past runs. Endpoints used:
+ *   - GET    /api/v1/astrology/locations
+ *   - POST   /api/v1/astrology/extract
+ *   - GET    /api/v1/astrology/runs/:id
+ *   - GET    /api/v1/astrology/runs/:id/results?format=…
+ *   - GET    /api/v1/astrology/runs/:id/results/export?fmt=…
+ *   - GET    /api/v1/astrology/runs
+ *   - POST   /api/v1/astrology/runs/:id/recompute
+ *   - DELETE /api/v1/astrology/runs/:id
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -29,7 +45,7 @@ import {
   Statistic,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { Copy, Download, Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
+import { Copy, Download, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
@@ -700,19 +716,6 @@ const AstrologyExtractionPanel = () => {
         </Form>
       </Card>
     </Space>
-  );
-
-  const renderPlaceholder = (label) => (
-    <div
-      style={{
-        padding: '48px 16px',
-        textAlign: 'center',
-        color: 'rgba(255,255,255,0.55)',
-      }}
-    >
-      <Compass size={32} style={{ opacity: 0.4, marginBottom: 12 }} />
-      <div>{label} — Coming soon</div>
-    </div>
   );
 
   return (
