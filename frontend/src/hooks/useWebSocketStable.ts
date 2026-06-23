@@ -145,7 +145,6 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     if (ws.current?.readyState === WebSocket.OPEN) return;
 
     const url = wsUrl || getDefaultWsUrl();
-    console.log(`Connecting to WebSocket (attempt ${reconnectAttemptsRef.current + 1}):`, url);
 
     try {
       ws.current = new WebSocket(url);
@@ -153,13 +152,11 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
       const timeoutId = setTimeout(() => {
         if (ws.current?.readyState === WebSocket.CONNECTING) {
           ws.current.close();
-          console.log('WebSocket connection timeout');
         }
       }, connectionTimeout);
 
       ws.current.onopen = () => {
         clearTimeout(timeoutId);
-        console.log('WebSocket connected successfully');
         setIsConnected(true);
         setConnectionStatus('connected');
         reconnectAttemptsRef.current = 0;
@@ -171,7 +168,6 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
 
       ws.current.onclose = (event: CloseEvent) => {
         clearTimeout(timeoutId);
-        console.log('WebSocket disconnected:', event.code, event.reason);
         setIsConnected(false);
         setConnectionStatus('disconnected');
         setLastUpdate(new Date());
@@ -185,8 +181,6 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
           setReconnectAttempts(nextAttempt);
           setError(`Connection lost. Reconnecting in ${Math.round(delay / 1000)}s... (attempt ${nextAttempt}/${maxReconnectAttempts})`);
 
-          console.log(`Attempting to reconnect (${nextAttempt}/${maxReconnectAttempts}) in ${Math.round(delay)}ms...`);
-
           reconnectTimeoutRef.current = setTimeout(() => connect(), delay);
         } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
           setError('Failed to reconnect after maximum attempts. Please refresh the page.');
@@ -195,7 +189,6 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
 
       ws.current.onerror = (_event: Event) => {
         clearTimeout(timeoutId);
-        console.error('WebSocket error:', _event);
         setConnectionStatus('error');
         setError('Connection error occurred');
         setLastUpdate(new Date());
@@ -231,7 +224,6 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
               break;
             case 'connection_status':
               setConnectionStatus(data.status as WSConnectionState);
-              if (data.connection_id) console.log('Connection ID:', data.connection_id);
               break;
             case 'heartbeat':
               if (data.active_connections !== undefined) {
@@ -321,7 +313,6 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             // Backend: connection_manager_stable_v2.py:137 — settings-change ack.
             // No settings store lives in this hook; surface as informational log.
             case 'settings_updated':
-              console.log('Settings updated:', data.message);
               break;
             // Backend: orchestrator_bridge._forward_event_to_websocket forwards every
             // DomainEvent subclass as {type: ClassName, timestamp, data: {...}}.
@@ -369,25 +360,21 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             // (Wave 1 Task 10 added the uppercase ERROR branch.)
             case 'ERROR':
             case 'error':
-              console.error('Server error:', data.message);
               setError(data.message);
               break;
             // Backend: connection_manager_stable_v2.py:277 — system-level error.
             // Surface to the user alongside the ERROR/error branches.
             case 'system_error':
-              console.error('System error:', data.message);
               setError(data.message || 'System error occurred');
               break;
             default:
               console.log('Unknown WebSocket message type:', data.type);
           }
         } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
           setError('Error processing server message');
         }
       };
     } catch (err) {
-      console.error('Failed to create WebSocket connection:', err);
       setConnectionStatus('error');
       setError('Failed to establish connection');
     }
@@ -414,7 +401,6 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
         ws.current.send(JSON.stringify(message));
         return true;
       } catch (err) {
-        console.error('Error sending WebSocket message:', err);
         setError('Failed to send message');
         return false;
       }
@@ -435,13 +421,10 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
       if (result.status === 'success' && result.session_id) {
         const startResponse = await fetch(`/api/v1/sessions/${result.session_id}/start`, { method: 'POST' });
         const startResult: ApiResponse = await startResponse.json();
-        if (startResult.status === 'success') {
-          console.log('Session started successfully:', result.session_id);
-        }
+        // (startResult.status surfaced via fetch error/response shape upstream)
       }
       return result;
     } catch (err) {
-      console.error('Error starting session:', err);
       setError('Failed to start session');
       throw err;
     }
@@ -451,10 +434,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     try {
       const response = await fetch(`/api/v1/sessions/${sessionId}/stop`, { method: 'POST' });
       const result: ApiResponse = await response.json();
-      if (result.status === 'success') console.log('Session stopped:', sessionId);
       return result;
     } catch (err) {
-      console.error('Error stopping session:', err);
       setError('Failed to stop session');
       throw err;
     }
