@@ -45,7 +45,7 @@ export interface WSBlessingStarted extends WSMessageBase {
 
 export interface WSCrystalBroadcast extends WSMessageBase {
   type: 'CRYSTAL_BROADCAST_STARTED';
-  data: { intention: string };
+  data: { session_id: string; intention: string };
 }
 
 export interface WSRadionicsRate extends WSMessageBase {

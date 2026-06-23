@@ -418,7 +418,10 @@ class VajraStreamService:
                 stable_connection_manager_v2.broadcast(
                     {
                         "type": "CRYSTAL_BROADCAST_STARTED",
-                        "session_id": session_id,
+                        "data": {
+                            "session_id": session_id,
+                            "intention": session["config"].intention,
+                        },
                         "timestamp": time.time(),
                     }
                 )
