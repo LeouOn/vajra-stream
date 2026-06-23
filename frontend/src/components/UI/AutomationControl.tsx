@@ -104,7 +104,6 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
         setSessionId(data.session_id);
         setIsActive(true);
         setIsPaused(false);
-        console.log('Automation started:', data);
       }
     } catch (error) {
       console.error('Failed to start automation:', error);

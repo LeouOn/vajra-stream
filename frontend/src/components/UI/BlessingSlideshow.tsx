@@ -155,7 +155,6 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
         setSessionId(data.session_id);
         setIsActive(true);
         setRepetitionCount(0);
-        console.log('Blessing slideshow created:', data);
 
         // Notify parent if callback provided
         if (onSessionChange) {

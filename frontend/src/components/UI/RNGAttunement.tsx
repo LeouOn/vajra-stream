@@ -92,7 +92,6 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
       setSessionId(data.session_id);
       setIsActive(true);
       setHistory([]);
-      console.log('RNG session created:', data.session_id);
     } catch (error) {
       console.error('Failed to create session:', error);
     }
