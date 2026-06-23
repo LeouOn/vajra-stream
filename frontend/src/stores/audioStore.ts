@@ -91,16 +91,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({ audioStatus: 'generating', errorMessage: null });
 
       const { frequency, volume, prayerBowlMode, harmonicStrength, modulationDepth, duration } = get();
-      console.log('DEBUG: generateAudio called with settings:', {
-        frequency,
-        volume,
-        prayerBowlMode,
-        harmonicStrength,
-        modulationDepth,
-        duration,
-      });
 
-      console.log('DEBUG: Making request to /api/v1/audio/generate');
       const response = await fetch('/api/v1/audio/generate', {
         method: 'POST',
         headers: {
@@ -116,9 +107,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         }),
       });
 
-      console.log('DEBUG: Generate response status:', response.status);
       const result: GeneratedAudioResponse = await response.json();
-      console.log('DEBUG: Generate response data:', result);
 
       if (result.status === 'success') {
         set({
@@ -126,14 +115,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           lastGeneratedAudio: result,
           errorMessage: null,
         });
-        console.log('Audio generated successfully:', result);
         return true;
       } else {
         throw new Error(result.detail || 'Failed to generate audio');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to generate audio';
-      console.error('Error generating audio:', error);
       set({
         audioStatus: 'error',
         errorMessage: message,
@@ -147,10 +134,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     try {
       // Check if audio has been generated
       const { lastGeneratedAudio, audioStatus } = get();
-      console.log('DEBUG: playAudio called - lastGeneratedAudio:', lastGeneratedAudio, 'audioStatus:', audioStatus);
 
       if (!lastGeneratedAudio || audioStatus !== 'generated') {
-        console.error('ERROR: No audio generated yet. Cannot play audio.');
         set({
           audioStatus: 'error',
           errorMessage: 'No audio data available. Please generate audio first.',
@@ -161,7 +146,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
       set({ audioStatus: 'playing', errorMessage: null });
 
-      console.log('DEBUG: Making request to /api/v1/audio/play');
       const response = await fetch('/api/v1/audio/play', {
         method: 'POST',
         headers: {
@@ -172,9 +156,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         }),
       });
 
-      console.log('DEBUG: Response status:', response.status);
       const result: GeneratedAudioResponse = await response.json();
-      console.log('DEBUG: Response data:', result);
 
       if (result.status === 'success') {
         set({
@@ -182,18 +164,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           audioStatus: 'playing',
           errorMessage: null,
         });
-        console.log('Audio playback started');
         return true;
       } else {
         throw new Error(result.detail || 'Failed to start audio playback');
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to start audio playback';
-      console.error('Error playing audio:', error);
+} catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to play audio';
       set({
         audioStatus: 'error',
         errorMessage: message,
-        isPlaying: false,
       });
       return false;
     }
@@ -201,7 +180,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   stopAudio: async () => {
     try {
-      console.log('DEBUG: Making request to /api/v1/audio/stop');
       const response = await fetch('/api/v1/audio/stop', {
         method: 'POST',
         headers: {
@@ -209,9 +187,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         },
       });
 
-      console.log('DEBUG: Stop response status:', response.status);
       const result: GeneratedAudioResponse = await response.json();
-      console.log('DEBUG: Stop response data:', result);
 
       if (result.status === 'success') {
         set({
@@ -219,18 +195,15 @@ export const useAudioStore = create<AudioState>((set, get) => ({
           audioStatus: 'stopped',
           errorMessage: null,
         });
-        console.log('Audio playback stopped successfully');
         return true;
       } else {
         throw new Error(result.detail || 'Failed to stop audio');
       }
-    } catch (error) {
+} catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to stop audio';
-      console.error('Error stopping audio:', error);
       set({
         audioStatus: 'error',
         errorMessage: message,
-        isPlaying: false,
       });
       return false;
     }
@@ -308,10 +281,8 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         ...state,
         ...preset,
       }));
-      console.log(`Loaded preset: ${presetName}`, preset);
-    } else {
-      console.error(`Unknown preset: ${presetName}`);
     }
+    // Unknown preset name is silently ignored (caller should validate).
   },
 
   // Get current settings as object
