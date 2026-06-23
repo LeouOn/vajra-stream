@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Activity, TrendingUp, TrendingDown, Minus, Zap, AlertCircle, CheckCircle } from 'lucide-react';
+import { message } from 'antd';
 
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 
@@ -94,6 +95,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
       setHistory([]);
     } catch (error) {
       console.error('Failed to create session:', error);
+      message.error('Could not start attunement session: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -110,6 +112,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
       }
     } catch (error) {
       console.error('Failed to get reading:', error);
+      message.error('Could not load reading: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -125,6 +128,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
       }
     } catch (error) {
       console.error('Failed to get summary:', error);
+      message.error('Could not load session summary: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -141,6 +145,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
       await getSummary();
     } catch (error) {
       console.error('Failed to stop session:', error);
+      message.error('Could not stop session: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 

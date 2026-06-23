@@ -131,6 +131,7 @@ export default function AstrologyPanel() {
       }
     } catch (e) {
       console.error("Error fetching saved charts:", e);
+      message.error('Could not load saved charts: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -156,6 +157,7 @@ export default function AstrologyPanel() {
         }
       } catch (e) {
         console.error("Error in live astrology fetch:", e);
+        message.error('Could not load live astrology: ' + (e instanceof Error ? e.message : String(e)));
       }
     };
 
@@ -321,6 +323,7 @@ export default function AstrologyPanel() {
         setActiveTab('wheel'); // Toggle back to consolidated wheel view
       } catch (e) {
         console.error("Error parsing cached chart data, falling back to recalculation", e);
+        message.error('Could not parse cached chart: ' + (e instanceof Error ? e.message : String(e)));
         recalculateChart(chart.id);
       }
     } else {
@@ -356,6 +359,7 @@ export default function AstrologyPanel() {
       }
     } catch (e) {
       console.error(e);
+      message.error('Could not recalculate chart: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }
@@ -375,6 +379,7 @@ export default function AstrologyPanel() {
       }
     } catch (e) {
       console.error(e);
+      message.error('Could not delete chart: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -395,6 +400,7 @@ export default function AstrologyPanel() {
       }
     } catch (e) {
       console.error(e);
+      message.error('Could not export charts: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 

@@ -9,6 +9,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity } from 'lucide-react';
+import { message } from 'antd';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -125,6 +126,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       }
     } catch (e) {
       console.error("Failed to fetch populations:", e);
+      message.error('Could not load broadcast targets: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 

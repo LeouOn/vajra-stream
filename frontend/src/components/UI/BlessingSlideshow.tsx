@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { message } from 'antd';
 import { Play, Pause, Square, Heart, Sparkles, Users, Clock, SkipForward, Info } from 'lucide-react';
 
 interface Mantra {
@@ -115,6 +116,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       setMantras(data);
     } catch (error) {
       console.error('Failed to load mantras:', error);
+      message.error('Could not load mantras: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -125,6 +127,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       setIntentions(data);
     } catch (error) {
       console.error('Failed to load intentions:', error);
+      message.error('Could not load intentions: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -167,6 +170,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       }
     } catch (error) {
       console.error('Failed to create session:', error);
+      message.error('Could not create slideshow session: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -197,6 +201,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       }
     } catch (error) {
       console.error('Failed to load slide:', error);
+      message.error('Could not load current slide: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -217,6 +222,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       }
     } catch (error) {
       console.error('Failed to advance slide:', error);
+      message.error('Could not advance to next slide: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -232,6 +238,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       }
     } catch (error) {
       console.error('Failed to load stats:', error);
+      message.error('Could not load slideshow stats: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -247,6 +254,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       stopAutoAdvance();
     } catch (error) {
       console.error('Failed to pause:', error);
+      message.error('Could not pause slideshow: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -262,6 +270,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       startAutoAdvance();
     } catch (error) {
       console.error('Failed to resume:', error);
+      message.error('Could not resume slideshow: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -288,6 +297,7 @@ const BlessingSlideshow: React.FC<Props> = ({ className = '', onSessionChange = 
       }
     } catch (error) {
       console.error('Failed to stop:', error);
+      message.error('Could not stop slideshow: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 

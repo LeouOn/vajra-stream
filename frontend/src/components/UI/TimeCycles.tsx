@@ -6,6 +6,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { HelpCircle, Play, RefreshCw, Compass, Moon, Sun, Clock, Calendar, Check, AlertTriangle } from 'lucide-react';
+import { message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 interface TimeCycleEvent {
@@ -83,6 +84,7 @@ export default function TimeCycles() {
       }
     } catch (e) {
       console.error("Failed to fetch historical periods:", e);
+      message.error('Could not load archetypal events: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 
@@ -95,6 +97,7 @@ export default function TimeCycles() {
       }
     } catch (e) {
       console.error(e);
+      message.error('Could not load time-cycles status: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
 

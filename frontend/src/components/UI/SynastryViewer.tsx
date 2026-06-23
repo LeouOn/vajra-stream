@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Award, Compass, Heart, RefreshCw, AlertTriangle, Sparkles, ShieldAlert, Minus } from 'lucide-react';
-import { Card, Button, Select, Space, Row, Col, Progress, Table, Tag } from 'antd';
+import { Card, Button, Select, Space, Row, Col, Progress, Table, Tag, message } from 'antd';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { planetGlyph } from '../../lib/astroHelpers';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -149,6 +149,7 @@ export default function SynastryViewer({
     } catch (e) {
       console.error(e);
       audioFeedback.playError();
+      message.error('Could not load synastry comparison: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }

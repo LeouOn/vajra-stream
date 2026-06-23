@@ -93,6 +93,7 @@ export interface CrystalState {
   meditation: MeditationState;
   crystalLibrary: CrystalLibraryEntry[];
   gridTemplates: GridTemplate[];
+  error: string | null;
 
   // Grid configuration mutations
   setGridConfig: (config: Partial<GridConfig>) => void;
@@ -203,6 +204,9 @@ export const useCrystalStore = create<CrystalState>()(
         { id: 'star', name: 'Star of David (13)', description: 'Sacred geometry star pattern', crystalCount: 13 },
         { id: 'grid', name: '3x3 Grid (9)', description: 'Square grid arrangement', crystalCount: 9 },
       ],
+
+      // Last error from async backend operations (consumed by UI)
+      error: null,
 
       // Actions
       setGridConfig: (config) => {
@@ -398,6 +402,7 @@ export const useCrystalStore = create<CrystalState>()(
           return data;
         } catch (error) {
           console.warn('Crystal grid fetch failed:', error);
+          set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
       },
@@ -413,6 +418,7 @@ export const useCrystalStore = create<CrystalState>()(
           return await response.json();
         } catch (error) {
           console.error('Crystal programming failed:', error);
+          set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
       },
@@ -428,6 +434,7 @@ export const useCrystalStore = create<CrystalState>()(
           return await response.json();
         } catch (error) {
           console.error('Crystal broadcast failed:', error);
+          set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
       },

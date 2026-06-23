@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { message } from 'antd';
 import { Play, Pause, Square, RotateCw, Clock, Users, Zap, TrendingUp, Info } from 'lucide-react';
 
 interface PopulationSummary {
@@ -107,6 +108,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to start automation:', error);
+      message.error('Could not start automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -127,6 +129,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to stop automation:', error);
+      message.error('Could not stop automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -140,6 +143,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       setIsPaused(true);
     } catch (error) {
       console.error('Failed to pause automation:', error);
+      message.error('Could not pause automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -153,6 +157,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       setIsPaused(false);
     } catch (error) {
       console.error('Failed to resume automation:', error);
+      message.error('Could not resume automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -167,6 +172,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to load status:', error);
+      message.error('Could not load status: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -181,6 +187,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to load queue:', error);
+      message.error('Could not load queue: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -195,6 +202,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to load stats:', error);
+      message.error('Could not load stats: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 

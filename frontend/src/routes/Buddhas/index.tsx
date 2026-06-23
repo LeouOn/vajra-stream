@@ -16,7 +16,7 @@
  * @route /buddhas
  */
 import React, { useState, useCallback } from 'react';
-import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result } from 'antd';
+import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result, message } from 'antd';
 import {
   BookOpen, Sparkles, Compass, Zap, Activity, Play, Square, Loader2,
 } from 'lucide-react';
@@ -186,6 +186,7 @@ export default function BuddhasPage() {
       }
     } catch (err) {
       console.error('BuddhasPage: toggle recitation failed', err);
+      message.error('Could not ' + (running ? 'stop' : 'start') + ' recitation: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setToggling(false);
     }

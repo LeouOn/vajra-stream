@@ -6,6 +6,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { HelpCircle, Play, RefreshCw, Award, Heart, Check, BookOpen } from 'lucide-react';
+import { message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 
 interface TraditionalMantra {
@@ -94,6 +95,7 @@ export default function PrayerWheel() {
     } catch (e) {
       console.error(e);
       audioFeedback.playError();
+      message.error('Could not generate prayer: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setGeneratingPrayer(false);
     }
@@ -153,6 +155,7 @@ export default function PrayerWheel() {
     } catch (e) {
       console.error(e);
       audioFeedback.playError();
+      message.error('Could not start spin: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }

@@ -381,7 +381,10 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
             if (onComplete) onComplete(currentRunId);
           }
         }
-      } catch {}
+      } catch (e) {
+        console.error('Failed to poll sweep status:', e);
+        setError('Could not poll sweep status: ' + (e instanceof Error ? e.message : String(e)));
+      }
     };
     pollRef.current = setInterval(poll, 2000);
     poll();

@@ -5,6 +5,7 @@
  * @component
  */
 import React, { useState, useEffect } from 'react';
+import { message } from 'antd';
 import { Heart, Zap, RefreshCw, ChevronRight, Play, Square } from 'lucide-react';
 
 interface ChakraFrequencies {
@@ -83,6 +84,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to load chakras:', error);
+      message.error('Could not load chakras: ' + (error instanceof Error ? error.message : String(error)));
     }
     setIsLoading(false);
   };
@@ -97,6 +99,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to get chakra info:', error);
+      message.error('Could not load chakra info: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -114,6 +117,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to create sequence:', error);
+      message.error('Could not create healing sequence: ' + (error instanceof Error ? error.message : String(error)));
     }
     setIsLoading(false);
   };
@@ -139,6 +143,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to play chakra audio:', error);
+      message.error('Could not play chakra audio: ' + (error instanceof Error ? error.message : String(error)));
       setIsPlaying(false);
       setPlayingChakra(null);
     }
@@ -149,6 +154,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
       await fetch(`/api/v1/audio/stop`, { method: 'POST' });
     } catch (e) {
       console.error('Failed to stop audio', e);
+      message.error('Could not stop audio: ' + (e instanceof Error ? e.message : String(e)));
     }
     setIsPlaying(false);
     setPlayingChakra(null);

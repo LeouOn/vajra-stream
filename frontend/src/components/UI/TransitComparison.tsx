@@ -139,6 +139,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
     } catch (e) {
       console.error(e);
       audioFeedback.playError();
+      message.error('Could not load transits: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }

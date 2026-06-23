@@ -65,6 +65,7 @@ export interface RateState {
   searchQuery: string;
   searchResults: SavedRate[];
   comparisonRates: ComparisonRate[];
+  error: string | null;
 
   // Real-time tuning
   isTuning: boolean;
@@ -164,6 +165,9 @@ export const useRateStore = create<RateState>()(
 
       // Rate comparison
       comparisonRates: [],
+
+      // Last error from async backend operations (consumed by UI)
+      error: null,
 
       // Real-time tuning
       isTuning: false,
@@ -409,6 +413,7 @@ export const useRateStore = create<RateState>()(
           return data;
         } catch (error) {
           console.warn('Rate fetch failed:', error);
+          set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
       },
@@ -426,6 +431,7 @@ export const useRateStore = create<RateState>()(
           return data;
         } catch (error) {
           console.warn('Categories fetch failed:', error);
+          set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
       },

@@ -6,6 +6,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, HelpCircle, ArrowRight, Clock } from 'lucide-react';
+import { message } from 'antd';
 import DharmaTales from './DharmaTales';
 import { audioFeedback } from '../../utils/audioFeedback';
 
@@ -65,6 +66,7 @@ const GrimoirePanel: React.FC = () => {
       }
     } catch (e) {
       console.error("Grimoire search failed:", e);
+      message.error('Could not search grimoire: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }
