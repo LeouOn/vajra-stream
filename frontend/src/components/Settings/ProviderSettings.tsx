@@ -10,16 +10,20 @@
  * Layout:
  *   - Header (saffron icon + title + tagline)
  *   - Health summary + AntD Table (provider / status / latency / models / error)
- *   - Failover log Card (placeholder; provider-switch events land here later)
+ *   - Failover log Card — Timeline of healthy↔unhealthy transitions
+ *     detected between consecutive `PROVIDER_HEALTH` pushes. The first
+ *     push establishes the baseline (no events logged); subsequent
+ *     pushes that flip a provider's `healthy` bit append an event.
  *
  * The component renders gracefully when `providerHealth` is empty — the
- * Table shows an "No providers registered" Empty state.
+ * Table shows an "No providers registered" Empty state and the failover
+ * log shows "No failover events recorded." until a transition occurs.
  *
  * @component
  * @route /settings
  */
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Table, Tag, Typography, Space, Empty, Tooltip } from 'antd';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Card, Table, Tag, Typography, Space, Empty, Tooltip, Timeline } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
   Activity, Server, AlertTriangle, CheckCircle2, Cpu,
@@ -41,6 +45,30 @@ interface ProviderHealthRow {
 }
 
 /**
+ * One failover event: a transition of a single provider between healthy
+ * and unhealthy (in either direction) between two consecutive
+ * `PROVIDER_HEALTH` pushes. `timestamp` is the provider's `last_checked`
+ * epoch seconds at the moment of the transition (falls back to wall-clock
+ * if the backend omits the field).
+ */
+interface FailoverEvent {
+  id: number;
+  provider: string;
+  fromHealthy: boolean;
+  toHealthy: boolean;
+  timestamp: number;
+  error: string | null;
+  latency_ms: number;
+}
+
+/**
+ * Cap the in-memory event log so a long-lived session can't grow
+ * unbounded. 50 events ≈ a few hours of dense churn — plenty for
+ * day-to-day operator visibility.
+ */
+const MAX_FAILOVER_EVENTS = 50;
+
+/**
  * Format a latency value (ms) for display.
  * Returns `'—'` for null/undefined so the column never shows `NaN`.
  */
@@ -52,6 +80,21 @@ function formatLatency(ms: number | null | undefined): string {
 export default function ProviderSettings() {
   const { providerHealth, lastProviderHealthUpdate } = useWebSocketStable();
   const [initialFetchAttempted, setInitialFetchAttempted] = useState<boolean>(false);
+
+  /**
+   * Failover log state. Derived by diffing consecutive `PROVIDER_HEALTH`
+   * pushes in the effect below — the first push establishes the baseline
+   * (no events), every subsequent push that flips a provider's `healthy`
+   * bit appends an entry. Newest events first; capped at MAX_FAILOVER_EVENTS.
+   */
+  const [failoverLog, setFailoverLog] = useState<FailoverEvent[]>([]);
+
+  /**
+   * Baseline of the previous `PROVIDER_HEALTH` snapshot, keyed by provider
+   * name. Kept in a ref so re-renders don't reset it; populated by the
+   * diffing effect, read by the same effect on the next push.
+   */
+  const prevHealthRef = useRef<Map<string, { healthy: boolean; last_checked: number; latency_ms: number; error: string | null }>>(new Map());
 
   /**
     * One-shot initial fetch — backfills the table before the first WS push.
@@ -81,6 +124,54 @@ export default function ProviderSettings() {
   useEffect(() => {
     fetchHealthOnce();
   }, [fetchHealthOnce]);
+
+  /**
+   * Diff consecutive `PROVIDER_HEALTH` pushes and append a FailoverEvent
+   * whenever a provider's `healthy` bit flips. The first push only
+   * populates the baseline (no event). Idempotent across re-renders that
+   * don't change `providerHealth`.
+   */
+  useEffect(() => {
+    const prev = prevHealthRef.current;
+    const incoming = Array.isArray(providerHealth) ? providerHealth : [];
+    const next = new Map<string, { healthy: boolean; last_checked: number; latency_ms: number; error: string | null }>();
+    const flipped: FailoverEvent[] = [];
+    let bumpId = Date.now();
+
+    for (const p of incoming) {
+      if (!p || typeof p.provider !== 'string') continue;
+      const snapshot = {
+        healthy: Boolean(p.healthy),
+        last_checked: typeof p.last_checked === 'number' ? p.last_checked : Date.now() / 1000,
+        latency_ms: typeof p.latency_ms === 'number' ? p.latency_ms : 0,
+        error: p.error ?? null,
+      };
+      next.set(p.provider, snapshot);
+
+      const prior = prev.get(p.provider);
+      if (prior && prior.healthy !== snapshot.healthy) {
+        flipped.push({
+          id: ++bumpId,
+          provider: p.provider,
+          fromHealthy: prior.healthy,
+          toHealthy: snapshot.healthy,
+          timestamp: snapshot.last_checked * 1000,
+          error: snapshot.error,
+          latency_ms: snapshot.latency_ms,
+        });
+      }
+    }
+
+    // Establish the new baseline. Even if no flips occurred this push,
+    // we still update so the *next* push has the right reference frame.
+    prevHealthRef.current = next;
+
+    if (flipped.length > 0) {
+      setFailoverLog((existing) =>
+        [...flipped, ...existing].slice(0, MAX_FAILOVER_EVENTS),
+      );
+    }
+  }, [providerHealth]);
 
   // Build table rows from the live WS state.
   const dataSource: ProviderHealthRow[] = (providerHealth || []).map((p, idx) => ({
@@ -234,27 +325,88 @@ export default function ProviderSettings() {
           </Space>
         </Card>
 
-        {/* Failover Log (placeholder) */}
+        {/* Failover Log — derived from consecutive PROVIDER_HEALTH pushes. */}
         <Card
           size="small"
           title={
             <Space size={6}>
               <Activity size={14} />
               <span>Failover Log</span>
+              {failoverLog.length > 0 && (
+                <Tag color="processing" style={{ marginLeft: 8 }}>
+                  {failoverLog.length}
+                </Tag>
+              )}
             </Space>
           }
+          extra={
+            failoverLog.length > 0 ? (
+              <Text
+                type="secondary"
+                style={{ fontSize: 12, cursor: 'pointer' }}
+                onClick={() => setFailoverLog([])}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') setFailoverLog([]);
+                }}
+              >
+                Clear
+              </Text>
+            ) : null
+          }
         >
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <Space direction="vertical" size={2}>
-                <Text type="secondary">No failover events recorded.</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Provider switch events will be streamed here in a future update.
-                </Text>
-              </Space>
-            }
-          />
+          {failoverLog.length === 0 ? (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                <Space direction="vertical" size={2}>
+                  <Text type="secondary">No failover events recorded.</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Provider health transitions will appear here as they happen.
+                  </Text>
+                </Space>
+              }
+            />
+          ) : (
+            <Timeline
+              style={{ marginTop: 4, maxHeight: 280, overflowY: 'auto', paddingRight: 8 }}
+              items={failoverLog.map((evt) => ({
+                color: evt.toHealthy ? 'green' : 'red',
+                children: (
+                  <div data-testid="failover-event">
+                    <Space size={8} wrap>
+                      <Text strong style={{ fontFamily: 'monospace' }}>
+                        {evt.provider}
+                      </Text>
+                      <Tag color={evt.fromHealthy ? 'success' : 'error'}>
+                        {evt.fromHealthy ? 'Healthy' : 'Down'}
+                      </Tag>
+                      <Text type="secondary">→</Text>
+                      <Tag color={evt.toHealthy ? 'success' : 'error'}>
+                        {evt.toHealthy ? 'Healthy' : 'Down'}
+                      </Tag>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {new Date(evt.timestamp).toLocaleTimeString()}
+                      </Text>
+                    </Space>
+                    {evt.error && (
+                      <Tooltip title={evt.error}>
+                        <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }} ellipsis>
+                          {evt.error}
+                        </Text>
+                      </Tooltip>
+                    )}
+                    {typeof evt.latency_ms === 'number' && evt.latency_ms > 0 && (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        latency: {evt.latency_ms.toFixed(0)}ms
+                      </Text>
+                    )}
+                  </div>
+                ),
+              }))}
+            />
+          )}
         </Card>
       </Space>
     </div>

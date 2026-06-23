@@ -5,14 +5,22 @@
  * part of the CommandCenter decomposition (Task 3.3, item 5). Pure
  * presentational component: props-only, zero coupling to CommandCenter state.
  *
- * Renders the planetary hour, Vedic panchang (tithi/nakshatra/yoga) and
- * Chinese lunar (zodiac/lunar date/shichen) summary. Shows a placeholder when
- * astronomical data has not yet loaded.
+ * Three live sections, each backed by the corresponding sub-payload of the
+ * `/api/v1/astrology/current` response (computed in `core/astrology.py`):
+ *   - Planetary Hour   — from `planetary_hours` (current + day ruler)
+ *   - Vedic Panchang   — from `indian.panchanga` (tithi / nakshatra / yoga)
+ *   - Chinese Lunar    — from `chinese` (zodiac animal / lunar month+day /
+ *                        shichen branch+name)
+ *
+ * When `astroData` is null (CommandCenter has not yet received the first
+ * `/astrology/current` response) the card renders a Spin-based loading
+ * state with placeholder rows that match the loaded layout — operators
+ * see the card structure immediately and the real values land in place.
  *
  * @component
  */
 import React from 'react';
-import { Card } from 'antd';
+import { Card, Skeleton } from 'antd';
 import { Moon } from 'lucide-react';
 
 /** Planetary-hour sub-payload from `/astrology/current`. */
@@ -33,7 +41,7 @@ interface IndianPayload {
   panchanga?: Panchang;
 }
 
-/** Chinese lunar sub-payload. */
+/** Chinese lunar sub-payload (see `core/astrology.py:_get_chinese_astrology`). */
 interface ChinesePayload {
   zodiac_animal?: string;
   lunar_date?: { month?: number; day?: number };
@@ -51,6 +59,47 @@ interface CosmicAlignmentCardProps {
   /** Astrology payload from `/astrology/current`, or null while loading. */
   astroData: AstroData | null;
 }
+
+/**
+ * Skeleton row matching the loaded "label : value" layout used by all three
+ * sections below. Keeps the card height stable across the loading → loaded
+ * transition so the surrounding sidebar doesn't jump.
+ */
+const SkeletonRow: React.FC<{ label: string }> = ({ label }) => (
+  <div className="flex justify-between items-center">
+    <span className="text-gray-500">{label}:</span>
+    <Skeleton.Input active size="small" style={{ width: 90, height: 14 }} />
+  </div>
+);
+
+const CosmicAlignmentCardLoading: React.FC = () => (
+  <div className="space-y-4 text-xs" data-testid="cosmic-alignment-loading">
+    {/* Planetary Hour skeleton */}
+    <div className="p-3 bg-yellow-950/20 border border-yellow-500/20 rounded-xl flex items-center justify-between">
+      <div>
+        <span className="text-[10px] text-yellow-400 font-mono tracking-wider block uppercase">PLANETARY HOUR</span>
+        <Skeleton.Input active size="small" style={{ width: 110, height: 18, marginTop: 4 }} />
+      </div>
+      <Skeleton.Input active size="small" style={{ width: 70, height: 14 }} />
+    </div>
+
+    {/* Vedic Panchang skeleton */}
+    <div className="p-3 bg-purple-950/20 border border-purple-500/20 rounded-xl space-y-1.5">
+      <span className="text-[10px] text-purple-400 font-mono tracking-wider block uppercase">VEDIC PANCHANG</span>
+      <SkeletonRow label="Tithi" />
+      <SkeletonRow label="Nakshatra" />
+      <SkeletonRow label="Yoga" />
+    </div>
+
+    {/* Chinese Lunar skeleton */}
+    <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl space-y-1.5">
+      <span className="text-[10px] text-cyan-400 font-mono tracking-wider block uppercase">CHINESE LUNAR</span>
+      <SkeletonRow label="Zodiac" />
+      <SkeletonRow label="Lunar Date" />
+      <SkeletonRow label="Shichen" />
+    </div>
+  </div>
+);
 
 export default function CosmicAlignmentCard({ astroData }: CosmicAlignmentCardProps) {
   return (
@@ -91,7 +140,7 @@ export default function CosmicAlignmentCard({ astroData }: CosmicAlignmentCardPr
             </div>
           </div>
 
-          {/* Chinese Pillar summary */}
+          {/* Chinese Lunar — zodiac / lunar date / shichen */}
           <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl space-y-1.5">
             <span className="text-[10px] text-cyan-400 font-mono tracking-wider block uppercase">CHINESE LUNAR</span>
             <div className="flex justify-between">
@@ -110,7 +159,7 @@ export default function CosmicAlignmentCard({ astroData }: CosmicAlignmentCardPr
 
         </div>
       ) : (
-        <div className="text-xs text-gray-500 italic py-2 text-center">Tuning astronomical clocks...</div>
+        <CosmicAlignmentCardLoading />
       )}
     </Card>
   );

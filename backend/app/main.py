@@ -36,16 +36,15 @@ templates = Jinja2Templates(directory=str(template_dir))
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("Vajra.Stream API starting up...")
-    print("Initializing Stable WebSocket connection manager v2...")
+    logger.info("Vajra.Stream API starting up...")
+    logger.info("Initializing Stable WebSocket connection manager v2...")
 
     try:
         from core.schema import init_db as _schema_init_db
 
         _schema_init_db().close()
-        print("Database schema initialized (core.schema.init_db)")
+        logger.info("Database schema initialized (core.schema.init_db)")
     except Exception as e:
-        print(f"Failed to initialize database schema: {e}")
         logger.error(f"Failed to initialize database schema: {e}")
         logger.error(traceback.format_exc())
 
@@ -53,11 +52,10 @@ async def lifespan(app: FastAPI):
     try:
         from backend.core.orchestrator_bridge import orchestrator_bridge
 
-        print("Initializing Orchestrator Bridge...")
+        logger.info("Initializing Orchestrator Bridge...")
         orchestrator_bridge.initialize()
-        print("Orchestrator Bridge initialized successfully")
+        logger.info("Orchestrator Bridge initialized successfully")
     except Exception as e:
-        print(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(traceback.format_exc())
 
@@ -68,9 +66,8 @@ async def lifespan(app: FastAPI):
 
         registry = build_default_registry()
         app.state.llm_registry = registry
-        print(f"LLM registry initialized: {[p.name for p in registry.providers]}")
+        logger.info(f"LLM registry initialized: {[p.name for p in registry.providers]}")
     except Exception as e:
-        print(f"Failed to initialize LLM registry: {e}")
         logger.error(f"Failed to initialize LLM registry: {e}")
         logger.error(traceback.format_exc())
 
@@ -100,12 +97,11 @@ async def lifespan(app: FastAPI):
                     on_update=publish_health,
                 )
             )
-            print(
+            logger.info(
                 f"LLM health heartbeat started "
                 f"(interval={config.health_check_interval_seconds}s)"
             )
         except Exception as e:
-            print(f"Failed to start health heartbeat: {e}")
             logger.error(f"Failed to start health heartbeat: {e}")
             logger.error(traceback.format_exc())
 
@@ -113,9 +109,8 @@ async def lifespan(app: FastAPI):
     streaming_task = None
     try:
         streaming_task = asyncio.create_task(stable_connection_manager_v2.start_realtime_streaming())
-        print("Stable real-time streaming started")
+        logger.info("Stable real-time streaming started")
     except Exception as e:
-        print(f"Failed to start streaming: {e}")
         logger.error(f"Failed to start streaming: {e}")
         logger.error(traceback.format_exc())
 
@@ -123,17 +118,16 @@ async def lifespan(app: FastAPI):
     try:
         from container import container
 
-        print("Starting Autonomous Radionics Operator daemon...")
+        logger.info("Starting Autonomous Radionics Operator daemon...")
         container.operator.start_autonomous_mode(interval_seconds=60)
-        print("Autonomous Radionics Operator daemon activated successfully on startup")
+        logger.info("Autonomous Radionics Operator daemon activated successfully on startup")
     except Exception as e:
-        print(f"Failed to start Autonomous Operator daemon: {e}")
         logger.error(f"Failed to start Autonomous Operator daemon: {e}")
 
     yield
 
     # Shutdown
-    print("Vajra.Stream API shutting down...")
+    logger.info("Vajra.Stream API shutting down...")
     stable_connection_manager_v2.stop_realtime_streaming()
 
     # Shutdown Orchestrator Bridge (cancel the crystal broadcast daemon thread)
@@ -141,28 +135,26 @@ async def lifespan(app: FastAPI):
         from backend.core.orchestrator_bridge import orchestrator_bridge
 
         orchestrator_bridge.shutdown()
-        print("Orchestrator Bridge shut down")
+        logger.info("Orchestrator Bridge shut down")
     except Exception as e:
-        print(f"Failed to shut down Orchestrator Bridge: {e}")
         logger.error(f"Failed to shut down Orchestrator Bridge: {e}")
 
     # Stop Autonomous Operator Daemon
     try:
         from container import container
 
-        print("Stopping Autonomous Radionics Operator daemon...")
+        logger.info("Stopping Autonomous Radionics Operator daemon...")
         container.operator.stop_autonomous_mode()
-        print("Autonomous Radionics Operator daemon stopped")
+        logger.info("Autonomous Radionics Operator daemon stopped")
     except Exception as e:
-        print(f"Failed to stop Autonomous Operator daemon: {e}")
+        logger.error(f"Failed to stop Autonomous Operator daemon: {e}")
 
     # Close LLM registry and cancel health heartbeat
     if hasattr(app.state, "llm_registry"):
         try:
             await app.state.llm_registry.close_all()
-            print("LLM registry closed")
+            logger.info("LLM registry closed")
         except Exception as e:
-            print(f"Failed to close LLM registry: {e}")
             logger.error(f"Failed to close LLM registry: {e}")
 
     if health_task:
