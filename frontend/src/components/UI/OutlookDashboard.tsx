@@ -269,7 +269,6 @@ export default function OutlookDashboard() {
       if (rolesRes.ok) setRoles(await rolesRes.json() as string[]);
       if (typesRes.ok) setLocationTypes(await typesRes.json() as string[]);
     } catch (e) {
-      console.error('Universe fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load realms', message: 'Backend unreachable. Some data may be stale.', duration: 3000 });
     }
   }, [addToast]);
@@ -279,7 +278,6 @@ export default function OutlookDashboard() {
       const res = await fetch(`/api/v1/outlook/history?limit=15`);
       if (res.ok) setHistoryList(((await res.json()) as { history?: HistoryItem[] }).history || []);
     } catch (e) {
-      console.error('History fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load history', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [addToast]);
@@ -299,7 +297,6 @@ export default function OutlookDashboard() {
         }
       }
     } catch (e) {
-      console.error('Models fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load LLM models', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [selectedModel, addToast]);
@@ -335,7 +332,6 @@ export default function OutlookDashboard() {
         }
       }
     } catch (e) {
-      console.error('Loop status failed:', e);
       addToast({ type: 'error', title: 'Could not check loop status', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [addToast]);
@@ -570,7 +566,6 @@ export default function OutlookDashboard() {
           message.success('Realm deleted.');
           fetchUniverseData();
         } catch (e) {
-          console.error('Realm delete failed:', e);
           addToast({ type: 'error', title: 'Could not delete realm', message: 'Backend unreachable or refused the request.', duration: 3000 });
         }
       },
@@ -621,7 +616,6 @@ export default function OutlookDashboard() {
           message.success('Character exiled.');
           fetchUniverseData();
         } catch (e) {
-          console.error('Character delete failed:', e);
           addToast({ type: 'error', title: 'Could not delete character', message: 'Backend unreachable or refused the request.', duration: 3000 });
         }
       },

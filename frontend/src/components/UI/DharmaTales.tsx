@@ -94,7 +94,6 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
         addToast({ type: 'success', title: 'Tale Generated', message: `A ${theme} teaching from the ${tradition} tradition`, duration: 3000 });
       }
     } catch (error) {
-      console.error('Failed to generate tale:', error);
       addToast({ type: 'error', title: 'Generation Failed', message: 'Could not connect to backend', duration: 4000 });
     }
     setIsGenerating(false);

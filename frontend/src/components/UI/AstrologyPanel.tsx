@@ -303,7 +303,6 @@ export default function AstrologyPanel() {
         audioFeedback.playSuccess();
       }
     } catch (err) {
-      console.error(err);
       message.error(err.message || "Error processing request");
       audioFeedback.playError();
     } finally {
@@ -414,7 +413,6 @@ export default function AstrologyPanel() {
         message.error("Failed to import profiles");
       }
     } catch (e) {
-      console.error(e);
       message.error("Import failed");
     }
   };
@@ -432,7 +430,6 @@ export default function AstrologyPanel() {
         await navigator.clipboard.writeText(markdown);
         message.success("Current astrology copied for LLM");
       } catch (e) {
-        console.error(e);
         message.error("Live astrology copy failed: " + e.message);
       }
       return;
@@ -461,7 +458,6 @@ export default function AstrologyPanel() {
       await navigator.clipboard.writeText(markdown);
       message.success("Natal chart copied for LLM");
     } catch (e) {
-      console.error(e);
       message.error("Natal chart copy failed: " + e.message);
     }
   };
