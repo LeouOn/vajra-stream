@@ -11,7 +11,7 @@
  *
  * @component
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Volume2, Square, Loader2, AlertTriangle, Settings2 } from 'lucide-react';
 import { Button, Slider, Switch, Space, Tooltip, Tag, message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -47,8 +47,7 @@ export default function NarrativeTTSPlayer({
   // Stop + cleanup on unmount
   useEffect(() => {
     return () => stopAndCleanup();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [stopAndCleanup]);
 
   // Auto-speak when the narrative text changes
   useEffect(() => {
@@ -57,10 +56,9 @@ export default function NarrativeTTSPlayer({
     if (text === lastTextRef.current) return;
     lastTextRef.current = text;
     handleSpeak();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, autoSpeak]);
+  }, [text, autoSpeak, handleSpeak]);
 
-  const stopAndCleanup = () => {
+  const stopAndCleanup = useCallback(() => {
     if (audioRef.current) {
       try { audioRef.current.pause(); } catch { /* noop */ }
       audioRef.current.src = '';
@@ -70,9 +68,9 @@ export default function NarrativeTTSPlayer({
       blobUrlRef.current = null;
     }
     setPlaying(false);
-  };
+  }, []);
 
-  const handleSpeak = async (): Promise<void> => {
+  const handleSpeak = useCallback(async (): Promise<void> => {
     if (!text) {
       message.warning('No narrative to speak.');
       return;
@@ -125,7 +123,7 @@ export default function NarrativeTTSPlayer({
     } finally {
       setLoading(false);
     }
-  };
+  }, [text, voice, role, projectId, volume, stopAndCleanup]);
 
   const handleStop = (): void => {
     stopAndCleanup();

@@ -21,6 +21,35 @@ interface PowerSpot {
   name: string;
 }
 
+// Convert lat/lon to 3D sphere coordinates (pure, module-level stable)
+function latLonToVector3(lat: number, lon: number, radius = 5): THREE.Vector3 {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+
+  const x = -(radius * Math.sin(phi) * Math.cos(theta));
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+  const y = radius * Math.cos(phi);
+
+  return new THREE.Vector3(x, y, z);
+}
+
+// Get color for each planet (pure, module-level stable)
+function getPlanetColor(planet: string): string {
+  const colors: Record<string, string> = {
+    Sun: '#FFD700',      // Gold
+    Moon: '#C0C0C0',     // Silver
+    Mercury: '#87CEEB',  // Sky Blue
+    Venus: '#FF69B4',    // Pink
+    Mars: '#FF4500',     // Red-Orange
+    Jupiter: '#9370DB',  // Purple
+    Saturn: '#4169E1',   // Royal Blue
+    Uranus: '#00CED1',   // Turquoise
+    Neptune: '#4B0082',  // Indigo
+    Pluto: '#8B4513',    // Brown
+  };
+  return colors[planet] || '#FFFFFF';
+}
+
 interface AstrocartographyProps {
   birthLocation?: BirthLocation;
   planetaryLines?: PlanetaryLine[];
@@ -71,18 +100,6 @@ export default function Astrocartography({
     const interval = setInterval(fetchAstrologyData, 60000); // Update every minute
     return () => clearInterval(interval);
   }, []);
-
-  // Convert lat/lon to 3D sphere coordinates
-  const latLonToVector3 = (lat: number, lon: number, radius = 5): THREE.Vector3 => {
-    const phi = (90 - lat) * (Math.PI / 180);
-    const theta = (lon + 180) * (Math.PI / 180);
-
-    const x = -(radius * Math.sin(phi) * Math.cos(theta));
-    const z = radius * Math.sin(phi) * Math.sin(theta);
-    const y = radius * Math.cos(phi);
-
-    return new THREE.Vector3(x, y, z);
-  };
 
   // Create Earth globe texture (simple for now, can be enhanced)
   const globeTexture = useMemo(() => {
@@ -146,23 +163,6 @@ export default function Astrocartography({
 
     return new THREE.CanvasTexture(canvas);
   }, []);
-
-  // Get color for each planet
-  const getPlanetColor = (planet: string): string => {
-    const colors: Record<string, string> = {
-      Sun: '#FFD700',      // Gold
-      Moon: '#C0C0C0',     // Silver
-      Mercury: '#87CEEB',  // Sky Blue
-      Venus: '#FF69B4',    // Pink
-      Mars: '#FF4500',     // Red-Orange
-      Jupiter: '#9370DB',  // Purple
-      Saturn: '#4169E1',   // Royal Blue
-      Uranus: '#00CED1',   // Turquoise
-      Neptune: '#4B0082',  // Indigo
-      Pluto: '#8B4513',    // Brown
-    };
-    return colors[planet] || '#FFFFFF';
-  };
 
   // Default planetary lines for demonstration
   const createDefaultLines = (): React.ReactElement[] => {
@@ -241,8 +241,7 @@ export default function Astrocartography({
         </line>
       );
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planetaryLines]);
+  }, [planetaryLines, latLonToVector3, getPlanetColor]);
 
   // Birth location marker
   const birthMarker = useMemo(() => {
