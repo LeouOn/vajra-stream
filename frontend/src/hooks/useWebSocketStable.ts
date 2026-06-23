@@ -11,6 +11,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { WS_URL } from '../utils/api';
+import { createLogger } from '../utils/logger';
 import type {
   WSMessage,
   CrystalStatus,
@@ -71,6 +72,7 @@ export interface UseWebSocketStableReturn {
 }
 
 export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketStableReturn => {
+  const log = createLogger('useWebSocketStable');
   const [isConnected, setIsConnected] = useState(false);
   const [audioSpectrum, setAudioSpectrum] = useState<number[]>([]);
   const [sessions, setSessions] = useState<Record<string, unknown>>({});
@@ -368,7 +370,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
               setError(data.message || 'System error occurred');
               break;
             default:
-              console.log('Unknown WebSocket message type:', data.type);
+              log.warn('Unknown WebSocket message type:', data.type);
           }
         } catch (err) {
           setError('Error processing server message');
@@ -405,7 +407,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
         return false;
       }
     }
-    console.warn('WebSocket not connected, cannot send message');
+    log.warn('WebSocket not connected, cannot send message');
     return false;
   }, []);
 
@@ -448,7 +450,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
       setConnectionStats(stats);
       return stats;
     } catch (err) {
-      console.error('Error getting connection stats:', err);
+      log.error('Error getting connection stats:', err);
       return null;
     }
   }, []);

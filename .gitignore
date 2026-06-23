@@ -82,7 +82,9 @@ backend/**/__pycache__/
 
 # Logs
 *.log
+*.err
 logs/
+frontend/vite.err
 
 # Temporary files
 *.tmp
