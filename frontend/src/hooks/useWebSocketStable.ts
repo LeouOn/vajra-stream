@@ -22,6 +22,26 @@ import type {
   ProviderHealthStatus,
 } from '../types';
 
+// Local state shapes for events that previously hit default: console.log.
+// Journey events come from core/character_journey.py:225,335,324.
+// Astrology hour-shift comes from core/ritual_engine.py:617.
+export interface JourneyState {
+  currentStage?: number;
+  stageName?: string;
+  character?: string;
+  totalStages?: number;
+  totalBlessings?: number;
+  completed?: boolean;
+  startedAt?: number;
+}
+
+export interface AstrologyContext {
+  currentHour?: string;
+  tithi?: string;
+  nakshatra?: string;
+  since?: number;
+}
+
 export interface UseWebSocketStableReturn {
   isConnected: boolean;
   audioSpectrum: number[];
@@ -38,6 +58,8 @@ export interface UseWebSocketStableReturn {
   ritualStatus: Record<string, unknown> | null;
   providerHealth: ProviderHealthStatus[];
   lastProviderHealthUpdate: number | null;
+  journey: JourneyState | null;
+  astrologyContext: AstrologyContext | null;
   error: string | null;
   startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
   stopSession: (sessionId: string) => Promise<ApiResponse>;
@@ -65,6 +87,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
   const [ritualStatus, setRitualStatus] = useState<Record<string, unknown> | null>(null);
   const [providerHealth, setProviderHealth] = useState<ProviderHealthStatus[]>([]);
   const [lastProviderHealthUpdate, setLastProviderHealthUpdate] = useState<number | null>(null);
+  const [journey, setJourney] = useState<JourneyState | null>(null);
+  const [astrologyContext, setAstrologyContext] = useState<AstrologyContext | null>(null);
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -190,10 +214,20 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'session_update':
               setSessions(prev => ({ ...prev, [data.data.id]: data.data }));
               break;
-            // Backend: connection_manager_stable_v2.py:124 — session lifecycle event.
-            // Informational; session_update delivers the actual session data payload.
+            // Backend: connection_manager_stable_v2.py:132 — session lifecycle event.
+            // Payload shape: {type, session_id, intention, timestamp} (no data wrapper).
+            // Fold into the sessions map alongside session_update.
             case 'SESSION_STARTED':
-              console.log('Session started:', data.session_id, data.intention);
+              setSessions(prev => ({
+                ...prev,
+                [data.session_id]: {
+                  ...(prev[data.session_id] || {}),
+                  id: data.session_id,
+                  name: data.intention,
+                  status: 'started',
+                  _updatedAt: data.timestamp,
+                },
+              }));
               break;
             case 'connection_status':
               setConnectionStatus(data.status as WSConnectionState);
@@ -231,19 +265,42 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'RITUAL_COMPLETED':
               setRitualStatus(data.data);
               break;
+            // Backend: core/ritual_engine.py:617 — fires when _last_hour changes.
+            // Powers a "current planetary hour" indicator in the UI.
             case 'PLANETARY_HOUR_SHIFT':
-              console.log('Planetary hour shift:', data.data);
+              setAstrologyContext({
+                currentHour: data.data.hour,
+                tithi: data.data.tithi,
+                nakshatra: data.data.nakshatra,
+                since: data.timestamp,
+              });
               break;
-            // Backend: core/character_journey.py:175,266,255 — journey lifecycle events.
-            // Informational only; no journey state lives in this hook.
+            // Backend: core/character_journey.py:225,335,324 — journey lifecycle events.
+// Stage events reset/replace the active journey; completion freezes it.
             case 'JOURNEY_STAGE_STARTED':
-              console.log('Journey stage started:', data.data);
+              setJourney({
+                currentStage: data.data.stage,
+                stageName: data.data.name,
+                character: data.data.character,
+                startedAt: data.timestamp,
+              });
               break;
             case 'JOURNEY_STAGE_COMPLETED':
-              console.log('Journey stage completed:', data.data);
+              setJourney(prev => ({
+                ...(prev || {}),
+                totalBlessings: (prev?.totalBlessings || 0) + (data.data.blessings_count || 0),
+                lastCompletedStage: data.data.stage,
+                lastCompletedStageName: data.data.name,
+              }));
               break;
             case 'JOURNEY_COMPLETED':
-              console.log('Journey completed:', data.data);
+              setJourney(prev => ({
+                ...(prev || {}),
+                completed: true,
+                totalStages: data.data.total_stages,
+                totalBlessings: data.data.total_blessings,
+                character: data.data.character,
+              }));
               break;
             case 'SAKA_DAWA_CHECK':
               setSakaDawa(data.data as SakaDawaResult);
@@ -265,6 +322,46 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             // No settings store lives in this hook; surface as informational log.
             case 'settings_updated':
               console.log('Settings updated:', data.message);
+              break;
+            // Backend: orchestrator_bridge._forward_event_to_websocket forwards every
+            // DomainEvent subclass as {type: ClassName, timestamp, data: {...}}.
+            // SessionCreated/Started/Stopped carry session lifecycle info that
+            // previously hit default. Fold into the existing sessions map.
+            case 'SessionCreated':
+              setSessions(prev => ({
+                ...prev,
+                [data.data.session_id]: {
+                  ...(prev[data.data.session_id] || {}),
+                  ...data.data,
+                  id: data.data.session_id,
+                  status: 'created',
+                  _updatedAt: data.timestamp,
+                },
+              }));
+              break;
+            case 'SessionStarted':
+              setSessions(prev => ({
+                ...prev,
+                [data.data.session_id]: {
+                  ...(prev[data.data.session_id] || {}),
+                  ...data.data,
+                  id: data.data.session_id,
+                  status: 'started',
+                  _updatedAt: data.timestamp,
+                },
+              }));
+              break;
+            case 'SessionStopped':
+              setSessions(prev => ({
+                ...prev,
+                [data.data.session_id]: {
+                  ...(prev[data.data.session_id] || {}),
+                  ...data.data,
+                  id: data.data.session_id,
+                  status: 'stopped',
+                  _updatedAt: data.timestamp,
+                },
+              }));
               break;
             // Backend emits BOTH uppercase 'ERROR' (connection_manager_stable_v2.py:109,131)
             // AND lowercase 'error' (lines 89,93). Explicit fall-through so both surface
@@ -401,6 +498,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     ritualStatus,
     providerHealth,
     lastProviderHealthUpdate,
+    journey,
+    astrologyContext,
     error,
     startSession,
     stopSession,

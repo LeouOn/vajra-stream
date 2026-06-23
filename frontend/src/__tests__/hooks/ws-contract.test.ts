@@ -35,7 +35,10 @@ import { resolve } from 'node:path';
 /**
  * Canonical backend-emitted WS message types.
  * Originally 18 (wave0-task3 whitelist union); 10 more restored after
- * remediation Task 24 regressively deleted their case branches. Total = 28.
+ * remediation Task 24 regressively deleted their case branches; 3 more
+ * (SessionCreated/Started/Stopped) added when the camelCase DomainEvent
+ * forwarders from orchestrator_bridge._forward_event_to_websocket were
+ * wired into the sessions map. Total = 31.
  * DO NOT edit this set without first updating the whitelist evidence file.
  */
 const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
@@ -73,6 +76,11 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'JOURNEY_STAGE_STARTED',
   'JOURNEY_STAGE_COMPLETED',
   'JOURNEY_COMPLETED',
+  // DomainEvent forwarders from orchestrator_bridge._forward_event_to_websocket.
+  // Class names become WS message `type` strings; payload wrapped in {type, timestamp, data:{...}}.
+  'SessionCreated',
+  'SessionStarted',
+  'SessionStopped',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');
