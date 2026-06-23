@@ -137,32 +137,11 @@ export default function OperationsPanel() {
   const [isRitualRunning, setIsRitualRunning] = useState<boolean>(false);
   const [activeStepIndex, setActiveStepIndex] = useState<number>(-1);
 
-  const fetchAstrology = async (): Promise<void> => {
-    try {
-      const currentRes = await fetch(`/api/v1/astrology/current`);
-      if (currentRes.ok) {
-        const d = await currentRes.json() as { astrology?: unknown };
-        // @ts-expect-error — pre-existing: setter is not declared in this component.
-        setAstrologyData(d.astrology);
-      }
-      
-      const hoursRes = await fetch(`/api/v1/astrology/planetary-hours`);
-      if (hoursRes.ok) {
-        const d = await hoursRes.json();
-        // @ts-expect-error — pre-existing: setter is not declared in this component.
-        setPlanetaryHours(d);
-      }
-
-      const transitsRes = await fetch(`/api/v1/astrology/transits`);
-      if (transitsRes.ok) {
-        const d = (await transitsRes.json()) as { transits?: unknown[] };
-        // @ts-expect-error — pre-existing: setter is not declared in this component.
-        setTransits(d.transits || []);
-      }
-    } catch (e) {
-      console.error("Astrology fetch error:", e);
-    }
-  };
+  // Astrology data fetches were removed (2026-06): the prior fetchAstrology()
+  // helper called setters (setAstrologyData/setPlanetaryHours/setTransits) that
+  // were never declared, throwing ReferenceError silently on every ritual run.
+  // State vars were never read elsewhere. Planetary hour data is now consumed
+  // via the central useWebSocketStable's PLANETARY_HOUR_SHIFT event.
 
   const handleDrawTarot = async (): Promise<void> => {
     setLoading(true);
@@ -228,11 +207,9 @@ export default function OperationsPanel() {
       if (response.ok) {
         const data = (await response.json()) as { chart: GeomancyChart };
         setGeomancyResult(data.chart);
-        // Also fetch elemental balance comparison
-        try {
-          const balRes = await fetch(`/api/v1/divination/geomancy/elemental-balance`);
-          if (balRes.ok) setGeoBalance(await balRes.json() as GeoBalance);
-        } catch { }
+        // Also fetch elemental balance comparison (let outer catch handle errors)
+        const balRes = await fetch(`/api/v1/divination/geomancy/elemental-balance`);
+        if (balRes.ok) setGeoBalance(await balRes.json() as GeoBalance);
         audioFeedback.playSuccess();
       }
     } catch (e) {
@@ -282,8 +259,8 @@ export default function OperationsPanel() {
     });
 
     // Step 2: Fetch planetary hour and align
+    // (Planetary data delivered via WS — see useWebSocketStable.PLANETARY_HOUR_SHIFT)
     await executeStep(1, async () => {
-      await fetchAstrology();
       await new Promise<void>(r => setTimeout(r, 1000));
     });
 
