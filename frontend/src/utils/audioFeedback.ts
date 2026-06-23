@@ -14,7 +14,17 @@ class AudioFeedbackEngine {
   init(): void {
     if (this.ctx) return;
     try {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // AudioContext with Safari webkit fallback. lib.dom.d.ts declares
+      // webkitAudioContext as deprecated on AudioContext; a minimal typed
+      // cast avoids the `as any` that previously bypassed type checks.
+      type AudioContextCtor = typeof AudioContext;
+      const ctor: AudioContextCtor | undefined =
+        window.AudioContext ??
+        (window as Window & { webkitAudioContext?: AudioContextCtor }).webkitAudioContext;
+      if (!ctor) {
+        throw new Error('Web Audio API not supported');
+      }
+      this.ctx = new ctor();
       // Resume if suspended (autoplay policy)
       if (this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
