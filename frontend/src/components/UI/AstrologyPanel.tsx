@@ -484,6 +484,75 @@ export default function AstrologyPanel() {
     }
   };
 
+  // Dedicated "Copy Current Outlook" — always copies today's live astrology,
+  // regardless of whether the panel is currently showing live or natal data.
+  // This is the Cosmic Clock → "copy current outlook" shortcut: it always
+  // gives you the present moment, not a saved chart.
+  const handleCopyCurrentOutlook = async () => {
+    if (!liveData) {
+      message.warning(
+        'Current outlook not yet loaded — wait a few seconds for the next WS broadcast. ' +
+          'If this persists, check that the backend is running.'
+      );
+      // Best-effort: try an immediate fetch to populate live data.
+      try {
+        await fetchLiveAstrology();
+      } catch {
+        /* swallow — warning above already explains */
+      }
+      return;
+    }
+    try {
+      const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
+      const markdown = formatLiveAstrologyMarkdown(liveData);
+      await navigator.clipboard.writeText(markdown);
+      message.success("Current outlook copied — today's live astrology is on your clipboard");
+    } catch (e) {
+      message.error(
+        'Copy current outlook failed: ' + (e instanceof Error ? e.message : String(e))
+      );
+    }
+  };
+    // Natal mode: copy saved chart's natal data
+    if (!activeChart?.id) {
+      message.error("Load a saved chart first to copy its natal data");
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/v1/astrology/charts/${activeChart.id}/natal-export`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        },
+      );
+      if (response.status === 404) {
+        // Stale chart id (chart was deleted or never existed). Clear it
+        // and fall back to live mode so the user isn't stuck on a broken
+        // selection. This is the "can't copy today's charts" failure.
+        message.warning(
+          `Saved chart #${activeChart.id} is no longer available. ` +
+          `Switching to live mode for today's astrology.`
+        );
+        setActiveChart(null);
+        setIsLiveMode(true);
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const result = await response.json();
+      const data = result.data || result;
+      const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
+      const markdown = formatNatalChartMarkdown(data);
+      await navigator.clipboard.writeText(markdown);
+      message.success("Natal chart copied for LLM");
+    } catch (e) {
+      message.error("Natal chart copy failed: " + e.message);
+    }
+  };
+
   const handleResetToLive = () => {
     setIsLiveMode(true);
     setActiveChart(null);
@@ -559,6 +628,21 @@ export default function AstrologyPanel() {
               className={isLiveMode ? 'animate-pulse' : ''}
             >
               🔴 LIVE
+            </Button>
+            <Button
+              size="small"
+              icon={<Copy />}
+              onClick={handleCopyCurrentOutlook}
+              className="text-[10px]"
+              style={{
+                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                border: 'none',
+                color: '#fff',
+                fontWeight: 600,
+              }}
+              title="Copy today's live astrology — current planetary positions, Moon phase, aspects, Vedic + BaZi"
+            >
+              Copy Current Outlook
             </Button>
             <Button
               size="small"
