@@ -42,7 +42,8 @@ function Loading({ label, tone }: { label: string; tone: string }): React.ReactE
 export default function VisualizerTab(): React.ReactElement {
   const [mode, setMode] = useState<Viz3DMode>('sacred-geometry');
   const { audioSpectrum } = useWebSocketStable();
-  const { isPlaying, frequency } = useAudioStore();
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const frequency = useAudioStore((s) => s.frequency);
 
   return (
     <div className="relative w-full h-full">

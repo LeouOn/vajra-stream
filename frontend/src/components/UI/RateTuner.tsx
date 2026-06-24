@@ -20,25 +20,23 @@ interface RateTunerProps {
 }
 
 const RateTuner = ({ className = '' }: RateTunerProps) => {
-  const {
-    currentRate,
-    updateRateValue,
-    setRateName,
-    setRateCategory,
-    setRateDescription,
-    saveRate,
-    rateHistory,
-    customRates,
-    searchQuery,
-    setSearchQuery,
-    searchResults,
-    isTuning,
-    autoTune,
-    setAutoTune,
-    loadRate
-  } = useRateStore();
-  
-  const { addToast } = useUIStore();
+  const currentRate = useRateStore((s) => s.currentRate);
+  const updateRateValue = useRateStore((s) => s.updateRateValue);
+  const setRateName = useRateStore((s) => s.setRateName);
+  const setRateCategory = useRateStore((s) => s.setRateCategory);
+  const setRateDescription = useRateStore((s) => s.setRateDescription);
+  const saveRate = useRateStore((s) => s.saveRate);
+  const rateHistory = useRateStore((s) => s.rateHistory);
+  const customRates = useRateStore((s) => s.customRates);
+  const searchQuery = useRateStore((s) => s.searchQuery);
+  const setSearchQuery = useRateStore((s) => s.setSearchQuery);
+  const searchResults = useRateStore((s) => s.searchResults);
+  const isTuning = useRateStore((s) => s.isTuning);
+  const autoTune = useRateStore((s) => s.autoTune);
+  const setAutoTune = useRateStore((s) => s.setAutoTune);
+  const loadRate = useRateStore((s) => s.loadRate);
+
+  const addToast = useUIStore((s) => s.addToast);
   
   const [showPresets, setShowPresets] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);

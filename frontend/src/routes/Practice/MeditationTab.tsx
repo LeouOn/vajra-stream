@@ -23,7 +23,7 @@ import { useAudioStore } from '../../stores/audioStore';
 export default function MeditationTab(): React.ReactElement {
   const navigate = useNavigate();
   const { audioSpectrum } = useWebSocketStable();
-  const { isPlaying } = useAudioStore();
+  const isPlaying = useAudioStore((s) => s.isPlaying);
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">

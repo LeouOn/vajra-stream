@@ -16,7 +16,8 @@ const LiveWaveVisualizer: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const { audioSpectrum } = useWebSocket();
-  const { frequency, isPlaying } = useAudioStore();
+  const frequency = useAudioStore((s) => s.frequency);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
   const [waveType, setWaveType] = useState<WaveType>('sine');
 
   useEffect(() => {

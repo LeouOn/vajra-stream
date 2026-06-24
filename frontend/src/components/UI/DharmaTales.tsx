@@ -51,7 +51,7 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
   const log = createLogger('DharmaTales');
 
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const { addToast } = useUIStore();
+  const addToast = useUIStore((s) => s.addToast);
   
   useEffect(() => {
     loadThemes();

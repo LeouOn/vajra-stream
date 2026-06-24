@@ -149,20 +149,18 @@ export default function ScalarTab(): React.ReactElement {
   const [mode, setMode] = useState<ScalarMode>('living');
 
   // ── audio store ────────────────────────────────────────────────────
-  const {
-    frequency,
-    volume,
-    prayerBowlMode,
-    isPlaying,
-    audioStatus,
-    errorMessage,
-    setFrequency,
-    setVolume,
-    setPrayerBowlMode,
-    generateAudio,
-    playAudio,
-    stopAudio,
-  } = useAudioStore();
+  const frequency = useAudioStore((s) => s.frequency);
+  const volume = useAudioStore((s) => s.volume);
+  const prayerBowlMode = useAudioStore((s) => s.prayerBowlMode);
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const audioStatus = useAudioStore((s) => s.audioStatus);
+  const errorMessage = useAudioStore((s) => s.errorMessage);
+  const setFrequency = useAudioStore((s) => s.setFrequency);
+  const setVolume = useAudioStore((s) => s.setVolume);
+  const setPrayerBowlMode = useAudioStore((s) => s.setPrayerBowlMode);
+  const generateAudio = useAudioStore((s) => s.generateAudio);
+  const playAudio = useAudioStore((s) => s.playAudio);
+  const stopAudio = useAudioStore((s) => s.stopAudio);
 
   // ── websocket: scalar / crystal / sessions / link / slow-data ──────
   // mopsAverages + journeyStatus come from the backend's 10s slow-data

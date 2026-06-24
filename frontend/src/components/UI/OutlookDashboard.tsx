@@ -182,7 +182,7 @@ const GLOBAL_INTENTIONS: GlobalIntention[] = [
 
 export default function OutlookDashboard() {
   const { isPlaying } = useAudioStore();
-  const { addToast } = useUIStore();
+  const addToast = useUIStore((s) => s.addToast);
   const [activeTab, setActiveTab] = useState<GeneratorTab>('generator');
 
   // ─── Generator State ─────────────────────────────────────

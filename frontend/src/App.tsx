@@ -60,16 +60,14 @@ function AppContent(): React.ReactElement {
     mopsAverages,
   } = useWebSocket();
 
-  const {
-    isPlaying,
-    frequency,
-    volume,
-    prayerBowlMode,
-    updateSettings,
-    generateAudio,
-    playAudio,
-    stopAudio,
-  } = useAudioStore();
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const frequency = useAudioStore((s) => s.frequency);
+  const volume = useAudioStore((s) => s.volume);
+  const prayerBowlMode = useAudioStore((s) => s.prayerBowlMode);
+  const updateSettings = useAudioStore((s) => s.updateSettings);
+  const generateAudio = useAudioStore((s) => s.generateAudio);
+  const playAudio = useAudioStore((s) => s.playAudio);
+  const stopAudio = useAudioStore((s) => s.stopAudio);
 
   useEffect(() => {
     updateSettings({

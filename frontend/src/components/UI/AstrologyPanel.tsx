@@ -97,7 +97,8 @@ function MiniOrrery({ positions }) {
 }
 
 export default function AstrologyPanel() {
-  const { isPlaying, frequency } = useAudioStore();
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const frequency = useAudioStore((s) => s.frequency);
   const { currentAstrology } = useWebSocket();
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');

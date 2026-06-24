@@ -116,7 +116,7 @@ const TAROT_CARD_BACK = `<svg viewBox="0 0 240 380" xmlns="http://www.w3.org/200
 </svg>`;
 
 export default function OperationsPanel() {
-  const { updateSettings } = useAudioStore();
+  const updateSettings = useAudioStore((s) => s.updateSettings);
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('divination');
   const [divinationSystem, setDivinationSystem] = useState<DivinationSystem>('tarot');
   

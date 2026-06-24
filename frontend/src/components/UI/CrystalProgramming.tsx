@@ -47,25 +47,23 @@ interface TabDef {
 }
 
 const CrystalProgramming: React.FC<CrystalProgrammingProps> = ({ className = '' }) => {
-  const {
-    crystalLibrary,
-    gridConfig,
-    programming,
-    attunement,
-    meditation,
-    startProgramming,
-    advanceProgrammingStep,
-    completeProgramming,
-    startAttunement,
-    advanceAttunementStep,
-    stopAttunement,
-    startMeditation,
-    stopMeditation,
-    updateMeditation,
-    setIntention
-  } = useCrystalStore();
-  
-  const { addToast } = useUIStore();
+  const crystalLibrary = useCrystalStore((s) => s.crystalLibrary);
+  const gridConfig = useCrystalStore((s) => s.gridConfig);
+  const programming = useCrystalStore((s) => s.programming);
+  const attunement = useCrystalStore((s) => s.attunement);
+  const meditation = useCrystalStore((s) => s.meditation);
+  const startProgramming = useCrystalStore((s) => s.startProgramming);
+  const advanceProgrammingStep = useCrystalStore((s) => s.advanceProgrammingStep);
+  const completeProgramming = useCrystalStore((s) => s.completeProgramming);
+  const startAttunement = useCrystalStore((s) => s.startAttunement);
+  const advanceAttunementStep = useCrystalStore((s) => s.advanceAttunementStep);
+  const stopAttunement = useCrystalStore((s) => s.stopAttunement);
+  const startMeditation = useCrystalStore((s) => s.startMeditation);
+  const stopMeditation = useCrystalStore((s) => s.stopMeditation);
+  const updateMeditation = useCrystalStore((s) => s.updateMeditation);
+  const setIntention = useCrystalStore((s) => s.setIntention);
+
+  const addToast = useUIStore((s) => s.addToast);
   
   const [selectedCrystal, setSelectedCrystal] = useState<CrystalLibraryEntry | null>(null);
   const [intentionInput, setIntentionInput] = useState('');

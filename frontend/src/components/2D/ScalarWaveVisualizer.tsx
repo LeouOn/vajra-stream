@@ -207,12 +207,10 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animRef = useRef<number | null>(null);
     const { scalarStatus } = useWebSocket();
-    const {
-      frequency,
-      isPlaying,
-      prayerBowlMode,
-      volume,
-    } = useAudioStore();
+    const frequency = useAudioStore((s) => s.frequency);
+    const isPlaying = useAudioStore((s) => s.isPlaying);
+    const prayerBowlMode = useAudioStore((s) => s.prayerBowlMode);
+    const volume = useAudioStore((s) => s.volume);
 
     // Internal state used only when no controlled `mode` prop is supplied
     // (legacy embeds). Defaults to 'interference' to preserve the original

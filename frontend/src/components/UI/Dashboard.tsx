@@ -65,8 +65,14 @@ const colorMap = {
 
 const Dashboard = () => {
   const { sessions, isConnected, crystalStatus, scalarStatus, rngData } = useWebSocket();
-  const { isPlaying, frequency, playAudio, stopAudio, generateAudio } = useAudioStore();
-  const { addToast, setSidebarOpen, setSearchOpen } = useUIStore();
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const frequency = useAudioStore((s) => s.frequency);
+  const playAudio = useAudioStore((s) => s.playAudio);
+  const stopAudio = useAudioStore((s) => s.stopAudio);
+  const generateAudio = useAudioStore((s) => s.generateAudio);
+  const addToast = useUIStore((s) => s.addToast);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const setSearchOpen = useUIStore((s) => s.setSearchOpen);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [quickAstro, setQuickAstro] = useState(null);
   const [automationStatus, setAutomationStatus] = useState(null);

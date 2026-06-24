@@ -60,7 +60,9 @@ interface Props {}
 const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const log = createLogger('BroadcastPanel');
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
-  const { isPlaying, frequency, updateSettings } = useAudioStore();
+  const isPlaying = useAudioStore((s) => s.isPlaying);
+  const frequency = useAudioStore((s) => s.frequency);
+  const updateSettings = useAudioStore((s) => s.updateSettings);
 
   // Radionics rates D1 - D5
   const [dimensions, setDimensions] = useState<Dimensions>({
