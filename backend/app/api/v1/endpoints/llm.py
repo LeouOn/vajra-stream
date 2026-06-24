@@ -1611,3 +1611,311 @@ async def get_providers_health(request: Request) -> dict:
         "healthy_count": sum(1 for s in statuses if s.healthy),
         "total_count": len(statuses),
     }
+
+
+# ─── Dynamic provider registration + local discovery ─────────────────────
+# The bootstrap module (core/llm/bootstrap.py) registers providers from env
+# vars at startup. These endpoints let the UI add providers AFTER startup,
+# so users don't have to restart the backend just to wire up a new key or
+# a local LM Studio / Ollama instance.
+
+
+class ProviderRegisterRequest(BaseModel):
+    """Body for POST /llm/providers/register — adds a provider at runtime."""
+    provider: str  # one of: openai, anthropic, openrouter, deepseek, z_ai, minimax, lm_studio, local_gguf
+    api_key: str | None = None
+    base_url: str | None = None
+    default_model: str | None = None
+    priority: int | None = None
+
+
+class ProviderUnregisterRequest(BaseModel):
+    """Body for POST /llm/providers/unregister — removes a registered provider."""
+    provider: str
+
+
+class DiscoverResult(BaseModel):
+    """One probed local LLM endpoint."""
+    name: str
+    base_url: str
+    reachable: bool
+    models: list[str] = []
+    error: str | None = None
+
+
+# Provider class dispatch — keys match ProviderRegisterRequest.provider values
+# and the `name` field each provider sets in its constructor.
+_PROVIDER_DISPATCH: dict[str, type] = {}
+
+
+def _init_provider_dispatch() -> None:
+    """Lazy-import provider classes to avoid pulling them at module-load time."""
+    if _PROVIDER_DISPATCH:
+        return
+    from core.llm.providers import (
+        AnthropicProvider,
+        DeepSeekProvider,
+        LMStudioProvider,
+        LocalGGUFProvider,
+        MinimaxProvider,
+        OpenAIProvider,
+        OpenRouterProvider,
+        ZAIProvider,
+    )
+    _PROVIDER_DISPATCH.update({
+        "anthropic": AnthropicProvider,
+        "deepseek": DeepSeekProvider,
+        "lm_studio": LMStudioProvider,
+        "local_gguf": LocalGGUFProvider,
+        "minimax": MinimaxProvider,
+        "openai": OpenAIProvider,
+        "openrouter": OpenRouterProvider,
+        "z_ai": ZAIProvider,
+    })
+
+
+# Canonical info for the "available providers" dropdown — pairs every
+# supported provider name with a human-readable label, the default base URL
+# if any, the env-var the bootstrap module checks, and whether an API key
+# is required.
+_PROVIDER_CATALOG: dict[str, dict] = {
+    "openai": {
+        "label": "OpenAI",
+        "requires_api_key": True,
+        "default_base_url": "https://api.openai.com/v1",
+        "default_model": "gpt-4o-mini",
+        "default_priority": 50,
+        "env_var": "OPENAI_API_KEY",
+    },
+    "anthropic": {
+        "label": "Anthropic (Claude)",
+        "requires_api_key": True,
+        "default_base_url": "https://api.anthropic.com",
+        "default_model": "claude-3-5-sonnet-latest",
+        "default_priority": 60,
+        "env_var": "ANTHROPIC_API_KEY",
+    },
+    "openrouter": {
+        "label": "OpenRouter (aggregator)",
+        "requires_api_key": True,
+        "default_base_url": "https://openrouter.ai/api/v1",
+        "default_model": "anthropic/claude-3.5-sonnet",
+        "default_priority": 90,
+        "env_var": "OPENROUTER_API_KEY",
+    },
+    "deepseek": {
+        "label": "DeepSeek",
+        "requires_api_key": True,
+        "default_base_url": "https://api.deepseek.com/v1",
+        "default_model": "deepseek-chat",
+        "default_priority": 70,
+        "env_var": "DEEPSEEK_API_KEY",
+    },
+    "z_ai": {
+        "label": "Z.AI (Anthropic protocol)",
+        "requires_api_key": True,
+        "default_base_url": "https://api.z.ai/api/anthropic",
+        "default_model": "claude-3-5-sonnet",
+        "default_priority": 65,
+        "env_var": "ZAI_API_KEY",
+    },
+    "minimax": {
+        "label": "MiniMax",
+        "requires_api_key": True,
+        "default_base_url": None,
+        "default_model": "abab6.5s-chat",
+        "default_priority": 40,
+        "env_var": "MINIMAX_API_KEY",
+    },
+    "lm_studio": {
+        "label": "LM Studio (local server)",
+        "requires_api_key": False,
+        "default_base_url": "http://localhost:1234/v1",
+        "default_model": "local-model",
+        "default_priority": 80,
+        "env_var": None,
+    },
+    "local_gguf": {
+        "label": "Local GGUF (llama.cpp)",
+        "requires_api_key": False,
+        "default_base_url": None,
+        "default_model": None,
+        "default_priority": 30,
+        "env_var": None,
+    },
+}
+
+
+def _construct_provider(req: ProviderRegisterRequest):
+    """Build a provider instance from the registration request."""
+    _init_provider_dispatch()
+    cls = _PROVIDER_DISPATCH.get(req.provider)
+    if cls is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown provider '{req.provider}'. Supported: {sorted(_PROVIDER_DISPATCH)}",
+        )
+    catalog = _PROVIDER_CATALOG.get(req.provider, {})
+    # Build kwargs — only pass values the provider actually accepts.
+    kwargs: dict[str, Any] = {}
+    if req.api_key is not None:
+        kwargs["api_key"] = req.api_key
+    elif catalog.get("requires_api_key"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{catalog.get('label', req.provider)} requires an API key",
+        )
+    if req.base_url is not None:
+        kwargs["base_url"] = req.base_url
+    elif catalog.get("default_base_url"):
+        kwargs["base_url"] = catalog["default_base_url"]
+    if req.default_model is not None:
+        kwargs["default_model"] = req.default_model
+    elif catalog.get("default_model"):
+        kwargs["default_model"] = catalog["default_model"]
+    if req.priority is not None:
+        kwargs["priority"] = req.priority
+    elif catalog.get("default_priority") is not None:
+        kwargs["priority"] = catalog["default_priority"]
+    return cls(**kwargs)
+
+
+@router.get("/providers/available", summary="List provider types that can be registered")
+async def get_available_providers() -> dict:
+    """Return the catalog of supported providers for the UI's dropdown."""
+    return {"providers": _PROVIDER_CATALOG}
+
+
+@router.post("/providers/register", summary="Register a new LLM provider at runtime")
+async def register_provider(req: ProviderRegisterRequest, request: Request) -> dict:
+    """Construct a provider from credentials and add it to the live registry.
+
+    The new provider is immediately picked up by the health heartbeat loop and
+    its status will appear in the next PROVIDER_HEALTH broadcast. Re-registering
+    an already-registered provider name returns 409 — unregister first.
+    """
+    registry = getattr(request.app.state, "llm_registry", None)
+    if registry is None:
+        raise HTTPException(status_code=503, detail="LLM registry not initialized")
+    if req.provider in registry:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Provider '{req.provider}' is already registered. Unregister it first.",
+        )
+    try:
+        provider = _construct_provider(req)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 — defensive
+        raise HTTPException(status_code=400, detail=f"Failed to construct provider: {exc}")
+    try:
+        registry.register(provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    # Eager health check so the UI gets immediate feedback.
+    try:
+        status = await registry.health_check_all(use_cache=False)
+    except Exception as exc:  # noqa: BLE001
+        status = []
+    return {
+        "registered": provider.name,
+        "priority": provider.priority,
+        "status": [s.model_dump() for s in status if s.provider == provider.name],
+    }
+
+
+@router.post("/providers/unregister", summary="Remove a registered provider")
+async def unregister_provider(req: ProviderUnregisterRequest, request: Request) -> dict:
+    """Remove a provider from the live registry. Subsequent broadcasts omit it."""
+    registry = getattr(request.app.state, "llm_registry", None)
+    if registry is None:
+        raise HTTPException(status_code=503, detail="LLM registry not initialized")
+    if req.provider not in registry:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Provider '{req.provider}' is not registered",
+        )
+    registry.unregister(req.provider)
+    return {"unregistered": req.provider, "remaining": len(registry)}
+
+
+@router.post("/providers/test", summary="Test a provider config without registering")
+async def test_provider(req: ProviderRegisterRequest) -> dict:
+    """Construct a provider from credentials and run a single health check.
+
+    Does NOT register the provider — useful for "Test connection" buttons in
+    the UI before the user commits to registering. Returns the raw health status.
+    """
+    try:
+        provider = _construct_provider(req)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        return {"reachable": False, "error": f"Failed to construct provider: {exc}"}
+    try:
+        status = await provider.health_check()
+    except Exception as exc:  # noqa: BLE001
+        return {"reachable": False, "error": f"Health check failed: {exc}"}
+    finally:
+        try:
+            await provider.close()
+        except Exception:  # noqa: BLE001
+            pass
+    return {
+        "reachable": status.healthy,
+        "provider": status.provider,
+        "latency_ms": status.latency_ms,
+        "models_available": status.models_available,
+        "error": status.error,
+    }
+
+
+@router.post("/providers/discover", summary="Probe common local LLM endpoints")
+async def discover_local_providers(timeout: float = 1.5) -> dict:
+    """Ping well-known local LLM server endpoints and report what's reachable.
+
+    Probes LM Studio (:1234) and Ollama (:11434) by default. Useful for the
+    "Discover Local" button in the Provider Settings UI — populates the
+    health table immediately without requiring env vars or registration.
+    """
+    import aiohttp
+
+    endpoints: list[tuple[str, str, str]] = [
+        # (name, base_url, models_path)
+        ("lm_studio", "http://localhost:1234/v1", "/models"),
+        ("ollama", "http://localhost:11434", "/api/tags"),
+        ("llama_cpp_python", "http://localhost:8000/v1", "/models"),
+    ]
+    results: list[DiscoverResult] = []
+
+    async def probe(name: str, base_url: str, models_path: str) -> DiscoverResult:
+        url = base_url.rstrip("/") + models_path
+        try:
+            timeout_obj = aiohttp.ClientTimeout(total=timeout)
+            async with aiohttp.ClientSession(timeout=timeout_obj) as session:
+                async with session.get(url) as resp:
+                    if resp.status >= 400:
+                        return DiscoverResult(
+                            name=name, base_url=base_url, reachable=False,
+                            error=f"HTTP {resp.status}",
+                        )
+                    payload = await resp.json() if resp.content_type == "application/json" else {}
+                    models: list[str] = []
+                    # LM Studio / llama.cpp: {"data": [{"id": ...}]}
+                    if isinstance(payload, dict) and "data" in payload:
+                        models = [m.get("id", "?") for m in payload["data"] if isinstance(m, dict)]
+                    # Ollama: {"models": [{"name": ...}]}
+                    elif isinstance(payload, dict) and "models" in payload:
+                        models = [m.get("name", "?") for m in payload["models"] if isinstance(m, dict)]
+                    return DiscoverResult(name=name, base_url=base_url, reachable=True, models=models)
+        except Exception as exc:  # noqa: BLE001
+            return DiscoverResult(name=name, base_url=base_url, reachable=False, error=str(exc)[:200])
+
+    if aiohttp is None:
+        return {"discovered": [], "error": "aiohttp not installed — discovery unavailable"}
+
+    results = await asyncio.gather(*[probe(n, b, p) for n, b, p in endpoints])
+    return {
+        "discovered": [r.model_dump() for r in results if r.reachable],
+        "unreachable": [r.model_dump() for r in results if not r.reachable],
+    }

@@ -23,14 +23,49 @@
  * @route /settings
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, Table, Tag, Typography, Space, Empty, Tooltip, Timeline } from 'antd';
+import { Card, Table, Tag, Typography, Space, Empty, Tooltip, Timeline, Button, Modal, Form, Input, InputNumber, Select, message } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
   Activity, Server, AlertTriangle, CheckCircle2, Cpu,
+  Plus, Search, X,
 } from 'lucide-react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { createLogger } from '../../utils/logger';
 const { Title, Text, Paragraph } = Typography;
+
+/**
+ * Shape of an entry in the provider catalog returned by
+ * GET /api/v1/llm/providers/available — used to populate the Add Provider form.
+ */
+interface ProviderCatalogEntry {
+  label: string;
+  requires_api_key: boolean;
+  default_base_url: string | null;
+  default_model: string | null;
+  default_priority: number;
+  env_var: string | null;
+}
+
+interface ProviderCatalog {
+  [key: string]: ProviderCatalogEntry;
+}
+
+/**
+ * Shape of a discovered local LLM endpoint returned by
+ * POST /api/v1/llm/providers/discover.
+ */
+interface DiscoveredEndpoint {
+  name: string;
+  base_url: string;
+  reachable: boolean;
+  models: string[];
+  error: string | null;
+}
+
+interface DiscoverResponse {
+  discovered: DiscoveredEndpoint[];
+  unreachable: DiscoveredEndpoint[];
+}
 
 /**
  * A single provider-health row in the AntD Table.
@@ -97,6 +132,112 @@ export default function ProviderSettings() {
    * diffing effect, read by the same effect on the next push.
    */
   const prevHealthRef = useRef<Map<string, { healthy: boolean; last_checked: number; latency_ms: number; error: string | null }>>(new Map());
+
+  // ─── Add Provider modal + Discover Local state ───────────────────────────
+  const [addModalOpen, setAddModalOpen] = useState<boolean>(false);
+  const [catalog, setCatalog] = useState<ProviderCatalog | null>(null);
+  const [discovering, setDiscovering] = useState<boolean>(false);
+  const [discovered, setDiscovered] = useState<DiscoveredEndpoint[]>([]);
+  const [testing, setTesting] = useState<boolean>(false);
+  const [addForm] = Form.useForm();
+  const selectedProvider = Form.useWatch('provider', addForm);
+
+  // Lazy-load the provider catalog when the modal first opens
+  const fetchCatalog = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/llm/providers/available`);
+      if (res.ok) {
+        const data: { providers: ProviderCatalog } = await res.json();
+        setCatalog(data.providers);
+      }
+    } catch (err) {
+      log.warn('Failed to fetch provider catalog:', err);
+    }
+  }, [log]);
+
+  // Probe local LLM endpoints (LM Studio, Ollama, llama.cpp server)
+  const discoverLocal = useCallback(async (): Promise<void> => {
+    setDiscovering(true);
+    try {
+      const res = await fetch(`/api/v1/llm/providers/discover`, { method: 'POST' });
+      if (!res.ok) {
+        message.error('Discovery failed');
+        return;
+      }
+      const data: DiscoverResponse = await res.json();
+      setDiscovered(data.discovered);
+      if (data.discovered.length === 0) {
+        message.info('No local LLM servers found on common ports (1234, 11434, 8000)');
+      } else {
+        message.success(`Found ${data.discovered.length} local LLM server${data.discovered.length === 1 ? '' : 's'}`);
+      }
+    } catch (err) {
+      message.error('Discovery network error: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDiscovering(false);
+    }
+  }, []);
+
+  // Test a provider config without registering it
+  const testConnection = useCallback(async (values: {
+    provider: string;
+    api_key?: string;
+    base_url?: string;
+    default_model?: string;
+    priority?: number;
+  }): Promise<void> => {
+    setTesting(true);
+    try {
+      const res = await fetch(`/api/v1/llm/providers/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      const data = await res.json();
+      if (data.reachable) {
+        message.success(`✓ ${data.provider} reachable (${data.latency_ms ?? '?'}ms, ${data.models_available ?? '?'} models)`);
+      } else {
+        message.error(`✗ ${data.provider} unreachable: ${data.error ?? 'unknown error'}`);
+      }
+    } catch (err) {
+      message.error('Test network error: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setTesting(false);
+    }
+  }, []);
+
+  // Register a provider with the live registry
+  const registerProvider = useCallback(async (values: {
+    provider: string;
+    api_key?: string;
+    base_url?: string;
+    default_model?: string;
+    priority?: number;
+  }): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/llm/providers/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        message.success(`Registered ${values.provider}`);
+        setAddModalOpen(false);
+        addForm.resetFields();
+      } else {
+        message.error(`Registration failed: ${data.detail ?? res.statusText}`);
+      }
+    } catch (err) {
+      message.error('Registration network error: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  }, [addForm]);
+
+  // Open the modal and lazy-load the catalog
+  const openAddModal = useCallback(() => {
+    setAddModalOpen(true);
+    if (!catalog) fetchCatalog();
+  }, [catalog, fetchCatalog]);
 
   /**
     * One-shot initial fetch — backfills the table before the first WS push.
@@ -289,7 +430,7 @@ export default function ProviderSettings() {
         {/* Summary + Health Table */}
         <Card size="small">
           <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <Space size={8} align="center">
                 <Activity
                   size={14}
@@ -298,11 +439,47 @@ export default function ProviderSettings() {
                 <Text strong>
                   {healthyCount} / {totalCount} providers healthy
                 </Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Last update: {lastUpdateStr}
+                </Text>
               </Space>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Last update: {lastUpdateStr}
-              </Text>
+              <Space size={6}>
+                <Button
+                  size="small"
+                  icon={<Search size={12} />}
+                  onClick={discoverLocal}
+                  loading={discovering}
+                  title="Probe LM Studio (:1234), Ollama (:11434), llama.cpp server (:8000)"
+                >
+                  Discover Local
+                </Button>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<Plus size={12} />}
+                  onClick={openAddModal}
+                >
+                  Add Provider
+                </Button>
+              </Space>
             </div>
+            {/* Discovered local servers — shown only after Discover Local runs */}
+            {discovered.length > 0 && (
+              <div style={{ background: 'rgba(168, 85, 247, 0.08)', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: 6, padding: '8px 12px' }}>
+                <Text strong style={{ fontSize: 12 }}>Discovered local servers:</Text>
+                <Space direction="vertical" size={4} style={{ marginTop: 4 }}>
+                  {discovered.map((d) => (
+                    <Space key={d.name} size={8}>
+                      <Tag color="purple">{d.name}</Tag>
+                      <Text style={{ fontSize: 11, fontFamily: 'monospace' }}>{d.base_url}</Text>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        {d.models.length > 0 ? `${d.models.length} model${d.models.length === 1 ? '' : 's'}: ${d.models.slice(0, 3).join(', ')}${d.models.length > 3 ? '…' : ''}` : 'no models listed'}
+                      </Text>
+                    </Space>
+                  ))}
+                </Space>
+              </div>
+            )}
             <Table
               size="small"
               columns={columns}
@@ -411,6 +588,132 @@ export default function ProviderSettings() {
           )}
         </Card>
       </Space>
+
+      {/* Add Provider Modal — form to register a new LLM provider at runtime */}
+      <Modal
+        title={
+          <Space size={8}>
+            <Plus size={16} />
+            <span>Register LLM Provider</span>
+          </Space>
+        }
+        open={addModalOpen}
+        onCancel={() => {
+          setAddModalOpen(false);
+          addForm.resetFields();
+        }}
+        footer={null}
+        width={560}
+        destroyOnClose
+      >
+        <Form
+          form={addForm}
+          layout="vertical"
+          onFinish={(values) => registerProvider(values)}
+          initialValues={{ priority: 50 }}
+        >
+          <Form.Item
+            name="provider"
+            label="Provider Type"
+            rules={[{ required: true, message: 'Pick a provider type' }]}
+          >
+            <Select
+              placeholder={catalog ? 'Select a provider…' : 'Loading catalog…'}
+              disabled={!catalog}
+              onChange={(value) => {
+                // Auto-fill defaults from catalog when the user picks a type
+                const entry = catalog?.[value];
+                if (entry) {
+                  addForm.setFieldsValue({
+                    base_url: entry.default_base_url ?? undefined,
+                    default_model: entry.default_model ?? undefined,
+                    priority: entry.default_priority ?? undefined,
+                  });
+                }
+              }}
+              options={
+                catalog
+                  ? Object.entries(catalog).map(([key, entry]) => ({
+                      value: key,
+                      label: (
+                        <Space size={6}>
+                          <span>{entry.label}</span>
+                          {entry.env_var && (
+                            <Text type="secondary" style={{ fontSize: 10 }}>env: {entry.env_var}</Text>
+                          )}
+                          {entry.requires_api_key && (
+                            <Tag color="orange" style={{ fontSize: 9, margin: 0 }}>key required</Tag>
+                          )}
+                        </Space>
+                      ),
+                    }))
+                  : []
+              }
+            />
+          </Form.Item>
+
+          {selectedProvider && catalog?.[selectedProvider]?.requires_api_key && (
+            <Form.Item
+              name="api_key"
+              label="API Key"
+              rules={[{ required: true, message: 'API key is required for this provider' }]}
+            >
+              <Input.Password
+                placeholder={`Paste ${catalog?.[selectedProvider]?.label ?? ''} API key…`}
+                autoComplete="off"
+              />
+            </Form.Item>
+          )}
+
+          <Form.Item name="base_url" label="Base URL (optional)">
+            <Input
+              placeholder="Leave blank to use provider default"
+              addonBefore={
+                <Tooltip title="Clear to use the provider's default endpoint">
+                  <X
+                    size={12}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => addForm.setFieldValue('base_url', undefined)}
+                  />
+                </Tooltip>
+              }
+            />
+          </Form.Item>
+
+          <Form.Item name="default_model" label="Default Model (optional)">
+            <Input placeholder="e.g. gpt-4o-mini, claude-3-5-sonnet-latest" />
+          </Form.Item>
+
+          <Form.Item
+            name="priority"
+            label="Priority (higher = tried first)"
+            tooltip="When multiple providers are registered, the registry picks the highest-priority healthy one. Default: 50."
+          >
+            <InputNumber min={1} max={100} style={{ width: 120 }} />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, marginTop: 16 }}>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+              >
+                Register
+              </Button>
+              <Button
+                onClick={() => {
+                  const values = addForm.getFieldsValue();
+                  if (values.provider) testConnection(values);
+                }}
+                loading={testing}
+              >
+                Test Connection
+              </Button>
+              <Button onClick={() => setAddModalOpen(false)}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

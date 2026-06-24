@@ -192,7 +192,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start Autonomous Operator daemon: {e}")
 
-yield
+    yield
 
     # Mark app ready now that lifespan startup has completed and the server
     # is accepting connections. The frontend /ready gate depends on this.
