@@ -8,6 +8,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { RatePreset } from '../types';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('rateStore');
 
 /** A radionics rate — three dial values plus optional metadata. */
 export interface Rate {
@@ -412,7 +415,7 @@ export const useRateStore = create<RateState>()(
           const data = await response.json();
           return data;
         } catch (error) {
-          console.warn('Rate fetch failed:', error);
+          log.warn('Rate fetch failed:', error);
           set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
@@ -430,7 +433,7 @@ export const useRateStore = create<RateState>()(
           }
           return data;
         } catch (error) {
-          console.warn('Categories fetch failed:', error);
+          log.warn('Categories fetch failed:', error);
           set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }

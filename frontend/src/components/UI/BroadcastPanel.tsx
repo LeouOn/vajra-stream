@@ -15,6 +15,7 @@ import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
+import { createLogger } from '../../utils/logger';
 
 interface Dimensions {
   d1: number;
@@ -57,6 +58,7 @@ interface SessionEntry {
 interface Props {}
 
 const BroadcastPanel: React.FC<Props> = (_props: Props) => {
+  const log = createLogger('BroadcastPanel');
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
   const { isPlaying, frequency, updateSettings } = useAudioStore();
 
@@ -110,7 +112,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
         audioFeedback.playSuccess();
       }
     } catch (e) {
-      console.error("Sigil forge failed:", e);
+      log.error("Sigil forge failed:", e);
       audioFeedback.playError();
     } finally {
       setIsForging(false);
@@ -125,7 +127,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
         setPopulations(data);
       }
     } catch (e) {
-      console.error("Failed to fetch populations:", e);
+      log.error("Failed to fetch populations:", e);
       message.error('Could not load broadcast targets: ' + (e instanceof Error ? e.message : String(e)));
     }
   };

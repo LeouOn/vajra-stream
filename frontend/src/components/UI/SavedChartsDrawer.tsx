@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Card, Input, Button, Tag as AntTag, Space, Tooltip, Popconfirm, Select } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { createLogger } from '../../utils/logger';
 
 export interface SavedChart {
   id: string;
@@ -49,6 +50,7 @@ export default function SavedChartsDrawer({
   subjectB,
   activeChartId
 }: SavedChartsDrawerProps) {
+  const log = createLogger('SavedChartsDrawer');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('All');
 
@@ -72,7 +74,7 @@ export default function SavedChartsDrawer({
           const data = JSON.parse(event.target?.result as string);
           onImport(data);
         } catch (err) {
-          console.error("Invalid JSON file for import", err);
+          log.error("Invalid JSON file for import", err);
           audioFeedback.playError();
         }
       };

@@ -28,7 +28,10 @@ import { Link } from 'react-router-dom';
 import { Input, Button, Typography, Spin, message } from 'antd';
 import { Send, Plus, Archive } from 'lucide-react';
 import { apiUrl } from '../../utils/api';
+import { createLogger } from '../../utils/logger';
 import SessionList from './SessionList';
+
+const log = createLogger('Sanctuary');
 
 const { Text } = Typography;
 
@@ -88,7 +91,7 @@ export default function SanctuaryPage() {
       const data = await res.json();
       return Array.isArray(data?.sessions) ? data.sessions : [];
     } catch (err) {
-      console.warn('Sanctuary: list sessions wavered', err);
+      log.warn('Sanctuary: list sessions wavered', err);
       message.error('Could not load sessions: ' + (err instanceof Error ? err.message : String(err)));
       return [];
     }
@@ -132,12 +135,12 @@ export default function SanctuaryPage() {
             if (cancelled) return;
             hydrateFromSession(full);
           } catch (err) {
-            console.warn('Sanctuary: load latest wavered', err);
+            log.warn('Sanctuary: load latest wavered', err);
             message.error('Could not load recent session: ' + (err instanceof Error ? err.message : String(err)));
           }
         }
       } catch (err) {
-        console.error('Sanctuary: initialization failed', err);
+        log.error('Sanctuary: initialization failed', err);
         message.error('Could not initialize Sanctuary: ' + (err instanceof Error ? err.message : String(err)));
         if (!cancelled) setWavered(true);
       } finally {
@@ -234,7 +237,7 @@ export default function SanctuaryPage() {
         fetchSessions().then(setSessions);
       }
     } catch (err) {
-      console.warn('Sanctuary: send wavered', err);
+      log.warn('Sanctuary: send wavered', err);
       message.error('Could not send message: ' + (err instanceof Error ? err.message : String(err)));
       // Roll back the optimistic bubble and surface a gentle notice.
       setMessages((prev) => prev.filter((m) => m !== userMsg));
@@ -272,7 +275,7 @@ export default function SanctuaryPage() {
         fetchSessions().then(setSessions);
       }
     } catch (err) {
-      console.warn('Sanctuary: advance wavered', err);
+      log.warn('Sanctuary: advance wavered', err);
       message.error('Could not advance phase: ' + (err instanceof Error ? err.message : String(err)));
       setWavered(true);
     } finally {
@@ -302,7 +305,7 @@ export default function SanctuaryPage() {
       ]);
       requestAnimationFrame(() => inputRef.current?.focus());
     } catch (err) {
-      console.error('Sanctuary: new session failed', err);
+      log.error('Sanctuary: new session failed', err);
       message.error('Could not start a new session: ' + (err instanceof Error ? err.message : String(err)));
       setWavered(true);
     } finally {
@@ -320,7 +323,7 @@ export default function SanctuaryPage() {
         const full = await loadSession(id);
         hydrateFromSession(full);
       } catch (err) {
-        console.warn('Sanctuary: select session wavered', err);
+        log.warn('Sanctuary: select session wavered', err);
         message.error('Could not load selected session: ' + (err instanceof Error ? err.message : String(err)));
         setWavered(true);
       } finally {

@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { HelpCircle, Play, RefreshCw, Compass, Moon, Sun, Clock, Calendar, Check, AlertTriangle } from 'lucide-react';
 import { message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { createLogger } from '../../utils/logger';
 
 interface TimeCycleEvent {
   id: string;
@@ -66,6 +67,7 @@ export default function TimeCycles() {
   const [broadcastLogs, setBroadcastLogs] = useState<BroadcastLogEntry[]>([]);
   const [totalMantrasSent, setTotalMantrasSent] = useState<number>(0);
   const [serviceStatus, setServiceStatus] = useState<TimeCycleServiceStatus | null>(null);
+  const log = createLogger('TimeCycles');
 
   useEffect(() => {
     fetchEvents();
@@ -83,7 +85,7 @@ export default function TimeCycles() {
         }
       }
     } catch (e) {
-      console.error("Failed to fetch historical periods:", e);
+      log.error("Failed to fetch historical periods:", e);
       message.error('Could not load archetypal events: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
@@ -96,7 +98,7 @@ export default function TimeCycles() {
         setServiceStatus(data);
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       message.error('Could not load time-cycles status: ' + (e instanceof Error ? e.message : String(e)));
     }
   };

@@ -7,6 +7,9 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('crystalStore');
 
 /** The seven primary chakras used throughout the crystal work module. */
 export type ChakraName =
@@ -401,7 +404,7 @@ export const useCrystalStore = create<CrystalState>()(
           const data = await response.json();
           return data;
         } catch (error) {
-          console.warn('Crystal grid fetch failed:', error);
+          log.warn('Crystal grid fetch failed:', error);
           set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
@@ -417,7 +420,7 @@ export const useCrystalStore = create<CrystalState>()(
           if (!response.ok) throw new Error('Failed to program crystal');
           return await response.json();
         } catch (error) {
-          console.error('Crystal programming failed:', error);
+          log.error('Crystal programming failed:', error);
           set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }
@@ -433,7 +436,7 @@ export const useCrystalStore = create<CrystalState>()(
           if (!response.ok) throw new Error('Failed to broadcast');
           return await response.json();
         } catch (error) {
-          console.error('Crystal broadcast failed:', error);
+          log.error('Crystal broadcast failed:', error);
           set({ error: error instanceof Error ? error.message : String(error) });
           return null;
         }

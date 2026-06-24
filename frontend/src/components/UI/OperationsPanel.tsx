@@ -11,6 +11,9 @@ import {
 import { Card, Tag } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('OperationsPanel');
 import ChakraHealing from './ChakraHealing';
 import PrayerWheel from './PrayerWheel';
 import DharaniReciter from './DharaniReciter';
@@ -170,7 +173,7 @@ export default function OperationsPanel() {
         });
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       audioFeedback.playError();
     } finally {
       setLoading(false);
@@ -190,7 +193,7 @@ export default function OperationsPanel() {
         audioFeedback.playSuccess();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       audioFeedback.playError();
     } finally {
       setLoading(false);
@@ -213,7 +216,7 @@ export default function OperationsPanel() {
         audioFeedback.playSuccess();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       audioFeedback.playError();
     } finally {
       setLoading(false);
@@ -239,7 +242,7 @@ export default function OperationsPanel() {
         setComposerSteps(prev => { const n = [...prev]; n[index].status = 'success'; return n; });
         audioFeedback.playClick();
       } catch (e) {
-        console.error(`Step ${index + 1} failed:`, e);
+        log.error(`Step ${index + 1} failed:`, e);
         setComposerSteps(prev => { const n = [...prev]; n[index].status = 'pending'; return n; });
       }
     };

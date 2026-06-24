@@ -26,6 +26,7 @@ import { useAudioStore } from '../../stores/audioStore';
 import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
+import { createLogger } from '../../utils/logger';
 
 const { Text, Paragraph, Title } = Typography;
 
@@ -251,6 +252,7 @@ export default function OutlookDashboard() {
   const [randomLoop, setRandomLoop] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
   const [healthyProviders, setHealthyProviders] = useState<Record<string, boolean>>({});
+  const log = createLogger('OutlookDashboard');
 
   // ─── Data Fetching ───────────────────────────────────────
 
@@ -312,7 +314,7 @@ export default function OutlookDashboard() {
       (data.providers || []).forEach(p => { map[p.provider] = p.healthy; });
       setHealthyProviders(map);
     } catch (e) {
-      console.error('Providers health fetch failed:', e);
+      log.error('Providers health fetch failed:', e);
     }
   }, []);
 

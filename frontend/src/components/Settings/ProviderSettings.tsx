@@ -29,6 +29,7 @@ import {
   Activity, Server, AlertTriangle, CheckCircle2, Cpu,
 } from 'lucide-react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { createLogger } from '../../utils/logger';
 const { Title, Text, Paragraph } = Typography;
 
 /**
@@ -79,6 +80,7 @@ function formatLatency(ms: number | null | undefined): string {
 
 export default function ProviderSettings() {
   const { providerHealth, lastProviderHealthUpdate } = useWebSocketStable();
+  const log = createLogger('ProviderSettings');
   const [initialFetchAttempted, setInitialFetchAttempted] = useState<boolean>(false);
 
   /**
@@ -106,13 +108,13 @@ export default function ProviderSettings() {
     try {
       const res = await fetch(`/api/v1/llm/providers/health`);
       if (!res.ok) {
-        console.warn(
+        log.warn(
           'ProviderSettings: initial health fetch non-OK status',
           res.status,
         );
       }
     } catch (err) {
-      console.warn(
+      log.warn(
         'ProviderSettings: initial health fetch failed, relying on WS',
         err,
       );

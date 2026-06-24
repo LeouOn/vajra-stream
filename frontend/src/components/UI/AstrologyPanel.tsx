@@ -9,6 +9,9 @@ import {
 import { Card, Row, Col, Tag, Button, Space, Segmented, message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('AstrologyPanel');
 import VedicPanchanga from './VedicPanchanga';
 import ChineseBaZi from './ChineseBaZi';
 
@@ -130,7 +133,7 @@ export default function AstrologyPanel() {
         setCharts(Array.from(seen.values()));
       }
     } catch (e) {
-      console.error("Error fetching saved charts:", e);
+      log.error("Error fetching saved charts:", e);
       message.error('Could not load saved charts: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
@@ -156,7 +159,7 @@ export default function AstrologyPanel() {
           setLiveData(result.astrology);
         }
       } catch (e) {
-        console.error("Error in live astrology fetch:", e);
+        log.error("Error in live astrology fetch:", e);
         message.error('Could not load live astrology: ' + (e instanceof Error ? e.message : String(e)));
       }
     };
@@ -322,7 +325,7 @@ export default function AstrologyPanel() {
         setActiveChart(chart);
         setActiveTab('wheel'); // Toggle back to consolidated wheel view
       } catch (e) {
-        console.error("Error parsing cached chart data, falling back to recalculation", e);
+        log.error("Error parsing cached chart data, falling back to recalculation", e);
         message.error('Could not parse cached chart: ' + (e instanceof Error ? e.message : String(e)));
         recalculateChart(chart.id);
       }
@@ -358,7 +361,7 @@ export default function AstrologyPanel() {
         fetchSavedCharts();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       message.error('Could not recalculate chart: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
@@ -378,7 +381,7 @@ export default function AstrologyPanel() {
         fetchSavedCharts();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       message.error('Could not delete chart: ' + (e instanceof Error ? e.message : String(e)));
     }
   };
@@ -399,7 +402,7 @@ export default function AstrologyPanel() {
         message.success("Backup downloaded successfully");
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       message.error('Could not export charts: ' + (e instanceof Error ? e.message : String(e)));
     }
   };

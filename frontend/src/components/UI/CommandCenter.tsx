@@ -29,6 +29,7 @@ import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
 import CosmicAlignmentCard from '../CommandCenter/CosmicAlignmentCard';
 import LogsCard from '../CommandCenter/LogsCard';
 import ZoomModal from '../CommandCenter/ZoomModal';
+import { createLogger } from '../../utils/logger';
 
 export default function CommandCenter({ 
   isConnected, 
@@ -66,7 +67,8 @@ export default function CommandCenter({
   const [debugMode, setDebugMode] = useState(false);
   const [debugPayload, setDebugPayload] = useState(null);
   const [activeLogTab, setActiveLogTab] = useState('tools');
-  
+  const log = createLogger('CommandCenter');
+
   useEffect(() => {
     const doFetch = async (lat, lon) => {
       try {
@@ -113,7 +115,7 @@ export default function CommandCenter({
           }
         }
       } catch (e) {
-        console.error("Failed to fetch available models", e);
+        log.error("Failed to fetch available models", e);
       }
     };
     fetchModels();
@@ -277,7 +279,7 @@ export default function CommandCenter({
       ]);
 
     } catch (error) {
-      console.error('Chat error:', error);
+      log.error('Chat error:', error);
       addToolLog('system', `Error: ${error.message}`, 'error');
       setMessages(prev => [
         ...prev, 

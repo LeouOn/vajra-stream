@@ -12,6 +12,7 @@ import React, { useCallback } from 'react';
 import { Card, Button, Typography, Space, message } from 'antd';
 import { Share2, ClipboardCopy, Check } from 'lucide-react';
 import type { RecitationStatus } from '../../../types';
+import { createLogger } from '../../utils/logger';
 
 const { Text, Title } = Typography;
 
@@ -79,13 +80,14 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 export default function ShareExport({ buddhaStatus, intention }: ShareExportProps) {
+  const log = createLogger('ShareExport');
   const handleCopy = useCallback(async () => {
     const text = buildSummary({ buddhaStatus, intention });
     try {
       await copyToClipboard(text);
       message.success('Summary copied to clipboard.');
     } catch (err) {
-      console.error('ShareExport: copy failed', err);
+      log.error('ShareExport: copy failed', err);
       message.error('Could not copy — clipboard unavailable.');
     }
   }, [buddhaStatus, intention]);

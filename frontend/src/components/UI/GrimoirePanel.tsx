@@ -9,6 +9,7 @@ import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, Help
 import { message } from 'antd';
 import DharmaTales from './DharmaTales';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { createLogger } from '../../utils/logger';
 
 interface PlanetResult {
   planet: string;
@@ -31,6 +32,7 @@ interface PlanetLink {
 }
 
 const GrimoirePanel: React.FC = () => {
+  const log = createLogger('GrimoirePanel');
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<PlanetResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,7 +67,7 @@ const GrimoirePanel: React.FC = () => {
         }
       }
     } catch (e) {
-      console.error("Grimoire search failed:", e);
+      log.error("Grimoire search failed:", e);
       message.error('Could not search grimoire: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);

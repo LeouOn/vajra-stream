@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HelpCircle, Play, RefreshCw, Award, Heart, Check, BookOpen } from 'lucide-react';
 import { message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { createLogger } from '../../utils/logger';
 
 interface TraditionalMantra {
   mantra: string;
@@ -65,6 +66,7 @@ export default function PrayerWheel() {
   const [generatingPrayer, setGeneratingPrayer] = useState<boolean>(false);
 
   const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const log = createLogger('PrayerWheel');
 
   const activeMantra = isCustom ? customMantra : mantra;
 
@@ -93,7 +95,7 @@ export default function PrayerWheel() {
         audioFeedback.playError();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       audioFeedback.playError();
       message.error('Could not generate prayer: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
@@ -153,7 +155,7 @@ export default function PrayerWheel() {
         audioFeedback.playError();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       audioFeedback.playError();
       message.error('Could not start spin: ' + (e instanceof Error ? e.message : String(e)));
     } finally {

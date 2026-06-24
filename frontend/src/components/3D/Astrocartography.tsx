@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { COLORS } from '../../lib/colors';
+import { createLogger } from '../../utils/logger';
 
 interface BirthLocation {
   lat: number;
@@ -78,6 +79,7 @@ export default function Astrocartography({
   showPowerSpots = true,
   autoRotate = true
 }: AstrocartographyProps) {
+  const log = createLogger('Astrocartography');
   const groupRef = useRef<THREE.Group>(null);
   const globeRef = useRef<THREE.Mesh>(null);
   const linesRef = useRef<THREE.Group>(null);
@@ -92,7 +94,7 @@ export default function Astrocartography({
         const data = await response.json() as Record<string, unknown>;
         setAstrologyData(data);
       } catch (error) {
-        console.error('Failed to fetch astrology data:', error);
+        log.error('Failed to fetch astrology data:', error);
       }
     };
 

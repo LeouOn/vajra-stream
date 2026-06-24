@@ -4,6 +4,7 @@ import { Card, Button, Select, Space, Row, Col, Progress, Table, Tag, message } 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { planetGlyph } from '../../lib/astroHelpers';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { createLogger } from '../../utils/logger';
 
 const PLANET_GLYPHS: Record<string, string> = {
   sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂',
@@ -124,6 +125,7 @@ export default function SynastryViewer({
   onSetSubjectA,
   onSetSubjectB
 }: SynastryViewerProps) {
+  const log = createLogger('SynastryViewer');
   const [loading, setLoading] = useState<boolean>(false);
   const [synastryData, setSynastryData] = useState<SynastryResponse | null>(null);
 
@@ -147,7 +149,7 @@ export default function SynastryViewer({
         audioFeedback.playError();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       audioFeedback.playError();
       message.error('Could not load synastry comparison: ' + (e instanceof Error ? e.message : String(e)));
     } finally {

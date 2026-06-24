@@ -9,6 +9,9 @@ import { Activity, TrendingUp, TrendingDown, Minus, Zap, AlertCircle, CheckCircl
 import { message } from 'antd';
 
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('RNGAttunement');
 
 type NeedleState = 'floating' | 'rising' | 'falling' | 'rockslam' | 'theta_bop' | 'stuck' | string;
 type SignalQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'disrupted' | string;
@@ -94,7 +97,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
       setIsActive(true);
       setHistory([]);
     } catch (error) {
-      console.error('Failed to create session:', error);
+      log.error('Failed to create session:', error);
       message.error('Could not start attunement session: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -111,7 +114,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
         setHistory(prev => [...prev.slice(-99), data]); // Keep last 100
       }
     } catch (error) {
-      console.error('Failed to get reading:', error);
+      log.error('Failed to get reading:', error);
       message.error('Could not load reading: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -127,7 +130,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
         setSummary(data);
       }
     } catch (error) {
-      console.error('Failed to get summary:', error);
+      log.error('Failed to get summary:', error);
       message.error('Could not load session summary: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -144,7 +147,7 @@ const RNGAttunement = ({ className = '' }: RNGAttunementProps) => {
       setAutoRefresh(false);
       await getSummary();
     } catch (error) {
-      console.error('Failed to stop session:', error);
+      log.error('Failed to stop session:', error);
       message.error('Could not stop session: ' + (error instanceof Error ? error.message : String(error)));
     }
   };

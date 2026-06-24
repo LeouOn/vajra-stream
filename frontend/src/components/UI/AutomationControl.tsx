@@ -8,6 +8,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { message } from 'antd';
 import { Play, Pause, Square, RotateCw, Clock, Users, Zap, TrendingUp, Info } from 'lucide-react';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('AutomationControl');
 
 interface PopulationSummary {
   photo_count?: number;
@@ -107,7 +110,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
         setIsPaused(false);
       }
     } catch (error) {
-      console.error('Failed to start automation:', error);
+      log.error('Failed to start automation:', error);
       message.error('Could not start automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -128,7 +131,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
         setSessionId(null);
       }
     } catch (error) {
-      console.error('Failed to stop automation:', error);
+      log.error('Failed to stop automation:', error);
       message.error('Could not stop automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -142,7 +145,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       });
       setIsPaused(true);
     } catch (error) {
-      console.error('Failed to pause automation:', error);
+      log.error('Failed to pause automation:', error);
       message.error('Could not pause automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -156,7 +159,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
       });
       setIsPaused(false);
     } catch (error) {
-      console.error('Failed to resume automation:', error);
+      log.error('Failed to resume automation:', error);
       message.error('Could not resume automation: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -171,7 +174,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
         setCurrentStatus(data);
       }
     } catch (error) {
-      console.error('Failed to load status:', error);
+      log.error('Failed to load status:', error);
       message.error('Could not load status: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -186,7 +189,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
         setQueue(data);
       }
     } catch (error) {
-      console.error('Failed to load queue:', error);
+      log.error('Failed to load queue:', error);
       message.error('Could not load queue: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -201,7 +204,7 @@ const AutomationControl: React.FC<Props> = ({ className = '' }) => {
         setStats(data);
       }
     } catch (error) {
-      console.error('Failed to load stats:', error);
+      log.error('Failed to load stats:', error);
       message.error('Could not load stats: ' + (error instanceof Error ? error.message : String(error)));
     }
   };

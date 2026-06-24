@@ -8,6 +8,9 @@
 import React, { useState, useEffect } from 'react';
 import { message } from 'antd';
 import { Users, Plus, Edit2, Trash2, Folder, Globe, AlertCircle, Check, X } from 'lucide-react';
+import { createLogger } from '../../utils/logger';
+
+const log = createLogger('PopulationManager');
 
 interface Population {
   id: string | number;
@@ -105,7 +108,7 @@ const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
         setPopulations(data);
       }
     } catch (error) {
-      console.error('Failed to load populations:', error);
+      log.error('Failed to load populations:', error);
       message.error('Could not load populations: ' + (error instanceof Error ? error.message : String(error)));
     }
     setIsLoading(false);
@@ -119,7 +122,7 @@ const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
         setCategories(data);
       }
     } catch (error) {
-      console.error('Failed to load categories:', error);
+      log.error('Failed to load categories:', error);
       message.error('Could not load categories: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -132,7 +135,7 @@ const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
         setSourceTypes(data);
       }
     } catch (error) {
-      console.error('Failed to load source types:', error);
+      log.error('Failed to load source types:', error);
       message.error('Could not load source types: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -151,7 +154,7 @@ const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
         setShowCreateForm(false);
       }
     } catch (error) {
-      console.error('Failed to create population:', error);
+      log.error('Failed to create population:', error);
       message.error('Could not create population: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -170,7 +173,7 @@ const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
         resetForm();
       }
     } catch (error) {
-      console.error('Failed to update population:', error);
+      log.error('Failed to update population:', error);
       message.error('Could not update population: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -187,7 +190,7 @@ const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
         await loadPopulations();
       }
     } catch (error) {
-      console.error('Failed to delete population:', error);
+      log.error('Failed to delete population:', error);
       message.error('Could not delete population: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
@@ -201,7 +204,7 @@ const PopulationManager = ({ className = '' }: PopulationManagerProps) => {
       });
       await loadPopulations();
     } catch (error) {
-      console.error('Failed to toggle active:', error);
+      log.error('Failed to toggle active:', error);
       message.error('Could not toggle population active state: ' + (error instanceof Error ? error.message : String(error)));
     }
   };

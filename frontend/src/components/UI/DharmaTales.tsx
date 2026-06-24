@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BookOpen, Sparkles, RefreshCw, Volume2, VolumeX, Save, ChevronDown, Trash2, Copy, Maximize2, Minimize2 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
+import { createLogger } from '../../utils/logger';
 
 const TRADITIONS: string[] = ['zen', 'buddhist', 'sufi', 'taoist', 'christian mystical', 'hindu', 'theravada', 'mahayana', 'vajrayana'];
 const THEMES: string[] = ['impermanence', 'compassion', 'emptiness', 'interdependence', 'right_action', 'loving_kindness', 'non_self', 'interbeing', 'wisdom', 'equanimity', 'letting_go', 'true_self'];
@@ -47,7 +48,8 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [speechRate, setSpeechRate] = useState(1.0);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  
+  const log = createLogger('DharmaTales');
+
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
   const { addToast } = useUIStore();
   
@@ -64,7 +66,7 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
         setAvailableThemes(data.themes || []);
       }
     } catch {
-      console.error('Failed to load themes');
+      log.error('Failed to load themes');
     }
   };
   
@@ -76,7 +78,7 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
         setAvailableTraditions(data.traditions || []);
       }
     } catch {
-      console.error('Failed to load traditions');
+      log.error('Failed to load traditions');
     }
   };
   

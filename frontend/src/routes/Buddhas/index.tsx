@@ -29,6 +29,7 @@ import SessionHistory from './SessionHistory';
 import ShareExport from './ShareExport';
 import DailyStreak from './DailyStreak';
 import AudioSettings from './AudioSettings';
+import { createLogger } from '../../utils/logger';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -159,6 +160,7 @@ function RecitationControls({ running, intention, loading, onToggle }: Recitatio
 
 export default function BuddhasPage() {
   const { buddhaStatus } = useWebSocketStable();
+  const log = createLogger('Buddhas');
   const [intention, setIntention] = useState<string>('');
   const [toggling, setToggling] = useState<boolean>(false);
 
@@ -185,7 +187,7 @@ export default function BuddhasPage() {
         });
       }
     } catch (err) {
-      console.error('BuddhasPage: toggle recitation failed', err);
+      log.error('BuddhasPage: toggle recitation failed', err);
       message.error('Could not ' + (running ? 'stop' : 'start') + ' recitation: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setToggling(false);

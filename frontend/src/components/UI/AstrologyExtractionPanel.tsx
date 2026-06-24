@@ -46,6 +46,7 @@ import {
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { Copy, Download, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
+import { createLogger } from '../../utils/logger';
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
@@ -323,6 +324,7 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const log = createLogger('AstrologyExtractionPanel');
 
   const handleLaunch = async () => {
     if (!setupState) return;
@@ -382,7 +384,7 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
           }
         }
       } catch (e) {
-        console.error('Failed to poll sweep status:', e);
+        log.error('Failed to poll sweep status:', e);
         setError('Could not poll sweep status: ' + (e instanceof Error ? e.message : String(e)));
       }
     };

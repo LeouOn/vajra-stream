@@ -7,6 +7,7 @@ import {
   isHouseCusp, houseLabel, natalDisplayName,
 } from '../../lib/astroHelpers';
 import { formatTransitReportMarkdown, formatTransitReportJSON } from '../../lib/astrologyExport';
+import { createLogger } from '../../utils/logger';
 
 const ASPECT_COLORS: Record<string, string> = {
   conjunction: 'text-green-400 border-green-500/20 bg-green-500/10',
@@ -119,6 +120,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
   const [aspectFilter, setAspectFilter] = useState<AspectFilter>('all');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
   const [exporting, setExporting] = useState<boolean>(false);
+  const log = createLogger('TransitComparison');
 
   const fetchTransits = async () => {
     if (!chart) return;
@@ -137,7 +139,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
         audioFeedback.playError();
       }
     } catch (e) {
-      console.error(e);
+      log.error(e);
       audioFeedback.playError();
       message.error('Could not load transits: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
