@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
@@ -17,21 +17,34 @@ interface MopsData {
 }
 
 // Ant Design
-import { ConfigProvider, theme, Result } from 'antd';
+import { ConfigProvider, theme, Result, Spin } from 'antd';
 
 import MainLayout from './components/Layout/MainLayout';
-import CommandCenter from './components/UI/CommandCenter';
-import AstrologyPanel from './components/UI/AstrologyPanel';
-import OutlookDashboard from './components/UI/OutlookDashboard';
-import GrimoirePanel from './components/UI/GrimoirePanel';
-import PracticePage from './routes/Practice';
-import OperationsPage from './routes/Operations';
-import SettingsPage from './routes/Settings';
 import ErrorBoundary from './components/UI/ErrorBoundary';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
 import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
+
+// Lazy-load route components so each route's code is split into a separate
+// chunk. This defers ~200KB of JS (Three.js, Recharts, AntD tables, etc.)
+// from the initial bundle until the user actually navigates to that route.
+const CommandCenter = lazy(() => import('./components/UI/CommandCenter'));
+const AstrologyPanel = lazy(() => import('./components/UI/AstrologyPanel'));
+const OutlookDashboard = lazy(() => import('./components/UI/OutlookDashboard'));
+const GrimoirePanel = lazy(() => import('./components/UI/GrimoirePanel'));
+const PracticePage = lazy(() => import('./routes/Practice'));
+const OperationsPage = lazy(() => import('./routes/Operations'));
+const SettingsPage = lazy(() => import('./routes/Settings'));
+
+/** Loading fallback shown while a lazy route chunk downloads. */
+function RouteLoadingFallback(): React.ReactElement {
+  return (
+    <div className="flex-1 h-full flex items-center justify-center bg-gray-900/50">
+      <Spin size="large" tip="Loading..." />
+    </div>
+  );
+}
 
 function AppContent(): React.ReactElement {
   const location = useLocation();
@@ -91,6 +104,7 @@ function AppContent(): React.ReactElement {
       stopAudio={(): void => { void stopAudio(); }}
       mopsData={mopsAverages as MopsData | null}
     >
+      <Suspense fallback={<RouteLoadingFallback />}>
       <Routes>
         <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />
 
@@ -192,6 +206,7 @@ function AppContent(): React.ReactElement {
           </div>
         } />
       </Routes>
+      </Suspense>
     </MainLayout>
   );
 }
