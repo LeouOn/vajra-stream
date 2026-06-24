@@ -26,8 +26,8 @@ def test_openrouter_provider_construction(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
     p = OpenRouterProvider()
     assert p.name == "openrouter"
-    assert p.priority == 90
-    assert p.default_model == "google/gemini-2.0-flash-001"
+    assert p.priority == 50
+    assert p.default_model == "meta-llama/llama-3.1-8b-instruct:free"
 
 
 def test_deepseek_provider_construction(monkeypatch):
@@ -35,7 +35,7 @@ def test_deepseek_provider_construction(monkeypatch):
     p = DeepSeekProvider()
     assert p.name == "deepseek"
     assert p.priority == 70
-    assert p.default_model == "deepseek-chat"
+    assert p.default_model == "deepseek-v4-flash"
 
 
 def test_minimax_provider_construction(monkeypatch):
@@ -43,7 +43,7 @@ def test_minimax_provider_construction(monkeypatch):
     p = MinimaxProvider()
     assert p.name == "minimax"
     assert p.priority == 40
-    assert p.default_model == "MiniMax-Text-01"
+    assert p.default_model == "MiniMax-M3"
 
 
 def test_lm_studio_provider_construction():
