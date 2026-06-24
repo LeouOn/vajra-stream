@@ -179,12 +179,19 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     // Use BACKEND_URL (direct to backend port 8008) — the Vite proxy doesn't
     // forward /ready (it only proxies /api and /ws).
     const readyUrl = `${BACKEND_URL}/ready`;
-    const readyMaxWaitMs = 15000;
+    const readyMaxWaitMs = 10000;
     const readyStart = Date.now();
     let ready = false;
+    let readyEndpointMissing = false;
     while (Date.now() - readyStart < readyMaxWaitMs) {
       try {
         const r = await fetch(readyUrl, { method: 'GET', cache: 'no-store' });
+        if (r.status === 404) {
+          // Backend is running old code without the /ready endpoint.
+          // Don't retry — fall through immediately.
+          readyEndpointMissing = true;
+          break;
+        }
         if (r.ok) {
           const data = await r.json().catch(() => ({}));
           if (data && data.ready === true) {
@@ -195,12 +202,14 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
       } catch {
         // Backend not reachable yet — keep polling.
       }
-      await new Promise<void>((r) => setTimeout(r, 250));
+      await new Promise<void>((r) => setTimeout(r, 500));
     }
     if (!ready) {
-      // Timed out waiting for backend — fall through and try anyway; the
+      // Timed out or endpoint missing — fall through and try anyway; the
       // existing reconnect/backoff will recover once the backend is up.
-      log.warn('Timed out waiting for /ready, attempting WS connect anyway');
+      if (!readyEndpointMissing) {
+        log.warn('Timed out waiting for /ready, attempting WS connect anyway');
+      }
     }
 
     try {

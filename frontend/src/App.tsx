@@ -41,7 +41,7 @@ const SettingsPage = lazy(() => import('./routes/Settings'));
 function RouteLoadingFallback(): React.ReactElement {
   return (
     <div className="flex-1 h-full flex items-center justify-center bg-gray-900/50">
-      <Spin size="large" tip="Loading..." />
+      <Spin size="large" />
     </div>
   );
 }
