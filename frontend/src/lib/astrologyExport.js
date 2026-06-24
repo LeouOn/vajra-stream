@@ -532,8 +532,8 @@ function buildLiveAspectLines(aspects) {
     const p1 = titleCase(a.planet1 || '');
     const p2 = titleCase(a.planet2 || '');
     const aspect = titleCase(a.aspect || '');
-    const orb = formatOrb(a.orb);
-    lines.push(`- ${p1} ${aspect} ${p2} \u2014 orb ${orb}\u00B0`);
+    const orb = formatOrb(aspectOrb(a));
+    lines.push(`- ${p1} ${aspect} ${p2} \u2014 orb ${orb}`);
   }
   return lines;
 }
