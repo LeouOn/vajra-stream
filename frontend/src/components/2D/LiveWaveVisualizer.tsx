@@ -1,7 +1,7 @@
 /**
  * Live Wave Visualizer — real-time audio waveform oscilloscope.
  * Renders the live audio waveform from WebSocket spectrum data
- * as an animated SVG path.
+ * as an animated canvas. DPR-aware + RAF-stable.
  * @component
  */
 import React, { useRef, useEffect, useState } from 'react';
@@ -12,6 +12,10 @@ type WaveType = 'sine' | 'sawtooth' | 'scalar' | 'combined';
 
 const WAVE_TYPES: WaveType[] = ['sine', 'sawtooth', 'scalar', 'combined'];
 
+// Cap the spectrum draw loop to 64 bars (matches AudioSpectrum.tsx).
+// Without this, a large spectrum array causes 256+ fillRect calls per frame.
+const MAX_SPECTRUM_BARS = 64;
+
 const LiveWaveVisualizer: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
@@ -19,6 +23,18 @@ const LiveWaveVisualizer: React.FC = () => {
   const frequency = useAudioStore((s) => s.frequency);
   const isPlaying = useAudioStore((s) => s.isPlaying);
   const [waveType, setWaveType] = useState<WaveType>('sine');
+
+  // BUG FIX: audioSpectrum was in the useEffect dep array, which caused the
+  // entire RAF loop to be torn down + recreated on every WebSocket audio
+  // spectrum push. The WS pushes spectrum data continuously, so this was
+  // constant setup/teardown. Now we read spectrum from a ref instead.
+  const spectrumRef = useRef<number[]>(audioSpectrum);
+  spectrumRef.current = audioSpectrum;
+  // Same treatment for frequency/isPlaying — avoids restart on every store update.
+  const frequencyRef = useRef(frequency);
+  frequencyRef.current = frequency;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -30,33 +46,39 @@ const LiveWaveVisualizer: React.FC = () => {
     const draw = (): void => {
       const width = canvas.width;
       const height = canvas.height;
+      // Read latest spectrum from ref — no effect restart on WS updates
+      const spectrum = spectrumRef.current;
 
       ctx.fillStyle = 'rgba(15, 15, 35, 0.3)';
       ctx.fillRect(0, 0, width, height);
 
-      if (waveType === 'sine' || waveType === 'combined') {
+      const currentWaveType = waveTypeRef.current;
+      if (currentWaveType === 'sine' || currentWaveType === 'combined') {
         drawSineWave(ctx, width, height, phase, 'rgba(34, 211, 238, 0.8)');
       }
-      if (waveType === 'sawtooth') {
+      if (currentWaveType === 'sawtooth') {
         drawSawtoothWave(ctx, width, height, phase, 'rgba(168, 85, 247, 0.8)');
       }
-      if (waveType === 'scalar' || waveType === 'combined') {
+      if (currentWaveType === 'scalar' || currentWaveType === 'combined') {
         drawScalarWave(ctx, width, height, phase, 'rgba(34, 211, 238, 0.5)');
       }
 
       ctx.fillStyle = '#22d3ee';
       ctx.font = '14px monospace';
-      ctx.fillText(`${frequency.toFixed(1)} Hz`, 10, 24);
-      ctx.fillText(`Mode: ${waveType}`, 10, 42);
+      ctx.fillText(`${frequencyRef.current.toFixed(1)} Hz`, 10, 24);
+      ctx.fillText(`Mode: ${currentWaveType}`, 10, 42);
 
-      const barWidth = width / (audioSpectrum.length || 100);
-      audioSpectrum.forEach((val, i) => {
-        const barHeight = (val || 0) * height * 0.4;
-        ctx.fillStyle = `rgba(34, 211, 238, ${0.3 + (val || 0) * 0.5})`;
+      // Cap to MAX_SPECTRUM_BARS to keep draw cost bounded.
+      const barCount = Math.min(spectrum.length, MAX_SPECTRUM_BARS);
+      const barWidth = width / (barCount || 100);
+      for (let i = 0; i < barCount; i++) {
+        const val = spectrum[i] || 0;
+        const barHeight = val * height * 0.4;
+        ctx.fillStyle = `rgba(34, 211, 238, ${0.3 + val * 0.5})`;
         ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
-      });
+      }
 
-      phase += isPlaying ? 0.05 : 0;
+      phase += isPlayingRef.current ? 0.05 : 0;
       animationRef.current = requestAnimationFrame(draw);
     };
 
@@ -98,9 +120,19 @@ const LiveWaveVisualizer: React.FC = () => {
       ctx.stroke();
     };
 
+    // DPR-aware resize so the canvas is sharp on retina/4K displays.
+    // Coalesced via requestAnimationFrame to avoid thrash on window drag.
+    let resizeRaf = 0;
     const resize = (): void => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      if (resizeRaf) return;
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = 0;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      });
     };
     resize();
     window.addEventListener('resize', resize);
@@ -111,9 +143,16 @@ const LiveWaveVisualizer: React.FC = () => {
       if (animationRef.current !== null) {
         cancelAnimationFrame(animationRef.current);
       }
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
       window.removeEventListener('resize', resize);
     };
-  }, [audioSpectrum, frequency, isPlaying, waveType]);
+  // waveType is the ONLY thing that should restart the loop now.
+  // audioSpectrum / frequency / isPlaying are read from refs inside the loop.
+  }, [waveType]);
+
+  // Keep waveType in a ref so the draw loop sees the latest value without restart
+  const waveTypeRef = useRef<WaveType>(waveType);
+  waveTypeRef.current = waveType;
 
   return (
     <div className="relative w-full h-full">

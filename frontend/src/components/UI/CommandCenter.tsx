@@ -144,6 +144,10 @@ export default function CommandCenter({
   const logEndRef = useRef(null);
 
   // Dynamic Aura Coherence simulation
+  // OPTIMIZATION: was 250ms (4×/sec re-renders of the entire CommandCenter
+  // including SystemMonitorsCard + ScalarWaveVisualizer). Slowed to 1000ms
+  // — the VU bar only changes by 1-2% per tick anyway, so 1Hz is plenty
+  // for human perception.
   useEffect(() => {
     const interval = setInterval(() => {
       const active = isPlaying || Object.keys(sessions).length > 0;
@@ -153,7 +157,7 @@ export default function CommandCenter({
         const drift = base + Math.sin(Date.now() / 2000) * (range / 2) + Math.random() * (range / 2);
         return Math.min(100, Math.max(0, Math.round(drift)));
       });
-    }, 250);
+    }, 1000);
     return () => clearInterval(interval);
   }, [isPlaying, sessions]);
 

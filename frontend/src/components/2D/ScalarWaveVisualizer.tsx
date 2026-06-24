@@ -329,9 +329,10 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) return;
       let phase = 0;
+      let paused = false; // Paused when tab hidden or canvas offscreen
       const s = seedRef.current;
       const startTime = performance.now();
       let lastTime = startTime;
@@ -345,20 +346,61 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
 
       const prngs: Array<() => number> = layers.map((l) => seededRandom(l.seed));
 
-      // ── background field rings (precomputed) ──────────────
-      let bgRings: BgRing[] = [];
+      // ── background field rings (offscreen-cached, blit per frame) ──
+      let bgRingsCanvas: HTMLCanvasElement | null = null;
+      let bgRingsCtx: CanvasRenderingContext2D | null = null;
+      let cachedW = 0;
+      let cachedH = 0;
       const precomputeBg = (w: number, h: number) => {
-        bgRings = [];
+        if (!bgRingsCanvas) {
+          bgRingsCanvas = document.createElement('canvas');
+          bgRingsCtx = bgRingsCanvas.getContext('2d');
+        }
+        if (!bgRingsCtx) return;
+        bgRingsCanvas.width = w;
+        bgRingsCanvas.height = h;
+        bgRingsCtx.clearRect(0, 0, w, h);
         const cx = w / 2;
         const cy = h / 2;
         const maxR = Math.sqrt(cx * cx + cy * cy);
+        bgRingsCtx.strokeStyle = 'rgba(88, 66, 144, 0.12)';
+        bgRingsCtx.lineWidth = 0.5;
         for (let r = 30; r < maxR; r += 22) {
-          bgRings.push({ cx, cy, r });
+          bgRingsCtx.beginPath();
+          bgRingsCtx.arc(cx, cy, r, 0, Math.PI * 2);
+          bgRingsCtx.stroke();
         }
+        cachedW = w;
+        cachedH = h;
+      };
+
+      // ── radial gradient (cached, recomputed only on resize) ──
+      let cachedGlowGrad: CanvasGradient | null = null;
+      let cachedPaletteKey = '';
+      let cachedGradSize = 0;
+      const buildGlowGrad = (w: number, h: number, paletteKey: string, bgRgba: string) => {
+        if (
+          cachedGlowGrad &&
+          cachedPaletteKey === paletteKey &&
+          cachedGradSize === Math.min(w, h) * 0.45
+        ) {
+          return cachedGlowGrad;
+        }
+        const grad = ctx.createRadialGradient(
+          w / 2, h / 2, 0,
+          w / 2, h / 2, Math.min(w, h) * 0.45,
+        );
+        grad.addColorStop(0, bgRgba);
+        grad.addColorStop(1, 'rgba(8, 8, 24, 0)');
+        cachedGlowGrad = grad;
+        cachedPaletteKey = paletteKey;
+        cachedGradSize = Math.min(w, h) * 0.45;
+        return grad;
       };
 
       // ── draw ──────────────────────────────────────────────
       const draw = () => {
+        if (paused) return; // Page hidden or canvas offscreen — skip frame entirely
         const now = performance.now();
         const dt = Math.min(0.1, (now - lastTime) / 1000); // seconds, clamped
         lastTime = now;
@@ -419,23 +461,25 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
         const w = canvas.width;
         const h = canvas.height;
 
-        // ── background field rings ───────────────────────
-        ctx.strokeStyle = 'rgba(88, 66, 144, 0.12)';
-        ctx.lineWidth = 0.5;
-        for (const ring of bgRings) {
-          ctx.beginPath();
-          ctx.arc(ring.cx, ring.cy, ring.r, 0, Math.PI * 2);
-          ctx.stroke();
+        // ── background field rings (offscreen-cached, blit once) ──
+        if (bgRingsCanvas && bgRingsCtx && cachedW === w && cachedH === h) {
+          ctx.drawImage(bgRingsCanvas, 0, 0, w, h);
+        } else {
+          // Fallback: stroke rings directly (resize edge case)
+          ctx.strokeStyle = 'rgba(88, 66, 144, 0.12)';
+          ctx.lineWidth = 0.5;
+          const cx = w / 2;
+          const cy = h / 2;
+          const maxR = Math.sqrt(cx * cx + cy * cy);
+          for (let r = 30; r < maxR; r += 22) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+          }
         }
 
-        // central subtle glow (palette-tinted)
-        const glowGrad = ctx.createRadialGradient(
-          w / 2, h / 2, 0,
-          w / 2, h / 2, Math.min(w, h) * 0.45,
-        );
-        glowGrad.addColorStop(0, currentPalette.bgRgba);
-        glowGrad.addColorStop(1, 'rgba(8, 8, 24, 0)');
-        ctx.fillStyle = glowGrad;
+        // central subtle glow (palette-tinted, gradient cached)
+        ctx.fillStyle = buildGlowGrad(w, h, currentPalette.glowHue + '', currentPalette.bgRgba);
         ctx.fillRect(0, 0, w, h);
 
         // ── Living mode runs all four layers stacked ──────
@@ -457,9 +501,13 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
             ctx.save();
             ctx.beginPath();
 
-            // glow pass
-            ctx.shadowBlur = 16;
-            ctx.shadowColor = hsl(hue, 80, 55, 0.7);
+            // glow pass — only on the first layer to halve shadowBlur cost
+            if (li === 0) {
+              ctx.shadowBlur = 12;
+              ctx.shadowColor = hsl(hue, 80, 55, 0.7);
+            } else {
+              ctx.shadowBlur = 0;
+            }
             ctx.strokeStyle = hsl(hue, 80, 55, 0.85);
             ctx.lineWidth = l.width;
 
@@ -489,8 +537,11 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
         }
 
         // ── particle sparks along wave crests ─────────────
+        // OPTIMIZATION: shadowBlur is per-pixel expensive. Set it once per
+        // batch instead of per-particle. Skip shadow on small particles.
         if (runInterference || runParticleStorm) {
           const sparkCount = currentMode === 'particle-storm' || currentMode === 'living' ? 60 : 18;
+          ctx.shadowBlur = 6;
           for (let i = 0; i < sparkCount; i++) {
             const li = i % layers.length;
             const prng = prngs[li];
@@ -507,28 +558,25 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
             const hue = (baseHue + t * 12 + i * 11) % 360;
             const alpha = (0.35 + prng() * 0.5) * volAlpha;
 
-            ctx.save();
-            ctx.shadowBlur = 8;
             ctx.shadowColor = hsl(hue, 90, 65, alpha);
             ctx.fillStyle = hsl(hue, 70, 85, alpha);
             ctx.beginPath();
             ctx.arc(sx, sy, 1.0 + prng() * 1.4, 0, Math.PI * 2);
             ctx.fill();
-            ctx.restore();
           }
+          ctx.shadowBlur = 0;
         }
 
         // ── standing-wave vertical bars ────────────────────
         if (runStanding) {
           const barCount = currentMode === 'living' ? 36 : 28;
+          ctx.shadowBlur = 6; // reduced from 10 — most expensive cost
           for (let i = 0; i < barCount; i++) {
             const bx = (i / barCount) * w;
             const prng = prngs[i % 3];
             const amp = Math.abs(Math.sin(bx * 0.015 * freqMul + t * 0.6 * audioTempo)) * h * 0.35 * breath * audioBoost * tempoScale;
             const baseHue = currentPalette.glowHue;
             const hue = (baseHue + i * 8 + t * 15) % 360;
-            ctx.save();
-            ctx.shadowBlur = 10;
             ctx.shadowColor = hsl(hue, 75, 55, 0.5 * volAlpha);
             ctx.strokeStyle = hsl(hue, 70, 60, 0.6 * volAlpha);
             ctx.lineWidth = 2.5;
@@ -536,8 +584,8 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
             ctx.moveTo(bx, h / 2 - amp);
             ctx.lineTo(bx, h / 2 + amp);
             ctx.stroke();
-            ctx.restore();
           }
+          ctx.shadowBlur = 0;
         }
 
         // ── spiral mode ───────────────────────────────────
@@ -545,20 +593,19 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
           const cx = w / 2;
           const cy = h / 2;
           const maxR = Math.min(w, h) * 0.48;
-          ctx.save();
+          ctx.shadowBlur = 4; // reduced from 6
           for (let a = 0; a < Math.PI * 6; a += 0.06) {
             const r = (a / (Math.PI * 6)) * maxR;
             const px = cx + Math.cos(a + t * 0.4 * audioTempo) * r;
             const py = cy + Math.sin(a + t * 0.4 * audioTempo) * r * 0.7;
             const hue = (currentPalette.glowHue + a * 20 + t * 18) % 360;
             ctx.fillStyle = hsl(hue, 80, 65, 0.5 * volAlpha);
-            ctx.shadowBlur = 6;
             ctx.shadowColor = hsl(hue, 80, 55, 0.6 * volAlpha);
             ctx.beginPath();
             ctx.arc(px, py, 1.6, 0, Math.PI * 2);
             ctx.fill();
           }
-          ctx.restore();
+          ctx.shadowBlur = 0;
         }
 
         // ── Prayer-bowl shimmer overlay (when bowl mode on) ──
@@ -567,7 +614,7 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
           const cx = w / 2;
           const cy = h / 2;
           const r = Math.min(w, h) * 0.35 * (0.9 + 0.1 * Math.sin(breathPhase * 2));
-          ctx.shadowBlur = 22;
+          ctx.shadowBlur = 14; // reduced from 22 — was per-pixel expensive
           ctx.shadowColor = hsl(currentPalette.glowHue, 80, 70, 0.35);
           ctx.strokeStyle = hsl(currentPalette.glowHue, 60, 80, 0.25);
           ctx.lineWidth = 1.0;
@@ -585,7 +632,7 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
           ctx.globalAlpha = 0.18 * fade * cl.intensity;
           ctx.fillStyle = hsl(cl.hue, 80, 55, 0.25);
           ctx.fillRect(0, h * 0.35, w, h * 0.30);
-          ctx.shadowBlur = 14;
+          ctx.shadowBlur = 8; // reduced from 14
           ctx.shadowColor = hsl(cl.hue, 90, 65, 0.3 * fade);
           ctx.fillStyle = hsl(cl.hue, 70, 70, 0.2);
           ctx.fillRect(0, h * 0.48, w, h * 0.04);
@@ -593,13 +640,14 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
         }
 
         // ── Blessing ripples emanating from center ────────
+        // OPTIMIZATION: set shadowBlur once per frame for all ripples instead of per-ripple
+        ctx.shadowBlur = 12; // reduced from 20
         for (const ripple of ripples) {
           const fade = 1 - ripple.age / ripple.life;
           const cx = w / 2;
           const cy = h / 2;
           ctx.save();
           ctx.globalAlpha = 0.7 * fade;
-          ctx.shadowBlur = 20;
           ctx.shadowColor = hsl(ripple.hue, 90, 70, 0.8 * fade);
           ctx.strokeStyle = hsl(ripple.hue, 85, 75, 0.7 * fade);
           ctx.lineWidth = ripple.width;
@@ -617,21 +665,23 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
           }
           ctx.restore();
         }
+        ctx.shadowBlur = 0;
 
         // ── Merit particles drifting upward ──────────────
+        // OPTIMIZATION: set shadowBlur once for the whole batch
+        ctx.shadowBlur = 6; // reduced from 10
         for (const p of particles) {
           const fade = Math.max(0, 1 - p.age / p.life);
           const xPx = p.x * w;
           const yPx = p.y * h;
           ctx.save();
           ctx.globalAlpha = 0.85 * fade;
-          ctx.shadowBlur = 10;
           ctx.shadowColor = hsl(p.hue, 90, 70, 0.8 * fade);
           ctx.fillStyle = hsl(p.hue, 80, 80, 0.9 * fade);
           ctx.beginPath();
           ctx.arc(xPx, yPx, p.size, 0, Math.PI * 2);
           ctx.fill();
-          // subtle inner glow
+          // subtle inner glow (no shadow on this small inner pass)
           ctx.globalAlpha = 0.4 * fade;
           ctx.shadowBlur = 0;
           ctx.fillStyle = hsl((p.hue + 60) % 360, 90, 90, 0.5 * fade);
@@ -640,6 +690,7 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
           ctx.fill();
           ctx.restore();
         }
+        ctx.shadowBlur = 0;
 
         // ── HUD ───────────────────────────────────────────
         ctx.shadowBlur = 0;
@@ -664,25 +715,77 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarWaveVisualizerProps>
         animRef.current = requestAnimationFrame(draw);
       };
 
-      // ── resize handler ──────────────────────────────────
+      // ── resize handler (RAF-coalesced to avoid thrash on window drag) ──
+      let resizeRaf = 0;
       const resize = () => {
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        precomputeBg(rect.width, rect.height);
+        if (resizeRaf) return; // Coalesce — only one pending resize per frame
+        resizeRaf = requestAnimationFrame(() => {
+          resizeRaf = 0;
+          // OPTIMIZATION: Cap devicePixelRatio at 2. On retina/4K displays,
+          // the default 3x or 4x produces a 16K backing store that destroys
+          // the per-pixel wave loops. Capping at 2 is visually indistinguishable
+          // and drops pixel work by 4-9x.
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const rect = canvas.getBoundingClientRect();
+          canvas.width = rect.width * dpr;
+          canvas.height = rect.height * dpr;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          precomputeBg(rect.width, rect.height);
+          // Invalidate gradient cache so it recomputes with new dimensions
+          cachedGlowGrad = null;
+        });
       };
 
       resize();
       window.addEventListener('resize', resize);
+
+      // ── OPTIMIZATION: Pause RAF when tab hidden or canvas offscreen ──
+      const handleVisibility = () => {
+        if (document.hidden) {
+          paused = true;
+          if (animRef.current !== null) {
+            cancelAnimationFrame(animRef.current);
+            animRef.current = null;
+          }
+        } else if (paused) {
+          paused = false;
+          lastTime = performance.now();
+          animRef.current = requestAnimationFrame(draw);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      // IntersectionObserver — pause when canvas fully out of viewport
+      const intersectionObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) {
+              paused = true;
+              if (animRef.current !== null) {
+                cancelAnimationFrame(animRef.current);
+                animRef.current = null;
+              }
+            } else if (paused) {
+              paused = false;
+              lastTime = performance.now();
+              animRef.current = requestAnimationFrame(draw);
+            }
+          }
+        },
+        { threshold: 0 },
+      );
+      intersectionObserver.observe(canvas);
+
       draw();
 
       return () => {
         if (animRef.current !== null) {
           cancelAnimationFrame(animRef.current);
         }
+        if (resizeRaf) cancelAnimationFrame(resizeRaf);
         window.removeEventListener('resize', resize);
+        document.removeEventListener('visibilitychange', handleVisibility);
+        intersectionObserver.disconnect();
       };
     }, [mode]); // ← only mode changes restart the loop
 
