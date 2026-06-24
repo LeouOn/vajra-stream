@@ -555,7 +555,8 @@ function buildLiveElementLines(elements) {
   for (const e of order) {
     const cap = titleCase(e);
     const v = elements[e] != null ? elements[e] : (elements[cap] ?? '\u2014');
-    rows.push(`- ${cap} ${v} pts`);
+    const suffix = v === 1 ? 'pt' : 'pts';
+    rows.push(`- ${cap} ${v} ${suffix}`);
   }
   const dom = dominantKey(elements);
   if (dom) rows.push(`- Dominant: ${titleCase(dom)}`);
@@ -569,47 +570,83 @@ function buildLiveModalityLines(modalities) {
   for (const m of order) {
     const cap = titleCase(m);
     const v = modalities[m] != null ? modalities[m] : (modalities[cap] ?? '\u2014');
-    rows.push(`- ${cap}: ${v} points`);
+    const suffix = v === 1 ? 'pt' : 'pts';
+    rows.push(`- ${cap} ${v} ${suffix}`);
   }
   return rows;
+}
+
+// Wu Xing (Five Elements) char → English name.
+const WU_XING_MAP = { '\u6728': 'Wood', '\u706B': 'Fire', '\u571F': 'Earth', '\u91D1': 'Metal', '\u6C34': 'Water' };
+const WU_XING_ORDER = ['Wood', 'Fire', 'Earth', 'Metal', 'Water'];
+const WU_XING_EMOJI = { Wood: '\uD83C\uDF33', Fire: '\uD83D\uDD25', Earth: '\u26F0\uFE0F', Metal: '\u2694\uFE0F', Water: '\uD83D\uDCA7' };
+
+// Compute Five Element Balance from BaZi pillar strings.
+// Each pillar value like "丙午/Bing-Wu-Horse (火火)" contains Wu Xing chars
+// in parentheses. Mirrors ChineseBaZi.tsx countWuXing() logic.
+function computeWuXingBalance(bazi) {
+  const counts = { Wood: 0, Fire: 0, Earth: 0, Metal: 0, Water: 0 };
+  if (!bazi || typeof bazi !== 'object') return counts;
+  for (const val of Object.values(bazi)) {
+    if (typeof val !== 'string') continue;
+    const match = val.match(/\(([^)]+)\)/);
+    if (!match || !match[1]) continue;
+    for (const ch of match[1]) {
+      const eng = WU_XING_MAP[ch];
+      if (eng) counts[eng]++;
+    }
+  }
+  return counts;
 }
 
 function buildLiveVedicLines(indian) {
   if (!indian || typeof indian !== 'object') return [];
   const lines = [];
-  // Panchanga fields
-  const tithi = indian.tithi;
+  // Panchanga fields — backend nests under `panchanga`, NOT top-level.
+  // VedicPanchanga.tsx reads indianData.panchanga.tithi etc.
+  const panchanga = indian.panchanga || {};
+  const tithi = panchanga.tithi || indian.tithi;
   if (tithi) {
     const name = tithi.name || '\u2014';
     const paksha = tithi.paksha || '';
-    const pct = tithi.percentage != null ? `${Math.round(tithi.percentage)}%` : '';
+    const pct = tithi.percentage != null ? `${Math.round(tithi.percentage)}%`
+      : (tithi.progress != null ? `${Math.round(Number(tithi.progress) * 100)}%` : '');
     lines.push(`- Tithi: ${name}${paksha ? ' (' + paksha + ')' : ''}${pct ? ', ' + pct : ''}`);
   }
-  if (indian.nakshatra) {
-    const n = indian.nakshatra;
-    lines.push(`- Nakshatra: ${n.name || '\u2014'}${n.percentage != null ? ' (' + Math.round(n.percentage) + '%)' : ''}`);
+  const nakshatra = panchanga.nakshatra || indian.nakshatra;
+  if (nakshatra) {
+    const n = nakshatra;
+    const pct = n.percentage != null ? `${Math.round(n.percentage)}%`
+      : (n.progress != null ? `${Math.round(Number(n.progress) * 100)}%` : '');
+    lines.push(`- Nakshatra: ${n.name || '\u2014'}${pct ? ' (' + pct + ')' : ''}`);
     // Nakshatra Transit / Next — mirrors the progress bar on the page.
     const nextNak = NAKSHATRA_ORDER[(NAKSHATRA_ORDER.indexOf(n.name) + 1) % NAKSHATRA_ORDER.length];
     if (nextNak) lines.push(`- Nakshatra Transit: ${n.name || '\u2014'} \u2192 Next: ${nextNak}`);
   }
-  if (indian.yoga) lines.push(`- Yoga: ${indian.yoga.name || '\u2014'}`);
-  if (indian.karana) lines.push(`- Karana: ${indian.karana.name || '\u2014'}`);
-  if (indian.vara) {
-    const v = indian.vara;
+  const yoga = panchanga.yoga || indian.yoga;
+  if (yoga) lines.push(`- Yoga: ${yoga.name || '\u2014'}`);
+  const karana = panchanga.karana || indian.karana;
+  if (karana) lines.push(`- Karana: ${karana.name || '\u2014'}`);
+  const vara = panchanga.vara || indian.vara;
+  if (vara) {
+    const v = vara;
     lines.push(`- Vara: ${v.name || '\u2014'}${v.lord ? ' (' + v.lord + ')' : ''}`);
   }
-  if (indian.ascendant) {
-    const a = indian.ascendant;
-    lines.push(`- Ascendant: ${a.formatted || (a.sign || '\u2014') + ' ' + formatDegree(a.degree) + '\u00B0'}`);
+  // Sidereal positions — backend uses `sidereal_positions`, not `planets`.
+  const sidereal = indian.sidereal_positions || indian.ascendant_pos || {};
+  if (indian.ascendant || sidereal.ascendant) {
+    const a = indian.ascendant || sidereal.ascendant;
+    lines.push(`- Ascendant: ${a.formatted || (a.rashi_name || a.rashi || a.sign || '\u2014') + ' ' + formatDegree(a.degree)}`);
   }
-  if (indian.planets && typeof indian.planets === 'object') {
-    for (const [key, info] of Object.entries(indian.planets)) {
-      if (!info) continue;
+  const planets = indian.planets || sidereal;
+  if (planets && typeof planets === 'object') {
+    for (const [key, info] of Object.entries(planets)) {
+      if (!info || key === 'ascendant') continue;
       const label = planetLabel(key);
-      const sign = info.sign || '\u2014';
+      const sign = info.rashi_name || info.rashi || info.sign || '\u2014';
       const degree = formatDegree(info.degree);
       const retro = info.retrograde ? ' (R)' : '';
-      lines.push(`- ${label}: ${sign}${retro} ${degree}\u00B0`);
+      lines.push(`- ${label}: ${sign}${retro} ${degree}`);
     }
   }
   return lines;
@@ -759,11 +796,40 @@ export function formatLiveAstrologyMarkdown(data) {
         if (v) chineseLines.push(`- ${titleCase(k)}: ${v}`);
       }
     }
+    // Five Element Balance — computed from pillar Wu Xing chars, matching
+    // the ChineseBaZi.tsx component. The backend doesn't send this pre-computed.
+    if (fourPillars && typeof fourPillars === 'object') {
+      const wuXing = computeWuXingBalance(fourPillars);
+      const total = Object.values(wuXing).reduce((a, b) => a + b, 0);
+      if (total > 0) {
+        const elemLines = WU_XING_ORDER.map((elem) => {
+          const count = wuXing[elem] || 0;
+          const pct = Math.round((count / total) * 100);
+          return `  - ${WU_XING_EMOJI[elem]} ${elem}: ${count} (${pct}%)`;
+        });
+        chineseLines.push('- Five Element Balance (\u4E94\u884C):', ...elemLines);
+      }
+    }
+    // Fallback: if backend DID send five_elements_balance, use it too
     if (c.five_elements_balance) {
       const fb = c.five_elements_balance;
-      if (typeof fb === 'object' && !Array.isArray(fb)) {
+      if (typeof fb === 'object' && !Array.isArray(fb) && !fourPillars) {
         const lines = Object.entries(fb).map(([elem, count]) => `- ${titleCase(elem)}: ${count}`);
         chineseLines.push('- Element Balance:', ...lines);
+      }
+    }
+    // Lunar Date — page shows "Month 5 Day 11"
+    if (c.lunar_date) {
+      const ld = c.lunar_date;
+      if (typeof ld === 'string') {
+        chineseLines.push(`- Lunar Date: ${ld}`);
+      } else if (typeof ld === 'object') {
+        const parts = [];
+        if (ld.month != null) parts.push(`Month ${ld.month}`);
+        if (ld.day != null) parts.push(`Day ${ld.day}`);
+        if (ld.year != null) parts.push(`Year ${ld.year}`);
+        if (ld.is_leap_month) parts.push('(Leap Month)');
+        if (parts.length) chineseLines.push(`- Lunar Date: ${parts.join(' ')}`);
       }
     }
     if (chineseLines.length > 0) {

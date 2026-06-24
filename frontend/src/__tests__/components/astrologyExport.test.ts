@@ -361,7 +361,7 @@ describe('formatLiveAstrologyMarkdown', () => {
     expect(result).toContain('Fire 4 pts');
     expect(result).toContain('Dominant: Water');
     expect(result).toContain('### Modalities');
-    expect(result).toContain('Cardinal: 10');
+    expect(result).toContain('Cardinal 10 pts');
   });
 
   it('renders active aspects with orb', () => {
