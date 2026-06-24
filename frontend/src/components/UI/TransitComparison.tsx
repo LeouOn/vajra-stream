@@ -1,10 +1,12 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity, Clipboard } from 'lucide-react';
-import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty, message } from 'antd';
+import { Clock, RefreshCw, ShieldAlert, Sparkles, Clipboard, RotateCcw } from 'lucide-react';
+import { Card, DatePicker, Button, Tag, Segmented, Progress, Empty, message } from 'antd';
+import type { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { audioFeedback } from '../../utils/audioFeedback';
 import {
   aspectCategory, aspectGlyph, planetGlyph,
-  isHouseCusp, houseLabel, natalDisplayName,
+  isHouseCusp, natalDisplayName,
 } from '../../lib/astroHelpers';
 import { formatTransitReportMarkdown, formatTransitReportJSON } from '../../lib/astrologyExport';
 import { createLogger } from '../../utils/logger';
@@ -16,6 +18,15 @@ const ASPECT_COLORS: Record<string, string> = {
   square: 'text-red-400 border-red-500/20 bg-red-500/10',
   opposition: 'text-orange-400 border-orange-500/20 bg-orange-500/10',
 };
+
+// Color legend for the aspect category filter — shows users what each color means.
+const ASPECT_LEGEND: Array<{ key: string; label: string; color: string }> = [
+  { key: 'conjunction', label: 'Conjunction (0°)', color: 'bg-green-500' },
+  { key: 'trine', label: 'Trine (120°)', color: 'bg-blue-500' },
+  { key: 'sextile', label: 'Sextile (60°)', color: 'bg-purple-500' },
+  { key: 'square', label: 'Square (90°)', color: 'bg-red-500' },
+  { key: 'opposition', label: 'Opposition (180°)', color: 'bg-orange-500' },
+];
 
 const GOCHARA_DESCRIPTIONS: Record<number, string> = {
   1: "Focus on health, self-projection, and personal initiative.",
@@ -40,24 +51,6 @@ const PILLAR_LABELS: Record<string, string> = {
   'Day': 'Day Pillar (self, spouse)',
   'Hour': 'Hour Pillar (children, old age)',
 };
-
-interface NatalPillarProps {
-  label: string;
-  pillar?: string;
-}
-
-function NatalPillar({ label, pillar }: NatalPillarProps) {
-  return (
-    <div className="p-3 bg-black/40 border border-white/5 rounded-xl flex-1 min-w-[140px]">
-      <div className="text-[8px] text-gray-500 font-mono font-bold tracking-widest uppercase mb-1">
-        {label}
-      </div>
-      <div className="text-base font-serif text-amber-300 font-bold">
-        {pillar || 'â€”'}
-      </div>
-    </div>
-  );
-}
 
 interface TransitChart {
   id: string;
@@ -109,11 +102,7 @@ interface TransitComparisonProps {
 }
 
 export default function TransitComparison({ chart }: TransitComparisonProps) {
-  const [transitTime, setTransitTime] = useState<string>(() => {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  });
+  const [transitTime, setTransitTime] = useState<Dayjs>(() => dayjs());
   const [loading, setLoading] = useState<boolean>(false);
   const [transitData, setTransitData] = useState<TransitDataPayload | null>(null);
   const [activeTab, setActiveTab] = useState<TransitTab>('Western');
@@ -122,6 +111,8 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
   const [exporting, setExporting] = useState<boolean>(false);
   const log = createLogger('TransitComparison');
 
+  const transitTimeIso = transitTime.toISOString();
+
   const fetchTransits = async () => {
     if (!chart) return;
     setLoading(true);
@@ -129,7 +120,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
       const response = await fetch(`/api/v1/astrology/charts/${chart.id}/transits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transit_time_iso: transitTime })
+        body: JSON.stringify({ transit_time_iso: transitTimeIso })
       });
       if (response.ok) {
         const result = await response.json();
@@ -137,6 +128,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
         audioFeedback.playSuccess();
       } else {
         audioFeedback.playError();
+        message.error(`Failed to load transits: HTTP ${response.status}`);
       }
     } catch (e) {
       log.error(e);
@@ -151,6 +143,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
     if (chart) {
       fetchTransits();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chart]);
 
   const handleExport = async () => {
@@ -160,7 +153,9 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
       const response = await fetch(`/api/v1/astrology/charts/${chart.id}/transit-export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        // BUG FIX: send transit_time_iso so the export reflects the user's
+        // selected time, not "now" (backend fell back to datetime.now()).
+        body: JSON.stringify({ transit_time_iso: transitTimeIso })
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
@@ -177,9 +172,20 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
     }
   };
 
+  // Quick-set helpers for transit exploration
+  const setNow = () => setTransitTime(dayjs());
+  const shiftDays = (n: number) => setTransitTime((prev) => prev.add(n, 'day'));
+
   const aspects = useMemo<TransitAspect[]>(() => {
     const raw = transitData?.aspects || [];
     if (aspectFilter === 'all') return raw;
+    if (aspectFilter === 'minor') {
+      // 'minor' means non-harmonious AND non-challenging (semisquare, sesquiquadrate, quincunx, etc.)
+      return raw.filter((a) => {
+        const c = aspectCategory(a.aspect);
+        return c !== 'harmonious' && c !== 'challenging';
+      });
+    }
     return raw.filter((a) => aspectCategory(a.aspect) === aspectFilter);
   }, [transitData, aspectFilter]);
 
@@ -201,17 +207,29 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
     const groups: Record<string, BaziInteraction[]> = { 'Year': [], 'Month': [], 'Day': [], 'Hour': [] };
     for (const ix of baziInteractions) {
       const label = ix.pillar || '';
-      const m = label.match(/^([A-Za-z]+)/);
+      // Match canonical pillar prefixes ("Year-Year", "Month-Day", etc.)
+      const m = label.match(/^(Year|Month|Day|Hour)/);
       const key = m ? m[1] : null;
-      if (key && groups[key]) groups[key].push(ix);
+      if (key) groups[key].push(ix);
     }
     return groups;
   }, [baziInteractions]);
 
   if (!chart) {
     return (
-      <Card className="bg-gray-900/60 border-white/5 text-center p-8 text-gray-500 italic text-xs">
-        Select a saved chart from the database to compare transits
+      <Card className="bg-gray-900/80 border-purple-500/20">
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <div className="space-y-2 py-2">
+              <p className="text-sm text-amber-400 font-mono">No natal chart selected</p>
+              <p className="text-xs text-gray-500 italic max-w-md mx-auto">
+                Open the Saved Charts drawer and click the "Use for Transit" button on a saved chart
+                to begin comparing current planetary transits to your natal placements.
+              </p>
+            </div>
+          }
+        />
       </Card>
     );
   }
@@ -226,13 +244,42 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
             <Clock className="w-4 h-4 text-amber-400" />
             TRANSITS TO NATAL: {chart.name}
           </span>
-          <div className="flex items-center gap-2">
-            <input
-              type="datetime-local"
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <DatePicker
+              showTime={{ format: 'HH:mm' }}
+              format="YYYY-MM-DD HH:mm"
               value={transitTime}
-              onChange={(e) => setTransitTime(e.target.value)}
-              className="bg-gray-800 border border-gray-700 text-white rounded px-2.5 py-1 text-xs outline-none"
+              onChange={(val) => val && setTransitTime(val)}
+              allowClear={false}
+              size="small"
+              className="!bg-gray-800 !border-gray-700 [&>input]:!text-white [&>input]:!text-xs"
+              style={{ width: 170 }}
             />
+            <Button
+              size="small"
+              icon={<RotateCcw className="w-3 h-3" />}
+              onClick={setNow}
+              title="Reset to current time"
+              className="!text-[10px]"
+            >
+              Now
+            </Button>
+            <Button
+              size="small"
+              onClick={() => shiftDays(-1)}
+              title="Shift transit time back 1 day"
+              className="!text-[10px]"
+            >
+              −1d
+            </Button>
+            <Button
+              size="small"
+              onClick={() => shiftDays(1)}
+              title="Shift transit time forward 1 day"
+              className="!text-[10px]"
+            >
+              +1d
+            </Button>
             <Button
               size="small"
               type="primary"
@@ -303,9 +350,20 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
                     { label: `All (${aspectStats.total})`, value: 'all' },
                     { label: `Harmonious (${aspectStats.harmonious})`, value: 'harmonious' },
                     { label: `Challenging (${aspectStats.challenging})`, value: 'challenging' },
+                    { label: `Minor (${aspectStats.minor})`, value: 'minor' },
                   ]}
                   className="bg-black/40 border border-white/5 text-[10px]"
                 />
+              </div>
+              {/* Aspect color legend — tells the user what each color means */}
+              <div className="flex items-center gap-2 flex-wrap text-[9px] font-mono text-gray-500">
+                <span className="text-gray-600 uppercase tracking-wider">Legend:</span>
+                {ASPECT_LEGEND.map((legend) => (
+                  <span key={legend.key} className="flex items-center gap-1">
+                    <span className={`inline-block w-2 h-2 rounded-full ${legend.color}`} />
+                    <span>{legend.label}</span>
+                  </span>
+                ))}
               </div>
               {aspects.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1">
@@ -319,7 +377,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
                     return (
                       <div
                         key={`${asp.transit_planet}-${asp.natal_planet}-${asp.aspect}-${idx}`}
-                        className={`p-3 border rounded-xl flex items-start justify-between gap-3 hover:scale-[1.01] transition-transform ${aspectColor} ${
+                        className={`p-3 border rounded-xl flex items-start justify-between gap-3 transition-colors ${aspectColor} ${
                           cuspFlag ? 'ring-1 ring-amber-500/30' : ''
                         }`}
                       >
@@ -327,7 +385,14 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
                           <div className="flex items-center gap-1.5 mb-1 text-[11px] font-mono font-bold">
                             <span className="capitalize">{asp.transit_planet}</span>
                             <span className="text-[13px]">{aspectChar}</span>
-                            <span className="capitalize text-slate-300">{natalDisplayName(asp.natal_planet)}</span>
+                            {/* Bug fix: natalDisplayName already returns
+                                'Natal Cusp H1' for cusps but 'sun' for plain
+                                planets — adding 'Natal ' prefix here caused
+                                'sun △ Natal sun' duplication. Only add
+                                'Natal ' prefix for cusp targets. */}
+                            <span className="capitalize text-slate-300">
+                              {cuspFlag ? `Natal ${natalDisplayName(asp.natal_planet)}` : natalDisplayName(asp.natal_planet)}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Progress
@@ -343,8 +408,12 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
                             </span>
                           </div>
                         </div>
+                        {/* Bug fix: was `{aspectGlyph}` (no argument) which
+                            always rendered the default ○ circle. Now uses
+                            the already-computed `aspectChar` so the
+                            watermark reflects the actual aspect type. */}
                         <div className="text-xl opacity-20 select-none font-sans font-bold pt-1">
-                          {transitGlyph}{aspectGlyph}{natalGlyph}
+                          {transitGlyph}{aspectChar}{natalGlyph}
                         </div>
                       </div>
                     );
