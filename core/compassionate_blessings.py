@@ -237,7 +237,7 @@ class BlessingTarget:
         return cls(
             identifier=data["identifier"],
             name=data.get("name"),
-            category=BlessingCategory(data["category"]),
+            category=BlessingCategory(data.get("category", BlessingCategory.SUFFERING_UNKNOWN.value)),
             description=data.get("description", ""),
             case_number=data.get("case_number"),
             relevant_date=relevant_date,

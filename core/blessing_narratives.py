@@ -782,7 +782,7 @@ class StoryExporter:
     @staticmethod
     def export_as_markdown(story: GeneratedStory, filepath: str):
         """Export story as markdown file"""
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(story.story_text)
 
     @staticmethod
@@ -800,7 +800,7 @@ class StoryExporter:
             "metadata": story.metadata,
         }
 
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     @staticmethod
@@ -812,7 +812,7 @@ class StoryExporter:
 
         # Create index file
         index_path = Path(directory) / "INDEX.md"
-        with open(index_path, "w") as f:
+        with open(index_path, "w", encoding="utf-8") as f:
             f.write("# Liberation Stories Collection\n\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Total Stories: {len(stories)}\n\n")
