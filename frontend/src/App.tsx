@@ -17,7 +17,7 @@ interface MopsData {
 }
 
 // Ant Design
-import { ConfigProvider, theme, Result, Spin } from 'antd';
+import { ConfigProvider, theme, Result, Spin, App as AntApp } from 'antd';
 
 import MainLayout from './components/Layout/MainLayout';
 import ErrorBoundary from './components/UI/ErrorBoundary';
@@ -219,11 +219,13 @@ function App(): React.ReactElement {
         algorithm: theme.darkAlgorithm,
       }}
     >
-      <ErrorBoundary fallbackTitle="Application failed to render">
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </ErrorBoundary>
+      <AntApp>
+        <ErrorBoundary fallbackTitle="Application failed to render">
+          <BrowserRouter>
+            <AppContent />
+          </BrowserRouter>
+        </ErrorBoundary>
+      </AntApp>
     </ConfigProvider>
   );
 }
