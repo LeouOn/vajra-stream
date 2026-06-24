@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import {
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload, Copy
 } from 'lucide-react';
-import { Card, Row, Col, Tag, Button, Space, Segmented, message } from 'antd';
+import { Card, Row, Col, Tag, Button, Space, Segmented, Switch, Tooltip, message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -106,6 +106,7 @@ export default function AstrologyPanel() {
   const [customData, setCustomData] = useState(null);
   const [isLiveMode, setIsLiveMode] = useState(true);
   const [activeSystem, setActiveSystem] = useState('all'); // all, western, vedic, chinese
+  const [piiEnabled, setPiiEnabled] = useState(true); // PII toggle for exports (default: ON = keep personal info)
 
   // Database-backed state
   const [charts, setCharts] = useState([]);
@@ -437,7 +438,7 @@ export default function AstrologyPanel() {
       }
       try {
         const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
-        const markdown = formatLiveAstrologyMarkdown(liveData);
+        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: piiEnabled });
         await navigator.clipboard.writeText(markdown);
         message.success("Current astrology copied for LLM");
       } catch (e) {
@@ -477,7 +478,7 @@ export default function AstrologyPanel() {
       const result = await response.json();
       const data = result.data || result;
       const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
-      const markdown = formatNatalChartMarkdown(data);
+      const markdown = formatNatalChartMarkdown(data, { pii: piiEnabled });
       await navigator.clipboard.writeText(markdown);
       message.success("Natal chart copied for LLM");
     } catch (e) {
@@ -505,7 +506,7 @@ export default function AstrologyPanel() {
     }
     try {
       const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
-      const markdown = formatLiveAstrologyMarkdown(liveData);
+      const markdown = formatLiveAstrologyMarkdown(liveData, { pii: piiEnabled });
       await navigator.clipboard.writeText(markdown);
       message.success("Current outlook copied — today's live astrology is on your clipboard");
     } catch (e) {
@@ -591,6 +592,17 @@ export default function AstrologyPanel() {
             >
               🔴 LIVE
             </Button>
+            <Tooltip title={piiEnabled ? 'PII: ON — exports include name, birth time, location. Toggle OFF for privacy-safe sharing.' : 'PII: OFF — exports redact personal info. Toggle ON to include full details.'}>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: piiEnabled ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${piiEnabled ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+                <Shield className="w-3 h-3" style={{ color: piiEnabled ? '#22c55e' : '#ef4444' }} />
+                <span className="text-[9px] font-mono font-bold" style={{ color: piiEnabled ? '#22c55e' : '#ef4444' }}>PII</span>
+                <Switch
+                  size="small"
+                  checked={piiEnabled}
+                  onChange={setPiiEnabled}
+                />
+              </div>
+            </Tooltip>
             <Button
               size="small"
               icon={<Copy />}

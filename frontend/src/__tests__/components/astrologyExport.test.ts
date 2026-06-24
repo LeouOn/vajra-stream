@@ -4,6 +4,7 @@ import {
   formatTransitReportMarkdown,
   formatTransitReportJSON,
   formatLiveAstrologyMarkdown,
+  redactPII,
 } from '../../lib/astrologyExport';
 
 // Glyphs that must NEVER appear in LLM-optimized output.
@@ -411,5 +412,118 @@ describe('formatLiveAstrologyMarkdown', () => {
   it('handles null input with a fallback message', () => {
     const result = formatLiveAstrologyMarkdown(null);
     expect(result).toContain('No data available');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PII redaction tests
+// ---------------------------------------------------------------------------
+
+describe('PII redaction', () => {
+  const natalWithPII = {
+    name: 'John Doe',
+    birth_time_iso: '1990-05-15T08:30:00',
+    birth_location: { latitude: 40.7128, longitude: -74.0060 },
+    timezone: 'America/New_York',
+    city: 'New York, NY',
+    notes: 'Born at Mount Sinai Hospital',
+    western: { positions: { sun: { sign: 'Taurus', degree: 24.5 } }, elements: { Fire: 1, Earth: 3, Air: 2, Water: 2 }, modalities: {}, aspects: [] },
+    vedic: {},
+    houses: {},
+  };
+
+  const liveWithPII = {
+    datetime: '2024-06-15T14:30:00',
+    location: { latitude: 37.7749, longitude: -122.4194 },
+    moon_phase: { phase_name: 'Waxing Gibbous', illumination: 75.3 },
+  };
+
+  describe('redactPII utility', () => {
+    it('passes through data unchanged when piiEnabled=true', () => {
+      const result = redactPII(natalWithPII, true);
+      expect(result.name).toBe('John Doe');
+      expect(result.birth_time_iso).toBe('1990-05-15T08:30:00');
+      expect(result.city).toBe('New York, NY');
+      expect(result.notes).toBe('Born at Mount Sinai Hospital');
+    });
+
+    it('does not mutate the original when redacting', () => {
+      const original = JSON.parse(JSON.stringify(natalWithPII));
+      redactPII(natalWithPII, false);
+      expect(natalWithPII.name).toBe(original.name);
+      expect(natalWithPII.birth_time_iso).toBe(original.birth_time_iso);
+    });
+
+    it('redacts HIGH fields when piiEnabled=false', () => {
+      const result = redactPII(natalWithPII, false);
+      expect(result.name).toBe('Anonymous');
+      expect(result.birth_time_iso).toBeUndefined();
+      expect(result.city).toBe('[REDACTED]');
+      expect(result.notes).toBeUndefined();
+    });
+
+    it('rounds lat/lon to 1 decimal when piiEnabled=false', () => {
+      const result = redactPII(natalWithPII, false);
+      expect(result.birth_location.latitude).toBe(40.7);
+      expect(result.birth_location.longitude).toBe(-74.0);
+    });
+
+    it('strips timezone when piiEnabled=false', () => {
+      const result = redactPII(natalWithPII, false);
+      expect(result.timezone).toBeUndefined();
+    });
+
+    it('preserves chart data (western/vedic) when piiEnabled=false', () => {
+      const result = redactPII(natalWithPII, false);
+      expect(result.western.positions.sun.sign).toBe('Taurus');
+    });
+
+    it('rounds live location when piiEnabled=false', () => {
+      const result = redactPII(liveWithPII, false);
+      expect(result.location.latitude).toBe(37.8);
+      expect(result.location.longitude).toBe(-122.4);
+    });
+  });
+
+  describe('formatNatalChartMarkdown with PII', () => {
+    it('includes name and birth time when PII is ON (default)', () => {
+      const result = formatNatalChartMarkdown(natalWithPII);
+      expect(result).toContain('John Doe');
+      expect(result).toContain('1990-05-15');
+    });
+
+    it('redacts name and birth time when PII is OFF', () => {
+      const result = formatNatalChartMarkdown(natalWithPII, { pii: false });
+      expect(result).not.toContain('John Doe');
+      expect(result).not.toContain('1990-05-15T08:30:00');
+      expect(result).toContain('Anonymous');
+      expect(result).toContain('[redacted]');
+    });
+
+    it('shows PII REDACTED marker when PII is OFF', () => {
+      const result = formatNatalChartMarkdown(natalWithPII, { pii: false });
+      expect(result).toContain('PII REDACTED');
+    });
+
+    it('does NOT show PII REDACTED marker when PII is ON', () => {
+      const result = formatNatalChartMarkdown(natalWithPII);
+      expect(result).not.toContain('PII REDACTED');
+    });
+  });
+
+  describe('formatLiveAstrologyMarkdown with PII', () => {
+    it('shows full location when PII is ON', () => {
+      const result = formatLiveAstrologyMarkdown(liveWithPII);
+      expect(result).toContain('37.7749');
+      expect(result).not.toContain('PII REDACTED');
+    });
+
+    it('shows rounded location + PII marker when PII is OFF', () => {
+      const result = formatLiveAstrologyMarkdown(liveWithPII, { pii: false });
+      expect(result).toContain('PII REDACTED');
+      expect(result).not.toContain('37.7749');
+      // Rounded to 1 decimal
+      expect(result).toContain('37.8');
+    });
   });
 });

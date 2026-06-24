@@ -215,6 +215,77 @@ function joinLines(sections) {
 }
 
 // ---------------------------------------------------------------------------
+// PII redaction
+// ---------------------------------------------------------------------------
+// When PII is OFF (privacy-safe sharing), personally identifiable fields are
+// stripped or coarsened so the export can be pasted into LLMs or shared
+// publicly without leaking the subject's identity.
+//
+//   HIGH  → name, birth_time_iso, city, notes           → stripped / anonymized
+//   MEDIUM → latitude, longitude (both flat + nested)   → rounded to 1 decimal (~11km)
+//   MEDIUM → timezone                                   → stripped
+//   LOW    → chart positions, aspects, elements         → kept (derived, not directly identifying)
+//
+// Default is PII ON (piiEnabled = true) so existing callers are unaffected.
+
+function roundLatLon(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return v;
+  return Math.round(n * 10) / 10;
+}
+
+/**
+ * Deep-clone data and redact PII fields when `piiEnabled` is false.
+ * Returns the original data untouched when piiEnabled is true.
+ * @param {*} data  — any astrology payload (live, natal, or transit)
+ * @param {boolean} piiEnabled — true = keep PII, false = redact
+ * @returns {*} redacted deep-clone (or original if piiEnabled)
+ */
+export function redactPII(data, piiEnabled = true) {
+  if (piiEnabled || data == null || typeof data !== 'object') return data;
+  const d = JSON.parse(JSON.stringify(data)); // deep clone
+
+  // HIGH sensitivity
+  if (d.name) d.name = 'Anonymous';
+  if ('birth_time_iso' in d) delete d.birth_time_iso;
+  if (d.city) d.city = '[REDACTED]';
+  if (d.birth_city) d.birth_city = '[REDACTED]';
+  if ('notes' in d) delete d.notes;
+
+  // MEDIUM sensitivity — geolocation (flat fields)
+  if (d.latitude != null) d.latitude = roundLatLon(d.latitude);
+  if (d.longitude != null) d.longitude = roundLatLon(d.longitude);
+  if ('timezone' in d) delete d.timezone;
+
+  // MEDIUM — nested location objects
+  // Live payload: data.location = { latitude, longitude }
+  if (d.location && typeof d.location === 'object') {
+    if (d.location.latitude != null) d.location.latitude = roundLatLon(d.location.latitude);
+    if (d.location.longitude != null) d.location.longitude = roundLatLon(d.location.longitude);
+  }
+  // Natal-export payload: data.birth_location = { latitude, longitude }
+  if (d.birth_location && typeof d.birth_location === 'object') {
+    if (d.birth_location.latitude != null) d.birth_location.latitude = roundLatLon(d.birth_location.latitude);
+    if (d.birth_location.longitude != null) d.birth_location.longitude = roundLatLon(d.birth_location.longitude);
+  }
+
+  // Synastry: redact BOTH subjects (name_a, time_a, city_a, name_b, ...)
+  for (const suffix of ['_a', '_b']) {
+    const nameKey = 'name' + suffix;
+    const timeKey = 'time' + suffix;
+    const cityKey = 'city' + suffix;
+    if (d[nameKey]) d[nameKey] = 'Anonymous';
+    if (timeKey in d) delete d[timeKey];
+    if (d[cityKey]) d[cityKey] = '[REDACTED]';
+  }
+
+  return d;
+}
+
+/** Marker line prepended to exports when PII is redacted. */
+const PII_REDACTED_NOTE = '> **PII REDACTED** — Personal information (name, birth time, location) has been removed for privacy-safe sharing.';
+
+// ---------------------------------------------------------------------------
 // Natal chart formatter
 // ---------------------------------------------------------------------------
 
@@ -291,28 +362,33 @@ function buildVedicSection(vedic) {
   return lines;
 }
 
-export function formatNatalChartMarkdown(data) {
+export function formatNatalChartMarkdown(data, options = {}) {
   if (!data || typeof data !== 'object') {
     return '# Natal Chart\n\nNo data available.';
   }
 
-  const western = data.western || {};
+  const piiEnabled = options.pii !== false;
+  const d = redactPII(data, piiEnabled);
+
+  const western = d.western || {};
   const positions = western.positions || {};
   const elements = western.elements || {};
   const modalities = western.modalities || {};
   const aspects = western.aspects || [];
-  const vedic = data.vedic || {};
-  const houses = data.houses || {};
+  const vedic = d.vedic || {};
+  const houses = d.houses || {};
 
   const sections = [];
 
   // --- Header -------------------------------------------------------------
   const header = [];
-  header.push(`# Natal Chart: ${data.name || 'Unnamed'}`);
+  header.push(`# Natal Chart: ${d.name || 'Unnamed'}`);
+  if (!piiEnabled) header.push('', PII_REDACTED_NOTE);
   const headerMeta = [];
-  const birth = formatBirthTime(data.birth_time_iso);
+  const birth = formatBirthTime(d.birth_time_iso);
   if (birth) headerMeta.push(`**Birth:** ${birth}`);
-  const loc = formatLocation(data.birth_location);
+  else if (!piiEnabled) headerMeta.push('**Birth:** [redacted]');
+  const loc = formatLocation(d.birth_location);
   if (loc) headerMeta.push(`**Location:** ${loc}`);
   headerMeta.push('**System:** Tropical / Placidus');
   if (headerMeta.length) header.push(headerMeta.join('  \n'));
@@ -463,38 +539,43 @@ function buildGocharaLines(gochara) {
   return lines;
 }
 
-export function formatTransitReportMarkdown(data) {
+export function formatTransitReportMarkdown(data, options = {}) {
   if (!data || typeof data !== 'object') {
     return '# Transit Report\n\nNo data available.';
   }
 
+  const piiEnabled = options.pii !== false;
+  const d = redactPII(data, piiEnabled);
+
   const sections = [];
 
   // --- Header -------------------------------------------------------------
-  const header = [`# Transit Report: ${data.name || 'Unnamed'}`];
+  const header = [`# Transit Report: ${d.name || 'Unnamed'}`];
+  if (!piiEnabled) header.push('', PII_REDACTED_NOTE);
   const meta = [];
-  const birth = formatBirthTime(data.birth_time_iso);
+  const birth = formatBirthTime(d.birth_time_iso);
   if (birth) meta.push(`**Birth:** ${birth}`);
-  const transit = formatBirthTime(data.transit_time);
+  else if (!piiEnabled) meta.push('**Birth:** [redacted]');
+  const transit = formatBirthTime(d.transit_time);
   if (transit) meta.push(`**Transit:** ${transit}`);
   if (meta.length) header.push(meta.join('  \n'));
   sections.push(header);
 
   // --- Natal Placements ---------------------------------------------------
-  sections.push(['## Natal Placements', '', ...buildHouseTableLines(data.natal_houses)]);
+  sections.push(['## Natal Placements', '', ...buildHouseTableLines(d.natal_houses)]);
 
   // --- Transit Placements -------------------------------------------------
-  sections.push(['## Transit Placements', '', ...buildHouseTableLines(data.transit_houses)]);
+  sections.push(['## Transit Placements', '', ...buildHouseTableLines(d.transit_houses)]);
 
   // --- Harmonious / Challenging Transits ---------------------------------
-  sections.push(['## Harmonious Transits', '', ...buildTransitListLines(data.top_harmonious)]);
-  sections.push(['## Challenging Transits', '', ...buildTransitListLines(data.top_challenging)]);
+  sections.push(['## Harmonious Transits', '', ...buildTransitListLines(d.top_harmonious)]);
+  sections.push(['## Challenging Transits', '', ...buildTransitListLines(d.top_challenging)]);
 
   // --- BaZi ---------------------------------------------------------------
-  sections.push(['## BaZi', '', ...buildBaziLines(data.bazi_clashes)]);
+  sections.push(['## BaZi', '', ...buildBaziLines(d.bazi_clashes)]);
 
   // --- Gochara ------------------------------------------------------------
-  sections.push(['## Gochara (from Natal Moon)', '', ...buildGocharaLines(data.gochara)]);
+  sections.push(['## Gochara (from Natal Moon)', '', ...buildGocharaLines(d.gochara)]);
 
   return joinLines(sections);
 }
@@ -685,30 +766,36 @@ function buildLiveAuspiciousLines(auspicious) {
   return lines;
 }
 
-export function formatLiveAstrologyMarkdown(data) {
+export function formatLiveAstrologyMarkdown(data, options = {}) {
   if (!data || typeof data !== 'object') {
     return '# Current Astrology\n\nNo data available.';
   }
 
+  const piiEnabled = options.pii !== false;
+  const d = redactPII(data, piiEnabled);
+
   const sections = [];
   // --- Header -----------------------------------------------------------
-  const dt = data.datetime || (data.timestamp ? new Date(data.timestamp * 1000).toISOString() : '');
-  const loc = data.location;
+  const dt = d.datetime || (d.timestamp ? new Date(d.timestamp * 1000).toISOString() : '');
+  const loc = d.location;
   const locStr = loc && (loc.latitude != null && loc.longitude != null)
     ? `${Number(loc.latitude).toFixed(4)}, ${Number(loc.longitude).toFixed(4)}`
     : '';
   const titleLine = `# Current Astrology${dt ? ' \u2014 ' + dt.slice(0, 16).replace('T', ' ') : ''}`;
-  sections.push([titleLine, '']);
+  const headerLines = [titleLine, ''];
+  if (!piiEnabled) headerLines.push(PII_REDACTED_NOTE, '');
+  sections.push(headerLines);
   if (locStr) sections.push([`**Location:** ${locStr}`, '']);
+  else if (!piiEnabled) sections.push(['**Location:** [redacted]', '']);
   sections.push(['**Systems:** Tropical / Vedic (Lahiri) / BaZi (Lahiri ayanamsa)', '']);
 
   // --- Moon Phase --------------------------------------------------------
-  if (data.moon_phase) {
-    sections.push(['## Moon Phase', '', ...buildLiveMoonPhaseLines(data.moon_phase), '']);
+  if (d.moon_phase) {
+    sections.push(['## Moon Phase', '', ...buildLiveMoonPhaseLines(d.moon_phase), '']);
   }
 
   // --- Western ----------------------------------------------------------
-  const western = data.western;
+  const western = d.western;
   if (western) {
     sections.push(['## Western Tropical', '*(Tropical / Placidus Houses \u00B7 Geocentric)*', '']);
     // Summary block — the page prominently displays Sun Sign, Moon Sign, Ascendant
@@ -766,16 +853,16 @@ export function formatLiveAstrologyMarkdown(data) {
   }
 
   // --- Vedic (Indian) ---------------------------------------------------
-  if (data.indian) {
-    const vedicLines = buildLiveVedicLines(data.indian);
+  if (d.indian) {
+    const vedicLines = buildLiveVedicLines(d.indian);
     if (vedicLines.length > 0) {
       sections.push(['## Vedic Sidereal (Lahiri Ayanamsa)', '', ...vedicLines, '']);
     }
   }
 
   // --- Chinese (BaZi) ---------------------------------------------------
-  if (data.chinese && typeof data.chinese === 'object') {
-    const c = data.chinese;
+  if (d.chinese && typeof d.chinese === 'object') {
+    const c = d.chinese;
     const chineseLines = [];
     if (c.sheng_xiao || c.zodiac_animal) {
       chineseLines.push(`- Sheng Xiao: ${c.sheng_xiao || c.zodiac_animal || '\u2014'}`);
@@ -838,8 +925,8 @@ export function formatLiveAstrologyMarkdown(data) {
   }
 
   // --- Auspicious Times -------------------------------------------------
-  if (data.auspicious_times && Object.keys(data.auspicious_times).length > 0) {
-    const lines = buildLiveAuspiciousLines(data.auspicious_times);
+  if (d.auspicious_times && Object.keys(d.auspicious_times).length > 0) {
+    const lines = buildLiveAuspiciousLines(d.auspicious_times);
     if (lines.length > 0) {
       sections.push(['## Auspicious Times', '', ...lines, '']);
     }
