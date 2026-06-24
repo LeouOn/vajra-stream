@@ -114,6 +114,74 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to start streaming: {e}")
         logger.error(traceback.format_exc())
 
+    # Start slow-data broadcast loop (astrology, MOPS, journey status)
+    # These replace frontend HTTP polling with WebSocket push.
+    slow_broadcast_task = None
+    try:
+        async def _slow_data_broadcast_loop():
+            """Broadcast slow-changing data every 10s via WebSocket.
+
+            Replaces frontend setInterval polling for:
+            - CURRENT_ASTROLOGY (was: 15-60s HTTP poll in 4 components)
+            - MOPS_AVERAGES (was: 2s HTTP poll in ScalarTab)
+            - JOURNEY_STATUS (was: 5s HTTP poll in JourneyCard + ScalarTab)
+            """
+            import time as _time
+            from backend.core.services.vajra_service import vajra_service
+            from backend.core.services.mops_engine import mops_engine
+
+            while True:
+                try:
+                    await asyncio.sleep(10)
+
+                    # CURRENT_ASTROLOGY — planetary positions
+                    try:
+                        astrology_data = await vajra_service._get_astrology_data()
+                        await stable_connection_manager_v2.broadcast({
+                            "type": "CURRENT_ASTROLOGY",
+                            "data": astrology_data,
+                            "timestamp": _time.time(),
+                        })
+                    except Exception as e:
+                        logger.debug(f"CURRENT_ASTROLOGY broadcast failed: {e}")
+
+                    # MOPS_AVERAGES — scalar wave telemetry
+                    try:
+                        mops_data = mops_engine.get_rolling_averages()
+                        if mops_data:
+                            await stable_connection_manager_v2.broadcast({
+                                "type": "MOPS_AVERAGES",
+                                "data": mops_data,
+                                "timestamp": _time.time(),
+                            })
+                    except Exception as e:
+                        logger.debug(f"MOPS_AVERAGES broadcast failed: {e}")
+
+                    # JOURNEY_STATUS — character journey full status
+                    try:
+                        from container import container
+                        journey_data = container.operator.get_journey_status()
+                        if journey_data:
+                            await stable_connection_manager_v2.broadcast({
+                                "type": "JOURNEY_STATUS",
+                                "data": journey_data,
+                                "timestamp": _time.time(),
+                            })
+                    except Exception as e:
+                        logger.debug(f"JOURNEY_STATUS broadcast failed: {e}")
+
+                except asyncio.CancelledError:
+                    logger.info("Slow data broadcast loop cancelled")
+                    break
+                except Exception as e:
+                    logger.error(f"Error in slow data broadcast loop: {e}")
+                    await asyncio.sleep(5)
+
+        slow_broadcast_task = asyncio.create_task(_slow_data_broadcast_loop())
+        logger.info("Slow data broadcast loop started (CURRENT_ASTROLOGY, MOPS_AVERAGES, JOURNEY_STATUS at 10s)")
+    except Exception as e:
+        logger.error(f"Failed to start slow data broadcast loop: {e}")
+
     # Start Autonomous Operator Daemon
     try:
         from container import container
@@ -168,6 +236,13 @@ async def lifespan(app: FastAPI):
         streaming_task.cancel()
         try:
             await streaming_task
+        except asyncio.CancelledError:
+            pass
+
+    if slow_broadcast_task:
+        slow_broadcast_task.cancel()
+        try:
+            await slow_broadcast_task
         except asyncio.CancelledError:
             pass
 

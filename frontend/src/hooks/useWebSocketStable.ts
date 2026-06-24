@@ -43,6 +43,20 @@ export interface AstrologyContext {
   since?: number;
 }
 
+// Slow-data broadcasts from main.py _slow_data_broadcast_loop (10s interval).
+// Replace frontend HTTP polling with WebSocket push.
+export interface CurrentAstrology {
+  [key: string]: unknown;
+}
+
+export interface MopsAverages {
+  [key: string]: unknown;
+}
+
+export interface JourneyStatus {
+  [key: string]: unknown;
+}
+
 export interface UseWebSocketStableReturn {
   isConnected: boolean;
   audioSpectrum: number[];
@@ -61,6 +75,9 @@ export interface UseWebSocketStableReturn {
   lastProviderHealthUpdate: number | null;
   journey: JourneyState | null;
   astrologyContext: AstrologyContext | null;
+  currentAstrology: CurrentAstrology | null;
+  mopsAverages: MopsAverages | null;
+  journeyStatus: JourneyStatus | null;
   error: string | null;
   startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
   stopSession: (sessionId: string) => Promise<ApiResponse>;
@@ -91,6 +108,9 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
   const [lastProviderHealthUpdate, setLastProviderHealthUpdate] = useState<number | null>(null);
   const [journey, setJourney] = useState<JourneyState | null>(null);
   const [astrologyContext, setAstrologyContext] = useState<AstrologyContext | null>(null);
+  const [currentAstrology, setCurrentAstrology] = useState<CurrentAstrology | null>(null);
+  const [mopsAverages, setMopsAverages] = useState<MopsAverages | null>(null);
+  const [journeyStatus, setJourneyStatus] = useState<JourneyStatus | null>(null);
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -369,6 +389,16 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
             case 'system_error':
               setError(data.message || 'System error occurred');
               break;
+            // Backend: main.py _slow_data_broadcast_loop — replaces HTTP polling.
+            case 'CURRENT_ASTROLOGY':
+              setCurrentAstrology(data.data);
+              break;
+            case 'MOPS_AVERAGES':
+              setMopsAverages(data.data);
+              break;
+            case 'JOURNEY_STATUS':
+              setJourneyStatus(data.data);
+              break;
             default:
               log.warn('Unknown WebSocket message type:', data.type);
           }
@@ -483,6 +513,9 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     lastProviderHealthUpdate,
     journey,
     astrologyContext,
+    currentAstrology,
+    mopsAverages,
+    journeyStatus,
     error,
     startSession,
     stopSession,

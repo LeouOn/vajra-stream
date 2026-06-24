@@ -38,7 +38,9 @@ import { resolve } from 'node:path';
  * remediation Task 24 regressively deleted their case branches; 3 more
  * (SessionCreated/Started/Stopped) added when the camelCase DomainEvent
  * forwarders from orchestrator_bridge._forward_event_to_websocket were
- * wired into the sessions map. Total = 31.
+ * wired into the sessions map; 3 more (CURRENT_ASTROLOGY/MOPS_AVERAGES/
+ * JOURNEY_STATUS) added when the slow-data broadcast loop replaced
+ * frontend HTTP polling. Total = 34.
  * DO NOT edit this set without first updating the whitelist evidence file.
  */
 const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
@@ -81,6 +83,11 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'SessionCreated',
   'SessionStarted',
   'SessionStopped',
+  // Slow-data broadcasts from main.py _slow_data_broadcast_loop (10s interval).
+  // Replace frontend HTTP polling with WebSocket push.
+  'CURRENT_ASTROLOGY',
+  'MOPS_AVERAGES',
+  'JOURNEY_STATUS',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');
