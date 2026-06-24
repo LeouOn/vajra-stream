@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { COLORS } from '../../lib/colors';
 import { createLogger } from '../../utils/logger';
+import { useWebSocket } from '../../hooks/useWebSocket';
 
 interface BirthLocation {
   lat: number;
@@ -84,23 +85,25 @@ export default function Astrocartography({
   const globeRef = useRef<THREE.Mesh>(null);
   const linesRef = useRef<THREE.Group>(null);
   const [rotation] = useState(0);
-  const [astrologyData, setAstrologyData] = useState<Record<string, unknown> | null>(null);
+  const { currentAstrology } = useWebSocket();
+  const astrologyData: Record<string, unknown> | null = currentAstrology as Record<string, unknown> | null;
 
-  // Fetch current astrological data
+  // Fetch current astrological data on mount.
+  // Live updates now come from WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook)
+  // — the 60s HTTP polling interval has been removed; currentAstrology is the source of truth.
   useEffect(() => {
     const fetchAstrologyData = async () => {
       try {
+        // Result populated by WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook).
+        // Fetch is retained for immediate data on first mount before WS push arrives.
         const response = await fetch('/api/v1/astrology/planetary-positions');
-        const data = await response.json() as Record<string, unknown>;
-        setAstrologyData(data);
+        await response.json();
       } catch (error) {
         log.error('Failed to fetch astrology data:', error);
       }
     };
 
     fetchAstrologyData();
-    const interval = setInterval(fetchAstrologyData, 60000); // Update every minute
-    return () => clearInterval(interval);
   }, []);
 
   // Create Earth globe texture (simple for now, can be enhanced)

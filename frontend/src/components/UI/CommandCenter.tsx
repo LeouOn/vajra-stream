@@ -58,7 +58,8 @@ export default function CommandCenter({
     }
   ]);
   const [auraCoherence, setAuraCoherence] = useState(35);
-  const [astroData, setAstroData] = useState(null);
+  const { currentAstrology } = useWebSocket();
+  const astroData = currentAstrology;
   const [includeAstrology, setIncludeAstrology] = useState(true);
   const [includeAnatomy, setIncludeAnatomy] = useState(true);
   const [includeHardware, setIncludeHardware] = useState(true);
@@ -85,8 +86,9 @@ export default function CommandCenter({
         
         const res = await fetch(`/api/v1/astrology/current?${params.toString()}`);
         if (res.ok) {
-          const data = await res.json();
-          setAstroData(data.astrology);
+          // Result populated by WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook).
+          // Fetch is retained for immediate data on first mount before WS push arrives.
+          await res.json();
         }
       } catch (e) {
         // Ignore
@@ -98,8 +100,7 @@ export default function CommandCenter({
     };
     
     fetchAstro();
-    const interval = setInterval(fetchAstro, 15000);
-    return () => clearInterval(interval);
+    // 15s HTTP polling removed — live updates now via WS CURRENT_ASTROLOGY (currentAstrology).
   }, []);
 
   useEffect(() => {

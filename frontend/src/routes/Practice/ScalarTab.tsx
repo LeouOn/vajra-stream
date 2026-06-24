@@ -164,13 +164,33 @@ export default function ScalarTab(): React.ReactElement {
     stopAudio,
   } = useAudioStore();
 
-  // ── websocket: scalar / crystal / sessions / link ──────────────────
-  const { scalarStatus, crystalStatus, sessions, isConnected } =
-    useWebSocketStable();
+  // ── websocket: scalar / crystal / sessions / link / slow-data ──────
+  // mopsAverages + journeyStatus come from the backend's 10s slow-data
+  // broadcast (MOPS_AVERAGES / JOURNEY_STATUS) and replace HTTP polling.
+  const {
+    scalarStatus,
+    crystalStatus,
+    sessions,
+    isConnected,
+    mopsAverages,
+    journeyStatus,
+  } = useWebSocketStable();
 
   // ── local UI state ─────────────────────────────────────────────────
-  const [mops, setMops] = useState<MopsAverages | null>(null);
-  const [journey, setJourney] = useState<JourneyStatus | null>(null);
+  // MOPS + journey derive from the WebSocket slow-data broadcasts. The
+  // *Fallback states are seeded by a one-shot HTTP fetch on mount so the
+  // UI isn't blank while waiting for the first 10s WS push.
+  const [mopsFallback, setMopsFallback] = useState<MopsAverages | null>(null);
+  const [journeyFallback, setJourneyFallback] = useState<JourneyStatus | null>(null);
+  const mopsWs = mopsAverages as MopsAverages | null;
+  const journeyWs = journeyStatus as JourneyStatus | null;
+  const mops = mopsWs ?? mopsFallback;
+  const journey =
+    journeyWs?.active
+      ? journeyWs
+      : journeyWs === null
+        ? journeyFallback
+        : null;
   const [intention, setIntention] = useState('');
   const [busy, setBusy] = useState<'generate' | 'play' | 'stop' | null>(null);
 
@@ -181,14 +201,14 @@ export default function ScalarTab(): React.ReactElement {
   // ── refs to read latest values inside stable callbacks ─────────────
   const elementKeyRef = useRef(elementKey);
   elementKeyRef.current = elementKey;
-  const prevElementRef = useRef<string | undefined>(undefined);
 
   // ───────────────────────────────────────────────────────────────────
-  // EFFECT: poll MOPS telemetry every 2s (top-left readout)
+  // EFFECT: one-shot initial MOPS fetch (fallback while waiting for the
+  // first 10s WS push). Subsequent updates arrive via WebSocket.
   // ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    const poll = async () => {
+    const fetchOnce = async () => {
       try {
         const res = await fetch('/api/v1/mops/current');
         if (!res.ok) return;
@@ -196,45 +216,38 @@ export default function ScalarTab(): React.ReactElement {
           status?: string;
           mops?: MopsAverages;
         };
-        if (!cancelled && data.mops) setMops(data.mops);
+        if (!cancelled && data.mops) setMopsFallback(data.mops);
       } catch {
         /* silent — telemetry is best-effort */
       }
     };
-    poll();
-    const id = setInterval(poll, 2000);
+    fetchOnce();
     return () => {
       cancelled = true;
-      clearInterval(id);
     };
   }, []);
 
   // ───────────────────────────────────────────────────────────────────
-  // EFFECT: poll journey status every 5s → recolor palette via element
+  // EFFECT: one-shot initial journey fetch (fallback while waiting for
+  // the first 10s WS push). Subsequent updates arrive via WebSocket.
+  // Element-mood recoloring is handled by the dedicated effect below.
   // ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    const poll = async () => {
+    const fetchOnce = async () => {
       try {
         const res = await fetch('/api/v1/operator/journey/status');
         if (!res.ok) return;
         const data = (await res.json()) as JourneyStatus;
         if (cancelled) return;
-        setJourney(data.active ? data : null);
-        const el = data.character?.element;
-        if (el && el !== prevElementRef.current) {
-          prevElementRef.current = el;
-          vizRef.current?.setElementMood(el);
-        }
+        setJourneyFallback(data.active ? data : null);
       } catch {
         /* silent */
       }
     };
-    poll();
-    const id = setInterval(poll, 5000);
+    fetchOnce();
     return () => {
       cancelled = true;
-      clearInterval(id);
     };
   }, []);
 

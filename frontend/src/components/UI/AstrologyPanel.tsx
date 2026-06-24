@@ -9,6 +9,7 @@ import {
 import { Card, Row, Col, Tag, Button, Space, Segmented, message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('AstrologyPanel');
@@ -97,9 +98,10 @@ function MiniOrrery({ positions }) {
 
 export default function AstrologyPanel() {
   const { isPlaying, frequency } = useAudioStore();
+  const { currentAstrology } = useWebSocket();
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
-  const [liveData, setLiveData] = useState(null);
+  const liveData = currentAstrology;
   const [customData, setCustomData] = useState(null);
   const [isLiveMode, setIsLiveMode] = useState(true);
   const [activeSystem, setActiveSystem] = useState('all'); // all, western, vedic, chinese
@@ -155,8 +157,9 @@ export default function AstrologyPanel() {
         
         const response = await fetch(`/api/v1/astrology/current?${params.toString()}`);
         if (response.ok) {
-          const result = await response.json();
-          setLiveData(result.astrology);
+          // Result populated by WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook).
+          // Fetch is retained for immediate data on first mount before WS push arrives.
+          await response.json();
         }
       } catch (e) {
         log.error("Error in live astrology fetch:", e);
@@ -181,15 +184,13 @@ export default function AstrologyPanel() {
     }
   };
 
-  // Poll for live transits and fetch saved charts on mount
+  // Fetch saved charts + initial live astrology on mount.
+  // Live updates now come from WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook)
+  // — the 20s HTTP polling interval has been removed; currentAstrology is the source of truth.
   useEffect(() => {
     fetchSavedCharts();
     fetchLiveAstrology();
-    const interval = setInterval(() => {
-      if (isLiveMode) fetchLiveAstrology();
-    }, 20000);
-    return () => clearInterval(interval);
-  }, [isLiveMode]);
+  }, []);
 
   // Helper: extract error detail from a failed fetch response
   const _readError = async (response) => {

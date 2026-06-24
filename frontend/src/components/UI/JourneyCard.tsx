@@ -11,6 +11,7 @@
  * @component
  */
 import React, { useState, useEffect } from 'react';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import {
   Sparkles, Play, ChevronRight, User, Zap, Shield, Heart,
   Moon, Sun, Star, RefreshCw, Award, Swords, Eye, Brain, Footprints
@@ -103,12 +104,23 @@ const ELEMENT_COLORS: Record<string, string> = {
 };
 
 export default function JourneyCard() {
+  // WebSocket slow-data broadcast replaces HTTP polling for journey status.
+  const { journeyStatus } = useWebSocketStable();
   const [journey, setJourney] = useState<JourneyStatus | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
+  // Sync from WS (primary source of truth for journey status).
   useEffect(() => {
-    const poll = async () => {
+    const fromWs = journeyStatus as JourneyStatus | null;
+    if (fromWs === null) return; // No WS data yet — keep current/fallback.
+    setJourney(fromWs.active ? fromWs : null);
+  }, [journeyStatus]);
+
+  // One-shot initial HTTP fetch (fallback while waiting for first WS push).
+  useEffect(() => {
+    let cancelled = false;
+    const fetchOnce = async () => {
       try {
         const res = await fetch(`/api/v1/operator/journey/status`);
         if (res.ok) {
@@ -118,13 +130,14 @@ export default function JourneyCard() {
           // (Previously this polled `character` state via a stale closure
           // with an empty dep array and fired a runaway POST to
           // /generate-character every 5s — removed.)
-          setJourney(data.active ? data : null);
+          if (!cancelled) {
+            setJourney(data.active ? data : null);
+          }
         }
       } catch {}
     };
-    poll();
-    const interval = setInterval(poll, 5000);
-    return () => clearInterval(interval);
+    fetchOnce();
+    return () => { cancelled = true; };
   }, []);
 
   const handleAdvance = async () => {
