@@ -10,7 +10,7 @@
  * @param wsUrl — Optional WebSocket endpoint URL (defaults to auto-detected backend).
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { WS_URL } from '../utils/api';
+import { WS_URL, BACKEND_URL } from '../utils/api';
 import { createLogger } from '../utils/logger';
 import type {
   WSMessage,
@@ -176,8 +176,9 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     // lifespan init (DB, orchestrator bridge, LLM registry, streaming task)
     // and gets rejected with "closed before connection established" because
     // Uvicorn doesn't accept connections until lifespan yields.
-    const apiBase = (typeof window !== 'undefined' && (window as any).__VAJRA_API_BASE__) || '';
-    const readyUrl = `${apiBase}/ready`;
+    // Use BACKEND_URL (direct to backend port 8008) — the Vite proxy doesn't
+    // forward /ready (it only proxies /api and /ws).
+    const readyUrl = `${BACKEND_URL}/ready`;
     const readyMaxWaitMs = 15000;
     const readyStart = Date.now();
     let ready = false;

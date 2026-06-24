@@ -63,3 +63,20 @@ export const API_BASE: string = apiUrl('');
 
 export const WS_URL: string = resolveWsUrl();
 export const BACKEND_PORT: string = DEFAULT_PORT;
+
+/**
+ * Resolve the backend HTTP base URL (e.g. `http://localhost:8008`).
+ * Mirrors the WS_URL logic — always connects directly to the backend port,
+ * bypassing the Vite proxy. Used for the `/ready` readiness check in
+ * useWebSocketStable and any other direct-to-backend HTTP call.
+ */
+function resolveBackendUrl(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    const hostname = window.location.hostname === '::1' ? '127.0.0.1' : window.location.hostname;
+    return `${protocol}//${hostname}:${DEFAULT_PORT}`;
+  }
+  return `http://127.0.0.1:${DEFAULT_PORT}`;
+}
+
+export const BACKEND_URL: string = resolveBackendUrl();

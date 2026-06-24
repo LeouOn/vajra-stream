@@ -163,7 +163,9 @@ export default function JourneyCard() {
   const stageName = STAGE_NAMES[currentStage] || currentStage;
   const color = STAGE_COLORS[currentStage] || '#a855f7';
   const StageIcon = STAGE_ICONS[currentStage] || Star;
-  const progress = Math.round((stageIdx / 6) * 100);
+  const isComplete = journey.is_complete || stageIdx >= 6;
+  // Clamp progress to [0, 100] — stageIdx can exceed 6 after completion.
+  const progress = Math.min(100, Math.round((Math.min(stageIdx, 6) / 6) * 100));
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-950/40 via-slate-900/60 to-pink-950/30 border border-purple-500/20 shadow-xl">
@@ -204,7 +206,9 @@ export default function JourneyCard() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-base font-bold text-white">{charData.name || 'Unknown Hero'}</h4>
+              <h4 className="text-base font-bold text-white">
+                  {charData.name || (isComplete ? 'Ascended Being' : 'Generating...')}
+                </h4>
               {charData.chinese_name && (
                 <span className="text-xs text-slate-400 font-mono">{charData.chinese_name}</span>
               )}
@@ -320,8 +324,12 @@ export default function JourneyCard() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white">Stage {stageIdx + 1}</span>
-                <span className="text-xs font-medium" style={{ color }}>{stageName}</span>
+                <span className="text-sm font-bold text-white">
+                  {isComplete ? 'Journey Complete' : `Stage ${Math.min(stageIdx + 1, 6)}`}
+                </span>
+                {!isComplete && (
+                  <span className="text-xs font-medium" style={{ color }}>{stageName}</span>
+                )}
               </div>
               <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1.5 overflow-hidden">
                 <div
@@ -332,13 +340,15 @@ export default function JourneyCard() {
                   }}
                 />
               </div>
-              {/* Stage description — prefer the last completed stage's narrative, fall back to the static description. */}
+              {/* Stage description */}
               <div className="text-[10px] text-slate-500 leading-relaxed mt-1">
-                {journey.stage_results?.[journey.stage_results.length - 1]?.description
-                  || STAGE_DESCRIPTIONS[currentStage]}
+                {isComplete
+                  ? 'All 6 stages complete. The character has transcended.'
+                  : (journey.stage_results?.[journey.stage_results.length - 1]?.description
+                    || STAGE_DESCRIPTIONS[currentStage])}
               </div>
             </div>
-            {!journey.is_complete && (
+            {!isComplete && (
               <button
                 onClick={handleAdvance}
                 disabled={advancing}
@@ -422,12 +432,17 @@ export default function JourneyCard() {
                       {r.blessings_count} blessings{timestamp ? ` · ${timestamp}` : ''}
                     </span>
                   </div>
-                  {/* Blessing narrative text */}
-                  {r.blessings && r.blessings.length > 0 && (
-                    <p className="text-[10px] text-slate-500 italic leading-relaxed pl-4 border-l border-purple-500/20">
-                      {r.blessings[0]}
-                    </p>
-                  )}
+                  {/* Blessing narrative text — filter out error messages */}
+                  {r.blessings && r.blessings.length > 0 && (() => {
+                    const cleanBlessing = r.blessings.find(b =>
+                      b && !b.includes('generation failed') && !b.includes('Error code:')
+                    );
+                    return cleanBlessing ? (
+                      <p className="text-[10px] text-slate-500 italic leading-relaxed pl-4 border-l border-purple-500/20">
+                        {cleanBlessing}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               );
             })}
