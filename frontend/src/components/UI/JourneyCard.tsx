@@ -10,13 +10,15 @@
  *
  * @component
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import {
   Sparkles, Play, ChevronRight, User, Zap, Shield, Heart,
-  Moon, Sun, Star, RefreshCw, Award, Swords, Eye, Brain, Footprints
+  Moon, Sun, Star, RefreshCw, Award, Swords, Eye, Brain, Footprints,
+  RotateCcw
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { message } from 'antd';
 
 type StageKey = 'initiation' | 'training' | 'working' | 'overcoming' | 'utopia' | 'multiverse';
 type StatKey = 'vitality' | 'wisdom' | 'courage' | 'empathy' | 'focus' | 'resonance';
@@ -105,10 +107,12 @@ const ELEMENT_COLORS: Record<string, string> = {
 
 export default function JourneyCard() {
   // WebSocket slow-data broadcast replaces HTTP polling for journey status.
-  const { journeyStatus } = useWebSocketStable();
+  const { journeyStatus, isConnected } = useWebSocketStable();
   const [journey, setJourney] = useState<JourneyStatus | null>(null);
   const [advancing, setAdvancing] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [hasInitialFetch, setHasInitialFetch] = useState(false);
 
   // Sync from WS (primary source of truth for journey status).
   useEffect(() => {
@@ -117,28 +121,40 @@ export default function JourneyCard() {
     setJourney(fromWs.active ? fromWs : null);
   }, [journeyStatus]);
 
-  // One-shot initial HTTP fetch (fallback while waiting for first WS push).
-  useEffect(() => {
-    let cancelled = false;
-    const fetchOnce = async () => {
-      try {
-        const res = await fetch(`/api/v1/operator/journey/status`);
-        if (res.ok) {
-          const data: JourneyStatus = await res.json();
-          // Character data rides inline on the journey status payload
-          // (its `character` field), so no separate fetch is needed.
-          // (Previously this polled `character` state via a stale closure
-          // with an empty dep array and fired a runaway POST to
-          // /generate-character every 5s — removed.)
-          if (!cancelled) {
-            setJourney(data.active ? data : null);
+  // HTTP recovery fetch — runs once on mount + whenever the WS reconnects
+  // after being disconnected. This fixes the post-restart stale "6/6 complete"
+  // bug where the old polling was removed in commit a329ada.
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/operator/journey/status`);
+      if (res.ok) {
+        const data: JourneyStatus = await res.json();
+        setJourney((prev) => {
+          // Prefer WS data if it's fresher (stage_results populated)
+          if (prev && prev.stage_results && prev.stage_results.length > 0 && !data.stage_results) {
+            return prev;
           }
-        }
-      } catch {}
-    };
-    fetchOnce();
-    return () => { cancelled = true; };
+          return data.active ? data : null;
+        });
+      }
+    } catch {
+      /* swallow — WS will provide data on reconnect */
+    } finally {
+      setHasInitialFetch(true);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  // Refetch on WS reconnect — closes the post-restart stale window
+  // (was 10-40s after a329ada removed the 5s poll).
+  useEffect(() => {
+    if (isConnected) {
+      fetchStatus();
+    }
+  }, [isConnected, fetchStatus]);
 
   const handleAdvance = async () => {
     setAdvancing(true);
@@ -148,15 +164,114 @@ export default function JourneyCard() {
       if (res.ok) {
         const data = await res.json();
         setJourney(prev => ({ ...prev, ...data } as JourneyStatus));
+        message.success('Stage advanced');
+      } else {
+        message.error('Failed to advance stage');
       }
-    } catch {}
+    } catch {
+      message.error('Network error during advance');
+    }
     setAdvancing(false);
+  };
+
+  // Start a brand-new journey — calls POST /journey/start which resets the
+  // in-memory CharacterJourney to stage 0 and seeds a new character.
+  const handleStartNew = async (mode: 'fresh' | 'full') => {
+    setRestarting(true);
+    audioFeedback.playTelemetry();
+    try {
+      const endpoint = mode === 'full'
+        ? `/api/v1/operator/journey/run-full`
+        : `/api/v1/operator/journey/start`;
+      const res = await fetch(endpoint, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setJourney((data && typeof data === 'object' && (data.active || data.stage_results))
+          ? (data as JourneyStatus)
+          : null);
+        message.success(mode === 'full' ? 'New 6-stage journey begun' : 'New journey started');
+        // Immediately refetch to pull the full character data
+        fetchStatus();
+      } else {
+        message.error('Failed to start new journey');
+      }
+    } catch {
+      message.error('Network error starting journey');
+    }
+    setRestarting(false);
   };
 
   // Character data is embedded in the journey status payload.
   const charData: CharacterSheet = journey?.character || {};
 
-  if (!journey) return null;
+  // Show a placeholder while waiting for first fetch OR when journey is null
+  // (was: returned null and the card disappeared entirely — see line 159 in
+  // pre-fix code; now renders a Start button so user can begin a journey).
+  if (!journey) {
+    return (
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-950/40 via-slate-900/60 to-pink-950/30 border border-purple-500/20 shadow-xl">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/3 rounded-full blur-3xl" />
+        <div className="relative p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-purple-900/40 border border-purple-500/20 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-purple-300">Character Journey</h3>
+                <p className="text-[10px] text-slate-500 font-mono">
+                  {hasInitialFetch ? 'No active journey' : 'Loading...'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
+            <Sparkles className="w-8 h-8 text-purple-400/40" />
+            <div>
+              <p className="text-sm font-medium text-purple-300">
+                {hasInitialFetch ? 'No active journey' : 'Connecting to backend...'}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1 max-w-xs">
+                {hasInitialFetch
+                  ? 'Begin the 6-stage character arc. Each stage generates unique blessings and attunements.'
+                  : 'Wait a moment while the system loads.'}
+              </p>
+            </div>
+            {hasInitialFetch && (
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => handleStartNew('fresh')}
+                  disabled={restarting}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all duration-200"
+                  style={{
+                    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                    color: '#c084fc',
+                  }}
+                >
+                  {restarting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                  {restarting ? 'Starting...' : 'Start Journey'}
+                </button>
+                <button
+                  onClick={() => handleStartNew('full')}
+                  disabled={restarting}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all duration-200"
+                  style={{
+                    backgroundColor: 'rgba(236, 72, 153, 0.2)',
+                    border: '1px solid rgba(236, 72, 153, 0.4)',
+                    color: '#f9a8d4',
+                  }}
+                >
+                  {restarting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                  {restarting ? 'Starting...' : 'Run Full 6-Stage'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const stageIdx = journey.stage_index || 0;
   const currentStage = (journey.current_stage || 'initiation') as StageKey;
@@ -190,11 +305,24 @@ export default function JourneyCard() {
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
               ACTIVE
             </span>
+            {isComplete && (
+              <button
+                onClick={() => handleStartNew('fresh')}
+                disabled={restarting}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-pink-500/30 bg-pink-950/20 text-[9px] text-pink-300 font-mono font-bold uppercase hover:bg-pink-950/30 hover:border-pink-500/50 transition-colors"
+                title="Begin a brand new journey from stage 1"
+              >
+                {restarting ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <RotateCcw className="w-2.5 h-2.5" />}
+                New
+              </button>
+            )}
             <button
               onClick={() => setExpanded(!expanded)}
-              className="text-[10px] text-slate-500 hover:text-purple-400 transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-700/50 bg-slate-800/40 text-[10px] text-slate-300 hover:text-purple-300 hover:border-purple-500/40 hover:bg-slate-800/60 transition-colors"
+              title={expanded ? 'Collapse details' : 'Expand details'}
             >
               {expanded ? 'Collapse' : 'Details'}
+              <ChevronRight className={`w-3 h-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
             </button>
           </div>
         </div>
@@ -253,8 +381,8 @@ export default function JourneyCard() {
                       </div>
                       <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${meta.bg} transition-all duration-700`}
-                          style={{ width: `${val * 10}%` }}
+                          className={`h-full rounded-full ${meta.bg} transition-[width] duration-700 ease-out`}
+                          style={{ width: `${Math.min(100, val * 10)}%` }}
                         />
                       </div>
                     </div>
@@ -370,24 +498,47 @@ export default function JourneyCard() {
           </div>
 
           {/* Stage Dots */}
-          <div className="flex items-center gap-1.5">
-            {(Object.entries(STAGE_NAMES) as [StageKey, string][]).map(([key, name], i) => {
-              const isComplete = i <= stageIdx;
-              return (
-                <div
-                  key={key}
-                  className="flex-1 group relative"
-                  title={`${name}${isComplete ? ' ✓' : ''}`}
-                >
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              {(Object.entries(STAGE_NAMES) as [StageKey, string][]).map(([key, name], i) => {
+                // Off-by-one fix: a stage is complete only when stageIdx > i
+                // (was `i <= stageIdx` which lit 7 dots when stageIdx=6).
+                const dotComplete = i < stageIdx || (i === stageIdx && isComplete);
+                const isCurrent = i === stageIdx && !isComplete;
+                return (
                   <div
-                    className={`w-full h-1.5 rounded-full transition-all duration-300 ${
-                      isComplete ? 'opacity-100' : 'opacity-30'
+                    key={key}
+                    className="flex-1 group relative"
+                    title={name}
+                  >
+                    <div
+                      className={`w-full h-1.5 rounded-full transition-[opacity,background-color] duration-300 ${
+                        dotComplete ? 'opacity-100' : isCurrent ? 'opacity-70' : 'opacity-25'
+                      } ${isCurrent ? 'animate-pulse' : ''}`}
+                      style={{ backgroundColor: (dotComplete || isCurrent) ? STAGE_COLORS[key] : '#374151' }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {(Object.entries(STAGE_NAMES) as [StageKey, string][]).map(([key, name], i) => {
+                const dotComplete = i < stageIdx || (i === stageIdx && isComplete);
+                const isCurrent = i === stageIdx && !isComplete;
+                const shortName = name.replace(/^The\s+/, ''); // "Awakening", "Forge", etc.
+                return (
+                  <div
+                    key={`label-${key}`}
+                    className={`flex-1 text-center text-[8px] font-mono uppercase tracking-wider truncate ${
+                      dotComplete ? 'text-slate-400' : isCurrent ? 'text-purple-300 font-bold' : 'text-slate-600'
                     }`}
-                    style={{ backgroundColor: isComplete ? STAGE_COLORS[key] : '#374151' }}
-                  />
-                </div>
-              );
-            })}
+                    title={name}
+                  >
+                    {shortName.slice(0, 4)}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -404,31 +555,40 @@ export default function JourneyCard() {
               const freqShift = r.frequency_before != null
                 && r.frequency_after != null
                 && r.frequency_before !== r.frequency_after;
+              // Group all stat changes + frequency shift into a single "delta pill"
+              // so the line reads as: [stage name] [stat+freq pill] [blessings]
+              // instead of everything running together in one flex row.
+              const hasDeltas = (r.stat_changes && Object.keys(r.stat_changes).length > 0) || freqShift;
               return (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center gap-2 text-[10px] flex-wrap">
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sColor }} />
-                    <span className="text-slate-400 font-medium">{sName}</span>
-                    {/* Stat change badges */}
-                    {r.stat_changes && Object.entries(r.stat_changes).map(([stat, val]) => {
-                      const meta = STAT_META[stat as StatKey];
-                      if (!meta || !val) return null;
-                      return (
-                        <span
-                          key={stat}
-                          className={`px-1 rounded text-[8px] font-mono bg-slate-800/60 ${meta.color}`}
-                        >
-                          +{val} {meta.label}
+                    <span className="text-slate-300 font-medium">{sName}</span>
+                    {hasDeltas && (
+                      <>
+                        <span className="text-slate-600">·</span>
+                        <span className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-slate-900/50 border border-slate-700/30">
+                          {r.stat_changes && Object.entries(r.stat_changes).map(([stat, val]) => {
+                            const meta = STAT_META[stat as StatKey];
+                            if (!meta || !val) return null;
+                            return (
+                              <span
+                                key={stat}
+                                className={`text-[9px] font-mono ${meta.color}`}
+                              >
+                                +{val} {meta.label}
+                              </span>
+                            );
+                          })}
+                          {freqShift && (
+                            <span className="text-[9px] font-mono text-amber-400 border-l border-slate-700/50 pl-1.5">
+                              {r.frequency_before}→{r.frequency_after} Hz
+                            </span>
+                          )}
                         </span>
-                      );
-                    })}
-                    {/* Frequency shift */}
-                    {freqShift && (
-                      <span className="text-[8px] font-mono text-amber-400">
-                        {r.frequency_before}→{r.frequency_after} Hz
-                      </span>
+                      </>
                     )}
-                    <span className="text-slate-600 ml-auto">
+                    <span className="text-slate-500 ml-auto font-mono">
                       {r.blessings_count} blessings{timestamp ? ` · ${timestamp}` : ''}
                     </span>
                   </div>
@@ -438,7 +598,7 @@ export default function JourneyCard() {
                       b && !b.includes('generation failed') && !b.includes('Error code:')
                     );
                     return cleanBlessing ? (
-                      <p className="text-[10px] text-slate-500 italic leading-relaxed pl-4 border-l border-purple-500/20">
+                      <p className="text-[10px] text-slate-400 italic leading-relaxed pl-4 border-l border-purple-500/30">
                         {cleanBlessing}
                       </p>
                     ) : null;
