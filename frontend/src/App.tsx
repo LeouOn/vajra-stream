@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
@@ -34,26 +34,8 @@ import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
 
 function AppContent(): React.ReactElement {
-  const [mopsData, setMopsData] = useState<MopsData | null>(null);
   const location = useLocation();
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
-
-  useEffect(() => {
-    const fetchMops = async (): Promise<void> => {
-      try {
-        const res = await fetch('/api/v1/mops/current');
-        if (res.ok) {
-          const data = await res.json();
-          setMopsData(data.mops as MopsData);
-        }
-      } catch {
-        // Ignore connectivity warnings
-      }
-    };
-    fetchMops();
-    const interval = setInterval(fetchMops, 2000);
-    return () => clearInterval(interval);
-  }, []);
 
   const {
     isConnected,
@@ -61,7 +43,8 @@ function AppContent(): React.ReactElement {
     crystalStatus,
     scalarStatus,
     buddhaStatus,
-    sakaDawa
+    sakaDawa,
+    mopsAverages,
   } = useWebSocket();
 
   const {
@@ -85,6 +68,8 @@ function AppContent(): React.ReactElement {
     });
   }, [updateSettings]);
 
+  // Single tab-change audio cue (previously fired BOTH playTabChange AND
+  // playClick on every navigation — the playClick was a duplicate).
   const isFirstRender = useRef<boolean>(true);
   useEffect(() => {
     if (isFirstRender.current) {
@@ -92,11 +77,6 @@ function AppContent(): React.ReactElement {
       return;
     }
     audioFeedback.playTabChange();
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (isFirstRender.current) return;
-    audioFeedback.playClick();
   }, [activeTab]);
 
   return (
@@ -109,7 +89,7 @@ function AppContent(): React.ReactElement {
       generateAudio={async (): Promise<void> => { await generateAudio(); }}
       playAudio={async (): Promise<void> => { await playAudio(); }}
       stopAudio={(): void => { void stopAudio(); }}
-      mopsData={mopsData}
+      mopsData={mopsAverages as MopsData | null}
     >
       <Routes>
         <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />
@@ -117,51 +97,76 @@ function AppContent(): React.ReactElement {
         {/* ==================== MAIN GROUPED ROUTES (7) ==================== */}
 
         <Route path="/command-center" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <CommandCenter
-              isConnected={isConnected}
-              isPlaying={isPlaying}
-              frequency={frequency}
-              crystalStatus={crystalStatus}
-              scalarStatus={scalarStatus}
-              sessions={sessions}
-              buddhaStatus={buddhaStatus}
-              sakaDawa={sakaDawa}
-            />
-          </div>
+          <ErrorBoundary fallbackTitle="Command Center failed to load">
+            <div className="flex-1 h-full overflow-hidden">
+              <CommandCenter
+                isConnected={isConnected}
+                isPlaying={isPlaying}
+                frequency={frequency}
+                crystalStatus={crystalStatus}
+                scalarStatus={scalarStatus}
+                sessions={sessions}
+                buddhaStatus={buddhaStatus}
+                sakaDawa={sakaDawa}
+              />
+            </div>
+          </ErrorBoundary>
         } />
 
         <Route path="/practice" element={<Navigate to="/practice/sanctuary" replace />} />
-        <Route path="/practice/:tab" element={<PracticePage />} />
+        <Route path="/practice/:tab" element={
+          <ErrorBoundary fallbackTitle="Practice failed to load">
+            <PracticePage />
+          </ErrorBoundary>
+        } />
 
         <Route path="/astrology" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <AstrologyPanel />
-          </div>
+          <ErrorBoundary fallbackTitle="Cosmic Clock failed to load">
+            <div className="flex-1 h-full overflow-hidden">
+              <AstrologyPanel />
+            </div>
+          </ErrorBoundary>
         } />
 
         <Route path="/outlook" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <OutlookDashboard />
-          </div>
+          <ErrorBoundary fallbackTitle="Outlook failed to load">
+            <div className="flex-1 h-full overflow-hidden">
+              <OutlookDashboard />
+            </div>
+          </ErrorBoundary>
         } />
 
-        <Route path="/operations" element={<OperationsPage />} />
-        <Route path="/operations/:tab" element={<OperationsPage />} />
+        <Route path="/operations" element={
+          <ErrorBoundary fallbackTitle="Operations failed to load">
+            <OperationsPage />
+          </ErrorBoundary>
+        } />
+        <Route path="/operations/:tab" element={
+          <ErrorBoundary fallbackTitle="Operations failed to load">
+            <OperationsPage />
+          </ErrorBoundary>
+        } />
 
         <Route path="/grimoire" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <GrimoirePanel />
-          </div>
+          <ErrorBoundary fallbackTitle="Grimoire failed to load">
+            <div className="flex-1 h-full overflow-hidden">
+              <GrimoirePanel />
+            </div>
+          </ErrorBoundary>
         } />
 
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/:tab" element={<SettingsPage />} />
+        <Route path="/settings" element={
+          <ErrorBoundary fallbackTitle="Settings failed to load">
+            <SettingsPage />
+          </ErrorBoundary>
+        } />
+        <Route path="/settings/:tab" element={
+          <ErrorBoundary fallbackTitle="Settings failed to load">
+            <SettingsPage />
+          </ErrorBoundary>
+        } />
 
         {/* ==================== LEGACY ROUTE REDIRECTS ==================== */}
-        {/* Old flat routes keep working via <Navigate> so bookmarks and
-            internal links don't break. See lib/routes.ts header comment
-            and docs/specs/2026-06-20-ui-rework-design.md. */}
         <Route path="/sanctuary" element={<Navigate to="/practice/sanctuary" replace />} />
         <Route path="/buddhas" element={<Navigate to="/practice/buddhas" replace />} />
         <Route path="/meditation" element={<Navigate to="/practice/meditation" replace />} />

@@ -204,6 +204,13 @@ export default function CommandCenter({
     ]);
   };
 
+  // Ref to hold latest messages (avoids stale closure in fetch body during
+  // rapid successive sends — the functional setMessages at L216 is correct for
+  // state, but the fetch body at L226 used the closure `messages` variable
+  // which could miss messages added by an in-flight send).
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
   async function handleSendMessage(textToSend) {
     const text = textToSend || input;
     if (!text.trim()) return;
@@ -212,8 +219,11 @@ export default function CommandCenter({
     setIsLoading(true);
     audioFeedback.playTelemetry();
 
-    // Add user message to state
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    // Build the complete message list from the ref (always latest) so the
+    // fetch body and the state update use the same source of truth.
+    const allMessages = [...messagesRef.current, { role: 'user', content: text }];
+    messagesRef.current = allMessages; // update synchronously for next call
+    setMessages(allMessages);
     addToolLog('user', `User requested: "${text}"`);
 
     try {
@@ -223,7 +233,7 @@ export default function CommandCenter({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: text }].map(m => ({
+          messages: allMessages.map(m => ({
             role: m.role,
             content: m.content
           })),
