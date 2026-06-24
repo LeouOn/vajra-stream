@@ -85,6 +85,15 @@ beforeEach(() => {
   originalWebSocket = (globalThis as { WebSocket?: typeof WebSocket }).WebSocket;
   (globalThis as { WebSocket: unknown }).WebSocket = MockWebSocket as unknown;
 
+  // The hook polls GET /ready before opening the WebSocket so it doesn't
+  // race backend lifespan startup. Mock fetch to return {ready: true}
+  // immediately so tests don't have to wait or hit a real backend.
+  vi.stubGlobal('fetch', vi.fn(async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ ready: true }),
+  })));
+
   // Silence hook's console output during tests.
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -106,9 +115,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function mountHook() {
-  act(() => {
+async function mountHook() {
+  await act(async () => {
     root.render(<HookHarness />);
+    // Flush microtasks so the hook's async connect() (which polls /ready
+    // before constructing the WebSocket) reaches `new WebSocket(url)` and
+    // populates `capturedWs`.
+    await Promise.resolve();
+    await Promise.resolve();
   });
 }
 
@@ -126,8 +140,8 @@ function deliverMessage(payload: unknown) {
  * -------------------------------------------------------------------------- */
 
 describe('useWebSocketStable — ERROR message handling (Task 10)', () => {
-  it('surfaces uppercase {type:"ERROR"} messages via the error state', () => {
-    mountHook();
+  it('surfaces uppercase {type:"ERROR"} messages via the error state', async () => {
+    await mountHook();
 
     // RED until `case 'ERROR':` falls through to setError(data.message).
     // Before the fix this hits the `default` branch and `error` stays null.
@@ -135,22 +149,22 @@ describe('useWebSocketStable — ERROR message handling (Task 10)', () => {
     expect(captured!.error).toBe('Session service not available');
   });
 
-  it('regression: still surfaces lowercase {type:"error"} messages via the error state', () => {
-    mountHook();
+  it('regression: still surfaces lowercase {type:"error"} messages via the error state', async () => {
+    await mountHook();
 
     deliverMessage({ type: 'error', message: 'lowercase still works' });
     expect(captured!.error).toBe('lowercase still works');
   });
 
-  it('does not surface unknown uppercase types as errors', () => {
-    mountHook();
+  it('does not surface unknown uppercase types as errors', async () => {
+    await mountHook();
 
     deliverMessage({ type: 'TOTALLY_UNKNOWN_TYPE', message: 'ignore me' });
     expect(captured!.error).toBeNull();
   });
 
-  it('clearError resets the error state regardless of source case', () => {
-    mountHook();
+  it('clearError resets the error state regardless of source case', async () => {
+    await mountHook();
 
     deliverMessage({ type: 'ERROR', message: 'transient failure' });
     expect(captured!.error).toBe('transient failure');

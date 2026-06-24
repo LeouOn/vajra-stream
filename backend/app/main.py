@@ -192,7 +192,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start Autonomous Operator daemon: {e}")
 
-    yield
+yield
+
+    # Mark app ready now that lifespan startup has completed and the server
+    # is accepting connections. The frontend /ready gate depends on this.
+    _mark_app_ready()
 
     # Shutdown
     logger.info("Vajra.Stream API shutting down...")
@@ -296,6 +300,30 @@ async def health_check():
         "websocket_connections": stable_connection_manager_v2.get_connection_count(),
         "streaming_active": stable_connection_manager_v2.is_streaming(),
     }
+
+
+# Module-level flag set to True once the lifespan has finished its pre-yield
+# init steps. Frontend useWebSocketStable polls /ready before opening the
+# WS connection to avoid the "WebSocket is closed before the connection is
+# established" race when the backend is still booting.
+_app_ready = False
+
+
+@app.get("/ready")
+async def readiness_check():
+    """Returns {"ready": true} once lifespan startup has completed.
+
+    The frontend polls this before opening the WebSocket. Without this gate
+    the browser's first WS upgrade can race the backend lifespan and be
+    rejected before the endpoint is accepting connections.
+    """
+    return {"ready": _app_ready}
+
+
+def _mark_app_ready() -> None:
+    """Called by the lifespan after yield so /ready returns true."""
+    global _app_ready
+    _app_ready = True
 
 
 @app.get("/ws-stats")

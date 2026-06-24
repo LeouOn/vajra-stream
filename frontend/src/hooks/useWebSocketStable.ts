@@ -163,10 +163,44 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     }
   }, []);
 
-  const connect = useCallback(() => {
-    if (ws.current?.readyState === WebSocket.OPEN) return;
+  const connect = useCallback(async () => {
+    // Block overlapping WebSocket instances during reconnect storms or
+    // React.StrictMode double-mounts. Any non-CLOSED state means a previous
+    // attempt is still in flight — let it finish instead of creating a parallel one.
+    if (ws.current && ws.current.readyState !== WebSocket.CLOSED) return;
 
     const url = wsUrl || getDefaultWsUrl();
+
+    // Wait for backend lifespan startup to complete before opening the WS.
+    // Without this gate, the browser's first WS upgrade races the backend
+    // lifespan init (DB, orchestrator bridge, LLM registry, streaming task)
+    // and gets rejected with "closed before connection established" because
+    // Uvicorn doesn't accept connections until lifespan yields.
+    const apiBase = (typeof window !== 'undefined' && (window as any).__VAJRA_API_BASE__) || '';
+    const readyUrl = `${apiBase}/ready`;
+    const readyMaxWaitMs = 15000;
+    const readyStart = Date.now();
+    let ready = false;
+    while (Date.now() - readyStart < readyMaxWaitMs) {
+      try {
+        const r = await fetch(readyUrl, { method: 'GET', cache: 'no-store' });
+        if (r.ok) {
+          const data = await r.json().catch(() => ({}));
+          if (data && data.ready === true) {
+            ready = true;
+            break;
+          }
+        }
+      } catch {
+        // Backend not reachable yet — keep polling.
+      }
+      await new Promise<void>((r) => setTimeout(r, 250));
+    }
+    if (!ready) {
+      // Timed out waiting for backend — fall through and try anyway; the
+      // existing reconnect/backoff will recover once the backend is up.
+      log.warn('Timed out waiting for /ready, attempting WS connect anyway');
+    }
 
     try {
       ws.current = new WebSocket(url);

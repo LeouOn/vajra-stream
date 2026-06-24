@@ -458,6 +458,18 @@ export default function AstrologyPanel() {
           body: JSON.stringify({}),
         },
       );
+      if (response.status === 404) {
+        // Stale chart id (chart was deleted or never existed). Clear it
+        // and fall back to live mode so the user isn't stuck on a broken
+        // selection. This is the "can't copy today's charts" failure.
+        message.warning(
+          `Saved chart #${activeChart.id} is no longer available. ` +
+          `Switching to live mode for today's astrology.`
+        );
+        setActiveChart(null);
+        setIsLiveMode(true);
+        return;
+      }
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
