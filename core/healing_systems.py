@@ -393,7 +393,8 @@ class MeridianSystem:
             (17, 19): "kidney",
             (19, 21): "pericardium",
             (21, 23): "triple_warmer",
-            (23, 1): "gallbladder",
+            (23, 24): "gallbladder",  # 23:00–midnight
+            (0, 1): "gallbladder",    # midnight–01:00 (split for wraparound)
             (1, 3): "liver",
         }
 
@@ -401,7 +402,7 @@ class MeridianSystem:
             if start <= hour < end:
                 return meridian
 
-        return "liver"  # Default for 1-3 AM
+        return "liver"  # Safety-net default (all 24 hours are covered above)
 
     def get_meridian_for_condition(self, condition: str) -> list[str]:
         """
@@ -533,26 +534,29 @@ class IntegratedHealingProtocol:
 
     def create_session_plan(self, intention: str, duration_minutes: int = 30) -> dict:
         """
-        Create a complete healing session plan
-        TO BE FILLED with detailed session structure
+        Create a complete healing session plan.
+        Phase durations scale proportionally (1:4:1 ratio) to the requested total.
         """
+        opening = max(5, duration_minutes // 6)
+        closing = opening
+        main = duration_minutes - opening - closing
         return {
             "intention": intention,
             "duration": duration_minutes,
             "phases": [
                 {
                     "name": "Opening/Grounding",
-                    "duration": 5,
+                    "duration": opening,
                     "practices": ["Breath awareness", "Body scan"],
                 },
                 {
                     "name": "Main Practice",
-                    "duration": 20,
+                    "duration": main,
                     "practices": [],  # TO BE FILLED
                 },
                 {
                     "name": "Closing/Integration",
-                    "duration": 5,
+                    "duration": closing,
                     "practices": ["Dedication", "Rest"],
                 },
             ],
