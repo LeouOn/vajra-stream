@@ -50,6 +50,16 @@ const VEDIC_PLANET_ORDER = [
   'jupiter', 'saturn', 'rahu', 'ketu',
 ];
 
+// Canonical Nakshatra order — used to compute "next nakshatra" in transit line.
+const NAKSHATRA_ORDER = [
+  'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira',
+  'Ardra', 'Punarvasu', 'Pushya', 'Ashlesha', 'Magha',
+  'Purva Phalguni', 'Uttara Phalguni', 'Hasta', 'Chitra', 'Swati',
+  'Vishakha', 'Anuradha', 'Jyeshtha', 'Mula', 'Purva Ashadha',
+  'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha',
+  'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati',
+];
+
 // Standard aspect angles — used to compute orb when the backend does not
 // emit an explicit `orb` field (natal aspects from get_western_astrology
 // carry `angle` + `exactness` only).
@@ -545,7 +555,7 @@ function buildLiveElementLines(elements) {
   for (const e of order) {
     const cap = titleCase(e);
     const v = elements[e] != null ? elements[e] : (elements[cap] ?? '\u2014');
-    rows.push(`- ${cap}: ${v} points`);
+    rows.push(`- ${cap} ${v} pts`);
   }
   const dom = dominantKey(elements);
   if (dom) rows.push(`- Dominant: ${titleCase(dom)}`);
@@ -578,6 +588,9 @@ function buildLiveVedicLines(indian) {
   if (indian.nakshatra) {
     const n = indian.nakshatra;
     lines.push(`- Nakshatra: ${n.name || '\u2014'}${n.percentage != null ? ' (' + Math.round(n.percentage) + '%)' : ''}`);
+    // Nakshatra Transit / Next — mirrors the progress bar on the page.
+    const nextNak = NAKSHATRA_ORDER[(NAKSHATRA_ORDER.indexOf(n.name) + 1) % NAKSHATRA_ORDER.length];
+    if (nextNak) lines.push(`- Nakshatra Transit: ${n.name || '\u2014'} \u2192 Next: ${nextNak}`);
   }
   if (indian.yoga) lines.push(`- Yoga: ${indian.yoga.name || '\u2014'}`);
   if (indian.karana) lines.push(`- Karana: ${indian.karana.name || '\u2014'}`);
@@ -660,11 +673,38 @@ export function formatLiveAstrologyMarkdown(data) {
   // --- Western ----------------------------------------------------------
   const western = data.western;
   if (western) {
-    sections.push(['## Western Tropical', '']);
+    sections.push(['## Western Tropical', '*(Tropical / Placidus Houses \u00B7 Geocentric)*', '']);
+    // Summary block — the page prominently displays Sun Sign, Moon Sign, Ascendant
+    // as three big cards above the planet table. Mirror that here so an LLM sees
+    // the same overview the user sees on screen.
+    const positions = western.positions || {};
+    const sunSign = positions.sun && positions.sun.sign;
+    const sunDeg = positions.sun && positions.sun.degree;
+    const sunHouse = positions.sun && positions.sun.house;
+    const moonSign = positions.moon && positions.moon.sign;
+    const moonDeg = positions.moon && positions.moon.degree;
+    const moonHouse = positions.moon && positions.moon.house;
+    const ascSign = positions.ascendant && positions.ascendant.sign;
+    const ascDeg = positions.ascendant && positions.ascendant.degree;
+    const summary = [];
+    if (sunSign) {
+      summary.push(`- **Sun Sign:** ${sunSign}${sunDeg != null ? ' ' + formatDegree(sunDeg) : ''}${sunHouse != null ? ' \u00B7 H' + sunHouse : ''}`);
+    }
+    if (moonSign) {
+      summary.push(`- **Moon Sign:** ${moonSign}${moonDeg != null ? ' ' + formatDegree(moonDeg) : ''}${moonHouse != null ? ' \u00B7 H' + moonHouse : ''}`);
+    }
+    if (ascSign) {
+      summary.push(`- **Ascendant:** ${ascSign}${ascDeg != null ? ' ' + formatDegree(ascDeg) : ''} \u00B7 H1 Cusp`);
+    }
+    if (summary.length > 0) {
+      sections.push(['### Summary', '', ...summary, '']);
+    }
     if (western.positions && Object.keys(western.positions).length > 0) {
       const planetRows = buildLiveWesternPlanetTable(western.positions);
       if (planetRows.length > 0) {
         sections.push([
+          '### Planetary Coordinates',
+          '',
           '| Planet | Sign | Degree | House |',
           '|--------|------|--------|-------|',
           ...planetRows,
@@ -680,7 +720,7 @@ export function formatLiveAstrologyMarkdown(data) {
     }
     if (Array.isArray(western.aspects) && western.aspects.length > 0) {
       sections.push([
-        '### Active Aspects',
+        '### Active Conflux Aspects',
         '',
         ...buildLiveAspectLines(western.aspects),
         '',
@@ -692,7 +732,7 @@ export function formatLiveAstrologyMarkdown(data) {
   if (data.indian) {
     const vedicLines = buildLiveVedicLines(data.indian);
     if (vedicLines.length > 0) {
-      sections.push(['## Vedic Sidereal (Lahiri)', '', ...vedicLines, '']);
+      sections.push(['## Vedic Sidereal (Lahiri Ayanamsa)', '', ...vedicLines, '']);
     }
   }
 
@@ -703,7 +743,15 @@ export function formatLiveAstrologyMarkdown(data) {
     if (c.sheng_xiao || c.zodiac_animal) {
       chineseLines.push(`- Sheng Xiao: ${c.sheng_xiao || c.zodiac_animal || '\u2014'}`);
     }
-    if (c.solar_term && c.solar_term !== 'None') chineseLines.push(`- Solar Term: ${c.solar_term}`);
+    if (c.solar_term && c.solar_term !== 'None' && c.solar_term !== 'null') {
+      chineseLines.push(`- Solar Term: ${c.solar_term}`);
+    }
+    // Shichen (Chinese hour) — the page shows this as a column. Backend may
+    // send it as c.shichen = { name, branch, ... } or as a plain string.
+    if (c.shichen) {
+      const sh = typeof c.shichen === 'string' ? c.shichen : (c.shichen.name || c.shichen.branch);
+      if (sh) chineseLines.push(`- Shichen (Hour): ${sh}`);
+    }
     // Four pillars: backend sends as 'bazi' with year/month/day/hour keys
     const fourPillars = c.four_pillars || c.bazi;
     if (fourPillars && typeof fourPillars === 'object') {
@@ -719,7 +767,7 @@ export function formatLiveAstrologyMarkdown(data) {
       }
     }
     if (chineseLines.length > 0) {
-      sections.push(['## Chinese Lunisolar (BaZi)', '', ...chineseLines, '']);
+      sections.push(['## Chinese Lunisolar (BaZi)', '*(Sheng Xiao System \u00B7 八字)*', '', ...chineseLines, '']);
     }
   }
 

@@ -358,7 +358,7 @@ describe('formatLiveAstrologyMarkdown', () => {
   it('includes elements and modalities sections', () => {
     const result = formatLiveAstrologyMarkdown(liveData);
     expect(result).toContain('### Elements');
-    expect(result).toContain('Fire: 4 points');
+    expect(result).toContain('Fire 4 pts');
     expect(result).toContain('Dominant: Water');
     expect(result).toContain('### Modalities');
     expect(result).toContain('Cardinal: 10');
@@ -366,7 +366,7 @@ describe('formatLiveAstrologyMarkdown', () => {
 
   it('renders active aspects with orb', () => {
     const result = formatLiveAstrologyMarkdown(liveData);
-    expect(result).toContain('### Active Aspects');
+    expect(result).toContain('### Active Conflux Aspects');
     expect(result).toContain('Sun Conjunction Moon');
     expect(result).toContain('orb 7.96');
     expect(result).toContain('Moon Square Neptune');
