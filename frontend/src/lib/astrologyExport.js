@@ -703,10 +703,12 @@ export function formatLiveAstrologyMarkdown(data) {
     if (c.sheng_xiao || c.zodiac_animal) {
       chineseLines.push(`- Sheng Xiao: ${c.sheng_xiao || c.zodiac_animal || '\u2014'}`);
     }
-    if (c.solar_term) chineseLines.push(`- Solar Term: ${c.solar_term}`);
-    if (c.four_pillars && typeof c.four_pillars === 'object') {
-      for (const [k, v] of Object.entries(c.four_pillars)) {
-        chineseLines.push(`- ${titleCase(k)}: ${v}`);
+    if (c.solar_term && c.solar_term !== 'None') chineseLines.push(`- Solar Term: ${c.solar_term}`);
+    // Four pillars: backend sends as 'bazi' with year/month/day/hour keys
+    const fourPillars = c.four_pillars || c.bazi;
+    if (fourPillars && typeof fourPillars === 'object') {
+      for (const [k, v] of Object.entries(fourPillars)) {
+        if (v) chineseLines.push(`- ${titleCase(k)}: ${v}`);
       }
     }
     if (c.five_elements_balance) {

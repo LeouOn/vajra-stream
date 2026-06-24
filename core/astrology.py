@@ -1144,7 +1144,7 @@ class AstrologicalCalculator:
             shichen_idx = ((local_hour + 1) // 2) % 12
 
             jieqi = lunar_c.getJieQi()
-            translated_jieqi = f"{solar_terms_translation.get(jieqi, jieqi)} / {jieqi}" if jieqi else "None"
+            translated_jieqi = f"{solar_terms_translation.get(jieqi, jieqi)} / {jieqi}" if jieqi else None
 
             zodiac_char = lunar_c.getYearShengXiao()
             zodiac_animal = f"{zodiac_char} / {animals_translation.get(zodiac_char, zodiac_char)}"
