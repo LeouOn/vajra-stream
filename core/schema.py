@@ -443,11 +443,36 @@ def apply_schema(conn: sqlite3.Connection) -> None:
 
     Safe to call repeatedly: every statement is idempotent.
 
+    Also enables foreign-key enforcement and WAL journal mode, and creates
+    frequently-queried indexes that the table DDL doesn't cover.
+
     Does NOT record the schema version; use :func:`init_db` for that.
     """
     cursor = conn.cursor()
+
+    # Enable foreign-key enforcement — SQLite defaults to OFF, meaning every
+    # declared FOREIGN KEY constraint is silently ignored. This is the most
+    # impactful single-line database fix in the codebase.
+    cursor.execute("PRAGMA foreign_keys = ON")
+
+    # Enable WAL journal mode — allows concurrent readers while a writer is
+    # active, preventing FastAPI async handlers from blocking each other.
+    cursor.execute("PRAGMA journal_mode = WAL")
+
     for _name, ddl in _TABLE_DDL:
         cursor.execute(ddl)
+
+    # ── Indexes on frequently-queried columns ──────────────────────────
+    # These cover the most common WHERE/ORDER BY patterns found in the
+    # endpoint and module code. All are idempotent (IF NOT EXISTS).
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_extraction_runs_created_at ON extraction_runs(created_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_extraction_runs_status ON extraction_runs(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_extraction_results_run_id ON extraction_results(run_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_outlook_narratives_date ON outlook_narratives(date_generated)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_saved_natal_charts_name_city ON saved_natal_charts(name, city)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_blessing_targets_category ON blessing_targets(category)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_events_target_dt ON scheduled_events(target_datetime)")
+
     conn.commit()
 
 

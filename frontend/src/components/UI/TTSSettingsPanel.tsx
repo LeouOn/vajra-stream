@@ -115,8 +115,12 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
         setQwenModel(cc.qwen_model || 'Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice');
         setQwenSpeaker(cc.qwen_speaker || 'Uncle_Fu');
         setQwenLanguage(cc.qwen_language || 'Chinese');
+      } else {
+        message.error('Failed to load TTS config');
       }
-    } catch {}
+    } catch (e) {
+      message.error('Could not reach TTS config endpoint');
+    }
     setLoading(false);
   };
 
@@ -141,8 +145,14 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
         audioFeedback.playSuccess();
         const data: TtsConfig = await res.json();
         if (onConfigChange) onConfigChange(data);
+      } else {
+        message.error(`Save failed: HTTP ${res.status}`);
+        audioFeedback.playError();
       }
-    } catch {}
+    } catch (e) {
+      message.error('Could not save TTS settings — backend unreachable');
+      audioFeedback.playError();
+    }
     setSaving(false);
   };
 

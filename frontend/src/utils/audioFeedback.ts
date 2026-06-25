@@ -99,17 +99,18 @@ class AudioFeedbackEngine {
   playTabChange(): void {
     if (!this.enabled) return;
     this.init();
-    if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
-    if (this.ctx.state !== 'running') return;
+    if (ctx.state !== 'running') return;
 
-    const now = this.ctx.currentTime;
+    const now = ctx.currentTime;
 
     const playTone = (freq: number, start: number, duration: number) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, start);
 
@@ -118,7 +119,7 @@ class AudioFeedbackEngine {
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(ctx.destination);
 
       osc.start(start);
       osc.stop(start + duration);
@@ -131,18 +132,19 @@ class AudioFeedbackEngine {
   playSuccess(): void {
     if (!this.enabled) return;
     this.init();
-    if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
-    if (this.ctx.state !== 'running') return;
+    if (ctx.state !== 'running') return;
 
-    const now = this.ctx.currentTime;
+    const now = ctx.currentTime;
     const freqs = [523.25, 659.25, 783.99, 1046.50, 1318.51];
 
     freqs.forEach((freq, index) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now + index * 0.06);
@@ -152,7 +154,7 @@ class AudioFeedbackEngine {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.06 + 0.3);
 
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(ctx.destination);
 
       osc.start(now + index * 0.06);
       osc.stop(now + index * 0.06 + 0.35);
@@ -162,27 +164,28 @@ class AudioFeedbackEngine {
   playError(): void {
     if (!this.enabled) return;
     this.init();
-    if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
-    if (this.ctx.state !== 'running') return;
+    if (ctx.state !== 'running') return;
 
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
 
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(130, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(75, this.ctx.currentTime + 0.3);
+    osc.frequency.setValueAtTime(130, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(75, ctx.currentTime + 0.3);
 
-    gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.04, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(ctx.destination);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.3);
+    osc.stop(ctx.currentTime + 0.3);
   }
 
   playDialAdjust(value: number, min: number = 0, max: number = 100): void {
@@ -246,23 +249,24 @@ class AudioFeedbackEngine {
   playTelemetry(): void {
     if (!this.enabled) return;
     this.init();
-    if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
     }
-    if (this.ctx.state !== 'running') return;
+    if (ctx.state !== 'running') return;
 
-    const now = this.ctx.currentTime;
+    const now = ctx.currentTime;
     const notes = [900, 1300, 1100];
     notes.forEach((freq, index) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now + index * 0.04);
       gain.gain.setValueAtTime(0.008, now + index * 0.04);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.04 + 0.035);
       osc.connect(gain);
-      gain.connect(this.ctx!.destination);
+      gain.connect(ctx.destination);
       osc.start(now + index * 0.04);
       osc.stop(now + index * 0.04 + 0.035);
     });

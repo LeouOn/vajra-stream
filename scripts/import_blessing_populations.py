@@ -122,8 +122,20 @@ def main():
             print("Cancelled.")
             return 0
 
-        # TODO(remediation): Implement database clearing (deferred stub — see eval Issue 5.11)
-        print("✓ Database cleared")
+        # Actually clear the blessing_targets table
+        import sqlite3 as _sqlite3
+        from core.schema import get_db_path as _get_db_path
+        try:
+            _conn = _sqlite3.connect(_get_db_path())
+            _conn.execute("DELETE FROM blessing_targets")
+            _conn.execute("DELETE FROM blessing_sessions")
+            _conn.execute("DELETE FROM mantra_dedications")
+            _conn.commit()
+            _conn.close()
+            print("✓ Database cleared")
+        except Exception as e:
+            print(f"❌ Error clearing database: {e}")
+            return 1
 
     # Get populations directory
     pop_dir = Path(__file__).parent.parent / "knowledge" / "blessing_populations"
