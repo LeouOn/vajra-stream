@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
@@ -90,6 +90,19 @@ function AppContent(): React.ReactElement {
     audioFeedback.playTabChange();
   }, [activeTab]);
 
+  // Memoize the audio action wrappers so MainLayout doesn't re-render on
+  // every store change. Previously these were inline arrow functions that
+  // created new function identity on every render, defeating any memoization.
+  const handleGenerateAudio = useCallback(async (): Promise<void> => {
+    await generateAudio();
+  }, [generateAudio]);
+  const handlePlayAudio = useCallback(async (): Promise<void> => {
+    await playAudio();
+  }, [playAudio]);
+  const handleStopAudio = useCallback((): void => {
+    void stopAudio();
+  }, [stopAudio]);
+
   return (
     <MainLayout
       isConnected={isConnected}
@@ -97,9 +110,9 @@ function AppContent(): React.ReactElement {
       frequency={frequency}
       volume={volume}
       prayerBowlMode={prayerBowlMode}
-      generateAudio={async (): Promise<void> => { await generateAudio(); }}
-      playAudio={async (): Promise<void> => { await playAudio(); }}
-      stopAudio={(): void => { void stopAudio(); }}
+      generateAudio={handleGenerateAudio}
+      playAudio={handlePlayAudio}
+      stopAudio={handleStopAudio}
       mopsData={mopsAverages as MopsData | null}
     >
       <Suspense fallback={<RouteLoadingFallback />}>

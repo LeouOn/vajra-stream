@@ -47,7 +47,7 @@ interface Props {
   mopsData: MopsData | null;
 }
 
-const MainLayout: React.FC<Props> = ({
+const MainLayoutComponent: React.FC<Props> = ({
   children,
   isConnected,
   isPlaying,
@@ -166,4 +166,8 @@ const MainLayout: React.FC<Props> = ({
   );
 };
 
+// Memoize so the layout shell doesn't re-render on every store change.
+// Without this, any audio-store update (isPlaying, frequency, volume) causes
+// a full re-render of the nav menu + footer + children wrapper.
+const MainLayout = React.memo(MainLayoutComponent);
 export default MainLayout;
