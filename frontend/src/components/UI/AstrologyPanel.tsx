@@ -362,6 +362,9 @@ export default function AstrologyPanel() {
         const matched = charts.find(c => c.id === id);
         if (matched) setActiveChart(matched);
         fetchSavedCharts();
+      } else {
+        message.error(`Recalculate failed: HTTP ${response.status}`);
+        audioFeedback.playError();
       }
     } catch (e) {
       log.error(e);
@@ -382,6 +385,9 @@ export default function AstrologyPanel() {
           handleResetToLive();
         }
         fetchSavedCharts();
+      } else {
+        message.error(`Delete failed: HTTP ${response.status}`);
+        audioFeedback.playError();
       }
     } catch (e) {
       log.error(e);
@@ -403,6 +409,9 @@ export default function AstrologyPanel() {
         a.click();
         document.body.removeChild(a);
         message.success("Backup downloaded successfully");
+      } else {
+        message.error(`Export failed: HTTP ${response.status}`);
+        audioFeedback.playError();
       }
     } catch (e) {
       log.error(e);

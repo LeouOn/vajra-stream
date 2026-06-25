@@ -84,6 +84,9 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
       if (response.ok) {
         const data = await response.json();
         setChakras(data.chakras || {});
+      } else {
+        message.error(`Load chakras failed: HTTP ${response.status}`);
+        audioFeedback.playError();
       }
     } catch (error) {
       log.error('Failed to load chakras:', error);
@@ -99,6 +102,9 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
         const data = await response.json();
         setChakraInfo(data.chakra);
         setSelectedChakra(chakraName);
+      } else {
+        message.error(`Load chakra info failed: HTTP ${response.status}`);
+        audioFeedback.playError();
       }
     } catch (error) {
       log.error('Failed to get chakra info:', error);
@@ -117,6 +123,9 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
       if (response.ok) {
         const data = await response.json();
         setSequence(data.sequence);
+      } else {
+        message.error(`Create sequence failed: HTTP ${response.status}`);
+        audioFeedback.playError();
       }
     } catch (error) {
       log.error('Failed to create sequence:', error);

@@ -521,7 +521,14 @@ export default function OutlookDashboard() {
       const res = await fetch(`/api/v1/outlook/loop/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      if (res.ok) { setLoopActive(true); message.success(`Loop active — every ${loopInterval} min.`); fetchLoopStatus(); }
+      if (res.ok) {
+        setLoopActive(true);
+        message.success(`Loop active — every ${loopInterval} min.`);
+        fetchLoopStatus();
+      } else {
+        message.error(`Failed to start loop: HTTP ${res.status}`);
+        audioFeedback.playError();
+      }
     } catch { message.error('Failed to start loop.'); }
   };
 
@@ -569,6 +576,10 @@ export default function OutlookDashboard() {
         message.success(editingRealm ? 'Realm updated.' : 'Realm created.');
         setRealmModalOpen(false);
         fetchUniverseData();
+      } else {
+        const err = await res.json().catch(() => ({} as { detail?: string }));
+        message.error(err.detail || `Failed to save realm: HTTP ${res.status}`);
+        audioFeedback.playError();
       }
     } catch (e) {
       if ((e as { errorFields?: unknown }).errorFields) return;
@@ -619,6 +630,10 @@ export default function OutlookDashboard() {
         message.success(editingChar ? 'Character updated.' : 'Character created.');
         setCharModalOpen(false);
         fetchUniverseData();
+      } else {
+        const err = await res.json().catch(() => ({} as { detail?: string }));
+        message.error(err.detail || `Failed to save character: HTTP ${res.status}`);
+        audioFeedback.playError();
       }
     } catch (e) {
       if ((e as { errorFields?: unknown }).errorFields) return;

@@ -9,6 +9,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BookOpen, Sparkles, RefreshCw, Volume2, VolumeX, Save, ChevronDown, Trash2, Copy, Maximize2, Minimize2 } from 'lucide-react';
+import { message } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 import { createLogger } from '../../utils/logger';
 
@@ -64,24 +65,28 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
       if (response.ok) {
         const data = await response.json();
         setAvailableThemes(data.themes || []);
+      } else {
+        message.error(`Load themes failed: HTTP ${response.status}`);
       }
     } catch {
       log.error('Failed to load themes');
     }
   };
-  
+
   const loadTraditions = async () => {
     try {
       const response = await fetch(`/api/v1/dharma/tale/traditions`);
       if (response.ok) {
         const data = await response.json();
         setAvailableTraditions(data.traditions || []);
+      } else {
+        message.error(`Load traditions failed: HTTP ${response.status}`);
       }
     } catch {
       log.error('Failed to load traditions');
     }
   };
-  
+
   const generateTale = useCallback(async () => {
     setIsGenerating(true);
     try {
@@ -94,6 +99,9 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
         const data = await response.json();
         setTale(data.tale || '');
         addToast({ type: 'success', title: 'Tale Generated', message: `A ${theme} teaching from the ${tradition} tradition`, duration: 3000 });
+      } else {
+        const err = await response.json().catch(() => ({} as { detail?: string }));
+        message.error(err.detail || `Tale generation failed: HTTP ${response.status}`);
       }
     } catch (error) {
       addToast({ type: 'error', title: 'Generation Failed', message: 'Could not connect to backend', duration: 4000 });

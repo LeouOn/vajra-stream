@@ -576,7 +576,11 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
                       audioFeedback.playSuccess();
                     } else {
                       audioFeedback.playError();
+                      message.error(`Broadcast failed: HTTP ${res.status}`);
                     }
+                  }).catch(() => {
+                    audioFeedback.playError();
+                    message.error('Broadcast failed: backend unreachable');
                   });
                 }
               }}
