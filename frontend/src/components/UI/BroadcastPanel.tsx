@@ -8,10 +8,12 @@
  * @component
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity } from 'lucide-react';
-import { message } from 'antd';
+import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity, Radio as RadioIcon } from 'lucide-react';
+import { message, Select, Tag } from 'antd';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
+import { useCrystalStore } from '../../stores/crystalStore';
+import type { RadionicsBroadcastResult } from '../../stores/crystalStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
@@ -87,6 +89,13 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   
   // Track populations/targets
   const [populations, setPopulations] = useState<Population[]>([]);
+
+  // Radionics broadcast state
+  const broadcastCrystal = useCrystalStore((s) => s.broadcastCrystal);
+  const [radIntention, setRadIntention] = useState<string>('healing');
+  const [radTarget, setRadTarget] = useState<string>('all beings');
+  const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
+  const [broadcastResult, setBroadcastResult] = useState<RadionicsBroadcastResult | null>(null);
   
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
@@ -138,6 +147,45 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       message.error('Could not load broadcast targets: ' + (e instanceof Error ? e.message : String(e)));
     }
   }, []);
+
+  // Start a radionics broadcast using the 5 dial values as rate_values.
+  // The backend maps these to Solfeggio carrier frequencies via
+  // core/rate_to_audio.py and plays prayer bowl audio through the crystal grid.
+  const handleRadionicsBroadcast = async () => {
+    setIsBroadcasting(true);
+    setBroadcastResult(null);
+    audioFeedback.playTelemetry();
+    try {
+      const rateValues = [
+        Math.round(dimensions.d1),
+        Math.round(dimensions.d2),
+        Math.round(dimensions.d3),
+        Math.round(dimensions.d4),
+        Math.round(dimensions.d5),
+      ];
+      const result = await broadcastCrystal(
+        600,        // 10 min default
+        2,          // hardware level 2 (passive grid)
+        radIntention,
+        radTarget ? [radTarget] : ['all beings'],
+        rateValues,
+        0.8,        // scalar intensity
+      );
+      if (result) {
+        setBroadcastResult(result);
+        audioFeedback.playSuccess();
+        message.success(`Broadcast active: ${result.frequencies?.length || 0} carrier frequencies`);
+      } else {
+        message.error('Broadcast failed — no response from backend');
+        audioFeedback.playError();
+      }
+    } catch (e) {
+      message.error('Broadcast error: ' + (e instanceof Error ? e.message : String(e)));
+      audioFeedback.playError();
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
 
   // Adjust Radionics sliders
   const handleDimensionChange = (key: keyof Dimensions, val: number | string) => {
@@ -593,6 +641,138 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
 
         </div>
 
+      </div>
+
+      {/* ================= RADIONICS BROADCAST CONTROLS + RESULTS ================= */}
+      <div className="bg-gray-900/60 backdrop-blur-md rounded-xl border border-cyan-500/20 p-5 space-y-4 mt-6">
+        <h3 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
+          <RadioIcon className="w-4 h-4 text-cyan-400" />
+          RADIONICS CRYSTAL BROADCAST
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Intention selector */}
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Intention</label>
+            <Select
+              value={radIntention}
+              onChange={setRadIntention}
+              className="w-full"
+              size="small"
+              options={[
+                { value: 'healing', label: 'Healing (528 Hz)' },
+                { value: 'liberation', label: 'Liberation (396 Hz)' },
+                { value: 'protection', label: 'Protection (741 Hz)' },
+                { value: 'love', label: 'Love (528 Hz)' },
+                { value: 'peace', label: 'Peace (852 Hz)' },
+                { value: 'wisdom', label: 'Wisdom (963 Hz)' },
+                { value: 'empowerment', label: 'Empowerment (528 Hz)' },
+                { value: 'reconciliation', label: 'Reconciliation (639 Hz)' },
+              ]}
+            />
+          </div>
+
+          {/* Target input */}
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Target</label>
+            <input
+              type="text"
+              value={radTarget}
+              onChange={(e) => setRadTarget(e.target.value)}
+              placeholder="e.g. all beings, John, cancer patients"
+              className="w-full bg-gray-800 text-white text-xs px-3 py-1.5 rounded border border-gray-600 focus:border-cyan-500 focus:outline-none placeholder-gray-500"
+            />
+          </div>
+
+          {/* Rate values preview */}
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Rate Dial Values</label>
+            <div className="flex gap-1.5 flex-wrap">
+              {Object.values(dimensions).map((val, i) => (
+                <Tag key={i} color="cyan" className="text-[10px] font-mono">
+                  D{i+1}: {Math.round(val)}
+                </Tag>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Broadcast button */}
+        <button
+          onClick={handleRadionicsBroadcast}
+          disabled={isBroadcasting}
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-2"
+        >
+          {isBroadcasting ? (
+            <>
+              <Activity className="w-3.5 h-3.5 animate-spin" />
+              Broadcasting...
+            </>
+          ) : (
+            <>
+              <Zap className="w-3.5 h-3.5 text-yellow-400" />
+              Start Radionics Broadcast
+            </>
+          )}
+        </button>
+
+        {/* Broadcast result display */}
+        {broadcastResult && (
+          <div className="bg-cyan-950/20 border border-cyan-500/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-cyan-300">
+                {broadcastResult.status === 'success' || broadcastResult.status === 'active' ? '✅ BROADCAST ACTIVE' : broadcastResult.status}
+              </span>
+              <span className="text-[10px] font-mono text-gray-500">
+                Session: {broadcastResult.session_id?.slice(0, 8) || '...'}
+              </span>
+            </div>
+
+            {/* Derived frequencies */}
+            {broadcastResult.frequencies && broadcastResult.frequencies.length > 0 && (
+              <div>
+                <div className="text-[10px] font-mono uppercase text-gray-500 mb-1">Prayer Bowl Carrier Frequencies</div>
+                <div className="flex gap-2 flex-wrap">
+                  {broadcastResult.frequencies.map((freq, i) => (
+                    <div key={i} className="flex items-center gap-1 px-2 py-1 bg-black/30 rounded border border-cyan-500/10">
+                      <Waves className="w-3 h-3 text-cyan-400" />
+                      <span className="text-xs font-mono text-cyan-300">{freq.toFixed(2)} Hz</span>
+                      {broadcastResult.solfeggio_names?.[i] && (
+                        <span className="text-[9px] text-gray-500">({broadcastResult.solfeggio_names[i]})</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Crystal + Scalar output status */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-black/20 rounded p-2">
+                <div className="text-[9px] font-mono uppercase text-gray-500">Crystal Output</div>
+                <div className={`text-xs font-bold ${broadcastResult.crystal_output?.status === 'completed' || broadcastResult.crystal_output?.status === 'active' ? 'text-green-400' : 'text-red-400'}`}>
+                  {broadcastResult.crystal_output?.status || 'N/A'}
+                </div>
+                {broadcastResult.crystal_output?.error && (
+                  <div className="text-[9px] text-red-400 truncate">{broadcastResult.crystal_output.error}</div>
+                )}
+              </div>
+              <div className="bg-black/20 rounded p-2">
+                <div className="text-[9px] font-mono uppercase text-gray-500">Scalar Output</div>
+                <div className={`text-xs font-bold ${broadcastResult.scalar_output?.status === 'failed' ? 'text-red-400' : 'text-green-400'}`}>
+                  {broadcastResult.scalar_output ? 'Active' : 'N/A'}
+                </div>
+                {broadcastResult.scalar_mops && (
+                  <div className="text-[9px] text-gray-500">{broadcastResult.scalar_mops.toFixed(2)} MOPS</div>
+                )}
+              </div>
+            </div>
+
+            <div className="text-[10px] text-gray-500 italic text-center pt-1">
+              Prayer bowl synthesis active — crystal grid resonating at {broadcastResult.frequencies?.length || 0} carrier frequencies
+            </div>
+          </div>
+        )}
       </div>
 
     </div>

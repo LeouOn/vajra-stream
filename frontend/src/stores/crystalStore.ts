@@ -11,6 +11,21 @@ import { createLogger } from '../utils/logger';
 
 const log = createLogger('crystalStore');
 
+/** Result from a radionics broadcast — includes derived prayer bowl frequencies. */
+export interface RadionicsBroadcastResult {
+  session_id: string;
+  status: string;
+  intention: string;
+  targets: string[];
+  frequencies: number[];
+  solfeggio_names: string[];
+  frequency_source: string;
+  amplitude: number;
+  scalar_mops: number;
+  crystal_output?: { status: string; error?: string } | null;
+  scalar_output?: Record<string, unknown> | null;
+}
+
 /** The seven primary chakras used throughout the crystal work module. */
 export type ChakraName =
   | 'root'
@@ -132,7 +147,14 @@ export interface CrystalState {
   // Async backend operations
   fetchCrystalGrid: () => Promise<unknown>;
   programCrystal: (crystalId: string, intention: string) => Promise<unknown>;
-  broadcastCrystal: (duration?: number, hardwareLevel?: number) => Promise<unknown>;
+  broadcastCrystal: (
+    duration?: number,
+    hardwareLevel?: number,
+    intention?: string,
+    targetNames?: string[],
+    rateValues?: number[],
+    scalarIntensity?: number,
+  ) => Promise<RadionicsBroadcastResult | null>;
 }
 
 const SEVEN_CHAKRAS: ChakraName[] = [
@@ -426,15 +448,33 @@ export const useCrystalStore = create<CrystalState>()(
         }
       },
 
-      broadcastCrystal: async (duration = 3600, hardwareLevel = 2) => {
+      broadcastCrystal: async (
+        duration = 3600,
+        hardwareLevel = 2,
+        intention = 'healing',
+        targetNames = ['all beings'],
+        rateValues,
+        scalarIntensity = 0.8,
+      ) => {
         try {
+          const body: Record<string, unknown> = {
+            intention,
+            target_names: targetNames,
+            duration_minutes: Math.round(duration / 60),
+            scalar_intensity: scalarIntensity,
+          };
+          // Only include rate_values if provided — backend maps them to
+          // prayer bowl carrier frequencies via core/rate_to_audio.py
+          if (rateValues && rateValues.length > 0) {
+            body.rate_values = rateValues;
+          }
           const response = await fetch('/api/v1/radionics/broadcast', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ duration_minutes: duration / 60, hardware_level: hardwareLevel }),
+            body: JSON.stringify(body),
           });
-          if (!response.ok) throw new Error('Failed to broadcast');
-          return await response.json();
+          if (!response.ok) throw new Error(`Broadcast failed: HTTP ${response.status}`);
+          return await response.json() as RadionicsBroadcastResult;
         } catch (error) {
           log.error('Crystal broadcast failed:', error);
           set({ error: error instanceof Error ? error.message : String(error) });
