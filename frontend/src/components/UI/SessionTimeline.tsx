@@ -7,6 +7,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Clock, Zap, Heart, Shield, Sparkles } from 'lucide-react';
+import { message } from 'antd';
 
 type IntentionType = 'healing' | 'liberation' | 'empowerment' | 'protection' | 'peace' | 'love' | 'wisdom';
 
@@ -85,8 +86,12 @@ export default function SessionTimeline({ sessions }: SessionTimelineProps) {
           const data = await res.json();
           const list: HistoryEntry[] = data.history || data || [];
           setHistory(list.slice(-30));
+        } else {
+          message.error('Failed to load session history');
         }
-      } catch {}
+      } catch {
+        message.error('Could not reach session history endpoint');
+      }
       setLoading(false);
     };
     fetchHistory();

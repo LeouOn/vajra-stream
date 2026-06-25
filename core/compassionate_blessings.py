@@ -347,7 +347,13 @@ class BlessingDatabase:
         if not row:
             return None
 
-        # Reconstruct target from row
+        return self._row_to_target(row)
+
+    def _row_to_target(self, row: tuple) -> BlessingTarget:
+        """Reconstruct a BlessingTarget from a blessing_targets row tuple.
+        Single source of truth for column-order mapping — keeps get_target(),
+        get_all_targets(), and get_targets_by_category() in sync with the DDL.
+        """
         data = {
             "identifier": row[0],
             "name": row[1],
@@ -366,49 +372,57 @@ class BlessingDatabase:
             "intention": row[14],
             "priority": row[15],
         }
-
         return BlessingTarget.from_dict(data)
 
     def get_targets_by_category(self, category: BlessingCategory) -> list[BlessingTarget]:
-        """Get all targets in a category."""
+        """Get all targets in a category — single SELECT, no N+1."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         cursor.execute(
-            """
-            SELECT identifier FROM blessing_targets WHERE category = ?
-        """,
+            "SELECT * FROM blessing_targets WHERE category = ?",
             (category.value,),
         )
-
-        identifiers = [row[0] for row in cursor.fetchall()]
+        rows = cursor.fetchall()
         conn.close()
 
-        return [self.get_target(id) for id in identifiers]
+        return [self._row_to_target(row) for row in rows]
 
     def get_all_targets(self) -> list[BlessingTarget]:
-        """Get all blessing targets."""
+        """Get all blessing targets — single SELECT, no N+1."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("SELECT identifier FROM blessing_targets")
-        identifiers = [row[0] for row in cursor.fetchall()]
+        cursor.execute("SELECT * FROM blessing_targets")
+        rows = cursor.fetchall()
         conn.close()
 
-        return [self.get_target(id) for id in identifiers]
+        return [self._row_to_target(row) for row in rows]
 
     def update_blessing_count(self, identifier: str, mantras: int = 0, rotations: int = 0):
-        """Update mantra/rotation counts for a target."""
-        target = self.get_target(identifier)
-        if not target:
-            return
+        """Increment mantra/rotation counts atomically — single UPDATE, no race."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
 
-        target.mantras_dedicated += mantras
-        target.prayer_wheel_rotations += rotations
-        target.dedication_sessions.append(datetime.now())
-        target.last_updated = datetime.now()
-
-        self.add_target(target)  # Update
+        # Append the new dedication timestamp to the JSON array (or start one)
+        now_iso = datetime.now().isoformat()
+        cursor.execute(
+            """
+            UPDATE blessing_targets
+            SET mantras_dedicated = mantras_dedicated + ?,
+                prayer_wheel_rotations = prayer_wheel_rotations + ?,
+                dedication_sessions_json = json_insert(
+                    COALESCE(dedication_sessions_json, '[]'),
+                    '$[#]',
+                    ?
+                ),
+                last_updated = ?
+            WHERE identifier = ?
+        """,
+            (mantras, rotations, now_iso, now_iso, identifier),
+        )
+        conn.commit()
+        conn.close()
 
     def record_session(
         self,
