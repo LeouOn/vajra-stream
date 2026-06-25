@@ -107,6 +107,64 @@ class Level2CrystalBroadcaster:
             print("Dedication: May all beings benefit from this practice.")
             print(f"{'='*60}\n")
 
+    def generate_custom_frequencies(self, frequencies, intention="custom", duration=300, amplitude=0.3):
+        """
+        Generate prayer bowl synthesis from a custom frequency list.
+
+        This is the integration point for radionics-derived carrier
+        frequencies. Instead of the hardcoded 5-channel blessing set,
+        each frequency in ``frequencies`` gets its own prayer bowl tone.
+
+        Args:
+            frequencies: List of Hz values (e.g. [7.83, 417, 528, 741])
+            intention: Intention text for display/logging.
+            duration: Duration in seconds.
+            amplitude: Peak amplitude (0.15-0.50), from rate potency.
+        """
+        print(f"\n{'='*60}")
+        print("VAJRA.STREAM - Custom Crystal Broadcast")
+        print(f"{'='*60}")
+        print(f"Intention: {intention}")
+        print(f"Duration: {duration/60:.1f} minutes")
+        print(f"Audio Mode: {'Pure Sine Waves' if self.pure_sine else 'Prayer Bowl Synthesis'}")
+        print(f"Amplitude: {amplitude:.2f}")
+        print(f"\nBroadcasting {len(frequencies)} frequencies:")
+        for i, freq in enumerate(frequencies):
+            print(f"  [{i+1}] {freq:.2f} Hz")
+
+        # Generate time array
+        t = np.linspace(0, duration, int(self.sample_rate * duration))
+
+        # Create combined wave using prayer bowl synthesis
+        wave = np.zeros_like(t)
+
+        for freq in frequencies:
+            if self.pure_sine:
+                wave += np.sin(2 * np.pi * freq * t)
+            else:
+                prayer_bowl = self.enhanced_gen.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
+                wave += prayer_bowl
+
+        # Normalize to target amplitude
+        max_val = np.max(np.abs(wave))
+        if max_val > 0:
+            wave = wave / max_val * amplitude
+
+        # Convert to stereo
+        stereo_wave = np.column_stack([wave, wave])
+
+        # Play
+        print(f"\nBroadcasting now... (Ctrl+C to stop)\n")
+
+        try:
+            sd.play(stereo_wave, samplerate=self.sample_rate)
+            sd.wait()
+        except KeyboardInterrupt:
+            sd.stop()
+            print("\n\nBroadcast completed.")
+            print("Dedication: May all beings benefit from this practice.")
+            print(f"{'='*60}\n")
+
     def generate_chakra_healing(self, chakra='heart', duration=300):
         """
         Focused healing for specific chakra with prayer bowl synthesis

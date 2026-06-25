@@ -48,8 +48,15 @@ class CrystalService:
         duration: int = 300,
         hardware_level: int = 2,
         prayer_bowl_mode: bool = True,
+        amplitude: float = 0.3,
     ) -> dict[str, Any]:
-        """Broadcast intention through crystal grid"""
+        """Broadcast intention through crystal grid.
+
+        When ``frequencies`` is provided, they are used directly (e.g.
+        from :func:`~core.rate_to_audio.map_rate_to_carriers`). When
+        ``None``, the broadcaster falls back to its internal default
+        5-channel blessing set.
+        """
 
         event_id = str(uuid.uuid4())
 
@@ -63,15 +70,25 @@ class CrystalService:
 
         # Execute broadcast
         try:
-            # Initialize broadcaster with correct mode
             pure_sine = not prayer_bowl_mode
 
             if hardware_level == 3:
                 broadcaster = Level3AmplifiedBroadcaster(pure_sine=pure_sine)
-                broadcaster.generate_amplified_blessing(intention, duration)
+                if frequencies:
+                    # Use rate-derived frequencies instead of hardcoded defaults
+                    broadcaster.generate_custom_frequencies(
+                        frequencies, intention=intention, duration=duration, amplitude=amplitude
+                    )
+                else:
+                    broadcaster.generate_amplified_blessing(intention, duration)
             else:
                 broadcaster = Level2CrystalBroadcaster(pure_sine=pure_sine)
-                broadcaster.generate_5_channel_blessing(intention, duration)
+                if frequencies:
+                    broadcaster.generate_custom_frequencies(
+                        frequencies, intention=intention, duration=duration, amplitude=amplitude
+                    )
+                else:
+                    broadcaster.generate_5_channel_blessing(intention, duration)
 
             status = "completed"
             error = None
@@ -91,6 +108,8 @@ class CrystalService:
             "intention": intention,
             "duration": duration,
             "hardware_level": hardware_level,
+            "frequencies": frequencies,
+            "amplitude": amplitude,
             "status": status,
             "error": error,
         }

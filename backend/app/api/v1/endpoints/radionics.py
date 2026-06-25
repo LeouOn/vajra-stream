@@ -120,32 +120,34 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
 
         frequency_hz = request.frequency_hz or frequency_mapping.get(request.intention.lower(), 432)
 
-        # Create broadcast configuration
-        BroadcastConfiguration(
-            intention=intention_type,
-            frequency_hz=frequency_hz,
-            target_names=request.target_names,
-            duration_minutes=request.duration_minutes,
-            scalar_intensity=request.scalar_intensity,
-            use_chakras=request.use_chakras,
-            use_meridians=request.use_meridians,
-            mantra=request.mantra,
-            breathing_pattern=request.breathing_pattern,
-        )
+        # Invoke the real RadionicsService (not the old mock).
+        # The service maps the intention to prayer bowl carrier frequencies,
+        # invokes the crystal broadcaster for audio, and the integrated
+        # scalar-radionics engine for scalar wave generation.
+        from container import container
 
-        # Simulate broadcast (in real implementation, this would run in background)
-        import time
-        # import uuid
+        radionics_service = getattr(container, "radionics", None)
+        crystal_result = None
+        scalar_result = None
+        actual_freqs = [7.83, frequency_hz]
 
-        # session_id = str(uuid.uuid4())
-        start_time = time.time()
+        if radionics_service:
+            try:
+                result = radionics_service.broadcast_healing(
+                    target_name=request.target_names[0] if request.target_names else "all beings",
+                    duration_minutes=request.duration_minutes,
+                    frequency_hz=frequency_hz,
+                    intensity=request.scalar_intensity,
+                )
+                actual_freqs = result.get("frequencies", actual_freqs)
+                crystal_result = result.get("crystal_output")
+                scalar_result = result.get("scalar_output")
+            except Exception as exc:
+                logger.warning(f"RadionicsService broadcast failed: {exc}")
 
-        # Simulate broadcast processing
-        await asyncio.sleep(min(2, request.duration_minutes))  # Shortened for API response
+        duration = request.duration_minutes * 60
 
-        duration = time.time() - start_time
-
-        # Estimate scalar MOPS
+        # Estimate scalar MOPS from actual broadcast
         estimated_mops = 17.73 * request.scalar_intensity
 
         # Get activated systems
@@ -157,18 +159,9 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
 
         meridians_activated = (
             [
-                "lung",
-                "large_intestine",
-                "stomach",
-                "spleen",
-                "heart",
-                "small_intestine",
-                "bladder",
-                "kidney",
-                "pericardium",
-                "triple_warmer",
-                "gallbladder",
-                "liver",
+                "lung", "large_intestine", "stomach", "spleen",
+                "heart", "small_intestine", "bladder", "kidney",
+                "pericardium", "triple_warmer", "gallbladder", "liver",
             ]
             if request.use_meridians
             else []

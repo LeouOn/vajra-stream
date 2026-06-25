@@ -86,11 +86,15 @@ class IntegratedScalarRadionicsBroadcaster:
         anatomy_db: :class:`EnergeticAnatomyDatabase` or None.
     """
 
-    def __init__(self):
+    def __init__(self, crystal_service=None):
         # Initialize subsystems
         self.scalar_gen = HybridScalarWaveGenerator() if HAS_SCALAR else None
         self.blessing_db = BlessingDatabase() if HAS_BLESSINGS else None
         self.anatomy_db = EnergeticAnatomyDatabase() if HAS_ANATOMY else None
+        # Optional crystal service for prayer bowl audio output.
+        # When injected, broadcast_to_targets() will invoke the crystal
+        # broadcaster in parallel with scalar wave generation.
+        self.crystal_service = crystal_service
 
         # Solfeggio and planetary frequencies
         self.frequencies = {
@@ -195,6 +199,27 @@ class IntegratedScalarRadionicsBroadcaster:
         print(f"⚡ Intensity: {config.scalar_intensity:.0%}")
         print(f"⏱️  Duration: {config.duration_seconds:.0f} seconds")
         print()
+
+        # Invoke crystal broadcaster for prayer bowl audio (if available).
+        # This is the integration point that was previously missing —
+        # the "Integrated" broadcaster never touched crystal hardware.
+        crystal_result = None
+        if self.crystal_service:
+            carrier_freqs = [7.83, config.frequency_hz or self.select_frequency(config.intention)]
+            try:
+                crystal_result = self.crystal_service.broadcast_intention(
+                    intention=f"Scalar-Radionics: {config.intention.value}",
+                    frequencies=carrier_freqs,
+                    duration=int(config.duration_seconds),
+                    hardware_level=2,
+                    prayer_bowl_mode=True,
+                    amplitude=0.15 + 0.35 * config.scalar_intensity,
+                )
+                print(f"🔔 Crystal broadcast: {crystal_result.get('status', 'unknown')}")
+            except Exception as e:
+                crystal_result = {"status": "failed", "error": str(e)}
+                print(f"⚠️  Crystal broadcast failed: {e}")
+            print()
 
         # Activate meridians if requested
         if config.use_meridians and self.anatomy_db:
@@ -311,6 +336,7 @@ class IntegratedScalarRadionicsBroadcaster:
         print()
 
         results["end_time"] = datetime.now().isoformat()
+        results["crystal_output"] = crystal_result
         return results
 
     def _breathing_broadcast(self, config: BroadcastConfiguration, results: dict):
