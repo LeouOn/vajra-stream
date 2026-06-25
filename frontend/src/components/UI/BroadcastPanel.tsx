@@ -18,14 +18,16 @@ import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
 import { createLogger } from '../../utils/logger';
-
-interface Dimensions {
-  d1: number;
-  d2: number;
-  d3: number;
-  d4: number;
-  d5: number;
-}
+import {
+  CHAKRA_PRESETS,
+  HARMONIC_PRESETS,
+  ALL_PRESETS,
+  presetFrequencies,
+  presetFrequencySummary,
+  solfeggioName,
+  type CrystalPreset,
+} from '../../lib/crystalPresets';
+import type { Dimensions } from '../../types/radionics';
 
 interface Point2D {
   x: number;
@@ -97,6 +99,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
   const [broadcastResult, setBroadcastResult] = useState<RadionicsBroadcastResult | null>(null);
   const [directFreq, setDirectFreq] = useState<string>('');
+  const [presetTab, setPresetTab] = useState<'chakra' | 'harmonic' | 'custom'>('chakra');
   
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
@@ -149,66 +152,62 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     }
   }, []);
 
-  // Crystal bowl presets — each produces harmonically pleasing Solfeggio
-  // combinations when fed through the rate_to_audio bridge. Values are
-  // chosen so that the snapped Solfeggio tones form consonant intervals.
-  const CRYSTAL_PRESETS: Array<{ id: string; label: string; icon: string; dims: Dimensions; freqs: string; desc: string }> = [
-    {
-      id: 'heart_opening',
-      label: 'Heart Opening',
-      icon: '💚',
-      dims: { d1: 35, d2: 50, d3: 35, d4: 50, d5: 35 },
-      freqs: '528 + 639 Hz',
-      desc: 'Mi + La — love & connection',
-    },
-    {
-      id: 'deep_healing',
-      label: 'Deep Healing',
-      icon: ' healing',
-      dims: { d1: 10, d2: 35, d3: 10, d4: 35, d5: 10 },
-      freqs: '396 + 528 Hz',
-      desc: 'Ut + Mi — liberation & DNA repair',
-    },
-    {
-      id: 'full_spectrum',
-      label: 'Full Spectrum',
-      icon: '🌈',
-      dims: { d1: 5, d2: 20, d3: 35, d4: 50, d5: 75 },
-      freqs: '396→852 Hz',
-      desc: 'All chakras — complete sweep',
-    },
-    {
-      id: 'crown_activation',
-      label: 'Crown Activation',
-      icon: '👑',
-      dims: { d1: 90, d2: 80, d3: 90, d4: 80, d5: 95 },
-      freqs: '852 + 963 Hz',
-      desc: 'Si + Divine — spiritual awakening',
-    },
-    {
-      id: 'grounding',
-      label: 'Grounding',
-      icon: '🌳',
-      dims: { d1: 5, d2: 5, d3: 10, d4: 5, d5: 10 },
-      freqs: '396 Hz',
-      desc: 'Ut only — root chakra anchor',
-    },
-    {
-      id: 'intuition',
-      label: 'Intuition Boost',
-      icon: '🔮',
-      dims: { d1: 60, d2: 60, d3: 60, d4: 65, d5: 60 },
-      freqs: '741 Hz',
-      desc: 'Sol — awakening intuition',
-    },
-  ];
-
+  // ─── Preset application (shared chakra + harmonic presets) ────────────────
   const applyPreset = (dims: Dimensions) => {
     setDimensions(dims);
     audioFeedback.playTabChange();
   };
 
-  // Start a radionics broadcast using the 5 dial values as rate_values.
+  // Custom presets saved by the user (localStorage-persisted)
+  const [customPresets, setCustomPresets] = useState<CrystalPreset[]>(() => {
+    try {
+      const raw = localStorage.getItem('vajra.customCrystalPresets');
+      return raw ? (JSON.parse(raw) as CrystalPreset[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
+  const [saveName, setSaveName] = useState<string>('');
+
+  const saveCurrentAsPreset = () => {
+    if (!saveName.trim()) return;
+    const preset: CrystalPreset = {
+      id: `custom_${Date.now()}`,
+      label: saveName.trim(),
+      icon: '⭐',
+      dims: { ...dimensions },
+      description: `Custom preset — ${presetFrequencySummary({
+        id: '',
+        label: '',
+        icon: '',
+        dims: dimensions,
+        description: '',
+      })}`,
+    };
+    const next = [...customPresets, preset];
+    setCustomPresets(next);
+    try {
+      localStorage.setItem('vajra.customCrystalPresets', JSON.stringify(next));
+    } catch { /* localStorage full */ }
+    setSaveName('');
+    setShowSaveDialog(false);
+    audioFeedback.playSuccess();
+    message.success(`Saved preset "${preset.label}"`);
+  };
+
+  const deleteCustomPreset = (id: string) => {
+    const next = customPresets.filter((p) => p.id !== id);
+    setCustomPresets(next);
+    try { localStorage.setItem('vajra.customCrystalPresets', JSON.stringify(next)); } catch {}
+  };
+
+  // Live preview: show the Solfeggio freqs the current dials will produce
+  const livePreviewFrequencies = presetFrequencies({
+    id: '', label: '', icon: '', dims: dimensions, description: '',
+  });
+
+  // ─── Radionics broadcast (rate_to_audio → prayer bowl → crystal grid) ────
   // The backend maps these to Solfeggio carrier frequencies via
   // core/rate_to_audio.py and plays prayer bowl audio through the crystal grid.
   const handleRadionicsBroadcast = async () => {
@@ -716,32 +715,131 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
           RADIONICS CRYSTAL BROADCAST
         </h3>
 
-        {/* Presets */}
+        {/* Presets — tabbed between Chakra and Harmonic, plus custom */}
         <div>
-          <label className="text-[10px] font-mono uppercase text-gray-500 mb-2 block">Crystal Bowl Presets</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {CRYSTAL_PRESETS.map((preset) => {
-              const isActive = dimensions.d1 === preset.dims.d1 && dimensions.d2 === preset.dims.d2;
-              return (
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[10px] font-mono uppercase text-gray-500">
+              Crystal Bowl Presets
+            </label>
+            <div className="flex items-center gap-1.5">
+              {(['chakra', 'harmonic', 'custom'] as const).map((tab) => (
                 <button
-                  key={preset.id}
-                  onClick={() => applyPreset(preset.dims)}
-                  className={`text-left p-2.5 rounded-lg border transition-all ${
-                    isActive
-                      ? 'bg-cyan-950/40 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.1)]'
-                      : 'bg-black/30 border-white/5 hover:border-cyan-500/20 hover:bg-black/40'
+                  key={tab}
+                  onClick={() => setPresetTab(tab)}
+                  className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase ${
+                    presetTab === tab
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                      : 'bg-black/20 text-gray-500 border border-white/5 hover:text-gray-300'
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-sm">{preset.icon}</span>
-                    <span className="text-xs font-bold text-white">{preset.label}</span>
-                  </div>
-                  <div className="text-[9px] font-mono text-cyan-400">{preset.freqs}</div>
-                  <div className="text-[9px] text-gray-500">{preset.desc}</div>
+                  {tab}
                 </button>
-              );
-            })}
+              ))}
+              <button
+                onClick={() => setShowSaveDialog(true)}
+                title="Save current dials as preset"
+                className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30"
+              >
+                ⭐
+              </button>
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {(() => {
+              const presetList = presetTab === 'chakra'
+                ? CHAKRA_PRESETS
+                : presetTab === 'harmonic'
+                  ? HARMONIC_PRESETS
+                  : customPresets;
+              if (presetList.length === 0) {
+                return (
+                  <div className="col-span-3 text-center text-[10px] text-gray-500 italic py-4">
+                    No custom presets yet. Adjust dials then click ⭐ to save.
+                  </div>
+                );
+              }
+              return presetList.map((preset) => {
+                const isActive = dimensions.d1 === preset.dims.d1
+                  && dimensions.d2 === preset.dims.d2
+                  && dimensions.d3 === preset.dims.d3
+                  && dimensions.d4 === preset.dims.d4
+                  && dimensions.d5 === preset.dims.d5;
+                const freqs = presetFrequencies(preset);
+                const summary = presetFrequencySummary(preset);
+                return (
+                  <div key={preset.id} className="relative group">
+                    <button
+                      onClick={() => applyPreset(preset.dims)}
+                      className={`w-full text-left p-2.5 rounded-lg border transition-all ${
+                        isActive
+                          ? 'bg-cyan-950/40 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.1)]'
+                          : 'bg-black/30 border-white/5 hover:border-cyan-500/20 hover:bg-black/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-sm">{preset.icon}</span>
+                        <span className="text-xs font-bold text-white">{preset.label}</span>
+                        {presetTab === 'custom' && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); deleteCustomPreset(preset.id); }}
+                            className="ml-auto text-[10px] text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete preset"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <div className="text-[9px] font-mono text-cyan-400">
+                        {summary || `${freqs.join('+')} Hz`}
+                      </div>
+                      <div className="text-[9px] text-gray-500">{preset.description}</div>
+                    </button>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Live preview — what the current dials will produce */}
+          {livePreviewFrequencies.length > 0 && (
+            <div className="mt-2 p-2 bg-cyan-950/10 border border-cyan-500/10 rounded-lg flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-mono uppercase text-cyan-400">Live preview:</span>
+              {livePreviewFrequencies.map((f, i) => (
+                <Tag key={i} color="cyan" className="text-[10px] font-mono">
+                  {f} Hz {solfeggioName(f).split(' ')[0]}
+                </Tag>
+              ))}
+            </div>
+          )}
+
+          {/* Save dialog */}
+          {showSaveDialog && (
+            <div className="mt-2 p-2 bg-amber-950/20 border border-amber-500/30 rounded-lg flex items-center gap-2">
+              <input
+                type="text"
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                placeholder="Preset name (e.g. 'My Morning Calm')"
+                className="flex-1 bg-gray-800 text-white text-xs px-2 py-1 rounded border border-gray-600 focus:border-amber-500 focus:outline-none"
+                onKeyDown={(e) => e.key === 'Enter' && saveCurrentAsPreset()}
+                autoFocus
+              />
+              <button
+                onClick={saveCurrentAsPreset}
+                disabled={!saveName.trim()}
+                className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-700 disabled:bg-gray-700 text-white rounded"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setShowSaveDialog(false); setSaveName(''); }}
+                className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Controls row */}
