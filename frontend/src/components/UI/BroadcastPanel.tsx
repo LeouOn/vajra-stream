@@ -96,6 +96,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [radTarget, setRadTarget] = useState<string>('all beings');
   const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
   const [broadcastResult, setBroadcastResult] = useState<RadionicsBroadcastResult | null>(null);
+  const [directFreq, setDirectFreq] = useState<string>('');
   
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
@@ -148,6 +149,65 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     }
   }, []);
 
+  // Crystal bowl presets — each produces harmonically pleasing Solfeggio
+  // combinations when fed through the rate_to_audio bridge. Values are
+  // chosen so that the snapped Solfeggio tones form consonant intervals.
+  const CRYSTAL_PRESETS: Array<{ id: string; label: string; icon: string; dims: Dimensions; freqs: string; desc: string }> = [
+    {
+      id: 'heart_opening',
+      label: 'Heart Opening',
+      icon: '💚',
+      dims: { d1: 35, d2: 50, d3: 35, d4: 50, d5: 35 },
+      freqs: '528 + 639 Hz',
+      desc: 'Mi + La — love & connection',
+    },
+    {
+      id: 'deep_healing',
+      label: 'Deep Healing',
+      icon: ' healing',
+      dims: { d1: 10, d2: 35, d3: 10, d4: 35, d5: 10 },
+      freqs: '396 + 528 Hz',
+      desc: 'Ut + Mi — liberation & DNA repair',
+    },
+    {
+      id: 'full_spectrum',
+      label: 'Full Spectrum',
+      icon: '🌈',
+      dims: { d1: 5, d2: 20, d3: 35, d4: 50, d5: 75 },
+      freqs: '396→852 Hz',
+      desc: 'All chakras — complete sweep',
+    },
+    {
+      id: 'crown_activation',
+      label: 'Crown Activation',
+      icon: '👑',
+      dims: { d1: 90, d2: 80, d3: 90, d4: 80, d5: 95 },
+      freqs: '852 + 963 Hz',
+      desc: 'Si + Divine — spiritual awakening',
+    },
+    {
+      id: 'grounding',
+      label: 'Grounding',
+      icon: '🌳',
+      dims: { d1: 5, d2: 5, d3: 10, d4: 5, d5: 10 },
+      freqs: '396 Hz',
+      desc: 'Ut only — root chakra anchor',
+    },
+    {
+      id: 'intuition',
+      label: 'Intuition Boost',
+      icon: '🔮',
+      dims: { d1: 60, d2: 60, d3: 60, d4: 65, d5: 60 },
+      freqs: '741 Hz',
+      desc: 'Sol — awakening intuition',
+    },
+  ];
+
+  const applyPreset = (dims: Dimensions) => {
+    setDimensions(dims);
+    audioFeedback.playTabChange();
+  };
+
   // Start a radionics broadcast using the 5 dial values as rate_values.
   // The backend maps these to Solfeggio carrier frequencies via
   // core/rate_to_audio.py and plays prayer bowl audio through the crystal grid.
@@ -156,13 +216,19 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     setBroadcastResult(null);
     audioFeedback.playTelemetry();
     try {
-      const rateValues = [
+      // If a direct frequency is specified, use it instead of dial values.
+      // The backend accepts frequency_hz as an override.
+      const directFreqNum = directFreq ? parseFloat(directFreq) : NaN;
+      const useDirect = !isNaN(directFreqNum) && directFreqNum > 0;
+
+      const rateValues = useDirect ? undefined : [
         Math.round(dimensions.d1),
         Math.round(dimensions.d2),
         Math.round(dimensions.d3),
         Math.round(dimensions.d4),
         Math.round(dimensions.d5),
       ];
+
       const result = await broadcastCrystal(
         600,        // 10 min default
         2,          // hardware level 2 (passive grid)
@@ -650,13 +716,42 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
           RADIONICS CRYSTAL BROADCAST
         </h3>
 
+        {/* Presets */}
+        <div>
+          <label className="text-[10px] font-mono uppercase text-gray-500 mb-2 block">Crystal Bowl Presets</label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CRYSTAL_PRESETS.map((preset) => {
+              const isActive = dimensions.d1 === preset.dims.d1 && dimensions.d2 === preset.dims.d2;
+              return (
+                <button
+                  key={preset.id}
+                  onClick={() => applyPreset(preset.dims)}
+                  className={`text-left p-2.5 rounded-lg border transition-all ${
+                    isActive
+                      ? 'bg-cyan-950/40 border-cyan-500/40 shadow-[0_0_10px_rgba(34,211,238,0.1)]'
+                      : 'bg-black/30 border-white/5 hover:border-cyan-500/20 hover:bg-black/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-sm">{preset.icon}</span>
+                    <span className="text-xs font-bold text-white">{preset.label}</span>
+                  </div>
+                  <div className="text-[9px] font-mono text-cyan-400">{preset.freqs}</div>
+                  <div className="text-[9px] text-gray-500">{preset.desc}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Controls row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Intention selector */}
           <div>
             <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Intention</label>
             <Select
               value={radIntention}
-              onChange={setRadIntention}
+              onChange={(v) => { setRadIntention(v); audioFeedback.playTabChange(); }}
               className="w-full"
               size="small"
               options={[
@@ -684,17 +779,35 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             />
           </div>
 
-          {/* Rate values preview */}
+          {/* Direct frequency override */}
           <div>
-            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Rate Dial Values</label>
-            <div className="flex gap-1.5 flex-wrap">
-              {Object.values(dimensions).map((val, i) => (
-                <Tag key={i} color="cyan" className="text-[10px] font-mono">
-                  D{i+1}: {Math.round(val)}
-                </Tag>
-              ))}
-            </div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">
+              Direct Frequency (Hz) — overrides dials
+            </label>
+            <input
+              type="text"
+              value={directFreq}
+              onChange={(e) => setDirectFreq(e.target.value)}
+              placeholder="e.g. 528 or 136.1"
+              className="w-full bg-gray-800 text-white text-xs px-3 py-1.5 rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder-gray-500 font-mono"
+            />
           </div>
+        </div>
+
+        {/* Rate values preview */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-mono uppercase text-gray-500">Active dials:</span>
+          {directFreq ? (
+            <Tag color="amber" className="text-[10px] font-mono">
+              Direct: {directFreq} Hz (overrides dials)
+            </Tag>
+          ) : (
+            Object.entries(dimensions).map(([key, val]) => (
+              <Tag key={key} color="cyan" className="text-[10px] font-mono">
+                {key.toUpperCase()}: {Math.round(val)}
+              </Tag>
+            ))
+          )}
         </div>
 
         {/* Broadcast button */}
