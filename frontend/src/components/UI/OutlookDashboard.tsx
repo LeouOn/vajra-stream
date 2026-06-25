@@ -27,6 +27,7 @@ import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import { createLogger } from '../../utils/logger';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
 const { Text, Paragraph, Title } = Typography;
 
@@ -183,6 +184,7 @@ const GLOBAL_INTENTIONS: GlobalIntention[] = [
 export default function OutlookDashboard() {
   const { isPlaying } = useAudioStore();
   const addToast = useUIStore((s) => s.addToast);
+  const { isConnected } = useWebSocketStable();
   const [activeTab, setActiveTab] = useState<GeneratorTab>('generator');
 
   // ─── Generator State ─────────────────────────────────────
@@ -345,6 +347,24 @@ export default function OutlookDashboard() {
     fetchProvidersHealth();
     fetchLoopStatus();
   }, []);
+
+  // WS reconnect recovery — same pattern as JourneyCard and Dashboard.
+  // When the WebSocket reconnects after a backend restart, re-run all the
+  // initial data fetches so realms/characters/populations/models/loop-status
+  // aren't stuck showing stale data until a manual refresh.
+  useEffect(() => {
+    if (isConnected) {
+      fetchUniverseData();
+      fetchHistory();
+      fetchModels();
+      fetchProvidersHealth();
+      fetchLoopStatus();
+    }
+    // Intentionally NOT listing the fetch callbacks in deps — they capture
+    // addToast and may change identity on each render, which would cause
+    // an infinite refetch loop. This matches the JourneyCard pattern.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected]);
 
   // Auto-set coordinates from selected realm
   useEffect(() => {
