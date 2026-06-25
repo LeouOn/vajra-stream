@@ -35,6 +35,11 @@ const LiveWaveVisualizer: React.FC = () => {
   frequencyRef.current = frequency;
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
+  // Keep waveType in a ref too so the draw loop sees the latest value without
+  // restarting on every change (we DO restart on waveType change via the dep
+  // array, but the ref is read inside the loop for consistency with the others).
+  const waveTypeRef = useRef<WaveType>(waveType);
+  waveTypeRef.current = waveType;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -147,12 +152,10 @@ const LiveWaveVisualizer: React.FC = () => {
       window.removeEventListener('resize', resize);
     };
   // waveType is the ONLY thing that should restart the loop now.
-  // audioSpectrum / frequency / isPlaying are read from refs inside the loop.
+  // audioSpectrum / frequency / isPlaying / waveType are all read from refs
+  // inside the loop, so this effect only fires when the user picks a new
+  // wave type from the UI.
   }, [waveType]);
-
-  // Keep waveType in a ref so the draw loop sees the latest value without restart
-  const waveTypeRef = useRef<WaveType>(waveType);
-  waveTypeRef.current = waveType;
 
   return (
     <div className="relative w-full h-full">

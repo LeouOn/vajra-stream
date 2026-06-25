@@ -3,6 +3,7 @@ LLM Agent API Endpoints
 Provides chat-based interface with tool calling and rule-based local fallback.
 """
 
+import asyncio
 import json
 import logging
 import os
