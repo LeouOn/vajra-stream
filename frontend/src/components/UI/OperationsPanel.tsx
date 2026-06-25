@@ -175,6 +175,7 @@ export default function OperationsPanel() {
     } catch (e) {
       log.error(e);
       audioFeedback.playError();
+      message.error('Could not draw tarot: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }
@@ -195,6 +196,7 @@ export default function OperationsPanel() {
     } catch (e) {
       log.error(e);
       audioFeedback.playError();
+      message.error('Could not cast I Ching: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }
@@ -218,6 +220,7 @@ export default function OperationsPanel() {
     } catch (e) {
       log.error(e);
       audioFeedback.playError();
+      message.error('Could not cast geomancy: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setLoading(false);
     }

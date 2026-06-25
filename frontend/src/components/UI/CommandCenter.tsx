@@ -14,7 +14,7 @@ import {
   Send, Terminal, Cpu, AlertTriangle, 
   Sparkles, Shield, Compass, BookOpen, Clock, Play, Square, X, Sun
 } from 'lucide-react';
-import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic } from 'antd';
+import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic, message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 
@@ -91,7 +91,9 @@ export default function CommandCenter({
           await res.json();
         }
       } catch (e) {
-        // Ignore
+        // Live data is also pushed via WS CURRENT_ASTROLOGY — log on failure
+        // so ops can see the degraded path, but don't toast (WS will recover).
+        log.error('Failed to fetch live astrology on mount:', e);
       }
     };
 
@@ -117,6 +119,8 @@ export default function CommandCenter({
         }
       } catch (e) {
         log.error("Failed to fetch available models", e);
+        message.error('Could not load available models — model selector may be empty.');
+        audioFeedback.playError();
       }
     };
     fetchModels();
