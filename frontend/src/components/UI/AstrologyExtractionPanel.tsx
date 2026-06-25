@@ -196,7 +196,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
     a.remove();
   };
 
-  const columns: TableColumnsType<RunRecord> = [
+  const columns: TableColumnsType<RunRecord> = useMemo(() => [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: 'Created', dataIndex: 'created_at', key: 'created_at' },
     { title: 'Total', dataIndex: 'total_tuples', key: 'total_tuples', width: 80 },
@@ -222,7 +222,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
         </Space>
       ),
     },
-  ];
+  ], [onView, handleRecompute, handleDelete, handleExport]);
 
   return (
     <Table<RunRecord>

@@ -164,6 +164,11 @@ const LANGUAGES: string[] = [
   'English', 'Sanskrit', 'Tibetan', 'Chinese', 'Latin', 'Greek', 'Hebrew',
 ];
 
+// Pre-compute option arrays from module-level constants so they're stable
+// across renders (previously each .map() created a new array on every render).
+const GENRE_OPTIONS = GENRES.map(g => ({ value: g.value, label: g.label }));
+const LANGUAGE_OPTIONS = LANGUAGES.map(l => ({ value: l, label: l }));
+
 const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   { id: 'mild', label: 'Mild', desc: 'Minor obstacles and everyday challenges' },
   { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
@@ -681,6 +686,12 @@ export default function OutlookDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ─── Memoized option arrays (prevent new-array-every-render) ────────────
+
+  const realmOptions = useMemo(() =>
+    realms.map(r => ({ value: r.id, label: `${r.name} (${r.is_metaphysical ? 'Meta' : 'Earth'})` }))
+  , [realms]);
+
   // ─── Model Options ───────────────────────────────────────
 
   const modelOptions = useMemo<ModelSelectOption[]>(() => {
@@ -808,7 +819,7 @@ export default function OutlookDashboard() {
                           allowClear
                           size="small"
                           className="w-full"
-                          options={realms.map(r => ({ value: r.id, label: `${r.name} (${r.is_metaphysical ? 'Meta' : 'Earth'})` }))}
+                          options={realmOptions}
                         />
                       </Col>
                       <Col>
@@ -876,7 +887,7 @@ export default function OutlookDashboard() {
                       size="small"
                       className="w-full"
                       style={{ marginTop: 4 }}
-                      options={GENRES.map(g => ({ value: g.value, label: g.label }))}
+                      options={GENRE_OPTIONS}
                     />
                   </div>
 
@@ -902,7 +913,7 @@ export default function OutlookDashboard() {
                       onChange={setSelectedLangs}
                       className="w-full"
                       style={{ marginTop: 4 }}
-                      options={LANGUAGES.map(l => ({ value: l, label: l }))}
+                      options={LANGUAGE_OPTIONS}
                     />
                   </div>
 

@@ -26,7 +26,7 @@ import { Activity, Wifi } from 'lucide-react';
 import ScalarWaveVisualizer from '../2D/ScalarWaveVisualizer';
 import { AttunementChart } from '../UI/AttunementChart';
 
-export default function SystemMonitorsCard({
+function SystemMonitorsCardInner({
   auraCoherence,
   isConnected,
   isPlaying,
@@ -151,3 +151,9 @@ export default function SystemMonitorsCard({
     </Card>
   );
 }
+
+// Memoize — SystemMonitorsCard renders ScalarWaveVisualizer (heavy RAF loop)
+// and re-renders whenever CommandCenter's auraCoherence state changes (1Hz).
+// Without memo, the entire card + visualizer re-mounts on every tick.
+const SystemMonitorsCard = React.memo(SystemMonitorsCardInner);
+export default SystemMonitorsCard;
