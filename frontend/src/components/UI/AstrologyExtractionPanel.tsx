@@ -19,7 +19,7 @@
  *   - POST   /api/v1/astrology/runs/:id/recompute
  *   - DELETE /api/v1/astrology/runs/:id
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Tabs,
   Card,
@@ -47,6 +47,7 @@ import {
 import type { TableColumnsType } from 'antd';
 import { Copy, Download, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
 import { createLogger } from '../../utils/logger';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
@@ -137,8 +138,9 @@ const DATE_MODES: SelectOption[] = [
 const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const { isConnected } = useWebSocketStable();
 
-  const fetchRuns = async () => {
+  const fetchRuns = useCallback(async () => {
     setLoading(true);
     try {
       const r = await fetch(`/api/v1/astrology/runs`);
@@ -149,9 +151,15 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchRuns(); }, []);
+  useEffect(() => { fetchRuns(); }, [fetchRuns]);
+
+  // WS reconnect recovery — same pattern as JourneyCard, Dashboard, OutlookDashboard.
+  // Without this, a backend restart leaves the runs list stale until manual refresh.
+  useEffect(() => {
+    if (isConnected) fetchRuns();
+  }, [isConnected, fetchRuns]);
 
   const handleDelete = async (id: number | string) => {
     try {
@@ -447,6 +455,7 @@ const AstrologyExtractionPanel = () => {
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
   const [selectedLocations, setSelectedLocations] = useState([]);
+  const { isConnected } = useWebSocketStable();
 
   const [dateMode, setDateMode] = useState('explicit');
   const [explicitDates, setExplicitDates] = useState([]);
@@ -460,41 +469,41 @@ const AstrologyExtractionPanel = () => {
 
   const [currentRunId, setCurrentRunId] = useState(null);
 
-  // Fetch available locations on mount
-  useEffect(() => {
-    let cancelled = false;
-    const fetchLocations = async () => {
-      setLocationsLoading(true);
-      setLocationsError(null);
-      try {
-        const res = await fetch(`/api/v1/astrology/locations`);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        if (!cancelled) {
-          const list = Array.isArray(data)
-            ? data
-            : Array.isArray(data?.locations)
-              ? data.locations
-              : [];
-          setLocations(list);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLocationsError(err?.message || 'Failed to load locations');
-        }
-      } finally {
-        if (!cancelled) {
-          setLocationsLoading(false);
-        }
+  // Fetch available locations — extracted so it can be re-invoked on WS reconnect.
+  // Without this, a backend restart leaves the locations list stale until manual refresh.
+  // The cancelled flag was removed because useCallback wraps the function with
+  // empty deps (stable identity), and React's automatic prevention of state
+  // updates on unmounted components makes manual cancellation unnecessary.
+  const fetchLocations = useCallback(async () => {
+    setLocationsLoading(true);
+    setLocationsError(null);
+    try {
+      const res = await fetch(`/api/v1/astrology/locations`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
-    };
-    fetchLocations();
-    return () => {
-      cancelled = true;
-    };
+      const data = await res.json();
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.locations)
+          ? data.locations
+          : [];
+      setLocations(list);
+    } catch (err) {
+      setLocationsError(err?.message || 'Failed to load locations');
+    } finally {
+      setLocationsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchLocations();
+  }, [fetchLocations]);
+
+  // WS reconnect recovery — same pattern as JourneyCard, Dashboard, OutlookDashboard.
+  useEffect(() => {
+    if (isConnected) fetchLocations();
+  }, [isConnected, fetchLocations]);
 
   const locationOptions = useMemo(
     () =>
