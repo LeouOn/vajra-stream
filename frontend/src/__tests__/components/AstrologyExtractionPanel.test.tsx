@@ -63,13 +63,18 @@ function renderPanel() {
 }
 
 /* ------------------------------------------------------------------ *
- * Helper — pulls the first URL the component requested, regardless
- * of Request/URL object vs. raw string. Returns '' if no call yet.
+ * Helper — scans all fetch calls for the astrology/locations URL.
+ * (Was firstFetchUrl, but useWebSocketStable now fires a /ready check
+ * before the locations fetch, so the locations call may not be calls[0].)
  * ------------------------------------------------------------------ */
-function firstFetchUrl(): string {
-  const firstCall = fetchSpy.mock.calls[0];
-  if (!firstCall) return '';
-  const arg = firstCall[0];
+function locationsFetchUrl(): string {
+  const locationsCall = fetchSpy.mock.calls.find((call) => {
+    const arg = call[0];
+    const url = typeof arg === 'string' ? arg : String((arg as any)?.url ?? arg);
+    return url.includes('astrology/locations');
+  });
+  if (!locationsCall) return '';
+  const arg = locationsCall[0];
   return typeof arg === 'string' ? arg : String((arg as any)?.url ?? arg);
 }
 
@@ -81,7 +86,7 @@ describe('AstrologyExtractionPanel — locations endpoint URL', () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(fetchSpy).toHaveBeenCalled();
-    const url = firstFetchUrl();
+    const url = locationsFetchUrl();
 
     // Contract: exactly one `/api/v1` prefix, not two.
     expect(url).toContain('/api/v1/astrology/locations');
