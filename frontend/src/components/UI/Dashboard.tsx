@@ -7,7 +7,7 @@
  *
  * @component
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Activity, 
   Zap, 
@@ -79,8 +79,12 @@ const Dashboard = () => {
 
   const fetchCrystalGrid = useCrystalStore(s => s.fetchCrystalGrid);
   const getRateCategories = useRateStore(s => s.getRateCategories);
+  const { isConnected } = useWebSocket();
 
-  useEffect(() => {
+  // Dashboard data fetcher — extracted so it can be re-invoked on WS reconnect.
+  // Without this, a backend restart leaves the dashboard showing stale
+  // session history / quickAstro / crystal grid data until a manual refresh.
+  const fetchDashboardData = useCallback(() => {
     fetch('/api/v1/sessions/history')
       .then(r => r.json())
       .then(d => setSessionHistory(d.history || []))
@@ -91,8 +95,12 @@ const Dashboard = () => {
       .then(r => r.json())
       .then(d => setQuickAstro(d.astrology || null))
       .catch(() => {});
+  }, [fetchCrystalGrid, getRateCategories]);
 
-    // Poll automation status
+  useEffect(() => {
+    fetchDashboardData();
+    // Poll automation status — this one already self-recovers via its
+    // setInterval, so no extra WS-reconnect wiring needed.
     const pollAutomation = async () => {
       try {
         const res = await fetch('/api/v1/automation/status');
@@ -105,7 +113,15 @@ const Dashboard = () => {
     pollAutomation();
     const interval = setInterval(pollAutomation, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchDashboardData]);
+
+  // Refetch dashboard data when the WebSocket reconnects after a backend
+  // restart. Same recovery pattern used in JourneyCard.
+  useEffect(() => {
+    if (isConnected) {
+      fetchDashboardData();
+    }
+  }, [isConnected, fetchDashboardData]);
   
   const activeSessions = Object.values(sessions);
   const runningSessions = activeSessions.filter(s => s.status === 'running');
