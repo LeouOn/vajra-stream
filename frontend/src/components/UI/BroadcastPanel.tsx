@@ -7,10 +7,10 @@
  *
  * @component
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity } from 'lucide-react';
 import { message } from 'antd';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
@@ -59,7 +59,7 @@ interface Props {}
 
 const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const log = createLogger('BroadcastPanel');
-  const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
+  const { sessions, scalarStatus, crystalStatus, stopSession, isConnected } = useWebSocketStable();
   const isPlaying = useAudioStore((s) => s.isPlaying);
   const frequency = useAudioStore((s) => s.frequency);
   const updateSettings = useAudioStore((s) => s.updateSettings);
@@ -97,7 +97,12 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       y: 40 + Math.random() * 120
     });
     fetchPopulations();
-  }, []);
+  }, [fetchPopulations]);
+
+  // WS reconnect recovery — re-fetch populations after backend restart.
+  useEffect(() => {
+    if (isConnected) fetchPopulations();
+  }, [isConnected, fetchPopulations]);
 
   const forgeUserSigil = async () => {
     if (!sigilIntention.trim() || isForging) return;
@@ -121,7 +126,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     }
   };
 
-  const fetchPopulations = async () => {
+  const fetchPopulations = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/populations`);
       if (res.ok) {
@@ -132,7 +137,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       log.error("Failed to fetch populations:", e);
       message.error('Could not load broadcast targets: ' + (e instanceof Error ? e.message : String(e)));
     }
-  };
+  }, []);
 
   // Adjust Radionics sliders
   const handleDimensionChange = (key: keyof Dimensions, val: number | string) => {

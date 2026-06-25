@@ -108,7 +108,7 @@ interface RitualMonitorProps {
 }
 
 export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
-  const { ritualStatus } = useWebSocketStable();
+  const { ritualStatus, isConnected } = useWebSocketStable();
   const [restStatus, setRestStatus] = useState<RitualRestStatus | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
@@ -119,6 +119,13 @@ export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
   useEffect(() => {
     fetchStatus();
   }, []);
+
+  // WS reconnect recovery — re-fetch after backend restart so the panel
+  // isn't stuck showing stale ritual status until manual refresh.
+  useEffect(() => {
+    if (isConnected) fetchStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected]);
 
   const fetchStatus = async (): Promise<void> => {
     try {
