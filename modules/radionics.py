@@ -17,7 +17,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
 from core.rate_to_audio import CarrierFrequencySet, map_rate_to_carriers
+from core.radionics_engine import SignatureCalculator
 from modules.interfaces import EventBus, RadionicsBroadcaster
+from modules.radionics_enhancer import RadionicsEnhancer
 
 
 class RadionicsService(RadionicsBroadcaster):
@@ -35,6 +37,7 @@ class RadionicsService(RadionicsBroadcaster):
         self.event_bus = event_bus
         self.crystal_service = crystal_service  # Injected by container
         self.broadcaster = IntegratedScalarRadionicsBroadcaster(crystal_service=crystal_service)
+        self.enhancer = RadionicsEnhancer()
 
     def broadcast_healing(
         self,
@@ -57,17 +60,32 @@ class RadionicsService(RadionicsBroadcaster):
         """
         session_id = str(uuid.uuid4())
 
-        # Derive carrier frequencies from rate or use the provided frequency
+        # Derive carrier frequencies from rate, enhancer auto-tune, or manual
         if rate_values:
             carriers = map_rate_to_carriers(rate_values, potency=intensity)
             freq_list = carriers.frequencies
             amplitude = carriers.amplitude
             freq_source = "radionics_rate"
         else:
-            freq_list = [7.83, frequency_hz]
-            amplitude = 0.3
-            carriers = None
-            freq_source = "manual"
+            # Auto-tune: use RadionicsEnhancer to derive 5 dial values from
+            # the target/intention text, then snap to Solfeggio carriers.
+            # This replaces the old "manual" fallback that always used [7.83, freq].
+            auto_intention = f"{target_name} healing {frequency_hz}"
+            base_rate = self.enhancer.attune_rate(auto_intention)
+            # Derive 5 correlated dial values from the base rate + intention hash
+            import hashlib
+            intention_hash = hashlib.sha256(auto_intention.encode()).digest()
+            auto_values = [
+                int(base_rate),
+                int((base_rate + intention_hash[0]) % 100),
+                int((base_rate + intention_hash[1]) % 100),
+                int((base_rate + intention_hash[2]) % 100),
+                int((base_rate + intention_hash[3]) % 100),
+            ]
+            carriers = map_rate_to_carriers(auto_values, potency=intensity)
+            freq_list = carriers.frequencies
+            amplitude = carriers.amplitude
+            freq_source = "enhancer_auto_tune"
 
         # Build broadcast configuration for the scalar-radionics engine
         config = BroadcastConfiguration(

@@ -31,7 +31,7 @@ from modules.audio import AudioService
 from modules.blessing_router import BlessingRouter, DeliveryMethod, TargetSpecification, TargetType
 from modules.crystal import CrystalService
 from modules.healing import HealingService
-from modules.interfaces import DomainEvent
+from modules.interfaces import DomainEvent, SessionStarted
 from modules.radionics_enhancer import RadionicsEnhancer
 from modules.visualization import VisualizationService
 
@@ -147,6 +147,18 @@ class UnifiedOrchestrator:
             )
 
         self.active_sessions[session_id] = {"start_time": datetime.now(), "intention": intention, "status": "active"}
+
+        # Publish SessionStarted so the OrchestratorBridge can auto-start
+        # the crystal broadcast thread (previously dead code — handler existed
+        # but no code published this event).
+        self.event_bus.publish(
+            SessionStarted(
+                timestamp=datetime.now(),
+                event_id=str(uuid.uuid4()),
+                session_id=session_id,
+                name=intention,
+            )
+        )
 
         return session_id
 

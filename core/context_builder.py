@@ -220,11 +220,79 @@ def format_astrology_for_llm() -> str:
         return "(astrology data unavailable)"
 
 
+# Synonym normalization — maps common variations to canonical terms
+# so substring search finds matches even when the user's phrasing differs.
+_RATE_SYNONYMS: dict[str, str] = {
+    "anxious": "anxiety",
+    "anxiousness": "anxiety",
+    "panic": "anxiety",
+    "worried": "anxiety",
+    "fearful": "fear",
+    "scared": "fear",
+    "stressed": "stress",
+    "stressful": "stress",
+    "tense": "stress",
+    "overwhelmed": "stress",
+    "depressed": "depression",
+    "sad": "depression",
+    "unhappy": "depression",
+    "exhausted": "fatigue",
+    "tired": "fatigue",
+    "sleepless": "insomnia",
+    "can't sleep": "insomnia",
+    "pain": "pain",
+    "aching": "pain",
+    "hurt": "pain",
+    "inflamed": "inflammation",
+    "swollen": "inflammation",
+    "digestive issues": "digestive",
+    "stomach": "digestive",
+    "gut": "digestive",
+    "immune": "immune system",
+    "sick": "immune system",
+    "heart chakra": "heart",
+    "root chakra": "root",
+    "crown chakra": "crown",
+    "throat chakra": "throat",
+    "solar plexus": "solar plexus",
+    "third eye": "third eye",
+    "pineal": "third eye",
+}
+
+
+def _normalize_query(query: str) -> list[str]:
+    """Expand a query into all synonym variants for broader matching.
+
+    Returns the original query plus any synonym expansions, all lowercased.
+    """
+    query_lower = query.lower().strip()
+    variants = {query_lower}
+
+    # Check if the query matches any synonym key
+    for synonym, canonical in _RATE_SYNONYMS.items():
+        if synonym in query_lower:
+            variants.add(canonical.lower())
+            variants.add(synonym)
+
+    # Also check if the canonical form appears in the query
+    for canonical in _RATE_SYNONYMS.values():
+        if canonical in query_lower:
+            variants.add(canonical.lower())
+
+    return list(variants)
+
+
 def search_rates(query: str, category: str | None = None) -> list[dict]:
-    """Search rate databases for a query string."""
+    """Search rate databases for a query string.
+
+    Includes synonym normalization so 'anxious' matches 'Anxiety',
+    'stressed' matches 'Stress', etc. This prevents the LLM's parsed
+    condition from silently missing database entries due to word-form
+    differences.
+    """
     databases = load_rate_database()
     results = []
-    query_lower = query.lower()
+    query_variants = _normalize_query(query)
 
     targets = {category: databases[category]} if category and category in databases else databases
 
@@ -232,7 +300,8 @@ def search_rates(query: str, category: str | None = None) -> list[dict]:
         for rate in rates:
             # Search name, description, and any text fields
             searchable = " ".join(str(v).lower() for v in rate.values() if isinstance(v, str))
-            if query_lower in searchable:
+            # Match if ANY synonym variant is found as a substring
+            if any(variant in searchable for variant in query_variants):
                 rate["_source"] = db_name
                 results.append(rate)
 
