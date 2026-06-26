@@ -39,6 +39,7 @@ class BroadcastRequest(BaseModel):
     use_meridians: bool = Field(default=False, description="Activate meridian system")
     mantra: str | None = Field(None, description="Optional mantra for broadcast")
     breathing_pattern: bool = Field(default=True, description="Use sacred breathing cycles")
+    rate_values: list[int] | None = Field(None, description="Radionics dial values (0-100). When provided, mapped to Solfeggio carrier frequencies via rate_to_audio bridge.")
 
 
 class HealingProtocolRequest(BaseModel):
@@ -65,6 +66,10 @@ class BroadcastResponse(BaseModel):
     chakras_activated: list[str]
     meridians_activated: list[str]
     dedication: str
+    frequencies: list[float] | None = None
+    solfeggio_names: list[str] | None = None
+    crystal_output: dict | None = None
+    scalar_output: dict | None = None
 
 
 # Endpoints
@@ -138,6 +143,7 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
                     duration_minutes=request.duration_minutes,
                     frequency_hz=frequency_hz,
                     intensity=request.scalar_intensity,
+                    rate_values=request.rate_values,
                 )
                 actual_freqs = result.get("frequencies", actual_freqs)
                 crystal_result = result.get("crystal_output")
@@ -180,6 +186,10 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             chakras_activated=chakras_activated,
             meridians_activated=meridians_activated,
             dedication=dedication,
+            frequencies=actual_freqs,
+            solfeggio_names=result.get("solfeggio_names") if radionics_service else None,
+            crystal_output=crystal_result,
+            scalar_output=scalar_result,
         )
 
     except Exception as e:

@@ -33,8 +33,8 @@ class RadionicsService(RadionicsBroadcaster):
 
     def __init__(self, event_bus: EventBus = None, crystal_service=None):
         self.event_bus = event_bus
-        self.broadcaster = IntegratedScalarRadionicsBroadcaster()
         self.crystal_service = crystal_service  # Injected by container
+        self.broadcaster = IntegratedScalarRadionicsBroadcaster(crystal_service=crystal_service)
 
     def broadcast_healing(
         self,
