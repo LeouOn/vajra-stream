@@ -12,6 +12,13 @@ import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { COLORS as BRAND_COLORS } from '../../lib/colors';
 import type { RatePreset } from '../../types';
+import {
+  CHAKRA_PRESETS,
+  HARMONIC_PRESETS,
+  presetFrequencies,
+  presetFrequencySummary,
+  type CrystalPreset,
+} from '../../lib/crystalPresets';
 
 const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
 
@@ -213,21 +220,68 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
           <ChevronDown className={`w-4 h-4 transition-transform ${showPresets ? 'rotate-180' : ''}`} />
         </button>
         {showPresets && (
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            {RATE_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                onClick={() => handlePresetSelect(preset)}
-                onMouseEnter={() => audioFeedback.playTick()}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-sm text-gray-300 hover:text-white transition-colors text-left"
-              >
-                <span>{preset.icon}</span>
-                <div>
-                  <div className="font-medium">{preset.name}</div>
-                  <div className="text-xs text-gray-500 font-mono">{preset.values.join('-')}</div>
-                </div>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
+            {(() => {
+              // Merge RATE_PRESETS (legacy 3-dial) with shared chakra/harmonic
+              // (5-dial crystalPresets) so the RateTuner offers both the
+              // classic RateTuner library and the Solfeggio-tuned chakra presets.
+              const shared: Array<{ id: string; name: string; values: number[]; icon: string; description: string; solfeggio: number[] }> = [
+                ...CHAKRA_PRESETS.map((p: CrystalPreset) => ({
+                  id: p.id,
+                  name: p.label,
+                  values: Object.values(p.dims),
+                  icon: p.icon,
+                  description: p.description,
+                  solfeggio: presetFrequencies(p),
+                })),
+                ...HARMONIC_PRESETS.map((p: CrystalPreset) => ({
+                  id: p.id,
+                  name: p.label,
+                  values: Object.values(p.dims),
+                  icon: p.icon,
+                  description: p.description,
+                  solfeggio: presetFrequencies(p),
+                })),
+              ];
+              const all = [
+                ...RATE_PRESETS.map((p) => ({
+                  id: p.id, name: p.name, values: p.values, icon: p.icon,
+                  description: p.description, solfeggio: [] as number[],
+                })),
+                ...shared,
+              ];
+              return all.map((preset) => {
+                const isActive = JSON.stringify(currentRate.values) === JSON.stringify(preset.values);
+                const freqs = preset.solfeggio.length > 0
+                  ? preset.solfeggio
+                  : preset.values.map((v) => {
+                      // Map raw dial to nearest Solfeggio for legacy 3-dial presets
+                      const solfeggio = [396, 417, 528, 639, 741, 852, 963];
+                      return solfeggio[Math.min(Math.floor(v / (100 / 7)), 6)];
+                    });
+                const summary = preset.solfeggio.length > 0
+                  ? preset.solfeggio.join(' + ') + ' Hz'
+                  : freqs.join(' + ') + ' Hz';
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => handlePresetSelect(preset as RatePreset)}
+                    onMouseEnter={() => audioFeedback.playTick()}
+                    className={`flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-300 hover:text-white transition-colors text-left ${
+                      isActive
+                        ? 'bg-cyan-950/40 border border-cyan-500/40 shadow-[0_0_8px_rgba(34,211,238,0.1)]'
+                        : 'bg-gray-700/50 hover:bg-gray-600/50'
+                    }`}
+                  >
+                    <span className="text-base">{preset.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{preset.name}</div>
+                      <div className="text-[10px] text-cyan-400 font-mono">{summary}</div>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
         )}
       </div>
