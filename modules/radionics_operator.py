@@ -37,6 +37,7 @@ from core.context_builder import (
     search_rates,
 )
 from core.radionics_tools import RADIONICS_TOOLS, get_tools_for_provider
+from core.rate_to_audio import map_rate_to_carriers, CarrierFrequencySet
 from modules.interfaces import EventBus
 
 logger = logging.getLogger(__name__)
@@ -857,6 +858,70 @@ class RadionicsOperator:
 
         self._session.record_event("analysis_complete", result)
         return result
+
+    def prepare_crystal_broadcast(self, intention: str, duration_minutes: int = 10) -> dict[str, Any]:
+        """
+        One-shot tool: analyze an intention AND prepare the crystal bowl
+        broadcast configuration (carrier frequencies + prayer bowl
+        parameters) in a single call.
+
+        Calls :func:`~core.rate_to_audio.map_rate_to_carriers` on the
+        best suggested rate from :meth:`analyze_intention` to produce
+        Solfeggio-aligned carrier frequencies ready for prayer bowl
+        synthesis via :class:`~core.enhanced_audio_generator.EnhancedAudioGenerator`.
+
+        Returns a dict with:
+            - analysis: structured intention breakdown
+            - rate: the best suggested rate (dial values)
+            - carriers: CarrierFrequencySet (frequencies + amplitude + overtone_richness)
+            - solfeggio_names: human-readable names for each frequency
+            - broadcast_config: ready-to-use config for the crystal broadcaster
+        """
+        analysis_result = self.analyze_intention(intention)
+
+        # Extract the best rate from the analysis
+        best_rate = None
+        suggested = analysis_result.get("suggested_rates", [])
+        if suggested and suggested[0].get("values"):
+            best_rate = suggested[0]["values"]
+        if best_rate is None:
+            # Fallback: use the recommended frequency directly
+            best_rate = [50, 50, 50]  # placeholder that snaps to 639
+
+        potency = 0.8  # standard broadcast potency
+        carriers = map_rate_to_carriers(best_rate, potency=potency)
+
+        broadcast_config = {
+            "intention": intention,
+            "duration_minutes": duration_minutes,
+            "rate_values": best_rate,
+            "potency": potency,
+            "frequencies": carriers.frequencies,
+            "solfeggio_names": carriers.solfeggio_names,
+            "amplitude": carriers.amplitude,
+            "overtone_richness": carriers.overtone_richness,
+            "prayer_bowl": True,
+        }
+
+        # Publish event so frontend can react
+        if self.event_bus:
+            from modules.interfaces import BroadcastStarted
+            self.event_bus.publish(BroadcastStarted(
+                timestamp=datetime.now(),
+                event_id=str(uuid.uuid4()),
+                session_id=analysis_result.get("session_id", ""),
+                hardware_level=2,
+                frequencies=carriers.frequencies,
+            ))
+
+        self._session.record_event("crystal_broadcast_prepared", broadcast_config)
+        return {
+            "analysis": analysis_result.get("analysis", {}),
+            "rate": best_rate,
+            "carriers": carriers,
+            "solfeggio_names": carriers.solfeggio_names,
+            "broadcast_config": broadcast_config,
+        }
 
     def suggest_rates(self, intention_or_condition: str, count: int = 5) -> dict[str, Any]:
         """

@@ -62,6 +62,31 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "prepare_crystal_broadcast",
+            "description": "Analyze an intention AND prepare the crystal bowl broadcast configuration "
+            "in one call. Returns the derived Solfeggio carrier frequencies and prayer bowl "
+            "parameters ready to feed into the crystal broadcaster. Use this when the user "
+            "wants to start a broadcast from a free-text intention without specifying rates.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "intention": {
+                        "type": "string",
+                        "description": "Free-text healing intention or goal.",
+                    },
+                    "duration_minutes": {
+                        "type": "integer",
+                        "description": "Broadcast duration in minutes. Typical: 10-108.",
+                        "default": 10,
+                    },
+                },
+                "required": ["intention"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "broadcast_liberation",
             "description": "Broadcast liberation protocol — high-intensity scalar wave transmission "
             "for mass liberation, typically 108 minutes with 396 Hz carrier.",
