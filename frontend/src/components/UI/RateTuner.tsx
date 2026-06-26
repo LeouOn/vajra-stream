@@ -201,6 +201,33 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
         <div className="text-xl font-bold text-white font-mono tracking-wider">
           {currentRate.values.join(' - ')}
         </div>
+        {/* Live Solfeggio preview — shows which carrier tones the
+            current dial values will produce through the rate_to_audio
+            bridge. Mirrors the preview line in BroadcastPanel. */}
+        {(() => {
+          const seen = new Set<number>();
+          const freqs: Array<{ hz: number; name: string }> = [];
+          for (const v of currentRate.values) {
+            const f = snapToSolfeggio(v);
+            if (!seen.has(f)) {
+              seen.add(f);
+              freqs.push({ hz: f, name: solfeggioName(f) });
+            }
+          }
+          if (freqs.length === 0) return null;
+          return (
+            <div className="mt-2 text-[10px] font-mono text-cyan-400">
+              Live preview:{' '}
+              {freqs.map((f, i) => (
+                <span key={i}>
+                  {i > 0 && ' + '}
+                  <span className="text-cyan-300">{f.hz} Hz</span>
+                  <span className="text-gray-500"> ({f.name.split(' ')[0]})</span>
+                </span>
+              ))}
+            </div>
+          );
+        })()}
       </div>
       
       {/* Presets */}
