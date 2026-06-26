@@ -45,6 +45,7 @@ class Container:
         # Services (lazy loaded)
         self._scalar_waves = None
         self._radionics = None
+        self._crystal = None
         self._anatomy = None
         self._blessings = None
         self._astrology = None
@@ -81,8 +82,21 @@ class Container:
             logger.info("Initializing Radionics Service...")
             from modules.radionics import RadionicsService
 
-            self._radionics = RadionicsService(event_bus=self.event_bus)
+            self._radionics = RadionicsService(
+                event_bus=self.event_bus,
+                crystal_service=self.crystal,
+            )
         return self._radionics
+
+    @property
+    def crystal(self) -> "CrystalService":  # noqa: F821
+        """Get crystal bowl service"""
+        if self._crystal is None:
+            logger.info("Initializing Crystal Service...")
+            from modules.crystal import CrystalService
+
+            self._crystal = CrystalService(event_bus=self.event_bus)
+        return self._crystal
 
     @property
     def anatomy(self) -> "AnatomyService":  # noqa: F821
@@ -254,6 +268,7 @@ class Container:
         """Reset container (useful for testing)"""
         self._scalar_waves = None
         self._radionics = None
+        self._crystal = None
         self._anatomy = None
         self._blessings = None
         self._astrology = None

@@ -593,6 +593,12 @@ class ToolDispatcher:
             elif tool_name == "run_full_journey":
                 return self._dispatch_operator("run_full_journey", {})
 
+            elif tool_name == "prepare_crystal_broadcast":
+                return self._dispatch_operator("prepare_crystal_broadcast", {
+                    "intention": arguments.get("intention", ""),
+                    "duration_minutes": arguments.get("duration_minutes", 10),
+                })
+
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
 
