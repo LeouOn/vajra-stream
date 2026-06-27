@@ -1,0 +1,538 @@
+# core/ritual_generator.py
+"""Sacred Ritual Text Generator for Compassion Broadcasts.
+
+Orchestrates astrology, tarot, I Ching, geomancy, dharma tales,
+and LLM narrative generation into a unified ritual document.
+
+Each ritual contains:
+  1. Invocation — formal liturgical opening
+  2. Situational Prayer — LLM-generated prayer for the specific situation
+  3. Dharma Teaching — parable relevant to the suffering
+  4. Divination Correspondences — current astrology + tarot + I Ching
+  5. Hero Journey Narrative — the archetypal path through suffering
+  6. Dedication — closing verses dedicating merit
+
+Works with or without an LLM — rich fallback templates when unavailable.
+"""
+from __future__ import annotations
+
+import logging
+import random
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RitualText:
+    """A complete generated ritual document."""
+
+    intention: str
+    timestamp: str
+    invocation: str
+    situational_prayer: str
+    dharma_teaching: str
+    divination_correspondences: str
+    hero_journey: str
+    dedication: str
+    carrier_frequencies: list[float] = field(default_factory=list)
+    solfeggio_names: list[str] = field(default_factory=list)
+    mantras_dedicated: int = 0
+    targets: list[str] = field(default_factory=list)
+    tradition: str = "vajrayana"
+
+    def to_markdown(self) -> str:
+        """Render as a complete markdown document."""
+        lines = [
+            f"# Sacred Ritual: {self.intention}",
+            f"",
+            f"*Generated {self.timestamp}*",
+            f"*Tradition: {self.tradition.title()}*",
+            f"",
+            "---",
+            "",
+            "## I. Invocation",
+            "",
+            self.invocation,
+            "",
+            "---",
+            "",
+            "## II. Prayer for This Moment",
+            "",
+            self.situational_prayer,
+            "",
+            "---",
+            "",
+            "## III. Dharma Teaching",
+            "",
+            self.dharma_teaching,
+            "",
+            "---",
+            "",
+            "## IV. Divination Correspondences",
+            "",
+            self.divination_correspondences,
+            "",
+            "---",
+            "",
+            "## V. The Hero's Journey Through Suffering",
+            "",
+            self.hero_journey,
+            "",
+            "---",
+            "",
+            "## VI. Dedication of Merit",
+            "",
+            self.dedication,
+            "",
+            "---",
+            "",
+            "### Broadcast Details",
+            "",
+            f"- **Carrier Frequencies:** {', '.join(f'{f:.2f} Hz' for f in self.carrier_frequencies)}",
+            f"- **Solfeggio Tones:** {', '.join(self.solfeggio_names)}",
+            f"- **Mantras Dedicated:** {self.mantras_dedicated}",
+            f"- **Targets:** {', '.join(self.targets)}",
+            f"- **Tradition:** {self.tradition}",
+            "",
+            "*Om Mani Padme Hum*",
+        ]
+        return "\n".join(lines)
+
+
+class RitualGenerator:
+    """Composes complete sacred ritual texts for compassion broadcasts."""
+
+    # Deity selections by suffering type
+    DEITY_MAP = {
+        "earthquake": {
+            "primary": "Ksitigarbha (Earth Treasury Bodhisattva)",
+            "secondary": ["Chenrezig (Avalokiteshvara)", "Amitabha Buddha"],
+            "mantra": "Om Mani Padme Hum",
+            "quality": "earth healing, protection of the deceased, karmic purification",
+        },
+        "war": {
+            "primary": "Mahakala (Great Black One)",
+            "secondary": ["Green Tara", "Chenrezig"],
+            "mantra": "Om Tare Tuttare Ture Soha",
+            "quality": "protection, removing fear, swift intervention",
+        },
+        "illness": {
+            "primary": "Medicine Buddha (Bhaisajyaguru)",
+            "secondary": ["Chenrezig", "White Tara"],
+            "mantra": "Tayata Om Bekanze Bekanze Maha Bekanze Radza Samudgate Soha",
+            "quality": "healing, medicine, alleviation of suffering",
+        },
+        "death": {
+            "primary": "Amitabha Buddha (Boundless Light)",
+            "secondary": ["Chenrezig", "Ksitigarbha"],
+            "mantra": "Namo Amitabha Buddha",
+            "quality": "rebirth in Pure Land, peaceful transition, liberation",
+        },
+        "displacement": {
+            "primary": "Green Tara (Swift Savior)",
+            "secondary": ["Chenrezig", "Amitabha"],
+            "mantra": "Om Tare Tuttare Ture Soha",
+            "quality": "swift protection, removing obstacles, finding refuge",
+        },
+        "universal": {
+            "primary": "Chenrezig (Avalokiteshvara, Bodhisattva of Compassion)",
+            "secondary": ["Amitabha Buddha", "Medicine Buddha", "Green Tara"],
+            "mantra": "Om Mani Padme Hum",
+            "quality": "universal compassion, loving-kindness, liberation of all beings",
+        },
+    }
+
+    # Tarot arcana for divination section
+    MAJOR_ARCANA = [
+        ("The Fool", "new beginnings, leap of faith, trust in the universe"),
+        ("The Star", "hope, healing, renewal after disaster"),
+        ("The Tower", "sudden change, destruction of the old, revelation"),
+        ("Death", "transformation, endings, transition to new form"),
+        ("The World", "completion, integration, wholeness"),
+        ("The Sun", "vitality, joy, clarity after darkness"),
+        ("The Empress", "nurturing, abundance, the Great Mother"),
+        ("Strength", "inner courage, gentle power, taming the beast"),
+        ("The Hermit", "inner guidance, solitude, finding light within"),
+        ("Judgement", "rebirth, awakening, calling to higher purpose"),
+        ("Temperance", "balance, moderation, healing through blending"),
+        ("The Magician", "power, transformation, channeling divine energy"),
+    ]
+
+    # I Ching hexagrams relevant to suffering and healing
+    HEXAGRAMS = [
+        (11, "Tai / Peace", "Heaven above Earth — harmony returns after turmoil"),
+        (24, "Fu / Return", "The turning point — light returns after darkness"),
+        (35, "Chin / Progress", "Fire above Earth — rapid progress, recognition"),
+        (40, "Hsieh / Deliverance", "Thunder and Rain — release from difficulty"),
+        (41, "Sun / Decrease", "Mountain above Lake — simplification, letting go"),
+        (42, "I / Increase", "Wind above Thunder — growth, benefit, expansion"),
+        (45, "Ts'ui / Gathering Together", "Lake above Earth — community, collective force"),
+        (46, "Sheng / Pushing Upward", "Earth above Wood — steady growth, ascending"),
+        (47, "K'un / Oppression", "Lake above Water — exhaustion, finding inner strength"),
+        (48, "Ching / The Well", "Water above Wood — nourishment, depth, renewal"),
+        (49, "Ko / Revolution", "Lake above Fire — transformation, molting"),
+        (63, "Chi Chi / After Completion", "Water above Fire — completion, new beginning"),
+    ]
+
+    def __init__(self, llm=None):
+        self.llm = llm
+        self._rng = random.Random()
+
+    def detect_suffering_type(self, intention: str) -> str:
+        """Detect the type of suffering from the intention text."""
+        lower = intention.lower()
+        if any(w in lower for w in ["earthquake", "seismic", "tremor"]):
+            return "earthquake"
+        if any(w in lower for w in ["war", "conflict", "battle", "soldier", "missile"]):
+            return "war"
+        if any(w in lower for w in ["illness", "cancer", "disease", "sick", "pandemic"]):
+            return "illness"
+        if any(w in lower for w in ["death", "deceased", "passed", "transitioned", "bardo"]):
+            return "death"
+        if any(w in lower for w in ["refugee", "displaced", "homeless", "evacuee"]):
+            return "displacement"
+        return "universal"
+
+    def generate_invocation(self, intention: str, tradition: str = "vajrayana") -> str:
+        """Generate formal liturgical invocation."""
+        suffering_type = self.detect_suffering_type(intention)
+        deities = self.DEITY_MAP.get(suffering_type, self.DEITY_MAP["universal"])
+        timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+
+        lines = [
+            f"*On this day, {timestamp}, we invoke the boundless compassion of the Buddhas and Bodhisattvas.*",
+            "",
+            f"We call upon **{deities['primary']}**,",
+            f"whose quality is {deities['quality']}.",
+            "",
+        ]
+        if deities["secondary"]:
+            lines.append("We call upon:")
+            for d in deities["secondary"]:
+                lines.append(f"  - **{d}**")
+            lines.append("")
+
+        lines.extend([
+            f"May your wisdom-light illuminate all beings affected by: {intention}",
+            "",
+            f"May your compassion flow without boundary, without exception, without condition.",
+            f"May your mantra — *{deities['mantra']}* — resonate through every realm.",
+            "",
+            "We request your presence, your blessing, your power.",
+            "Accept this offering of practice.",
+            "",
+            "*OM AH HUM* (3x)",
+        ])
+        return "\n".join(lines)
+
+    def generate_situational_prayer(self, intention: str, targets: list[str], llm=None) -> str:
+        """Generate LLM-powered prayer for the specific situation."""
+        target_text = "\n".join(f"  - To {t}" for t in targets) if targets else "  - To all suffering beings"
+
+        # Try LLM generation
+        if llm:
+            try:
+                # Handle both LegacyLLMIntegration and LLMService
+                has_backend = hasattr(llm, "client") and llm.client
+                if not has_backend:
+                    has_backend = hasattr(llm, "local_model") and llm.local_model
+                if not has_backend:
+                    has_backend = hasattr(llm, "generate")  # LLMService wraps generate
+                if has_backend:
+                    prompt = (
+                        f"Write a compassionate Buddhist prayer (3-4 paragraphs) for the following situation:\n\n"
+                        f"Situation: {intention}\n\n"
+                        f"Those affected:\n{target_text}\n\n"
+                        f"Write from the heart. Address them directly. Include specific wishes "
+                        f"for healing, protection, peace, and liberation. Use simple, beautiful language. "
+                        f"Do not use headers or titles. End with 'Om Mani Padme Hum.'"
+                    )
+                    result = llm.generate(prompt=prompt, system_prompt="You are a compassionate Buddhist practitioner writing prayers.", max_tokens=500, temperature=0.8)
+                    if result and len(result.strip()) > 100:
+                        return result.strip()
+            except Exception as e:
+                logger.warning(f"LLM prayer generation failed: {e}")
+
+        # Fallback template
+        return self._fallback_prayer(intention, targets)
+
+    def _fallback_prayer(self, intention: str, targets: list[str]) -> str:
+        """Rich fallback prayer when LLM is unavailable."""
+        suffering_type = self.detect_suffering_type(intention)
+        prayers = {
+            "earthquake": f"""To all beings affected by the earthquake:
+
+To those trapped and waiting — may rescue come swiftly. May the hands that dig through rubble be guided by compassion. May every breath you take draw you closer to safety.
+
+To those who have lost their homes — may shelter appear. May the community around you open their doors. May you know that this displacement is temporary, but the love that surrounds you is eternal.
+
+To those who grieve — may your tears be prayers. May each one water the seed of enlightenment. May you find in your loss a deeper connection to the impermanence that Buddha taught.
+
+To those who have passed — may you not be afraid. The light you see is the wisdom of Amitabha. Follow it. You are not alone. You are held by boundless compassion.
+
+To the earth herself — may you find equilibrium. May your trembling cease. May stability return to the land that has sheltered so many.
+
+*Om Mani Padme Hum.*""",
+
+            "universal": f"""To all beings across all realms who are suffering in this moment:
+
+To those in pain — may your suffering be known, may it be held, may it transform.
+
+To those who are afraid — may fear dissolve in the vast space of awareness. May you discover that the one who is afraid is also the one who is free.
+
+To those who are alone — may you feel the presence of all the Buddhas and Bodhisattvas who have ever lived. They are with you now. They have always been with you.
+
+To those who grieve — may your grief be a gateway. May what feels like an ending reveal itself as a beginning. May the one you lost be closer than breath.
+
+To those who are dying — may the clear light appear. May you recognize it as your own true nature. May you not be afraid.
+
+To those who have died — may you find swift passage. May the bardo be brief. May liberation be immediate.
+
+*Om Mani Padme Hum.*""",
+        }
+        return prayers.get(suffering_type, prayers["universal"])
+
+    def generate_dharma_teaching(self, intention: str, llm=None) -> str:
+        """Generate a dharma teaching or parable relevant to the suffering."""
+        suffering_type = self.detect_suffering_type(intention)
+
+        # Try LLM
+        if llm:
+            try:
+                has_backend = hasattr(llm, "client") and llm.client
+                if not has_backend:
+                    has_backend = hasattr(llm, "local_model") and llm.local_model
+                if not has_backend:
+                    has_backend = hasattr(llm, "generate")
+                if has_backend:
+                    prompt = (
+                        f"Tell a short Buddhist parable or teaching story (2-3 paragraphs) about "
+                        f"finding meaning, compassion, or liberation in the face of: {intention}. "
+                        f"Make it specific, evocative, and rooted in dharma. No titles or headers."
+                    )
+                    result = llm.generate(prompt=prompt, system_prompt="You are a wise dharma teacher.", max_tokens=400, temperature=0.7)
+                    if result and len(result.strip()) > 100:
+                        return result.strip()
+            except Exception as e:
+                logger.warning(f"LLM teaching generation failed: {e}")
+
+        # Fallback teachings
+        teachings = {
+            "earthquake": """A monk asked the Master: "When the very earth shakes beneath us, where shall we find refuge?"
+
+The Master placed his hand on the ground and said: "Here."
+
+"But Master, the earth itself is unstable!"
+
+"Every thing is unstable," the Master replied. "The earth, the mountains, the sky, your body, your mind — all arise and pass away. This is not a tragedy. This is the door to freedom."
+
+"But then what can we rely on?"
+
+"Compassion," said the Master. "Compassion is the one thing that grows stronger when everything else falls apart. When the buildings crumble, compassion builds. When the earth splits, compassion bridges. When all seems lost, compassion finds a way. This is why Chenrezig has a thousand hands — not to hold the world still, but to reach into every crack and crevice where suffering hides, and pull it into the light."
+
+The monk bowed. And in that moment, the trembling stopped — not the earth's trembling, but the trembling in his own heart.""",
+
+            "universal": """The Buddha said: "Monks, suppose a man were to throw a yoke with a single hole into the great ocean. And suppose a blind turtle who surfaces only once every hundred years were to rise at the very spot where the yoke floated. That probability — the turtle putting its neck through the hole — is how rare it is to obtain a precious human rebirth."
+
+"Having obtained this rare rebirth, what should one do?" a monk asked.
+
+"Practice compassion without exception," the Buddha replied. "For every being you encounter — every insect, every enemy, every stranger, every dying friend — has been your mother in a past life. They have fed you, held you, wept for you. Now they wander in suffering, not knowing why."
+
+"Is compassion enough?" the monk asked.
+
+"Compassion is the seed. Wisdom is the water. Together they grow the bodhi tree under which all beings can rest. Do not wait for perfect understanding before you begin. Begin now, with whatever you have. The universe will meet you halfway."
+
+And the monks went forth, each one carrying compassion like a lamp into the darkness.""",
+        }
+        return teachings.get(suffering_type, teachings["universal"])
+
+    def generate_divination(self, intention: str, astrology_data: dict | None = None) -> str:
+        """Generate divination correspondences: astrology + tarot + I Ching."""
+        lines = []
+
+        # Astrology
+        if astrology_data:
+            western = astrology_data.get("western", {})
+            positions = western.get("positions", {})
+            sun = positions.get("sun", {})
+            moon = positions.get("moon", {})
+            asc = positions.get("ascendant", {})
+
+            lines.append("**Current Astrological Correspondences:**")
+            lines.append("")
+            if sun:
+                lines.append(f"- **Sun:** {sun.get('sign', '?')} {sun.get('degree', 0):.1f} degrees — the conscious light illuminating this moment")
+            if moon:
+                lines.append(f"- **Moon:** {moon.get('sign', '?')} {moon.get('degree', 0):.1f} degrees — the emotional quality flowing through this practice")
+            if asc:
+                lines.append(f"- **Ascendant:** {asc.get('sign', '?')} — the lens through which compassion manifests")
+            lines.append("")
+
+            # Vedic
+            indian = astrology_data.get("indian", {})
+            panchanga = indian.get("panchanga", {})
+            if panchanga:
+                tithi = panchanga.get("tithi", {})
+                nakshatra = panchanga.get("nakshatra", {})
+                if tithi:
+                    lines.append(f"- **Tithi:** {tithi.get('name', '?')} — the lunar phase supporting this practice")
+                if nakshatra:
+                    lines.append(f"- **Nakshatra:** {nakshatra.get('name', '?')} — the stellar mansion presiding")
+                lines.append("")
+        else:
+            lines.append("**Astrology:** *(data unavailable — practice timed by universal compassion, not planetary alignment)*")
+            lines.append("")
+
+        # Tarot
+        card = self._rng.choice(self.MAJOR_ARCANA)
+        lines.append(f"**Tarot Card Drawn:** {card[0]}")
+        lines.append(f"*{card[1]}*")
+        lines.append(f"This card speaks to the energy present in this moment of practice.")
+        lines.append("")
+
+        # I Ching
+        hexagram = self._rng.choice(self.HEXAGRAMS)
+        lines.append(f"**I Ching Hexagram:** #{hexagram[0]} — {hexagram[1]}")
+        lines.append(f"*{hexagram[2]}*")
+        lines.append("")
+
+        # Geomancy (simplified)
+        geomancy_figures = [
+            ("Via", "the path forward — a journey through changing conditions"),
+            ("Populus", "the people — community gathering, collective strength"),
+            ("Fortuna Major", "greater fortune — success through perseverance"),
+            ("Amissio", "loss — letting go so new growth can emerge"),
+            ("Acquisitio", "gain — receiving what is needed, abundance"),
+            ("Conjunctio", "union — coming together, reconciliation"),
+            ("Carcer", "restriction — patience within limitation"),
+            ("Tristitia", "sorrow — the earth energy that grounds grief into wisdom"),
+        ]
+        figure = self._rng.choice(geomancy_figures)
+        lines.append(f"**Geomantic Figure:** {figure[0]}")
+        lines.append(f"*{figure[1]}*")
+        lines.append("")
+
+        return "\n".join(lines)
+
+    def generate_hero_journey(self, intention: str, targets: list[str]) -> str:
+        """Generate the archetypal hero's journey narrative through suffering."""
+        suffering_type = self.detect_suffering_type(intention)
+
+        journeys = {
+            "earthquake": f"""**The Six Stages of the Journey Through Earthquake:**
+
+**1. The Awakening** — The earth speaks. What was solid shifts. In an instant, the illusion of stability is revealed. This is not cruelty — it is the dharma teaching impermanence through the very ground beneath our feet.
+
+**2. The Forge** — Those who survive become stronger than they knew. Rescuers discover courage they never suspected. Communities discover bonds they never tested. The forge of catastrophe tempers the steel of compassion.
+
+**3. The Great Work** — Now begins the real practice: rebuilding not just structures but hearts. Every blanket distributed is a prayer. Every hand extended is a mudra. Every tear wiped is a blessing. The Great Work is not separate from ordinary kindness.
+
+**4. The Shadow Trial** — The darkest hour comes not during the quake but after — when the adrenaline fades and the grief sets in. When the world moves on but you are still standing in the rubble of your life. This is when compassion matters most. Not the compassion of action, but the compassion of presence.
+
+**5. The Golden Age** — The community that emerges from disaster is not the same one that existed before. Something has been forged. Bonds have been tested and proven. The golden age is not a return to the past — it is a new beginning built on the foundation of what was lost.
+
+**6. The Infinite Return** — The story does not end. The compassion generated in this moment ripples outward through all time. Every mantra recited, every frequency broadcast, every prayer spoken — these do not dissipate. They return, again and again, in forms we cannot predict. The circle closes and opens simultaneously.""",
+
+            "universal": f"""**The Six Stages of the Journey Through Universal Suffering:**
+
+**1. The Awakening** — Suffering is not a mistake. It is the friction that awakens consciousness. Without it, we would sleep forever in the dream of separation. The first noble truth is not pessimism — it is diagnosis.
+
+**2. The Forge** — Every being who suffers is being forged. The fire of pain burns away what is inessential. What remains is the pure gold of awareness — the recognition that you are not your suffering, you are the space in which suffering arises and dissolves.
+
+**3. The Great Work** — The bodhisattva does not wait for personal liberation before helping others. The Great Work is helping others *as* the path to liberation. Every act of kindness is a step toward enlightenment. Every moment of compassion is a glimpse of buddhanature.
+
+**4. The Shadow Trial** — There comes a moment when compassion itself feels like a burden. When the suffering of others is so vast that your heart cannot hold it. This is the test. Not the test of strength, but the test of surrender. Can you let your heart break open and still continue?
+
+**5. The Golden Age** — The golden age is not a future utopia. It is the present moment seen clearly. When compassion flows without exception, every moment becomes golden. Every encounter becomes a meeting of buddhas.
+
+**6. The Infinite Return** — The bodhisattva vow has no end because it has no beginning. "However innumerable beings are, I vow to save them all." This is not hyperbole. It is the recognition that compassion is the nature of mind itself. It will continue as long as there is suffering — which is to say, it will continue forever. And that is not a tragedy. It is the beauty of the path.""",
+        }
+        return journeys.get(suffering_type, journeys["universal"])
+
+    def generate_dedication(self, targets: list[str], mantras: int, frequencies: list[float], solfeggio_names: list[str]) -> str:
+        """Generate dedication of merit verses."""
+        lines = [
+            "*Dedication of Merit*",
+            "",
+            "Whatever merit has been generated through this practice —",
+            "through the mantras recited, the frequencies broadcast,",
+            "the prayers spoken, the compassion aroused —",
+            "",
+            "May it flow without obstacle to:",
+            "",
+        ]
+        for t in targets:
+            lines.append(f"  * {t}")
+        lines.extend([
+            "",
+            "May no being be excluded.",
+            "May no boundary limit this dedication.",
+            "May no condition diminish its power.",
+            "",
+            f"**{mantras} mantras** of Om Mani Padme Hum have been offered.",
+            f"**{len(frequencies)} Solfeggio carrier frequencies** have resonated:",
+        ])
+        for freq, name in zip(frequencies, solfeggio_names):
+            lines.append(f"  * {freq:.2f} Hz — {name}")
+        lines.extend([
+            "",
+            "By this merit, may all beings attain complete enlightenment.",
+            "May the earth find peace.",
+            "May the waters be calm.",
+            "May the air be pure.",
+            "May all beings be happy.",
+            "May all beings be free.",
+            "",
+            "*Gate gate paragate parasamgate bodhi svaha.*",
+            "*Om Mani Padme Hum.*",
+        ])
+        return "\n".join(lines)
+
+    def generate_full_ritual(
+        self,
+        intention: str,
+        targets: list[str] | None = None,
+        carrier_frequencies: list[float] | None = None,
+        solfeggio_names: list[str] | None = None,
+        mantras_dedicated: int = 108,
+        astrology_data: dict | None = None,
+        tradition: str = "vajrayana",
+        llm=None,
+    ) -> RitualText:
+        """Compose a complete sacred ritual document."""
+        targets = targets or ["all suffering beings"]
+        carrier_frequencies = carrier_frequencies or [7.83, 528.0]
+        solfeggio_names = solfeggio_names or ["Schumann Base", "Mi (Transformation)"]
+        effective_llm = llm or self.llm
+        timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+
+        logger.info(f"Generating full ritual for: {intention}")
+
+        invocation = self.generate_invocation(intention, tradition)
+        prayer = self.generate_situational_prayer(intention, targets, effective_llm)
+        teaching = self.generate_dharma_teaching(intention, effective_llm)
+        divination = self.generate_divination(intention, astrology_data)
+        hero_journey = self.generate_hero_journey(intention, targets)
+        dedication = self.generate_dedication(targets, mantras_dedicated, carrier_frequencies, solfeggio_names)
+
+        return RitualText(
+            intention=intention,
+            timestamp=timestamp,
+            invocation=invocation,
+            situational_prayer=prayer,
+            dharma_teaching=teaching,
+            divination_correspondences=divination,
+            hero_journey=hero_journey,
+            dedication=dedication,
+            carrier_frequencies=carrier_frequencies,
+            solfeggio_names=solfeggio_names,
+            mantras_dedicated=mantras_dedicated,
+            targets=targets,
+            tradition=tradition,
+        )
+
+
+__all__ = ["RitualGenerator", "RitualText"]
