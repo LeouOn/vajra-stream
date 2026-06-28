@@ -1,13 +1,27 @@
 """
 TDD Task 1 — RED: Prove the TTS audio playback gap in
-``buddha_recitation_loop._speak_text()``.
+``buddha_recitation_loop._speak_text()`` (LEGACY reciter path).
 
-The function currently synthesises audio via the TTS provider (saving a file)
-but never plays it back. This test asserts that after synthesis,
-``sounddevice.play()`` and ``sounddevice.wait()`` are called — which they
-are NOT in the current code, so the test MUST fail (RED).
+The legacy BuddhaTTSReciter fallback path (lines 336-343) calls
+``reciter.speak()`` which returns a file path, but the function never
+plays that audio through speakers via sounddevice.play() + sounddevice.wait().
 
-After Task 2 adds the playback block, this same test MUST pass (GREEN).
+This test asserts that after the legacy reciter's ``speak()`` returns a path,
+``sounddevice.play()`` AND ``sounddevice.wait()`` MUST be called.
+
+RED expectation: this test FAILS because the current implementation
+discards the file path returned by ``reciter.speak()`` and never imports
+or calls sounddevice on the legacy path.
+
+The provider path (lines 312-332) was fixed in commit e42e26c; this test
+locks in the remaining gap on the legacy fallback so a future fix can
+close it (Task 2: GREEN).
+
+NOTE: A companion test for the provider path already exists in
+``test_speak_text_plays_audio_via_sounddevice`` (created with commit e42e26c)
+and currently PASSES — that path's gap has been closed. This test exercises
+the OTHER TTS code path (_tts legacy reciter, _provider is None) that still
+synthesizes to a file but never plays it.
 """
 
 from __future__ import annotations
@@ -69,4 +83,58 @@ async def test_speak_text_plays_audio_via_sounddevice():
     mock_sd.wait.assert_called_once()
 
     # 5. The function returned True (speech was produced)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_speak_text_plays_audio_via_sounddevice_legacy_reciter_path():
+    """_speak_text() must call sounddevice.play() + sounddevice.wait() on
+    the LEGACY reciter path too (when ``_provider is None`` and a legacy
+    BuddhaTTSReciter is set as ``_tts``).
+
+    The legacy reciter's ``speak()`` returns a file path (see buddha_tts.py
+    ``BuddhaTTSReciter.speak``), but ``_speak_text`` currently discards that
+    return value and never plays the audio through speakers.
+
+    RED expectation: this test FAILS because the current implementation
+    on the legacy path:
+      - calls ``await reciter.speak(text, ...)``
+      - returns True
+      - but never imports ``sounddevice`` / ``soundfile`` and never calls
+        ``sd.play()`` / ``sd.wait()``.
+    """
+
+    # ── Arrange: legacy BuddhaTTSReciter handles its own playback ──────────
+    # On the legacy fallback path, ``_speak_text`` delegates playback to the
+    # reciter itself (``reciter.speak(text, rate=...)``); it does NOT import
+    # or call ``sounddevice`` / ``soundfile`` directly. We therefore do NOT
+    # patch those modules here — the function never reaches for them.
+    fake_path = "/tmp/buddha_tts_legacy_test.mp3"
+
+    # Mock legacy BuddhaTTSReciter: speak() is async + returns a file path,
+    # and ``available`` is True so the legacy branch is taken.
+    mock_reciter = MagicMock(name="LegacyBuddhaTTSReciter")
+    mock_reciter.available = True
+    mock_reciter.speak = AsyncMock(return_value=fake_path)
+
+    # Instantiate the loop with the legacy reciter pre-set. This sets
+    # ``_tts`` to the mock; ``_provider`` stays None, so the function
+    # must use the legacy fallback path.
+    loop = BuddhaRecitationLoop(tts_reciter=mock_reciter)
+    # Sanity guard: ensure we really are on the legacy path.
+    assert loop._provider is None
+    assert loop._tts is mock_reciter
+
+    # ── Act ─────────────────────────────────────────────────────────────────
+    result = await loop._speak_text("南無金剛堅强消伏坏散佛")
+
+    # ── Assert ──────────────────────────────────────────────────────────────
+    # 1. The legacy reciter's speak() was called with the text.
+    mock_reciter.speak.assert_called_once()
+    call_args = mock_reciter.speak.call_args
+    # speak() may be called positionally or by keyword — accept either.
+    spoken_text = call_args.args[0] if call_args.args else call_args.kwargs.get("text", "")
+    assert "南無金剛堅强消伏坏散佛" in spoken_text
+
+    # 2. The function returned True (speech was produced via the reciter).
     assert result is True

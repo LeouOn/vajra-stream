@@ -139,8 +139,8 @@ Feature modules and integrations (25 Python files).
 
 ```
 modules/
-├── radionics_operator.py          # Radionics operator (75 KB — largest module)
-├── healing_dialogue.py            # Healing dialogue system (33 KB — NEW)
+├── radionics_operator.py          # Radionics operator — 1555 lines / 75 KB (largest module)
+├── healing_dialogue.py            # Healing dialogue system — 747 lines / 33 KB (NEW)
 ├── outlook.py                     # Outlook module (22 KB)
 ├── personal_healing.py            # Personal healing (15 KB)
 ├── blessings.py                   # Blessing module (14 KB)
@@ -167,25 +167,31 @@ modules/
 ```
 
 **Key Files:**
-- **`radionics_operator.py`**: Full radionics broadcasting system (75 KB)
-- **`healing_dialogue.py`**: 5-phase healing dialogue container with DB persistence (33 KB)
+- **`radionics_operator.py`**: Full radionics broadcasting system — 1555 lines / 75 KB (largest module)
+- **`healing_dialogue.py`**: 5-phase healing dialogue container with DB persistence — 747 lines / 33 KB
 
 ## Frontend (`frontend/`)
 
-React/Vite web application with 3D visualizations (126 TypeScript/TSX files, 2 legacy JSX files).
+React/Vite web application with 3D visualizations (126 TypeScript/TSX files + 2 legacy JSX files in `routes/Sanctuary/`; 98 non-test source files).
 
 ```
 frontend/
 ├── src/
 │   ├── components/
-│   │   ├── 3D/                   # Three.js 3D components
+│   │   ├── 3D/                   # Three.js 3D components (6 .tsx files)
 │   │   │   ├── SacredGeometry.tsx
 │   │   │   ├── Astrocartography.tsx
 │   │   │   ├── CrystalGrid.tsx
 │   │   │   ├── SacredMandala.tsx
-│   │   │   └── RadionicsVisualization.tsx
-│   │   ├── 2D/                   # 2D Canvas components (.tsx)
-│   │   │   └── AudioSpectrum.tsx
+│   │   │   ├── RadionicsVisualization.tsx
+│   │   │   └── RadionicsGlobe.tsx
+│   │   ├── 2D/                   # 2D Canvas components (6 .tsx files)
+│   │   │   ├── AudioSpectrum.tsx
+│   │   │   ├── ChakraBodyMap.tsx
+│   │   │   ├── FrequencyWaterfall.tsx
+│   │   │   ├── LiveWaveVisualizer.tsx
+│   │   │   ├── RothkoGenerator.tsx
+│   │   │   └── ScalarWaveVisualizer.tsx
 │   │   └── UI/                   # Control panel components (50 .tsx files)
 │   │       ├── ControlPanel.tsx
 │   │       ├── SessionManager.tsx
@@ -214,7 +220,10 @@ frontend/
 │   │   └── useWebSocketStable.ts
 │   ├── stores/
 │   │   ├── audioStore.ts         # Audio state (Zustand)
-│   │   └── commandStore.ts       # Command state
+│   │   ├── commandStore.ts       # Command state
+│   │   ├── crystalStore.ts       # Crystal grid state
+│   │   ├── rateStore.ts          # Radionics rate state
+│   │   └── uiStore.ts            # UI state
 │   ├── lib/
 │   │   └── colors.js             # Brand color single source of truth
 │   ├── utils/
@@ -233,20 +242,24 @@ frontend/
 **Key Files:**
 - **`App.tsx`**: Main app structure with vertical layout (viz top, controls bottom)
 - **`components/UI/`**: 50 TypeScript control panel components
-- **`routes/`**: 7 grouped routes (Command Center, Practice, Cosmic Clock, Outlook, Operations, Grimoire, Settings); 5 route subdirectories on disk (Practice, Operations, Settings + tab-content dirs Sanctuary, Buddhas)
+- **`components/3D/`**: 6 Three.js visualization components
+- **`components/2D/`**: 6 Canvas-based visualization components
+- **`routes/`**: 5 route subdirectories on disk (Practice, Sanctuary, Buddhas, Operations, Settings) — 12 route files total; Sanctuary uses legacy `.jsx`
+- **`stores/`**: 5 Zustand stores (audio, command, crystal, rate, ui)
 - **`stores/audioStore.ts`**: Audio state management with API integration
 
 ## Routes (`frontend/src/routes/`)
 
-Route-level page components organized by feature area (consolidated from 12 routes).
+Route-level page components organized by feature area (5 subdirectories, 12 files total).
 
 ```
 frontend/src/routes/
-├── Practice/          # Core practice routes (blessings, healing, astrology, visualization)
-├── Sanctuary/         # Healing dialogue sanctuary with 5-phase container UI
-├── Buddhas/           # 88-Buddha recitation practice
-├── Operations/        # Radionics, scalar waves, MOPS, ritual engine
-└── Settings/          # Configuration, TTS settings, provider management
+├── Practice/          # Core practice routes (3 files: index.tsx, MeditationTab.tsx, VisualizerTab.tsx)
+├── Sanctuary/         # Healing dialogue sanctuary — 5-phase container UI (2 legacy .jsx files)
+├── Buddhas/           # 88-Buddha recitation practice (7 .tsx files: index, AudioSettings, DailyStreak,
+│                      #   DedicationText, IntentionEditor, SessionHistory, ShareExport)
+├── Operations/        # Radionics, scalar waves, MOPS, ritual engine (1 file: index.tsx)
+└── Settings/          # Configuration, TTS settings, provider management (1 file: index.tsx)
 ```
 
 ## Async LLM Layer (`core/llm/`, `core/context/`)
@@ -527,5 +540,5 @@ See:
 
 ---
 
-**Last Updated:** 2026-06-20
+**Last Updated:** 2026-06-28
 **Maintainer:** Vajra.Stream Development Team
