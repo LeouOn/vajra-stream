@@ -923,6 +923,7 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
 TOOL_HANDLERS: dict[str, str] = {
     "broadcast_healing": "radionics.broadcast_healing",
     "broadcast_liberation": "radionics.broadcast_liberation",
+    "prepare_crystal_broadcast": "operator.prepare_crystal_broadcast",
     "get_available_intentions": "radionics.get_available_intentions",
     "get_sacred_frequencies": "radionics.get_sacred_frequencies",
     "text_to_rate": "radionics_engine.text_to_rate",
