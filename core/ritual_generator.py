@@ -38,6 +38,8 @@ _SUFFERING_TO_SUTRA_TAGS: dict[str, list[str]] = {
     "displacement": ["impermanence", "protection"],
     "dedication_of_endeavors": ["dedication", "loss", "wealth", "money"],
     "universal": ["dedication", "emptiness", "generosity", "wisdom", "non_duality", "healing", "purification"],
+    "anger": ["patience", "forbearance", "anger", "transformation", "purification"],
+    "purification": ["purification", "confession", "karma", "renewal"],
 }
 
 # Map suffering_type → dharani_id in knowledge/dharanis.json.
@@ -51,6 +53,8 @@ _SUFFERING_TO_DHARANI: dict[str, str] = {
     "displacement": "amitabha_pure_land_dharani",     # Amitabha — refuge/rebirth
     "dedication_of_endeavors": "cundi_dharani",       # Cundi — wish-fulfilling/abundance
     "universal": "great_compassion_dharani",          # Universal compassion
+    "anger": "vajrasattva_hundred_syllable",          # Vajrasattva — purifies anger
+    "purification": "vajrasattva_hundred_syllable",   # Vajrasattva — the purification dharani
 }
 
 
@@ -215,6 +219,18 @@ class RitualGenerator:
             "mantra": "Om Dzambhala Dzalim Dzale Svaha",
             "quality": "transforming material resources into spiritual merit, abundance through generosity",
         },
+        "anger": {
+            "primary": "Vajrasattva (Diamond Being)",
+            "secondary": ["Green Tara (Swift Savior)", "Chenrezig (Avalokiteshvara)"],
+            "mantra": "Om Vajrasattva Hum",
+            "quality": "purification of anger, forgiveness, transforming hostility into compassion",
+        },
+        "purification": {
+            "primary": "Vajrasattva (Diamond Being)",
+            "secondary": ["Chenrezig (Avalokiteshvara)", "Medicine Buddha (Bhaisajyaguru)"],
+            "mantra": "Om Vajrasattva Hum",
+            "quality": "purification of negative karma, confession, karmic renewal",
+        },
     }
 
     # Tarot arcana for divination section
@@ -375,6 +391,10 @@ class RitualGenerator:
             return "death"
         if any(w in lower for w in ["refugee", "displaced", "homeless", "evacuee"]):
             return "displacement"
+        if any(w in lower for w in ["anger", "rage", "furious", "resentment", "grudge", "forgiveness", "enemy", "hostility", "hatred", "wrath", "bitter"]):
+            return "anger"
+        if any(w in lower for w in ["purification", "purify", "confession", "confess", "karma", "negative karma", "cleansing", "atone", "regret", "guilt", "mistake i", "wrong i"]):
+            return "purification"
         if any(w in lower for w in ["dedication", "endeavor", "endeavour", "resources", "money", "loss", "investment", "wealth", "offering", "all that i", "everything i"]):
             return "dedication_of_endeavors"
         return "universal"
@@ -516,6 +536,32 @@ I offer it all — without exception, without regret, without condition.
 May it bring lasting happiness for all beings throughout space and time.
 
 *Om Dzambhala Dzalim Dzale Svaha.*""",
+
+            "anger": f"""To all beings who burn with the fire of anger:
+
+To the one who is furious — may you see that this anger is not your enemy. It is a wave in the ocean of your mind. It arose from conditions, and it will pass. You do not need to act on it. You do not need to suppress it. Just watch it. Let it burn itself out in the space of awareness.
+
+To the one you are angry at — may they be free from suffering. May they be free from the conditions that caused them to harm you. They, too, are caught in the web of karma. They, too, are suffering. Your anger toward them does not hurt them — but it burns you.
+
+To the space between you — may forgiveness flower there. Not because what happened was acceptable, but because holding onto the coal of anger only burns your own hand. Forgiveness is not weakness. It is the courage to let go.
+
+To Vajrasattva — Diamond Being — may your purity cut through this anger like a diamond through glass. May the hundred-syllable mantra wash clean the karma of hostility. May what was rigid become fluid. May what was hot become cool. May what was weaponized become medicine.
+
+*Om Vajrasattva Hum.*""",
+
+            "purification": f"""To all beings who carry the weight of past actions:
+
+To the one who has done wrong — may you know that acknowledgment is the first step of purification. You are not your past. You are not your mistakes. The dharma does not ask you to forget — it asks you to transform.
+
+To the karma you have created — may it be seen, confessed, and released. Not hidden in shame, not justified in pride, but held honestly in the light of awareness. What is seen clearly begins to dissolve.
+
+To Vajrasattva — Diamond Being — may your hundred-syllable mantra be the water that washes the mirror of mind. May every syllable purify a layer of obscuration. May the diamond nature beneath all karma shine through.
+
+To the path ahead — may you walk it with the lightness of one who has been cleansed. Not with the heaviness of guilt, but with the clarity of wisdom. Not with the fear of repeating the past, but with the determination to create a different future.
+
+May all beings — every one of whom has been both harmed and harmer across countless lives — find the purification that leads to awakening.
+
+*Om Vajrasattva Hum.*""",
         }
         return prayers.get(suffering_type, prayers["universal"])
 
@@ -598,6 +644,58 @@ The merchant was silent.
 The merchant bowed. And from that day forward, whatever he earned — a little or a lot — he offered it all. Not because he was forced to, but because he understood that offering is the only use of wealth that cannot be taken away by storm or bandit or fire.
 
 This is the perfection of generosity: not giving because you have plenty, but giving because you understand that having and losing are the same dream.""",
+
+            "anger": """A monk came to his teacher, trembling with rage. "Someone has wronged me terribly," he said. "I cannot forgive them. The anger is eating me alive."
+
+The teacher said nothing. He went to the kitchen and returned with two pieces of coal — glowing red-hot from the fire. He placed one in his own hand, and offered the other to the monk.
+
+"Take it," the teacher said.
+
+The monk reached for it, then pulled back. "It's too hot! It will burn me!"
+
+"Yes," the teacher replied. "And you have been holding a hot coal in your mind for how many days now? You think it is burning the person who wronged you. But they are sleeping peacefully. You are the one with burns."
+
+The monk was silent.
+
+"The coal of anger," the teacher continued, placing his own piece back in the fire, "has a purpose. It can forge. It can illuminate. But only if you set it down and use it consciously. The one who holds it suffers. The one who sets it down and builds a fire with it — that one warms everyone around them."
+
+"What if I cannot set it down?" the monk asked.
+
+"Then practice," the teacher said. "Every day, try to hold it a little more loosely. Notice the space between you and the anger — the awareness that watches the anger but is not the anger. Rest in that space. Gradually, the anger will release itself."
+
+"And the person who wronged me?"
+
+"The Buddha said: 'Hatred does not cease by hatred, but by love alone.' You do not need to love what they did. You need to love yourself enough to let go of the coal."
+
+The monk bowed. And slowly, day by day, he opened his hand.""",
+
+            "purification": """A student asked the Master: "I have committed many wrong actions in my past. Can they ever be purified, or am I condemned to carry them forever?"
+
+The Master took the student to a river that flowed near the temple. The water was muddy, churned up by recent rains.
+
+"Look at this water," the Master said. "It is clouded now. But is the water itself impure? Or is it simply mixed with mud?"
+
+"The water itself is clear," the student replied. "It is mixed with mud."
+
+"And if we let it sit?" the Master asked.
+
+They waited. Gradually, the mud sank to the bottom. The water became clear again.
+
+"Your mind is like this water," the Master said. "The wrong actions you have committed are like mud. They cloud the mind, yes. But they are not the mind itself. The clear water — your buddha-nature — is always there, beneath the mud."
+
+"But how do I make the mud sink?" the student asked.
+
+"Confession," the Master said. "Not guilt — guilt stirs up the mud. Confession. Acknowledgment. The honest seeing of what you have done, without denial and without self-punishment. When you see clearly, the mud settles."
+
+"And Vajrasattva?"
+
+"Vajrasattva is the diamond that cuts through the mud. When you recite the hundred-syllable mantra with sincere heart, you are not asking a deity to fix you. You are invoking the diamond nature of your own mind — the part of you that has never been stained, that cannot be stained, that is already pure."
+
+"Already pure?" the student asked, confused.
+
+"The mud settles because it was never part of the water. Your karma settles because it was never part of you. It is a pattern, not a nature. Patterns change. Natures do not. Your nature is already awake."
+
+The student looked at the now-clear water and wept — not from guilt, but from relief.""",
         }
         return self._with_sutra(teachings.get(suffering_type, teachings["universal"]), suffering_type)
 
@@ -715,6 +813,34 @@ This is the perfection of generosity: not giving because you have plenty, but gi
 **5. The Abundance** — Not the abundance of bank accounts or portfolios, but the abundance of a heart that has nothing left to protect because it has already offered everything. This is true wealth — the wealth of Dzambhala, the Yellow Wealth Buddha, whose abundance is not measured in dollars but in the capacity to give without grasping.
 
 **6. The Return** — "Whether it comes back to me or not." This is the key phrase. The bodhisattva does not practice generosity to get something back. But the paradox is: when you truly stop grasping, abundance flows naturally — not because you demand it, but because the mind that doesn't cling is itself the greatest treasure. The return is not the money. The return is the awakened heart.""",
+
+            "anger": f"""**The Six Stages of the Journey Through Anger:**
+
+**1. The Fire** — Anger arises like a flame. It feels powerful, righteous, justified. The mind says: "This is correct. I SHOULD be angry." And maybe it is correct — maybe the anger is pointing to a real injustice. But the question is not whether anger is justified. The question is whether you want to carry the hot coal any longer.
+
+**2. The Pause** — Between the spark of anger and the act of retaliation, there is a gap. In that gap, everything is possible. The bodhisattva trains to find that gap — the breath, the moment of awareness, the space between stimulus and response. In that space, anger is seen rather than acted upon. And what is seen can be transformed.
+
+**3. The Great Work** — The practice of kṣānti, the perfection of patience. Not suppressing anger, but digesting it. Sitting with it until it reveals its teaching. Anger is often protecting something deeper — fear, grief, vulnerability. When you sit long enough, the anger shows you what it is guarding. And then you can address the root, not the symptom.
+
+**4. The Shadow Trial** — There comes a moment when the old pattern pulls strongly. The temptation to retaliate, to speak the sharp word, to send the cutting message. This is the trial. Not a test of willpower, but a test of remembrance — can you remember the gap? Can you remember the coal? Can you choose, in that moment, the path of patience over the path of reactivity?
+
+**5. The Release** — Forgiveness arrives not as a decision but as a natural unfolding. One day you notice the anger is lighter. Another day it is gone. You did not defeat it. You simply stopped feeding it, and it starved. The person who wronged you is still who they are — but you are no longer defined by what they did.
+
+**6. The Transformation** — The anger that burned you becomes the fuel for compassion. You understand suffering so deeply — your own and others' — that anger toward anyone feels like anger toward yourself. This is not weakness. This is the strength of one who has walked through fire and emerged luminous. The bodhisattva knows: every anger transformed is a being liberated.""",
+
+            "purification": f"""**The Six Stages of the Journey Through Purification:**
+
+**1. The Mirror** — You see yourself clearly. Not the self you present to others, but the self that has acted from ignorance, greed, and anger. The mirror is painful. But the mirror is also the first kindness — because without seeing, there is no transforming.
+
+**2. The Confession** — You acknowledge. Not to a priest or a judge, but to yourself and to the field of awareness. "This is what I have done. These are the causes and conditions that led to it." No excuses, no self-flagellation — just honest seeing. This seeing IS the beginning of purification.
+
+**3. The Great Work** — Vajrasattva practice. The hundred-syllable mantra. Each recitation washes a layer of obscuration from the mirror of mind. It is not magic — it is the systematic application of awareness to what was previously unconscious. What was hidden in darkness is brought to light, and in the light, it dissolves.
+
+**4. The Shadow Trial** — Guilt whispers: "You can never be clean. What you have done defines you." This is the Mara of self-hatred, the most subtle obstacle on the path. The response is not to argue with guilt, but to see through it: Guilt is just another pattern, another cloud passing through the sky of mind. It is not the sky itself.
+
+**5. The Clear Water** — The mud has settled. The water is clear. You realize it was always clear — the mud was just a visitor. This is the discovery of buddha-nature: the diamond beneath the dirt, the sky behind the clouds. You have not become someone new. You have simply reconnected with what you always were.
+
+**6. The Vow** — "Having been purified, I now purify all beings." The merit of purification is dedicated outward. Every mantra recited, every confession made, every moment of clear seeing — these become the medicine for all beings who also carry the weight of karma. The purified one becomes a source of purity for others. The clear water flows outward and nourishes the world.""",
         }
         return journeys.get(suffering_type, journeys["universal"])
 
