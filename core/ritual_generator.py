@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
 # Used by _select_sutra_passage() to pull a thematically relevant
 # passage from knowledge/sutra_passages.json.
 _SUFFERING_TO_SUTRA_TAGS: dict[str, list[str]] = {
-    "earthquake": ["protection", "disaster"],
-    "war": ["protection", "peace"],
-    "illness": ["healing"],
-    "death": ["impermanence", "emptiness"],
-    "displacement": ["impermanence"],
+    "earthquake": ["protection", "disaster", "healing"],
+    "war": ["protection", "peace", "patience", "purification"],
+    "illness": ["healing", "purification"],
+    "death": ["impermanence", "emptiness", "death", "ancestral", "liberation", "bardo", "wisdom"],
+    "displacement": ["impermanence", "protection"],
     "dedication_of_endeavors": ["dedication", "loss", "wealth", "money"],
-    "universal": ["dedication", "emptiness", "generosity"],
+    "universal": ["dedication", "emptiness", "generosity", "wisdom", "non_duality", "healing", "purification"],
 }
 
 # Map suffering_type → dharani_id in knowledge/dharanis.json.
