@@ -98,6 +98,43 @@ class RitualBroadcastResponse(BaseModel):
     archived_narrative_id: int | None = None
 
 
+class SutraRecitationRequest(BaseModel):
+    sutra_id: str | None = Field(
+        None,
+        description="Passage ID from sutra_passages.json (e.g., 'heart_sutra_essence', 'diamond_impermanence')",
+    )
+    theme: str | None = Field(
+        None,
+        description="Theme to select by if sutra_id is not given (protection, healing, dedication, impermanence, emptiness, loss)",
+    )
+    duration_minutes: int = Field(default=5, ge=1, le=60, description="Crystal bowl accompaniment duration")
+    rate_values: list[int] | None = Field(
+        None, description="Radionics dial values (0-100) mapped to Solfeggio carriers"
+    )
+    direct_freq: float | None = Field(
+        None, description="Direct carrier frequency in Hz (skips rate mapping)"
+    )
+    recite_with_tts: bool = Field(default=True, description="Generate TTS audio for the passage")
+    repeat_count: int = Field(default=1, ge=1, le=108, description="Times to recite (1, 3, 7, 108)")
+
+
+class SutraRecitationResponse(BaseModel):
+    status: str
+    session_id: str
+    sutra: str
+    sanskrit_name: str
+    chapter: str
+    theme: str
+    tags: list[str]
+    passage: str
+    passage_tts_friendly: str
+    context: str | None = None
+    frequencies: list[float]
+    solfeggio_names: list[str]
+    crystal_output: dict | None = None
+    tts_result: dict | None = None
+
+
 # Endpoints
 
 
@@ -438,6 +475,245 @@ async def ritual_broadcast(request: RitualBroadcastRequest):
         solfeggio_names=solfeggio_names,
         crystal_output=crystal_output,
         archived_narrative_id=narrative_id,
+    )
+
+
+@router.get("/sutras")
+async def list_sutras():
+    """List all available sutra passages for recitation.
+
+    Returns passages from knowledge/sutra_passages.json with their IDs,
+    themes, and tags so the caller can choose one for /sutra-recitation.
+    """
+    from core.ritual_generator import _load_sutra_db
+
+    db = _load_sutra_db()
+    passages = db.get("sutra_passages", [])
+    return {
+        "status": "success",
+        "total": len(passages),
+        "sutras": [
+            {
+                "id": p.get("id"),
+                "sutra": p.get("sutra"),
+                "sanskrit_name": p.get("sanskrit_name", ""),
+                "chapter": p.get("chapter", ""),
+                "theme": p.get("theme", ""),
+                "tags": p.get("tags", []),
+                "context": p.get("context", ""),
+            }
+            for p in passages
+        ],
+    }
+
+
+@router.post("/sutra-recitation", response_model=SutraRecitationResponse)
+async def sutra_recitation(request: SutraRecitationRequest):
+    """Recite a sutra passage with crystal bowl accompaniment and optional TTS.
+
+    Pipeline:
+        1. Select passage by ``sutra_id`` (exact) or ``theme`` (tag match)
+        2. Convert IAST Sanskrit → TTS-friendly phonetics
+        3. Resolve carrier frequencies (rate_values / direct_freq / auto-tune)
+        4. Start crystal bowl broadcast
+        5. Recite via TTS (optional, controlled by ``recite_with_tts``)
+
+    Each downstream stage is wrapped in try/except so the passage text and
+    TTS-friendly version are always returned, even if crystal broadcast or
+    TTS fail.
+    """
+    from core.ritual_generator import _load_sutra_db
+    from core.sanskrit_tts import preprocess_for_tts
+
+    logger.info(
+        f"📜 Sutra recitation: sutra_id={request.sutra_id}, theme={request.theme}, "
+        f"repeat={request.repeat_count}, tts={request.recite_with_tts}"
+    )
+
+    # ── Session id (best-effort via orchestrator; fallback to UUID) ────────
+    session_id = f"sutra_{uuid.uuid4().hex[:12]}"
+    try:
+        session_id = await orchestrator_bridge.create_session(
+            intention=f"sutra_recitation:{request.sutra_id or request.theme or 'auto'}",
+            targets=[{"type": "universal", "identifier": "all beings"}],
+            modalities=["sutra", "crystal_bowl"],
+            duration=request.duration_minutes * 60,
+        )
+    except Exception as exc:
+        logger.warning(f"orchestrator_bridge.create_session failed, using local id: {exc}")
+
+    # ── 1. Select passage ─────────────────────────────────────────────────
+    db = _load_sutra_db()
+    passages = db.get("sutra_passages", [])
+    if not passages:
+        raise HTTPException(status_code=503, detail="sutra_passages.json not available")
+
+    selected: dict | None = None
+    if request.sutra_id:
+        selected = next((p for p in passages if p.get("id") == request.sutra_id), None)
+        if selected is None:
+            available_ids = [p.get("id") for p in passages]
+            raise HTTPException(
+                status_code=404,
+                detail=f"sutra_id '{request.sutra_id}' not found. Available: {available_ids}",
+            )
+    else:
+        # Theme-based selection: score by tag overlap, pick from top tier
+        target_tags = {t.strip().lower() for t in (request.theme or "dedication").split(",")}
+        scored: list[tuple[int, dict]] = []
+        for p in passages:
+            passage_tags = {t.lower() for t in p.get("tags", [])}
+            overlap = len(passage_tags & target_tags)
+            if overlap > 0:
+                scored.append((overlap, p))
+        if not scored:
+            # Fall back to first passage
+            selected = passages[0]
+        else:
+            scored.sort(key=lambda kv: -kv[0])
+            top_score = scored[0][0]
+            top_tier = [p for score, p in scored if score == top_score]
+            import random as _random
+
+            selected = _random.choice(top_tier)
+
+    sutra = selected.get("sutra", "the Sutras")
+    sanskrit_name = selected.get("sanskrit_name", "")
+    chapter = selected.get("chapter", "")
+    theme = selected.get("theme", request.theme or "universal")
+    tags = selected.get("tags", [])
+    passage = selected.get("passage", "").strip()
+    context = selected.get("context", "").strip() or None
+
+    if not passage:
+        raise HTTPException(status_code=500, detail=f"Selected passage '{selected.get('id')}' has empty text")
+
+    # ── 2. Convert to TTS-friendly phonetics ──────────────────────────────
+    try:
+        passage_tts = preprocess_for_tts(passage)
+    except Exception as exc:
+        logger.warning(f"sanskrit_tts.preprocess_for_tts failed, using raw passage: {exc}")
+        passage_tts = passage
+
+    # ── 3. Resolve carrier frequencies ────────────────────────────────────
+    frequencies: list[float] = []
+    solfeggio_names: list[str] = []
+    carrier_amplitude: float = 0.3
+
+    try:
+        from core.rate_to_audio import map_rate_to_carriers
+
+        rate_values = request.rate_values
+        if not rate_values:
+            if request.direct_freq is not None:
+                frequencies = [7.83, float(request.direct_freq)]
+                solfeggio_names = ["Schumann Base", f"{float(request.direct_freq):.2f} Hz"]
+            else:
+                # Auto-tune from sutra theme + name
+                theme_freq_map = {
+                    "protection": 396,
+                    "healing": 528,
+                    "dedication": 639,
+                    "loss": 417,
+                    "impermanence": 852,
+                    "emptiness": 963,
+                    "generosity": 639,
+                }
+                auto_freq = theme_freq_map.get(theme, 528)
+                frequencies = [7.83, float(auto_freq)]
+                solfeggio_names = ["Schumann Base", f"{auto_freq} Hz"]
+        elif rate_values and not frequencies:
+            carriers = map_rate_to_carriers(rate_values, potency=1.0)
+            frequencies = list(carriers.frequencies)
+            solfeggio_names = list(carriers.solfeggio_names)
+            carrier_amplitude = carriers.amplitude
+    except Exception as exc:
+        logger.warning(f"Frequency resolution failed, using fallback [7.83, 528.0]: {exc}")
+        frequencies = [7.83, 528.0]
+        solfeggio_names = ["Schumann Base", "Mi (Transformation)"]
+
+    # ── 4. Crystal bowl broadcast (non-fatal) ─────────────────────────────
+    crystal_output: dict | None = None
+    try:
+        from container import container as _container
+
+        crystal_output = _container.crystal.broadcast_intention(
+            intention=f"Recitation of {sutra}",
+            frequencies=frequencies,
+            duration=request.duration_minutes * 60,
+            hardware_level=2,
+            prayer_bowl_mode=True,
+            amplitude=carrier_amplitude,
+        )
+    except Exception as exc:
+        logger.warning(f"Crystal broadcast failed (continuing without audio): {exc}")
+
+    # ── 5. TTS recitation (non-fatal) ─────────────────────────────────────
+    tts_result: dict | None = None
+    if request.recite_with_tts:
+        try:
+            from core.tts_provider import get_tts_provider
+
+            provider = get_tts_provider()
+            if provider is not None:
+                # Build the recitation text — may repeat the passage
+                recitation_text = (passage_tts + "\n\n") * request.repeat_count
+                recitation_text = recitation_text.strip()
+
+                tts_result = {
+                    "status": "queued",
+                    "text_length": len(recitation_text),
+                    "repeat_count": request.repeat_count,
+                    "provider": getattr(provider, "name", "unknown"),
+                }
+
+                # Fire-and-forget async recitation (same pattern as recite_ritual)
+                import asyncio as _asyncio
+
+                async def _speak():
+                    try:
+                        await provider.speak_async(recitation_text, role="dharma_teaching")
+                        tts_result["status"] = "completed"
+                    except Exception as exc:
+                        tts_result["status"] = "failed"
+                        tts_result["error"] = str(exc)
+
+                try:
+                    loop = _asyncio.get_running_loop()
+                    _asyncio.ensure_future(_speak())
+                except RuntimeError:
+                    # No running loop — run synchronously in a thread
+                    import threading
+
+                    def _run():
+                        try:
+                            _asyncio.run(_speak())
+                        except Exception as exc:
+                            tts_result["status"] = "failed"
+                            tts_result["error"] = str(exc)
+
+                    threading.Thread(target=_run, daemon=True).start()
+            else:
+                tts_result = {"status": "no_provider", "error": "TTS provider unavailable"}
+        except Exception as exc:
+            logger.warning(f"TTS recitation failed (continuing without audio): {exc}")
+            tts_result = {"status": "failed", "error": str(exc)}
+
+    return SutraRecitationResponse(
+        status="success",
+        session_id=session_id,
+        sutra=sutra,
+        sanskrit_name=sanskrit_name,
+        chapter=chapter,
+        theme=theme,
+        tags=tags,
+        passage=passage,
+        passage_tts_friendly=passage_tts,
+        context=context,
+        frequencies=frequencies,
+        solfeggio_names=solfeggio_names,
+        crystal_output=crystal_output,
+        tts_result=tts_result,
     )
 
 
