@@ -143,6 +143,12 @@ class RitualGenerator:
             "mantra": "Om Mani Padme Hum",
             "quality": "universal compassion, loving-kindness, liberation of all beings",
         },
+        "dedication_of_endeavors": {
+            "primary": "Dzambhala (Yellow Wealth Buddha)",
+            "secondary": ["Vaisravana (Wealth Protector)", "Chenrezig (Avalokiteshvara)", "Green Tara"],
+            "mantra": "Om Dzambhala Dzalim Dzale Svaha",
+            "quality": "transforming material resources into spiritual merit, abundance through generosity",
+        },
     }
 
     # Tarot arcana for divination section
@@ -194,6 +200,8 @@ class RitualGenerator:
             return "death"
         if any(w in lower for w in ["refugee", "displaced", "homeless", "evacuee"]):
             return "displacement"
+        if any(w in lower for w in ["dedication", "endeavor", "endeavour", "resources", "money", "loss", "investment", "wealth", "offering", "all that i", "everything i"]):
+            return "dedication_of_endeavors"
         return "universal"
 
     def generate_invocation(self, intention: str, tradition: str = "vajrayana") -> str:
@@ -292,6 +300,29 @@ To those who are dying — may the clear light appear. May you recognize it as y
 To those who have died — may you find swift passage. May the bardo be brief. May liberation be immediate.
 
 *Om Mani Padme Hum.*""",
+
+            "dedication_of_endeavors": f"""To all beings across all realms who have invested, spent, lost, and given:
+
+To whatever resources I have gathered and spent —
+whether in concentrated effort or scattered moments,
+whether for the benefit of others or from my own selfish needs,
+whether it returns to me or flows away forever —
+may every dollar, every hour, every breath of effort
+become a cause for the awakening of all beings.
+
+To the thousands lost — may they become thousands of prayers.
+To the time spent in confusion — may it become time spent in clarity.
+To every mistake — may it become a teaching.
+To every loss — may it become a liberation.
+
+May the fruit of all my endeavors — past, present, and future —
+ripens as happiness for mother sentient beings.
+Whether it comes back for me or not, may it bring good fruition.
+
+I offer it all — without exception, without regret, without condition.
+May it bring lasting happiness for all beings throughout space and time.
+
+*Om Dzambhala Dzalim Dzale Svaha.*""",
         }
         return prayers.get(suffering_type, prayers["universal"])
 
@@ -346,6 +377,34 @@ The monk bowed. And in that moment, the trembling stopped — not the earth's tr
 "Compassion is the seed. Wisdom is the water. Together they grow the bodhi tree under which all beings can rest. Do not wait for perfect understanding before you begin. Begin now, with whatever you have. The universe will meet you halfway."
 
 And the monks went forth, each one carrying compassion like a lamp into the darkness.""",
+
+            "dedication_of_endeavors": """A great merchant named Sadaprudita once traded across seven kingdoms. He amassed vast wealth — gold, silks, jewels beyond counting. He thought his wealth would bring him happiness, and for a time it did.
+
+One day, a great storm sank all his ships. Bandits raided his caravans. A fire consumed his warehouses. In a single week, he lost everything — thousands upon thousands of pieces of gold, a lifetime of accumulated effort.
+
+He sat in the ashes of his warehouse and wept. "All those years," he said. "All that work. All gone."
+
+An old monk passed by and asked: "What do you mourn?"
+
+"My wealth! My life's work! Gone in a week!"
+
+"Was it yours?" the monk asked gently.
+
+"Of course it was mine! I earned it with my own hands!"
+
+"Then where is it now? If it was truly yours, you should be able to call it back."
+
+The merchant was silent.
+
+"The wealth was never yours," the monk said. "It flowed through your hands for a time, that is all. What is truly yours is what you did with it while it passed through — the workers you fed, the temples you built, the beggars you turned away or welcomed. That karma, that is yours. The gold was just a visitor."
+
+"But I lost so much," the merchant whispered.
+
+"You lost nothing that was yours," the monk replied. "But you gained something invaluable: you now understand impermanence not as a concept, but as a lived experience. This understanding is worth more than all the gold in seven kingdoms. Now — take this understanding and dedicate the merit of everything you ever did, every coin you ever spent, to the liberation of all beings. The loss becomes the path."
+
+The merchant bowed. And from that day forward, whatever he earned — a little or a lot — he offered it all. Not because he was forced to, but because he understood that offering is the only use of wealth that cannot be taken away by storm or bandit or fire.
+
+This is the perfection of generosity: not giving because you have plenty, but giving because you understand that having and losing are the same dream.""",
         }
         return teachings.get(suffering_type, teachings["universal"])
 
@@ -449,6 +508,20 @@ And the monks went forth, each one carrying compassion like a lamp into the dark
 **5. The Golden Age** — The golden age is not a future utopia. It is the present moment seen clearly. When compassion flows without exception, every moment becomes golden. Every encounter becomes a meeting of buddhas.
 
 **6. The Infinite Return** — The bodhisattva vow has no end because it has no beginning. "However innumerable beings are, I vow to save them all." This is not hyperbole. It is the recognition that compassion is the nature of mind itself. It will continue as long as there is suffering — which is to say, it will continue forever. And that is not a tragedy. It is the beauty of the path.""",
+
+            "dedication_of_endeavors": f"""**The Six Stages of the Journey Through Loss and Offering:**
+
+**1. The Loss** — Something you gathered slips through your fingers. Money, time, effort, hope — concentrated or scattered, it doesn't matter. The form it took is gone. This is not failure. This is the first lesson in the dana-paramita, the perfection of generosity: that which can be lost was never truly held.
+
+**2. The Recognition** — You see clearly: everything invested — whether for others or for yourself, whether wisely or foolishly — was a transaction with impermanence. The loss is not punishment. It is simply the completion of a cycle. The question is not "why did I lose?" but "what do I do with the understanding that loss reveals?"
+
+**3. The Offering** — You take everything — the gains and the losses, the wisdom and the mistakes, the selfish hours and the generous ones — and you offer it all. Not to a deity outside yourself, but to the awakened nature within everything. "May all my endeavors — without exception — ripen as happiness for beings." This is the moment wealth transforms into merit.
+
+**4. The Transformation** — The offering changes both the giver and the gift. The $7,000 lost becomes 7,000 prayers. The time spent in confusion becomes time that taught clarity. The whittling-down of debt becomes the whittling-down of ego. What was loss is now practice. What was pain is now the path.
+
+**5. The Abundance** — Not the abundance of bank accounts or portfolios, but the abundance of a heart that has nothing left to protect because it has already offered everything. This is true wealth — the wealth of Dzambhala, the Yellow Wealth Buddha, whose abundance is not measured in dollars but in the capacity to give without grasping.
+
+**6. The Return** — "Whether it comes back to me or not." This is the key phrase. The bodhisattva does not practice generosity to get something back. But the paradox is: when you truly stop grasping, abundance flows naturally — not because you demand it, but because the mind that doesn't cling is itself the greatest treasure. The return is not the money. The return is the awakened heart.""",
         }
         return journeys.get(suffering_type, journeys["universal"])
 
@@ -533,6 +606,98 @@ And the monks went forth, each one carrying compassion like a lamp into the dark
             targets=targets,
             tradition=tradition,
         )
+
+    def recite_ritual(self, ritual: RitualText, tts_provider=None) -> dict:
+        """Queue TTS recitation of the ritual, section by section.
+
+        Splits the ritual into 6 sections by markdown headers and recites
+        each one sequentially. Designed to run simultaneously with the
+        crystal bowl broadcast — the voice becomes part of the resonance
+        field.
+
+        Returns immediately if TTS is unavailable. Does not block the caller.
+        If called from an async context, should be run in a background task.
+
+        Args:
+            ritual: The RitualText to recite.
+            tts_provider: Optional TTS provider. If None, tries to get the
+                         global provider from core.tts_provider.
+
+        Returns:
+            dict with sections_recited, status, and any errors.
+        """
+        import asyncio
+
+        result = {
+            "sections_recited": 0,
+            "status": "skipped",
+            "errors": [],
+        }
+
+        # Get TTS provider
+        provider = tts_provider
+        if provider is None:
+            try:
+                from core.tts_provider import get_tts_provider
+                provider = get_tts_provider()
+            except Exception:
+                pass
+
+        if provider is None:
+            result["status"] = "no_tts_provider"
+            result["errors"].append("TTS provider unavailable — broadcast continues silently")
+            return result
+
+        # Split ritual into sections by markdown headers
+        sections = [
+            ("Invocation", ritual.invocation),
+            ("Prayer", ritual.situational_prayer),
+            ("Teaching", ritual.dharma_teaching),
+            ("Divination", ritual.divination_correspondences),
+            ("Hero Journey", ritual.hero_journey),
+            ("Dedication", ritual.dedication),
+        ]
+
+        async def _recite():
+            for section_name, text in sections:
+                try:
+                    # Strip markdown formatting for cleaner speech
+                    clean = text.replace("**", "").replace("*", "").replace("#", "")
+                    clean = clean.replace("---", "").strip()
+
+                    if not clean:
+                        continue
+
+                    await provider.speak_async(
+                        clean,
+                        role="ritual_recitation",
+                    )
+                    result["sections_recited"] += 1
+
+                    # Brief pause between sections
+                    await asyncio.sleep(2)
+
+                except Exception as e:
+                    result["errors"].append(f"{section_name}: {e}")
+                    logger.warning(f"TTS recitation failed for {section_name}: {e}")
+
+            result["status"] = "completed" if result["sections_recited"] > 0 else "failed"
+
+        # Check if we're in an async context
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an async context — schedule the task
+            asyncio.ensure_future(_recite())
+            result["status"] = "queued"
+        except RuntimeError:
+            # No running loop — run synchronously
+            try:
+                asyncio.run(_recite())
+            except Exception as e:
+                result["status"] = "failed"
+                result["errors"].append(str(e))
+
+        return result
 
 
 __all__ = ["RitualGenerator", "RitualText"]
