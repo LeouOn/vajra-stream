@@ -68,6 +68,7 @@ class RitualBroadcastRequest(BaseModel):
     duration_minutes: int = Field(default=10, ge=1, le=180, description="Broadcast duration in minutes")
     ritual_type: str = Field(default="universal", description="Ritual archetype (universal, earthquake, war, illness, death, displacement, dedication_of_endeavors)")
     tradition: str = Field(default="vajrayana", description="Liturgical tradition (vajrayana, theravada, mahayana, zen)")
+    recite_with_tts: bool = Field(default=True, description="Speak the ritual via TTS (Sanskrit preprocessed for pronunciation)")
 
 
 # Response Models
@@ -96,6 +97,7 @@ class RitualBroadcastResponse(BaseModel):
     solfeggio_names: list[str]
     crystal_output: dict | None = None
     archived_narrative_id: int | None = None
+    tts_result: dict | None = None
 
 
 class SutraRecitationRequest(BaseModel):
@@ -467,6 +469,20 @@ async def ritual_broadcast(request: RitualBroadcastRequest):
     except Exception as exc:
         logger.warning(f"Failed to archive ritual to outlook_narratives: {exc}")
 
+    # ── 6. TTS recitation (non-fatal, fire-and-forget) ────────────────────
+    tts_result: dict | None = None
+    if request.recite_with_tts:
+        try:
+            # recite_ritual() needs the RitualText object (not just markdown).
+            # It splits into 6 sections, preprocesses Sanskrit via sanskrit_tts,
+            # and speaks each section via the TTS provider. Runs async.
+            tts_result = ritual_gen.recite_ritual(ritual)
+            logger.info(f"TTS recitation: {tts_result.get('status', 'unknown')} "
+                        f"({tts_result.get('sections_recited', 0)} sections)")
+        except Exception as exc:
+            logger.warning(f"TTS recitation failed (ritual text still returned): {exc}")
+            tts_result = {"status": "failed", "error": str(exc)}
+
     return RitualBroadcastResponse(
         status="success",
         session_id=session_id,
@@ -475,6 +491,7 @@ async def ritual_broadcast(request: RitualBroadcastRequest):
         solfeggio_names=solfeggio_names,
         crystal_output=crystal_output,
         archived_narrative_id=narrative_id,
+        tts_result=tts_result,
     )
 
 
