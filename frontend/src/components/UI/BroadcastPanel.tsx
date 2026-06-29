@@ -8,7 +8,7 @@
  * @component
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity, Radio as RadioIcon, Sparkles, Copy, BookOpen } from 'lucide-react';
+import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity, Radio as RadioIcon, Sparkles, Copy, BookOpen, Flower2 } from 'lucide-react';
 import { message, Select, Tag } from 'antd';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
@@ -76,6 +76,37 @@ interface SutraResult {
   tts_result: { status: string; error?: string } | null;
 }
 
+interface DharaniEntry {
+  id: string;
+  name: string;
+  sanskrit: string;
+  deity: string;
+  tradition: string;
+  purpose: string;
+  frequency_hz: number;
+  chakra: string;
+  has_sanskrit: boolean;
+  text_sanskrit_preview: string;
+}
+
+interface DharaniResult {
+  status: string;
+  session_id: string;
+  dharani_id: string;
+  name: string;
+  sanskrit_name: string;
+  deity: string;
+  purpose: string;
+  frequency_hz: number;
+  chakra: string;
+  passage: string;
+  passage_tts_friendly: string;
+  frequencies: number[];
+  solfeggio_names: string[];
+  crystal_output?: { status?: string; error?: string } | null;
+  tts_result?: { status?: string; error?: string } | null;
+}
+
 interface Props {}
 
 const BroadcastPanel: React.FC<Props> = (_props: Props) => {
@@ -136,6 +167,13 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [isSutraReciting, setIsSutraReciting] = useState<boolean>(false);
   const [sutraResult, setSutraResult] = useState<SutraResult | null>(null);
 
+  // Dharani recitation state
+  const [dharaniList, setDharaniList] = useState<DharaniEntry[]>([]);
+  const [selectedDharaniId, setSelectedDharaniId] = useState<string>('');
+  const [dharaniRepeatCount, setDharaniRepeatCount] = useState<number>(1);
+  const [isDharaniReciting, setIsDharaniReciting] = useState<boolean>(false);
+  const [dharaniResult, setDharaniResult] = useState<DharaniResult | null>(null);
+
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
   // Load target lock and populations on mount — do NOT auto-forge sigils
@@ -157,6 +195,14 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     fetch('/api/v1/radionics/sutras')
       .then(res => res.ok ? res.json() : null)
       .then(data => { if (data?.sutras) setSutraList(data.sutras); })
+      .catch(() => {});
+  }, []);
+
+  // Fetch available dharanis on mount
+  useEffect(() => {
+    fetch('/api/v1/radionics/dharanis')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.dharanis) setDharaniList(data.dharanis); })
       .catch(() => {});
   }, []);
 
@@ -368,6 +414,32 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       audioFeedback.playError();
     } finally {
       setIsSutraReciting(false);
+    }
+  };
+
+  // ─── Dharani recitation (TTS recitation + crystal bowl accompaniment) ────
+  const handleDharaniRecitation = async () => {
+    if (!selectedDharaniId) return;
+    setIsDharaniReciting(true);
+    setDharaniResult(null);
+    audioFeedback.playTelemetry();
+    try {
+      const url = `/api/v1/radionics/dharani-recitation?dharani_id=${encodeURIComponent(selectedDharaniId)}&duration_minutes=5&recite_with_tts=true&repeat_count=${dharaniRepeatCount}`;
+      const response = await fetch(url, { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        setDharaniResult(data as DharaniResult);
+        audioFeedback.playSuccess();
+        message.success(`Reciting ${data.name}`);
+      } else {
+        message.error(`Dharani recitation failed: HTTP ${response.status}`);
+        audioFeedback.playError();
+      }
+    } catch (e) {
+      message.error('Dharani error: ' + (e instanceof Error ? e.message : String(e)));
+      audioFeedback.playError();
+    } finally {
+      setIsDharaniReciting(false);
     }
   };
 
@@ -1374,6 +1446,183 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             )}
             {sutraResult.solfeggio_names && sutraResult.solfeggio_names.length > 0 && (
               <span>Solfeggio: {sutraResult.solfeggio_names.join(', ')}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ================= DHARANI RECITATION (TTS + crystal bowl accompaniment) ================= */}
+      <div className="bg-gradient-to-br from-indigo-950/20 to-violet-950/20 rounded-xl border border-indigo-500/20 p-5 space-y-4 mt-6">
+        <h3 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
+          <Flower2 className="w-4 h-4 text-indigo-400" />
+          DHARANI RECITATION
+        </h3>
+
+        <p className="text-[10px] text-gray-400">
+          Recite a protective dharani (Great Compassion, Ushnisha Vijaya, Vajrasattva 100-syllable, Cundi,
+          Shurangama, Medicine Buddha, Green Tara, Guru Rinpoche, Heart Sutra, Amitabha, Manjushri,
+          Prajnaparamita) with crystal bowl accompaniment. Each dharani is dedicated to a specific deity
+          and tuned to a particular frequency and chakra.
+        </p>
+
+        {/* Dharani + repeat count row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Dharani</label>
+            <Select
+              value={selectedDharaniId || undefined}
+              onChange={(v) => setSelectedDharaniId(v ?? '')}
+              placeholder={dharaniList.length === 0 ? 'Loading dharanis…' : 'Select a dharani'}
+              className="w-full"
+              size="small"
+              allowClear
+              disabled={dharaniList.length === 0}
+              options={dharaniList.map((d) => ({
+                value: d.id,
+                label: `${d.name} — ${d.deity}`,
+              }))}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Repeat Count</label>
+            <Select
+              value={dharaniRepeatCount}
+              onChange={(v) => setDharaniRepeatCount(v)}
+              className="w-full"
+              size="small"
+              options={[
+                { value: 1, label: '1 ×' },
+                { value: 3, label: '3 ×' },
+                { value: 7, label: '7 ×' },
+                { value: 21, label: '21 ×' },
+                { value: 108, label: '108 ×' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Selected dharani info tags */}
+        {selectedDharaniId && (() => {
+          const selected = dharaniList.find((d) => d.id === selectedDharaniId);
+          if (!selected) return null;
+          return (
+            <div className="bg-black/30 rounded-lg border border-indigo-500/10 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase text-indigo-300">{selected.name}</span>
+                <span className="text-[9px] font-mono text-gray-500">{selected.tradition}</span>
+              </div>
+              {selected.sanskrit && (
+                <div className="text-[10px] font-mono italic text-indigo-300/70">{selected.sanskrit}</div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Tag color="purple" className="text-[9px] font-mono">Deity: {selected.deity}</Tag>
+                {selected.chakra && (
+                  <Tag color="geekblue" className="text-[9px] font-mono">Chakra: {selected.chakra}</Tag>
+                )}
+                {selected.frequency_hz && (
+                  <Tag color="magenta" className="text-[9px] font-mono">{selected.frequency_hz} Hz</Tag>
+                )}
+              </div>
+              {selected.purpose && (
+                <div className="text-[10px] text-gray-400 italic">{selected.purpose}</div>
+              )}
+              {selected.text_sanskrit_preview && (
+                <div className="text-[9px] text-gray-500 italic pt-2 border-t border-white/5">
+                  Sanskrit preview: {selected.text_sanskrit_preview}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Recite button */}
+        <button
+          onClick={handleDharaniRecitation}
+          disabled={isDharaniReciting || !selectedDharaniId}
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-2"
+        >
+          {isDharaniReciting ? (
+            <><Activity className="w-3.5 h-3.5 animate-spin" /> Reciting…</>
+          ) : (
+            <><Flower2 className="w-3.5 h-3.5 text-indigo-200" /> Recite Dharani</>
+          )}
+        </button>
+
+        {/* Passage display */}
+        {dharaniResult && dharaniResult.passage && (
+          <div className="bg-black/40 rounded-lg border border-indigo-500/10 p-4 max-h-[400px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[9px] font-mono uppercase text-indigo-400">
+                {dharaniResult.name}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => navigator.clipboard.writeText(dharaniResult.passage)}
+                  className="text-[9px] text-gray-500 hover:text-indigo-400"
+                >
+                  <Copy className="w-3 h-3 inline" /> Copy
+                </button>
+              </div>
+            </div>
+            {dharaniResult.sanskrit_name && (
+              <div className="text-[9px] font-mono italic text-indigo-300/70 mb-2">{dharaniResult.sanskrit_name}</div>
+            )}
+            {(dharaniResult.deity || dharaniResult.purpose || dharaniResult.chakra) && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {dharaniResult.deity && (
+                  <Tag color="purple" className="text-[9px] font-mono">Deity: {dharaniResult.deity}</Tag>
+                )}
+                {dharaniResult.chakra && (
+                  <Tag color="geekblue" className="text-[9px] font-mono">Chakra: {dharaniResult.chakra}</Tag>
+                )}
+                {dharaniResult.frequency_hz && (
+                  <Tag color="magenta" className="text-[9px] font-mono">{dharaniResult.frequency_hz} Hz</Tag>
+                )}
+              </div>
+            )}
+            {dharaniResult.purpose && (
+              <div className="text-[9px] text-gray-500 mb-2 italic">{dharaniResult.purpose}</div>
+            )}
+            <pre className="text-[11px] text-gray-300 whitespace-pre-wrap font-serif leading-relaxed">
+              {dharaniResult.passage}
+            </pre>
+          </div>
+        )}
+
+        {/* TTS-friendly version (collapsible) */}
+        {dharaniResult && dharaniResult.passage_tts_friendly && dharaniResult.passage_tts_friendly !== dharaniResult.passage && (
+          <details className="bg-black/30 rounded-lg border border-indigo-500/10">
+            <summary className="px-3 py-2 text-[10px] font-mono uppercase text-indigo-400 cursor-pointer hover:text-indigo-300">
+              TTS-Friendly Phonetic Version
+            </summary>
+            <div className="px-3 pb-3">
+              <pre className="text-[10px] text-gray-400 whitespace-pre-wrap font-mono leading-relaxed">
+                {dharaniResult.passage_tts_friendly}
+              </pre>
+            </div>
+          </details>
+        )}
+
+        {/* Status footer */}
+        {dharaniResult && (
+          <div className="flex items-center gap-3 text-[10px] text-gray-500 flex-wrap">
+            <Tag color={dharaniResult.status === 'success' ? 'green' : 'orange'}>{dharaniResult.status}</Tag>
+            {dharaniResult.session_id && (
+              <span className="font-mono">Session: {dharaniResult.session_id.slice(0, 8)}</span>
+            )}
+            <Tag color={dharaniResult.crystal_output?.status === 'active' ? 'green' : 'orange'}>
+              Crystal: {dharaniResult.crystal_output?.status ?? 'N/A'}
+            </Tag>
+            {dharaniResult.tts_result && (
+              <Tag color={dharaniResult.tts_result.status === 'success' ? 'green' : 'orange'}>
+                TTS: {dharaniResult.tts_result.status}
+              </Tag>
+            )}
+            {dharaniResult.frequencies && dharaniResult.frequencies.length > 0 && (
+              <span>Frequencies: {dharaniResult.frequencies.map((f) => f.toFixed(1)).join(', ')} Hz</span>
+            )}
+            {dharaniResult.solfeggio_names && dharaniResult.solfeggio_names.length > 0 && (
+              <span>Solfeggio: {dharaniResult.solfeggio_names.join(', ')}</span>
             )}
           </div>
         )}
