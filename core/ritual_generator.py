@@ -16,13 +16,47 @@ Works with or without an LLM — rich fallback templates when unavailable.
 """
 from __future__ import annotations
 
+import json
 import logging
 import random
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Map suffering_type → sutra theme/tags for passage selection.
+# Used by _select_sutra_passage() to pull a thematically relevant
+# passage from knowledge/sutra_passages.json.
+_SUFFERING_TO_SUTRA_TAGS: dict[str, list[str]] = {
+    "earthquake": ["protection", "disaster"],
+    "war": ["protection", "peace"],
+    "illness": ["healing"],
+    "death": ["impermanence", "emptiness"],
+    "displacement": ["impermanence"],
+    "dedication_of_endeavors": ["dedication", "loss", "wealth", "money"],
+    "universal": ["dedication", "emptiness", "generosity"],
+}
+
+
+@lru_cache(maxsize=1)
+def _load_sutra_db() -> dict:
+    """Load knowledge/sutra_passages.json once (cached for the session).
+
+    Returns the parsed JSON dict. Empty dict on missing/corrupt file so
+    callers can fall back gracefully without a ritual-blocking exception.
+    """
+    path = Path(__file__).resolve().parent.parent / "knowledge" / "sutra_passages.json"
+    if not path.exists():
+        logger.debug("sutra_passages.json not found at %s", path)
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to load sutra_passages.json: %s", exc)
+        return {}
 
 
 @dataclass
@@ -187,6 +221,75 @@ class RitualGenerator:
         self.llm = llm
         self._rng = random.Random()
 
+    def _select_sutra_passage(self, suffering_type: str) -> str | None:
+        """Select a thematically relevant sutra passage for the suffering type.
+
+        Loads knowledge/sutra_passages.json, maps suffering_type → theme tags,
+        and returns one matching passage formatted for inclusion in a ritual.
+        Returns None if no passage matches or the DB is unavailable.
+
+        Args:
+            suffering_type: One of the keys returned by detect_suffering_type().
+
+        Returns:
+            Formatted passage string (header + passage + context), or None.
+        """
+        db = _load_sutra_db()
+        if not db:
+            return None
+
+        passages = db.get("sutra_passages", [])
+        if not passages:
+            return None
+
+        target_tags = set(_SUFFERING_TO_SUTRA_TAGS.get(suffering_type, ["dedication"]))
+
+        # Score each passage by tag overlap with the target tags.
+        # Keep only passages that share at least one tag.
+        scored: list[tuple[int, dict]] = []
+        for p in passages:
+            passage_tags = set(p.get("tags", []))
+            overlap = len(passage_tags & target_tags)
+            if overlap > 0:
+                scored.append((overlap, p))
+
+        if not scored:
+            return None
+
+        # Prefer higher-scoring passages; pick randomly among the top tier.
+        scored.sort(key=lambda kv: -kv[0])
+        top_score = scored[0][0]
+        top_tier = [p for score, p in scored if score == top_score]
+        chosen = self._rng.choice(top_tier)
+
+        sutra_name = chosen.get("sutra", "the Sutras")
+        chapter = chosen.get("chapter", "")
+        passage = chosen.get("passage", "").strip()
+        context = chosen.get("context", "").strip()
+
+        header = f"**From {sutra_name}"
+        if chapter:
+            header += f" — {chapter}"
+        header += ":**"
+
+        parts = [header, "", passage]
+        if context:
+            parts.extend(["", f"_{context}_"])
+
+        return "\n".join(parts)
+
+    def _with_sutra(self, teaching: str, suffering_type: str) -> str:
+        """Append a thematically matched sutra passage to a teaching.
+
+        If no passage matches (DB missing or no tag overlap), returns the
+        teaching unchanged. Used by generate_dharma_teaching() so both the
+        LLM path and the fallback path receive the same sutra enrichment.
+        """
+        sutra = self._select_sutra_passage(suffering_type)
+        if sutra:
+            return f"{teaching}\n\n{sutra}"
+        return teaching
+
     def detect_suffering_type(self, intention: str) -> str:
         """Detect the type of suffering from the intention text."""
         lower = intention.lower()
@@ -346,7 +449,7 @@ May it bring lasting happiness for all beings throughout space and time.
                     )
                     result = llm.generate(prompt=prompt, system_prompt="You are a wise dharma teacher.", max_tokens=400, temperature=0.7)
                     if result and len(result.strip()) > 100:
-                        return result.strip()
+                        return self._with_sutra(result.strip(), suffering_type)
             except Exception as e:
                 logger.warning(f"LLM teaching generation failed: {e}")
 
@@ -406,7 +509,7 @@ The merchant bowed. And from that day forward, whatever he earned — a little o
 
 This is the perfection of generosity: not giving because you have plenty, but giving because you understand that having and losing are the same dream.""",
         }
-        return teachings.get(suffering_type, teachings["universal"])
+        return self._with_sutra(teachings.get(suffering_type, teachings["universal"]), suffering_type)
 
     def generate_divination(self, intention: str, astrology_data: dict | None = None) -> str:
         """Generate divination correspondences: astrology + tarot + I Ching."""
@@ -659,6 +762,12 @@ This is the perfection of generosity: not giving because you have plenty, but gi
         ]
 
         async def _recite():
+            # Lazy import — avoids circular dependency and loads only when TTS runs
+            try:
+                from core.sanskrit_tts import preprocess_for_tts
+            except ImportError:
+                preprocess_for_tts = None  # type: ignore[assignment]
+
             for section_name, text in sections:
                 try:
                     # Strip markdown formatting for cleaner speech
@@ -667,6 +776,12 @@ This is the perfection of generosity: not giving because you have plenty, but gi
 
                     if not clean:
                         continue
+
+                    # Convert IAST Sanskrit → English phonetics so TTS can
+                    # pronounce mantras and seed syllables correctly.
+                    # (e.g., "Oṃ Maṇi Padme Hūṃ" → "Ohm Muh-nee Pud-may Hoom")
+                    if preprocess_for_tts is not None:
+                        clean = preprocess_for_tts(clean)
 
                     await provider.speak_async(
                         clean,
