@@ -8,7 +8,7 @@
  * @component
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity, Radio as RadioIcon, Sparkles, Copy } from 'lucide-react';
+import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity, Radio as RadioIcon, Sparkles, Copy, BookOpen } from 'lucide-react';
 import { message, Select, Tag } from 'antd';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
@@ -57,6 +57,23 @@ interface SessionEntry {
   intention?: string;
   status?: string;
   [key: string]: unknown;
+}
+
+interface SutraResult {
+  status: string;
+  session_id: string;
+  sutra: string;
+  sanskrit_name: string;
+  chapter: string;
+  theme: string;
+  tags: string[];
+  passage: string;
+  passage_tts_friendly: string;
+  context: string;
+  frequencies: number[];
+  solfeggio_names: string[];
+  crystal_output: { status: string; error?: string } | null;
+  tts_result: { status: string; error?: string } | null;
 }
 
 interface Props {}
@@ -109,6 +126,16 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [ritualMarkdown, setRitualMarkdown] = useState<string>('');
   const [ritualResult, setRitualResult] = useState<any>(null);
 
+  // Sutra recitation state
+  const [sutraList, setSutraList] = useState<Array<{
+    id: string; sutra: string; sanskrit_name: string; chapter: string; theme: string; tags: string[];
+  }>>([]);
+  const [selectedSutraId, setSelectedSutraId] = useState<string>('');
+  const [selectedTheme, setSelectedTheme] = useState<string>('dedication');
+  const [sutraRepeatCount, setSutraRepeatCount] = useState<number>(1);
+  const [isSutraReciting, setIsSutraReciting] = useState<boolean>(false);
+  const [sutraResult, setSutraResult] = useState<SutraResult | null>(null);
+
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
   // Load target lock and populations on mount — do NOT auto-forge sigils
@@ -124,6 +151,14 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   useEffect(() => {
     if (isConnected) fetchPopulations();
   }, [isConnected, fetchPopulations]);
+
+  // Fetch available sutras on mount
+  useEffect(() => {
+    fetch('/api/v1/radionics/sutras')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.sutras) setSutraList(data.sutras); })
+      .catch(() => {});
+  }, []);
 
   const forgeUserSigil = async () => {
     if (!sigilIntention.trim() || isForging) return;
@@ -297,8 +332,42 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     } catch (e) {
       message.error('Ritual error: ' + (e instanceof Error ? e.message : String(e)));
       audioFeedback.playError();
+} finally {
+    setIsRitualGenerating(false);
+  }
+};
+
+  // ─── Sutra recitation (TTS recitation + crystal bowl accompaniment) ────
+  const handleSutraRecitation = async () => {
+    setIsSutraReciting(true);
+    setSutraResult(null);
+    audioFeedback.playTelemetry();
+    try {
+      const response = await fetch('/api/v1/radionics/sutra-recitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sutra_id: selectedSutraId || null,
+          theme: selectedSutraId ? null : selectedTheme,
+          duration_minutes: 5,
+          recite_with_tts: true,
+          repeat_count: sutraRepeatCount,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSutraResult(data as SutraResult);
+        audioFeedback.playSuccess();
+        message.success(`Reciting ${data.sutra} — ${data.chapter}`);
+      } else {
+        message.error(`Sutra recitation failed: HTTP ${response.status}`);
+        audioFeedback.playError();
+      }
+    } catch (e) {
+      message.error('Sutra error: ' + (e instanceof Error ? e.message : String(e)));
+      audioFeedback.playError();
     } finally {
-      setIsRitualGenerating(false);
+      setIsSutraReciting(false);
     }
   };
 
@@ -1153,6 +1222,158 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             )}
             {ritualResult.archived_narrative_id && (
               <span>Archived: #{ritualResult.archived_narrative_id}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ================= SUTRA RECITATION (TTS + crystal bowl accompaniment) ================= */}
+      <div className="bg-gradient-to-br from-teal-950/20 to-emerald-950/20 rounded-xl border border-teal-500/20 p-5 space-y-4 mt-6">
+        <h3 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
+          <BookOpen className="w-4 h-4 text-teal-400" />
+          SUTRA RECITATION
+        </h3>
+
+        <p className="text-[10px] text-gray-400">
+          Recite a Buddhist sutra passage (Heart Sutra, Diamond Sutra, Arya Sanghata, Golden Light, Vimalakirti)
+          with crystal bowl accompaniment. Select a specific sutra by ID, or pick a theme for automatic passage selection.
+        </p>
+
+        {/* Sutra + theme + repeat row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Sutra</label>
+            <Select
+              value={selectedSutraId || undefined}
+              onChange={(v) => setSelectedSutraId(v ?? '')}
+              placeholder={sutraList.length === 0 ? 'Loading sutras…' : 'Select a sutra'}
+              className="w-full"
+              size="small"
+              allowClear
+              disabled={sutraList.length === 0}
+              options={sutraList.map((s) => ({
+                value: s.id,
+                label: `${s.sutra} — ${s.chapter}`,
+              }))}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Theme</label>
+            <Select
+              value={selectedTheme}
+              onChange={(v) => setSelectedTheme(v)}
+              className="w-full"
+              size="small"
+              disabled={!!selectedSutraId}
+              options={[
+                { value: 'protection', label: 'Protection' },
+                { value: 'healing', label: 'Healing' },
+                { value: 'dedication', label: 'Dedication' },
+                { value: 'impermanence', label: 'Impermanence' },
+                { value: 'emptiness', label: 'Emptiness' },
+                { value: 'loss', label: 'Loss' },
+              ]}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Repeat Count</label>
+            <Select
+              value={sutraRepeatCount}
+              onChange={(v) => setSutraRepeatCount(v)}
+              className="w-full"
+              size="small"
+              options={[
+                { value: 1, label: '1 ×' },
+                { value: 3, label: '3 ×' },
+                { value: 7, label: '7 ×' },
+                { value: 108, label: '108 ×' },
+              ]}
+            />
+          </div>
+        </div>
+
+        {/* Recite button */}
+        <button
+          onClick={handleSutraRecitation}
+          disabled={isSutraReciting}
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-2"
+        >
+          {isSutraReciting ? (
+            <><Activity className="w-3.5 h-3.5 animate-spin" /> Reciting…</>
+          ) : (
+            <><BookOpen className="w-3.5 h-3.5 text-teal-200" /> Recite Sutra</>
+          )}
+        </button>
+
+        {/* Passage display */}
+        {sutraResult && sutraResult.passage && (
+          <div className="bg-black/40 rounded-lg border border-teal-500/10 p-4 max-h-[400px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[9px] font-mono uppercase text-teal-400">
+                {sutraResult.sutra} — {sutraResult.chapter}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => navigator.clipboard.writeText(sutraResult.passage)}
+                  className="text-[9px] text-gray-500 hover:text-teal-400"
+                >
+                  <Copy className="w-3 h-3 inline" /> Copy
+                </button>
+              </div>
+            </div>
+            {sutraResult.sanskrit_name && (
+              <div className="text-[9px] font-mono italic text-teal-300/70 mb-2">{sutraResult.sanskrit_name}</div>
+            )}
+            {sutraResult.context && (
+              <div className="text-[9px] text-gray-500 mb-2 italic">{sutraResult.context}</div>
+            )}
+            <pre className="text-[11px] text-gray-300 whitespace-pre-wrap font-serif leading-relaxed">
+              {sutraResult.passage}
+            </pre>
+            {sutraResult.tags && sutraResult.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-white/5">
+                {sutraResult.tags.map((tag, i) => (
+                  <Tag key={i} color="cyan" className="text-[9px] font-mono">{tag}</Tag>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TTS-friendly version (collapsible) */}
+        {sutraResult && sutraResult.passage_tts_friendly && sutraResult.passage_tts_friendly !== sutraResult.passage && (
+          <details className="bg-black/30 rounded-lg border border-teal-500/10">
+            <summary className="px-3 py-2 text-[10px] font-mono uppercase text-teal-400 cursor-pointer hover:text-teal-300">
+              TTS-Friendly Phonetic Version
+            </summary>
+            <div className="px-3 pb-3">
+              <pre className="text-[10px] text-gray-400 whitespace-pre-wrap font-mono leading-relaxed">
+                {sutraResult.passage_tts_friendly}
+              </pre>
+            </div>
+          </details>
+        )}
+
+        {/* Status footer */}
+        {sutraResult && (
+          <div className="flex items-center gap-3 text-[10px] text-gray-500 flex-wrap">
+            <Tag color={sutraResult.status === 'success' ? 'green' : 'orange'}>{sutraResult.status}</Tag>
+            {sutraResult.session_id && (
+              <span className="font-mono">Session: {sutraResult.session_id.slice(0, 8)}</span>
+            )}
+            <Tag color={sutraResult.crystal_output?.status === 'active' ? 'green' : 'orange'}>
+              Crystal: {sutraResult.crystal_output?.status ?? 'N/A'}
+            </Tag>
+            {sutraResult.tts_result && (
+              <Tag color={sutraResult.tts_result.status === 'success' ? 'green' : 'orange'}>
+                TTS: {sutraResult.tts_result.status}
+              </Tag>
+            )}
+            {sutraResult.frequencies && sutraResult.frequencies.length > 0 && (
+              <span>Frequencies: {sutraResult.frequencies.map((f) => f.toFixed(1)).join(', ')} Hz</span>
+            )}
+            {sutraResult.solfeggio_names && sutraResult.solfeggio_names.length > 0 && (
+              <span>Solfeggio: {sutraResult.solfeggio_names.join(', ')}</span>
             )}
           </div>
         )}
