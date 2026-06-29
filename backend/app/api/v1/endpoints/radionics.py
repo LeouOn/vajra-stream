@@ -478,6 +478,204 @@ async def ritual_broadcast(request: RitualBroadcastRequest):
     )
 
 
+@router.get("/dharanis")
+async def list_dharanis():
+    """List all available dharanis for recitation.
+
+    Returns entries from knowledge/dharanis.json with their IDs, deity,
+    purpose, frequency, and IAST Sanskrit text so the caller can choose
+    one for /dharani-recitation.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    path = _Path(__file__).resolve().parent.parent.parent.parent.parent / "knowledge" / "dharanis.json"
+    if not path.exists():
+        return {"status": "error", "detail": "dharanis.json not found", "dharanis": []}
+    try:
+        entries = _json.loads(path.read_text(encoding="utf-8"))
+    except (_json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to parse dharanis.json: {exc}")
+
+    return {
+        "status": "success",
+        "total": len(entries),
+        "dharanis": [
+            {
+                "id": e.get("id"),
+                "name": e.get("name"),
+                "sanskrit": e.get("sanskrit", ""),
+                "deity": e.get("deity", ""),
+                "tradition": e.get("tradition", ""),
+                "purpose": e.get("purpose", ""),
+                "times": e.get("times", 108),
+                "frequency_hz": e.get("frequency_hz", 528),
+                "chakra": e.get("chakra", "heart"),
+                "has_sanskrit": bool(e.get("text_sanskrit")),
+                "has_tibetan": bool(e.get("text_tibetan")),
+                "has_chinese": bool(e.get("text_chinese")),
+                "text_sanskrit_preview": (e.get("text_sanskrit", "")[:120] + "...") if len(e.get("text_sanskrit", "")) > 120 else e.get("text_sanskrit", ""),
+            }
+            for e in entries
+        ],
+    }
+
+
+@router.post("/dharani-recitation")
+async def dharani_recitation(
+    dharani_id: str,
+    duration_minutes: int = 5,
+    recite_with_tts: bool = True,
+    repeat_count: int = 1,
+):
+    """Recite a dharani with crystal bowl accompaniment and optional TTS.
+
+    Pipeline mirrors /sutra-recitation but loads from dharanis.json:
+        1. Look up the dharani by ID
+        2. Convert IAST Sanskrit to TTS-friendly phonetics
+        3. Use the dharani's prescribed frequency for crystal bowls
+        4. Recite via TTS (optional)
+
+    The dharani's ``frequency_hz`` and ``chakra`` fields drive the carrier
+    frequency selection, so each deity's dharani resonates at its traditional
+    Solfeggio tone.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from core.sanskrit_tts import preprocess_for_tts
+
+    logger.info(f"📿 Dharani recitation: {dharani_id}, repeat={repeat_count}, tts={recite_with_tts}")
+
+    # ── Session id ────────────────────────────────────────────────────────
+    session_id = f"dharani_{uuid.uuid4().hex[:12]}"
+    try:
+        session_id = await orchestrator_bridge.create_session(
+            intention=f"dharani_recitation:{dharani_id}",
+            targets=[{"type": "universal", "identifier": "all beings"}],
+            modalities=["dharani", "crystal_bowl"],
+            duration=duration_minutes * 60,
+        )
+    except Exception as exc:
+        logger.warning(f"orchestrator_bridge.create_session failed: {exc}")
+
+    # ── 1. Load dharani ───────────────────────────────────────────────────
+    path = _Path(__file__).resolve().parent.parent.parent.parent.parent / "knowledge" / "dharanis.json"
+    if not path.exists():
+        raise HTTPException(status_code=503, detail="dharanis.json not available")
+    try:
+        entries = _json.loads(path.read_text(encoding="utf-8"))
+    except (_json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to parse dharanis.json: {exc}")
+
+    selected = next((e for e in entries if e.get("id") == dharani_id), None)
+    if selected is None:
+        available = [e.get("id") for e in entries]
+        raise HTTPException(
+            status_code=404,
+            detail=f"dharani_id '{dharani_id}' not found. Available: {available}",
+        )
+
+    name = selected.get("name", "")
+    sanskrit_name = selected.get("sanskrit", "")
+    deity = selected.get("deity", "")
+    purpose = selected.get("purpose", "")
+    frequency_hz = selected.get("frequency_hz", 528)
+    chakra = selected.get("chakra", "heart")
+    text_sanskrit = selected.get("text_sanskrit", "").strip()
+
+    if not text_sanskrit:
+        raise HTTPException(status_code=500, detail=f"Dharani '{dharani_id}' has no Sanskrit text")
+
+    # ── 2. Convert to TTS-friendly phonetics ──────────────────────────────
+    try:
+        text_tts = preprocess_for_tts(text_sanskrit)
+    except Exception as exc:
+        logger.warning(f"preprocess_for_tts failed, using raw text: {exc}")
+        text_tts = text_sanskrit
+
+    # ── 3. Crystal bowl broadcast at the dharani's frequency ──────────────
+    frequencies = [7.83, float(frequency_hz)]
+    solfeggio_names = ["Schumann Base", f"{frequency_hz} Hz"]
+    crystal_output: dict | None = None
+    try:
+        from container import container as _container
+
+        crystal_output = _container.crystal.broadcast_intention(
+            intention=f"Recitation of {name}",
+            frequencies=frequencies,
+            duration=duration_minutes * 60,
+            hardware_level=2,
+            prayer_bowl_mode=True,
+            amplitude=0.3,
+        )
+    except Exception as exc:
+        logger.warning(f"Crystal broadcast failed: {exc}")
+
+    # ── 4. TTS recitation (non-fatal) ─────────────────────────────────────
+    tts_result: dict | None = None
+    if recite_with_tts:
+        try:
+            from core.tts_provider import get_tts_provider
+
+            provider = get_tts_provider()
+            if provider is not None:
+                recitation_text = (text_tts + "\n\n") * repeat_count
+                tts_result = {
+                    "status": "queued",
+                    "text_length": len(recitation_text),
+                    "repeat_count": repeat_count,
+                    "provider": getattr(provider, "name", "unknown"),
+                }
+
+                import asyncio as _asyncio
+
+                async def _speak():
+                    try:
+                        await provider.speak_async(recitation_text, role="buddhist_chant")
+                        tts_result["status"] = "completed"
+                    except Exception as exc:
+                        tts_result["status"] = "failed"
+                        tts_result["error"] = str(exc)
+
+                try:
+                    loop = _asyncio.get_running_loop()
+                    _asyncio.ensure_future(_speak())
+                except RuntimeError:
+                    import threading
+
+                    def _run():
+                        try:
+                            _asyncio.run(_speak())
+                        except Exception as exc:
+                            tts_result["status"] = "failed"
+                            tts_result["error"] = str(exc)
+
+                    threading.Thread(target=_run, daemon=True).start()
+            else:
+                tts_result = {"status": "no_provider"}
+        except Exception as exc:
+            logger.warning(f"TTS recitation failed: {exc}")
+            tts_result = {"status": "failed", "error": str(exc)}
+
+    return {
+        "status": "success",
+        "session_id": session_id,
+        "dharani_id": dharani_id,
+        "name": name,
+        "sanskrit_name": sanskrit_name,
+        "deity": deity,
+        "purpose": purpose,
+        "frequency_hz": frequency_hz,
+        "chakra": chakra,
+        "passage": text_sanskrit,
+        "passage_tts_friendly": text_tts,
+        "frequencies": frequencies,
+        "solfeggio_names": solfeggio_names,
+        "crystal_output": crystal_output,
+        "tts_result": tts_result,
+    }
+
+
 @router.get("/sutras")
 async def list_sutras():
     """List all available sutra passages for recitation.
