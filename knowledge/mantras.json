@@ -3,6 +3,7 @@
     "compassion": {
       "name": "Om Mani Padme Hum",
       "sanskrit": "ॐ मणि पद्मे हूँ",
+      "sanskrit_iast": "Oṃ Maṇi Padme Hūṃ",
       "tibetan": "ཨོཾ་མ་ཎི་པདྨེ་ཧུཾ།",
       "tradition": "Avalokiteshvara",
       "meaning": "Jewel in the Lotus - compassion of all buddhas",
@@ -13,6 +14,7 @@
     "green_tara": {
       "name": "Om Tare Tuttare Ture Soha",
       "sanskrit": "ॐ तारे तुत्तारे तुरे सोहा",
+      "sanskrit_iast": "Oṃ Tāre Tuttāre Ture Svāhā",
       "tradition": "Tara",
       "meaning": "Homage to Tara, the liberator",
       "purpose": "Protection, long life, prosperity",
@@ -22,6 +24,7 @@
     "medicine_buddha": {
       "name": "Tayata Om Bekanze Bekanze Maha Bekanze Radza Samudgate Soha",
       "sanskrit": "तयात ओम बेकणजे बेकणजे महा बेकणजे रद्ज समुद्गते सोहा",
+      "sanskrit_iast": "Tadyathā Oṃ Bhaiṣajye Bhaiṣajye Mahābhaiṣajye Rāja Samudgate Svāhā",
       "tradition": "Medicine Buddha",
       "meaning": "Healing mantra of the Medicine Buddha",
       "purpose": "Healing, purification, protection from illness",
@@ -31,6 +34,7 @@
     "manjushri": {
       "name": "Om Ah Ra Pa Tsa Na Dhih",
       "sanskrit": "ॐ अह रा प च न धीः",
+      "sanskrit_iast": "Oṃ Aḥ Ra Pa Tsa Na Dhīḥ",
       "tradition": "Manjushri",
       "meaning": "Wisdom mantra of Manjushri",
       "purpose": "Wisdom, insight, intelligence",
@@ -40,6 +44,7 @@
     "guru_rinpoche": {
       "name": "Om Ah Hum Vajra Guru Padma Siddhi Hum",
       "sanskrit": "ॐ अहूँ वज्र गुरु पद्म सिद्धि हूँ",
+      "sanskrit_iast": "Oṃ Aḥ Hūṃ Vajra Guru Padma Siddhi Hūṃ",
       "tradition": "Guru Rinpoche",
       "meaning": "Mantra of the Precious Guru",
       "purpose": " blessings, protection, spiritual growth",
@@ -49,6 +54,7 @@
     "heart_sutra": {
       "name": "Gate Gate Paragate Parasamgate Bodhi Svaha",
       "sanskrit": "गते गते पारगते पारसमगते बोधि स्वाहा",
+      "sanskrit_iast": "Gate Gate Pāragate Pārasaṃgate Bodhi Svāhā",
       "tradition": "Mahayana",
       "meaning": "Gone, gone, gone to the other shore, awakened, so be it",
       "purpose": "Liberation, insight into emptiness",
@@ -58,6 +64,7 @@
     "vajrasattva": {
       "name": "Om Vajrasattva Hum",
       "sanskrit": "ॐ वज्रसत्त्व हूँ",
+      "sanskrit_iast": "Oṃ Vajrasattva Hūṃ",
       "tradition": "Vajrayana",
       "meaning": "Diamond Being",
       "purpose": "Purification, confession",
@@ -66,6 +73,8 @@
     },
     "white_tara": {
       "name": "Om Tare Tuttare Ture Mama Ayur Punye Jnana Purti Kuru Soha",
+      "sanskrit": "ॐ तारे तुत्तारे तुरे मम आयुः पुण्ये ज्ञान पूर्ति कुरु सोहा",
+      "sanskrit_iast": "Oṃ Tāre Tuttāre Ture Mama Āyuḥ Puṇye Jñāna Pūrti Kuru Svāhā",
       "tradition": "Tara",
       "meaning": "Long life mantra of White Tara",
       "purpose": "Long life, vitality, wisdom",
@@ -74,6 +83,8 @@
     },
     "mituore": {
       "name": "Namu Amida Butsu",
+      "sanskrit": "नमो ऽमिताभाय",
+      "sanskrit_iast": "Namo 'mitābhāya",
       "japanese": "南無阿弥陀仏",
       "tradition": "Pure Land",
       "meaning": "Homage to Amida Buddha",
@@ -83,6 +94,8 @@
     },
     "long_life": {
       "name": "Om Subodai Svasti",
+      "sanskrit": "ॐ शुभं स्वस्ति",
+      "sanskrit_iast": "Oṃ Śubhaṃ Svasti",
       "tradition": "Tibetan",
       "meaning": "Auspicious long life mantra",
       "purpose": "Longevity, health, prosperity",
@@ -95,6 +108,7 @@
       "name": "Da Bei Zhou — Great Compassion Mantra",
       "chinese": "南無喝囉怛那哆囉夜耶 南無阿唎耶 婆盧羯帝爍缽囉耶 菩提薩埵婆耶 摩訶薩埵婆耶 摩訶迦盧尼迦耶 唵",
       "pinyin": "Ná Mó Hē Là Dá Nà Duō Là Yè Yē...",
+      "sanskrit_iast": "Namo Ratnatrayāya Namo Āryāvalokiteśvarāya Bodhisattvāya Mahāsattvāya Mahākāruṇikāya Oṃ",
       "tradition": "Guanyin / Avalokiteshvara",
       "meaning": "Homage to the Three Jewels, homage to the noble Avalokiteshvara, the great compassionate one",
       "purpose": "Great compassion, protection from all danger, purification of heavy karma",
@@ -105,6 +119,7 @@
       "name": "Cundi Dharani — Zhunti Shen Zhou",
       "chinese": "稽首皈依蘇悉帝 頭面頂禮七俱胝 我今稱讚大準提 唯願慈悲垂加護",
       "pinyin": "Ná Mó Sà Duō Nán, Sān Miǎo Sān Pú Tuó, Jù Zhī Nán, Dá Zhí Tuō, Ǎn, Zhé Lì Zhǔ Lì Zhǔn Tí Suō Pó Hē",
+      "sanskrit_iast": "Namaḥ Saptānāṃ Samyaksaṃbuddha Koṭīnāṃ Tadyathā Oṃ Cale Cule Cunde Svāhā",
       "tradition": "Cundi Bodhisattva",
       "meaning": "Homage to the Seven Billion Buddhas, invocation of Cundi's purifying light",
       "purpose": "Wisdom, purification, wish-fulfillment, spiritual accomplishment",
@@ -115,6 +130,7 @@
       "name": "Namo Amituofo — Nianfo",
       "chinese": "南無阿彌陀佛",
       "pinyin": "Ná Mó Ā Mí Tuó Fó",
+      "sanskrit_iast": "Namo 'mitābhāya Buddha",
       "tradition": "Pure Land (Jingtu)",
       "meaning": "Homage to Amitabha Buddha / I take refuge in the Buddha of Infinite Light",
       "purpose": "Rebirth in the Pure Land, peace of mind, liberation at death",
@@ -125,6 +141,7 @@
       "name": "Leng Yan Zhou — Shurangama Mantra (opening)",
       "chinese": "南無薩怛他 蘇伽多耶 阿囉訶帝 三藐三菩陀寫",
       "pinyin": "Ná Mó Sà Dá Tuō, Sū Qié Duō Yē, Ā Là Hē Dì, Sān Miǎo Sān Pú Tuó Xiě",
+      "sanskrit_iast": "Namo Stathāgatāsu Sugatāya Arhate Samyaksaṃbuddhāya",
       "tradition": "Shurangama Sutra",
       "meaning": "Homage to the Thus Come Ones, the Worthy Ones, of Perfect Enlightenment",
       "purpose": "Protection from demons, dispelling negative forces, stabilizing meditation",
@@ -135,6 +152,7 @@
       "name": "Guanyin Heart — Xin Jing invocation",
       "chinese": "揭諦揭諦 波羅揭諦 波羅僧揭諦 菩提薩婆訶",
       "pinyin": "Jiē Dì Jiē Dì, Bō Luó Jiē Dì, Bō Luó Sēng Jiē Dì, Pú Tí Sà Pó Hē",
+      "sanskrit_iast": "Gate Gate Pāragate Pārasaṃgate Bodhi Svāhā",
       "tradition": "Heart Sutra (Chinese)",
       "meaning": "Gone, gone, gone beyond, gone completely beyond — Enlightenment, hail",
       "purpose": "Transcendence, liberation from suffering, realization of emptiness",
@@ -145,6 +163,7 @@
       "name": "Ksitigarbha Bodhisattva invocation",
       "chinese": "南無地藏王菩薩",
       "pinyin": "Ná Mó Dì Zàng Wáng Pú Sà",
+      "sanskrit_iast": "Namo Kṣitigarbhāya Bodhisattvāya",
       "tradition": "Ksitigarbha (Dizang)",
       "meaning": "Homage to Ksitigarbha Bodhisattva, Savior of Hell Beings",
       "purpose": "Ancestral liberation, protection for the deceased, grounding, earth healing",
@@ -248,6 +267,7 @@
     "om": {
       "name": "Om",
       "sanskrit": "ॐ",
+      "sanskrit_iast": "Oṃ",
       "meaning": "The primordial sound / Brahman",
       "purpose": "Meditation, grounding, ultimate reality",
       "times": 108,
@@ -256,6 +276,7 @@
     "gayatri": {
       "name": "Om Bhur Bhuvah Swaha, Tatsavitur Varenyam, Bhargo Devasya Dhimahi, Dhiyo Yo Nah Prachodayat",
       "sanskrit": "ॐ भूर्भुवः स्वः तत्सवितुर्वरेण्यं भर्गो देवस्य धीमहि धियो यो नः प्रचोदयात्",
+      "sanskrit_iast": "Oṃ Bhūr Bhuvaḥ Svaḥ Tatsavitur Vareṇyaṃ Bhargo Devasya Dhīmahi Dhiyo Yo Naḥ Pracodayāt",
       "tradition": "Vedic",
       "meaning": "May we attain the brilliance of Savitur",
       "purpose": "Enlightenment, wisdom, spiritual illumination",
@@ -265,6 +286,7 @@
     "mahamrityunjay": {
       "name": "Om Tryambakam Yajamahe Sugandhim Pushtivardhanam, Urvarukamiva Bandhanan, Mrityor Mukshiya Maamritat",
       "sanskrit": "ॐ त्र्यम्बकं यजामहे सुगन्धिं पुष्टिवर्धनम् उर्वारुकमिव बन्धनान् मृत्योर्मुक्षीय मामृतात्",
+      "sanskrit_iast": "Oṃ Tryambakaṃ Yajāmahe Sugandhiṃ Puṣṭivardhanam, Ururvārukamiva Bandhanān, Mṛtyor Mukṣīya Māmṛtāt",
       "tradition": "Shiva",
       "meaning": "We worship the three-eyed one, source of all fragrance and nourishment",
       "purpose": "Moksha, liberation, healing, overcoming death",
@@ -274,6 +296,7 @@
     "durga": {
       "name": "Om Dum Durgaye Durgamaye Mahi Durgam Namosthute",
       "sanskrit": "ॐ दुं दुर्गायै दुर्गमायै महि दुर्गां नमोस्तुते",
+      "sanskrit_iast": "Oṃ Duṃ Durgāyai Durgamāyai Mahī Durgam Namastute",
       "tradition": "Durga",
       "meaning": "Salutations to Goddess Durga",
       "purpose": "Protection, strength, victory over obstacles",
@@ -283,6 +306,7 @@
     "lakshmi": {
       "name": "Om Shrim Klim Mahalakshmyai Namaha",
       "sanskrit": "ॐ श्रीं क्लीं महालक्ष्म्यै नमः",
+      "sanskrit_iast": "Oṃ Śrīṃ Klīṃ Mahālakṣmyai Namaḥ",
       "tradition": "Lakshmi",
       "meaning": "Salutations to Goddess Lakshmi",
       "purpose": "Prosperity, abundance, fortune",
@@ -292,6 +316,7 @@
     "saraswati": {
       "name": "Om Aim Saraswatiye Namaha",
       "sanskrit": "ॐ ऐं सरस्वतीयै नमः",
+      "sanskrit_iast": "Oṃ Aiṃ Sarasvatyai Namaḥ",
       "tradition": "Saraswati",
       "meaning": "Salutations to Goddess Saraswati",
       "purpose": "Wisdom, learning, creativity, arts",
@@ -301,6 +326,7 @@
     "ganesha": {
       "name": "Om Gam Ganapataye Namaha",
       "sanskrit": "ॐ गं गणपतये नमः",
+      "sanskrit_iast": "Oṃ Gaṃ Gaṇapataye Namaḥ",
       "tradition": "Ganesha",
       "meaning": "Salutations to Lord Ganesha",
       "purpose": "Removal of obstacles, new beginnings, success",
@@ -310,6 +336,7 @@
     "shiva": {
       "name": "Om Namah Shivaya",
       "sanskrit": "ॐ नमः शिवाय",
+      "sanskrit_iast": "Oṃ Namaḥ Śivāya",
       "tradition": "Shiva",
       "meaning": "Salutations to Lord Shiva",
       "purpose": "Meditation, transformation, purity",
@@ -319,6 +346,7 @@
     "vishnu": {
       "name": "Om Namo Narayanaya",
       "sanskrit": "ॐ नमो नारायणाय",
+      "sanskrit_iast": "Oṃ Namo Nārāyaṇāya",
       "tradition": "Vishnu",
       "meaning": "Salutations to Lord Vishnu",
       "purpose": "Preservation, protection, dharma",
@@ -328,6 +356,7 @@
     "krishna": {
       "name": "Om Namo Bhagavate Vasudevaya",
       "sanskrit": "ॐ नमो भगवते वासुदेवाय",
+      "sanskrit_iast": "Oṃ Namo Bhagavate Vāsudevāya",
       "tradition": "Krishna",
       "meaning": "Salutations to Lord Vasudeva",
       "purpose": "Devotion, love, divine connection",
@@ -337,6 +366,7 @@
     "hanuman": {
       "name": "Om Han Han Hanate Namaha",
       "sanskrit": "ॐ हन हन हनते नमः",
+      "sanskrit_iast": "Oṃ Han Han Hanate Namaḥ",
       "tradition": "Hanuman",
       "meaning": "Salutations to Hanuman",
       "purpose": "Strength, courage, devotion, protection",
@@ -346,6 +376,7 @@
     "surya": {
       "name": "Om Hrim Suryaya Namaha",
       "sanskrit": "ॐ ह्रीं सूर्याय नमः",
+      "sanskrit_iast": "Oṃ Hrīṃ Sūryāya Namaḥ",
       "tradition": "Surya",
       "meaning": "Salutations to Lord Sun",
       "purpose": "Vitality, energy, clarity, success",
@@ -357,6 +388,7 @@
     "la_ilaha": {
       "name": "La ilaha illallah",
       "arabic": "لا إله إلا الله",
+      "transliteration": "Lā ilāha illā Allāh",
       "meaning": "There is no god but God",
       "tradition": "Sufi/Islamic",
       "purpose": "Tawhid, submission to divine will",
@@ -366,6 +398,7 @@
     "ya_raazzaq": {
       "name": "Ya Razzaq",
       "arabic": "يا رزاق",
+      "transliteration": "Yā Razzāq",
       "meaning": "O Provider",
       "purpose": "Sustenance, provision, gratitude",
       "times": 99,
@@ -374,6 +407,7 @@
     "ya_shaafi": {
       "name": "Ya Shafi",
       "arabic": "يا شافي",
+      "transliteration": "Yā Shāfī",
       "meaning": "O Healer",
       "purpose": "Healing, restoration, wholeness",
       "times": 99,
@@ -382,6 +416,7 @@
     "subhanallah": {
       "name": "SubhanAllah",
       "arabic": "سبحان الله",
+      "transliteration": "Subḥān Allāh",
       "meaning": "Glory be to God",
       "purpose": "Glory, gratitude, remembrance",
       "times": 33,
@@ -390,6 +425,7 @@
     "alhamdullilah": {
       "name": "Alhamdulillah",
       "arabic": "الحمد لله",
+      "transliteration": "Al-ḥamdu lillāh",
       "meaning": "Praise be to God",
       "purpose": "Gratitude, praise, contentment",
       "times": 33,
@@ -398,6 +434,7 @@
     "allah_akbar": {
       "name": "Allahu Akbar",
       "arabic": "الله أكبر",
+      "transliteration": "Allāhu Akbar",
       "meaning": "God is Great",
       "purpose": "Magnificence, awe, strength",
       "times": 33,
@@ -408,6 +445,7 @@
     "lords_prayer": {
       "name": "Our Father",
       "aramaic": "Abwoon d'bwashmaya",
+      "transliteration": "Abwun d'bwashmaya",
       "meaning": "Our Father in heaven",
       "tradition": "Christian",
       "purpose": "Communion with divine, guidance",
@@ -417,6 +455,7 @@
     "jesus_prayer": {
       "name": "Lord Jesus Christ, Son of God, have mercy on me",
       "greek": "Κύριε Ἰησοῦ Χριστέ, Υἱὲ τοῦ Θεοῦ, ἐλέησόν με",
+      "transliteration": "Kýrie Iēsoũ Christé, Uiè toũ Theoũ, eléēsón me",
       "tradition": "Eastern Orthodox",
       "purpose": "Communion, repentance, mercy",
       "times": "continuous",
@@ -425,6 +464,7 @@
     "halelujah": {
       "name": "Hallelujah",
       "hebrew": "הללויה",
+      "transliteration": "Haleluyah",
       "meaning": "Praise Yahweh",
       "tradition": "Christian",
       "purpose": "Joy, praise, celebration",
@@ -436,6 +476,7 @@
     "earth_healing": {
       "name": "Mitakuye Oyasin",
       "lakota": "Mitakuye Oyasin",
+      "transliteration": "Mitákuye Oyás'in",
       "meaning": "All my relatives",
       "tradition": "Lakota",
       "purpose": "Connection with all life, healing earth",
@@ -464,6 +505,7 @@
     "loving_kindness": {
       "name": "Sadharma Pravriddhi",
       "pali": "Sabbe satta bhavantu sukhitatta",
+      "transliteration": "Sabbe sattā bhavantu sukhitattā",
       "meaning": "May all beings be happy",
       "tradition": "Buddhist",
       "purpose": "Loving-kindness, compassion for all",
@@ -473,6 +515,7 @@
     "peace_prayer": {
       "name": "Om Shanti",
       "sanskrit": "ॐ शान्तिः शान्तिः शान्तिः",
+      "sanskrit_iast": "Oṃ Śāntiḥ Śāntiḥ Śāntiḥ",
       "meaning": "Peace peace peace",
       "tradition": "Universal",
       "purpose": "Peace, calm, resolution of conflict",
@@ -482,6 +525,7 @@
     "one_light": {
       "name": "Ek Onkar",
       "punjabi": "ੴ",
+      "transliteration": "Ikk Ōaṅkār",
       "meaning": "One Creator",
       "tradition": "Sikh",
       "purpose": "Unity, divine connection, truth",
@@ -491,6 +535,7 @@
     "green_man": {
       "name": "Ar Bor",
       "celtic": "Ar Bor",
+      "transliteration": "Ar Bor",
       "meaning": "I am the oak tree",
       "tradition": "Celtic",
       "purpose": "Nature connection, grounding, strength",
