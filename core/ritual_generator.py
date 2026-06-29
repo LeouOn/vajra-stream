@@ -40,6 +40,7 @@ _SUFFERING_TO_SUTRA_TAGS: dict[str, list[str]] = {
     "universal": ["dedication", "emptiness", "generosity", "wisdom", "non_duality", "healing", "purification"],
     "anger": ["patience", "forbearance", "anger", "transformation", "purification"],
     "purification": ["purification", "confession", "karma", "renewal"],
+    "fear": ["protection", "healing", "emptiness", "wisdom"],
 }
 
 # Map suffering_type → dharani_id in knowledge/dharanis.json.
@@ -55,6 +56,7 @@ _SUFFERING_TO_DHARANI: dict[str, str] = {
     "universal": "great_compassion_dharani",          # Universal compassion
     "anger": "vajrasattva_hundred_syllable",          # Vajrasattva — purifies anger
     "purification": "vajrasattva_hundred_syllable",   # Vajrasattva — the purification dharani
+    "fear": "green_tara_dharani",                      # Green Tara — remover of fear
 }
 
 
@@ -231,6 +233,12 @@ class RitualGenerator:
             "mantra": "Om Vajrasattva Hum",
             "quality": "purification of negative karma, confession, karmic renewal",
         },
+        "fear": {
+            "primary": "Green Tara (Swift Savior)",
+            "secondary": ["Chenrezig (Avalokiteshvara)", "Medicine Buddha (Bhaisajyaguru)"],
+            "mantra": "Om Tare Tuttare Ture Soha",
+            "quality": "removing fear, swift protection, liberation from anxiety and dread",
+        },
     }
 
     # Tarot arcana for divination section
@@ -395,6 +403,8 @@ class RitualGenerator:
             return "anger"
         if any(w in lower for w in ["purification", "purify", "confession", "confess", "karma", "negative karma", "cleansing", "atone", "regret", "guilt", "mistake i", "wrong i"]):
             return "purification"
+        if any(w in lower for w in ["fear", "afraid", "anxious", "anxiety", "panic", "worry", "worried", "terror", "dread", "scared", "frightened", "phobia"]):
+            return "fear"
         if any(w in lower for w in ["dedication", "endeavor", "endeavour", "resources", "money", "loss", "investment", "wealth", "offering", "all that i", "everything i"]):
             return "dedication_of_endeavors"
         return "universal"
@@ -562,6 +572,18 @@ To the path ahead — may you walk it with the lightness of one who has been cle
 May all beings — every one of whom has been both harmed and harmer across countless lives — find the purification that leads to awakening.
 
 *Om Vajrasattva Hum.*""",
+
+            "fear": f"""To all beings who tremble with fear:
+
+To the one who is afraid — may you know that fear is not weakness. It is the mind trying to protect you from a future that hasn't arrived. It is a shadow on the wall, cast by the lamp of your own imagination. The shadow cannot harm you. But grasping at it — that is what wears you down.
+
+To Green Tara — Swift Savior, she who steps down from the lotus to answer cries without delay — we call upon you. Your right foot is extended, ready to spring into action. You do not hesitate. You do not deliberate. You ACT. May your swiftness cut through the paralysis of fear.
+
+To the fear itself — we do not fight you. We do not suppress you. We see you. You are the echo of ancient survival, the mind's alarm system ringing after the danger has passed. Thank you for trying to protect us. But you may rest now. The present moment is safe. The breath moving in and out is proof: in this moment, you are okay.
+
+To all beings who live in chronic fear — may they discover what the Heart Sutra teaches: that the one who is afraid is itself empty. When the one who fears is seen through, what remains is vast, open, unafraid. Not because fear was defeated, but because the one who could be afraid was never truly there.
+
+*Om Tare Tuttare Ture Soha.*""",
         }
         return prayers.get(suffering_type, prayers["universal"])
 
@@ -696,6 +718,32 @@ They waited. Gradually, the mud sank to the bottom. The water became clear again
 "The mud settles because it was never part of the water. Your karma settles because it was never part of you. It is a pattern, not a nature. Patterns change. Natures do not. Your nature is already awake."
 
 The student looked at the now-clear water and wept — not from guilt, but from relief.""",
+
+            "fear": """A woman came to the monastery, trembling. "I am afraid all the time," she said. "Afraid of the future, afraid of losing what I have, afraid of death. The fear follows me everywhere."
+
+The teacher listened, then asked: "Where is the fear right now? In this moment, sitting here, drinking tea — where is it?"
+
+She paused. "It is... in my chest. A tightness."
+
+"And what is the tightness afraid of? Right now, in this exact moment — what danger is present?"
+
+She looked around the quiet room. The incense burning. The bird outside. The warmth of the cup in her hands. "There is no danger here," she admitted.
+
+"Then the fear is not about now," the teacher said gently. "The fear is about a future that has not arrived. And when that future arrives — if it arrives — it will arrive as the present moment. And in the present moment, you will handle it, just as you have handled every present moment your entire life."
+
+"But I feel it physically," she said. "My heart races. My hands shake."
+
+"Yes. The body responds to the mind's projections as if they were real. This is the body's kindness — it is trying to protect you. But the body cannot tell the difference between a tiger in the room and a tiger in the imagination. Your job is not to stop the body's alarm. Your job is to see clearly: the tiger is not here."
+
+"And when it IS here?" she asked. "When the thing I fear actually happens?"
+
+"Then you will be present," the teacher said. "And presence is always stronger than fear. Every crisis you have ever survived — you survived because you were present in that moment. Fear is the rehearsal for a play that may never be performed. And even if it is performed, the rehearsal does not help. Only presence helps."
+
+"Then what do I do with the fear?" she asked.
+
+"Sit with it," the teacher said. "Do not push it away. Do not follow its stories. Just sit. Let the tightness be tight. Let the heart race. And notice: you are still here. You are still breathing. The fear has been with you your whole life, and you are still alive. It is terrible company, perhaps. But it has not killed you."
+
+She sat. And slowly, the tightness loosened. Not because the fear was defeated — but because the one who was afraid had finally stopped running.""",
         }
         return self._with_sutra(teachings.get(suffering_type, teachings["universal"]), suffering_type)
 
@@ -841,6 +889,20 @@ The student looked at the now-clear water and wept — not from guilt, but from 
 **5. The Clear Water** — The mud has settled. The water is clear. You realize it was always clear — the mud was just a visitor. This is the discovery of buddha-nature: the diamond beneath the dirt, the sky behind the clouds. You have not become someone new. You have simply reconnected with what you always were.
 
 **6. The Vow** — "Having been purified, I now purify all beings." The merit of purification is dedicated outward. Every mantra recited, every confession made, every moment of clear seeing — these become the medicine for all beings who also carry the weight of karma. The purified one becomes a source of purity for others. The clear water flows outward and nourishes the world.""",
+
+            "fear": f"""**The Six Stages of the Journey Through Fear:**
+
+**1. The Alarm** — Fear arises as a wake-up call. The body sounds the alarm — heart racing, breath shallow, muscles tense. The mind, interpreting these signals, tells a story about what is coming, what might happen, what could be lost. The story is always about the future. The story is always terrifying. And the story is almost never accurate.
+
+**2. The Turning** — There comes a moment when the one who is afraid stops running. Not a moment of bravery — bravery is for those who feel no fear. This is a moment of exhaustion, where running has become too heavy. The turning is when you look at the fear directly and say, with all your trembling: "I see you. What are you here to teach me?"
+
+**3. The Great Work** — Tara practice begins. Om Tare Tuttare Ture Soha. Each syllable calls into presence the swift, fearless compassion of the vajra. The mantra does not promise that the fear will leave. The mantra promises that you will not face it alone. Tara's right foot is extended — ready to step down from the lotus to help. You invoke her not to remove the fear but to walk through it with you.
+
+**4. The Shadow Trial** — The fear returns in subtler forms. It is no longer the obvious fear of the tiger in the room. It is the fear of rejection, the fear of failure, the fear of being seen. The fear of your own vastness. This is the deepest fear: that if you truly rest in awareness, the small self that has been defending itself will dissolve. And this is the death that Tara accompanies you through.
+
+**5. The Release** — And then, one day, the fear simply does not grip you the same way. You do not know exactly when it happened. It was not a dramatic moment — it was a gradual softening. You notice it because a situation that would have terrified you six months ago now only registers as a minor inconvenience. The fear has become a messenger rather than a tyrant. It points; it does not paralyze.
+
+**6. The Transformation** — The fear that once contracted you now opens you. You understand — with your whole body, not just your mind — that every being you have ever feared is also afraid. The stranger in the night, the critic, the dying: all are trembling with their own alarms. And so you extend compassion. Not fearlessness as the absence of fear, but fearlessness as the capacity to hold fear and act anyway. To hold the fear of the whole world in your heart and keep going. This is bodhicitta — the heart that cannot abandon any being, not because it is fearless, but because it is dedicated to the welfare of all.""",
         }
         return journeys.get(suffering_type, journeys["universal"])
 

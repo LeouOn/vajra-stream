@@ -1209,6 +1209,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
                 { value: 'displacement', label: 'Refugee/Displacement Relief' },
                 { value: 'anger', label: 'Anger → Forgiveness (Vajrasattva)' },
                 { value: 'purification', label: 'Purification & Confession (Vajrasattva)' },
+                { value: 'fear', label: 'Fear/Anxiety → Fearlessness (Green Tara)' },
               ]}
             />
           </div>
