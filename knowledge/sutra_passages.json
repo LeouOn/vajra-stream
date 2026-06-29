@@ -1,0 +1,158 @@
+{
+  "metadata": {
+    "description": "Key passages from Mahayana sutras for ritual generation and recitation",
+    "last_updated": "2026-06-29"
+  },
+  "sutra_passages": [
+    {
+      "id": "sanghata_bodhicitta_merit",
+      "sutra": "Arya Sanghata Sutra",
+      "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
+      "chapter": "On the Merit of Bodhicitta",
+      "theme": "dedication",
+      "tags": ["bodhicitta", "merit", "generosity", "offering", "loss", "wealth"],
+      "passage": "The Bhagavan said: \"If someone were to fill this entire billionfold world system with the seven kinds of jewels and offer them all as a gift — and if another person were to generate the mind of awakening (bodhicitta) for even a single instant — the merit of that single instant of bodhicitta would far exceed the merit of all those offerings.\n\nWhy? Because bodhicitta is the root of all qualities of a Buddha. It is the seed from which the entire path grows. The jewels offered will be consumed, will decay, will be lost. But the merit of bodhicitta never ends. It carries forward from life to life, from eon to eon, growing ever stronger.\n\nJust as a single seed of a banyan tree, though tiny, can grow into a vast tree that shelters countless beings — so too a single moment of genuine bodhicitta can blossom into the complete awakening that benefits all beings without exception.\"",
+      "context": "This passage is the core teaching of the Sanghata on why dedicating ALL endeavors toward awakening is so powerful. The merit is not measured by the size of the offering but by the motivation."
+    },
+    {
+      "id": "sanghata_loss_transformation",
+      "sutra": "Arya Sanghata Sutra",
+      "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
+      "chapter": "On the Transformation of Loss",
+      "theme": "loss",
+      "tags": ["loss", "impermanence", "transformation", "wealth", "money", "dedication"],
+      "passage": "The Bhagavan said: \"There are beings who accumulate great wealth and then, through fire, flood, thieves, or kings, lose it all. They suffer greatly and think: 'My efforts were in vain.'\n\nBut I say to you: nothing is ever in vain when viewed with the eye of dharma. The wealth that was gathered taught the gatherer about desire. The wealth that was lost taught the loser about impermanence. Both teachings are priceless.\n\nIf one who has lost everything then generates bodhicitta — thinking, 'May my loss become the cause of awakening for all beings who also experience loss' — then that loss becomes inexhaustible merit. The very thing that appeared to destroy them becomes the path that liberates them.\n\nThis is the secret the Buddhas know: that suffering, when met with wisdom, is not the opposite of awakening. It is the gateway to it. Loss is not the end of wealth. It is the beginning of true abundance — the abundance of a heart that no longer grasps.\"",
+      "context": "Directly relevant to the Dedication of All Endeavors ritual type — transforms financial loss into spiritual practice."
+    },
+    {
+      "id": "sanghata_all_actions",
+      "sutra": "Arya Sanghata Sutra",
+      "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
+      "chapter": "On Dedicating All Actions",
+      "theme": "dedication",
+      "tags": ["dedication", "endeavor", "action", "work", "effort", "daily_life"],
+      "passage": "The Bhagavan said: \"A bodhisattva who wishes to quickly attain unsurpassable, perfect, complete awakening should make this resolution:\n\n'Whatever I do — whether walking, standing, sitting, or lying down; whether eating, drinking, speaking, or remaining silent; whether working, resting, or playing — I dedicate every action to the awakening of all beings.'\n\nIf a bodhisattva makes this resolution even once and holds it in mind, then every ordinary action becomes a transcendental act. Walking becomes the perambulation of awakening. Eating becomes the feast of dharma. Speaking becomes the proclamation of truth. Even breathing becomes the circulation of compassion throughout all realms.\n\nThere is no action so small that it cannot be transformed by dedication. There is no moment so ordinary that it cannot become the path.\"",
+      "context": "This is the canonical basis for dedicating ALL resources, time, and effort — not just the good ones."
+    },
+    {
+      "id": "diamond_impermanence",
+      "sutra": "Diamond Sutra",
+      "sanskrit_name": "Vajracchedikā Prajñāpāramitā Sūtra",
+      "chapter": "Chapter 32",
+      "theme": "impermanence",
+      "tags": ["impermanence", "emptiness", "form", "stars", "dew", "lightning"],
+      "passage": "\"Thus shall you think of all this fleeting world:\nA star at dawn, a bubble in the stream,\nA flash of lightning in a summer cloud,\nA flickering lamp, a phantom, and a dream.\"",
+      "context": "The most famous verse in the Diamond Sutra — the Buddha's final teaching on the nature of all conditioned phenomena. Everything we cling to — wealth, status, relationships, even our sense of self — is like these six similes."
+    },
+    {
+      "id": "diamond_giving",
+      "sutra": "Diamond Sutra",
+      "sanskrit_name": "Vajracchedikā Prajñāpāramitā Sūtra",
+      "chapter": "Chapter 4",
+      "theme": "generosity",
+      "tags": ["generosity", "giving", "without_attachment", "dana"],
+      "passage": "\"Furthermore, Subhuti, a bodhisattva should practice generosity without abiding in any object, sound, odor, taste, texture, or dharma. This is how the Thus Come One teaches the practice of generosity. The bodhisattva practices generosity without abiding in the characteristics of the gift, the giver, or the recipient.\n\nWhy? If a bodhisattva practices generosity without attachment, the merit is incalculable. It is like space in the eastern direction — boundless, measureless, infinite.\"",
+      "context": "Teaches the perfection of giving without grasping at concepts of 'I am giving' or 'this is my gift.'"
+    },
+    {
+      "id": "golden_light_protection",
+      "sutra": "Sutra of Golden Light",
+      "sanskrit_name": "Suvarṇaprabhāsa Sūtra",
+      "chapter": "Chapter on the Four Great Kings",
+      "theme": "protection",
+      "tags": ["protection", "four_kings", "nation", "earth", "disaster"],
+      "passage": "\"At that time, the Four Great Kings, with their countless retinues of yakshas and spirit warriors, approached the Bhagavan and said:\n\n'Bhagavan, wherever this Sutra of Golden Light is heard, recited, or even remembered, we shall protect that land. We shall shield its people from disease, famine, war, and natural calamity. We shall ensure the rains come in season and the harvests are abundant.\n\nWherever a single being recites this sutra with sincere heart, we Four Kings shall dispatch seventy thousand spirit warriors to guard that place. No harm shall come to those who dwell there.'\n\nThe Bhagavan said: 'Excellent, excellent, Great Kings. Your promise aligns with the truth of dharmadhatu. The merit of reciting this sutra extends not only to the reciter but to all beings in that land.'\"",
+      "context": "The protective power of sutra recitation — relevant for disaster relief rituals."
+    },
+    {
+      "id": "vimalakirti_sickness",
+      "sutra": "Vimalakirti Nirdesa Sutra",
+      "sanskrit_name": "Vimalakīrtinirdeśa Sūtra",
+      "chapter": "Chapter 5 - The Goddess",
+      "theme": "healing",
+      "tags": ["healing", "sickness", "non_duality", "wisdom", "compassion"],
+      "passage": "Manjushri asked Vimalakirti: \"How should a bodhisattva regard a sick being?\"\n\nVimalakirti replied: \"A bodhisattva should regard the sick being with compassion, but should not become attached to the sickness. He should think: 'This body is the product of ignorance and craving. It is like a machine assembled from causes and conditions. This sickness has no inherent existence — it arises from conditions and will cease when conditions change.'\n\nThe bodhisattva should also think: 'Just as this being is sick, so too are all beings sick with the disease of ignorance. I will cure them all with the medicine of dharma.'\n\nWhen the bodhisattva thinks this way, his own compassion becomes the medicine. His own wisdom becomes the physician. And the dharma — the teachings of all the Buddhas — becomes the hospital in which all beings can be healed.\"",
+      "context": "Vimalakirti's teaching on how to work with illness — relevant for healing rituals."
+    },
+    {
+      "id": "heart_sutra_essence",
+      "sutra": "Heart Sutra",
+      "sanskrit_name": "Prajñāpāramitāhṛdaya Sūtra",
+      "chapter": "The Heart of Wisdom",
+      "theme": "emptiness",
+      "tags": ["emptiness", "wisdom", "prajnaparamita", "form", "liberation"],
+      "passage": "Avalokiteshvara, the Bodhisattva of Compassion, practicing deep Prajnaparamita, clearly saw that all five skandhas are equally empty, and with this realization, overcame all suffering.\n\n\"Listen, Shariputra! Form is emptiness, emptiness is form. Form is not other than emptiness, emptiness is not other than form. The same is true of feelings, perceptions, mental formations, and consciousness.\n\nHere, in this emptiness, there is no form, no feeling, no perception, no mental formation, no consciousness. No eye, no ear, no nose, no tongue, no body, no mind. No form, no sound, no smell, no taste, no touch, no object of mind. No realm of sight... no realm of mind consciousness.\n\nThere is no ignorance and no end of ignorance. No old age and death and no end of old age and death. No suffering, no origin, no cessation, no path. No wisdom, no attainment.\n\nBecause there is nothing to attain, the bodhisattva, relying on Prajnaparamita, finds no obstruction for the mind. Having no obstruction, the mind overcomes all fear. Far from all deluded thoughts, this is Nirvana.\n\nAll Buddhas of the three times and ten directions attain Anuttara-samyak-sambodhi by relying on Prajnaparamita.\n\nTherefore know that Prajnaparamita is the great sacred mantra, the great vivid mantra, the unsurpassed mantra, the incomparable mantra. It destroys all suffering because it is truth, not falsehood.\n\nThe mantra of Prajnaparamita is spoken thus: GATE GATE PARAGATE PARASAMGATE BODHI SVAHA.\n\nGone, gone, gone beyond, gone utterly beyond, Enlightenment! Hail!\"",
+      "context": "The complete Heart Sutra — the most recited sutra in Mahayana Buddhism. Perfect for full recitation mode."
+    },
+    {
+      "id": "sanghata_hearing_merit",
+      "sutra": "Arya Sanghata Sutra",
+      "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
+      "chapter": "On the Merit of Hearing",
+      "theme": "dedication",
+      "tags": ["hearing", "listening", "purification", "karma", "audio", "broadcast"],
+      "passage": "The Bhagavan said: \"If any being hears even four lines of verse from this teaching, their negative karma accumulated over eighty thousand eons is completely purified.\n\nIf they hear the entire sutra, the merit is inconceivable. Even if they hear it while sleeping, even if they hear only the sound without understanding the words, even if they hear it from a distance — still, purification occurs.\n\nThis is why I teach that the Sanghata is like a wish-fulfilling jewel. Whoever encounters it — through reading, reciting, hearing, or even seeing it written — that being is marked for awakening. They will never again be born in the lower realms.\n\nTherefore, hold this sutra dear. Recite it. Share it. Broadcast it through whatever means available. For every being who hears it — knowingly or unknowingly — receives the blessing of the dharma entering their stream of consciousness.\"",
+      "context": "This passage is the theological basis for the entire broadcast system — the merit of HEARING the dharma, even as audio through speakers."
+    },
+    {
+      "id": "sanghata_merit_multiplier",
+      "sutra": "Arya Sanghata Sutra",
+      "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
+      "chapter": "On Dedication of Merit",
+      "theme": "dedication",
+      "tags": ["dedication", "merit", "multiplier", "exhaustion", "inexhaustible"],
+      "passage": "The Bhagavan said: \"If a person performs a virtuous action and does not dedicate the merit, that merit will eventually be exhausted. It will produce one or two results and then fade, like a stream that dries up in summer.\n\nBut if that same person performs the identical virtuous action and then dedicates the merit — saying, 'May this merit be the cause of complete awakening for all beings, without exception' — then that merit becomes inexhaustible. It can never be used up. It will continue producing benefit from lifetime to lifetime, from eon to eon, until all beings are free.\n\nThis is the difference between ordinary merit and dedicated merit: ordinary merit is like a lamp that burns out; dedicated merit is like the sun that rises again each morning.\n\nTherefore, dedicate everything. Dedicate every act of kindness, every moment of practice, every dollar given, every hour spent in effort. And then dedicate the dedication itself — for even the act of dedicating generates merit that should itself be dedicated, endlessly.\"",
+      "context": "The mathematical heart of the Dedication of All Endeavors practice — dedicated merit is inexhaustible."
+    }
+  ],
+  "recitation_chapters": [
+    {
+      "id": "heart_sutra_full",
+      "sutra": "Heart Sutra",
+      "title": "The Heart of Perfect Wisdom",
+      "duration_estimate_minutes": 3,
+      "recommended_for": ["universal", "emptiness", "wisdom", "daily"],
+      "passage_ref": "heart_sutra_essence"
+    },
+    {
+      "id": "diamond_verse_32",
+      "sutra": "Diamond Sutra",
+      "title": "The Six Similes (Chapter 32)",
+      "duration_estimate_minutes": 2,
+      "recommended_for": ["impermanence", "loss", "death", "dedication_of_endeavors"],
+      "passage_ref": "diamond_impermanence"
+    },
+    {
+      "id": "sanghata_dedication",
+      "sutra": "Arya Sanghata Sutra",
+      "title": "On Dedicating All Actions",
+      "duration_estimate_minutes": 4,
+      "recommended_for": ["dedication_of_endeavors", "universal"],
+      "passage_ref": "sanghata_all_actions"
+    },
+    {
+      "id": "sanghata_loss",
+      "sutra": "Arya Sanghata Sutra",
+      "title": "On the Transformation of Loss",
+      "duration_estimate_minutes": 4,
+      "recommended_for": ["dedication_of_endeavors", "loss", "grief"],
+      "passage_ref": "sanghata_loss_transformation"
+    },
+    {
+      "id": "golden_light_protection",
+      "sutra": "Sutra of Golden Light",
+      "title": "Protection of the Land",
+      "duration_estimate_minutes": 3,
+      "recommended_for": ["earthquake", "war", "disaster", "protection"],
+      "passage_ref": "golden_light_protection"
+    },
+    {
+      "id": "vimalakirti_healing",
+      "sutra": "Vimalakirti Nirdesa",
+      "title": "The Medicine of Compassion",
+      "duration_estimate_minutes": 4,
+      "recommended_for": ["illness", "healing"],
+      "passage_ref": "vimalakirti_sickness"
+    }
+  ]
+}
