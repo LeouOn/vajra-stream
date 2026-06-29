@@ -40,6 +40,19 @@ _SUFFERING_TO_SUTRA_TAGS: dict[str, list[str]] = {
     "universal": ["dedication", "emptiness", "generosity"],
 }
 
+# Map suffering_type → dharani_id in knowledge/dharanis.json.
+# Used by _select_dharani() to include a protective/purifying dharani
+# recitation in the ritual invocation section.
+_SUFFERING_TO_DHARANI: dict[str, str] = {
+    "earthquake": "great_compassion_dharani",        # Avalokiteshvara — compassion for victims
+    "war": "great_compassion_dharani",                # Compassion for all sides
+    "illness": "medicine_buddha_dharani",             # Bhaiṣajyaguru — healing
+    "death": "ushnisha_vijaya_dharani",               # Namgyalma — liberation of deceased
+    "displacement": "amitabha_pure_land_dharani",     # Amitabha — refuge/rebirth
+    "dedication_of_endeavors": "cundi_dharani",       # Cundi — wish-fulfilling/abundance
+    "universal": "great_compassion_dharani",          # Universal compassion
+}
+
 
 @lru_cache(maxsize=1)
 def _load_sutra_db() -> dict:
@@ -57,6 +70,25 @@ def _load_sutra_db() -> dict:
     except (json.JSONDecodeError, OSError) as exc:
         logger.warning("Failed to load sutra_passages.json: %s", exc)
         return {}
+
+
+@lru_cache(maxsize=1)
+def _load_dharanis_db() -> list[dict]:
+    """Load knowledge/dharanis.json once (cached for the session).
+
+    Returns a list of dharani entry dicts. Empty list on missing/corrupt
+    file so callers can fall back gracefully.
+    """
+    path = Path(__file__).resolve().parent.parent / "knowledge" / "dharanis.json"
+    if not path.exists():
+        logger.debug("dharanis.json not found at %s", path)
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to load dharanis.json: %s", exc)
+        return []
 
 
 @dataclass
@@ -290,6 +322,46 @@ class RitualGenerator:
             return f"{teaching}\n\n{sutra}"
         return teaching
 
+    def _select_dharani(self, suffering_type: str) -> str | None:
+        """Select a protective/purifying dharani for the suffering type.
+
+        Maps suffering_type → dharani_id via _SUFFERING_TO_DHARANI, loads
+        knowledge/dharanis.json, and returns the dharani text formatted for
+        inclusion in the ritual invocation. Returns None if no match or DB
+        is unavailable.
+
+        Args:
+            suffering_type: One of the keys returned by detect_suffering_type().
+
+        Returns:
+            Formatted dharani block (header + Sanskrit text), or None.
+        """
+        dharani_id = _SUFFERING_TO_DHARANI.get(suffering_type)
+        if not dharani_id:
+            return None
+
+        entries = _load_dharanis_db()
+        if not entries:
+            return None
+
+        entry = next((e for e in entries if e.get("id") == dharani_id), None)
+        if entry is None:
+            return None
+
+        name = entry.get("name", dharani_id)
+        sanskrit_name = entry.get("sanskrit", "")
+        deity = entry.get("deity", "")
+        text = entry.get("text_sanskrit", "").strip()
+
+        if not text:
+            return None
+
+        header = f"**Dharani of {deity}** ({name})"
+        if sanskrit_name:
+            header += f"\n*{sanskrit_name}*"
+
+        return f"{header}\n\n{text}"
+
     def detect_suffering_type(self, intention: str) -> str:
         """Detect the type of suffering from the intention text."""
         lower = intention.lower()
@@ -337,6 +409,24 @@ class RitualGenerator:
             "",
             "*OM AH HUM* (3x)",
         ])
+
+        # Append the deity's dharani for extended protection/purification.
+        # The dharani is a longer recitation that amplifies the invocation.
+        dharani = self._select_dharani(suffering_type)
+        if dharani:
+            lines.extend([
+                "",
+                "---",
+                "",
+                "**Dharani Recitation**",
+                "",
+                dharani,
+                "",
+                "*Recite with single-pointed concentration. Each syllable purifies, "
+                "protects, and liberates. May the resonance of this dharani reach "
+                "all beings in all realms.*",
+            ])
+
         return "\n".join(lines)
 
     def generate_situational_prayer(self, intention: str, targets: list[str], llm=None) -> str:
