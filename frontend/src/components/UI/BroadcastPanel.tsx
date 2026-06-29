@@ -363,6 +363,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
           rate_values: rateValues,
           duration_minutes: 5,
           ritual_type: ritualType,
+          recite_with_tts: true,
         }),
       });
       if (response.ok) {
@@ -1294,6 +1295,19 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             )}
             {ritualResult.archived_narrative_id && (
               <span>Archived: #{ritualResult.archived_narrative_id}</span>
+            )}
+            {ritualResult.tts_result && (
+              <Tag color={
+                ritualResult.tts_result.status === 'completed' ? 'green'
+                : ritualResult.tts_result.status === 'queued' ? 'blue'
+                : ritualResult.tts_result.status === 'failed' ? 'red'
+                : 'orange'
+              }>
+                TTS: {ritualResult.tts_result.status}
+                {ritualResult.tts_result.sections_recited
+                  ? ` (${ritualResult.tts_result.sections_recited} sections)`
+                  : ''}
+              </Tag>
             )}
           </div>
         )}
