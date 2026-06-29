@@ -1,0 +1,154 @@
+{
+  "metadata": {
+    "description": "Sanskrit pronunciation guide for TTS engines. Maps IAST and Devanagari to English phonetic equivalents that text-to-speech can pronounce correctly.",
+    "usage": "When generating TTS text containing Sanskrit, replace IAST/Devanagari using these mappings BEFORE sending to the TTS engine.",
+    "last_updated": "2026-06-29"
+  },
+
+  "vowels": {
+    "a": "uh",
+    "ā": "ah",
+    "i": "ih",
+    "ī": "ee",
+    "u": "oo",
+    "ū": "oo (long)",
+    "ṛ": "ri",
+    "ṝ": "ri (long)",
+    "e": "ay",
+    "ai": "eye",
+    "o": "oh",
+    "au": "ow"
+  },
+
+  "consonants_simple": {
+    "k": "k",
+    "kh": "kh (aspirated)",
+    "g": "g",
+    "gh": "gh",
+    "ṅ": "ng",
+    "c": "ch",
+    "ch": "chh",
+    "j": "j",
+    "jh": "jh",
+    "ñ": "ny",
+    "ṭ": "t (retroflex)",
+    "ṭh": "th (retroflex)",
+    "ḍ": "d (retroflex)",
+    "ḍh": "dh (retroflex)",
+    "ṇ": "n (retroflex)",
+    "t": "t (dental)",
+    "th": "th (dental)",
+    "d": "d (dental)",
+    "dh": "dh (dental)",
+    "n": "n",
+    "p": "p",
+    "ph": "ph",
+    "b": "b",
+    "bh": "bh",
+    "m": "m",
+    "y": "y",
+    "r": "r (slightly rolled)",
+    "l": "l",
+    "v": "v (or w between consonants)",
+    "ś": "sh",
+    "ṣ": "sh (retroflex)",
+    "s": "s",
+    "h": "h"
+  },
+
+  "special_characters": {
+    "ṃ": "(anusvara - nasal resonance: 'ng' before k/g, 'n' before t/d, 'm' before p/b, 'ng' elsewhere)",
+    "ḥ": "(visarga - slight 'h' echo of preceding vowel: aḥ = 'aha', iḥ = 'ihi')",
+    "oṃ": "Ohm (the primal sound)",
+    "hrīḥ": "Hree-hi",
+    "hūṃ": "Hoom",
+    "phaṭ": "Phat (sharp, percussive)",
+    "svāhā": "Svah-hah (offerings made to the fire)",
+    "ye": "yay",
+    "dharmā": "Dhar-mah",
+    "tathāgata": "Tah-tah-guh-tuh"
+  },
+
+  "common_mantras_tts_ready": {
+    "om_mani_padme_hum": {
+      "original": "Oṃ Maṇi Padme Hūṃ",
+      "tts_friendly": "Om Mani Padme Hung",
+      "meaning": "Hail to the Jewel in the Lotus (Chenrezig/Avalokiteshvara)",
+      "notes": "The most universal Buddhist mantra. 'Hung' is closer to the Tibetan pronunciation; 'Hoom' is the Sanskrit."
+    },
+    "om_tare": {
+      "original": "Oṃ Tāre Tuttāre Ture Svāhā",
+      "tts_friendly": "Om Tah-reh Too-tah-reh Too-reh Svah-hah",
+      "meaning": "Homage to Tara, swift liberator (Green Tara)",
+      "notes": "Tara's 10-syllable mantra. The 'eh' endings keep syllables distinct for TTS."
+    },
+    "namo_amitabha": {
+      "original": "Namo Āmitābhāya",
+      "tts_friendly": "Nah-mo Ah-mee-tah-bhah-yah",
+      "meaning": "Homage to Amitabha (Boundless Light)",
+      "notes": "Used in Pure Land practice. Chinese: Namo Amituo Fo."
+    },
+    "medicin_buddha": {
+      "original": "Tadyathā Oṃ Bhaiṣajye Bhaiṣajye Mahābhaiṣajye Bhaiṣajye Rāja Samudgate Svāhā",
+      "tts_friendly": "Tahd-yah-thah Om By-shahj-yay By-shahj-yay Mahah-by-shahj-yay By-shahj-yay Rjah Sah-mood-gah-tay Svah-hah",
+      "meaning": "Medicine Buddha healing mantra",
+      "notes": "The 'bh' sound is aspirated. 'Bhai' sounds like 'by' in 'bye'."
+    },
+    "dzambhala": {
+      "original": "Oṃ Dzambhala Dzaliṃ Dzale Svāhā",
+      "tts_friendly": "Om Jahm-bhah-lah Jah-leem Jah-lay Svah-hah",
+      "meaning": "Yellow Dzambhala wealth deity mantra",
+      "notes": "Used for the Dedication of All Endeavors ritual type. The 'Dz' is pronounced like 'J'."
+    },
+    "vajrasattva": {
+      "original": "Oṃ Vajrasattva Hūṃ",
+      "tts_friendly": "Om Vahj-rah-saht-vah Hoom",
+      "meaning": "Vajrasattva purification mantra (short form)",
+      "notes": "The 100-syllable version is much longer. 'Vajra' = 'diamond/thunderbolt'."
+    },
+    "heart_sutra_mantra": {
+      "original": "Gate Gate Pāragate Pārasaṃgate Bodhi Svāhā",
+      "tts_friendly": "Gah-tay Gah-tay Pah-rah-gah-tay Pah-rah-sahm-gah-tay Boh-dee Svah-hah",
+      "meaning": "Gone, gone, gone beyond, gone utterly beyond, Enlightenment, Hail!",
+      "notes": "The perfection of wisdom mantra. Each 'gate' builds momentum."
+    },
+    "om_ah_hum": {
+      "original": "Oṃ Āḥ Hūṃ",
+      "tts_friendly": "Om Ah Hoom",
+      "meaning": "Body, Speech, Mind purification (Vajrayana three syllables)",
+      "notes": "Used at the start of Vajrayana practices to purify the three gates."
+    },
+    "tara_10_syllable": {
+      "original": "Oṃ Tāre Tuttāre Ture Svāhā",
+      "tts_friendly": "Om Tah-reh Too-tah-reh Too-reh Svah-hah",
+      "meaning": "Green Tara swift protection mantra",
+      "notes": "Same as om_tare above, listed separately for searchability."
+    },
+    "bhaiṣajyaguru_7_names": {
+      "original": "Oṃ Namah Bhaiṣajya-guru Vaiḍūrya Prabhā Rājāya Tathāgatāya Arhate Samyak-saṃbuddhāya Tadyathā Oṃ Bhaiṣajye Bhaiṣajye Mahābhaiṣajye Samudgate Svāhā",
+      "tts_friendly": "Om Nah-mah By-shahj-yuh Goo-roo Vye-doo-ryah Prah-bhah Rjah-yah Tah-tah-gah-tah-yah Ar-hah-tay Sahm-yahk Sahm-boo-dhah-yah Tahd-yah-thah Om By-shahj-yay By-shahj-yay Mahah-by-shahj-yay Sah-mood-gah-tay Svah-hah",
+      "meaning": "Medicine Buddha long mantra with 7 names",
+      "notes": "The full form used in Medicine Buddha practice. 'Vaiḍūrya' = lapis lazuli."
+    }
+  },
+
+  "pronunciation_rules": {
+    "rule_1": "Long vowels (ā, ī, ū) are held for TWO beats, short vowels (a, i, u) for ONE beat.",
+    "rule_2": "Aspirated consonants (kh, gh, ch, jh, ṭh, ḍh, th, dh, ph, bh) have a puff of air after them.",
+    "rule_3": "Retroflex consonants (ṭ, ḍ, ṇ, ṣ) are pronounced with the tongue curled back slightly.",
+    "rule_4": "The visarga (ḥ) is a faint echo of the preceding vowel.",
+    "rule_5": "The anusvara (ṃ) becomes the nasal matching the following consonant (ṅk, ñc, ṇṭ, nt, mp).",
+    "rule_6": "Sandhi (conjunction) rules blend word boundaries. For TTS, it's better to keep words slightly separated.",
+    "rule_7": "For TTS purposes, simplified phonetic spelling (English-friendly) always works better than strict IAST."
+  },
+
+  "tts_optimization_tips": [
+    "Replace 'ā' with 'ah' — TTS reads it as a long 'a'",
+    "Replace 'ū' with 'oo' — TTS reads it naturally",
+    "Replace 'hūṃ' with 'hoom' or 'hung' depending on tradition",
+    "Replace 'svāhā' with 'svah-hah' for clarity",
+    "Keep syllables separated by spaces for clearer pronunciation",
+    "Avoid Devanagari entirely — TTS can't read it",
+    "For Chinese mantras, use pinyin with tone marks removed"
+  ]
+}
