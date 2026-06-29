@@ -391,7 +391,7 @@ class RitualGenerator:
             return "death"
         if any(w in lower for w in ["refugee", "displaced", "homeless", "evacuee"]):
             return "displacement"
-        if any(w in lower for w in ["anger", "rage", "furious", "resentment", "grudge", "forgiveness", "enemy", "hostility", "hatred", "wrath", "bitter"]):
+        if any(w in lower for w in ["anger", "angry", "rage", "furious", "resentment", "grudge", "forgiveness", "enemy", "hostility", "hatred", "wrath", "bitter", "annoyed", "frustrated"]):
             return "anger"
         if any(w in lower for w in ["purification", "purify", "confession", "confess", "karma", "negative karma", "cleansing", "atone", "regret", "guilt", "mistake i", "wrong i"]):
             return "purification"
