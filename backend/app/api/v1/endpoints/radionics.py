@@ -7,7 +7,10 @@ import asyncio
 import json
 import logging
 import os
+import sqlite3
 import sys
+import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
@@ -17,6 +20,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from backend.core.orchestrator_bridge import orchestrator_bridge
 from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
+from core.schema import get_db_path
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -54,6 +58,18 @@ class LiberationProtocolRequest(BaseModel):
     duration_minutes: int = Field(default=30, ge=10, le=180, description="Duration")
 
 
+class RitualBroadcastRequest(BaseModel):
+    intention: str = Field(..., description="Intention text — prayer, dedication, or suffering")
+    target: str = Field(default="all beings", description="Who/what the ritual is dedicated to")
+    rate_values: list[int] | None = Field(
+        default=None, description="Radionics dial values (0-100) mapped to Solfeggio carrier frequencies"
+    )
+    direct_freq: float | None = Field(default=None, description="Direct carrier frequency in Hz (skips rate mapping)")
+    duration_minutes: int = Field(default=10, ge=1, le=180, description="Broadcast duration in minutes")
+    ritual_type: str = Field(default="universal", description="Ritual archetype (universal, earthquake, war, illness, death, displacement, dedication_of_endeavors)")
+    tradition: str = Field(default="vajrayana", description="Liturgical tradition (vajrayana, theravada, mahayana, zen)")
+
+
 # Response Models
 class BroadcastResponse(BaseModel):
     status: str
@@ -70,6 +86,16 @@ class BroadcastResponse(BaseModel):
     solfeggio_names: list[str] | None = None
     crystal_output: dict | None = None
     scalar_output: dict | None = None
+
+
+class RitualBroadcastResponse(BaseModel):
+    status: str
+    session_id: str
+    ritual_markdown: str
+    frequencies: list[float]
+    solfeggio_names: list[str]
+    crystal_output: dict | None = None
+    archived_narrative_id: int | None = None
 
 
 # Endpoints
@@ -261,6 +287,158 @@ async def liberation_protocol(request: LiberationProtocolRequest, background_tas
     except Exception as e:
         logger.error(f"❌ Liberation protocol error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ritual-broadcast", response_model=RitualBroadcastResponse)
+async def ritual_broadcast(request: RitualBroadcastRequest):
+    """Generate a complete sacred ritual + start crystal bowl broadcast + archive to DB.
+
+    Pipeline:
+        1. Resolve carrier frequencies (rate_values / direct_freq / auto-tune)
+        2. Fetch live astrology data
+        3. Generate full ritual via RitualGenerator
+        4. Start crystal bowl broadcast via container's crystal service
+        5. Archive ritual markdown to outlook_narratives table
+
+    Each step is wrapped in try/except so the ritual_markdown is returned even
+    if downstream stages (astrology fetch, crystal broadcast, DB archive) fail.
+    """
+    logger.info(f"🪷 Ritual broadcast: '{request.intention[:80]}' for {request.target}")
+
+    # ── Session id (best-effort via orchestrator; fallback to UUID) ────────
+    session_id = f"ritual_{uuid.uuid4().hex[:12]}"
+    try:
+        session_id = await orchestrator_bridge.create_session(
+            intention=request.intention,
+            targets=[{"type": "individual", "identifier": request.target}],
+            modalities=["ritual", "crystal_bowl"],
+            duration=request.duration_minutes * 60,
+        )
+    except Exception as exc:
+        logger.warning(f"orchestrator_bridge.create_session failed, using local id: {exc}")
+
+    # ── 1. Resolve carrier frequencies ─────────────────────────────────────
+    frequencies: list[float] = []
+    solfeggio_names: list[str] = []
+    carrier_amplitude: float = 0.3
+
+    try:
+        from core.rate_to_audio import map_rate_to_carriers
+
+        rate_values = request.rate_values
+        if not rate_values:
+            # No explicit dial values — try direct_freq first, then auto-tune
+            if request.direct_freq is not None:
+                frequencies = [7.83, float(request.direct_freq)]
+                solfeggio_names = ["Schumann Base", f"{float(request.direct_freq):.2f} Hz"]
+            else:
+                # Auto-tune: derive a single dial value from the intention via
+                # RadionicsEnhancer (entropy + hash) and snap to a Solfeggio tone.
+                try:
+                    from modules.radionics_enhancer import RadionicsEnhancer
+
+                    enhancer = RadionicsEnhancer()
+                    auto_rate = int(round(enhancer.attune_rate(request.intention)))
+                    logger.info(f"Auto-tuned rate value for intention: {auto_rate}")
+                except Exception as exc:
+                    logger.warning(f"RadionicsEnhancer auto-tune failed, falling back to 50: {exc}")
+                    auto_rate = 50
+                rate_values = [auto_rate]
+
+        if rate_values and not frequencies:
+            carriers = map_rate_to_carriers(rate_values, potency=1.0)
+            frequencies = list(carriers.frequencies)
+            solfeggio_names = list(carriers.solfeggio_names)
+            carrier_amplitude = carriers.amplitude
+    except Exception as exc:
+        logger.warning(f"Frequency resolution failed, using fallback [7.83, 528.0]: {exc}")
+        frequencies = [7.83, 528.0]
+        solfeggio_names = ["Schumann Base", "Mi (Transformation)"]
+
+    # ── 2. Fetch live astrology data ───────────────────────────────────────
+    astrology_data: dict | None = None
+    try:
+        from backend.core.services.vajra_service import vajra_service
+
+        astrology_data = await vajra_service._get_astrology_data()
+    except Exception as exc:
+        logger.warning(f"Astrology fetch failed, continuing without it: {exc}")
+
+    # ── 3. Generate full ritual ────────────────────────────────────────────
+    try:
+        from core.ritual_generator import RitualGenerator
+
+        ritual_gen = RitualGenerator()
+        # Best-effort: pull the global LLM from the container for richer prayers/teachings
+        try:
+            from container import container as _container
+            llm = _container.llm
+        except Exception:
+            llm = None
+
+        ritual = ritual_gen.generate_full_ritual(
+            intention=request.intention,
+            targets=[request.target],
+            carrier_frequencies=frequencies,
+            solfeggio_names=solfeggio_names,
+            mantras_dedicated=108,
+            astrology_data=astrology_data,
+            tradition=request.tradition,
+            llm=llm,
+        )
+        ritual_md = ritual.to_markdown()
+    except Exception as exc:
+        logger.error(f"Ritual generation failed: {exc}")
+        # Hard fallback — return a minimal so the caller still gets a session_id + frequencies
+        ritual_md = (
+            f"# Sacred Ritual: {request.intention}\n\n"
+            f"*Generated {datetime.now().isoformat()}*\n\n"
+            f"Om Mani Padme Hum — may all beings benefit.\n"
+        )
+        frequencies = frequencies or [7.83, 528.0]
+        solfeggio_names = solfeggio_names or ["Schumann Base", "Mi (Transformation)"]
+
+    # ── 4. Start crystal bowl broadcast (non-fatal if it fails) ────────────
+    crystal_output: dict | None = None
+    try:
+        from container import container as _container
+
+        crystal_output = _container.crystal.broadcast_intention(
+            intention=request.intention,
+            frequencies=frequencies,
+            duration=request.duration_minutes * 60,
+            hardware_level=2,
+            prayer_bowl_mode=True,
+            amplitude=carrier_amplitude,
+        )
+    except Exception as exc:
+        logger.warning(f"Crystal broadcast failed (continuing without audio): {exc}")
+
+    # ── 5. Archive ritual to outlook_narratives table (non-fatal) ─────────
+    narrative_id: int | None = None
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO outlook_narratives (type, genre, content, date_generated) VALUES (?, ?, ?, ?)",
+            ("ritual", request.ritual_type, ritual_md, datetime.now().isoformat()),
+        )
+        conn.commit()
+        narrative_id = cursor.lastrowid
+        conn.close()
+        logger.info(f"Archived ritual to outlook_narratives id={narrative_id}")
+    except Exception as exc:
+        logger.warning(f"Failed to archive ritual to outlook_narratives: {exc}")
+
+    return RitualBroadcastResponse(
+        status="success",
+        session_id=session_id,
+        ritual_markdown=ritual_md,
+        frequencies=frequencies,
+        solfeggio_names=solfeggio_names,
+        crystal_output=crystal_output,
+        archived_narrative_id=narrative_id,
+    )
 
 
 @router.get("/intentions")

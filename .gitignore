@@ -121,3 +121,6 @@ scripts/eval_system.py
 # Scratch / dev-only test scripts and JSON fixtures (runtime scratch space)
 # Refer to .omo/evidence/wave0-task6-artifacts.md for classification rationale.
 scratch/
+# Generated ritual output (private)
+ritual_output.md
+*.ritual.md

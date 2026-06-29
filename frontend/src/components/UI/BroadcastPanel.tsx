@@ -8,7 +8,7 @@
  * @component
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity, Radio as RadioIcon } from 'lucide-react';
+import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity, Radio as RadioIcon, Sparkles, Copy } from 'lucide-react';
 import { message, Select, Tag } from 'antd';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
@@ -100,7 +100,15 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [broadcastResult, setBroadcastResult] = useState<RadionicsBroadcastResult | null>(null);
   const [directFreq, setDirectFreq] = useState<string>('');
   const [presetTab, setPresetTab] = useState<'chakra' | 'harmonic' | 'custom'>('chakra');
-  
+
+  // Ritual broadcast state
+  const [ritualType, setRitualType] = useState<string>('dedication_of_endeavors');
+  const [ritualIntention, setRitualIntention] = useState<string>('');
+  const [ritualTarget, setRitualTarget] = useState<string>('all mother sentient beings');
+  const [isRitualGenerating, setIsRitualGenerating] = useState<boolean>(false);
+  const [ritualMarkdown, setRitualMarkdown] = useState<string>('');
+  const [ritualResult, setRitualResult] = useState<any>(null);
+
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
   // Load target lock and populations on mount — do NOT auto-forge sigils
@@ -244,11 +252,53 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
         message.error('Broadcast failed — no response from backend');
         audioFeedback.playError();
       }
+      } catch (e) {
+        message.error('Broadcast error: ' + (e instanceof Error ? e.message : String(e)));
+        audioFeedback.playError();
+      } finally {
+        setIsBroadcasting(false);
+      }
+    };
+
+  // ─── Ritual broadcast (LLM-generated ritual + crystal bowl broadcast) ───
+  // Generates a tradition-specific Buddhist ritual via /ritual-broadcast,
+  // archives it as a sacred narrative, and starts a crystal bowl broadcast.
+  const handleRitualBroadcast = async () => {
+    setIsRitualGenerating(true);
+    setRitualMarkdown('');
+    setRitualResult(null);
+    audioFeedback.playTelemetry();
+    try {
+      const rateValues = directFreq ? undefined : [
+        Math.round(dimensions.d1), Math.round(dimensions.d2),
+        Math.round(dimensions.d3), Math.round(dimensions.d4), Math.round(dimensions.d5),
+      ];
+      const response = await fetch('/api/v1/radionics/ritual-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          intention: ritualIntention || 'Universal compassion for all suffering beings',
+          target: ritualTarget || 'all beings',
+          rate_values: rateValues,
+          duration_minutes: 5,
+          ritual_type: ritualType,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setRitualMarkdown(data.ritual_markdown || '');
+        setRitualResult(data);
+        audioFeedback.playSuccess();
+        message.success('Ritual generated and broadcast started');
+      } else {
+        message.error(`Ritual generation failed: HTTP ${response.status}`);
+        audioFeedback.playError();
+      }
     } catch (e) {
-      message.error('Broadcast error: ' + (e instanceof Error ? e.message : String(e)));
+      message.error('Ritual error: ' + (e instanceof Error ? e.message : String(e)));
       audioFeedback.playError();
     } finally {
-      setIsBroadcasting(false);
+      setIsRitualGenerating(false);
     }
   };
 
@@ -982,6 +1032,128 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             <div className="text-[10px] text-gray-500 italic text-center pt-1">
               Prayer bowl synthesis active — crystal grid resonating at {broadcastResult.frequencies?.length || 0} carrier frequencies
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* ================= RITUAL BROADCAST (LLM-generated ritual + crystal bowl) ================= */}
+      <div className="bg-gradient-to-br from-amber-950/20 to-purple-950/20 rounded-xl border border-amber-500/20 p-5 space-y-4 mt-6">
+        <h3 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 border-b border-white/5 pb-2">
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          RITUAL BROADCAST
+        </h3>
+
+        <p className="text-[10px] text-gray-400">
+          Generate a tradition-specific ritual text and immediately broadcast it through the crystal grid at the carrier frequencies
+          derived from the current dimensional rates (or the direct frequency override).
+        </p>
+
+        {/* Ritual type + intention + target row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Ritual Type</label>
+            <Select
+              value={ritualType}
+              onChange={(v) => setRitualType(v)}
+              className="w-full"
+              size="small"
+              options={[
+                { value: 'universal', label: 'Universal Compassion' },
+                { value: 'dedication_of_endeavors', label: 'Dedication of All Endeavors' },
+                { value: 'earthquake', label: 'Earthquake Relief' },
+                { value: 'war', label: 'War/Conflict Relief' },
+                { value: 'illness', label: 'Healing' },
+                { value: 'death', label: 'Liberation of the Deceased' },
+              ]}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Intention</label>
+            <input
+              type="text"
+              value={ritualIntention}
+              onChange={(e) => setRitualIntention(e.target.value)}
+              placeholder="e.g. Dedication of all my endeavors toward the benefit of all beings"
+              className="w-full bg-gray-800 text-white text-xs px-3 py-1.5 rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder-gray-500"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Target</label>
+            <input
+              type="text"
+              value={ritualTarget}
+              onChange={(e) => setRitualTarget(e.target.value)}
+              placeholder="e.g. all mother sentient beings"
+              className="w-full bg-gray-800 text-white text-xs px-3 py-1.5 rounded border border-gray-600 focus:border-amber-500 focus:outline-none placeholder-gray-500"
+            />
+          </div>
+        </div>
+
+        {/* Rate values preview (mirrors the radionics block) */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-mono uppercase text-gray-500">Broadcast carriers:</span>
+          {directFreq ? (
+            <Tag color="amber" className="text-[10px] font-mono">
+              Direct: {directFreq} Hz (overrides dials)
+            </Tag>
+          ) : (
+            Object.entries(dimensions).map(([key, val]) => (
+              <Tag key={key} color="purple" className="text-[10px] font-mono">
+                {key.toUpperCase()}: {Math.round(val)}
+              </Tag>
+            ))
+          )}
+        </div>
+
+        {/* Generate button */}
+        <button
+          onClick={handleRitualBroadcast}
+          disabled={isRitualGenerating}
+          className="w-full px-4 py-2.5 bg-gradient-to-r from-amber-600 to-purple-600 hover:from-amber-700 hover:to-purple-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-2"
+        >
+          {isRitualGenerating ? (
+            <><Activity className="w-3.5 h-3.5 animate-spin" /> Generating Ritual...</>
+          ) : (
+            <><Sparkles className="w-3.5 h-3.5 text-yellow-400" /> Generate Ritual + Broadcast</>
+          )}
+        </button>
+
+        {/* Generated ritual text */}
+        {ritualMarkdown && (
+          <div className="bg-black/40 rounded-lg border border-amber-500/10 p-4 max-h-[400px] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[9px] font-mono uppercase text-amber-400">Generated Ritual</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => navigator.clipboard.writeText(ritualMarkdown)}
+                  className="text-[9px] text-gray-500 hover:text-amber-400"
+                >
+                  <Copy className="w-3 h-3 inline" /> Copy
+                </button>
+              </div>
+            </div>
+            <pre className="text-[11px] text-gray-300 whitespace-pre-wrap font-serif leading-relaxed">
+              {ritualMarkdown}
+            </pre>
+          </div>
+        )}
+
+        {/* Broadcast status footer */}
+        {ritualResult && (
+          <div className="flex items-center gap-3 text-[10px] text-gray-500 flex-wrap">
+            <Tag color={ritualResult.status === 'success' ? 'green' : 'orange'}>{ritualResult.status}</Tag>
+            {ritualResult.session_id && (
+              <span className="font-mono">Session: {String(ritualResult.session_id).slice(0, 8)}</span>
+            )}
+            {ritualResult.frequencies && ritualResult.frequencies.length > 0 && (
+              <span>Frequencies: {ritualResult.frequencies.map((f: number) => f.toFixed(1)).join(', ')} Hz</span>
+            )}
+            {ritualResult.solfeggio_names && ritualResult.solfeggio_names.length > 0 && (
+              <span>Solfeggio: {ritualResult.solfeggio_names.join(', ')}</span>
+            )}
+            {ritualResult.archived_narrative_id && (
+              <span>Archived: #{ritualResult.archived_narrative_id}</span>
+            )}
           </div>
         )}
       </div>
