@@ -79,6 +79,25 @@
       "purpose": "Deep karmic purification."
     },
     {
+      "name": "Cundi Buddha Mother (准提佛母 / Chunti)",
+      "description": "The Buddha Mother of seven million Buddhas, one of the most powerful esoteric Buddhist deities for purification and wish-fulfillment. Manifests with a white or golden-yellow body, three eyes, and eighteen arms each holding a Dharma implement, seated upon a white lotus. The eighteen arms symbolize the eighteen distinctive qualities (āveṇika-dharmāḥ) of a Buddha. A uniquely accessible practice — Cundi's dharani does NOT require abhisheka (empowerment) and may be practiced by anyone.",
+      "dharani_mantra": "Namaḥ Saptānāṃ Samyaksaṃbuddha Koṭīnāṃ Tadyathā Oṃ Cale Cule Cuṇḍe Svāhā (heart: Oṃ Cale Cule Cuṇḍe Svāhā)",
+      "purpose": "Purification of all karmic obscurations, wish-fulfillment for beneficial goals, removal of obstacles to spiritual practice.",
+      "color": "white or yellow (golden) — varies by tradition",
+      "element": "Fire",
+      "chakra": "solar_plexus",
+      "mudra": "Cundi Mudra (准提印) — fingers interlocked with both index fingers pointing upward, forming a pointed peak",
+      "iconography": {
+        "arms": 18,
+        "arms_meaning": "The 18 distinctive qualities of a Buddha (āveṇika-dharmāḥ)",
+        "eyes": 3,
+        "seat": "white lotus",
+        "body_color": "white or yellow-gold",
+        "implements": "Each of the 18 hands holds a different Dharma implement (vajra, wheel, lotus, sword, mala, bow, arrow, conch, vase, etc.)"
+      },
+      "frequency_hz": 417
+    },
+    {
       "name": "Manjushri",
       "description": "The embodiment of transcendent wisdom.",
       "dharani_mantra": "Om Ah Ra Pa Tsa Na Dhi",
