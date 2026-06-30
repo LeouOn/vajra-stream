@@ -1,0 +1,21 @@
+{
+  "description": "Mapping of dharma practices to their resonant frequencies (in Hz). Frequencies are drawn from the Solfeggio scale, Schumann resonance, and planetary tones. Each practice pairs a primary healing/activation frequency with a grounding or complementary frequency for scalar wave and prayer bowl synthesis.",
+  "practice_frequencies": {
+    "green_tara": [528, 7.83],
+    "white_tara": [396, 528],
+    "zhunti": [417, 7.83],
+    "medicine_buddha": [285, 7.83],
+    "vajrasattva": [963, 396],
+    "amitabha": [174, 396],
+    "avalokiteshvara": [639, 528],
+    "heart_sutra": [852, 963],
+    "eighty_eight_buddhas": [136.1, 528],
+    "saka_dawa": [528, 639]
+  },
+  "notes": {
+    "528": "Love / heart activation - primary frequency for Green Tara and Saka Dawa multiplicities",
+    "7.83": "Schumann fundamental - Earth grounding for manifestations of compassion in the physical realm",
+    "136.1": "OM frequency of Earth's revolution - grounding for the 88 Buddhas repentance ceremony",
+    "pairing_rationale": "Each practice pairs a transformational/activation frequency (Solfeggio) with either a grounding frequency (Schumann/OM) or a complementary heart/crown frequency to support the practice's energetic signature."
+  }
+}

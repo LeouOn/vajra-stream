@@ -1,0 +1,98 @@
+{
+  "description": "Population of beings needing Tara's swift protection and compassionate action",
+  "deity": "Green Tara",
+  "practice": "green_tara",
+  "frequency": [528, 7.83],
+  "targets": [
+    {
+      "name": "Those Facing Immediate Danger",
+      "category": "immediate_danger",
+      "description": "All beings currently in life-threatening situations - accidents, violence, natural disasters in progress",
+      "priority": 10,
+      "intention": "May Green Tara's swift protection surround all beings in immediate danger, may they be rescued and delivered to safety",
+      "additional_data": {
+        "tara_aspect": "Green Tara",
+        "mantra": "Om Tare Tuttare Ture Svaha",
+        "quality": "swift protection from the eight great fears"
+      }
+    },
+    {
+      "name": "Crisis Situations - Natural Disasters",
+      "category": "crisis",
+      "description": "Those affected by earthquakes, floods, hurricanes, wildfires, tsunamis, and other natural disasters",
+      "priority": 9,
+      "intention": "May all beings in disaster zones receive Tara's protection, may rescue come swiftly, may their suffering be alleviated",
+      "additional_data": {
+        "affected_annually": "100+ million people affected by natural disasters annually",
+        "data_sources": ["CRED EM-DAT", "UNDRR"]
+      }
+    },
+    {
+      "name": "Crisis Situations - Conflict Zones",
+      "category": "crisis",
+      "description": "Civilians caught in active armed conflict, war zones, and political violence",
+      "priority": 10,
+      "intention": "May all beings in conflict zones find safety, may violence cease, may peace prevail",
+      "additional_data": {
+        "current_conflicts": "Active conflicts in multiple regions globally",
+        "data_sources": ["UN OCHA", "ACLED"]
+      }
+    },
+    {
+      "name": "Refugees and Displaced Persons",
+      "category": "displaced",
+      "description": "Those forced to flee their homes - refugees, internally displaced persons, asylum seekers",
+      "priority": 9,
+      "intention": "May all refugees find safe haven, may they be welcomed with compassion, may they find new homes free from fear",
+      "additional_data": {
+        "estimated_count": "120+ million forcibly displaced worldwide (2024)",
+        "data_sources": ["UNHCR"]
+      }
+    },
+    {
+      "name": "Women in Vulnerable Situations",
+      "category": "vulnerable",
+      "description": "Women facing violence, trafficking, exploitation, and gender-based harm worldwide",
+      "priority": 9,
+      "intention": "May Tara's motherly protection shield all women, may they be empowered, may their dignity be honored",
+      "additional_data": {
+        "estimated_count": "1 in 3 women experience gender-based violence globally",
+        "data_sources": ["UN Women", "WHO"]
+      }
+    },
+    {
+      "name": "Children in Vulnerable Situations",
+      "category": "vulnerable",
+      "description": "Children at risk - orphans, child laborers, child soldiers, abused children, those without protection",
+      "priority": 10,
+      "intention": "May Tara's protective embrace surround all vulnerable children, may they be safe, nourished, and loved",
+      "additional_data": {
+        "estimated_count": "Over 1 billion children worldwide in vulnerability",
+        "data_sources": ["UNICEF", "Save the Children"]
+      }
+    },
+    {
+      "name": "Animals in Shelters and Factory Farms",
+      "category": "animal",
+      "description": "Animals awaiting adoption in shelters and those in factory farm conditions",
+      "priority": 8,
+      "intention": "May all confined animals know Tara's compassion, may they find freedom from suffering and kind treatment",
+      "additional_data": {
+        "estimated_count": "6.3 million in US shelters, 80+ billion in factory farms globally",
+        "data_sources": ["ASPCA", "FAO"]
+      }
+    },
+    {
+      "name": "Victims of the Eight Great Fears",
+      "category": "spiritual",
+      "description": "Those beset by the eight traditional fears: lions (pride), elephants (ignorance), fire (anger), snakes (jealousy), thieves (wrong views), prisons (greed), floods (lust/desire), demons (doubt)",
+      "priority": 8,
+      "intention": "May Tara liberate all beings from outer and inner fears, may they attain fearlessness and awakening",
+      "additional_data": {
+        "tradition": "Vajrayana Buddhism - Tara's 21 Praises",
+        "outer_fears": ["lions", "elephants", "fire", "snakes", "thieves", "prisons", "floods", "demons"],
+        "inner_fears": ["pride", "ignorance", "anger", "jealousy", "wrong_views", "greed", "desire", "doubt"]
+      }
+    }
+  ]
+}

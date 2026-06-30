@@ -1,5 +1,15 @@
 {
   "solfeggio": {
+    "174": {
+      "name": "Foundation Security",
+      "purpose": "Security, foundation, pain relief",
+      "chakra": "root"
+    },
+    "285": {
+      "name": "Tissue Regeneration",
+      "purpose": "Healing tissues, organs, cellular regeneration",
+      "chakra": "root"
+    },
     "396": {
       "name": "Liberation from Fear",
       "purpose": "Releasing guilt and fear",
@@ -91,7 +101,8 @@
     "7.83": {
       "name": "Schumann Fundamental",
       "purpose": "Earth resonance, grounding",
-      "description": "Earth's electromagnetic frequency"
+      "description": "Earth's electromagnetic frequency",
+      "dharma_note": "Earth's electromagnetic pulse supports all dharma practices by grounding blessing energy into the physical plane"
     },
     "14.3": {
       "name": "Schumann 2nd Harmonic",
@@ -127,6 +138,72 @@
       "name": "Gamma",
       "state": "Peak awareness",
       "purpose": "Insight, higher consciousness"
+    }
+  },
+  "dharma": {
+    "528": {
+      "name": "Tara Green Light Frequency",
+      "purpose": "Love frequency; resonates with Green Tara's compassionate action; heart chakra activation",
+      "deity": "Green Tara",
+      "chakra": "heart",
+      "color": "green",
+      "practice": "green_tara"
+    },
+    "396": {
+      "name": "Tara White Light Frequency",
+      "purpose": "Liberation from fear; White Tara's healing and longevity energy",
+      "deity": "White Tara",
+      "chakra": "crown",
+      "color": "white",
+      "practice": "white_tara"
+    },
+    "417": {
+      "name": "Zhunti Purification Frequency",
+      "purpose": "Facilitating change; Zhunti Buddha Mother's karmic purification",
+      "deity": "Zhunti (Cundi) Buddha Mother",
+      "chakra": "sacral",
+      "color": "white",
+      "practice": "zhunti"
+    },
+    "285": {
+      "name": "Medicine Buddha Healing Frequency",
+      "purpose": "Tissue regeneration; Medicine Buddha's healing blue light",
+      "deity": "Medicine Buddha (Bhaisajyaguru)",
+      "chakra": "throat",
+      "color": "blue",
+      "practice": "medicine_buddha"
+    },
+    "963": {
+      "name": "Vajrasattva Diamond Frequency",
+      "purpose": "Divine consciousness; Vajrasattva's diamond wisdom purification",
+      "deity": "Vajrasattva",
+      "chakra": "crown",
+      "color": "white",
+      "practice": "vajrasattva"
+    },
+    "174": {
+      "name": "Amitabha Pure Land Frequency",
+      "purpose": "Foundation/security; Amitabha's Pure Land peace",
+      "deity": "Amitabha Buddha",
+      "chakra": "crown",
+      "color": "red",
+      "practice": "amitabha"
+    },
+    "639": {
+      "name": "Avalokiteshvara Compassion Frequency",
+      "purpose": "Connection/relationships; Avalokiteshvara's universal compassion",
+      "deity": "Avalokiteshvara (Chenrezig)",
+      "chakra": "heart",
+      "color": "white",
+      "practice": "avalokiteshvara"
+    },
+    "852": {
+      "name": "Heart Sutra Wisdom Frequency",
+      "purpose": "Awakening intuition; Prajnaparamita wisdom",
+      "deity": "Prajnaparamita (Perfection of Wisdom)",
+      "chakra": "third_eye",
+      "color": "yellow",
+      "practice": "heart_sutra"
     }
   }
 }
