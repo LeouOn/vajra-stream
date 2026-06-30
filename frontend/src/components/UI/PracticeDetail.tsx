@@ -32,8 +32,10 @@
  * @component
  * @route /practices/:id
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import {
   Button,
   Card,
@@ -67,28 +69,81 @@ import {
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
 import { getPracticeById, type Practice } from './practicesCatalog';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { useAudioStore } from '../../stores/audioStore';
+import type { PracticeStatus } from '../../types';
+import TaraGreenLotus from '../3D/TaraGreenLotus';
+import ZhuntiMandala from '../3D/ZhuntiMandala';
+import MedicineBuddhaHealing from '../3D/MedicineBuddhaHealing';
 
 const { Title, Text, Paragraph } = Typography;
 
 /** Total beads on a traditional mala — a complete cycle. */
 const MALA_BEADS = 108;
 
+/**
+ * Shared prop contract of the three wired-in 3D visualization
+ * components (TaraGreenLotus / ZhuntiMandala / MedicineBuddhaHealing).
+ */
+type Complexity = 'simple' | 'medium' | 'complex';
+
+interface VizComponentProps {
+  audioSpectrum: number[];
+  isPlaying: boolean;
+  frequency: number;
+  complexity?: Complexity;
+}
+
+/**
+ * Map a practice id (underscore form, matches knowledge/practices/*.json)
+ * to its dedicated 3D visualization component. Practices without an
+ * entry simply have no in-page visualization — the toggle button is
+ * hidden for them.
+ *
+ * `white_tara` reuses `TaraGreenLotus` per the integration spec; a
+ * dedicated white-palette lotus can be added later without changing
+ * this map.
+ */
+const PRACTICE_VISUALIZATIONS: Record<string, React.ComponentType<VizComponentProps>> = {
+  green_tara: TaraGreenLotus,
+  white_tara: TaraGreenLotus,
+  zhunti: ZhuntiMandala,
+  medicine_buddha: MedicineBuddhaHealing,
+};
+
+/** Optional props — App.tsx passes the live WS practice map for real-time updates. */
+export interface PracticeDetailProps {
+  wsPractices?: Record<string, PracticeStatus>;
+}
+
 /** Status payload the backend returns from /status. */
-interface PracticeStatus {
+interface PracticeStatusResponse {
   running: boolean;
   count: number;
   mala_count: number;
 }
 
-/** Result of the start endpoint — used to capture the session id. */
+/**
+ * Start response — backend returns `{status: "started", session: {...}}`
+ * where `session` is the full status dict (including `practice_id`,
+ * which serves as the session identifier since each practice tracks at
+ * most one running session). Legacy/offline paths may still return the
+ * flat `{session_id}` shape, so we tolerate both.
+ */
 interface StartResponse {
   status: string;
+  session?: { practice_id?: string };
   session_id?: string;
 }
 
-/** Result of the stop endpoint — surfaces the final total. */
+/**
+ * Stop response — backend returns `{status: "stopped", session: {...}}`
+ * with `session.total_recited` carrying the final tally. Older shapes
+ * surfaced `total_count` at the top level; tolerate both.
+ */
 interface StopResponse {
   status: string;
+  session?: { total_recited?: number };
   total_count?: number;
 }
 
@@ -221,11 +276,16 @@ function useInterval(enabled: boolean, intervalMs: number): number {
   return tick;
 }
 
-export default function PracticeDetail(): React.ReactElement {
+export default function PracticeDetail({
+  wsPractices,
+}: PracticeDetailProps = {}): React.ReactElement {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const practice: Practice | undefined = useMemo(() => getPracticeById(id), [id]);
+
+  /** In-page 3D visualization toggle (replaces navigation to /practice/visualizers). */
+  const [showVisualization, setShowVisualization] = useState<boolean>(false);
 
   /** Live recitation state. */
   const [running, setRunning] = useState<boolean>(false);
@@ -240,9 +300,35 @@ export default function PracticeDetail(): React.ReactElement {
   const [intention, setIntention] = useState<string>('');
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
 
+  /**
+   * Audio + live-practice state from the shared hooks. The 3D viz
+   * components consume `audioSpectrum` / `isPlaying` / `frequency`
+   * directly; `wsPractices` (prop) is preferred for live session
+   * updates but we fall back to the local hook value when App.tsx
+   * hasn't wired the prop through yet.
+   */
+  const wsHook = useWebSocketStable();
+  const audioSpectrum = wsHook.audioSpectrum;
+  const { isPlaying, frequency } = useAudioStore();
+  const livePractices = wsPractices ?? wsHook.practices;
+
   // Re-render every second while running so the timer ticks.
   useInterval(running, 1000);
   const elapsedMs = sessionStartedAt ? Date.now() - sessionStartedAt : 0;
+
+  /**
+   * When the backend pushes a fresher session state via WebSocket
+   * (PRACTICE_RECITED / PRACTICE_STARTED / etc.), fold it into local
+   * UI state so the bead ring + counters stay in sync without polling.
+   */
+  useEffect(() => {
+    if (!id) return;
+    const live = livePractices[id];
+    if (!live) return;
+    setRunning(Boolean(live.running));
+    setCount(typeof live.total_recited === 'number' ? live.total_recited : 0);
+    setMalaCount(typeof live.mala_count === 'number' ? live.mala_count : 0);
+  }, [id, livePractices]);
 
   /** Status poll ref so we can cancel from cleanup. */
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -253,7 +339,7 @@ export default function PracticeDetail(): React.ReactElement {
     try {
       const res = await fetch(apiUrl(`/practices/${id}/status`));
       if (!res.ok) return;
-      const data: PracticeStatus = await res.json();
+      const data: PracticeStatusResponse = await res.json();
       setRunning(Boolean(data.running));
       setCount(typeof data.count === 'number' ? data.count : 0);
       setMalaCount(typeof data.mala_count === 'number' ? data.mala_count : 0);
@@ -307,8 +393,9 @@ export default function PracticeDetail(): React.ReactElement {
         });
         if (!res.ok) throw new Error(`Backend returned ${res.status}`);
         const data: StopResponse = await res.json();
-        if (typeof data.total_count === 'number') {
-          setCount(data.total_count);
+        const finalTotal = data.session?.total_recited ?? data.total_count;
+        if (typeof finalTotal === 'number') {
+          setCount(finalTotal);
         }
         setRunning(false);
         setSessionStartedAt(null);
@@ -326,7 +413,8 @@ export default function PracticeDetail(): React.ReactElement {
         const data: StartResponse = await res.json();
         setRunning(true);
         setSessionStartedAt(Date.now());
-        if (data.session_id) setSessionId(data.session_id);
+        const resolvedSessionId = data.session?.practice_id ?? data.session_id;
+        if (resolvedSessionId) setSessionId(resolvedSessionId);
         audioFeedback.playSuccess();
       }
     } catch (err) {
@@ -401,6 +489,8 @@ export default function PracticeDetail(): React.ReactElement {
     ['--practice-color-rgb' as string]: practice.colorRgb,
   } as React.CSSProperties;
 
+  const VizComponent = id ? PRACTICE_VISUALIZATIONS[id] : undefined;
+
   return (
     <div className="flex-1 h-full overflow-y-auto" style={accentStyle}>
       <div className="max-w-5xl mx-auto px-6 py-8">
@@ -422,15 +512,18 @@ export default function PracticeDetail(): React.ReactElement {
               >
                 {practice.id}
               </Tag>
-              <Tooltip title="Open the 3D sacred geometry visualizer">
-                <Button
-                  icon={<Eye size={16} />}
-                  onClick={() => navigate('/practice/visualizers')}
-                  className="!bg-white/5 !border-white/10 !text-white/80 hover:!bg-white/10"
-                >
-                  View Visualization
-                </Button>
-              </Tooltip>
+              {VizComponent && (
+                <Tooltip title="Toggle the in-page 3D visualization for this practice">
+                  <Button
+                    icon={<Eye size={16} />}
+                    onClick={() => setShowVisualization((v) => !v)}
+                    type={showVisualization ? 'primary' : 'default'}
+                    className="!bg-white/5 !border-white/10 !text-white/80 hover:!bg-white/10"
+                  >
+                    {showVisualization ? 'Hide Visualization' : 'View Visualization'}
+                  </Button>
+                </Tooltip>
+              )}
             </Space>
           </div>
 
@@ -476,6 +569,73 @@ export default function PracticeDetail(): React.ReactElement {
               onClose={() => setError(null)}
               className="!bg-amber-500/10 !border-amber-500/30"
             />
+          )}
+
+          {/* In-page 3D visualization panel (toggled by the Eye button) */}
+          {showVisualization && VizComponent && (
+            <Card
+              className="!bg-black/40 !border-white/10 backdrop-blur-md"
+              styles={{ body: { padding: 0 } }}
+              title={
+                <div className="flex items-center gap-2 px-2 pt-1">
+                  <Eye size={16} style={{ color: practice.color }} />
+                  <Text strong className="!text-white !uppercase !tracking-widest !text-xs">
+                    {practice.name} Visualization
+                  </Text>
+                </div>
+              }
+              extra={
+                <Button
+                  size="small"
+                  onClick={() => setShowVisualization(false)}
+                  className="!bg-white/5 !border-white/10 !text-white/80"
+                >
+                  Close
+                </Button>
+              }
+            >
+              <div className="h-[420px] w-full bg-black/60">
+                <Suspense
+                  fallback={
+                    <div className="w-full h-full flex items-center justify-center text-white/60 text-sm">
+                      Loading visualization…
+                    </div>
+                  }
+                >
+                  <Canvas
+                    key={`viz-${practice.id}`}
+                    camera={{ position: [0, 0, 12], fov: 60 }}
+                    className="w-full h-full"
+                  >
+                    <ambientLight intensity={0.5} />
+                    <pointLight position={[10, 10, 10]} intensity={1} />
+                    <Stars
+                      radius={100}
+                      depth={50}
+                      count={3500}
+                      factor={3}
+                      saturation={0}
+                      fade
+                      speed={0.8}
+                    />
+                    <VizComponent
+                      audioSpectrum={audioSpectrum}
+                      isPlaying={isPlaying}
+                      frequency={frequency}
+                      complexity="medium"
+                    />
+                    <OrbitControls
+                      enableZoom
+                      enablePan={false}
+                      enableRotate
+                      autoRotate
+                      autoRotateSpeed={0.5}
+                    />
+                    <Environment preset="sunset" />
+                  </Canvas>
+                </Suspense>
+              </div>
+            </Card>
           )}
 
           {/* Mantra + Counters */}

@@ -49,7 +49,7 @@ export interface Practice {
 
 export const PRACTICES: Practice[] = [
   {
-    id: '88-buddhas',
+    id: '88_buddhas',
     name: '88 Buddhas',
     transliteration: 'Bāshíbā Fó',
     description:
@@ -68,7 +68,7 @@ export const PRACTICES: Practice[] = [
       'Recite the names of the 88 Buddhas in sequence, visualizing each Buddha at the crown of your head emitting purifying light that cleanses negative karma.',
   },
   {
-    id: 'green-tara',
+    id: 'green_tara',
     name: 'Green Tara',
     transliteration: 'Shye Tara',
     description:
@@ -87,7 +87,7 @@ export const PRACTICES: Practice[] = [
       'Visualize Green Tara at your heart, emerald-green, seated on a lotus. With each recitation, send her compassionate activity out into the world to liberate all beings from the eight fears.',
   },
   {
-    id: 'white-tara',
+    id: 'white_tara',
     name: 'White Tara',
     transliteration: 'Karma Tara',
     description:
@@ -125,7 +125,7 @@ export const PRACTICES: Practice[] = [
       'Visualize Cundi Bodhisattva, pure and serene, atop a lotus. Each recitation purifies obscurations and sharpens discriminating-awareness wisdom.',
   },
   {
-    id: 'medicine-buddha',
+    id: 'medicine_buddha',
     name: 'Medicine Buddha',
     transliteration: 'Yao Shi Fo',
     description:
@@ -201,7 +201,7 @@ export const PRACTICES: Practice[] = [
       "Visualize Chenrezig, white and four-armed, at your crown. Each recitation of the six syllables opens the lotus of your heart and liberates all beings from the six realms of samsāra.",
   },
   {
-    id: 'heart-sutra',
+    id: 'heart_sutra',
     name: 'Heart Sutra',
     transliteration: 'Prajñāpāramitā Hṛdaya',
     description: 'The condensed essence of the Perfection of Wisdom.',

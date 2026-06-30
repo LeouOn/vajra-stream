@@ -130,6 +130,21 @@ async def lifespan(app: FastAPI):
         print(f"Failed to start Autonomous Operator daemon: {e}")
         logger.error(f"Failed to start Autonomous Operator daemon: {e}")
 
+    # Pre-warm the multi-practice recitation engine so the first
+    # /practices/list request doesn't pay the JSON-load cost. Lazy load
+    # is idempotent; this just forces it to happen now.
+    try:
+        from core.practice_engine import get_practice_engine
+
+        engine = get_practice_engine()
+        # Touch list_practices() to force definition loading eagerly.
+        engine_count = len(engine.list_practices())
+        print(f"Practice engine pre-warmed ({engine_count} definitions loaded)")
+    except Exception as e:
+        print(f"Failed to pre-warm practice engine: {e}")
+        logger.error(f"Failed to pre-warm practice engine: {e}")
+        logger.error(traceback.format_exc())
+
     yield
 
     # Shutdown
@@ -155,6 +170,17 @@ async def lifespan(app: FastAPI):
         print("Autonomous Radionics Operator daemon stopped")
     except Exception as e:
         print(f"Failed to stop Autonomous Operator daemon: {e}")
+
+    # Stop any running multi-practice sessions so their history is
+    # recorded with reason="shutdown" rather than left dangling.
+    try:
+        from core.practice_engine import get_practice_engine
+
+        await get_practice_engine().stop_all(reason="shutdown")
+        print("Practice engine stopped all running sessions")
+    except Exception as e:
+        print(f"Failed to stop practice engine sessions: {e}")
+        logger.error(f"Failed to stop practice engine sessions: {e}")
 
     # Close LLM registry and cancel health heartbeat
     if hasattr(app.state, "llm_registry"):

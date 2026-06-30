@@ -182,13 +182,20 @@ export default function PracticeSelector(): React.ReactElement {
         if (!res.ok) {
           throw new Error(`Backend returned ${res.status}`);
         }
-        const data: Array<{
-          id: string;
+        // Backend returns `{ practices: [...] }`. Some older clients (and
+        // the offline fallback) may return a bare array — tolerate both.
+        // Each backend row identifies itself with `practice_id`; the seed
+        // catalog uses the field name `id`, so normalize here.
+        const resp = await res.json();
+        const rawList: Array<{
+          practice_id?: string;
+          id?: string;
           name: string;
-          color: string;
-          mantra?: string;
-          benefits: string[];
-        }> = await res.json();
+          color?: string;
+          benefits?: string[];
+          primary_purpose?: string;
+          mantra_count?: number;
+        }> = Array.isArray(resp) ? resp : (resp.practices || []);
 
         if (cancelled) return;
 
@@ -196,15 +203,18 @@ export default function PracticeSelector(): React.ReactElement {
         // missing fields so a partial backend payload still renders
         // beautifully (icon, transliteration, etc.).
         const seedById = new Map<string, Practice>(PRACTICES.map((p) => [p.id, p]));
-        const merged: Practice[] = data.map((row) => {
-          const seed = seedById.get(row.id);
+        const merged: Practice[] = rawList.map((row) => {
+          const rowId = row.practice_id ?? row.id ?? '';
+          const seed = seedById.get(rowId);
           return {
             ...(seed ?? PRACTICES[0]),
-            id: row.id,
+            id: rowId,
             name: row.name,
             color: row.color || (seed?.color ?? '#8b5cf6'),
             benefits: row.benefits ?? seed?.benefits ?? [],
-            mantra: row.mantra ?? seed?.mantra,
+            // Backend to_public_dict does not emit a `mantra` field —
+            // always fall back to the seed's curated mantra text.
+            mantra: seed?.mantra,
           };
         });
 

@@ -63,7 +63,8 @@ function AppContent(): React.ReactElement {
     crystalStatus,
     scalarStatus,
     buddhaStatus,
-    sakaDawa
+    sakaDawa,
+    practices: wsPractices
   } = useWebSocket();
 
   const {
@@ -143,7 +144,7 @@ function AppContent(): React.ReactElement {
         } />
         <Route path="/practices/:id" element={
           <div className="flex-1 h-full overflow-hidden">
-            <PracticeDetail />
+            <PracticeDetail wsPractices={wsPractices} />
           </div>
         } />
 
