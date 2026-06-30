@@ -152,7 +152,7 @@ function RecitationControls({ running, intention, loading, onToggle }: Recitatio
       loading={loading}
       style={running ? { borderColor: '#dc2626', color: '#fca5a5' } : undefined}
     >
-      {running ? 'Stop Recitation' : `Start 88-Buddha Loop${intention ? '' : ''}`}
+      {running ? 'Stop Recitation' : 'Start 88-Buddha Loop'}
     </Button>
   );
 }

@@ -75,6 +75,8 @@ import type { PracticeStatus } from '../../types';
 import TaraGreenLotus from '../3D/TaraGreenLotus';
 import ZhuntiMandala from '../3D/ZhuntiMandala';
 import MedicineBuddhaHealing from '../3D/MedicineBuddhaHealing';
+import SacredGeometry from '../3D/SacredGeometry';
+import SacredMandala from '../3D/SacredMandala';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -96,19 +98,30 @@ interface VizComponentProps {
 
 /**
  * Map a practice id (underscore form, matches knowledge/practices/*.json)
- * to its dedicated 3D visualization component. Practices without an
- * entry simply have no in-page visualization — the toggle button is
- * hidden for them.
+ * to its dedicated 3D visualization component. Covers all 9 practices in
+ * the catalog; entries without a one-of-a-kind scene reuse a thematic
+ * stand-in (same prop contract — these are R3F components consuming
+ * audio spectrum / play state / frequency).
  *
- * `white_tara` reuses `TaraGreenLotus` per the integration spec; a
- * dedicated white-palette lotus can be added later without changing
- * this map.
+ *  - 88 Buddhas        → SacredGeometry (multi-pattern field)
+ *  - Green/White Tara  → TaraGreenLotus
+ *  - Zhunti            → ZhuntiMandala
+ *  - Medicine Buddha   → MedicineBuddhaHealing
+ *  - Vajrasattva       → MedicineBuddhaHealing (purification by light)
+ *  - Amitabha          → SacredMandala (Pure Land resonance)
+ *  - Avalokiteshvara   → TaraGreenLotus (compassionate lotus seat)
+ *  - Heart Sutra       → ZhuntiMandala (pure-awareness mandala)
  */
 const PRACTICE_VISUALIZATIONS: Record<string, React.ComponentType<VizComponentProps>> = {
   green_tara: TaraGreenLotus,
   white_tara: TaraGreenLotus,
   zhunti: ZhuntiMandala,
   medicine_buddha: MedicineBuddhaHealing,
+  vajrasattva: MedicineBuddhaHealing,
+  amitabha: SacredMandala,
+  avalokiteshvara: TaraGreenLotus,
+  heart_sutra: ZhuntiMandala,
+  '88_buddhas': SacredGeometry,
 };
 
 /** Optional props — App.tsx passes the live WS practice map for real-time updates. */

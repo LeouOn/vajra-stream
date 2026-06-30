@@ -5,7 +5,6 @@ export const antdTheme = {
   cssVar: true,      // Use CSS variables for tokens
   hashed: true,      // Hash class names for SSR safety
   token: {
-    colorPrimary: '#D97706',      // Saffron
     colorBgBase: '#0F0F1A',       // Dark sacred background
     colorTextBase: '#F5F0E1',     // Cream text
     fontFamily: 'system-ui, -apple-system, sans-serif',

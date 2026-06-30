@@ -38,7 +38,6 @@ import RitualPhaseIndicator from './RitualPhaseIndicator';
 import BodhicittaBanner from './BodhicittaBanner';
 import GeneratedContentGallery from './GeneratedContentGallery';
 import RitualMonitor from './RitualMonitor';
-import { CardSkeleton, SessionSkeleton } from './LoadingSkeleton';
 
 const colorMap = {
   purple: {

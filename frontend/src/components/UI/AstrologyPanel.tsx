@@ -6,9 +6,10 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import {
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload, Copy
 } from 'lucide-react';
-import { Card, Row, Col, Tag, Button, Space, Segmented, message } from 'antd';
+import { Card, Row, Col, Tag, Button, Space, Segmented } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
+import { useUIStore } from '../../stores/uiStore';
 import VedicPanchanga from './VedicPanchanga';
 import ChineseBaZi from './ChineseBaZi';
 
@@ -94,6 +95,7 @@ function MiniOrrery({ positions }) {
 
 export default function AstrologyPanel() {
   const { isPlaying, frequency } = useAudioStore();
+  const addToast = useUIStore((s) => s.addToast);
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
   const [liveData, setLiveData] = useState(null);
@@ -258,11 +260,11 @@ export default function AstrologyPanel() {
           });
           if (response.ok) {
             savedChart = await response.json();
-            message.success("Natal profile updated successfully");
+            addToast({ type: 'success', title: 'Natal profile updated successfully', duration: 3 });
             setEditingChart(null);
           } else {
             const err = await _readError(response);
-            message.error(`Update failed: ${err}`);
+            addToast({ type: 'error', title: `Update failed: ${err}`, duration: 5 });
             // Fall through to compute temporary chart anyway
           }
         } else {
@@ -274,10 +276,10 @@ export default function AstrologyPanel() {
           });
           if (response.ok) {
             savedChart = await response.json();
-            message.success("Natal profile saved successfully");
+            addToast({ type: 'success', title: 'Natal profile saved successfully', duration: 3 });
           } else {
             const err = await _readError(response);
-            message.warning(`Could not save: ${err}. Showing temporary chart instead.`);
+            addToast({ type: 'warning', title: `Could not save: ${err}. Showing temporary chart instead.`, duration: 4 });
             // Fall through to compute temporary chart
           }
         }
@@ -301,12 +303,12 @@ export default function AstrologyPanel() {
         setCustomData(astroData);
         setIsLiveMode(false);
         setActiveChart(null);
-        message.info("Temporary chart computed successfully");
+        addToast({ type: 'info', title: 'Temporary chart computed successfully', duration: 3 });
         audioFeedback.playSuccess();
       }
     } catch (err) {
       console.error(err);
-      message.error(err.message || "Error processing request");
+      addToast({ type: 'error', title: err.message || 'Error processing request', duration: 5 });
       audioFeedback.playError();
     } finally {
       setLoading(false);
@@ -358,7 +360,7 @@ export default function AstrologyPanel() {
         method: 'DELETE'
       });
       if (response.ok) {
-        message.success("Profile deleted successfully");
+        addToast({ type: 'success', title: 'Profile deleted successfully', duration: 3 });
         if (activeChart?.id === id) {
           handleResetToLive();
         }
@@ -382,7 +384,7 @@ export default function AstrologyPanel() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        message.success("Backup downloaded successfully");
+        addToast({ type: 'success', title: 'Backup downloaded successfully', duration: 3 });
       }
     } catch (e) {
       console.error(e);
@@ -398,14 +400,14 @@ export default function AstrologyPanel() {
       });
       if (response.ok) {
         const result = await response.json();
-        message.success(`Successfully imported ${result.imported} profiles`);
+        addToast({ type: 'success', title: `Successfully imported ${result.imported} profiles`, duration: 3 });
         fetchSavedCharts();
       } else {
-        message.error("Failed to import profiles");
+        addToast({ type: 'error', title: 'Failed to import profiles', duration: 5 });
       }
     } catch (e) {
       console.error(e);
-      message.error("Import failed");
+      addToast({ type: 'error', title: 'Import failed', duration: 5 });
     }
   };
 
@@ -413,23 +415,23 @@ export default function AstrologyPanel() {
     // Live mode: copy current day/location astrology (no saved chart needed)
     if (isLiveMode) {
       if (!liveData) {
-        message.error("Live data not yet loaded — wait for it to fetch");
+        addToast({ type: 'error', title: 'Live data not yet loaded — wait for it to fetch', duration: 5 });
         return;
       }
       try {
         const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
         const markdown = formatLiveAstrologyMarkdown(liveData);
         await navigator.clipboard.writeText(markdown);
-        message.success("Current astrology copied for LLM");
+        addToast({ type: 'success', title: 'Current astrology copied for LLM', duration: 3 });
       } catch (e) {
         console.error(e);
-        message.error("Live astrology copy failed: " + e.message);
+        addToast({ type: 'error', title: 'Live astrology copy failed: ' + e.message, duration: 5 });
       }
       return;
     }
     // Natal mode: copy saved chart's natal data
     if (!activeChart?.id) {
-      message.error("Load a saved chart first to copy its natal data");
+      addToast({ type: 'error', title: 'Load a saved chart first to copy its natal data', duration: 5 });
       return;
     }
     try {
@@ -449,10 +451,10 @@ export default function AstrologyPanel() {
       const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
       const markdown = formatNatalChartMarkdown(data);
       await navigator.clipboard.writeText(markdown);
-      message.success("Natal chart copied for LLM");
+      addToast({ type: 'success', title: 'Natal chart copied for LLM', duration: 3 });
     } catch (e) {
       console.error(e);
-      message.error("Natal chart copy failed: " + e.message);
+      addToast({ type: 'error', title: 'Natal chart copy failed: ' + e.message, duration: 5 });
     }
   };
 
@@ -789,7 +791,7 @@ export default function AstrologyPanel() {
                     <Card
                       title={<span className="text-purple-400 font-mono text-xs tracking-wider uppercase">🌀 Sacred Mandala — Planetary Resonance Field</span>}
                       className="bg-gray-900/80 border-purple-500/20"
-                      styles={{ body: { padding: '0', height: '360px' } }}
+                      styles={{ body: { padding: '0', height: 'min(60vh, 480px)' } }}
                     >
                       <ErrorBoundary fallbackTitle="3D mandala failed to load">
                         <Suspense fallback={
