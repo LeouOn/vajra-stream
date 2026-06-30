@@ -61,6 +61,21 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(traceback.format_exc())
 
+    # Wire vajra_service to the shared event bus so its session events
+    # (SessionCreated/Started/Stopped, RNGReadingEvent, ...) reach the
+    # AutonomousAgent and WebSocket forwarder. Must run before the
+    # autonomous operator starts its first tick.
+    try:
+        from backend.core.services.vajra_service import vajra_service
+        from container import container
+
+        vajra_service.event_bus = container.event_bus
+        print("vajra_service wired to shared event bus")
+    except Exception as e:
+        print(f"Failed to wire vajra_service.event_bus: {e}")
+        logger.error(f"Failed to wire vajra_service.event_bus: {e}")
+        logger.error(traceback.format_exc())
+
     # Initialize LLM Provider Registry
     health_task = None
     try:

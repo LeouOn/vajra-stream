@@ -29,7 +29,14 @@ class OrchestratorBridge:
         if not self.initialized:
             logger.info("Initializing Orchestrator Bridge...")
             try:
-                self.orchestrator = UnifiedOrchestrator()
+                # Inject the container's shared event bus so that production
+                # events (published via container.event_bus) reach the
+                # orchestrator's subscribers (e.g. AutonomousAgent, event
+                # forwarding). Without this, UnifiedOrchestrator would spin
+                # up its own private bus that nothing else publishes to.
+                from container import container
+
+                self.orchestrator = UnifiedOrchestrator(event_bus=container.event_bus)
                 self._register_event_forwarding()
                 self.initialized = True
                 logger.info("Orchestrator Bridge initialized successfully")

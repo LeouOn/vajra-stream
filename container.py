@@ -241,14 +241,15 @@ class Container:
         for event_type in [HealingSessionStarted, ScalarWavesGenerated, BlessingGenerated]:
             self.event_bus.subscribe(event_type, log_all_events)
 
-        # Example: When healing session starts, generate scalar waves automatically
+        # When a healing session starts, auto-generate scalar waves.
         def auto_generate_scalar_waves(event: HealingSessionStarted):
             logger.info(f"🌊 Auto-generating scalar waves for {event.target_name}")
-            # This would be called automatically when session starts
-            # self.scalar_waves.generate("hybrid", 10000, 0.8)
+            try:
+                self.scalar_waves.generate("hybrid", 10000, 0.8)
+            except Exception as e:
+                logger.warning(f"Auto scalar wave generation failed: {e}")
 
-        # Uncomment to enable auto-generation
-        # self.event_bus.subscribe(HealingSessionStarted, auto_generate_scalar_waves)
+        self.event_bus.subscribe(HealingSessionStarted, auto_generate_scalar_waves)
 
     def reset(self):
         """Reset container (useful for testing)"""
