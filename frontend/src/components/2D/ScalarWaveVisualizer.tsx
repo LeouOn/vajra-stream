@@ -6,7 +6,7 @@
  * @component
  */
 import React, { useRef, useEffect, useState } from 'react';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 
 type ScalarMode = 'interference' | 'spiral' | 'standing' | 'particle-storm';
 

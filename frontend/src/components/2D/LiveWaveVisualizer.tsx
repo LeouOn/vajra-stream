@@ -5,7 +5,7 @@
  * @component
  */
 import React, { useRef, useEffect, useState } from 'react';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
 
 type WaveType = 'sine' | 'sawtooth' | 'scalar' | 'combined';

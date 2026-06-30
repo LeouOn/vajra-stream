@@ -18,7 +18,7 @@ import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic } fro
 import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import SakaDawaBanner from './SakaDawaBanner';
 import JourneyCard from './JourneyCard';
 import BuddhaContemplationWidget from './BuddhaContemplationWidget';

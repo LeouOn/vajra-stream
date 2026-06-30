@@ -117,60 +117,95 @@ function AppContent(): React.ReactElement {
       <Routes>
         <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />
 
-        {/* ==================== MAIN GROUPED ROUTES (7) ==================== */}
+        {/* ==================== MAIN GROUPED ROUTES (7) ====================
+            Every renderable route is wrapped in <ErrorBoundary> so a single
+            render error in any view (or a lazy-loaded chunk failure) is
+            contained and shows a retry panel instead of crashing the app. */}
 
         <Route path="/command-center" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <CommandCenter
-              isConnected={isConnected}
-              isPlaying={isPlaying}
-              frequency={frequency}
-              crystalStatus={crystalStatus}
-              scalarStatus={scalarStatus}
-              sessions={sessions}
-              buddhaStatus={buddhaStatus}
-              sakaDawa={sakaDawa}
-            />
-          </div>
+          <ErrorBoundary fallbackTitle="Command Center failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <CommandCenter
+                isConnected={isConnected}
+                isPlaying={isPlaying}
+                frequency={frequency}
+                crystalStatus={crystalStatus}
+                scalarStatus={scalarStatus}
+                sessions={sessions}
+                buddhaStatus={buddhaStatus}
+                sakaDawa={sakaDawa}
+              />
+            </div>
+          </ErrorBoundary>
         } />
 
         <Route path="/practice" element={<Navigate to="/practice/sanctuary" replace />} />
-        <Route path="/practice/:tab" element={<PracticePage />} />
+        <Route path="/practice/:tab" element={
+          <ErrorBoundary fallbackTitle="Practice view failed to render">
+            <PracticePage />
+          </ErrorBoundary>
+        } />
 
         <Route path="/practices" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <PracticeSelector />
-          </div>
+          <ErrorBoundary fallbackTitle="Practice Library failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <PracticeSelector />
+            </div>
+          </ErrorBoundary>
         } />
         <Route path="/practices/:id" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <PracticeDetail wsPractices={wsPractices} />
-          </div>
+          <ErrorBoundary fallbackTitle="Practice detail failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <PracticeDetail wsPractices={wsPractices} />
+            </div>
+          </ErrorBoundary>
         } />
 
         <Route path="/astrology" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <AstrologyPanel />
-          </div>
+          <ErrorBoundary fallbackTitle="Cosmic Clock failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <AstrologyPanel />
+            </div>
+          </ErrorBoundary>
         } />
 
         <Route path="/outlook" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <OutlookDashboard />
-          </div>
+          <ErrorBoundary fallbackTitle="Outlook failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <OutlookDashboard />
+            </div>
+          </ErrorBoundary>
         } />
 
-        <Route path="/operations" element={<OperationsPage />} />
-        <Route path="/operations/:tab" element={<OperationsPage />} />
+        <Route path="/operations" element={
+          <ErrorBoundary fallbackTitle="Operations failed to render">
+            <OperationsPage />
+          </ErrorBoundary>
+        } />
+        <Route path="/operations/:tab" element={
+          <ErrorBoundary fallbackTitle="Operations failed to render">
+            <OperationsPage />
+          </ErrorBoundary>
+        } />
 
         <Route path="/grimoire" element={
-          <div className="flex-1 h-full overflow-hidden">
-            <GrimoirePanel />
-          </div>
+          <ErrorBoundary fallbackTitle="Grimoire failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <GrimoirePanel />
+            </div>
+          </ErrorBoundary>
         } />
 
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/:tab" element={<SettingsPage />} />
+        <Route path="/settings" element={
+          <ErrorBoundary fallbackTitle="Settings failed to render">
+            <SettingsPage />
+          </ErrorBoundary>
+        } />
+        <Route path="/settings/:tab" element={
+          <ErrorBoundary fallbackTitle="Settings failed to render">
+            <SettingsPage />
+          </ErrorBoundary>
+        } />
 
         {/* ==================== LEGACY ROUTE REDIRECTS ==================== */}
         {/* Old flat routes keep working via <Navigate> so bookmarks and
@@ -215,6 +250,27 @@ function App(): React.ReactElement {
           ...antdTheme.token,
           colorPrimary: COLORS.primary, // vajra-purple (--primary in globals.css)
           colorInfo: COLORS.secondary, // vajra-cyan (--secondary in globals.css)
+        },
+        components: {
+          ...(antdTheme.components ?? {}),
+          Slider: {
+            handleColor: COLORS.primary,
+            trackBg: COLORS.primary,
+            trackHoverBg: COLORS.primary,
+          },
+          Switch: {
+            colorPrimary: COLORS.primary,
+            colorPrimaryHover: COLORS.primary,
+          },
+          Tabs: {
+            inkBarColor: COLORS.primary,
+            itemActiveColor: COLORS.primary,
+            itemHoverColor: COLORS.primary,
+            itemSelectedColor: COLORS.primary,
+          },
+          Progress: {
+            defaultColor: COLORS.primary,
+          },
         },
       }}
     >

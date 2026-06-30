@@ -9,7 +9,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity } from 'lucide-react';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
