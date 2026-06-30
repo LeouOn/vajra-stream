@@ -20,6 +20,11 @@ import type {
   RecitationStatus,
   SakaDawaResult,
   ProviderHealthStatus,
+  PracticeStatus,
+  WSPracticeStarted,
+  WSPracticeRecited,
+  WSPracticeCompleted,
+  WSPracticeStopped,
 } from '../types';
 
 export interface UseWebSocketStableReturn {
@@ -36,6 +41,7 @@ export interface UseWebSocketStableReturn {
   buddhaStatus: RecitationStatus | null;
   sakaDawa: SakaDawaResult | null;
   ritualStatus: Record<string, unknown> | null;
+  practices: Record<string, PracticeStatus>;
   providerHealth: ProviderHealthStatus[];
   lastProviderHealthUpdate: number | null;
   error: string | null;
@@ -63,6 +69,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
   const [buddhaStatus, setBuddhaStatus] = useState<RecitationStatus | null>(null);
   const [sakaDawa, setSakaDawa] = useState<SakaDawaResult | null>(null);
   const [ritualStatus, setRitualStatus] = useState<Record<string, unknown> | null>(null);
+  const [practices, setPractices] = useState<Record<string, PracticeStatus>>({});
   const [providerHealth, setProviderHealth] = useState<ProviderHealthStatus[]>([]);
   const [lastProviderHealthUpdate, setLastProviderHealthUpdate] = useState<number | null>(null);
 
@@ -252,6 +259,73 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
               setProviderHealth((data as { statuses?: ProviderHealthStatus[] }).statuses || []);
               setLastProviderHealthUpdate(Date.now());
               break;
+            // Backend: core/practice_engine.py:_broadcast_ws — multi-practice
+            // recitation lifecycle (Tara / Zhunti / Medicine Buddha / etc.).
+            // PRACTICE_RECITED carries the same shape as PRACTICE_STARTED's
+            // status projection, so all four branches fold into one setter.
+            case 'PRACTICE_STARTED': {
+              const started = (data as WSPracticeStarted).data;
+              setPractices(prev => ({
+                ...prev,
+                [started.practice_id]: {
+                  practice_id: started.practice_id,
+                  practice_name: started.practice_name,
+                  intention: started.intention,
+                  target_count: started.target_count,
+                  total_recited: 0,
+                  mala_count: 0,
+                  mala_rounds: 0,
+                  current_repetition: '',
+                  running: true,
+                  started_at: new Date().toISOString(),
+                  last_recited_at: '',
+                  elapsed_seconds: 0,
+                  progress_pct: 0,
+                },
+              }));
+              break;
+            }
+            case 'PRACTICE_RECITED': {
+              const recited = (data as WSPracticeRecited).data;
+              setPractices(prev => ({
+                ...prev,
+                [recited.practice_id]: recited,
+              }));
+              break;
+            }
+            case 'PRACTICE_COMPLETED': {
+              const done = (data as WSPracticeCompleted).data;
+              setPractices(prev => ({
+                ...prev,
+                [done.practice_id]: {
+                  ...(prev[done.practice_id] ?? ({} as PracticeStatus)),
+                  practice_id: done.practice_id,
+                  practice_name: done.practice_name,
+                  total_recited: done.total_count,
+                  mala_rounds: done.mala_rounds,
+                  running: false,
+                  last_recited_at: new Date().toISOString(),
+                  progress_pct: 100,
+                } as PracticeStatus,
+              }));
+              break;
+            }
+            case 'PRACTICE_STOPPED': {
+              const stopped = (data as WSPracticeStopped).data;
+              setPractices(prev => ({
+                ...prev,
+                [stopped.practice_id]: {
+                  ...(prev[stopped.practice_id] ?? ({} as PracticeStatus)),
+                  practice_id: stopped.practice_id,
+                  practice_name: stopped.practice_name,
+                  total_recited: stopped.total_count,
+                  mala_rounds: stopped.mala_rounds,
+                  running: false,
+                  last_recited_at: new Date().toISOString(),
+                } as PracticeStatus,
+              }));
+              break;
+            }
             case 'CRYSTAL_BROADCAST_STARTED':
               setCrystalStatus({ active: true, intention: data.data.intention });
               break;
@@ -399,6 +473,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     buddhaStatus,
     sakaDawa,
     ritualStatus,
+    practices,
     providerHealth,
     lastProviderHealthUpdate,
     error,

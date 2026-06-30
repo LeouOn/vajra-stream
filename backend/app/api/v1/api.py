@@ -18,6 +18,7 @@ from backend.app.api.v1.endpoints import operator as operator_endpoint
 from backend.app.api.v1.endpoints import outlook as outlook_endpoint
 from backend.app.api.v1.endpoints import personal_healing as personal_healing_endpoint
 from backend.app.api.v1.endpoints import populations as populations_endpoint
+from backend.app.api.v1.endpoints import practices as practices_endpoint
 from backend.app.api.v1.endpoints import prayer_wheel as prayer_wheel_endpoint
 from backend.app.api.v1.endpoints import radionics as radionics_endpoint
 from backend.app.api.v1.endpoints import radionics_narratives as radionics_narratives_endpoint
@@ -64,3 +65,4 @@ api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["out
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])
 api_router.include_router(ritual_engine_endpoint.router, prefix="/ritual", tags=["ritual-engine"])
+api_router.include_router(practices_endpoint.router, tags=["practices"])
