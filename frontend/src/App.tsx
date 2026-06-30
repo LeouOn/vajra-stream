@@ -27,6 +27,8 @@ import GrimoirePanel from './components/UI/GrimoirePanel';
 import PracticePage from './routes/Practice';
 import OperationsPage from './routes/Operations';
 import SettingsPage from './routes/Settings';
+import PracticeSelector from './components/UI/PracticeSelector';
+import PracticeDetail from './components/UI/PracticeDetail';
 import ErrorBoundary from './components/UI/ErrorBoundary';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
@@ -133,6 +135,17 @@ function AppContent(): React.ReactElement {
 
         <Route path="/practice" element={<Navigate to="/practice/sanctuary" replace />} />
         <Route path="/practice/:tab" element={<PracticePage />} />
+
+        <Route path="/practices" element={
+          <div className="flex-1 h-full overflow-hidden">
+            <PracticeSelector />
+          </div>
+        } />
+        <Route path="/practices/:id" element={
+          <div className="flex-1 h-full overflow-hidden">
+            <PracticeDetail />
+          </div>
+        } />
 
         <Route path="/astrology" element={
           <div className="flex-1 h-full overflow-hidden">
