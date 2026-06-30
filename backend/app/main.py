@@ -124,11 +124,49 @@ async def lifespan(app: FastAPI):
         from container import container
 
         print("Starting Autonomous Radionics Operator daemon...")
-        container.operator.start_autonomous_mode(interval_seconds=60)
+        container.operator.start_autonomous_mode(interval_seconds=300)
         print("Autonomous Radionics Operator daemon activated successfully on startup")
     except Exception as e:
         print(f"Failed to start Autonomous Operator daemon: {e}")
         logger.error(f"Failed to start Autonomous Operator daemon: {e}")
+
+    # Wire LLM usage WS broadcast: every Nth record (throttled inside the
+    # tracker), push a compact summary over the stable WS channel so the
+    # frontend can render a live cost panel without polling.
+    try:
+        import asyncio as _asyncio
+
+        from core.llm.usage import LLMUsageTracker
+
+        def _broadcast_usage(summary: dict) -> None:
+            payload = {
+                "type": "LLM_USAGE_UPDATE",
+                "data": {
+                    "total_calls": summary.get("total_calls"),
+                    "total_cost_usd": summary.get("total_cost_usd"),
+                    "calls_today": summary.get("calls_today"),
+                    "cost_today": summary.get("cost_today"),
+                    "daily_cost_usd": summary.get("daily_cost_usd"),
+                    "daily_cost_cap": summary.get("daily_cost_cap"),
+                    "over_cap": summary.get("over_cap"),
+                    "remaining_balance": summary.get("remaining_balance"),
+                    "provider_stats": summary.get("provider_stats"),
+                },
+            }
+            try:
+                loop = _asyncio.get_running_loop()
+                loop.create_task(stable_connection_manager_v2.broadcast(payload))
+            except RuntimeError:
+                # No running loop — tests/offline use; skip silently.
+                pass
+            except Exception:  # noqa: BLE001
+                logger.debug("LLM_USAGE_UPDATE broadcast failed", exc_info=True)
+
+        LLMUsageTracker.get().add_on_record_callback(_broadcast_usage)
+        print("LLM usage WS broadcast hook registered (throttled every 10 records)")
+    except Exception as e:
+        print(f"Failed to register LLM usage WS broadcast: {e}")
+        logger.error(f"Failed to register LLM usage WS broadcast: {e}")
 
     # Pre-warm the multi-practice recitation engine so the first
     # /practices/list request doesn't pay the JSON-load cost. Lazy load

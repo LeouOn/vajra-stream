@@ -26,6 +26,7 @@ Architecture:
 import asyncio
 import json
 import logging
+import time
 import uuid
 from datetime import datetime
 from typing import Any
@@ -36,10 +37,42 @@ from core.context_builder import (
     build_system_prompt,
     search_rates,
 )
+from core.llm.usage import LLMUsageTracker, UsageRecord
 from core.radionics_tools import RADIONICS_TOOLS, get_tools_for_provider
 from modules.interfaces import EventBus
 
 logger = logging.getLogger(__name__)
+
+
+def _record_operator_usage(
+    *,
+    provider: str,
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    latency_ms: float,
+    endpoint: str = "operator_chat",
+    success: bool = True,
+) -> None:
+    """Best-effort usage recording for direct operator chat calls.
+
+    The operator bypasses the provider class (it uses ``self.llm.client``
+    directly), so it must record explicitly.
+    """
+    try:
+        tracker = LLMUsageTracker.get()
+        tracker.record(UsageRecord(
+            provider=provider,
+            model=model,
+            prompt_tokens=prompt_tokens or 0,
+            completion_tokens=completion_tokens or 0,
+            total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+            latency_ms=latency_ms,
+            endpoint=endpoint,
+            success=success,
+        ))
+    except Exception:  # noqa: BLE001
+        logger.debug("LLMUsageTracker.record failed in operator", exc_info=True)
 
 
 # ============================================================================
@@ -1007,9 +1040,20 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         if self._blessing_loop_active:
             return {"status": "already_running", "message": "Blessing loop is already active"}
 
+        # Floor the interval to avoid hammering the LLM API. The default
+        # 15s is fine, but callers can request lower — we clamp to 30s so
+        # an accidental 1s / 5s doesn't burn the daily cost cap.
+        min_interval = 30.0
+        effective_interval = max(float(interval_seconds), min_interval)
+        if effective_interval != interval_seconds:
+            logger.info(
+                "Blessing loop interval raised from %.1fs to floor of %.1fs",
+                interval_seconds, min_interval,
+            )
+
         self._blessing_loop_active = True
         self._blessing_loop_intention = intention
-        self._blessing_loop_interval = interval_seconds
+        self._blessing_loop_interval = effective_interval
         self._blessing_stream: list[dict[str, Any]] = []
 
         # Generate first blessing immediately
@@ -1030,8 +1074,8 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         return {
             "status": "started",
             "intention": intention,
-            "interval_seconds": interval_seconds,
-            "message": f"Blessing loop started. Generating unique blessings for {intention} every {interval_seconds}s.",
+            "interval_seconds": effective_interval,
+            "message": f"Blessing loop started. Generating unique blessings for {intention} every {effective_interval}s.",
             "first_blessing": blessing,
         }
 
@@ -1527,6 +1571,7 @@ Return JSON with:
             {"role": "user", "content": message},
         ]
 
+        turn_start = time.time()
         response = self.llm.client.chat.completions.create(
             model=model_override or self.llm.model_name,
             messages=messages,
@@ -1535,6 +1580,17 @@ Return JSON with:
             max_tokens=800,
             temperature=0.7,
         )
+        try:
+            _usage = getattr(response, "usage", None)
+            _record_operator_usage(
+                provider="openai",
+                model=model_override or self.llm.model_name,
+                prompt_tokens=getattr(_usage, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(_usage, "completion_tokens", 0) or 0,
+                latency_ms=(time.time() - turn_start) * 1000.0,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("usage record failed in _chat_openai", exc_info=True)
 
         choice = response.choices[0]
 
@@ -1576,6 +1632,7 @@ Return JSON with:
         user-selectable from the UI; supply ``model_override`` explicitly
         to override.
         """
+        turn_start = time.time()
         response = self.llm.client.messages.create(
             model=model_override or self.llm.model_name,
             system=system_prompt,
@@ -1584,6 +1641,17 @@ Return JSON with:
             max_tokens=800,
             temperature=0.7,
         )
+        try:
+            _usage = getattr(response, "usage", None)
+            _record_operator_usage(
+                provider="anthropic",
+                model=model_override or self.llm.model_name,
+                prompt_tokens=getattr(_usage, "input_tokens", 0) or 0,
+                completion_tokens=getattr(_usage, "output_tokens", 0) or 0,
+                latency_ms=(time.time() - turn_start) * 1000.0,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("usage record failed in _chat_anthropic", exc_info=True)
 
         # Check for tool use blocks
         tool_results = []

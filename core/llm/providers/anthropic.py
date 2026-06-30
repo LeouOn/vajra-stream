@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from collections.abc import AsyncIterator
 
 from anthropic import AsyncAnthropic
@@ -15,6 +16,7 @@ from core.llm.models import (
     HealthStatus,
     ModelInfo,
 )
+from core.llm.usage import LLMUsageTracker, UsageRecord
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,7 @@ class AnthropicProvider:
     async def generate(self, request: ChatRequest) -> ChatResponse:
         model = request.model or self.default_model
         messages, system = self._build_messages(request)
+        start_time = time.time()
         try:
             kwargs: dict = {
                 "model": model,
@@ -97,21 +100,58 @@ class AnthropicProvider:
             text = ""
             if response.content:
                 text = getattr(response.content[0], "text", "") or ""
+            input_tokens = response.usage.input_tokens if response.usage else 0
+            output_tokens = response.usage.output_tokens if response.usage else 0
+            self._record_usage(
+                model=model,
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                latency_ms=int((time.time() - start_time) * 1000),
+            )
             return ChatResponse(
                 content=text,
                 provider=self.name,
                 model=model,
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
                 finish_reason=response.stop_reason or "stop",
             )
         except Exception as e:
             logger.error(f"generate failed for {self.name}/{model}: {e}")
             raise RuntimeError(f"{self.name} generation failed: {e}") from e
 
+    def _record_usage(
+        self,
+        *,
+        model: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+        latency_ms: int,
+        endpoint: str = "chat",
+        success: bool = True,
+    ) -> None:
+        """Best-effort usage recording — never propagates exceptions."""
+        try:
+            tracker = LLMUsageTracker.get()
+            tracker.record(UsageRecord(
+                provider=self.name,
+                model=model,
+                prompt_tokens=prompt_tokens or 0,
+                completion_tokens=completion_tokens or 0,
+                total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+                latency_ms=latency_ms,
+                endpoint=endpoint,
+                success=success,
+            ))
+        except Exception:  # noqa: BLE001
+            logger.debug("LLMUsageTracker.record failed", exc_info=True)
+
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
         model = request.model or self.default_model
         messages, system = self._build_messages(request)
+        start_time = time.time()
+        usage_prompt = 0
+        usage_completion = 0
         try:
             kwargs: dict = {
                 "model": model,
@@ -128,6 +168,14 @@ class AnthropicProvider:
                         provider=self.name,
                         model=model,
                     )
+                # Anthropic exposes final usage on the completed Message.
+                try:
+                    final = await stream.get_final_message()
+                    if getattr(final, "usage", None):
+                        usage_prompt = final.usage.input_tokens or 0
+                        usage_completion = final.usage.output_tokens or 0
+                except Exception:  # noqa: BLE001 — best-effort usage capture
+                    pass
             yield ChatChunk(content="", done=True, provider=self.name, model=model)
         except Exception as e:
             logger.error(f"stream failed for {self.name}/{model}: {e}")
@@ -137,6 +185,15 @@ class AnthropicProvider:
                 provider=self.name,
                 model=model,
             )
+        finally:
+            if usage_prompt or usage_completion:
+                self._record_usage(
+                    model=model,
+                    prompt_tokens=usage_prompt,
+                    completion_tokens=usage_completion,
+                    latency_ms=int((time.time() - start_time) * 1000),
+                    endpoint="stream",
+                )
 
     async def close(self) -> None:
         # The anthropic async client manages an underlying httpx client.

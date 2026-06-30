@@ -950,6 +950,41 @@ def _build_openai_tools(tool_schemas: list[dict]) -> list[dict]:
     ]
 
 
+def _record_llm_usage(
+    *,
+    provider: str,
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    latency_ms: float,
+    endpoint: str = "chat",
+    success: bool = True,
+) -> None:
+    """Best-effort LLM usage recording for raw-client call paths.
+
+    Used by the tool-calling loops (which call ``client.chat.completions.create``
+    directly with a sync ``openai.OpenAI`` / ``anthropic.Anthropic`` client
+    rather than going through the provider class). The provider-class path
+    (``OpenAICompatibleProvider.generate`` / ``AnthropicProvider.generate``)
+    records itself, so registry-routed calls do not call this helper — that
+    keeps the JSONL audit log free of duplicates.
+    """
+    try:
+        tracker = LLMUsageTracker.get()
+        tracker.record(UsageRecord(
+            provider=provider,
+            model=model,
+            prompt_tokens=prompt_tokens or 0,
+            completion_tokens=completion_tokens or 0,
+            total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+            latency_ms=latency_ms,
+            endpoint=endpoint,
+            success=success,
+        ))
+    except Exception:  # noqa: BLE001 — tracker must never block an LLM call
+        logger.debug("LLMUsageTracker.record failed", exc_info=True)
+
+
 async def _run_openai_compatible_tool_loop(
     *,
     client: Any,
@@ -971,6 +1006,7 @@ async def _run_openai_compatible_tool_loop(
     extra_kwargs = create_kwargs or {}
     for turn in range(max_turns):
         logger.info(f"{provider_label} turn {turn} with model {model_name}...")
+        turn_start = time.time()
         response = client.chat.completions.create(
             model=model_name,
             messages=messages,
@@ -979,6 +1015,18 @@ async def _run_openai_compatible_tool_loop(
             temperature=0.7,
             **extra_kwargs,
         )
+        try:
+            _turn_latency = (time.time() - turn_start) * 1000.0
+            _usage = getattr(response, "usage", None)
+            _record_llm_usage(
+                provider=provider_label.lower().replace(" ", "_"),
+                model=model_name,
+                prompt_tokens=getattr(_usage, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(_usage, "completion_tokens", 0) or 0,
+                latency_ms=_turn_latency,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("usage record failed in openai tool loop", exc_info=True)
 
         msg = response.choices[0].message
         messages.append(msg)
@@ -1046,6 +1094,7 @@ async def _run_anthropic_tool_loop(
     """Run the Anthropic messages tool-calling loop (block-based content format)."""
     for turn in range(max_turns):
         logger.info(f"Anthropic turn {turn}...")
+        turn_start = time.time()
         response = client.messages.create(
             model=model_name,
             system=system_prompt,
@@ -1054,6 +1103,18 @@ async def _run_anthropic_tool_loop(
             temperature=0.7,
             max_tokens=2000,
         )
+        try:
+            _turn_latency = (time.time() - turn_start) * 1000.0
+            _usage = getattr(response, "usage", None)
+            _record_llm_usage(
+                provider="anthropic",
+                model=model_name,
+                prompt_tokens=getattr(_usage, "input_tokens", 0) or 0,
+                completion_tokens=getattr(_usage, "output_tokens", 0) or 0,
+                latency_ms=_turn_latency,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("usage record failed in anthropic tool loop", exc_info=True)
 
         assistant_content: list[dict] = []
         tool_requests = []
@@ -1541,6 +1602,55 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
 
     # 6) Default fallback when no branch matched.
     return wrap_res(await run_rule_based_fallback(query))
+
+
+@router.get("/usage/summary")
+async def get_usage_summary() -> dict:
+    """Return the cumulative LLM usage summary.
+
+    Totals (calls, tokens, cost), per-provider breakdown, daily cost vs cap,
+    and the last 50 in-memory records. The JSONL log file on disk is the
+    authoritative audit trail; this endpoint is the live view.
+    """
+    tracker = LLMUsageTracker.get()
+    return tracker.get_summary()
+
+
+@router.get("/usage/recent")
+async def get_recent_usage(limit: int = 50) -> dict:
+    """Return the most recent LLM calls (default 50, max 1000 in memory)."""
+    tracker = LLMUsageTracker.get()
+    records = tracker.recent_calls[-limit:]
+    return {
+        "calls": [
+            {
+                "timestamp": r.timestamp,
+                "provider": r.provider,
+                "model": r.model,
+                "prompt_tokens": r.prompt_tokens,
+                "completion_tokens": r.completion_tokens,
+                "total_tokens": r.total_tokens,
+                "cost_usd": r.cost_usd,
+                "latency_ms": r.latency_ms,
+                "endpoint": r.endpoint,
+                "success": r.success,
+            }
+            for r in records
+        ],
+        "count": len(records),
+    }
+
+
+@router.get("/usage/reset")
+async def reset_usage() -> dict:
+    """Clear in-memory usage counters and records.
+
+    The JSONL log file on disk is preserved for audit. Useful for testing
+    and for starting a fresh accounting window without restarting the server.
+    """
+    tracker = LLMUsageTracker.get()
+    tracker.reset()
+    return {"status": "reset"}
 
 
 @router.get("/models", summary="List available LLM models")
