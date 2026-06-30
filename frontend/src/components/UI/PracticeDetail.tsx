@@ -50,6 +50,7 @@ import {
   Alert,
   Divider,
   Skeleton,
+  Switch,
 } from 'antd';
 import {
   ArrowLeft,
@@ -65,6 +66,8 @@ import {
   Compass,
   Loader2,
   CheckCircle2,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
@@ -312,6 +315,7 @@ export default function PracticeDetail({
   const [error, setError] = useState<string | null>(null);
   const [intention, setIntention] = useState<string>('');
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
+  const [enableTts, setEnableTts] = useState<boolean>(true);
 
   /**
    * Audio + live-practice state from the shared hooks. The 3D viz
@@ -420,6 +424,7 @@ export default function PracticeDetail({
           body: JSON.stringify({
             intention: intention || undefined,
             dedication: intention || undefined,
+            enable_tts: enableTts,
           }),
         });
         if (!res.ok) throw new Error(`Backend returned ${res.status}`);
@@ -444,7 +449,7 @@ export default function PracticeDetail({
     } finally {
       setActionLoading(false);
     }
-  }, [practice, running, intention]);
+  }, [practice, running, intention, enableTts]);
 
   /** Manual increment — bumped while reciting outside the backend. */
   const handleIncrement = useCallback((): void => {
@@ -820,6 +825,25 @@ export default function PracticeDetail({
                 >
                   +1 Bead
                 </Button>
+
+                <Tooltip
+                  title={enableTts ? 'TTS will recite each mantra aloud' : 'Silent recitation — no audio output'}
+                >
+                  <div className="flex items-center gap-2 px-4 h-10 rounded-lg bg-white/5 border border-white/10 text-white/80">
+                    {enableTts ? (
+                      <Volume2 size={16} className="text-purple-300" />
+                    ) : (
+                      <VolumeX size={16} className="text-white/40" />
+                    )}
+                    <span className="text-sm">Speak mantras</span>
+                    <Switch
+                      size="small"
+                      checked={enableTts}
+                      onChange={setEnableTts}
+                      aria-label="Toggle mantra TTS recitation"
+                    />
+                  </div>
+                </Tooltip>
               </div>
 
               {/* Progress bar reflects beads within the current mala */}

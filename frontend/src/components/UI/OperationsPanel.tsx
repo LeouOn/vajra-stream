@@ -453,7 +453,7 @@ export default function OperationsPanel() {
                         )}
 
                         {/* 3D flip card — face-down back reveals to the actual card */}
-                        <div className="tarot-perspective w-20 h-32 mx-auto mb-2">
+                        <div className="tarot-perspective divination-card-container w-20 h-32 mx-auto mb-2">
                           <div className={`tarot-flip-container w-full h-full ${isFlipped ? 'flipped' : ''}`}>
                             <div
                               className="tarot-face tarot-front rounded-lg overflow-hidden"

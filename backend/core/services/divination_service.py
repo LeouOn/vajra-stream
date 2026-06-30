@@ -640,7 +640,7 @@ class DivinationService:
         if is_reversed:
             art = f'<g transform="rotate(180 120 190)">\n  {art}\n  </g>'
 
-        svg = f"""<svg viewBox="0 0 240 380" xmlns="http://www.w3.org/2000/svg" style="background:#0b132b; border-radius:16px;">
+        svg = f"""<svg viewBox="0 0 240 380" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#0b132b; border-radius:16px;">
   <defs>
     <filter id="card-glow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="5" result="blur"/>

@@ -54,6 +54,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from core.tts_provider import get_tts_provider
+
 logger = logging.getLogger(__name__)
 
 # ─── Module constants ──────────────────────────────────────────────────────
@@ -372,11 +374,19 @@ class PracticeEngine:
         intention: str = "",
         interval_seconds: float = _DEFAULT_INTERVAL_SECONDS,
         target_count: int | None = None,
+        enable_tts: bool = True,
     ) -> PracticeSession:
         """Start (or re-join) a practice session.
 
         If a session for ``practice_id`` is already running, returns it
         unchanged — calling ``start`` twice is a no-op rather than an error.
+
+        Args:
+            enable_tts: When True (default), speak each recitation via the
+                unified TTS provider using the ``buddhist_chant`` role. If
+                the interval is shorter than 2s, TTS fires only every Nth
+                recitation to avoid blocking the loop (TTS takes ~1-2s per
+                utterance). Failures are logged but never break the loop.
         """
         self._ensure_loaded()
         defn = self._definitions.get(practice_id)
@@ -411,7 +421,12 @@ class PracticeEngine:
 
         mantra_text = self.resolve_mantra_text(defn)
         self._tasks[practice_id] = asyncio.create_task(
-            self._run_loop(practice_id, mantra_text, interval_seconds)
+            self._run_loop(
+                practice_id,
+                mantra_text,
+                interval_seconds,
+                enable_tts=enable_tts,
+            )
         )
         return session
 
@@ -475,11 +490,26 @@ class PracticeEngine:
         practice_id: str,
         mantra_text: str,
         interval_seconds: float,
+        enable_tts: bool = True,
     ) -> None:
         """Internal: per-practice asyncio recitation loop."""
         session = self._sessions.get(practice_id)
         if session is None:
             return
+
+        # Resolve TTS provider lazily; unavailable TTS must not break the loop.
+        tts_provider = None
+        tts_speak_every_n = 1
+        if enable_tts and mantra_text:
+            try:
+                tts_provider = get_tts_provider()
+            except Exception as e:
+                logger.warning("TTS provider unavailable for practice %s: %s", practice_id, e)
+                tts_provider = None
+            # Sub-2s intervals would be blocked by TTS (~1-2s per utterance);
+            # speak only every Nth recitation to keep the loop responsive.
+            if tts_provider is not None and interval_seconds < 2.0:
+                tts_speak_every_n = max(1, int(2.0 / max(0.05, interval_seconds)))
 
         try:
             while session.running:
@@ -504,6 +534,24 @@ class PracticeEngine:
                         "PRACTICE_RECITED",
                         session.to_status_dict(),
                     )
+
+                # Speak the mantra via TTS; best-effort — failures must not break the loop.
+                if (
+                    tts_provider is not None
+                    and mantra_text
+                    and session.total_recited % tts_speak_every_n == 0
+                ):
+                    try:
+                        await tts_provider.speak(
+                            text=mantra_text,
+                            role="buddhist_chant",
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "TTS speak failed for practice %s: %s",
+                            practice_id,
+                            e,
+                        )
 
                 # Sleep cooperatively; if the task is cancelled we exit.
                 await asyncio.sleep(max(0.05, interval_seconds))

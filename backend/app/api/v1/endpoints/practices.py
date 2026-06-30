@@ -50,6 +50,10 @@ class StartPracticeRequest(BaseModel):
         ge=1,
         description="Override the practice's default target repetition count.",
     )
+    enable_tts: bool = Field(
+        default=True,
+        description="Speak each recitation via the TTS provider (buddhist_chant role).",
+    )
 
 
 class StopPracticeRequest(BaseModel):
@@ -80,6 +84,7 @@ async def start_practice(practice_id: str, body: StartPracticeRequest) -> dict:
             intention=body.intention,
             interval_seconds=body.interval_seconds,
             target_count=body.target_count,
+            enable_tts=body.enable_tts,
         )
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

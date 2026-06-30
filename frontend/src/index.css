@@ -105,6 +105,7 @@
 /* Tarot card 3D flip — face-down reveal animation */
 .tarot-perspective {
   perspective: 1000px;
+  overflow: hidden;
 }
 
 .tarot-flip-container {
