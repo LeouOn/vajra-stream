@@ -87,6 +87,21 @@ export interface WSProviderHealth extends WSMessageBase {
   timestamp?: number;
 }
 
+/**
+ * LLM_USAGE_UPDATE — streamed from the backend when aggregate usage counters
+ * change. The payload drives the live cost badge in `UsageDashboard`.
+ *
+ * Backend: `core/usage_tracker.py` (broadcast on every call settlement).
+ */
+export interface WSLLMUsageUpdate extends WSMessageBase {
+  type: 'LLM_USAGE_UPDATE';
+  total_calls: number;
+  total_cost_usd: number;
+  calls_today: number;
+  cost_today: number;
+  timestamp?: number;
+}
+
 export interface WSPracticeStarted extends WSMessageBase {
   type: 'PRACTICE_STARTED';
   data: PracticeStartedPayload;
@@ -125,6 +140,7 @@ export type WSMessage =
   | WSSakaDawaCheck
   | WSRngReading
   | WSProviderHealth
+  | WSLLMUsageUpdate
   | WSPracticeStarted
   | WSPracticeRecited
   | WSPracticeCompleted

@@ -24,7 +24,8 @@ import type { TableColumnsType } from 'antd';
 import {
   Activity, Server, AlertTriangle, CheckCircle2, Cpu,
 } from 'lucide-react';
-import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { useWebSocketStable, type LLMUsageUpdate } from '../../hooks/useWebSocketStable';
+import UsageDashboard from './UsageDashboard';
 const { Title, Text, Paragraph } = Typography;
 
 /**
@@ -50,7 +51,17 @@ function formatLatency(ms: number | null | undefined): string {
 }
 
 export default function ProviderSettings() {
-  const { providerHealth, lastProviderHealthUpdate } = useWebSocketStable();
+  const { providerHealth, lastProviderHealthUpdate, usageUpdate, lastUsageUpdateAt } = useWebSocketStable();
+
+  /**
+   * Live cost/call badge payload passed down to UsageDashboard so the
+   * dashboard renders as a prop-driven component (WS state lives in
+   * the hook; this view is the entry-point that owns the WS lifecycle).
+   */
+  const wsUsageProps: { usageUpdate: LLMUsageUpdate | null; lastUsageUpdateAt: number | null } = {
+    usageUpdate,
+    lastUsageUpdateAt,
+  };
   const [initialFetchAttempted, setInitialFetchAttempted] = useState<boolean>(false);
 
   /**
@@ -233,6 +244,9 @@ export default function ProviderSettings() {
             />
           </Space>
         </Card>
+
+        {/* Usage Dashboard — live LLM cost + token analytics */}
+        <UsageDashboard {...wsUsageProps} />
 
         {/* Failover Log (placeholder) */}
         <Card

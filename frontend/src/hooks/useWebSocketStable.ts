@@ -25,7 +25,16 @@ import type {
   WSPracticeRecited,
   WSPracticeCompleted,
   WSPracticeStopped,
+  WSLLMUsageUpdate,
 } from '../types';
+
+export interface LLMUsageUpdate {
+  total_calls: number;
+  total_cost_usd: number;
+  calls_today: number;
+  cost_today: number;
+  received_at: number;
+}
 
 export interface UseWebSocketStableReturn {
   isConnected: boolean;
@@ -44,6 +53,8 @@ export interface UseWebSocketStableReturn {
   practices: Record<string, PracticeStatus>;
   providerHealth: ProviderHealthStatus[];
   lastProviderHealthUpdate: number | null;
+  usageUpdate: LLMUsageUpdate | null;
+  lastUsageUpdateAt: number | null;
   error: string | null;
   startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
   stopSession: (sessionId: string) => Promise<ApiResponse>;
@@ -72,6 +83,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
   const [practices, setPractices] = useState<Record<string, PracticeStatus>>({});
   const [providerHealth, setProviderHealth] = useState<ProviderHealthStatus[]>([]);
   const [lastProviderHealthUpdate, setLastProviderHealthUpdate] = useState<number | null>(null);
+  const [usageUpdate, setUsageUpdate] = useState<LLMUsageUpdate | null>(null);
+  const [lastUsageUpdateAt, setLastUsageUpdateAt] = useState<number | null>(null);
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -259,6 +272,21 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
               setProviderHealth((data as { statuses?: ProviderHealthStatus[] }).statuses || []);
               setLastProviderHealthUpdate(Date.now());
               break;
+            // Backend: core/usage_tracker.py — emitted on every LLM call settlement
+            // and on a periodic aggregate tick. Drives the live cost badge and
+            // "calls today" counter on UsageDashboard.
+            case 'LLM_USAGE_UPDATE': {
+              const payload = data as WSLLMUsageUpdate;
+              setUsageUpdate({
+                total_calls: payload.total_calls ?? 0,
+                total_cost_usd: payload.total_cost_usd ?? 0,
+                calls_today: payload.calls_today ?? 0,
+                cost_today: payload.cost_today ?? 0,
+                received_at: Date.now(),
+              });
+              setLastUsageUpdateAt(Date.now());
+              break;
+            }
             // Backend: core/practice_engine.py:_broadcast_ws — multi-practice
             // recitation lifecycle (Tara / Zhunti / Medicine Buddha / etc.).
             // PRACTICE_RECITED carries the same shape as PRACTICE_STARTED's
@@ -476,6 +504,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     practices,
     providerHealth,
     lastProviderHealthUpdate,
+    usageUpdate,
+    lastUsageUpdateAt,
     error,
     startSession,
     stopSession,
