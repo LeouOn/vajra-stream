@@ -173,7 +173,7 @@ def _parse_model_spec(model: str | None) -> tuple[str | None, str | None]:
 
     Supports the same prefix routing as the old ``LLMIntegration.generate``:
 
-    - ``"deepseek:deepseek-chat"`` → ``("deepseek", "deepseek-chat")``
+    - ``"deepseek:deepseek-chat"`` → ``("deepseek", "deepseek-v4-flash")``
     - ``"anthropic:claude-3-5-sonnet"`` → ``("anthropic", "claude-3-5-sonnet")``
     - ``"lm-studio:foo"`` → ``("lm_studio", "foo")`` (hyphen normalised)
     - ``"gpt-4o-mini"`` → name-based detection returns ``(None, "gpt-4o-mini")``

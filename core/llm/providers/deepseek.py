@@ -12,7 +12,7 @@ class DeepSeekProvider(OpenAICompatibleProvider):
         self,
         api_key: str | None = None,
         base_url: str | None = None,
-        default_model: str = "deepseek-chat",
+        default_model: str = "deepseek-v4-flash",
         priority: int = 70,
     ) -> None:
         super().__init__(

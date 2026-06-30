@@ -30,8 +30,11 @@ from typing import Optional
 
 PROVIDER_PRICING: dict[str, dict[str, float]] = {
     "deepseek": {
-        "input_per_m": float(os.getenv("DEEPSEEK_INPUT_COST_PER_M", "0.14")),
-        "output_per_m": float(os.getenv("DEEPSEEK_OUTPUT_COST_PER_M", "0.28")),
+        "input_per_m": float(os.getenv("DEEPSEEK_INPUT_COST_PER_M", "0.098")),
+        "output_per_m": float(os.getenv("DEEPSEEK_OUTPUT_COST_PER_M", "0.196")),
+        # V4 Flash pricing on OpenRouter
+        "deepseek-v4-flash_input_per_m": 0.098,
+        "deepseek-v4-flash_output_per_m": 0.196,
     },
     "openai": {
         "input_per_m": float(os.getenv("OPENAI_INPUT_COST_PER_M", "2.50")),
@@ -64,7 +67,7 @@ class UsageRecord:
     Attributes:
         timestamp: ISO-8601 timestamp of the call.
         provider: Provider identifier (``"deepseek"``, ``"openai"``, etc.).
-        model: Model name (e.g. ``"deepseek-chat"``, ``"gpt-4o-mini"``).
+        model: Model name (e.g. ``"deepseek-v4-flash"``, ``"gpt-4o-mini"``).
         prompt_tokens: Estimated or reported input token count.
         completion_tokens: Estimated or reported output token count.
         total_tokens: Sum of prompt + completion tokens.
@@ -319,11 +322,11 @@ if __name__ == "__main__":
     # Simulate a DeepSeek call
     record = UsageRecord(
         provider="deepseek",
-        model="deepseek-chat",
+        model="deepseek-v4-flash",
         prompt_tokens=500,
         completion_tokens=200,
         total_tokens=700,
-        cost_usd=tracker.estimate_cost("deepseek", "deepseek-chat", 500, 200),
+        cost_usd=tracker.estimate_cost("deepseek", "deepseek-v4-flash", 500, 200),
         latency_ms=420.0,
         endpoint="chat",
     )
