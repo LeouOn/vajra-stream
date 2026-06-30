@@ -1416,15 +1416,46 @@ Write only the blessing text, no explanation."""
         """Approve and execute an autonomous suggestion."""
         if 0 <= index < len(self._autonomous_suggestions):
             suggestion = self._autonomous_suggestions.pop(index)
-            suggestion["status"] = "approved"
+            action = suggestion.get("action")
             # Execute the suggestion if it has actionable data
-            if suggestion.get("action") == "broadcast_healing" and self._container:
+            if action == "broadcast_healing" and self._container:
+                suggestion["status"] = "executed"
                 self._container.radionics.broadcast_healing(
                     target_name=suggestion.get("target", "World Event"),
                     frequency_hz=suggestion.get("frequency", 528),
                     duration_minutes=suggestion.get("duration_minutes", 30),
                 )
-            return {"status": "executed", "suggestion": suggestion}
+            elif action == "character_journey":
+                if getattr(self, "_active_journey", None):
+                    if self._active_journey.is_complete:
+                        result = {
+                            "status": "approved",
+                            "message": "Character journey approved; current journey complete — harvest to continue.",
+                        }
+                    else:
+                        try:
+                            stage_result = self._active_journey.advance()
+                            suggestion["status"] = "executed"
+                            return {
+                                "status": "executed",
+                                "message": "Character journey approved and advanced one stage.",
+                                "suggestion": suggestion,
+                                "stage": stage_result,
+                            }
+                        except Exception as e:  # noqa: BLE001
+                            suggestion["status"] = "approved"
+                            logger.warning(f"approve_suggestion: advance() failed: {e}")
+                            result = {
+                                "status": "approved",
+                                "message": f"Character journey approved (advance failed: {e}).",
+                            }
+                else:
+                    suggestion["status"] = "approved"
+                    result = {"status": "approved", "message": "Journey suggestion acknowledged (no active journey)."}
+                return {**result, "suggestion": suggestion}
+            else:
+                suggestion["status"] = "approved"
+            return {"status": suggestion["status"], "suggestion": suggestion}
         return {"error": "Invalid suggestion index"}
 
     def dismiss_suggestion(self, index: int) -> dict[str, Any]:
@@ -1432,6 +1463,10 @@ Write only the blessing text, no explanation."""
         if 0 <= index < len(self._autonomous_suggestions):
             dismissed = self._autonomous_suggestions.pop(index)
             dismissed["status"] = "dismissed"
+            if dismissed.get("action") == "character_journey":
+                dismissed["journey_still_active"] = bool(
+                    getattr(self, "_active_journey", None) and not self._active_journey.is_complete
+                )
             return {"status": "dismissed", "suggestion": dismissed}
         return {"error": "Invalid suggestion index"}
 
