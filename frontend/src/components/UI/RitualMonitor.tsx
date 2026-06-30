@@ -28,10 +28,11 @@ import {
 import {
   Card, Button, Tag, Space, Typography, Row, Col, Statistic,
   List, Switch, Select, Slider, InputNumber, Divider, Spin, Empty,
-  Progress, message, Badge,
+  Progress, Badge,
 } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -109,6 +110,7 @@ interface RitualMonitorProps {
 
 export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
   const { ritualStatus } = useWebSocketStable();
+  const addToast = useUIStore((s) => s.addToast);
   const [restStatus, setRestStatus] = useState<RitualRestStatus | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
@@ -133,9 +135,9 @@ export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
     audioFeedback.playTelemetry();
     try {
       await fetch(`/api/v1/ritual/start`, { method: 'POST' });
-      message.success('Ritual Engine started');
+      addToast({ type: 'success', title: 'Ritual Engine started', duration: 3 });
       await fetchStatus();
-    } catch { message.error('Failed to start'); }
+    } catch { addToast({ type: 'error', title: 'Failed to start', duration: 5 }); }
     setActionLoading(false);
   };
 
@@ -143,9 +145,9 @@ export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
     setActionLoading(true);
     try {
       await fetch(`/api/v1/ritual/stop`, { method: 'POST' });
-      message.success('Ritual Engine stopped');
+      addToast({ type: 'success', title: 'Ritual Engine stopped', duration: 3 });
       await fetchStatus();
-    } catch { message.error('Failed to stop'); }
+    } catch { addToast({ type: 'error', title: 'Failed to stop', duration: 5 }); }
     setActionLoading(false);
   };
 
@@ -156,10 +158,10 @@ export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
       const res = await fetch(`/api/v1/ritual/trigger`, { method: 'POST' });
       const data = await res.json() as RitualTriggerResponse;
       if (data.status === 'executed') {
-        message.success(`Ritual executed: ${data.ritual?.practice_name ?? ''}`);
+        addToast({ type: 'success', title: `Ritual executed: ${data.ritual?.practice_name ?? ''}`, duration: 3 });
       }
       await fetchStatus();
-    } catch { message.error('Trigger failed'); }
+    } catch { addToast({ type: 'error', title: 'Trigger failed', duration: 5 }); }
     setActionLoading(false);
   };
 

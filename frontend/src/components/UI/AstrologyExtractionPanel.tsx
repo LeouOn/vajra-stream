@@ -24,12 +24,12 @@ import {
   Tag,
   Button,
   Dropdown,
-  message,
   Progress,
   Statistic,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { Copy, Download, Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
+import { useUIStore } from '../../stores/uiStore';
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
@@ -120,6 +120,7 @@ const DATE_MODES: SelectOption[] = [
 const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const addToast = useUIStore((s) => s.addToast);
 
   const fetchRuns = async () => {
     setLoading(true);
@@ -128,7 +129,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
       if (r.ok) setRuns(await r.json());
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Failed to load runs: ' + err.message);
+      addToast({ type: 'error', title: 'Failed to load runs: ' + err.message, duration: 5 });
     } finally {
       setLoading(false);
     }
@@ -140,11 +141,11 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
     try {
       const r = await fetch(`/api/v1/astrology/runs/${id}`, { method: 'DELETE' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      message.success(`Run ${id} deleted`);
+      addToast({ type: 'success', title: `Run ${id} deleted`, duration: 3 });
       fetchRuns();
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Delete failed: ' + err.message);
+      addToast({ type: 'error', title: 'Delete failed: ' + err.message, duration: 5 });
     }
   };
 
@@ -153,12 +154,12 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
       const r = await fetch(`/api/v1/astrology/runs/${id}/recompute`, { method: 'POST' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
-      message.success(`Recompute started: run ${data.run_id}`);
+      addToast({ type: 'success', title: `Recompute started: run ${data.run_id}`, duration: 3 });
       if (onRecompute) onRecompute(data.run_id);
       fetchRuns();
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Recompute failed: ' + err.message);
+      addToast({ type: 'error', title: 'Recompute failed: ' + err.message, duration: 5 });
     }
   };
 
@@ -216,6 +217,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const addToast = useUIStore((s) => s.addToast);
 
   useEffect(() => {
     if (!currentRunId) return;
@@ -242,11 +244,11 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
       }
       await navigator.clipboard.writeText(text);
       setCopied(fmt);
-      message.success(`${fmt === 'markdown' ? 'Markdown' : 'JSON'} copied to clipboard`);
+      addToast({ type: 'success', title: `${fmt === 'markdown' ? 'Markdown' : 'JSON'} copied to clipboard`, duration: 3 });
       setTimeout(() => setCopied(null), 2000);
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Copy failed: ' + err.message);
+      addToast({ type: 'error', title: 'Copy failed: ' + err.message, duration: 5 });
     }
   };
 

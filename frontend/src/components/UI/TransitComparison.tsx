@@ -1,7 +1,8 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity, Clipboard } from 'lucide-react';
-import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty, message } from 'antd';
+import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useUIStore } from '../../stores/uiStore';
 import {
   aspectCategory, aspectGlyph, planetGlyph,
   isHouseCusp, houseLabel, natalDisplayName,
@@ -108,6 +109,7 @@ interface TransitComparisonProps {
 }
 
 export default function TransitComparison({ chart }: TransitComparisonProps) {
+  const addToast = useUIStore((s) => s.addToast);
   const [transitTime, setTransitTime] = useState<string>(() => {
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -166,9 +168,9 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
         ? formatTransitReportJSON(data)
         : formatTransitReportMarkdown(data);
       await navigator.clipboard.writeText(formatted);
-      message.success('Copied to clipboard!');
+      addToast({ type: 'success', title: 'Copied to clipboard!', duration: 3 });
     } catch (e) {
-      message.error('Export failed: ' + (e as Error).message);
+      addToast({ type: 'error', title: 'Export failed: ' + (e as Error).message, duration: 5 });
     } finally {
       setExporting(false);
     }

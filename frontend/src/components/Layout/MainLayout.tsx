@@ -135,25 +135,39 @@ const MainLayout: React.FC<Props> = ({
           <span style={{ color: COLORS.primary, fontWeight: 'bold', marginRight: '16px' }}>
             Vajra.Stream - Sacred Technology Platform
           </span>
-          {mopsData && (
+          {mopsData ? (
             <span style={{ color: COLORS.secondary, fontFamily: 'monospace' }}>
               MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s |
               Mantra {Math.round(mopsData.mantras?.["10s"] ?? 0)}/s |
               Crystals {Math.round(mopsData.crystals?.["10s"] ?? 0)}/s |
               Divination {mopsData.divination?.["60s"] ?? 0}/s
             </span>
+          ) : (
+            <span style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 11 }}>
+              MOPS: connecting…
+            </span>
           )}
         </div>
         <Space size="large">
-          <Button
-            type="text"
-            icon={isPlaying ? <PauseCircle size={18} color={COLORS.primary} /> : <PlayCircle size={18} color={COLORS.secondary} />}
-            onClick={async () => { if (!isPlaying) { await generateAudio(); await playAudio(); } else { stopAudio(); } }}
-          >
-            <span style={{ color: COLORS.secondary, fontWeight: 'bold', fontSize: '14px' }}>
-              {frequency.toFixed(1)} Hz
-            </span>
-          </Button>
+          <Space size={6} align="center">
+            <Badge
+              status={isPlaying ? 'processing' : 'default'}
+              text={
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em' }}>
+                  {isPlaying ? 'LIVE' : 'IDLE'}
+                </span>
+              }
+            />
+            <Button
+              type="text"
+              icon={isPlaying ? <PauseCircle size={18} color={COLORS.primary} /> : <PlayCircle size={18} color={COLORS.secondary} />}
+              onClick={async () => { if (!isPlaying) { await generateAudio(); await playAudio(); } else { stopAudio(); } }}
+            >
+              <span style={{ color: COLORS.secondary, fontWeight: 'bold', fontSize: '14px' }}>
+                {frequency.toFixed(1)} Hz
+              </span>
+            </Button>
+          </Space>
           <span>Volume: <strong>{Math.round(volume * 100)}%</strong></span>
           <span>Mode: <strong style={{ color: COLORS.primary }}>{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</strong></span>
         </Space>

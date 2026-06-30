@@ -9,9 +9,10 @@
  * @component
  */
 import React, { useCallback } from 'react';
-import { Card, Button, Typography, Space, message } from 'antd';
+import { Card, Button, Typography, Space } from 'antd';
 import { Share2, ClipboardCopy, Check } from 'lucide-react';
 import type { RecitationStatus } from '../../../types';
+import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Title } = Typography;
 
@@ -79,16 +80,17 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 export default function ShareExport({ buddhaStatus, intention }: ShareExportProps) {
+  const addToast = useUIStore((s) => s.addToast);
   const handleCopy = useCallback(async () => {
     const text = buildSummary({ buddhaStatus, intention });
     try {
       await copyToClipboard(text);
-      message.success('Summary copied to clipboard.');
+      addToast({ type: 'success', title: 'Summary copied to clipboard.', duration: 3 });
     } catch (err) {
       console.error('ShareExport: copy failed', err);
-      message.error('Could not copy — clipboard unavailable.');
+      addToast({ type: 'error', title: 'Could not copy — clipboard unavailable.', duration: 5 });
     }
-  }, [buddhaStatus, intention]);
+  }, [buddhaStatus, intention, addToast]);
 
   const disabled = !buddhaStatus && !intention;
 

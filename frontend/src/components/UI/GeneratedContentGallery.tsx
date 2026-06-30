@@ -20,9 +20,10 @@ import {
 } from 'lucide-react';
 import {
   Card, Input, Select, Button, Tag as AntTag, Space, Typography,
-  List, Divider, Empty, Spin, message, Segmented,
+  List, Divider, Empty, Spin, Segmented,
 } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Paragraph, Title } = Typography;
 
@@ -33,6 +34,7 @@ const GENRE_COLORS = {
 };
 
 export default function GeneratedContentGallery({ compact = false }) {
+  const addToast = useUIStore((s) => s.addToast);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -78,7 +80,7 @@ export default function GeneratedContentGallery({ compact = false }) {
   const handleCopy = (text, id) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    message.success('Copied to clipboard');
+    addToast({ type: 'success', title: 'Copied to clipboard', duration: 3 });
     audioFeedback.playClick();
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -92,8 +94,8 @@ export default function GeneratedContentGallery({ compact = false }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text.slice(0, 1000) }),
       });
-      message.success('TTS playback started');
-    } catch { message.error('TTS playback failed'); }
+      addToast({ type: 'success', title: 'TTS playback started', duration: 3 });
+    } catch { addToast({ type: 'error', title: 'TTS playback failed', duration: 5 }); }
     setPlayingId(null);
   };
 
@@ -108,9 +110,9 @@ export default function GeneratedContentGallery({ compact = false }) {
         a.href = url;
         a.download = `vajra-narratives-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
-        message.success('Exported all narratives');
+        addToast({ type: 'success', title: 'Exported all narratives', duration: 3 });
       }
-    } catch { message.error('Export failed'); }
+    } catch { addToast({ type: 'error', title: 'Export failed', duration: 5 }); }
   };
 
   if (loading) return <Spin><div className="py-20" /></Spin>;

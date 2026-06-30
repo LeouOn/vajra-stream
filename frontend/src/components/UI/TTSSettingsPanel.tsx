@@ -14,8 +14,9 @@ import {
   Volume2, Zap, Cpu, Mic, Languages, Settings,
   RefreshCw, Check, ChevronDown,
 } from 'lucide-react';
-import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty, message } from 'antd';
+import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Title } = Typography;
 
@@ -85,6 +86,7 @@ interface TTSSettingsPanelProps {
 type Backend = 'auto' | 'edge' | 'qwen';
 
 export default function TTSSettingsPanel({ onConfigChange, compact = false }: TTSSettingsPanelProps) {
+  const addToast = useUIStore((s) => s.addToast);
   const [config, setConfig] = useState<TtsConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -137,7 +139,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        message.success('TTS settings saved');
+        addToast({ type: 'success', title: 'TTS settings saved', duration: 3 });
         audioFeedback.playSuccess();
         const data: TtsConfig = await res.json();
         if (onConfigChange) onConfigChange(data);
@@ -323,7 +325,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
                 <Space wrap size={[4, 4]} style={{ marginTop: 4 }}>
                   {qwenDesignPresets.map(p => (
                     <Tag key={p} style={{ fontSize: 9, cursor: 'pointer' }}
-                      onClick={() => message.info(`Voice design: ${p.replace(/_/g, ' ')}`)}>
+                      onClick={() => addToast({ type: 'info', title: `Voice design: ${p.replace(/_/g, ' ')}`, duration: 3 })}>
                       {p.replace(/_/g, ' ')}
                     </Tag>
                   ))}

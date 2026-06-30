@@ -18,7 +18,7 @@ import {
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
   Segmented, Row, Col, Space, Slider, Collapse, List, Typography,
-  Spin, Empty, Divider, Badge, Tooltip, message, Modal, Checkbox,
+  Spin, Empty, Divider, Badge, Tooltip, message, Modal,
 } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -877,17 +877,13 @@ export default function OutlookDashboard() {
 
                   {/* Model */}
                   <div>
-                    <Row justify="space-between" align="middle">
-                      <Col><Text strong style={{ fontSize: 12 }}>LLM Model</Text></Col>
-                      <Col>
-                        <Tooltip title="Let the backend pick a random provider each run">
-                          <Space size={4}>
-                            <Switch size="small" checked={randomModel} onChange={setRandomModel} />
-                            <Text style={{ fontSize: 11 }}><Dices className="w-3 h-3 inline mr-1" />🎲 Random</Text>
-                          </Space>
-                        </Tooltip>
-                      </Col>
-                    </Row>
+                    <Tooltip title="Let the backend pick a random provider each run">
+                      <Space size={4} style={{ marginBottom: 4 }}>
+                        <Dices className="w-3 h-3" />
+                        <Switch size="small" checked={randomModel} onChange={setRandomModel} />
+                        <Text strong style={{ fontSize: 12 }}>Random LLM</Text>
+                      </Space>
+                    </Tooltip>
                     <Select
                       size="small"
                       value={selectedModel || undefined}
@@ -1051,14 +1047,18 @@ export default function OutlookDashboard() {
                   />
                   <Row justify="space-between" align="middle">
                     <Col>
-                      <Checkbox
-                        checked={randomLoop}
-                        onChange={e => setRandomLoop(e.target.checked)}
-                        disabled={loopActive}
-                        style={{ fontSize: 12 }}
-                      >
-                        <Shuffle className="w-3 h-3 inline mr-1" />🔀 Random per iteration
-                      </Checkbox>
+                      <Tooltip title="Roll a fresh LLM provider each loop tick">
+                        <Space size={4}>
+                          <Shuffle className="w-3 h-3" />
+                          <Switch
+                            size="small"
+                            checked={randomLoop}
+                            onChange={setRandomLoop}
+                            disabled={loopActive}
+                          />
+                          <Text style={{ fontSize: 12 }}>Random per iteration</Text>
+                        </Space>
+                      </Tooltip>
                     </Col>
                   </Row>
                   {randomLoop && (

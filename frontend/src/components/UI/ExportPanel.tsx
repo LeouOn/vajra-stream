@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Download, Copy, FileJson, FileText, Check, Square, RefreshCw, Package, CheckCircle2, XCircle } from 'lucide-react';
-import { Card, Button, Tag, Tooltip, message, Segmented, Switch, Row, Col } from 'antd';
+import { Card, Button, Tag, Tooltip, Segmented, Switch, Row, Col } from 'antd';
 import { toMarkdown as toMarkdownImpl, applyFieldSelection as applyFieldSelectionImpl, planetGlyph } from '../../lib/astroHelpers';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useUIStore } from '../../stores/uiStore';
 
 interface FieldDef {
   key: string;
@@ -172,6 +173,7 @@ interface ExportPanelProps {
 }
 
 const ExportPanel: React.FC<ExportPanelProps> = ({ charts: _chartsProp = [] }) => {
+  const addToast = useUIStore((s) => s.addToast);
   const [loading, setLoading] = useState(false);
   const [payload, setPayload] = useState<ExportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -264,12 +266,12 @@ const ExportPanel: React.FC<ExportPanelProps> = ({ charts: _chartsProp = [] }) =
       await navigator.clipboard.writeText(rendered);
       setCopyState('done');
       audioFeedback.playSuccess();
-      message.success('Copied to clipboard');
+      addToast({ type: 'success', title: 'Copied to clipboard', duration: 3 });
       setTimeout(() => setCopyState('idle'), 2000);
     } catch {
       setCopyState('error');
       audioFeedback.playError();
-      message.error('Copy failed');
+      addToast({ type: 'error', title: 'Copy failed', duration: 5 });
       setTimeout(() => setCopyState('idle'), 2000);
     }
   };
