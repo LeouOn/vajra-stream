@@ -1366,7 +1366,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
 
             model_name = request.model or _provider_default_model(
                 OpenRouterProvider
-            ) or os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+            ) or os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
             response_text = await _run_openai_compatible_tool_loop(
                 client=client,
                 model_name=model_name,

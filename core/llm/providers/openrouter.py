@@ -12,7 +12,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         self,
         api_key: str | None = None,
         base_url: str | None = None,
-        default_model: str = "google/gemini-2.0-flash-001",
+        default_model: str = "deepseek/deepseek-v4-flash",
         priority: int = 90,
     ) -> None:
         super().__init__(
