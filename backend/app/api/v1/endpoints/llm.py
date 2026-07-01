@@ -37,6 +37,8 @@ from core.context import (
 )
 from core.llm.retry import retry_with_backoff
 
+from core.llm.base import strip_thinking
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ class ChatRequest(BaseModel):
     include_astrology: bool | None = False
     include_anatomy: bool | None = False
     include_hardware: bool | None = False
+    use_rag: bool | None = False
     astrology_data: dict | None = None
     debug_mode: bool | None = False
 
@@ -890,10 +893,48 @@ async def _build_system_prompt_with_context(request: ChatRequest) -> str:
         # SystemPromptBuilder.compose() now accepts base_prompt directly,
         # so we don't need to concatenate here. The builder returns
         # `base_prompt + "\n\n" + <rendered sections>` when sections exist.
-        return await builder.compose(context_request, base_prompt=base_prompt)
+        composed = await builder.compose(context_request, base_prompt=base_prompt)
     except Exception as exc:  # noqa: BLE001 — context failure must not break chat
         logger.warning("SystemPromptBuilder compose failed: %s", exc)
-        return base_prompt
+        composed = base_prompt
+
+    if request.use_rag:
+        rag_block = _build_rag_context_block(request)
+        if rag_block:
+            composed = f"{composed}\n\n{rag_block}"
+    return composed
+
+
+def _build_rag_context_block(request: ChatRequest) -> str:
+    """Search the knowledge index for the latest user query and return a
+    formatted "Relevant knowledge:" block, or '' if nothing matched.
+    """
+    try:
+        from core.knowledge_index import get_knowledge_index
+    except ImportError:
+        return ""
+    user_query = next(
+        (m.content for m in reversed(request.messages) if m.role == "user"),
+        None,
+    )
+    if not user_query:
+        return ""
+    try:
+        idx = get_knowledge_index()
+        results = idx.search(user_query, top_k=3)
+    except Exception:  # noqa: BLE001 — RAG must never block chat
+        logger.debug("RAG retrieval failed", exc_info=True)
+        return ""
+    if not results:
+        return ""
+    lines = ["Relevant knowledge (from the Vajra.Stream knowledge base):"]
+    for r in results:
+        source = r.get("source", "?")
+        text = r.get("text", "").strip().replace("\n", " ")
+        if len(text) > 400:
+            text = text[:397] + "..."
+        lines.append(f"- [{source}] {text}")
+    return "\n".join(lines)
 
 
 async def _select_provider_via_registry(
@@ -1250,23 +1291,27 @@ async def _chat_via_registry(
 
     # Convert the new core.llm.models.ChatResponse to the local ChatResponse
     # (which the endpoint advertises as response_model).
+    clean_content, _ = strip_thinking(response.content)
+    debug_info: dict | None = None
+    if request.debug_mode:
+        debug_info = {
+            "provider": response.provider,
+            "model": response.model,
+            "input_tokens": response.input_tokens,
+            "output_tokens": response.output_tokens,
+            "finish_reason": response.finish_reason,
+        }
+        if getattr(response, "reasoning_content", None):
+            debug_info["reasoning_content"] = response.reasoning_content
+        if getattr(response, "reasoning_tokens", 0):
+            debug_info["reasoning_tokens"] = response.reasoning_tokens
     return ChatResponse(
-        response=response.content,
+        response=clean_content,
         tool_calls=[
             ToolCallLog(name=tc.get("name", ""), args=tc.get("arguments", {}), result="")
             for tc in (response.tool_calls or [])
         ],
-        debug_info=(
-            {
-                "provider": response.provider,
-                "model": response.model,
-                "input_tokens": response.input_tokens,
-                "output_tokens": response.output_tokens,
-                "finish_reason": response.finish_reason,
-            }
-            if request.debug_mode
-            else None
-        ),
+        debug_info=debug_info,
     )
 
 
@@ -1371,6 +1416,16 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
     def wrap_res(res):
         if isinstance(res, str):
             res = ChatResponse(response=res, tool_logs=tool_logs)
+        # Final safety net: strip any <think> blocks that slipped through
+        # providers that bypass the registry path (raw openai/anthropic
+        # clients in the legacy branches below).
+        if res.response:
+            cleaned, _reasoning = strip_thinking(res.response)
+            res.response = cleaned
+            if _reasoning and request.debug_mode:
+                if res.debug_info is None:
+                    res.debug_info = {}
+                res.debug_info.setdefault("reasoning_content", _reasoning)
         if request.debug_mode:
             res.debug_info = debug_payload
         return res

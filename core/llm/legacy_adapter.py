@@ -49,6 +49,7 @@ import threading
 import time
 from typing import Any
 
+from core.llm.base import strip_thinking
 from core.llm.models import ChatMessage, ChatRequest, ChatResponse
 from core.llm.registry import ProviderRegistry
 
@@ -546,7 +547,8 @@ class LegacyLLMIntegration:
         # Record usage (best-effort; never blocks generation).
         self._record_usage(provider, response, latency_ms, success)
 
-        return response.content
+        clean_content, _ = strip_thinking(response.content)
+        return clean_content
 
     def _record_usage(
         self,

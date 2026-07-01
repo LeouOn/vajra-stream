@@ -22,6 +22,153 @@ from core.llm.usage import LLMUsageTracker, UsageRecord
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Thinking-token stripping
+# ---------------------------------------------------------------------------
+# Some providers (DeepSeek V4, Anthropic extended-thinking, Z.AI GLM-4.x,
+# various OpenRouter-routed reasoning models) emit their chain-of-thought
+# either as a separate ``reasoning_content`` attribute on the message or
+# inline as ``<think>...</think>`` blocks within ``content``. The helpers
+# below extract the reasoning and return clean display content so it never
+# leaks into chat responses, caches, or downstream tool-call parsing.
+
+_OPEN_TAG = "<think>"
+_CLOSE_TAG = "</think>"
+_TAG_LEN = len(_OPEN_TAG)
+
+
+def _suffix_prefix_len(text: str, tag: str) -> int:
+    """Length of the longest suffix of ``text`` that is a prefix of ``tag``.
+
+    Used to detect a tag that may have been split across stream deltas, e.g.
+    ``"hello <thi"`` has suffix ``"<thi"`` which is a prefix of ``"<think>"``
+    so the filter must hold those 4 bytes back until the next delta.
+    """
+    n = min(len(text), len(tag) - 1)
+    text_lower = text.lower()
+    tag_lower = tag.lower()
+    for k in range(n, 0, -1):
+        if tag_lower.startswith(text_lower[-k:]):
+            return k
+    return 0
+
+
+def strip_thinking(content: str) -> tuple[str, str | None]:
+    """Remove ``<think>...</think>`` blocks from ``content``.
+
+    Returns a ``(clean_content, reasoning_or_None)`` tuple. ``reasoning`` is
+    the concatenated inner text of every think block (useful for surfacing
+    in debug_info), or ``None`` when no think blocks were present.
+
+    Unterminated ``<think>`` blocks (rare in non-streaming responses, but
+    possible if a provider truncates mid-thought) are treated as reasoning
+    and stripped from the clean content.
+    """
+    if not content or _OPEN_TAG not in content.lower():
+        return content, None
+
+    reasoning_parts: list[str] = []
+    remaining = content
+    while _OPEN_TAG in remaining.lower():
+        lower = remaining.lower()
+        open_idx = lower.find(_OPEN_TAG)
+        after_open = remaining[open_idx + _TAG_LEN :]
+        close_idx = after_open.lower().find(_CLOSE_TAG)
+        if close_idx == -1:
+            reasoning_parts.append(after_open.strip())
+            remaining = remaining[:open_idx]
+            break
+        reasoning_parts.append(after_open[:close_idx].strip())
+        remaining = remaining[:open_idx] + after_open[close_idx + len(_CLOSE_TAG) :]
+
+    reasoning = "\n".join(p for p in reasoning_parts if p).strip() or None
+    clean = remaining.strip()
+    return clean, reasoning
+
+
+class _ThinkingFilter:
+    """Stateful streaming filter that strips ``<think>`` blocks across deltas.
+
+    Reasoning models that stream their chain-of-thought inline do so across
+    many SSE deltas, so a per-chunk regex is insufficient (the opening
+    ``<think>`` and closing ``</think>`` tags can land in different chunks).
+
+    Feed each delta to :meth:`feed` and emit what it returns. At stream end,
+    call :meth:`flush` to release any tail content held back as a precaution
+    against a split tag. Accumulated reasoning text is exposed via the
+    :attr:`reasoning` property.
+    """
+
+    def __init__(self) -> None:
+        self._buffer = ""
+        self._in_think = False
+        self._current_reasoning = ""
+        self.reasoning_parts: list[str] = []
+
+    def feed(self, text: str) -> str:
+        """Consume a delta, returning whatever is safe to emit now."""
+        if not text:
+            return ""
+        self._buffer += text
+        out: list[str] = []
+        while self._buffer:
+            if self._in_think:
+                idx = self._buffer.lower().find(_CLOSE_TAG)
+                if idx == -1:
+                    hold = _suffix_prefix_len(self._buffer, _CLOSE_TAG)
+                    if hold == len(self._buffer):
+                        break
+                    if hold:
+                        self._current_reasoning += self._buffer[:-hold]
+                        self._buffer = self._buffer[-hold:]
+                    else:
+                        self._current_reasoning += self._buffer
+                        self._buffer = ""
+                    break
+                self._current_reasoning += self._buffer[:idx]
+                if self._current_reasoning.strip():
+                    self.reasoning_parts.append(self._current_reasoning)
+                self._current_reasoning = ""
+                self._buffer = self._buffer[idx + len(_CLOSE_TAG) :]
+                self._in_think = False
+            else:
+                idx = self._buffer.lower().find(_OPEN_TAG)
+                if idx == -1:
+                    hold = _suffix_prefix_len(self._buffer, _OPEN_TAG)
+                    if hold == len(self._buffer):
+                        break
+                    if hold:
+                        out.append(self._buffer[:-hold])
+                        self._buffer = self._buffer[-hold:]
+                    else:
+                        out.append(self._buffer)
+                        self._buffer = ""
+                    break
+                out.append(self._buffer[:idx])
+                self._buffer = self._buffer[idx + _TAG_LEN :]
+                self._in_think = True
+        return "".join(out)
+
+    def flush(self) -> str:
+        """Release any buffered content at stream end."""
+        if self._in_think:
+            self._current_reasoning += self._buffer
+            if self._current_reasoning.strip():
+                self.reasoning_parts.append(self._current_reasoning)
+            self._current_reasoning = ""
+            self._buffer = ""
+            self._in_think = False
+            return ""
+        out = self._buffer
+        self._buffer = ""
+        return out
+
+    @property
+    def reasoning(self) -> str | None:
+        joined = "\n".join(p for p in self.reasoning_parts if p).strip()
+        return joined or None
+
 # Module-level singleton cache shared by all OpenAI-compatible providers.
 # Lazy-instantiated so test isolation isn't disturbed. Providers opt in
 # to caching via the constructor flag; the cache itself is only consulted
@@ -147,13 +294,21 @@ class OpenAICompatibleProvider:
                 tools=[t.model_dump() for t in request.tools] if request.tools else None,
             )
             choice = response.choices[0]
+            raw_content = choice.message.content or ""
+            reasoning = getattr(choice.message, "reasoning_content", None)
+            content, inline_reasoning = strip_thinking(raw_content)
+            if reasoning is None and inline_reasoning is not None:
+                reasoning = inline_reasoning
+            elif reasoning and inline_reasoning:
+                reasoning = f"{reasoning}\n{inline_reasoning}"
             chat_response = ChatResponse(
-                content=choice.message.content or "",
+                content=content,
                 provider=self.name,
                 model=model,
                 input_tokens=response.usage.prompt_tokens if response.usage else 0,
                 output_tokens=response.usage.completion_tokens if response.usage else 0,
                 finish_reason=choice.finish_reason or "stop",
+                reasoning_content=reasoning,
             )
             latency_ms = int((time.time() - start_time) * 1000)
 
@@ -222,14 +377,27 @@ class OpenAICompatibleProvider:
                 stream=True,
                 stream_options={"include_usage": True},
             )
+            thinking_filter = _ThinkingFilter()
+            reasoning_emitted = False
             async for chunk in stream:
                 content = ""
+                reasoning = ""
                 if chunk.choices:
-                    content = chunk.choices[0].delta.content or ""
+                    delta = chunk.choices[0].delta
+                    raw = (delta.content or "") if hasattr(delta, "content") else ""
+                    content = thinking_filter.feed(raw)
+                    if not reasoning_emitted:
+                        reasoning = getattr(delta, "reasoning_content", "") or ""
+                        if reasoning:
+                            thinking_filter.reasoning_parts.append(reasoning)
                 if getattr(chunk, "usage", None):
                     usage_prompt = chunk.usage.prompt_tokens or usage_prompt
                     usage_completion = chunk.usage.completion_tokens or usage_completion
-                yield ChatChunk(content=content, done=False, provider=self.name, model=model)
+                if content or not chunk.choices:
+                    yield ChatChunk(content=content, done=False, provider=self.name, model=model)
+            tail = thinking_filter.flush()
+            if tail:
+                yield ChatChunk(content=tail, done=False, provider=self.name, model=model)
             yield ChatChunk(content="", done=True, provider=self.name, model=model)
         except Exception as e:
             logger.error(f"stream failed for {self.name}/{model}: {e}")
