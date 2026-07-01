@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { BookOpen, Sparkles, Compass, Moon, Sun, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
+import { stripThinking } from '../../utils/thinkStrip';
 
 export default function EpicStoryViewer({
   narrativeParts = [],
@@ -19,10 +20,14 @@ export default function EpicStoryViewer({
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
 
   const allText = (narrativeParts || [])
-    .map(p => (typeof p === 'object' && p ? p.content : '') || '')
+    .map(p => {
+      const raw = (typeof p === 'object' && p ? p.content : '') || '';
+      return stripThinking(raw).clean;
+    })
     .filter(Boolean)
     .join('\n\n');
-  const currentText = narrativeParts[currentChapterIndex]?.content || '';
+  const currentTextRaw = narrativeParts[currentChapterIndex]?.content || '';
+  const { clean: currentTextClean, reasoning: currentReasoning } = stripThinking(currentTextRaw);
 
   if (!narrativeParts || narrativeParts.length === 0) {
     return (
@@ -59,7 +64,7 @@ export default function EpicStoryViewer({
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <NarrativeTTSPlayer
-                text={currentText}
+                text={currentTextClean}
                 role="outlook_epic"
                 label="Speak chapter"
                 showAdvanced={false}
@@ -77,7 +82,13 @@ export default function EpicStoryViewer({
           </div>
 
           <div className="text-sm md:text-base text-gray-200 whitespace-pre-wrap leading-relaxed space-y-4 py-2 font-serif">
-            {currentChapter.content}
+            {currentTextClean}
+            {currentReasoning && (
+              <details className="text-xs opacity-60 mt-3 block">
+                <summary>💭 Reasoning</summary>
+                <div className="mt-1 whitespace-pre-wrap">{currentReasoning}</div>
+              </details>
+            )}
           </div>
         </div>
 

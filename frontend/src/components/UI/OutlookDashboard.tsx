@@ -23,6 +23,7 @@ import {
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
+import { stripThinking } from '../../utils/thinkStrip';
 import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
@@ -1130,9 +1131,22 @@ export default function OutlookDashboard() {
                                 <>
                                   <Title level={4} style={{ color: '#e2e8f0', textTransform: 'capitalize' }}>{currentNarrative.genre} Revelation</Title>
                                   <Divider />
-                                  <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
-                                    {currentNarrative.narrative}
-                                  </Paragraph>
+                                  {(() => {
+                                    const { clean, reasoning } = stripThinking(currentNarrative.narrative || '');
+                                    return (
+                                      <>
+                                        <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
+                                          {clean}
+                                        </Paragraph>
+                                        {reasoning && (
+                                          <details className="text-xs opacity-60 mt-2">
+                                            <summary>💭 Reasoning</summary>
+                                            <div className="mt-1 whitespace-pre-wrap">{reasoning}</div>
+                                          </details>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </>
                               ),
                             },
