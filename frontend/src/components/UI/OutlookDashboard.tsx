@@ -139,9 +139,34 @@ interface OutlookModels {
   api?: string[];
 }
 
+interface AvailableModel {
+  id: string;
+  name: string;
+  provider: string;
+  context_length: number | null;
+  input_per_m: number;
+  output_per_m: number;
+  is_free: boolean;
+  featured: boolean;
+  description: string;
+  source: string;
+}
+
+interface SavedCustomModel {
+  model_id: string;
+  display_name: string;
+  provider: string;
+  added_at: string;
+}
+
 interface ModelSelectOption {
   value: string;
   label: string;
+}
+
+interface ModelSelectGroup {
+  label: string;
+  options: ModelSelectOption[];
 }
 
 type ResultTab = 'narrative' | 'affirmation';
@@ -251,6 +276,8 @@ export default function OutlookDashboard() {
   const [randomModel, setRandomModel] = useState<boolean>(false);
   const [randomLoop, setRandomLoop] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
+  const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
+  const [savedModels, setSavedModels] = useState<SavedCustomModel[]>([]);
   const [healthyProviders, setHealthyProviders] = useState<Record<string, boolean>>({});
 
   // ─── Data Fetching ───────────────────────────────────────
@@ -320,6 +347,28 @@ export default function OutlookDashboard() {
     }
   }, []);
 
+  const fetchAvailableModels = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/llm/models/available`);
+      if (!res.ok) return;
+      const data = await res.json() as { models?: AvailableModel[] };
+      setAvailableModels(data.models || []);
+    } catch (e) {
+      console.error('Available models fetch failed:', e);
+    }
+  }, []);
+
+  const fetchSavedModels = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/llm/models/saved`);
+      if (!res.ok) return;
+      const data = await res.json() as { models?: SavedCustomModel[] };
+      setSavedModels(data.models || []);
+    } catch (e) {
+      console.error('Saved models fetch failed:', e);
+    }
+  }, []);
+
   const fetchLoopStatus = useCallback(async (): Promise<void> => {
     try {
       const res = await fetch(`/api/v1/outlook/loop/status`);
@@ -346,6 +395,8 @@ export default function OutlookDashboard() {
     fetchHistory();
     fetchModels();
     fetchProvidersHealth();
+    fetchAvailableModels();
+    fetchSavedModels();
     fetchLoopStatus();
   }, []);
 
@@ -653,16 +704,45 @@ export default function OutlookDashboard() {
 
   // ─── Model Options ───────────────────────────────────────
 
-  const modelOptions = useMemo<ModelSelectOption[]>(() => {
+  const modelOptions = useMemo<(ModelSelectOption | ModelSelectGroup)[]>(() => {
     // Sentinel: '' → backend auto-detect (registry.pick_best()).
-    const opts: ModelSelectOption[] = [
-      { value: '', label: '✨ Auto-detect (default)' },
-    ];
+    const autoOpt: ModelSelectOption = { value: '', label: '✨ Auto-detect (default)' };
 
-    // API providers: built from the ACTUAL healthy providers reported by
-    // /llm/providers/health, cross-referenced with /llm/models so each
-    // option carries the provider's real default_model. No static list —
-    // unhealthy or unregistered providers simply do not appear.
+    // Saved models (starred) come first — cross-referenced with the available
+    // catalogue so each entry carries cost / context metadata.
+    const savedAv = savedModels
+      .map(sm => {
+        const av = availableModels.find(a => a.id === sm.model_id);
+        if (!av) {
+          // Saved but not in catalogue: still surface, with no metadata.
+          const isFree = sm.model_id.endsWith(':free');
+          const freeTag = isFree ? ' · FREE' : '';
+          return {
+            value: sm.model_id,
+            label: `★ ${sm.display_name}${freeTag}`,
+          } as ModelSelectOption;
+        }
+        const costStr = av.is_free ? 'FREE' : `$${av.input_per_m.toFixed(2)}/M`;
+        return {
+          value: sm.model_id,
+          label: `★ ${av.name} · ${costStr}${av.is_free ? ' 🟢' : ''}`,
+        } as ModelSelectOption;
+      });
+
+    // LM Studio (locally hosted) — existing source.
+    const lmStudioOpts: ModelSelectOption[] = (outlookModels.lm_studio || []).map(m => ({
+      value: `lm_studio:${m}`,
+      label: `🧪 LM Studio: ${m}`,
+    }));
+
+    // Local GGUF models — existing source.
+    const localOpts: ModelSelectOption[] = (outlookModels.local || []).map(m => ({
+      value: `local:${m}`,
+      label: `💻 Local: ${m}`,
+    }));
+
+    // API providers from the legacy /llm/models endpoint — kept for back-compat
+    // with deployments that haven't enabled OpenRouter discovery.
     const PROVIDER_LABEL: Record<string, { icon: string; name: string }> = {
       openrouter: { icon: '🧭', name: 'OpenRouter' },
       lm_studio: { icon: '🧪', name: 'LM Studio' },
@@ -673,28 +753,63 @@ export default function OutlookDashboard() {
       minimax: { icon: '🚀', name: 'MiniMax' },
       local: { icon: '💻', name: 'Local' },
     };
-    (outlookModels.api || []).forEach(entry => {
-      const m = entry.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
-      if (!m) return;
-      const providerKey = m[1];
-      const defaultModel = m[2];
-      if (healthyProviders[providerKey] === false) return;
-      const meta = PROVIDER_LABEL[providerKey] || { icon: '✨', name: providerKey };
-      opts.push({
-        value: `${providerKey}:${defaultModel}`,
-        label: `${meta.icon} ${meta.name} (${defaultModel})`,
-      });
-    });
+    const legacyApiOpts: ModelSelectOption[] = (outlookModels.api || [])
+      .map(entry => {
+        const m = entry.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+        if (!m) return null;
+        const providerKey = m[1];
+        const defaultModel = m[2];
+        if (healthyProviders[providerKey] === false) return null;
+        const meta = PROVIDER_LABEL[providerKey] || { icon: '✨', name: providerKey };
+        return {
+          value: `${providerKey}:${defaultModel}`,
+          label: `${meta.icon} ${meta.name} (${defaultModel})`,
+        } as ModelSelectOption;
+      })
+      .filter((x): x is ModelSelectOption => x !== null);
 
-    (outlookModels.lm_studio || []).forEach(m =>
-      opts.push({ value: `lm_studio:${m}`, label: `🧪 LM Studio: ${m}` }),
-    );
-    (outlookModels.local || []).forEach(m =>
-      opts.push({ value: `local:${m}`, label: `💻 Local: ${m}` }),
-    );
-    const seen = new Set<string>();
-    return opts.filter(o => { const k = o.value; if (seen.has(k)) return false; seen.add(k); return true; });
-  }, [outlookModels, healthyProviders]);
+    // Group all OpenRouter-discovered models by provider so the dropdown
+    // stays navigable even with 300+ entries. Free models get a 🟢 marker
+    // and a "FREE" cost string; paid models show input $/M.
+    const groupedByProvider: Record<string, ModelSelectOption[]> = {};
+    const seenIds = new Set<string>(savedModels.map(s => s.model_id));
+    for (const av of availableModels) {
+      if (seenIds.has(av.id)) continue; // saved already shows it on top
+      const costStr = av.is_free ? 'FREE 🟢' : `$${av.input_per_m.toFixed(2)}/M in`;
+      const ctxStr = av.context_length != null
+        ? ` · ${av.context_length >= 1_000_000 ? `${(av.context_length / 1_000_000).toFixed(0)}M` : `${Math.round(av.context_length / 1000)}K`} ctx`
+        : '';
+      const featuredStr = av.featured ? '⭐ ' : '';
+      const opt: ModelSelectOption = {
+        value: av.id,
+        label: `${featuredStr}${av.name} · ${costStr}${ctxStr}`,
+      };
+      if (!groupedByProvider[av.provider]) groupedByProvider[av.provider] = [];
+      groupedByProvider[av.provider].push(opt);
+    }
+    const openRouterGroups: ModelSelectGroup[] = Object.keys(groupedByProvider)
+      .sort((a, b) => a.localeCompare(b))
+      .map(provider => ({
+        label: `${PROVIDER_LABEL[provider]?.icon || '✨'} ${PROVIDER_LABEL[provider]?.name || provider} (${groupedByProvider[provider].length})`,
+        options: groupedByProvider[provider].sort((a, b) => a.label.localeCompare(b.label)),
+      }));
+
+    const groups: (ModelSelectOption | ModelSelectGroup)[] = [autoOpt];
+    if (savedAv.length > 0) {
+      groups.push({ label: `★ Saved (${savedAv.length})`, options: savedAv });
+    }
+    if (lmStudioOpts.length > 0) {
+      groups.push({ label: '🧪 LM Studio', options: lmStudioOpts });
+    }
+    if (localOpts.length > 0) {
+      groups.push({ label: '💻 Local GGUF', options: localOpts });
+    }
+    if (legacyApiOpts.length > 0) {
+      groups.push({ label: '🔌 API Providers', options: legacyApiOpts });
+    }
+    groups.push(...openRouterGroups);
+    return groups;
+  }, [outlookModels, healthyProviders, availableModels, savedModels]);
 
   // ─── Render ──────────────────────────────────────────────
 

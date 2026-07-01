@@ -3,11 +3,13 @@ LLM Agent API Endpoints
 Provides chat-based interface with tool calling and rule-based local fallback.
 """
 
+import asyncio
 import json
 import logging
 import os
 import re
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -35,9 +37,15 @@ from core.context import (
     HardwareContextModule,
     SystemPromptBuilder,
 )
+from core.llm.defaults import (
+    DEFAULT_MODELS_BY_USE_CASE,
+    KNOWN_FEATURED_MODEL_IDS,
+    NEMOTRON_FREE_MODEL_ID,
+)
 from core.llm.retry import retry_with_backoff
 
 from core.llm.base import strip_thinking
+from core.llm.usage import LLMUsageTracker, UsageRecord
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -1776,3 +1784,519 @@ async def get_providers_health(request: Request) -> dict:
         "healthy_count": sum(1 for s in statuses if s.healthy),
         "total_count": len(statuses),
     }
+
+
+# ============================ Model Discovery & Management ============================
+# Endpoints added under /api/v1/llm/models/* — dynamic OpenRouter discovery
+# (cached 5 min), user-saved custom model registry, and a fast test probe.
+
+# In-memory cache for the OpenRouter /models response. Held at module scope so
+# all worker tasks share it. The lock is created lazily inside the handler so
+# constructing it does not require a running event loop on import (Windows).
+_AVAILABLE_MODELS_CACHE: dict[str, Any] = {"fetched_at": 0.0, "models": [], "source": ""}
+_AVAILABLE_MODELS_TTL_SECONDS: float = 300.0  # 5 minutes
+_AVAILABLE_MODELS_LOCK: asyncio.Lock | None = None
+
+
+def _get_available_models_lock() -> asyncio.Lock:
+    """Lazy-init the module-level asyncio.Lock for the discovery cache.
+
+    ``asyncio.Lock()`` must be created inside a running loop on Windows;
+    constructing it at import time raises ``RuntimeError`` under some
+    ProactorEventLoop configurations.
+    """
+    global _AVAILABLE_MODELS_LOCK
+    if _AVAILABLE_MODELS_LOCK is None:
+        _AVAILABLE_MODELS_LOCK = asyncio.Lock()
+    return _AVAILABLE_MODELS_LOCK
+
+
+# Path to the user's saved custom model list (JSON file in the home dir).
+CUSTOM_MODELS_PATH: Path = Path.home() / ".vajra-stream" / "custom_models.json"
+
+# OpenRouter public catalogue URL. No API key required for read.
+OPENROUTER_MODELS_URL: str = "https://openrouter.ai/api/v1/models"
+
+# OpenRouter chat-completions URL used by the test probe.
+OPENROUTER_CHAT_URL: str = "https://openrouter.ai/api/v1/chat/completions"
+
+# Probe prompt sent by POST /models/{id}/test. Kept tiny so the test
+# is fast and ~free even on paid models.
+_TEST_PROBE_PROMPT: str = "Say 'Hello' in one word."
+
+
+class AvailableModel(BaseModel):
+    """A single model entry returned by ``GET /models/available``.
+
+    Fields are a normalized subset of the OpenRouter /models payload,
+    enriched with a ``featured`` flag for the curated built-in set and
+    a ``source`` indicating where the entry came from.
+    """
+
+    id: str
+    name: str
+    provider: str
+    context_length: int | None = None
+    input_per_m: float = 0.0
+    output_per_m: float = 0.0
+    is_free: bool = False
+    featured: bool = False
+    description: str = ""
+    source: str = "openrouter"  # 'openrouter' | 'lm_studio' | 'local_gguf'
+
+
+class AddCustomModelRequest(BaseModel):
+    """Request body for ``POST /models/add``."""
+
+    model_id: str
+    display_name: str
+    provider: str = "openrouter"
+
+
+class SavedCustomModel(BaseModel):
+    """An entry persisted in ``~/.vajra-stream/custom_models.json``."""
+
+    model_id: str
+    display_name: str
+    provider: str
+    added_at: str  # ISO-8601 timestamp
+
+
+def _load_custom_models() -> list[dict]:
+    """Load the user's saved custom models from disk.
+
+    Returns an empty list if the file does not exist or is corrupt
+    (a warning is logged on parse failure; the file is left untouched).
+    """
+    try:
+        if CUSTOM_MODELS_PATH.exists():
+            raw = CUSTOM_MODELS_PATH.read_text(encoding="utf-8")
+            data = json.loads(raw)
+            if isinstance(data, list):
+                return [m for m in data if isinstance(m, dict)]
+            if isinstance(data, dict) and isinstance(data.get("models"), list):
+                return [m for m in data["models"] if isinstance(m, dict)]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to read custom models file %s: %s", CUSTOM_MODELS_PATH, exc)
+    return []
+
+
+def _save_custom_models(models: list[dict]) -> None:
+    """Persist the custom-model list to disk, creating the parent dir."""
+    try:
+        CUSTOM_MODELS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CUSTOM_MODELS_PATH.write_text(
+            json.dumps(models, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to write custom models file %s: %s", CUSTOM_MODELS_PATH, exc)
+        raise
+
+
+def _detect_provider(model_id: str) -> str:
+    """Best-effort provider extraction from a model id prefix.
+
+    OpenRouter model ids look like ``vendor/model-name``. We take the
+    first slash-separated segment. Falls back to ``"openrouter"`` for
+    unscoped ids.
+    """
+    if "/" in model_id:
+        return model_id.split("/", 1)[0].lower()
+    return "openrouter"
+
+
+async def _fetch_openrouter_models_uncached() -> list[dict]:
+    """Hit ``GET https://openrouter.ai/api/v1/models`` and normalize rows.
+
+    Returns an empty list on any failure (timeout, HTTP error, parse
+    error) — the caller surfaces a graceful "no models" state rather
+    than a 5xx. Requires ``aiohttp``; if it is not installed, returns
+    ``[]`` immediately.
+    """
+    if aiohttp is None:
+        logger.warning("aiohttp not installed — OpenRouter model discovery unavailable")
+        return []
+    try:
+        timeout = aiohttp.ClientTimeout(total=10.0)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(OPENROUTER_MODELS_URL) as resp:
+                if resp.status != 200:
+                    logger.warning("OpenRouter /models returned HTTP %s", resp.status)
+                    return []
+                payload = await resp.json()
+    except Exception as exc:  # noqa: BLE001 — discovery must never 5xx
+        logger.warning("OpenRouter /models fetch failed: %s", exc)
+        return []
+
+    rows = payload.get("data", []) if isinstance(payload, dict) else []
+    featured_set = set(KNOWN_FEATURED_MODEL_IDS)
+    out: list[dict] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        model_id = row.get("id") or ""
+        if not model_id:
+            continue
+        pricing = row.get("pricing") or {}
+        try:
+            prompt_per_token = float(pricing.get("prompt") or "0")
+            completion_per_token = float(pricing.get("completion") or "0")
+        except (TypeError, ValueError):
+            prompt_per_token = 0.0
+            completion_per_token = 0.0
+        input_per_m = prompt_per_token * 1_000_000.0
+        output_per_m = completion_per_token * 1_000_000.0
+        is_free = input_per_m == 0.0 and output_per_m == 0.0
+        try:
+            ctx_len = int(row.get("context_length") or 0) or None
+        except (TypeError, ValueError):
+            ctx_len = None
+        out.append(
+            {
+                "id": model_id,
+                "name": row.get("name") or model_id,
+                "provider": _detect_provider(model_id),
+                "context_length": ctx_len,
+                "input_per_m": input_per_m,
+                "output_per_m": output_per_m,
+                "is_free": is_free,
+                "featured": model_id in featured_set,
+                "description": (row.get("description") or "")[:500],
+                "source": "openrouter",
+            }
+        )
+    return out
+
+
+async def _fetch_lm_studio_models_uncached() -> list[dict]:
+    """Best-effort list of locally-loaded LM Studio models.
+
+    Returns ``[]`` if LM Studio is not running or unreachable; never
+    raises. Uses urllib (sync) wrapped in a thread so it does not
+    block the event loop and does not add an aiohttp dependency for
+    this optional local probe.
+    """
+    import urllib.error
+    import urllib.request
+
+    base_url = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234").rstrip("/")
+
+    def _do_fetch() -> list[dict]:
+        try:
+            req = urllib.request.Request(f"{base_url}/v1/models")
+            with urllib.request.urlopen(req, timeout=1.5) as response:  # noqa: S310 — local
+                data = json.loads(response.read().decode())
+            out: list[dict] = []
+            for m in data.get("data", []):
+                mid = m.get("id") or ""
+                if not mid:
+                    continue
+                out.append(
+                    {
+                        "id": f"lm_studio:{mid}",
+                        "name": mid,
+                        "provider": "lm_studio",
+                        "context_length": m.get("context_length"),
+                        "input_per_m": 0.0,
+                        "output_per_m": 0.0,
+                        "is_free": True,
+                        "featured": False,
+                        "description": "Locally hosted via LM Studio",
+                        "source": "lm_studio",
+                    }
+                )
+            return out
+        except Exception:  # noqa: BLE001 — LM Studio probe must be silent
+            return []
+
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _do_fetch)
+
+
+@router.get("/models/available", summary="List all available OpenRouter models")
+async def list_available_models() -> dict:
+    """Return the full OpenRouter model catalogue (cached 5 minutes).
+
+    Merges:
+      1. OpenRouter public /models response (300+ entries) — cached for
+         ``_AVAILABLE_MODELS_TTL_SECONDS`` so we never hit OpenRouter on
+         every page load.
+      2. Locally-loaded LM Studio models (no cache; probed every call).
+
+    Each entry is normalized to the :class:`AvailableModel` shape and
+    tagged with ``featured=True`` if it appears in
+    :data:`core.llm.defaults.KNOWN_FEATURED_MODEL_IDS`. The Nemotron
+    free model is always included even if OpenRouter omits it.
+    """
+    global _AVAILABLE_MODELS_CACHE
+    lock = _get_available_models_lock()
+    async with lock:
+        now = time.time()
+        cached = _AVAILABLE_MODELS_CACHE
+        needs_refresh = (now - cached.get("fetched_at", 0.0)) > _AVAILABLE_MODELS_TTL_SECONDS
+        or_models: list[dict] = []
+        if needs_refresh:
+            or_models = await _fetch_openrouter_models_uncached()
+            if or_models:
+                cached["fetched_at"] = now
+                cached["models"] = or_models
+                cached["source"] = "openrouter"
+            else:
+                # Keep stale cache if we have one; otherwise seed with the
+                # built-in featured set so the UI is never empty.
+                if not cached.get("models"):
+                    featured_set = set(KNOWN_FEATURED_MODEL_IDS)
+                    cached["models"] = [
+                        {
+                            "id": mid,
+                            "name": mid.split("/")[-1],
+                            "provider": _detect_provider(mid),
+                            "context_length": None,
+                            "input_per_m": 0.0,
+                            "output_per_m": 0.0,
+                            "is_free": mid.endswith(":free"),
+                            "featured": True,
+                            "description": "Built-in featured model",
+                            "source": "builtin",
+                        }
+                        for mid in KNOWN_FEATURED_MODEL_IDS
+                    ]
+                    cached["source"] = "builtin"
+        or_models = list(cached.get("models", []))
+
+    # Merge LM Studio models (always probed; cheap and local).
+    lm_models = await _fetch_lm_studio_models_uncached()
+
+    # Defensive: ensure Nemotron is always present even if OpenRouter
+    # transiently drops it from the catalogue.
+    if not any(m.get("id") == NEMOTRON_FREE_MODEL_ID for m in or_models):
+        or_models.insert(0, {
+            "id": NEMOTRON_FREE_MODEL_ID,
+            "name": "Nemotron 3 Ultra 550B (Free)",
+            "provider": "nvidia",
+            "context_length": 1_000_000,
+            "input_per_m": 0.0,
+            "output_per_m": 0.0,
+            "is_free": True,
+            "featured": True,
+            "description": "550B MoE, 1M context, $0 input / $0 output. Built-in default.",
+            "source": "builtin",
+        })
+
+    # Validate rows against the Pydantic model for a stable contract.
+    validated: list[dict] = []
+    for m in or_models + lm_models:
+        try:
+            validated.append(AvailableModel(**m).model_dump())
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Skipping malformed available-model row %r: %s", m, exc)
+
+    return {
+        "status": "success",
+        "count": len(validated),
+        "fetched_at": cached.get("fetched_at"),
+        "source": cached.get("source", ""),
+        "models": validated,
+    }
+
+
+@router.get("/models/saved", summary="List user-saved custom models")
+async def list_saved_models() -> dict:
+    """Return the user's saved-model list from ``~/.vajra-stream/custom_models.json``."""
+    models = _load_custom_models()
+    # Normalize each row before returning.
+    out: list[dict] = []
+    for m in models:
+        try:
+            out.append(
+                SavedCustomModel(
+                    model_id=str(m.get("model_id", "")),
+                    display_name=str(m.get("display_name", "")),
+                    provider=str(m.get("provider", "openrouter")),
+                    added_at=str(m.get("added_at", "")),
+                ).model_dump()
+            )
+        except Exception:  # noqa: BLE001
+            continue
+    return {"status": "success", "count": len(out), "models": out}
+
+
+@router.post("/models/add", summary="Add a custom model to the saved list")
+async def add_custom_model(req: AddCustomModelRequest) -> dict:
+    """Add ``model_id`` to the user's saved custom model list.
+
+    Persisted to ``~/.vajra-stream/custom_models.json`` (file is created
+    if missing). Adding the same ``model_id`` twice updates the display
+    name and provider in place rather than creating a duplicate.
+    """
+    model_id = req.model_id.strip()
+    if not model_id:
+        raise HTTPException(status_code=400, detail="model_id is required")
+    provider = (req.provider or _detect_provider(model_id)).strip() or "openrouter"
+    display_name = (req.display_name or model_id).strip()
+
+    models = _load_custom_models()
+    added_at = _now_iso()
+    for m in models:
+        if m.get("model_id") == model_id:
+            m["display_name"] = display_name
+            m["provider"] = provider
+            m["added_at"] = added_at
+            _save_custom_models(models)
+            return {"status": "updated", "model": m}
+    entry = {
+        "model_id": model_id,
+        "display_name": display_name,
+        "provider": provider,
+        "added_at": added_at,
+    }
+    models.append(entry)
+    _save_custom_models(models)
+    return {"status": "added", "model": entry}
+
+
+@router.delete("/models/{model_id:path}", summary="Remove a saved custom model")
+async def delete_custom_model(model_id: str) -> dict:
+    """Remove ``model_id`` from the saved custom model list.
+
+    Silently succeeds (``status: "not_found"``) if the model was not in
+    the saved list — DELETE should be idempotent.
+    """
+    models = _load_custom_models()
+    before = len(models)
+    models = [m for m in models if m.get("model_id") != model_id]
+    if len(models) == before:
+        return {"status": "not_found", "model_id": model_id}
+    _save_custom_models(models)
+    return {"status": "deleted", "model_id": model_id}
+
+
+class ModelTestResponse(BaseModel):
+    """Result of a single model probe."""
+
+    success: bool
+    response: str = ""
+    latency_ms: float = 0.0
+    tokens_used: int = 0
+    cost_estimate: float = 0.0
+    error: str = ""
+
+
+@router.post(
+    "/models/{model_id:path}/test",
+    summary="Send a tiny probe prompt to a model and report latency + cost",
+    response_model=ModelTestResponse,
+)
+async def test_model(model_id: str) -> ModelTestResponse:
+    """Send ``"Say 'Hello' in one word."`` to ``model_id`` and report.
+
+    Uses the OpenRouter chat-completions endpoint with a hard 15-second
+    timeout. Cost is estimated via :class:`LLMUsageTracker` using the
+    per-model pricing table. Returns a 200 with ``success: false`` on
+    any failure (timeout, missing key, HTTP error) so the frontend can
+    render the error inline without a 5xx.
+    """
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    if not api_key:
+        return ModelTestResponse(
+            success=False,
+            error="OPENROUTER_API_KEY not set — cannot probe remote models.",
+        )
+    if aiohttp is None:
+        return ModelTestResponse(
+            success=False,
+            error="aiohttp not installed — model probe unavailable.",
+        )
+
+    started = time.time()
+    try:
+        async with asyncio.timeout(15.0):
+            timeout = aiohttp.ClientTimeout(total=15.0)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    OPENROUTER_CHAT_URL,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model_id,
+                        "messages": [{"role": "user", "content": _TEST_PROBE_PROMPT}],
+                        "max_tokens": 16,
+                    },
+                ) as resp:
+                    latency_ms = (time.time() - started) * 1000.0
+                    body = await resp.json()
+                    if resp.status >= 400:
+                        err_msg = (
+                            body.get("error", {}).get("message")
+                            if isinstance(body, dict)
+                            else f"HTTP {resp.status}"
+                        ) or f"HTTP {resp.status}"
+                        return ModelTestResponse(
+                            success=False,
+                            latency_ms=latency_ms,
+                            error=str(err_msg)[:300],
+                        )
+                    choices = body.get("choices") or []
+                    text = ""
+                    if choices and isinstance(choices[0], dict):
+                        msg = choices[0].get("message") or {}
+                        text = str(msg.get("content") or "").strip()
+                    usage = body.get("usage") or {}
+                    prompt_toks = int(usage.get("prompt_tokens") or 0)
+                    completion_toks = int(usage.get("completion_tokens") or 0)
+                    total_toks = prompt_toks + completion_toks
+                    cost = LLMUsageTracker.get().estimate_cost(
+                        "openrouter", model_id, prompt_toks, completion_toks
+                    )
+                    # Record the probe so the usage dashboard reflects it.
+                    _record_llm_usage(
+                        provider="openrouter",
+                        model=model_id,
+                        prompt_tokens=prompt_toks,
+                        completion_tokens=completion_toks,
+                        latency_ms=latency_ms,
+                        endpoint="model_test",
+                    )
+                    return ModelTestResponse(
+                        success=True,
+                        response=text,
+                        latency_ms=latency_ms,
+                        tokens_used=total_toks,
+                        cost_estimate=cost,
+                    )
+    except asyncio.TimeoutError:
+        return ModelTestResponse(
+            success=False,
+            latency_ms=(time.time() - started) * 1000.0,
+            error="Probe timed out after 15s.",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return ModelTestResponse(
+            success=False,
+            latency_ms=(time.time() - started) * 1000.0,
+            error=f"Probe failed: {exc}"[:300],
+        )
+
+
+@router.get("/models/defaults", summary="Return the recommended default model per use case")
+async def get_default_models() -> dict:
+    """Expose :data:`core.llm.defaults.DEFAULT_MODELS_BY_USE_CASE` to the UI.
+
+    Used by the Model Manager's "Active Model Display" section so the
+    recommended default for each feature (outlook, chat, blessing loop,
+    operator, divination, TTS) is rendered from a single source of truth.
+    """
+    return {
+        "status": "success",
+        "defaults": DEFAULT_MODELS_BY_USE_CASE,
+    }
+
+
+def _now_iso() -> str:
+    """ISO-8601 UTC timestamp for persisted ``added_at`` fields."""
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()

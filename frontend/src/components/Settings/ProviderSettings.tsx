@@ -19,13 +19,14 @@
  * @route /settings
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Table, Tag, Typography, Space, Empty, Tooltip } from 'antd';
+import { Card, Table, Tag, Typography, Space, Empty, Tooltip, Tabs } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
-  Activity, Server, AlertTriangle, CheckCircle2, Cpu,
+  Activity, Server, AlertTriangle, CheckCircle2, Cpu, Boxes,
 } from 'lucide-react';
 import { useWebSocketStable, type LLMUsageUpdate } from '../../hooks/useWebSocketStable';
 import UsageDashboard from './UsageDashboard';
+import ModelManager from './ModelManager';
 const { Title, Text, Paragraph } = Typography;
 
 /**
@@ -52,6 +53,7 @@ function formatLatency(ms: number | null | undefined): string {
 
 export default function ProviderSettings() {
   const { providerHealth, lastProviderHealthUpdate, usageUpdate, lastUsageUpdateAt } = useWebSocketStable();
+  const [activeSettingsTab, setActiveSettingsTab] = useState<string>('health');
 
   /**
    * Live cost/call badge payload passed down to UsageDashboard so the
@@ -197,79 +199,108 @@ export default function ProviderSettings() {
             </div>
           </Space>
           <Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0, maxWidth: 720 }}>
-            Monitor the health of every configured LLM provider. The backend
-            registry ranks providers by priority and automatically fails over
-            to the next healthy provider when one stops responding to its
-            heartbeat check.
+            Monitor the health of every configured LLM provider, manage model discovery,
+            and curate your preferred list. The backend registry ranks providers by
+            priority and automatically fails over to the next healthy provider when one
+            stops responding to its heartbeat check.
           </Paragraph>
         </div>
 
-        {/* Summary + Health Table */}
-        <Card size="small">
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Space size={8} align="center">
-                <Activity
-                  size={14}
-                  className={healthyCount > 0 ? 'text-emerald-400' : 'text-gray-500'}
-                />
-                <Text strong>
-                  {healthyCount} / {totalCount} providers healthy
-                </Text>
-              </Space>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Last update: {lastUpdateStr}
-              </Text>
-            </div>
-            <Table
-              size="small"
-              columns={columns}
-              dataSource={dataSource}
-              pagination={false}
-              locale={{
-                emptyText: (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description={
-                      <Space direction="vertical" size={2}>
-                        <Text type="secondary">No providers registered</Text>
+        <Tabs
+          activeKey={activeSettingsTab}
+          onChange={setActiveSettingsTab}
+          items={[
+            {
+              key: 'health',
+              label: (
+                <span>
+                  <Activity size={13} className="inline mr-1" />
+                  Provider Health
+                </span>
+              ),
+              children: (
+                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                  {/* Summary + Health Table */}
+                  <Card size="small">
+                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Space size={8} align="center">
+                          <Activity
+                            size={14}
+                            className={healthyCount > 0 ? 'text-emerald-400' : 'text-gray-500'}
+                          />
+                          <Text strong>
+                            {healthyCount} / {totalCount} providers healthy
+                          </Text>
+                        </Space>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          Configure provider credentials to populate the registry.
+                          Last update: {lastUpdateStr}
                         </Text>
+                      </div>
+                      <Table
+                        size="small"
+                        columns={columns}
+                        dataSource={dataSource}
+                        pagination={false}
+                        locale={{
+                          emptyText: (
+                            <Empty
+                              image={Empty.PRESENTED_IMAGE_SIMPLE}
+                              description={
+                                <Space direction="vertical" size={2}>
+                                  <Text type="secondary">No providers registered</Text>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    Configure provider credentials to populate the registry.
+                                  </Text>
+                                </Space>
+                              }
+                            />
+                          ),
+                        }}
+                      />
+                    </Space>
+                  </Card>
+
+                  {/* Usage Dashboard — live LLM cost + token analytics */}
+                  <UsageDashboard {...wsUsageProps} />
+
+                  {/* Failover Log (placeholder) */}
+                  <Card
+                    size="small"
+                    title={
+                      <Space size={6}>
+                        <Activity size={14} />
+                        <span>Failover Log</span>
                       </Space>
                     }
-                  />
-                ),
-              }}
-            />
-          </Space>
-        </Card>
-
-        {/* Usage Dashboard — live LLM cost + token analytics */}
-        <UsageDashboard {...wsUsageProps} />
-
-        {/* Failover Log (placeholder) */}
-        <Card
-          size="small"
-          title={
-            <Space size={6}>
-              <Activity size={14} />
-              <span>Failover Log</span>
-            </Space>
-          }
-        >
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <Space direction="vertical" size={2}>
-                <Text type="secondary">No failover events recorded.</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Provider switch events will be streamed here in a future update.
-                </Text>
-              </Space>
-            }
-          />
-        </Card>
+                  >
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description={
+                        <Space direction="vertical" size={2}>
+                          <Text type="secondary">No failover events recorded.</Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Provider switch events will be streamed here in a future update.
+                          </Text>
+                        </Space>
+                      }
+                    />
+                  </Card>
+                </Space>
+              ),
+            },
+            {
+              key: 'models',
+              label: (
+                <span>
+                  <Boxes size={13} className="inline mr-1" />
+                  Model Manager
+                </span>
+              ),
+              children: <ModelManager />,
+            },
+          ]}
+        />
       </Space>
     </div>
   );
