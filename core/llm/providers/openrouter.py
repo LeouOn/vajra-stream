@@ -36,7 +36,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         self,
         api_key: str | None = None,
         base_url: str | None = None,
-        default_model: str = "deepseek/deepseek-v4-flash",
+        default_model: str = NEMOTRON_FREE_MODEL_ID,
         priority: int = 90,
     ) -> None:
         super().__init__(
@@ -46,4 +46,10 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             default_model=default_model,
             timeout_seconds=120,
             priority=priority,
+            fallback_models=[
+                NEMOTRON_FREE_MODEL_ID,
+                "deepseek/deepseek-v4-flash",
+                "deepseek/deepseek-chat",
+                "openai/gpt-4o-mini",
+            ],
         )

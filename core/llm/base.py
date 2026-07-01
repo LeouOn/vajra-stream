@@ -212,6 +212,7 @@ class OpenAICompatibleProvider:
         timeout_seconds: int = 120,
         priority: int = 50,
         enable_cache: bool = False,
+        fallback_models: list[str] | None = None,
     ) -> None:
         if not api_key:
             raise ValueError(f"{name} provider requires a non-empty api_key")
@@ -222,6 +223,7 @@ class OpenAICompatibleProvider:
         self.default_model = default_model
         self.timeout_seconds = timeout_seconds
         self.enable_cache = enable_cache
+        self.fallback_models = fallback_models or []
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
@@ -285,53 +287,67 @@ class OpenAICompatibleProvider:
                 logger.debug("response cache get failed", exc_info=True)
 
         start_time = time.time()
-        try:
-            response = await self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=request.max_tokens,
-                temperature=request.temperature,
-                tools=[t.model_dump() for t in request.tools] if request.tools else None,
-            )
-            choice = response.choices[0]
-            raw_content = choice.message.content or ""
-            reasoning = getattr(choice.message, "reasoning_content", None)
-            content, inline_reasoning = strip_thinking(raw_content)
-            if reasoning is None and inline_reasoning is not None:
-                reasoning = inline_reasoning
-            elif reasoning and inline_reasoning:
-                reasoning = f"{reasoning}\n{inline_reasoning}"
-            chat_response = ChatResponse(
-                content=content,
-                provider=self.name,
-                model=model,
-                input_tokens=response.usage.prompt_tokens if response.usage else 0,
-                output_tokens=response.usage.completion_tokens if response.usage else 0,
-                finish_reason=choice.finish_reason or "stop",
-                reasoning_content=reasoning,
-            )
-            latency_ms = int((time.time() - start_time) * 1000)
+        candidate_models = [model]
+        if not request.model and self.fallback_models:
+            candidate_models = [self.default_model] + [
+                m for m in self.fallback_models if m != self.default_model
+            ]
 
-            self._record_usage(
-                model=model,
-                prompt_tokens=chat_response.input_tokens,
-                completion_tokens=chat_response.output_tokens,
-                latency_ms=latency_ms,
+        last_error: Exception | None = None
+        for attempt_model in candidate_models:
+            try:
+                response = await self._client.chat.completions.create(
+                    model=attempt_model,
+                    messages=messages,
+                    max_tokens=request.max_tokens,
+                    temperature=request.temperature,
+                    tools=[t.model_dump() for t in request.tools] if request.tools else None,
+                )
+                choice = response.choices[0]
+                raw_content = choice.message.content or ""
+                reasoning = getattr(choice.message, "reasoning_content", None)
+                content, inline_reasoning = strip_thinking(raw_content)
+                if reasoning is None and inline_reasoning is not None:
+                    reasoning = inline_reasoning
+                elif reasoning and inline_reasoning:
+                    reasoning = f"{reasoning}\n{inline_reasoning}"
+                chat_response = ChatResponse(
+                    content=content,
+                    provider=self.name,
+                    model=attempt_model,
+                    input_tokens=response.usage.prompt_tokens if response.usage else 0,
+                    output_tokens=response.usage.completion_tokens if response.usage else 0,
+                    finish_reason=choice.finish_reason or "stop",
+                    reasoning_content=reasoning,
+                )
+                latency_ms = int((time.time() - start_time) * 1000)
+
+                self._record_usage(
+                    model=attempt_model,
+                    prompt_tokens=chat_response.input_tokens,
+                    completion_tokens=chat_response.output_tokens,
+                    latency_ms=latency_ms,
             )
 
-            if cache is not None and request.temperature <= 0.1:
-                try:
-                    await cache.set_static(
-                        system_for_cache, prompt_for_cache, model,
-                        request.max_tokens, request.temperature, chat_response,
-                    )
-                except Exception:  # noqa: BLE001
-                    logger.debug("response cache set failed", exc_info=True)
+                if cache is not None and request.temperature <= 0.1:
+                    try:
+                        await cache.set_static(
+                            system_for_cache, prompt_for_cache, attempt_model,
+                            request.max_tokens, request.temperature, chat_response,
+                        )
+                    except Exception:  # noqa: BLE001
+                        logger.debug("response cache set failed", exc_info=True)
 
-            return chat_response
-        except Exception as e:
-            logger.error(f"generate failed for {self.name}/{model}: {e}")
-            raise RuntimeError(f"{self.name} generation failed: {e}") from e
+                return chat_response
+            except Exception as e:
+                last_error = e
+                logger.warning(f"{self.name}/{attempt_model} failed: {e}")
+                if len(candidate_models) > 1:
+                    logger.info(f"Falling back to next model for {self.name}...")
+                    continue
+                raise RuntimeError(f"{self.name} generation failed: {e}") from e
+
+        raise RuntimeError(f"{self.name} all models exhausted: {last_error}") from last_error
 
     def _record_usage(
         self,
