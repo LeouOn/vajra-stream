@@ -27,7 +27,8 @@ def test_openrouter_provider_construction(monkeypatch):
     p = OpenRouterProvider()
     assert p.name == "openrouter"
     assert p.priority == 90
-    assert p.default_model == "google/gemini-2.0-flash-001"
+    assert p.default_model == "nvidia/nemotron-3-ultra-550b-a55b:free"
+    assert p.fallback_models[0] == p.default_model
 
 
 def test_deepseek_provider_construction(monkeypatch):
@@ -35,7 +36,7 @@ def test_deepseek_provider_construction(monkeypatch):
     p = DeepSeekProvider()
     assert p.name == "deepseek"
     assert p.priority == 70
-    assert p.default_model == "deepseek-chat"
+    assert p.default_model == "deepseek-v4-flash"
 
 
 def test_minimax_provider_construction(monkeypatch):
