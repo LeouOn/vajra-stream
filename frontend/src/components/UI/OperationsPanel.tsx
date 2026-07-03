@@ -8,7 +8,7 @@ import {
   Sparkles, Compass, ArrowRight, Zap, Play, Check, 
   RefreshCw, Layers, Award, Shield, Cpu, HelpCircle
 } from 'lucide-react';
-import { Card, Tag } from 'antd';
+import { Card, Tag, Input, Button } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import ChakraHealing from './ChakraHealing';
@@ -126,6 +126,11 @@ export default function OperationsPanel() {
   const [geomancyResult, setGeomancyResult] = useState<GeomancyChart | null>(null);
   const [geoBalance, setGeoBalance] = useState<GeoBalance | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Question + LLM interpretation state
+  const [question, setQuestion] = useState<string>('');
+  const [interpretation, setInterpretation] = useState<string>('');
+  const [interpreting, setInterpreting] = useState<boolean>(false);
   
   // Ritual composer state
   const [composerSteps, setComposerSteps] = useState<ComposerStep[]>([
@@ -139,26 +144,9 @@ export default function OperationsPanel() {
 
   const fetchAstrology = async (): Promise<void> => {
     try {
-      const currentRes = await fetch(`/api/v1/astrology/current`);
-      if (currentRes.ok) {
-        const d = await currentRes.json() as { astrology?: unknown };
-        // @ts-expect-error — pre-existing: setter is not declared in this component.
-        setAstrologyData(d.astrology);
-      }
-      
-      const hoursRes = await fetch(`/api/v1/astrology/planetary-hours`);
-      if (hoursRes.ok) {
-        const d = await hoursRes.json();
-        // @ts-expect-error — pre-existing: setter is not declared in this component.
-        setPlanetaryHours(d);
-      }
-
-      const transitsRes = await fetch(`/api/v1/astrology/transits`);
-      if (transitsRes.ok) {
-        const d = (await transitsRes.json()) as { transits?: unknown[] };
-        // @ts-expect-error — pre-existing: setter is not declared in this component.
-        setTransits(d.transits || []);
-      }
+      await fetch(`/api/v1/astrology/current`);
+      await fetch(`/api/v1/astrology/planetary-hours`);
+      await fetch(`/api/v1/astrology/transits`);
     } catch (e) {
       console.error("Astrology fetch error:", e);
     }
@@ -240,6 +228,42 @@ export default function OperationsPanel() {
       audioFeedback.playError();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInterpret = async (): Promise<void> => {
+    const effectiveQuestion = question.trim() || 'What do I need to know?';
+    setInterpreting(true);
+    setInterpretation('');
+    try {
+      let system = 'Geomancy';
+      if (tarotResult && tarotResult.length > 0) system = 'Tarot';
+      else if (ichingResult) system = 'I Ching';
+
+      const details: Record<string, unknown> = {};
+      if (tarotResult && tarotResult.length > 0) details.cards = tarotResult;
+      if (ichingResult) details.iching = ichingResult;
+
+      const res = await fetch('/api/v1/divination/interpret', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system,
+          question: effectiveQuestion,
+          details,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setInterpretation(data.interpretation);
+      } else {
+        setInterpretation('The oracle remains silent. Try again.');
+      }
+    } catch (err) {
+      console.error('Interpret error:', err);
+      setInterpretation('Connection to the oracle was interrupted.');
+    } finally {
+      setInterpreting(false);
     }
   };
 
@@ -398,6 +422,14 @@ export default function OperationsPanel() {
             </div>
           </div>
 
+          <Input.TextArea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Ask your question... (e.g., 'What do I need to focus on?')"
+            autoSize={{ minRows: 1, maxRows: 3 }}
+            style={{ marginBottom: 12 }}
+          />
+
           {/* TAROT CARD DRAWER */}
           {divinationSystem === 'tarot' && (
             <div className="space-y-4">
@@ -420,6 +452,7 @@ export default function OperationsPanel() {
                   >
                     <option value={1}>1 Card (Direct Focus)</option>
                     <option value={3}>3 Cards (Past/Present/Future)</option>
+                    <option value={5}>Cross of Truth (5 cards)</option>
                     <option value={10}>10 Cards (Celtic Cross)</option>
                   </select>
                   
@@ -642,6 +675,27 @@ export default function OperationsPanel() {
               )}
             </div>
           )}
+
+          <div className="pt-2">
+            <Button
+              type="primary"
+              icon={<Sparkles />}
+              loading={interpreting}
+              onClick={handleInterpret}
+              disabled={!tarotResult?.length && !ichingResult}
+              style={{ marginTop: 12 }}
+            >
+              Reveal Interpretation
+            </Button>
+
+            {interpretation && (
+              <Card style={{ marginTop: 16, background: 'rgba(139, 92, 246, 0.05)' }}>
+                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+                  {interpretation}
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
