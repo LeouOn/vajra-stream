@@ -41,26 +41,40 @@ def _resolve_knowledge_path(filename: str) -> Path:
 
 TAROT_DECK_PATH = _resolve_knowledge_path("tarot_deck.json")
 
-# Spread layouts keyed by draw count. The 1-card and 3-card (Past/Present/Future)
-# and 10-card Celtic Cross are the canonical spreads surfaced through the API.
+# Spread layouts keyed by draw count. Each entry carries:
+#   - id:     1-based positional index (backward compat)
+#   - name:   human-readable slot label (Past / Present / Future / ...)
+#   - position: layout coordinate token used by the frontend renderer
+#               ("center", "left", "right", "cross", "below", "above",
+#                or "1".."10" for the Celtic Cross numbered stations)
+#   - label:  short descriptive subtitle (backward compat)
+# The 1-card Focus, 3-card Past/Present/Future, 5-card cross, and the
+# 10-card Celtic Cross are the canonical spreads surfaced through the API.
 SPREAD_POSITIONS: dict[int, list[dict[str, Any]]] = {
-    1: [{"id": 1, "name": "Focus", "label": "The central issue"}],
+    1: [{"id": 1, "name": "Focus", "position": "center", "label": "The central issue"}],
     3: [
-        {"id": 1, "name": "Past", "label": "What has been"},
-        {"id": 2, "name": "Present", "label": "Where you are now"},
-        {"id": 3, "name": "Future", "label": "What is coming"},
+        {"id": 1, "name": "Past", "position": "left", "label": "What has been"},
+        {"id": 2, "name": "Present", "position": "center", "label": "Where you are now"},
+        {"id": 3, "name": "Future", "position": "right", "label": "What is coming"},
+    ],
+    5: [
+        {"id": 1, "name": "Present", "position": "center", "label": "The heart of the matter"},
+        {"id": 2, "name": "Challenge", "position": "cross", "label": "What crosses you"},
+        {"id": 3, "name": "Past", "position": "below", "label": "Foundation beneath"},
+        {"id": 4, "name": "Future", "position": "above", "label": "What crowns you"},
+        {"id": 5, "name": "Advice", "position": "right", "label": "The way forward"},
     ],
     10: [
-        {"id": 1, "name": "Present", "label": "The heart of the matter"},
-        {"id": 2, "name": "Challenge", "label": "Crossing card"},
-        {"id": 3, "name": "Foundation", "label": "Subconscious root"},
-        {"id": 4, "name": "Recent Past", "label": "Passing influence"},
-        {"id": 5, "name": "Crown", "label": "Conscious goal"},
-        {"id": 6, "name": "Near Future", "label": "Coming into action"},
-        {"id": 7, "name": "Self", "label": "Your attitude"},
-        {"id": 8, "name": "Environment", "label": "External influences"},
-        {"id": 9, "name": "Hopes & Fears", "label": "Hidden desires"},
-        {"id": 10, "name": "Outcome", "label": "Final resolution"},
+        {"id": 1, "name": "Present", "position": "1", "label": "The heart of the matter"},
+        {"id": 2, "name": "Challenge", "position": "2", "label": "Crossing card"},
+        {"id": 3, "name": "Foundation", "position": "3", "label": "Subconscious root"},
+        {"id": 4, "name": "Recent Past", "position": "4", "label": "Passing influence"},
+        {"id": 5, "name": "Crown", "position": "5", "label": "Conscious goal"},
+        {"id": 6, "name": "Near Future", "position": "6", "label": "Coming into action"},
+        {"id": 7, "name": "Self", "position": "7", "label": "Your attitude"},
+        {"id": 8, "name": "Environment", "position": "8", "label": "External influences"},
+        {"id": 9, "name": "Hopes & Fears", "position": "9", "label": "Hidden desires"},
+        {"id": 10, "name": "Outcome", "position": "10", "label": "Final resolution"},
     ],
 }
 
@@ -185,6 +199,7 @@ class DivinationService:
 
     def __init__(self):
         self.deck = self._load_tarot_deck()
+        self.iching = self._load_iching()
 
     def _load_tarot_deck(self) -> list[dict[str, Any]]:
         """Load the 78-card Tarot deck from knowledge/tarot_deck.json (single source of truth).
@@ -200,6 +215,19 @@ class DivinationService:
             cards = data.get("cards", [])
             if cards:
                 return cards
+        except (OSError, json.JSONDecodeError):
+            pass
+        return []
+
+    def _load_iching(self) -> list[dict[str, Any]]:
+        """Load the 64 I Ching hexagrams from knowledge/iching.json (single source of truth)."""
+        try:
+            iching_path = _resolve_knowledge_path("iching.json")
+            with open(iching_path, encoding="utf-8") as f:
+                data = json.load(f)
+            hexagrams = data.get("hexagrams", [])
+            if hexagrams:
+                return hexagrams
         except (OSError, json.JSONDecodeError):
             pass
         return []
@@ -693,22 +721,54 @@ class DivinationService:
 
         changing_indices = [i + 1 for i, v in enumerate(lines) if v == 6 or v == 9]
 
-        primary_name, primary_desc = self._get_hexagram_details(primary_pattern)
-        relating_name, relating_desc = self._get_hexagram_details(relating_pattern)
+        primary_details = self._get_hexagram_details(primary_pattern)
+        relating_details = self._get_hexagram_details(relating_pattern)
+
+        # Resolve changing line details
+        changing_lines_details = []
+        for idx in changing_indices:
+            line_idx = idx - 1
+            line_val = lines[line_idx]
+            line_meaning = primary_details["lines"][line_idx] if primary_details.get("lines") and len(primary_details["lines"]) > line_idx else ""
+            changing_lines_details.append({
+                "line": idx,
+                "value": line_val,
+                "type": "Old Yin" if line_val == 6 else "Old Yang",
+                "meaning": line_meaning
+            })
 
         return {
             "cast_lines": lines,
-            "primary": {"pattern": primary_pattern, "name": primary_name, "meaning": primary_desc},
-            "relating": {"pattern": relating_pattern, "name": relating_name, "meaning": relating_desc},
+            "primary": primary_details,
+            "relating": relating_details,
             "changing_lines": changing_indices,
+            "changing_lines_details": changing_lines_details,
             "has_changes": len(changing_indices) > 0,
             "svg": self._render_hexagram_svg(primary_pattern, relating_pattern, lines),
         }
 
-    def _get_hexagram_details(self, pattern: list[int]) -> tuple[str, str]:
+    def _get_hexagram_details(self, pattern: list[int]) -> dict[str, Any]:
         # Compact mapping of binary values to standard hexagrams
         bin_str = "".join(str(b) for b in pattern)
-        # Hexagram names & meanings dictionary
+        
+        # 1. Try finding in loaded JSON database
+        if hasattr(self, "iching") and self.iching:
+            for hexagram in self.iching:
+                if hexagram.get("pattern") == bin_str:
+                    full_name = f"{hexagram['name_pinyin']} / {hexagram['name_english']}"
+                    return {
+                        "pattern": bin_str,
+                        "name": full_name,
+                        "name_chinese": hexagram["name_chinese"],
+                        "name_pinyin": hexagram["name_pinyin"],
+                        "name_english": hexagram["name_english"],
+                        "meaning": hexagram["meaning"],
+                        "judgment": hexagram["judgment"],
+                        "images": hexagram["images"],
+                        "lines": hexagram["lines"]
+                    }
+
+        # 2. Fallback to hardcoded mapping (in case file is missing)
         HEXAGRAM_MAP = {
             "111111": ("Ch'ien / The Creative", "Pure active energy, leadership, persistent action"),
             "000000": ("K'un / The Receptive", "Pure yielding energy, nurturing, dedication, patience"),
@@ -790,7 +850,21 @@ class DivinationService:
             "101010": ("Chi Chi / After Completion", "Boiling water on fire, perfect order fading to chaos"),
             "010101": ("Wei Chi / Before Completion", "Fire above water, potential, the young fox wetting its tail"),
         }
-        return HEXAGRAM_MAP.get(bin_str, ("Unknown Hexagram", "Esoteric transformation"))
+        name, meaning = HEXAGRAM_MAP.get(bin_str, ("Unknown Hexagram", "Esoteric transformation"))
+        parts = name.split(" / ")
+        pinyin = parts[0] if len(parts) > 0 else name
+        english = parts[1] if len(parts) > 1 else name
+        return {
+            "pattern": bin_str,
+            "name": name,
+            "name_chinese": "",
+            "name_pinyin": pinyin,
+            "name_english": english,
+            "meaning": meaning,
+            "judgment": meaning,
+            "images": "",
+            "lines": []
+        }
 
     def _render_hexagram_svg(self, primary: list[int], relating: list[int], raw_lines: list[int]) -> str:
         """Renders the primary and relating hexagrams side by side"""
