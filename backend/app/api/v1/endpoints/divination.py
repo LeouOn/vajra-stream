@@ -615,12 +615,16 @@ async def generate_geomancy_talisman(intention: str = "protection and clarity", 
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _build_interpretation_prompt(payload: InterpretRequest) -> str:
+def _build_interpretation_prompt(payload: InterpretRequest, rag_context: str = "") -> str:
     """Construct a rich, system-aware interpretation prompt.
 
     Renders Tarot draws card-by-card (name / position / orientation) and folds
     in any astrological context the caller attached under ``details["astrology"]``.
     Falls back to a compact JSON dump for I Ching / Geomancy / unknown shapes.
+
+    ``rag_context`` is optional pre-formatted grounding text retrieved from the
+    knowledge index (RAG) — when non-empty it is appended after the system
+    framing so the LLM can ground the reading in uploaded/knowledge documents.
     """
     system = payload.system.strip() or "Tarot"
     question = payload.question.strip()
@@ -638,6 +642,10 @@ def _build_interpretation_prompt(payload: InterpretRequest) -> str:
         "superstition, and always pointing the seeker back to their own clarity."
     )
     lines.append("")
+
+    if rag_context:
+        lines.append(rag_context.strip())
+        lines.append("")
 
     if question:
         lines.append(f"## The Seeker's Question\n{question}")
@@ -677,6 +685,10 @@ def _build_interpretation_prompt(payload: InterpretRequest) -> str:
                 lines.append(f"   - Keywords: {keywords_str}")
             if meaning:
                 lines.append(f"   - Traditional meaning: {meaning}")
+            if card.get("desc"):
+                lines.append(f"   - Scene: {card['desc'][:150]}")
+            if card.get("reversed_meaning") and card.get("reversed"):
+                lines.append(f"   - Shadow aspect: {card['reversed_meaning'][:150]}")
         lines.append("")
     else:
         lines.append("## Reading Details")
@@ -723,7 +735,23 @@ def _build_interpretation_prompt(payload: InterpretRequest) -> str:
 async def interpret_divination(payload: InterpretRequest):
     """Interpret divination readings using local/cloud LLM operator"""
     try:
-        prompt = _build_interpretation_prompt(payload)
+        # RAG retrieval — ground the interpretation in uploaded/knowledge documents
+        rag_context = ""
+        try:
+            from core.knowledge_index import get_knowledge_index
+
+            idx = get_knowledge_index()
+            results = idx.search(payload.question, top_k=5)
+            if results:
+                rag_context = "\n\nRelevant knowledge for grounding this reading:\n"
+                for r in results:
+                    text = r.get("text", r.get("content", ""))
+                    source = r.get("source", r.get("category", "unknown"))
+                    rag_context += f"- [{source}] {text[:200]}\n"
+        except Exception:
+            pass  # RAG is optional — don't break interpretation if index fails
+
+        prompt = _build_interpretation_prompt(payload, rag_context=rag_context)
 
         # Route to local/cloud chat endpoint logic
         from backend.app.api.v1.endpoints.llm import ChatMessage, ChatRequest, chat_interaction

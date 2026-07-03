@@ -768,102 +768,18 @@ class DivinationService:
                         "lines": hexagram["lines"]
                     }
 
-        # 2. Fallback to hardcoded mapping (in case file is missing)
-        HEXAGRAM_MAP = {
-            "111111": ("Ch'ien / The Creative", "Pure active energy, leadership, persistent action"),
-            "000000": ("K'un / The Receptive", "Pure yielding energy, nurturing, dedication, patience"),
-            "100010": (
-                "Chun / Difficulty at the Beginning",
-                "Sprouting seed, dynamic growth against initial obstacles",
-            ),
-            "010001": ("Meng / Youthful Folly", "Inexperience, requirement of a teacher, open-minded study"),
-            "111010": ("Hsü / Waiting", "Patience, collecting strength, letting things mature naturally"),
-            "010111": ("Sung / Conflict", "Disputes, need to seek arbitration, stop half-way"),
-            "010000": ("Shih / The Army", "Leadership, collective discipline, alignment towards a goal"),
-            "000010": ("Pi / Holding Together", "Union, alliance, mutual support and community strength"),
-            "111011": ("Hsiao Ch'u / Taming Power of Small", "Gentle restraint, small progress, accumulating wind"),
-            "110111": ("Lü / Treading", "Conduct, cautious stepping, moving gracefully amidst danger"),
-            "111000": ("T'ai / Peace", "Harmonious flow, heaven and earth meeting, alignment"),
-            "000111": ("P'i / Standstill", "Stagnation, retreat of noble influences, blockages"),
-            "101111": ("T'ung Jen / Fellowship", "Union with others in the open, shared vision"),
-            "111101": ("Ta Yu / Great Possession", "Abundant light, wealth, supreme clarity and rule of virtue"),
-            "000100": ("Ch'ien / Modesty", "Self-deprecation, keeping low, high values without pride"),
-            "001000": ("Yü / Enthusiasm", "Vibrant motivation, movement follows music, readiness"),
-            "100110": ("Sui / Following", "Adapting, yielding leadership to flow of time"),
-            "011001": ("Ku / Work on the Decayed", "Renovating what was broken, fixing parental errors"),
-            "110000": ("Lin / Approach", "Approaching spring, warm influence, growth opportunity"),
-            "000011": ("Kuan / Contemplation", "Looking down, meditation, viewing the whole field"),
-            "100101": ("Shih Ho / Biting Through", "Removing obstacles, energetic enforcement of law"),
-            "101001": ("Pi / Grace", "Aesthetic beauty, decoration, temporary outer form"),
-            "000001": ("Po / Splitting Apart", "Disintegration, collapse of rotten structures"),
-            "100000": ("Fu / Return", "The turning point, return of light, recovery of energy"),
-            "100111": ("Wu Wang / Innocence", "Natural behavior, acting without ulterior motives"),
-            "111001": ("Ta Ch'u / Great Taming Power", "Focus, storing wisdom, preparation for large work"),
-            "100001": ("I / Nourishment", "Providing food, monitoring what enters mouth and mind"),
-            "011110": (
-                "Ta Kuo / Preponderance of the Great",
-                "Heavy beam bends, crisis requiring extraordinary action",
-            ),
-            "010010": ("K'an / The Abyssal (Water)", "Double danger, maintaining trust, flowing through deep chasms"),
-            "101101": ("Li / The Clinging (Fire)", "Illumination, clarity, dependency on fuel, consciousness"),
-            "001110": ("Hsien / Influence", "Mutual attraction, courtship, receptive harmony"),
-            "011100": ("Heng / Duration", "Persistence, stable marriage of earth/wind forces"),
-            "001111": ("Tun / Retreat", "Strategic withdrawal, saving energy in times of decline"),
-            "111100": (
-                "Ta Chuang / Power of the Great",
-                "Steer holds horns, avoiding head-on clashes, inner discipline",
-            ),
-            "000101": ("Chin / Progress", "Sun rising over earth, dynamic advancement and honor"),
-            "101000": ("Ming I / Darkening of the Light", "Hiding light under a basket, survival during tyranny"),
-            "101011": ("Chia Jen / The Family", "Internal order, domestic discipline and alignment"),
-            "110101": ("K'uei / Opposition", "Different paths, finding alignment on minor matters"),
-            "001010": ("Chien / Obstruction", "Mountain before water, need to stop and regroup"),
-            "010100": ("Hsieh / Deliverance", "Release of tension, forgiveness, moving forward quickly"),
-            "110001": ("Sun / Decrease", "Reducing excess, concentrating on simplicity"),
-            "100011": ("I / Increase", "Expanding, helping the lower classes, time for undertaking"),
-            "111110": ("Kuai / Breakthrough", "Decisive resolution, clearing out remaining obstacles"),
-            "011111": ("Kou / Coming to Meet", "Sudden temptation, dynamic female influence, caution"),
-            "000110": ("Ts'ui / Gathering Together", "Mass convergence, alignment of leadership and sacrifices"),
-            "011000": ("Sheng / Pushing Upward", "Gradual vertical progress, steady effort and growth"),
-            "010110": ("K'un / Oppression", "Exhaustion, dry well, testing of resolve and speechlessness"),
-            "011010": ("Ching / The Well", "Inexhaustible source of life-force, maintaining the structure"),
-            "101110": ("Ko / Revolution", "Discarding old skins, seasonal change, timing is critical"),
-            "011101": ("Ting / The Cauldron", "Vessel of transformation, spiritual nourishment, alchemy"),
-            "100100": (
-                "Chen / The Arousing (Thunder)",
-                "Startling thunder, awakening, initial fear turning to laughter",
-            ),
-            "001001": (
-                "Kên / Keeping Still (Mountain)",
-                "Meditation, stopping action at the right time, spine alignment",
-            ),
-            "001011": ("Chien / Development", "Slow progress, wild geese flying in formation"),
-            "110100": ("Kuei Mei / The Marrying Maiden", "Impulsive action before correctness, lack of authority"),
-            "101100": ("Feng / Abundance", "Peak illumination, transient glory, preparing for decline"),
-            "001101": ("Lü / The Wanderer", "Moving through foreign lands, cautious behavior, temporary shelter"),
-            "011011": ("Sun / The Gentle (Wind)", "Penetrating influence, flexibility, persistent action"),
-            "110110": ("Tui / The Joyous (Lake)", "Joy, shared discourse, friendly persuasion, openness"),
-            "010011": ("Huan / Dispersion", "Dissolving blockages, crossing the great water"),
-            "110010": ("Chieh / Limitation", "Frugality, boundary definition, keeping moderation"),
-            "110011": ("Chung Fu / Inner Truth", "Pigs and fishes aligned, supreme sincerity, faith"),
-            "001100": ("Hsiao Kuo / Preponderance of the Small", "Keeping low, avoiding flight, attention to detail"),
-            "101010": ("Chi Chi / After Completion", "Boiling water on fire, perfect order fading to chaos"),
-            "010101": ("Wei Chi / Before Completion", "Fire above water, potential, the young fox wetting its tail"),
-        }
-        name, meaning = HEXAGRAM_MAP.get(bin_str, ("Unknown Hexagram", "Esoteric transformation"))
-        parts = name.split(" / ")
-        pinyin = parts[0] if len(parts) > 0 else name
-        english = parts[1] if len(parts) > 1 else name
+        # 2. Defensive fallback (unreachable in practice: iching.json ships all 64
+        #        binary patterns, so the loop above always returns).
         return {
             "pattern": bin_str,
-            "name": name,
+            "name": "Unknown Hexagram",
             "name_chinese": "",
-            "name_pinyin": pinyin,
-            "name_english": english,
-            "meaning": meaning,
-            "judgment": meaning,
+            "name_pinyin": "Unknown",
+            "name_english": "Unknown Hexagram",
+            "meaning": "Esoteric transformation",
+            "judgment": "Esoteric transformation",
             "images": "",
-            "lines": []
+            "lines": [],
         }
 
     def _render_hexagram_svg(self, primary: list[int], relating: list[int], raw_lines: list[int]) -> str:
