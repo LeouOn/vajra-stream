@@ -276,3 +276,34 @@ def test_draw_respects_count_limit():
     assert len(too_many) == 78
     # All unique.
     assert len({c["id"] for c in too_many}) == 78
+
+
+def test_iching_rich_database():
+    """Test that I Ching database correctly loads rich attributes from iching.json."""
+    assert hasattr(divination_service, "iching")
+    assert len(divination_service.iching) == 64
+    
+    # Check a specific hexagram details
+    details = divination_service._get_hexagram_details([1, 1, 1, 1, 1, 1])  # Qián
+    assert details["name_chinese"] == "乾"
+    assert details["name_pinyin"] == "Qián"
+    assert details["name_english"] == "The Creative"
+    assert "sublime success" in details["judgment"]
+    assert "untiring" in details["images"]
+    assert len(details["lines"]) == 6
+
+
+def test_iching_changing_line_resolution():
+    """Test that changing lines correctly resolve to specific line descriptions in the result."""
+    result = divination_service.cast_i_ching()
+    assert "changing_lines_details" in result
+    
+    # If there are changing lines, verify their structure
+    if result["has_changes"]:
+        for item in result["changing_lines_details"]:
+            assert "line" in item
+            assert "value" in item
+            assert item["value"] in [6, 9]
+            assert "meaning" in item
+            assert len(item["meaning"]) > 0
+
