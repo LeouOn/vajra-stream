@@ -36,16 +36,15 @@ templates = Jinja2Templates(directory=str(template_dir))
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("Vajra.Stream API starting up...")
-    print("Initializing Stable WebSocket connection manager v2...")
+    logger.info("Vajra.Stream API starting up...")
+    logger.info("Initializing Stable WebSocket connection manager v2...")
 
     try:
         from core.schema import init_db as _schema_init_db
 
         _schema_init_db().close()
-        print("Database schema initialized (core.schema.init_db)")
+        logger.info("Database schema initialized (core.schema.init_db)")
     except Exception as e:
-        print(f"Failed to initialize database schema: {e}")
         logger.error(f"Failed to initialize database schema: {e}")
         logger.error(traceback.format_exc())
 
@@ -53,11 +52,10 @@ async def lifespan(app: FastAPI):
     try:
         from backend.core.orchestrator_bridge import orchestrator_bridge
 
-        print("Initializing Orchestrator Bridge...")
+        logger.info("Initializing Orchestrator Bridge...")
         orchestrator_bridge.initialize()
-        print("Orchestrator Bridge initialized successfully")
+        logger.info("Orchestrator Bridge initialized successfully")
     except Exception as e:
-        print(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(f"Failed to initialize Orchestrator Bridge: {e}")
         logger.error(traceback.format_exc())
 
@@ -70,9 +68,8 @@ async def lifespan(app: FastAPI):
         from container import container
 
         vajra_service.event_bus = container.event_bus
-        print("vajra_service wired to shared event bus")
+        logger.info("vajra_service wired to shared event bus")
     except Exception as e:
-        print(f"Failed to wire vajra_service.event_bus: {e}")
         logger.error(f"Failed to wire vajra_service.event_bus: {e}")
         logger.error(traceback.format_exc())
 
@@ -83,9 +80,8 @@ async def lifespan(app: FastAPI):
 
         registry = build_default_registry()
         app.state.llm_registry = registry
-        print(f"LLM registry initialized: {[p.name for p in registry.providers]}")
+        logger.info(f"LLM registry initialized: {[p.name for p in registry.providers]}")
     except Exception as e:
-        print(f"Failed to initialize LLM registry: {e}")
         logger.error(f"Failed to initialize LLM registry: {e}")
         logger.error(traceback.format_exc())
 
@@ -115,12 +111,11 @@ async def lifespan(app: FastAPI):
                     on_update=publish_health,
                 )
             )
-            print(
+            logger.info(
                 f"LLM health heartbeat started "
                 f"(interval={config.health_check_interval_seconds}s)"
             )
         except Exception as e:
-            print(f"Failed to start health heartbeat: {e}")
             logger.error(f"Failed to start health heartbeat: {e}")
             logger.error(traceback.format_exc())
 
@@ -128,9 +123,8 @@ async def lifespan(app: FastAPI):
     streaming_task = None
     try:
         streaming_task = asyncio.create_task(stable_connection_manager_v2.start_realtime_streaming())
-        print("Stable real-time streaming started")
+        logger.info("Stable real-time streaming started")
     except Exception as e:
-        print(f"Failed to start streaming: {e}")
         logger.error(f"Failed to start streaming: {e}")
         logger.error(traceback.format_exc())
 
@@ -138,11 +132,10 @@ async def lifespan(app: FastAPI):
     try:
         from container import container
 
-        print("Starting Autonomous Radionics Operator daemon...")
+        logger.info("Starting Autonomous Radionics Operator daemon...")
         container.operator.start_autonomous_mode(interval_seconds=300)
-        print("Autonomous Radionics Operator daemon activated successfully on startup")
+        logger.info("Autonomous Radionics Operator daemon activated successfully on startup")
     except Exception as e:
-        print(f"Failed to start Autonomous Operator daemon: {e}")
         logger.error(f"Failed to start Autonomous Operator daemon: {e}")
 
     # Wire LLM usage WS broadcast: every Nth record (throttled inside the
@@ -178,9 +171,8 @@ async def lifespan(app: FastAPI):
                 logger.debug("LLM_USAGE_UPDATE broadcast failed", exc_info=True)
 
         LLMUsageTracker.get().add_on_record_callback(_broadcast_usage)
-        print("LLM usage WS broadcast hook registered (throttled every 10 records)")
+        logger.info("LLM usage WS broadcast hook registered (throttled every 10 records)")
     except Exception as e:
-        print(f"Failed to register LLM usage WS broadcast: {e}")
         logger.error(f"Failed to register LLM usage WS broadcast: {e}")
 
     # Pre-warm the multi-practice recitation engine so the first
@@ -192,16 +184,15 @@ async def lifespan(app: FastAPI):
         engine = get_practice_engine()
         # Touch list_practices() to force definition loading eagerly.
         engine_count = len(engine.list_practices())
-        print(f"Practice engine pre-warmed ({engine_count} definitions loaded)")
+        logger.info(f"Practice engine pre-warmed ({engine_count} definitions loaded)")
     except Exception as e:
-        print(f"Failed to pre-warm practice engine: {e}")
         logger.error(f"Failed to pre-warm practice engine: {e}")
         logger.error(traceback.format_exc())
 
     yield
 
     # Shutdown
-    print("Vajra.Stream API shutting down...")
+    logger.info("Vajra.Stream API shutting down...")
     stable_connection_manager_v2.stop_realtime_streaming()
 
     # Shutdown Orchestrator Bridge (cancel the crystal broadcast daemon thread)
@@ -209,20 +200,19 @@ async def lifespan(app: FastAPI):
         from backend.core.orchestrator_bridge import orchestrator_bridge
 
         orchestrator_bridge.shutdown()
-        print("Orchestrator Bridge shut down")
+        logger.info("Orchestrator Bridge shut down")
     except Exception as e:
-        print(f"Failed to shut down Orchestrator Bridge: {e}")
         logger.error(f"Failed to shut down Orchestrator Bridge: {e}")
 
     # Stop Autonomous Operator Daemon
     try:
         from container import container
 
-        print("Stopping Autonomous Radionics Operator daemon...")
+        logger.info("Stopping Autonomous Radionics Operator daemon...")
         container.operator.stop_autonomous_mode()
-        print("Autonomous Radionics Operator daemon stopped")
+        logger.info("Autonomous Radionics Operator daemon stopped")
     except Exception as e:
-        print(f"Failed to stop Autonomous Operator daemon: {e}")
+        logger.error(f"Failed to stop Autonomous Operator daemon: {e}")
 
     # Stop any running multi-practice sessions so their history is
     # recorded with reason="shutdown" rather than left dangling.
@@ -230,18 +220,16 @@ async def lifespan(app: FastAPI):
         from core.practice_engine import get_practice_engine
 
         await get_practice_engine().stop_all(reason="shutdown")
-        print("Practice engine stopped all running sessions")
+        logger.info("Practice engine stopped all running sessions")
     except Exception as e:
-        print(f"Failed to stop practice engine sessions: {e}")
         logger.error(f"Failed to stop practice engine sessions: {e}")
 
     # Close LLM registry and cancel health heartbeat
     if hasattr(app.state, "llm_registry"):
         try:
             await app.state.llm_registry.close_all()
-            print("LLM registry closed")
+            logger.info("LLM registry closed")
         except Exception as e:
-            print(f"Failed to close LLM registry: {e}")
             logger.error(f"Failed to close LLM registry: {e}")
 
     if health_task:
@@ -366,16 +354,16 @@ async def search_stories(q: str = ""):
 async def websocket_endpoint(websocket: WebSocket):
     connection_id = None
     try:
-        print("WebSocket connection attempt received")
+        logger.debug("WebSocket connection attempt received")
         connection_id = await stable_connection_manager_v2.connect(websocket)
-        print(f"WebSocket {connection_id} accepted successfully")
+        logger.info(f"WebSocket {connection_id} accepted successfully")
 
         # Message handling loop
         while True:
             try:
                 # Receive message with timeout
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
-                print(f"Received WebSocket message from {connection_id}: {data[:100]}...")  # Truncate long messages
+                logger.debug(f"Received WebSocket message from {connection_id}: {data[:100]}...")  # Truncate long messages
 
                 # Handle message using stable manager v2
                 await stable_connection_manager_v2.handle_message(connection_id, data)
@@ -385,13 +373,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 await stable_connection_manager_v2.send_personal_message(
                     {"type": "ping", "timestamp": asyncio.get_event_loop().time()}, connection_id
                 )
-                print(f"Sent ping to {connection_id} to keep alive")
+                logger.debug(f"Sent ping to {connection_id} to keep alive")
 
     except WebSocketDisconnect as e:
-        print(f"WebSocket {connection_id} disconnected with code: {e.code}")
         logger.info(f"WebSocket {connection_id} disconnected cleanly: {e.code} {e.reason}")
     except Exception as e:
-        print(f"WebSocket error for {connection_id}: {e}")
         logger.error(f"WebSocket error for {connection_id}: {e}")
         logger.error(traceback.format_exc())
     finally:
@@ -474,11 +460,11 @@ async def get_frontend():
 if __name__ == "__main__":
     import uvicorn
 
-    print("Starting Vajra.Stream API Server (Stable WebSocket Version v2)...")
-    print("WebSocket endpoint: ws://localhost:8008/ws")
-    print("API Documentation: http://localhost:8008/docs")
-    print("WebSocket Statistics: http://localhost:8008/ws-stats")
-    print("Visualization Gallery: http://localhost:8008/visualizations")
-    print("React/Vite frontend (if used): http://localhost:3009")
+    logger.info("Starting Vajra.Stream API Server (Stable WebSocket Version v2)...")
+    logger.info("WebSocket endpoint: ws://localhost:8008/ws")
+    logger.info("API Documentation: http://localhost:8008/docs")
+    logger.info("WebSocket Statistics: http://localhost:8008/ws-stats")
+    logger.info("Visualization Gallery: http://localhost:8008/visualizations")
+    logger.info("React/Vite frontend (if used): http://localhost:3009")
 
     uvicorn.run(app, host="0.0.0.0", port=8008, reload=True, log_level="info")

@@ -3,7 +3,7 @@
 This directory is the future home of the decomposed `CommandCenter` component.
 The current operator console lives as a single 60 KB / ~1326-line monolith at
 [`components/UI/CommandCenter.jsx`](../UI/CommandCenter.jsx). Task 3.3 of the
-UI/UX overhaul plan splits it into ten sub-components plus three hooks.
+UI/UX overhaul plan splits it into ten sub-components.
 
 ## Status
 
@@ -13,15 +13,11 @@ currently contains:
 - `index.jsx` — pass-through re-export of the original `CommandCenter`, so new
   imports (`components/CommandCenter`) and legacy imports
   (`components/UI/CommandCenter`) resolve to the same implementation.
-- `hooks/useTheme.js` — theme state (`dark` | `light` | `sacred-dawn`) with
-  `localStorage` persistence + `document.documentElement.dataset.theme` sync.
-- `hooks/useCommands.js` — global keyboard shortcuts: **Cmd/Ctrl+K** opens the
-  command palette, **Cmd/Ctrl+S** saves the current conversation.
-- `hooks/useSavedChats.js` — `localStorage`-backed list of saved conversations
-  with `addChat` / `removeChat` / `renameChat` / `clearAll`.
 
-The three hooks are already usable from any component and are wired for the
-future sub-components.
+The `hooks/` subdirectory that previously held the planned `useTheme`,
+`useCommands`, and `useSavedChats` decomposition hooks has been removed;
+those hooks had no production consumers and were deleted as part of the
+tech-debt cleanup.
 
 ## Planned decomposition
 
@@ -37,10 +33,10 @@ Task 3.3), the monolith will be split as follows:
 | `StatusBar.jsx` | Connection / operator status | ~100 lines extracted |
 | `OperatorActions.jsx` | Operator command buttons | ~100 lines extracted |
 | `ContemplationPanel.jsx` | 88 Buddhas widget (refactored) | ~200 lines extracted |
-| `CommandPalette.jsx` | **NEW** Cmd+K palette | ~150 lines, uses `useCommands` |
-| `SavedConversations.jsx` | **NEW** localStorage + backend list | ~200 lines, uses `useSavedChats` |
-| `PromptHistory.jsx` | **NEW** sidebar of past prompts | ~150 lines, uses `useSavedChats` |
-| `ThemeToggle.jsx` | **NEW** light/dark/sacred-dawn switch | ~100 lines, uses `useTheme` |
+| `CommandPalette.jsx` | **NEW** Cmd+K palette | ~150 lines |
+| `SavedConversations.jsx` | **NEW** localStorage + backend list | ~200 lines |
+| `PromptHistory.jsx` | **NEW** sidebar of past prompts | ~150 lines |
+| `ThemeToggle.jsx` | **NEW** light/dark/sacred-dawn switch | ~100 lines |
 
 Once all ten sub-components are in place, `index.jsx` will become the real
 composition root (Row/Col layout wiring every sub-component and mounting the
@@ -71,7 +67,6 @@ instances, AI chat, divination widgets, modals). Migrating it all in one task
 risks breaking the working build. The stub approach gives us:
 
 - The new directory structure exists.
-- The three hooks are immediately usable.
 - The original monolith is untouched — zero risk to the build.
 - Future tasks can migrate one section at a time, each independently verifiable.
 
@@ -81,7 +76,7 @@ The hooks and future sub-components follow the established Vajra.Stream design
 system:
 
 - **Themes:** `dark` (canonical — `colorBgBase: #0F0F1A`), `light`,
-  `sacred-dawn` — see `hooks/useTheme.js` and `theme/antdTheme.js`.
+  `sacred-dawn` — see `theme/antdTheme.js`.
 - **Colors:** saffron primary (`#D97706`), cream text (`#F5F0E1`),
   vajra-purple / cyan / gold accents — see `lib/colors.js`.
 - **AntD v6:** `zeroRuntime` mode enabled (CSS variables); sub-components must
