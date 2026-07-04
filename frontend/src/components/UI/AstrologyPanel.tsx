@@ -891,7 +891,12 @@ const WesternChartWheel = ({ positions, aspects }) => {
   };
 
   return (
-    <svg width="320" height="320" className="select-none font-mono">
+    <svg
+      viewBox="0 0 320 320"
+      width="100%"
+      style={{ maxWidth: 320 }}
+      className="select-none font-mono"
+    >
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
       <circle cx={cx} cy={cy} r={midR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
       <circle cx={cx} cy={cy} r={innerR} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />

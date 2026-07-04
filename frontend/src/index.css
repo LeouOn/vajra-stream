@@ -9,7 +9,7 @@
   }
   
   body {
-    @apply bg-gray-900 text-white font-sans antialiased;
+    @apply text-white font-sans antialiased;
     overflow-x: hidden;
   }
 }

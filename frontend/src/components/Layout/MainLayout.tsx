@@ -9,16 +9,16 @@
  * of truth. Adding a new route means adding one entry to ROUTES
  * and one component mapping in App.jsx.
  */
-import React, { useEffect, KeyboardEvent } from 'react';
+import React, { useEffect, useState, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PlayCircle, PauseCircle } from 'lucide-react';
+import { PlayCircle, PauseCircle, Menu as MenuIcon } from 'lucide-react';
 import { ToastContainer } from '../UI/Toast';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { COLORS } from '../../lib/colors';
 import { ROUTES, DEFAULT_ROUTE } from '../../lib/routes';
 
 // Ant Design
-import { Layout, Menu, Button, Space, Badge } from 'antd';
+import { Layout, Menu, Button, Space, Badge, Drawer } from 'antd';
 
 const { Header, Content, Footer } = Layout;
 
@@ -61,6 +61,7 @@ const MainLayout: React.FC<Props> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
 
   // Keyboard shortcuts
@@ -114,9 +115,46 @@ const MainLayout: React.FC<Props> = ({
           selectedKeys={[activeTab]}
           onClick={handleMenuClick}
           items={menuItems}
+          className="hidden md:flex"
           style={{ flex: 1, minWidth: 0, background: 'transparent', borderBottom: 'none' }}
         />
+
+        {/* Mobile: hamburger button */}
+        <Button
+          type="text"
+          aria-label="Open menu"
+          icon={<MenuIcon size={20} color={COLORS.secondary} />}
+          onClick={() => setMenuOpen(true)}
+          className="md:hidden"
+          style={{ marginLeft: 'auto' }}
+        />
       </Header>
+
+      {/* Mobile: Drawer with vertical menu */}
+      <Drawer
+        title={
+          <span style={{ color: COLORS.secondary, fontWeight: 'bold' }}>
+            🔮 Vajra.Stream
+          </span>
+        }
+        placement="right"
+        onClose={() => setMenuOpen(false)}
+        open={menuOpen}
+        width={280}
+        styles={{ body: { padding: 0 } }}
+      >
+        <Menu
+          theme="dark"
+          mode="vertical"
+          selectedKeys={[activeTab]}
+          onClick={(e) => {
+            handleMenuClick(e);
+            setMenuOpen(false);
+          }}
+          items={menuItems}
+          style={{ background: 'transparent', borderInlineEnd: 'none' }}
+        />
+      </Drawer>
 
       <Content style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
         {children}
@@ -136,12 +174,25 @@ const MainLayout: React.FC<Props> = ({
             Vajra.Stream - Sacred Technology Platform
           </span>
           {mopsData ? (
-            <span style={{ color: COLORS.secondary, fontFamily: 'monospace' }}>
-              MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s |
-              Mantra {Math.round(mopsData.mantras?.["10s"] ?? 0)}/s |
-              Crystals {Math.round(mopsData.crystals?.["10s"] ?? 0)}/s |
-              Divination {mopsData.divination?.["60s"] ?? 0}/s
-            </span>
+            <>
+              {/* Desktop: full MOPS readout */}
+              <span
+                className="hidden md:inline"
+                style={{ color: COLORS.secondary, fontFamily: 'monospace' }}
+              >
+                MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s |
+                Mantra {Math.round(mopsData.mantras?.["10s"] ?? 0)}/s |
+                Crystals {Math.round(mopsData.crystals?.["10s"] ?? 0)}/s |
+                Divination {mopsData.divination?.["60s"] ?? 0}/s
+              </span>
+              {/* Mobile: compact badge */}
+              <span
+                className="md:hidden"
+                style={{ fontSize: 10, color: COLORS.secondary, fontFamily: 'monospace' }}
+              >
+                MOPS: {((mopsData.scalar_pulses?.["1s"] / 1000000) || 0).toFixed(2)}M/s
+              </span>
+            </>
           ) : (
             <span style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 11 }}>
               MOPS: connecting…

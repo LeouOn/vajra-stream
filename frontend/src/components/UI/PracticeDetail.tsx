@@ -193,7 +193,7 @@ const BeadRing: React.FC<BeadRingProps> = ({
   return (
     <div
       className="relative inline-flex items-center justify-center"
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, maxWidth: '60vw', maxHeight: '60vw' }}
     >
       {/* Outer halo — soft glow tint */}
       <div
@@ -713,37 +713,37 @@ export default function PracticeDetail({
                   color={practice.color}
                   colorRgb={practice.colorRgb}
                 />
-                <div className="grid grid-cols-3 gap-4 w-full">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full">
                   <Statistic
                     title={
-                      <span className="!text-white/60 !text-xs">Beads</span>
+                      <span className="!text-white/60 !text-[10px] sm:!text-xs">Beads</span>
                     }
                     value={count}
                     valueStyle={{
                       color: practice.color,
-                      fontSize: 20,
+                      fontSize: 'clamp(14px, 4vw, 20px)',
                       fontFamily: 'monospace',
                     }}
                   />
                   <Statistic
                     title={
-                      <span className="!text-white/60 !text-xs">Malas</span>
+                      <span className="!text-white/60 !text-[10px] sm:!text-xs">Malas</span>
                     }
                     value={malaCount}
                     valueStyle={{
                       color: '#fcd34d',
-                      fontSize: 20,
+                      fontSize: 'clamp(14px, 4vw, 20px)',
                       fontFamily: 'monospace',
                     }}
                   />
                   <Statistic
                     title={
-                      <span className="!text-white/60 !text-xs">Session</span>
+                      <span className="!text-white/60 !text-[10px] sm:!text-xs">Session</span>
                     }
                     value={formatElapsed(elapsedMs)}
                     valueStyle={{
                       color: '#67e8f9',
-                      fontSize: 16,
+                      fontSize: 'clamp(12px, 3.5vw, 16px)',
                       fontFamily: 'monospace',
                     }}
                   />
