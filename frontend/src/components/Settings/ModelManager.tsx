@@ -317,7 +317,7 @@ export default function ModelManager(): React.ReactElement {
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (name: string, record: AvailableModel) => (
-        <Space size={4} direction="vertical" style={{ lineHeight: 1.2 }}>
+        <Space size={4} orientation="vertical" style={{ lineHeight: 1.2 }}>
           <Space size={4}>
             <Text strong style={{ fontSize: 13 }}>{name}</Text>
             {record.featured && <Tag color="gold" style={{ fontSize: 9, margin: 0 }}>FEATURED</Tag>}
@@ -379,7 +379,7 @@ export default function ModelManager(): React.ReactElement {
         const isTesting = testingModelIds.has(record.id);
         const isSaved = savedIds.has(record.id);
         return (
-          <Space size={4} direction="vertical" align="end" style={{ lineHeight: 1.1 }}>
+          <Space size={4} orientation="vertical" align="end" style={{ lineHeight: 1.1 }}>
             <Space size={2}>
               <Tooltip title={isSaved ? 'Already saved' : 'Save to preferred list'}>
                 <Button
@@ -434,7 +434,7 @@ export default function ModelManager(): React.ReactElement {
 
   return (
     <div className="w-full">
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         {/* Header */}
         <div>
           <Space size={12} align="center">
@@ -464,7 +464,7 @@ export default function ModelManager(): React.ReactElement {
         {/* ── Section 1: Available Models ── */}
         {activeTab === 'available' && (
           <Card size="small">
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
                 <Input
                   allowClear
@@ -513,7 +513,7 @@ export default function ModelManager(): React.ReactElement {
                     <Empty
                       image={Empty.PRESENTED_IMAGE_SIMPLE}
                       description={
-                        <Space direction="vertical" size={2}>
+                        <Space orientation="vertical" size={2}>
                           <Text type="secondary">No models match your filters.</Text>
                           <Text type="secondary" style={{ fontSize: 11 }}>
                             Try clearing the search or filters.
@@ -540,7 +540,7 @@ export default function ModelManager(): React.ReactElement {
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
-                  <Space direction="vertical" size={2}>
+                  <Space orientation="vertical" size={2}>
                     <Text type="secondary">No saved models yet.</Text>
                     <Text type="secondary" style={{ fontSize: 11 }}>
                       Star models from the Available tab, or add a custom model by ID.
@@ -561,7 +561,7 @@ export default function ModelManager(): React.ReactElement {
                       size="small"
                       styles={{ body: { padding: 12 } }}
                     >
-                      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                      <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                         <Space size={4} align="start" style={{ width: '100%' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <Text strong style={{ fontSize: 13, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -723,7 +723,7 @@ export default function ModelManager(): React.ReactElement {
                     dataIndex: 'display_name',
                     key: 'model',
                     render: (name: string, record: UseCaseDefault & { key: string }) => (
-                      <Space size={4} direction="vertical" style={{ lineHeight: 1.2 }}>
+                      <Space size={4} orientation="vertical" style={{ lineHeight: 1.2 }}>
                         <Space size={4}>
                           <Text strong style={{ fontSize: 12 }}>{name}</Text>
                           {record.model_id.endsWith(':free') && <Tag color="green" style={{ fontSize: 9 }}>FREE</Tag>}

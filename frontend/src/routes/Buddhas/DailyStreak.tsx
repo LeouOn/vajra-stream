@@ -96,12 +96,12 @@ export default function DailyStreak() {
       }
       extra={alreadyToday ? <Tag color="orange">today</Tag> : null}
     >
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         <Statistic
           value={streak.count}
           prefix={<Flame size={18} className="text-orange-400" />}
           suffix={streak.count === 1 ? 'day' : 'days'}
-          valueStyle={{ color: '#ffd700' }}
+          styles={{ content: { color: '#ffd700' } }}
         />
         <Button
           block

@@ -208,7 +208,7 @@ export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
             title="Today's Merit"
             value={merit.today_merit || 0}
             suffix="pts"
-            valueStyle={{ color: '#f59e0b', fontSize: 20 }}
+            styles={{ content: { color: '#f59e0b', fontSize: 20 } }}
             prefix={<Heart className="w-4 h-4" />}
           />
         </Col>
@@ -216,7 +216,7 @@ export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
           <Statistic
             title="Today's Rituals"
             value={merit.today_rituals || 0}
-            valueStyle={{ color: '#06b6d4', fontSize: 20 }}
+            styles={{ content: { color: '#06b6d4', fontSize: 20 } }}
             prefix={<Sparkles className="w-4 h-4" />}
           />
         </Col>
@@ -225,14 +225,14 @@ export default function RitualMonitor({ compact = false }: RitualMonitorProps) {
             title="Total Merit"
             value={merit.total_merit || 0}
             suffix="pts"
-            valueStyle={{ color: '#a855f7', fontSize: 20 }}
+            styles={{ content: { color: '#a855f7', fontSize: 20 } }}
           />
         </Col>
         <Col xs={12} sm={6}>
           <Statistic
             title="Total Rituals"
             value={merit.total_rituals || 0}
-            valueStyle={{ color: '#ec4899', fontSize: 20 }}
+            styles={{ content: { color: '#ec4899', fontSize: 20 } }}
           />
         </Col>
       </Row>

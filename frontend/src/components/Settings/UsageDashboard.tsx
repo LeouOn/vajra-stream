@@ -446,7 +446,7 @@ export default function UsageDashboard(props: UsageDashboardProps) {
         </Space>
       }
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         {error && (
           <Text type="danger" style={{ fontSize: 12 }}>
             {error}
@@ -545,7 +545,7 @@ export default function UsageDashboard(props: UsageDashboardProps) {
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description={
-                    <Space direction="vertical" size={2}>
+                    <Space orientation="vertical" size={2}>
                       <Text type="secondary">No usage recorded yet.</Text>
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         Make an LLM call to populate per-provider stats.
@@ -578,7 +578,7 @@ export default function UsageDashboard(props: UsageDashboardProps) {
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                   description={
-                    <Space direction="vertical" size={2}>
+                    <Space orientation="vertical" size={2}>
                       <Text type="secondary">No recent calls.</Text>
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         Calls will appear here as they are recorded.

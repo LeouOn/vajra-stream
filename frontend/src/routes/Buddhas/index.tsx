@@ -71,7 +71,7 @@ function CurrentBuddhaCard({ status }: { status?: RecitationStatus | null }) {
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
-            <Space direction="vertical" size={2}>
+            <Space orientation="vertical" size={2}>
               <Text type="secondary">No active recitation.</Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 Start a session to see the current Buddha here.
@@ -89,7 +89,7 @@ function CurrentBuddhaCard({ status }: { status?: RecitationStatus | null }) {
 
   return (
     <Card>
-      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={12} style={{ width: '100%' }}>
         <div style={{ textAlign: 'center' }}>
           <Title level={2} style={{ margin: 0, color: '#fcd34d', letterSpacing: '0.08em' }}>
             {cb.name_chinese}
@@ -193,7 +193,7 @@ export default function BuddhasPage() {
 
   return (
     <div className="flex-1 h-full overflow-y-auto p-6">
-      <Space direction="vertical" size={16} style={{ width: '100%', maxWidth: 1400, margin: '0 auto' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%', maxWidth: 1400, margin: '0 auto' }}>
         {/* Header */}
         <div>
           <Space size={12} align="center">
@@ -209,7 +209,7 @@ export default function BuddhasPage() {
 
         {/* Progress bar (graceful: shows 0% if no status yet) */}
         <Card size="small">
-          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={6} style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <Space size={8} align="center">
                 <Activity size={14} className={running ? 'text-emerald-400' : 'text-gray-500'} />
@@ -241,7 +241,7 @@ export default function BuddhasPage() {
         {/* Main + sidebar grid */}
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={16}>
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <CurrentBuddhaCard status={buddhaStatus} />
               <IntentionEditor value={intention} onChange={setIntention} />
               <Card size="small">
@@ -256,7 +256,7 @@ export default function BuddhasPage() {
           </Col>
 
           <Col xs={24} lg={8}>
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <DailyStreak />
               <DedicationText />
               <ShareExport buddhaStatus={buddhaStatus} intention={intention} />

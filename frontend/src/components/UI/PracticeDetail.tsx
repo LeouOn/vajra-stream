@@ -512,7 +512,7 @@ export default function PracticeDetail({
   return (
     <div className="flex-1 h-full overflow-y-auto" style={accentStyle}>
       <div className="max-w-5xl mx-auto px-6 py-8">
-        <Space direction="vertical" size={24} className="w-full">
+        <Space orientation="vertical" size={24} className="w-full">
           {/* Top action row */}
           <div className="flex items-center justify-between">
             <Button
@@ -663,7 +663,7 @@ export default function PracticeDetail({
               className="!bg-black/40 !border-white/10 backdrop-blur-md"
               styles={{ body: { padding: 24 } }}
             >
-              <Space direction="vertical" size={16} className="w-full">
+              <Space orientation="vertical" size={16} className="w-full">
                 <div className="flex items-center gap-2">
                   <Sparkles size={16} style={{ color: practice.color }} />
                   <Text strong className="!text-white !uppercase !tracking-widest !text-xs">
@@ -719,10 +719,12 @@ export default function PracticeDetail({
                       <span className="!text-white/60 !text-[10px] sm:!text-xs">Beads</span>
                     }
                     value={count}
-                    valueStyle={{
-                      color: practice.color,
-                      fontSize: 'clamp(14px, 4vw, 20px)',
-                      fontFamily: 'monospace',
+                    styles={{
+                      content: {
+                        color: practice.color,
+                        fontSize: 'clamp(14px, 4vw, 20px)',
+                        fontFamily: 'monospace',
+                      },
                     }}
                   />
                   <Statistic
@@ -730,10 +732,12 @@ export default function PracticeDetail({
                       <span className="!text-white/60 !text-[10px] sm:!text-xs">Malas</span>
                     }
                     value={malaCount}
-                    valueStyle={{
-                      color: '#fcd34d',
-                      fontSize: 'clamp(14px, 4vw, 20px)',
-                      fontFamily: 'monospace',
+                    styles={{
+                      content: {
+                        color: '#fcd34d',
+                        fontSize: 'clamp(14px, 4vw, 20px)',
+                        fontFamily: 'monospace',
+                      },
                     }}
                   />
                   <Statistic
@@ -741,10 +745,12 @@ export default function PracticeDetail({
                       <span className="!text-white/60 !text-[10px] sm:!text-xs">Session</span>
                     }
                     value={formatElapsed(elapsedMs)}
-                    valueStyle={{
-                      color: '#67e8f9',
-                      fontSize: 'clamp(12px, 3.5vw, 16px)',
-                      fontFamily: 'monospace',
+                    styles={{
+                      content: {
+                        color: '#67e8f9',
+                        fontSize: 'clamp(12px, 3.5vw, 16px)',
+                        fontFamily: 'monospace',
+                      },
                     }}
                   />
                 </div>
@@ -757,7 +763,7 @@ export default function PracticeDetail({
             className="!bg-black/40 !border-white/10 backdrop-blur-md"
             styles={{ body: { padding: 24 } }}
           >
-            <Space direction="vertical" size={16} className="w-full">
+            <Space orientation="vertical" size={16} className="w-full">
               <div className="flex items-center gap-2">
                 <Activity size={16} style={{ color: practice.color }} />
                 <Text strong className="!text-white !uppercase !tracking-widest !text-xs">
@@ -861,7 +867,7 @@ export default function PracticeDetail({
             className="!bg-black/40 !border-white/10 backdrop-blur-md"
             styles={{ body: { padding: 24 } }}
           >
-            <Space direction="vertical" size={12} className="w-full">
+            <Space orientation="vertical" size={12} className="w-full">
               <div className="flex items-center gap-2">
                 <Heart size={16} style={{ color: '#f43f5e' }} />
                 <Text strong className="!text-white !uppercase !tracking-widest !text-xs">
@@ -889,7 +895,7 @@ export default function PracticeDetail({
             className="!bg-black/40 !border-white/10 backdrop-blur-md"
             styles={{ body: { padding: 24 } }}
           >
-            <Space direction="vertical" size={12} className="w-full">
+            <Space orientation="vertical" size={12} className="w-full">
               <div className="flex items-center gap-2">
                 <Compass size={16} style={{ color: '#06b6d4' }} />
                 <Text strong className="!text-white !uppercase !tracking-widest !text-xs">
@@ -912,7 +918,7 @@ export default function PracticeDetail({
               className="!bg-black/40 !border-white/10 backdrop-blur-md"
               styles={{ body: { padding: 24 } }}
             >
-              <Space direction="vertical" size={12} className="w-full">
+              <Space orientation="vertical" size={12} className="w-full">
                 <div className="flex items-center gap-2">
                   <Clock size={16} style={{ color: '#fcd34d' }} />
                   <Text strong className="!text-white !uppercase !tracking-widest !text-xs">

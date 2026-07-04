@@ -262,7 +262,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
   };
 
   return (
-    <Space direction="vertical" className="w-full" size="middle">
+    <Space orientation="vertical" className="w-full" size="middle">
       {!currentRunId && <Empty description="No run selected. Launch a sweep first." />}
       {loading && <Spin tip="Loading results..." />}
       {error && <Alert type="error" message={error} showIcon />}
@@ -389,9 +389,9 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
         : 'active';
 
   return (
-    <Space direction="vertical" className="w-full" size="middle">
+    <Space orientation="vertical" className="w-full" size="middle">
       <Card>
-        <Space direction="vertical" className="w-full">
+        <Space orientation="vertical" className="w-full">
           <Space size="large" wrap>
             <Statistic title="Run ID" value={currentRunId || '—'} />
             <Statistic title="Status" value={runStatus || 'idle'} />
@@ -602,7 +602,7 @@ const AstrologyExtractionPanel = () => {
   };
 
   const renderSetupTab = () => (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card
         title={
           <Space>

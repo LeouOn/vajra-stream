@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { 
   Sparkles, Compass, ArrowRight, Zap, Play, Check, 
-  RefreshCw, Layers, Award, Shield, Cpu, HelpCircle
+  RefreshCw, Layers, Award, Shield, Cpu, HelpCircle, Settings
 } from 'lucide-react';
 import { Card, Tag, Input, Button } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -16,6 +16,7 @@ import PrayerWheel from './PrayerWheel';
 import DharaniReciter from './DharaniReciter';
 import TimeCycles from './TimeCycles';
 import ChakraBodyMap from '../2D/ChakraBodyMap';
+import PageHeader from './PageHeader';
 
 interface TarotCard {
   id: string | number;
@@ -336,7 +337,13 @@ export default function OperationsPanel() {
 
   return (
     <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6">
-      
+
+      <PageHeader
+        icon={<Settings className="w-7 h-7 text-purple-400" />}
+        title="Operations"
+        subtitle="Divination, ritual composition, prayer wheels, and time-cycle engines."
+      />
+
       {/* Sub Tabs Selection Header */}
       <div className="flex border-b border-white/10 gap-4 pb-2 overflow-x-auto scrollbar-none">
         <button

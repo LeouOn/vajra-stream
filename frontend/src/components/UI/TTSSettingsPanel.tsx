@@ -17,6 +17,7 @@ import {
 import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useUIStore } from '../../stores/uiStore';
+import PageHeader from './PageHeader';
 
 const { Text, Title } = Typography;
 
@@ -203,15 +204,30 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
 
   // Full panel
   return (
-    <Card
-      size="small"
-      title={<Space><Volume2 className="w-4 h-4 text-cyan-400" /><Text strong>Text-to-Speech Settings</Text></Space>}
-      extra={
-        <Button size="small" icon={<RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />}
-          onClick={fetchConfig} loading={loading}>Refresh</Button>
-      }
-    >
-      <Space direction="vertical" className="w-full" size="middle">
+    <>
+      <div className="px-4 md:px-6 pt-4 md:pt-6">
+        <PageHeader
+          icon={<Volume2 className="w-7 h-7 text-cyan-400" />}
+          title="TTS Settings"
+          subtitle="Voice, backend, and language configuration for text-to-speech output."
+          actions={
+            <Button
+              size="small"
+              icon={<RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />}
+              onClick={fetchConfig}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+          }
+        />
+      </div>
+      <Card
+        size="small"
+        className="!mx-4 md:!mx-6 !mb-6"
+        title={<Space><Volume2 className="w-4 h-4 text-cyan-400" /><Text strong>Text-to-Speech Settings</Text></Space>}
+      >
+      <Space orientation="vertical" className="w-full" size="middle">
         {/* Backend Selection */}
         <div>
           <Text strong style={{ fontSize: 12 }}>TTS Backend</Text>
@@ -377,5 +393,6 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
         </div>
       </Space>
     </Card>
+    </>
   );
 }

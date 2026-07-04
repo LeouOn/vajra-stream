@@ -27,6 +27,7 @@ import { stripThinking } from '../../utils/thinkStrip';
 import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
+import PageHeader from './PageHeader';
 
 const { Text, Paragraph, Title } = Typography;
 
@@ -816,6 +817,12 @@ export default function OutlookDashboard() {
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
       <Space orientation="vertical" size="large" className="w-full">
+
+        <PageHeader
+          icon={<Compass className="w-7 h-7 text-cyan-400" />}
+          title="Narrative Generation & Outlook"
+          subtitle="Construct localized, sutra-style blessing cycles based on high-entropy oracles, planetary lines, and active entity grids."
+        />
 
         {/* ── Header ── */}
         <Card size="small">

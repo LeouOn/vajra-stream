@@ -152,7 +152,7 @@ export default function SessionHistory({ buddhaStatus }: SessionHistoryProps) {
           dataSource={sessions.slice(0, 12)}
           renderItem={(s) => (
             <List.Item style={{ padding: '8px 0' }}>
-              <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={2} style={{ width: '100%' }}>
                 <Space size={6} wrap>
                   <Tag color="emerald">×{s.totalRecited}</Tag>
                   <Tag color="gold">mala {s.malaCount}</Tag>

@@ -29,6 +29,7 @@ import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
 import CosmicAlignmentCard from '../CommandCenter/CosmicAlignmentCard';
 import LogsCard from '../CommandCenter/LogsCard';
 import ZoomModal from '../CommandCenter/ZoomModal';
+import PageHeader from './PageHeader';
 
 export default function CommandCenter({ 
   isConnected, 
@@ -326,6 +327,12 @@ export default function CommandCenter({
 
   return (
     <div className="h-full flex flex-col gap-4 p-4 md:p-6 overflow-hidden">
+      <PageHeader
+        icon={<Sparkles className="w-7 h-7 text-purple-400" />}
+        title="Command Center"
+        subtitle="Issue intentions, monitor broadcasts, and orchestrate the unified system."
+      />
+
       {/* Saka Dawa Banner */}
       <SakaDawaBanner sakaDawa={sakaDawa} />
 
@@ -458,42 +465,48 @@ export default function CommandCenter({
               className="font-mono"
               styles={{ popup: { minWidth: 220 } }}
               placeholder="Select model..."
-            >
-              {availableModels.lm_studio && availableModels.lm_studio.length > 0 && (
-                <Select.OptGroup label="LM Studio (Active)">
-                  {availableModels.lm_studio.map(m => (
-                    <Select.Option key={`lm_studio:${m}`} value={`lm_studio:${m}`}>{m}</Select.Option>
-                  ))}
-                </Select.OptGroup>
-              )}
-              {availableModels.local && availableModels.local.length > 0 && (
-                <Select.OptGroup label="Local GGUF">
-                  {availableModels.local.map(m => (
-                    <Select.Option key={`local:${m}`} value={`local:${m}`}>{m}</Select.Option>
-                  ))}
-                </Select.OptGroup>
-              )}
-              {availableModels.api && availableModels.api.length > 0 && (
-                <Select.OptGroup label="API Providers">
-                  {availableModels.api
-                    .map(m => {
+              options={[
+                ...(availableModels.lm_studio && availableModels.lm_studio.length > 0
+                  ? [{
+                      label: 'LM Studio (Active)',
+                      options: availableModels.lm_studio.map(m => ({
+                        value: `lm_studio:${m}`,
+                        label: m,
+                      })),
+                    }]
+                  : []),
+                ...(availableModels.local && availableModels.local.length > 0
+                  ? [{
+                      label: 'Local GGUF',
+                      options: availableModels.local.map(m => ({
+                        value: `local:${m}`,
+                        label: m,
+                      })),
+                    }]
+                  : []),
+                ...(availableModels.api && availableModels.api.length > 0
+                  ? [{
+                      label: 'API Providers',
                       // Backend returns strings shaped "provider_name (default_model)".
                       // Parse both pieces directly so every registered provider
                       // (openrouter, z_ai, minimax, deepseek, anthropic, openai, ...)
                       // routes to itself; never fall through to OpenAI.
-                      const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
-                      if (!match) return null;
-                      const providerVal = match[1];
-                      const defaultName = match[2];
-                      const value = `${providerVal}:${defaultName}`;
-                      return (
-                        <Select.Option key={value} value={value}>{m}</Select.Option>
-                      );
-                    })
-                    .filter((node): node is React.ReactElement => node !== null)}
-                </Select.OptGroup>
-              )}
-            </Select>
+                      options: availableModels.api
+                        .map((m): { value: string; label: string } | null => {
+                          const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+                          if (!match) return null;
+                          const providerVal = match[1];
+                          const defaultName = match[2];
+                          return {
+                            value: `${providerVal}:${defaultName}`,
+                            label: m,
+                          };
+                        })
+                        .filter((opt): opt is { value: string; label: string } => opt !== null),
+                    }]
+                  : []),
+              ]}
+            />
           </Space>
 
           <Space size={4} style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>

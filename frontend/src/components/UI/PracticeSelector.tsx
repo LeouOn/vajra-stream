@@ -264,7 +264,7 @@ export default function PracticeSelector(): React.ReactElement {
     <div className="flex-1 h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
-        <Space direction="vertical" size={20} className="w-full">
+        <Space orientation="vertical" size={20} className="w-full">
           <div className="text-center">
             <Space size={12} align="center" className="justify-center">
               <Compass size={28} className="text-purple-400" />

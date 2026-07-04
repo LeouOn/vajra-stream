@@ -186,7 +186,7 @@ export default function ProviderSettings() {
 
   return (
     <div className="flex-1 h-full overflow-y-auto p-6">
-      <Space direction="vertical" size={16} style={{ width: '100%', maxWidth: 1400, margin: '0 auto' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%', maxWidth: 1400, margin: '0 auto' }}>
         {/* Header */}
         <div>
           <Space size={12} align="center">
@@ -219,10 +219,10 @@ export default function ProviderSettings() {
                 </span>
               ),
               children: (
-                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   {/* Summary + Health Table */}
                   <Card size="small">
-                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Space size={8} align="center">
                           <Activity
@@ -247,7 +247,7 @@ export default function ProviderSettings() {
                             <Empty
                               image={Empty.PRESENTED_IMAGE_SIMPLE}
                               description={
-                                <Space direction="vertical" size={2}>
+                                <Space orientation="vertical" size={2}>
                                   <Text type="secondary">No providers registered</Text>
                                   <Text type="secondary" style={{ fontSize: 12 }}>
                                     Configure provider credentials to populate the registry.
@@ -277,7 +277,7 @@ export default function ProviderSettings() {
                     <Empty
                       image={Empty.PRESENTED_IMAGE_SIMPLE}
                       description={
-                        <Space direction="vertical" size={2}>
+                        <Space orientation="vertical" size={2}>
                           <Text type="secondary">No failover events recorded.</Text>
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             Provider switch events will be streamed here in a future update.

@@ -90,7 +90,7 @@ export default function AudioSettings({ value, onChange }: AudioSettingsProps) {
       }
       extra={<Tag color="cyan">{current.toUpperCase()}</Tag>}
     >
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         <Select<AudioQuality>
           value={current}
           onChange={handleChange}

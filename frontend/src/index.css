@@ -19,6 +19,14 @@
   .text-shadow-glow {
     text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
   }
+
+  .text-shadow-yellow { text-shadow: 0 0 8px rgba(250, 204, 21, 0.6); }
+  .text-shadow-cyan { text-shadow: 0 0 8px rgba(6, 182, 212, 0.6); }
+  .text-shadow-teal { text-shadow: 0 0 8px rgba(20, 184, 166, 0.6); }
+  .text-shadow-pink { text-shadow: 0 0 8px rgba(236, 72, 153, 0.6); }
+  .text-shadow-red { text-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
+  .text-shadow-purple { text-shadow: 0 0 8px rgba(168, 85, 247, 0.6); }
+  .text-shadow-indigo { text-shadow: 0 0 8px rgba(99, 102, 241, 0.6); }
   
   .bg-gradient-vajra {
     background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);

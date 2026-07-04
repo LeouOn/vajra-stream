@@ -61,7 +61,7 @@ export default function IntentionEditor({ value, onChange }: IntentionEditorProp
       }
       extra={<Tag color="amber">发心</Tag>}
     >
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         <Text type="secondary" italic style={{ fontSize: 12 }}>
           Set the heart-intention that dedicates the merit of this recitation.
         </Text>

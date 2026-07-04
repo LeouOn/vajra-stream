@@ -104,7 +104,7 @@ export default function ShareExport({ buddhaStatus, intention }: ShareExportProp
         </Space>
       }
     >
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           Copy a plain-text snapshot of this recitation session to share anywhere.
         </Text>
