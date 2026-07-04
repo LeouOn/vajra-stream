@@ -14,7 +14,8 @@
  * call resolves to `https://api.example.com/api/v1/foo`. Defaults to
  * empty string (proxy-relative).
  *
- * WebSocket URLs are unchanged (ADR 004 § WebSocket Strategy).
+ * WebSocket URLs follow the same proxy-relative strategy via `resolveWsUrl()`
+ * (Wave 5 — previously bypassed the proxy with a hardcoded `:8008` port).
  */
 
 const DEFAULT_PORT = '8008';
@@ -38,17 +39,28 @@ export function apiUrl(path: string): string {
 }
 
 /**
- * Resolve a WebSocket URL. Unchanged by ADR 004 — left as-is per Task 25
- * guardrail (WS strategy was already in scope elsewhere via
- * useWebSocketStable.ts). This export is kept for legacy consumers.
+ * Resolve a WebSocket URL through the SAME reverse-proxy strategy as `apiUrl`.
+ *
+ * In dev, the Vite proxy (`vite.config.ts`) forwards `/ws` → `ws://localhost:8008`
+ * with `ws: true` (WebSocket upgrade enabled). Modern Vite (4+) handles WS
+ * proxying correctly — the previous "Vite proxy is unreliable for WebSocket"
+ * comment was stale advice predating Vite 4's rewrite of the WS upgrade path.
+ *
+ * In production, the same reverse proxy (nginx/Caddy/Cloudflare) that routes
+ * `/api/*` to the backend also routes `/ws` — this is the standard same-origin
+ * deployment pattern documented in ADR 004.
+ *
+ * Returning a host-relative URL (`wss://${host}/ws`) means the browser's
+ * WebSocket traffic rides the same origin as the SPA, eliminating hardcoded
+ * `:8008` port coupling that broke every non-localhost deployment.
  */
 function resolveWsUrl(): string {
   if (typeof window !== 'undefined' && window.location) {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const hostname = window.location.hostname === '::1' ? '127.0.0.1' : window.location.hostname;
-    // Always connect directly to the backend port — the Vite proxy is
-    // unreliable for WebSocket upgrades and causes connection failures.
-    return `${wsProtocol}//${hostname}:${DEFAULT_PORT}/ws`;
+    // Host-relative — same origin as the SPA. Vite proxy (dev) or reverse
+    // proxy (prod) forwards /ws → backend. Falls back to localhost:DEFAULT_PORT
+    // only when window.location is unavailable (SSR / unit-test bootstrap).
+    return `${wsProtocol}//${window.location.host}/ws`;
   }
   return `ws://127.0.0.1:${DEFAULT_PORT}/ws`;
 }
