@@ -347,6 +347,79 @@ export default function PracticeDetail({
     setMalaCount(typeof live.mala_count === 'number' ? live.mala_count : 0);
   }, [id, livePractices]);
 
+  /**
+   * TTS audio playback for the practice mantra.
+   *
+   * The backend exposes `/api/v1/tts/stream` (edge-tts MP3 stream).
+   * We fetch the stream, wrap it in a blob URL, and play through an
+   * HTMLAudioElement so each `PRACTICE_RECITED` WS push speaks the
+   * mantra aloud in the browser. Gated by `enableTts` so the user can
+   * mute via the existing switch without breaking the recitation loop.
+   *
+   * Silent failure: audio is enhancement, not critical — any fetch /
+   * playback error is swallowed so recitation stays uninterrupted.
+   */
+  const mantraAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastSpokenCountRef = useRef<number>(0);
+
+  /** Clean up any in-flight audio on unmount. */
+  useEffect(() => {
+    return () => {
+      if (mantraAudioRef.current) {
+        mantraAudioRef.current.pause();
+        mantraAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  /** Speak the practice mantra on each new recitation. */
+  useEffect(() => {
+    if (!id || !enableTts) return;
+    const live = livePractices[id];
+    if (!live) return;
+    const total = typeof live.total_recited === 'number' ? live.total_recited : 0;
+    if (total <= lastSpokenCountRef.current) return;
+    lastSpokenCountRef.current = total;
+
+    const mantraText = practice?.mantra ?? practice?.transliteration ?? practice?.name;
+    if (!mantraText) return;
+
+    if (mantraAudioRef.current) {
+      mantraAudioRef.current.pause();
+      mantraAudioRef.current = null;
+    }
+
+    void (async () => {
+      try {
+        const res = await fetch(apiUrl('/tts/stream'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: mantraText,
+            role: 'buddhist_chant',
+            rate: '-20%',
+          }),
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        mantraAudioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          mantraAudioRef.current = null;
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          mantraAudioRef.current = null;
+        };
+        await audio.play();
+      } catch {
+        // Silent fail — audio is enhancement, not critical.
+      }
+    })();
+  }, [id, enableTts, livePractices, practice]);
+
   /** Status poll ref so we can cancel from cleanup. */
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -431,6 +504,7 @@ export default function PracticeDetail({
         const data: StartResponse = await res.json();
         setRunning(true);
         setSessionStartedAt(Date.now());
+        lastSpokenCountRef.current = 0;
         const resolvedSessionId = data.session?.practice_id ?? data.session_id;
         if (resolvedSessionId) setSessionId(resolvedSessionId);
         audioFeedback.playSuccess();
@@ -465,6 +539,7 @@ export default function PracticeDetail({
   const handleReset = useCallback((): void => {
     setCount(0);
     setMalaCount(0);
+    lastSpokenCountRef.current = 0;
     setSessionStartedAt(running ? Date.now() : null);
   }, [running]);
 

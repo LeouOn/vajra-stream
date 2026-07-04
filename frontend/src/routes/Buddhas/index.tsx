@@ -15,13 +15,15 @@
  * @component
  * @route /buddhas
  */
-import React, { useState, useCallback } from 'react';
-import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result } from 'antd';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result, Tooltip } from 'antd';
 import {
   BookOpen, Sparkles, Compass, Zap, Activity, Play, Square, Loader2,
+  Volume2, VolumeX,
 } from 'lucide-react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { apiUrl } from '../../utils/api';
 import type { RecitationStatus } from '../../../types';
 import IntentionEditor from './IntentionEditor';
 import DedicationText from './DedicationText';
@@ -191,6 +193,89 @@ export default function BuddhasPage() {
     }
   }, [running, intention]);
 
+  /**
+   * TTS audio playback for the current Buddha name.
+   *
+   * The backend generates an MP3 stream at `/api/v1/tts/stream` whenever
+   * `role: 'buddhist_chant'` is requested. We fetch the stream, wrap it
+   * in a blob URL, and play it through an HTMLAudioElement so each new
+   * Buddha name change is spoken aloud in the browser.
+   *
+   * Silent failure: audio is enhancement, not critical — any fetch /
+   * playback error (backend offline, edge-tts not installed, autoplay
+   * blocked) is swallowed so recitation stays uninterrupted.
+   */
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+
+  const speakBuddhaName = useCallback(async (name: string, pinyin?: string): Promise<void> => {
+    if (!ttsEnabled) return;
+
+    // Stop any currently playing audio so we don't overlap chants.
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    try {
+      const text = pinyin ? `Namo ${pinyin}` : `Namo ${name}`;
+      const res = await fetch(apiUrl('/tts/stream'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          role: 'buddhist_chant',
+          rate: '-20%',
+        }),
+      });
+
+      if (!res.ok) return;
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+      };
+      await audio.play();
+    } catch {
+      // Silent fail — audio is enhancement, not critical.
+    }
+  }, [ttsEnabled]);
+
+  /**
+   * Speak each new Buddha name as the recitation loop advances.
+   *
+   * The effect watches `current_buddha.name_chinese` (the stable Buddha
+   * identity, not the recitation counter) plus the `running` flag so we
+   * never speak while the session is idle.
+   */
+  useEffect(() => {
+    if (!running) return;
+    const name = buddhaStatus?.current_buddha?.name_chinese;
+    if (!name) return;
+    void speakBuddhaName(
+      name,
+      buddhaStatus?.current_buddha?.name_pinyin,
+    );
+  }, [buddhaStatus?.current_buddha?.name_chinese, buddhaStatus?.current_buddha?.name_pinyin, running, speakBuddhaName]);
+
+  /** Stop any in-flight audio when the page unmounts. */
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <div className="flex-1 h-full overflow-y-auto p-6">
       <Space orientation="vertical" size={16} style={{ width: '100%', maxWidth: 1400, margin: '0 auto' }}>
@@ -245,12 +330,25 @@ export default function BuddhasPage() {
               <CurrentBuddhaCard status={buddhaStatus} />
               <IntentionEditor value={intention} onChange={setIntention} />
               <Card size="small">
-                <RecitationControls
-                  running={running}
-                  intention={intention}
-                  loading={toggling}
-                  onToggle={handleToggle}
-                />
+                <Space size={12} align="center" wrap>
+                  <RecitationControls
+                    running={running}
+                    intention={intention}
+                    loading={toggling}
+                    onToggle={handleToggle}
+                  />
+                  <Tooltip title={ttsEnabled ? 'Speak each Buddha name aloud' : 'Mute Buddha-name recitation'}>
+                    <Button
+                      icon={ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                      onClick={() => setTtsEnabled((v) => !v)}
+                      aria-label="Toggle Buddha-name TTS recitation"
+                      aria-pressed={ttsEnabled}
+                      className={ttsEnabled ? '!text-purple-300' : '!text-white/40'}
+                    >
+                      {ttsEnabled ? 'TTS On' : 'TTS Off'}
+                    </Button>
+                  </Tooltip>
+                </Space>
               </Card>
             </Space>
           </Col>
