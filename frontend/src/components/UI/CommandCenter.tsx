@@ -10,11 +10,12 @@
  * @component
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Send, Terminal, Cpu, AlertTriangle, 
-  Sparkles, Shield, Compass, BookOpen, Clock, Play, Square, X, Sun
+import {
+  Send, Terminal, Cpu, AlertTriangle,
+  Sparkles, Shield, Compass, BookOpen, Clock, Play, Square, X, Sun,
+  RefreshCw, Bug
 } from 'lucide-react';
-import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic } from 'antd';
+import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic, Tooltip } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 
@@ -202,6 +203,75 @@ export default function CommandCenter({
     ]);
   };
 
+  const buildModelOptions = () => [
+    ...(availableModels.lm_studio && availableModels.lm_studio.length > 0
+      ? [{
+          label: 'LM Studio (Active)',
+          options: availableModels.lm_studio.map(m => ({
+            value: `lm_studio:${m}`,
+            label: m,
+          })),
+        }]
+      : []),
+    ...(availableModels.local && availableModels.local.length > 0
+      ? [{
+          label: 'Local GGUF',
+          options: availableModels.local.map(m => ({
+            value: `local:${m}`,
+            label: m,
+          })),
+        }]
+      : []),
+    ...(availableModels.api && availableModels.api.length > 0
+      ? [{
+          label: 'API Providers',
+          options: availableModels.api
+            .map((m): { value: string; label: string } | null => {
+              const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+              if (!match) return null;
+              const providerVal = match[1];
+              const defaultName = match[2];
+              return {
+                value: `${providerVal}:${defaultName}`,
+                label: m,
+              };
+            })
+            .filter((opt): opt is { value: string; label: string } => opt !== null),
+        }]
+      : []),
+  ];
+
+  /**
+   * Core chat call — single source of truth for first-send and regenerate.
+   */
+  async function callChatAPI(msgs, opts = {}) {
+    const {
+      model = selectedModel,
+      astrology = includeAstrology,
+      anatomy = includeAnatomy,
+      hardware = includeHardware,
+      debug = debugMode,
+    } = opts;
+    const chatResponse = await fetch(`/api/v1/llm/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: msgs.map(m => ({ role: m.role, content: m.content })),
+        provider: "auto",
+        model: model || null,
+        include_astrology: astrology,
+        astrology_data: astrology ? astroData : null,
+        include_anatomy: anatomy,
+        include_hardware: hardware,
+        debug_mode: debug,
+      }),
+    });
+    if (!chatResponse.ok) {
+      throw new Error(`Chat API error: ${chatResponse.statusText}`);
+    }
+    return chatResponse.json();
+  }
+
   async function handleSendMessage(textToSend) {
     const text = textToSend || input;
     if (!text.trim()) return;
@@ -210,55 +280,34 @@ export default function CommandCenter({
     setIsLoading(true);
     audioFeedback.playTelemetry();
 
-    // Add user message to state
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    const priorMessages = messages;
+    const userMsg = { role: 'user', content: text };
+    const newMessages = [...priorMessages, userMsg];
+    setMessages(newMessages);
     addToolLog('user', `User requested: "${text}"`);
 
     try {
       addToolLog('llm', 'Analyzing intent and planning operations...', 'pending');
-      
-      const chatResponse = await fetch(`/api/v1/llm/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: text }].map(m => ({
-            role: m.role,
-            content: m.content
-          })),
-          provider: "auto",
-          model: selectedModel || null,
-          include_astrology: includeAstrology,
-          astrology_data: includeAstrology ? astroData : null,
-          include_anatomy: includeAnatomy,
-          include_hardware: includeHardware,
-          debug_mode: debugMode
-        })
-      });
 
-      if (!chatResponse.ok) {
-        throw new Error(`Chat API error: ${chatResponse.statusText}`);
-      }
-
-      const data = await chatResponse.json();
+      const data = await callChatAPI(newMessages);
       if (data.debug_info) {
         setDebugPayload(data.debug_info);
       } else {
         setDebugPayload(null);
       }
-      
-      // Process tool calls
+
       if (data.tool_calls && data.tool_calls.length > 0) {
         data.tool_calls.forEach(tc => {
           if (tc.status === 'success') {
             addToolLog(
-              'tool', 
-              `Executed ${tc.tool_name}(${JSON.stringify(tc.arguments)}) successfully`, 
+              'tool',
+              `Executed ${tc.tool_name}(${JSON.stringify(tc.arguments)}) successfully`,
               'success'
             );
           } else {
             addToolLog(
-              'tool', 
-              `Failed executing ${tc.tool_name}: ${tc.error}`, 
+              'tool',
+              `Failed executing ${tc.tool_name}: ${tc.error}`,
               'error'
             );
           }
@@ -267,30 +316,75 @@ export default function CommandCenter({
         addToolLog('llm', 'Request processed. No mechanical tool calls required.');
       }
 
-      // Add assistant response to state
-      setMessages(prev => [
-        ...prev, 
-        { 
-          role: 'assistant', 
-          content: data.response,
-          toolCalls: data.tool_calls
-        }
-      ]);
-
+      const dbg = data.debug_info || null;
+      const assistantMsg = {
+        role: 'assistant',
+        content: data.response,
+        toolCalls: data.tool_calls,
+        debugInfo: dbg,
+        reasoningContent: dbg?.reasoning_content || null,
+        modelUsed: dbg?.model || (selectedModel || null),
+        providerUsed: dbg?.provider || null,
+        inputTokens: dbg?.input_tokens ?? null,
+        outputTokens: dbg?.output_tokens ?? null,
+        latencyMs: dbg?.latency_ms ?? dbg?.duration_ms ?? null,
+        promptMessages: newMessages,
+      };
+      setMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
       console.error('Chat error:', error);
       addToolLog('system', `Error: ${error.message}`, 'error');
       setMessages(prev => [
-        ...prev, 
-        { 
-          role: 'assistant', 
-          content: `⚠️ **Operator Error**: Connection failure or API request blocked. Switched to standby mode. \n\nError details: \`${error.message}\`` 
-        }
+        ...prev,
+        {
+          role: 'assistant',
+          content: `⚠️ **Operator Error**: Connection failure or API request blocked. Switched to standby mode. \n\nError details: \`${error.message}\``,
+        },
       ]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }
+
+  /**
+   * Regenerate an assistant message in-place. `newModel` overrides global.
+   */
+  async function handleRegenerate(index, newModel = null) {
+    const target = messages[index];
+    if (!target || target.role !== 'assistant' || isLoading) return;
+    const promptMessages = Array.isArray(target.promptMessages)
+      ? target.promptMessages
+      : messages.slice(0, index).filter(m => m.role === 'user' || m.role === 'assistant');
+    if (promptMessages.length === 0) return;
+
+    setIsLoading(true);
+    audioFeedback.playTelemetry();
+    addToolLog('llm', `Regenerating message #${index}${newModel ? ` with ${newModel}` : ''}...`, 'pending');
+    try {
+      const data = await callChatAPI(promptMessages, newModel ? { model: newModel } : {});
+      const dbg = data.debug_info || target.debugInfo || null;
+      const updated = {
+        ...target,
+        content: data.response,
+        toolCalls: data.tool_calls ?? target.toolCalls,
+        debugInfo: dbg,
+        reasoningContent: dbg?.reasoning_content || null,
+        modelUsed: dbg?.model || newModel || target.modelUsed || (selectedModel || null),
+        providerUsed: dbg?.provider || target.providerUsed || null,
+        inputTokens: dbg?.input_tokens ?? target.inputTokens ?? null,
+        outputTokens: dbg?.output_tokens ?? target.outputTokens ?? null,
+        promptMessages,
+      };
+      setMessages(prev => prev.map((m, i) => (i === index ? updated : m)));
+      if (data.debug_info) setDebugPayload(data.debug_info);
+      addToolLog('llm', 'Regeneration complete', 'success');
+    } catch (error) {
+      console.error('Regenerate error:', error);
+      addToolLog('system', `Regenerate error: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const operatorActions = createOperatorActions({ frequency, isPlaying, sessions, crystalStatus, scalarStatus });
 
@@ -358,14 +452,14 @@ export default function CommandCenter({
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
           {messages.map((msg, index) => (
-            <div 
+            <div
               key={index}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div className={`
                 max-w-[85%] rounded-xl px-4 py-3 shadow-lg
-                ${msg.role === 'user' 
-                  ? 'bg-gradient-to-br from-purple-600/90 to-indigo-700/95 text-white rounded-br-none border border-purple-400/20 shadow-[0_4px_12px_rgba(138,43,226,0.3)]' 
+                ${msg.role === 'user'
+                  ? 'bg-gradient-to-br from-purple-600/90 to-indigo-700/95 text-white rounded-br-none border border-purple-400/20 shadow-[0_4px_12px_rgba(138,43,226,0.3)]'
                   : 'bg-purple-950/25 backdrop-blur-md text-gray-100 rounded-bl-none border border-purple-500/20 shadow-[0_4px_12px_rgba(0,0,0,0.3)]'
                 }
               `}>
@@ -374,6 +468,14 @@ export default function CommandCenter({
                 </div>
                 {msg.role === 'assistant' && msg.toolCalls && (
                   <RenderMessageWidgets toolCalls={msg.toolCalls} onZoomItemClick={setActiveZoomItem} />
+                )}
+                {msg.role === 'assistant' && index > 0 && (
+                  <MessageControls
+                    msg={msg}
+                    disabled={isLoading}
+                    modelOptions={buildModelOptions()}
+                    onRegenerate={(model) => handleRegenerate(index, model)}
+                  />
                 )}
               </div>
             </div>
@@ -465,47 +567,7 @@ export default function CommandCenter({
               className="font-mono"
               styles={{ popup: { minWidth: 220 } }}
               placeholder="Select model..."
-              options={[
-                ...(availableModels.lm_studio && availableModels.lm_studio.length > 0
-                  ? [{
-                      label: 'LM Studio (Active)',
-                      options: availableModels.lm_studio.map(m => ({
-                        value: `lm_studio:${m}`,
-                        label: m,
-                      })),
-                    }]
-                  : []),
-                ...(availableModels.local && availableModels.local.length > 0
-                  ? [{
-                      label: 'Local GGUF',
-                      options: availableModels.local.map(m => ({
-                        value: `local:${m}`,
-                        label: m,
-                      })),
-                    }]
-                  : []),
-                ...(availableModels.api && availableModels.api.length > 0
-                  ? [{
-                      label: 'API Providers',
-                      // Backend returns strings shaped "provider_name (default_model)".
-                      // Parse both pieces directly so every registered provider
-                      // (openrouter, z_ai, minimax, deepseek, anthropic, openai, ...)
-                      // routes to itself; never fall through to OpenAI.
-                      options: availableModels.api
-                        .map((m): { value: string; label: string } | null => {
-                          const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
-                          if (!match) return null;
-                          const providerVal = match[1];
-                          const defaultName = match[2];
-                          return {
-                            value: `${providerVal}:${defaultName}`,
-                            label: m,
-                          };
-                        })
-                        .filter((opt): opt is { value: string; label: string } => opt !== null),
-                    }]
-                  : []),
-              ]}
+              options={buildModelOptions()}
             />
           </Space>
 
@@ -583,6 +645,111 @@ export default function CommandCenter({
       {/* Zoom Modal */}
       <ZoomModal activeZoomItem={activeZoomItem} onClose={() => setActiveZoomItem(null)} />
 
+    </div>
+  );
+}
+
+/**
+ * MessageControls — per-message Debug / Regenerate / model selector.
+ * Rendered inline under each assistant message. Sources debug info from
+ * the chat response `debug_info` block + `reasoning_content`.
+ */
+function MessageControls({ msg, disabled, modelOptions, onRegenerate }) {
+  const [showDebug, setShowDebug] = useState(false);
+  const [pickModel, setPickModel] = useState(false);
+  const dbg = msg.debugInfo || {};
+  const hasDebug = !!msg.debugInfo;
+  const tokenLine = (msg.inputTokens != null || msg.outputTokens != null)
+    ? `in ${msg.inputTokens ?? '?'} / out ${msg.outputTokens ?? '?'}`
+    : null;
+  const latencyLine = msg.latencyMs != null ? `${Math.round(msg.latencyMs)} ms` : null;
+
+  return (
+    <div className="mt-2 pt-2 border-t border-white/5 flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setShowDebug(v => !v)}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-purple-300/80 hover:text-purple-200 hover:bg-purple-500/10 transition-colors"
+          title="Toggle debug info"
+        >
+          <Bug style={{ width: 11, height: 11 }} />
+          Debug
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPickModel(v => !v)}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-cyan-300/80 hover:text-cyan-200 hover:bg-cyan-500/10 transition-colors"
+          title="Change model and regenerate"
+          disabled={disabled}
+        >
+          {msg.modelUsed
+            ? <span className="max-w-[160px] truncate">{msg.modelUsed}</span>
+            : <span>Model</span>}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onRegenerate(null)}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-emerald-300/80 hover:text-emerald-200 hover:bg-emerald-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Regenerate with the same model"
+          disabled={disabled}
+        >
+          <RefreshCw style={{ width: 11, height: 11 }} />
+          Regenerate
+        </button>
+
+        {tokenLine && (
+          <span className="text-[9px] font-mono text-gray-500 ml-auto">{tokenLine}</span>
+        )}
+        {latencyLine && (
+          <span className="text-[9px] font-mono text-gray-500">· {latencyLine}</span>
+        )}
+      </div>
+
+      {pickModel && (
+        <div className="bg-black/40 border border-white/10 rounded p-2">
+          <div className="text-[10px] text-gray-400 mb-1 font-mono">
+            Regenerate this message with a different model:
+          </div>
+          <Select
+            size="small"
+            showSearch
+            placeholder="Pick a model..."
+            style={{ width: '100%', fontSize: '11px' }}
+            options={modelOptions}
+            onChange={(val) => {
+              setPickModel(false);
+              onRegenerate(val);
+            }}
+          />
+        </div>
+      )}
+
+      {showDebug && (
+        <div className="bg-black/50 border border-yellow-500/20 rounded p-2 text-[10px] font-mono text-yellow-200/90 space-y-1 overflow-x-auto">
+          <div><span className="text-yellow-500">model:</span> {msg.modelUsed || '—'}</div>
+          <div><span className="text-yellow-500">provider:</span> {msg.providerUsed || dbg.provider || '—'}</div>
+          {tokenLine && <div><span className="text-yellow-500">tokens:</span> {tokenLine}</div>}
+          {latencyLine && <div><span className="text-yellow-500">latency:</span> {latencyLine}</div>}
+          {dbg.finish_reason && <div><span className="text-yellow-500">finish:</span> {dbg.finish_reason}</div>}
+          {dbg.reasoning_tokens != null && (
+            <div><span className="text-yellow-500">reasoning_tokens:</span> {dbg.reasoning_tokens}</div>
+          )}
+          {msg.reasoningContent && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-yellow-400/80 select-none">💭 Reasoning content</summary>
+              <pre className="mt-1 whitespace-pre-wrap break-words text-yellow-100/70">{msg.reasoningContent}</pre>
+            </details>
+          )}
+          {!hasDebug && (
+            <div className="text-gray-500 italic">
+              No debug info — enable 🛠️ Debug mode in the env bar before sending to capture per-message details.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

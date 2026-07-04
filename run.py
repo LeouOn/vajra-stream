@@ -15,9 +15,12 @@ Usage:
 """
 
 import argparse
+import json
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -54,6 +57,57 @@ def print_banner():
 
 BACKEND_PORT = 8008
 FRONTEND_PORT = 3009
+
+BACKEND_HEALTH_TIMEOUT = 120
+BACKEND_HEALTH_INTERVAL = 0.5
+
+
+def _is_backend_healthy(port: int, host: str = "127.0.0.1", timeout: float = 1.5) -> bool:
+    """Return True if ``GET http://{host}:{port}/health`` responds 200.
+
+    Any connection error, 5xx, or non-JSON body counts as "not healthy yet"
+    so we never start the frontend against a half-booted app.
+    """
+    url = f"http://{host}:{port}/health"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            if resp.status != 200:
+                return False
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            return data.get("status") == "healthy"
+    except (urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError, OSError):
+        return False
+
+
+def wait_for_backend_health(
+    port: int,
+    host: str = "127.0.0.1",
+    timeout: float = BACKEND_HEALTH_TIMEOUT,
+    interval: float = BACKEND_HEALTH_INTERVAL,
+) -> bool:
+    """Poll ``/health`` until it returns healthy or ``timeout`` elapses.
+
+    Returns True once healthy, False on timeout. Pace is generous because
+    the backend imports many modules on cold start.
+    """
+    deadline = time.monotonic() + timeout
+    dots = 0
+    start = time.monotonic()
+    print(f"[..] Waiting for backend health at http://{host}:{port}/health ...")
+    while time.monotonic() < deadline:
+        if _is_backend_healthy(port, host):
+            print()
+            print(f"[OK] Backend healthy (port {port}).")
+            return True
+        marker = [".  ", ".. ", "..."][dots % 3]
+        elapsed = int(time.monotonic() - start)
+        sys.stdout.write(f"\r   {marker} backend warming up ({elapsed}s)")
+        sys.stdout.flush()
+        dots += 1
+        time.sleep(interval)
+    print()
+    print(f"[WARN] Backend did not become healthy within {timeout:.0f}s.")
+    return False
 
 
 def install_dependencies():
@@ -107,8 +161,13 @@ def start_full_system(backend_port=BACKEND_PORT):
                 cwd=SCRIPT_DIR,
             )
         processes.append(("Backend", backend_proc))
-        print(f"[OK] Backend starting on port {backend_port}...")
-        time.sleep(3)
+        print(f"[..] Backend launching on port {backend_port}...")
+
+        healthy = wait_for_backend_health(backend_port)
+        if not healthy:
+            print("[WARN] Proceeding with frontend anyway — first WS/HTTP call may fail.")
+        else:
+            print("[OK] Backend is ready. Starting frontend.")
 
         frontend_dir = SCRIPT_DIR / "frontend"
         if (frontend_dir / "node_modules").exists():
