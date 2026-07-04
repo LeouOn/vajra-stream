@@ -3,6 +3,12 @@
     "description": "Key passages from Mahayana sutras for ritual generation and recitation",
     "last_updated": "2026-06-29"
   },
+  "provenance_legend": {
+    "canonical": "Verbatim or near-verbatim translation from the named sutra, verified against primary source",
+    "paraphrased": "From this named sutra, in my own English words — not a verified quotation",
+    "thematic": "Universal Mahayana teaching attributed broadly, not specifically verifiable from this named sutra",
+    "composed": "I wrote this in the tradition's voice. Not attributed to a historical teaching or sutra passage."
+  },
   "sutra_passages": [
     {
       "id": "sanghata_bodhicitta_merit",
@@ -10,19 +16,21 @@
       "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
       "chapter": "On the Merit of Bodhicitta",
       "theme": "dedication",
+      "provenance": "thematic",
       "tags": ["bodhicitta", "merit", "generosity", "offering", "loss", "wealth"],
       "passage": "The Bhagavan said: \"If someone were to fill this entire billionfold world system with the seven kinds of jewels and offer them all as a gift — and if another person were to generate the mind of awakening (bodhicitta) for even a single instant — the merit of that single instant of bodhicitta would far exceed the merit of all those offerings.\n\nWhy? Because bodhicitta is the root of all qualities of a Buddha. It is the seed from which the entire path grows. The jewels offered will be consumed, will decay, will be lost. But the merit of bodhicitta never ends. It carries forward from life to life, from eon to eon, growing ever stronger.\n\nJust as a single seed of a banyan tree, though tiny, can grow into a vast tree that shelters countless beings — so too a single moment of genuine bodhicitta can blossom into the complete awakening that benefits all beings without exception.\"",
-      "context": "This passage is the core teaching of the Sanghata on why dedicating ALL endeavors toward awakening is so powerful. The merit is not measured by the size of the offering but by the motivation."
+      "context": "This passage is the core teaching on why dedicating ALL endeavors toward awakening is so powerful. The merit is not measured by the size of the offering but by the motivation. Bodhicitta-merit teaching is widespread Mahayana but specific wording cannot be verified from the Damchö Sanghata translation. May derive from Akṣayamati-nirdeśa family."
     },
     {
       "id": "sanghata_loss_transformation",
       "sutra": "Arya Sanghata Sutra",
       "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
-      "chapter": "On the Transformation of Loss",
+      "chapter": "The Buddha's Teaching to the Jain Ascetics",
       "theme": "loss",
+      "provenance": "canonical",
       "tags": ["loss", "impermanence", "transformation", "wealth", "money", "dedication"],
-      "passage": "The Bhagavan said: \"There are beings who accumulate great wealth and then, through fire, flood, thieves, or kings, lose it all. They suffer greatly and think: 'My efforts were in vain.'\n\nBut I say to you: nothing is ever in vain when viewed with the eye of dharma. The wealth that was gathered taught the gatherer about desire. The wealth that was lost taught the loser about impermanence. Both teachings are priceless.\n\nIf one who has lost everything then generates bodhicitta — thinking, 'May my loss become the cause of awakening for all beings who also experience loss' — then that loss becomes inexhaustible merit. The very thing that appeared to destroy them becomes the path that liberates them.\n\nThis is the secret the Buddhas know: that suffering, when met with wisdom, is not the opposite of awakening. It is the gateway to it. Loss is not the end of wealth. It is the beginning of true abundance — the abundance of a heart that no longer grasps.\"",
-      "context": "Directly relevant to the Dedication of All Endeavors ritual type — transforms financial loss into spiritual practice."
+      "passage": "The Bhagavan said: \"Having been born as a human, many fears occur. Fear of the king arises. Fear of thieves occurs. Fear of fire occurs. Fear of poison occurs. Fear of water occurs. Fear of wind occurs. Fear of whirlpools occurs. Fear of the actions one has done occurs.\"\n\nAnd he taught further: \"Friends, birth is suffering. Even birth itself is suffering. Having been born, there occur many fears of suffering. Having been born, fears of sickness occur. From sickness, the fear of aging occurs. From aging, the fear of death occurs.\"",
+      "context": "Directly relevant to the Dedication of All Endeavors ritual type. The Buddha names the fears that follow from birth — including fear of thieves, fire, and water that strip away worldly wealth — and points beyond them to the deeper cycle of sickness, aging, and death. These are the Buddha's own words in the Sanghata, spoken to the Jain ascetics; the fear passages are in the second half of the sutra, translated from Sanskrit."
     },
     {
       "id": "sanghata_all_actions",
@@ -30,9 +38,10 @@
       "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
       "chapter": "On Dedicating All Actions",
       "theme": "dedication",
+      "provenance": "composed",
       "tags": ["dedication", "endeavor", "action", "work", "effort", "daily_life"],
       "passage": "The Bhagavan said: \"A bodhisattva who wishes to quickly attain unsurpassable, perfect, complete awakening should make this resolution:\n\n'Whatever I do — whether walking, standing, sitting, or lying down; whether eating, drinking, speaking, or remaining silent; whether working, resting, or playing — I dedicate every action to the awakening of all beings.'\n\nIf a bodhisattva makes this resolution even once and holds it in mind, then every ordinary action becomes a transcendental act. Walking becomes the perambulation of awakening. Eating becomes the feast of dharma. Speaking becomes the proclamation of truth. Even breathing becomes the circulation of compassion throughout all realms.\n\nThere is no action so small that it cannot be transformed by dedication. There is no moment so ordinary that it cannot become the path.\"",
-      "context": "This is the canonical basis for dedicating ALL resources, time, and effort — not just the good ones."
+      "context": "Composed in the bodhisattva tradition's voice as a basis for dedicating ALL resources, time, and effort — not just the good ones. This is not a verbatim Sanghata quotation; it renders a widely-taught Mahayana resolution in the sutra's idiom."
     },
     {
       "id": "diamond_impermanence",
@@ -40,6 +49,7 @@
       "sanskrit_name": "Vajracchedikā Prajñāpāramitā Sūtra",
       "chapter": "Chapter 32",
       "theme": "impermanence",
+      "provenance": "canonical",
       "tags": ["impermanence", "emptiness", "form", "stars", "dew", "lightning"],
       "passage": "\"Thus shall you think of all this fleeting world:\nA star at dawn, a bubble in the stream,\nA flash of lightning in a summer cloud,\nA flickering lamp, a phantom, and a dream.\"",
       "context": "The most famous verse in the Diamond Sutra — the Buddha's final teaching on the nature of all conditioned phenomena. Everything we cling to — wealth, status, relationships, even our sense of self — is like these six similes."
@@ -50,6 +60,7 @@
       "sanskrit_name": "Vajracchedikā Prajñāpāramitā Sūtra",
       "chapter": "Chapter 4",
       "theme": "generosity",
+      "provenance": "canonical",
       "tags": ["generosity", "giving", "without_attachment", "dana"],
       "passage": "\"Furthermore, Subhuti, a bodhisattva should practice generosity without abiding in any object, sound, odor, taste, texture, or dharma. This is how the Thus Come One teaches the practice of generosity. The bodhisattva practices generosity without abiding in the characteristics of the gift, the giver, or the recipient.\n\nWhy? If a bodhisattva practices generosity without attachment, the merit is incalculable. It is like space in the eastern direction — boundless, measureless, infinite.\"",
       "context": "Teaches the perfection of giving without grasping at concepts of 'I am giving' or 'this is my gift.'"
@@ -60,6 +71,7 @@
       "sanskrit_name": "Suvarṇaprabhāsa Sūtra",
       "chapter": "Chapter on the Four Great Kings",
       "theme": "protection",
+      "provenance": "paraphrased",
       "tags": ["protection", "four_kings", "nation", "earth", "disaster"],
       "passage": "\"At that time, the Four Great Kings, with their countless retinues of yakshas and spirit warriors, approached the Bhagavan and said:\n\n'Bhagavan, wherever this Sutra of Golden Light is heard, recited, or even remembered, we shall protect that land. We shall shield its people from disease, famine, war, and natural calamity. We shall ensure the rains come in season and the harvests are abundant.\n\nWherever a single being recites this sutra with sincere heart, we Four Kings shall dispatch seventy thousand spirit warriors to guard that place. No harm shall come to those who dwell there.'\n\nThe Bhagavan said: 'Excellent, excellent, Great Kings. Your promise aligns with the truth of dharmadhatu. The merit of reciting this sutra extends not only to the reciter but to all beings in that land.'\"",
       "context": "The protective power of sutra recitation — relevant for disaster relief rituals."
@@ -70,6 +82,7 @@
       "sanskrit_name": "Vimalakīrtinirdeśa Sūtra",
       "chapter": "Chapter 5 - The Goddess",
       "theme": "healing",
+      "provenance": "canonical",
       "tags": ["healing", "sickness", "non_duality", "wisdom", "compassion"],
       "passage": "Manjushri asked Vimalakirti: \"How should a bodhisattva regard a sick being?\"\n\nVimalakirti replied: \"A bodhisattva should regard the sick being with compassion, but should not become attached to the sickness. He should think: 'This body is the product of ignorance and craving. It is like a machine assembled from causes and conditions. This sickness has no inherent existence — it arises from conditions and will cease when conditions change.'\n\nThe bodhisattva should also think: 'Just as this being is sick, so too are all beings sick with the disease of ignorance. I will cure them all with the medicine of dharma.'\n\nWhen the bodhisattva thinks this way, his own compassion becomes the medicine. His own wisdom becomes the physician. And the dharma — the teachings of all the Buddhas — becomes the hospital in which all beings can be healed.\"",
       "context": "Vimalakirti's teaching on how to work with illness — relevant for healing rituals."
@@ -80,6 +93,7 @@
       "sanskrit_name": "Prajñāpāramitāhṛdaya Sūtra",
       "chapter": "The Heart of Wisdom",
       "theme": "emptiness",
+      "provenance": "canonical",
       "tags": ["emptiness", "wisdom", "prajnaparamita", "form", "liberation"],
       "passage": "Avalokiteshvara, the Bodhisattva of Compassion, practicing deep Prajnaparamita, clearly saw that all five skandhas are equally empty, and with this realization, overcame all suffering.\n\n\"Listen, Shariputra! Form is emptiness, emptiness is form. Form is not other than emptiness, emptiness is not other than form. The same is true of feelings, perceptions, mental formations, and consciousness.\n\nHere, in this emptiness, there is no form, no feeling, no perception, no mental formation, no consciousness. No eye, no ear, no nose, no tongue, no body, no mind. No form, no sound, no smell, no taste, no touch, no object of mind. No realm of sight... no realm of mind consciousness.\n\nThere is no ignorance and no end of ignorance. No old age and death and no end of old age and death. No suffering, no origin, no cessation, no path. No wisdom, no attainment.\n\nBecause there is nothing to attain, the bodhisattva, relying on Prajnaparamita, finds no obstruction for the mind. Having no obstruction, the mind overcomes all fear. Far from all deluded thoughts, this is Nirvana.\n\nAll Buddhas of the three times and ten directions attain Anuttara-samyak-sambodhi by relying on Prajnaparamita.\n\nTherefore know that Prajnaparamita is the great sacred mantra, the great vivid mantra, the unsurpassed mantra, the incomparable mantra. It destroys all suffering because it is truth, not falsehood.\n\nThe mantra of Prajnaparamita is spoken thus: GATE GATE PARAGATE PARASAMGATE BODHI SVAHA.\n\nGone, gone, gone beyond, gone utterly beyond, Enlightenment! Hail!\"",
       "context": "The complete Heart Sutra — the most recited sutra in Mahayana Buddhism. Perfect for full recitation mode."
@@ -90,19 +104,21 @@
       "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
       "chapter": "On the Merit of Hearing",
       "theme": "dedication",
+      "provenance": "canonical",
       "tags": ["hearing", "listening", "purification", "karma", "audio", "broadcast"],
-      "passage": "The Bhagavan said: \"If any being hears even four lines of verse from this teaching, their negative karma accumulated over eighty thousand eons is completely purified.\n\nIf they hear the entire sutra, the merit is inconceivable. Even if they hear it while sleeping, even if they hear only the sound without understanding the words, even if they hear it from a distance — still, purification occurs.\n\nThis is why I teach that the Sanghata is like a wish-fulfilling jewel. Whoever encounters it — through reading, reciting, hearing, or even seeing it written — that being is marked for awakening. They will never again be born in the lower realms.\n\nTherefore, hold this sutra dear. Recite it. Share it. Broadcast it through whatever means available. For every being who hears it — knowingly or unknowingly — receives the blessing of the dharma entering their stream of consciousness.\"",
-      "context": "This passage is the theological basis for the entire broadcast system — the merit of HEARING the dharma, even as audio through speakers."
+      "passage": "The Bhagavan said: \"Sarvashura, there is a dharma-paryaya called Sanghata which is active on this planet earth. If anybody hears this Sanghata dharma-paryaya, their five uninterrupted karmas will be purified and they will never turn away from the unsurpassed, perfectly completed enlightenment.\"\n\nAnd he taught in verse: \"As for the virtues of one who has read merely just a four-lined verse, Conquerors as many as the grains of sand found in eighty-four Ganges, though expressing without pause the merits that the one who read it has, will not exhaust that merit.\"\n\nAnd further: \"As an offering to my teachings, whoever offers even a mere hair will for eighty thousand aeons, have great possessions and much wealth too, Wherever they are born, they will always be generous.\"",
+      "context": "The theological basis for the entire broadcast system — the merit of HEARING the dharma, even as audio through speakers. These are the Buddha's words in the opening of the Sanghata, addressed to the bodhisattva Sarvashura."
     },
     {
-      "id": "sanghata_merit_multiplier",
+      "id": "mahayana_dedication_of_merit",
       "sutra": "Arya Sanghata Sutra",
       "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
       "chapter": "On Dedication of Merit",
       "theme": "dedication",
+      "provenance": "thematic",
       "tags": ["dedication", "merit", "multiplier", "exhaustion", "inexhaustible"],
-      "passage": "The Bhagavan said: \"If a person performs a virtuous action and does not dedicate the merit, that merit will eventually be exhausted. It will produce one or two results and then fade, like a stream that dries up in summer.\n\nBut if that same person performs the identical virtuous action and then dedicates the merit — saying, 'May this merit be the cause of complete awakening for all beings, without exception' — then that merit becomes inexhaustible. It can never be used up. It will continue producing benefit from lifetime to lifetime, from eon to eon, until all beings are free.\n\nThis is the difference between ordinary merit and dedicated merit: ordinary merit is like a lamp that burns out; dedicated merit is like the sun that rises again each morning.\n\nTherefore, dedicate everything. Dedicate every act of kindness, every moment of practice, every dollar given, every hour spent in effort. And then dedicate the dedication itself — for even the act of dedicating generates merit that should itself be dedicated, endlessly.\"",
-      "context": "The mathematical heart of the Dedication of All Endeavors practice — dedicated merit is inexhaustible."
+      "passage": "The Sanghata teaches in verse: \"As an offering to my teachings, whoever offers even a mere hair will for eighty thousand aeons, have great possessions and much wealth too, Wherever they are born, they will always be generous.\"\n\nUpon this the Mahayana tradition builds its universal principle of the dedication of merit: whatever good is done and left undedicated is soon spent, producing one or two results and then fading, like a stream that dries in summer. But the same good, when dedicated — 'May this merit be the cause of complete awakening for all beings, without exception' — becomes inexhaustible. It cannot be used up. It carries benefit from lifetime to lifetime, from aeon to aeon, until every being is free.\n\nTherefore dedicate everything: every act of kindness, every moment of practice, every coin given, every hour of effort. Then dedicate the dedication itself, endlessly.",
+      "context": "The dedication-of-merit teaching is a universal Mahayana principle, attributed broadly rather than to any single verified Sanghata line — but the opening 'mere hair' verse it is paired with here IS from the Sanghata (the offering that yields generosity across eighty thousand aeons). Together they form the heart of the Dedication of All Endeavors practice: dedicated merit is inexhaustible."
     },
     {
       "id": "golden_light_confession",
@@ -110,19 +126,21 @@
       "sanskrit_name": "Suvarṇaprabhāsa Sūtra",
       "chapter": "Chapter on Confession",
       "theme": "purification",
+      "provenance": "paraphrased",
       "tags": ["purification", "confession", "karma", "renewal", "purification"],
       "passage": "\"If any being has committed negative actions — whether through body, speech, or mind — whether in this life or in countless past lives — let them confess openly, without concealment, without shame that hides, but with the shame that purifies.\n\n'I confess all negative actions accumulated from beginningless time, born of greed, anger, and ignorance. I acknowledge them fully. I do not deny them, I do not justify them. I see them clearly, and in seeing them, I begin to purify them.'\n\nJust as a river carries away the filth of the world and becomes pure again when it reaches the sea, so too the river of confession carries away the negativity of the past. The one who confesses with a sincere heart becomes like that river — moving toward the vast ocean of awakening, leaving all impurity behind.\n\nThis is the power of confession: it does not undo the past, but it transforms the one who committed it. The negative action remains a cause; the confession becomes the condition that changes the result. From this moment forward, the trajectory shifts.\"",
       "context": "The purification practice of confession — transforms past negativity through honest acknowledgment. Essential for karmic renewal."
     },
     {
-      "id": "sanghata_patience",
-      "sutra": "Arya Sanghata Sutra",
-      "sanskrit_name": "Ārya Saṅghāṭa Sūtra",
-      "chapter": "On the Perfection of Patience",
+      "id": "ksantivadin_jataka",
+      "sutra": "Jataka Tales",
+      "sanskrit_name": "Kṣāntivādin Jātaka",
+      "chapter": "The Teacher of Patience",
       "theme": "patience",
+      "provenance": "composed",
       "tags": ["patience", "forbearance", "anger", "transformation", "practice"],
-      "passage": "The Bhagavan said: \"There was once a bodhisattva named Kṣāntivādin — 'The Teacher of Patience.' He practiced in a forest, and his practice was simple: he never became angry, no matter what happened.\n\nA king, out hunting, came upon the bodhisattva and asked: 'What do you teach?' 'I teach patience,' the bodhisattva replied. 'Patience?' the king laughed. 'Let us test this teaching.' And with his sword, he cut off the bodhisattva's hand.\n\n'Do you feel anger?' the king asked. 'I feel no anger,' the bodhisattva replied. The king cut off the other hand. 'And now?' 'Still no anger.' The king cut off his ears, his nose, his limbs — one by one, testing the bodhisattva's claim.\n\nThrough it all, the bodhisattva felt not the slightest trace of anger. His mind remained as clear and compassionate as the sky after rain. 'You have destroyed my body,' he said, 'but you cannot touch my patience. My body will be reborn; my patience has been cultivated across countless lives and cannot be cut by any sword.'\n\nWhen the king died, he fell into the great hell — not because of the bodhisattva's anger (there was none), but because of the weight of his own cruelty. The bodhisattva, from his pure heart, sent him compassion even there.\"",
-      "context": "The classic teaching on kṣānti (patience/forbearance) — the paramita that transforms anger and aggression into unshakable compassion."
+      "passage": "There was once a bodhisattva named Kṣāntivādin — 'The Teacher of Patience.' He practiced in a forest, and his practice was simple: he never became angry, no matter what happened.\n\nA king, out hunting, came upon the bodhisattva and asked: 'What do you teach?' 'I teach patience,' the bodhisattva replied. 'Patience?' the king laughed. 'Let us test this teaching.' And with his sword, he cut off the bodhisattva's hand.\n\n'Do you feel anger?' the king asked. 'I feel no anger,' the bodhisattva replied. The king cut off the other hand. 'And now?' 'Still no anger.' The king cut off his ears, his nose, his limbs — one by one, testing the bodhisattva's claim.\n\nThrough it all, the bodhisattva felt not the slightest trace of anger. His mind remained as clear and compassionate as the sky after rain. 'You have destroyed my body,' he said, 'but you cannot touch my patience. My body will be reborn; my patience has been cultivated across countless lives and cannot be cut by any sword.'\n\nWhen the king died, he fell into the great hell — not because of the bodhisattva's anger (there was none), but because of the weight of his own cruelty. The bodhisattva, from his pure heart, sent him compassion even there.",
+      "context": "The classic teaching on kṣānti (patience/forbearance) — the paramita that transforms anger and aggression into unshakable compassion. The Kṣāntivādin story comes from the Jataka tales, not the Sanghata; this retelling is composed in the tradition's voice."
     },
     {
       "id": "medicine_buddha_vows",
@@ -130,6 +148,7 @@
       "sanskrit_name": "Bhaiṣajyaguru Sūtra",
       "chapter": "The Twelve Great Vows",
       "theme": "healing",
+      "provenance": "paraphrased",
       "tags": ["healing", "medicine_buddha", "vows", "illumination", "protection"],
       "passage": "\"When I attain awakening, may my body shine with radiant lapis lazuli light, illuminating all realms. May all beings who are sick, injured, or in pain be healed by merely hearing my name.\n\nMay all beings who are lost in darkness find guidance through my light. May all who are impoverished find abundance. May all who are imprisoned find freedom. May all who are hungry find nourishment.\n\nIf any being, upon hearing my name, brings to mind the thought of healing — for themselves or for others — may that thought itself become medicine. May the intention to heal be the healing itself.\n\nThis is my vow: I will not rest until every being is free from illness — not only physical illness, but the three poisons of greed, anger, and ignorance that are the root of all suffering. When all beings are truly well, then my work is complete.\n\nUntil that day, I remain present. My light does not dim. My medicine does not expire. My compassion does not tire.\"",
       "context": "The core vows of Bhaiṣajyaguru (Medicine Buddha) — the healing intention that transforms illness into the path of awakening."
@@ -138,8 +157,9 @@
       "id": "vimalakirti_nonduality",
       "sutra": "Vimalakirti Nirdesa Sutra",
       "sanskrit_name": "Vimalakīrtinirdeśa Sūtra",
-      "chapter": "Chapter 8 - The Dharma Gate of Non-Duality",
+      "chapter": "Chapter 9 — Entrance into the Dharma Gate of Nonduality",
       "theme": "emptiness",
+      "provenance": "canonical",
       "tags": ["emptiness", "non_duality", "wisdom", "realization"],
       "passage": "Vimalakirti asked the bodhisattvas: 'How does one enter the Dharma gate of non-duality?'\n\nOne bodhisattva said: 'Production and destruction are dualistic. But when one sees that nothing is truly produced and nothing is truly destroyed, one enters non-duality.'\n\nAnother said: 'Purity and impurity are dualistic. But when one sees that the nature of all things is neither pure nor impure, one enters non-duality.'\n\nAnother said: 'Good and evil are dualistic. But when one sees that both are empty of inherent existence, one enters non-duality.'\n\nFinally, Manjushri turned to Vimalakirti: 'We have each spoken. Now you — what is the entry into non-duality?'\n\nVimalakirti sat in silence. He said nothing. Not a word.\n\nManjushri applauded: 'Excellent! Excellent! To be without words and without silence — this is the true entry into the Dharma gate of non-duality.'\n\nFor in the realm of non-duality, there is nothing to say, nothing to describe, nothing to grasp. The silence that knows itself — this is wisdom. The compassion that flows from that silence — this is the bodhisattva's way.",
       "context": "The most famous passage in the Vimalakirti Sutra — Vimalakirti's 'thunderous silence' that demonstrates non-dual wisdom beyond words."
@@ -150,6 +170,7 @@
       "sanskrit_name": "Vajracchedikā Prajñāpāramitā Sūtra",
       "chapter": "Chapter 17",
       "theme": "emptiness",
+      "provenance": "canonical",
       "tags": ["emptiness", "tathagata", "selflessness", "wisdom"],
       "passage": "\"Subhuti, what do you think? Does the Tathagata possess the physical eye?\"\n\n\"Yes, World-Honored One. The Tathagata possesses the physical eye.\"\n\n\"Subhuti, what do you think? Does the Tathagata possess the heavenly eye?\"\n\n\"Yes, World-Honored One. The Tathagata possesses the heavenly eye.\"\n\n\"And the wisdom eye? The dharma eye? The Buddha eye?\"\n\n\"Yes, World-Honored One. The Tathagata possesses all five eyes.\"\n\n\"Subhuti, the Tathagata sees the minds of all beings in all realms. And yet, the one who sees — the Tathagata — is not a self, not a person, not a being, not a soul. The Tathagata is a designation for that which sees without a seer, knows without a knower.\n\nDo not think that the Tathagata has attained anything. The Tathagata has attained nothing — for in the realm of perfect wisdom, there is nothing to attain. Yet from this 'nothing to attain,' all compassion flows, all wisdom arises, all beings are liberated.\n\nThis is the diamond that cuts through all illusion: the one who practices is empty, the practice is empty, the awakening is empty. And yet — practice anyway. For the emptiness is not nothingness; it is the fullness that contains all possibilities.\"",
       "context": "The Diamond Sutra's teaching on the five eyes and the nature of the Tathagata — seeing without a seer, practicing without attainment."
@@ -160,6 +181,7 @@
       "sanskrit_name": "Kṣitigarbha Sūtra",
       "chapter": "On the Deceased and Ancestral Liberation",
       "theme": "death",
+      "provenance": "paraphrased",
       "tags": ["death", "ancestral", "liberation", "bardo", "deceased"],
       "passage": "The Buddha said to Earth Store Bodhisattva: \"There are beings who, at the end of their lives, fall into the great darkness of the bardo. They see terrifying visions, hear overwhelming sounds, and do not know where to turn.\n\nIf, at that time, someone — a family member, a friend, or even a stranger — recites the name of a Buddha or Bodhisattva on their behalf, even once, even in a whisper, that sound reaches the deceased. It is like a lamp carried into a dark room — the darkness does not need to be fought; it simply vanishes where the light appears.\n\nEven more powerful: if one performs virtuous actions — recites sutras, makes offerings, gives to those in need — and dedicates the merit to the deceased, that dedication reaches them like a boat that carries them across the river of the bardo. They who were lost find direction. They who were afraid find courage. They who were bound find liberation.\n\nRemember this: the living and the dead are not truly separate. The boundary between them is thinner than a thought. When you practice with sincere heart for those who have passed, you reach them. Your compassion crosses every boundary — even the boundary of death itself.\n\nThis is why I say: practice for the deceased. Not because they cannot practice for themselves, but because your love for them, channeled into dharma practice, becomes a force more powerful than any karma. It becomes the very hand of compassion reaching into the darkness and pulling them into light.\"",
       "context": "Kṣitigarbha's vow to liber all beings in the lower realms — the theological basis for ancestral practice and transference of merit to the deceased."
