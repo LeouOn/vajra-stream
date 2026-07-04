@@ -140,8 +140,7 @@ const MainLayout: React.FC<Props> = ({
         placement="right"
         onClose={() => setMenuOpen(false)}
         open={menuOpen}
-        width={280}
-        styles={{ body: { padding: 0 } }}
+        styles={{ wrapper: { width: 280 }, body: { padding: 0 } }}
       >
         <Menu
           theme="dark"

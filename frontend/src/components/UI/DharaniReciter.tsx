@@ -230,21 +230,21 @@ const DharaniReciter: React.FC = () => {
                   <Statistic
                     title={<span className="text-[9px] text-slate-500">ROUNDS</span>}
                     value={rounds}
-                    styles={{ content: { color: '#a855f7', fontSize: '18px', fontWeight: 'bold' } }}
+                    valueStyle={{ color: '#a855f7', fontSize: '18px', fontWeight: 'bold' }}
                   />
                 </Col>
                 <Col span={8}>
                   <Statistic
                     title={<span className="text-[9px] text-slate-500">ACCUMULATED</span>}
                     value={totalAccumulation.toLocaleString()}
-                    styles={{ content: { color: '#22d3ee', fontSize: '18px', fontWeight: 'bold' } }}
+                    valueStyle={{ color: '#22d3ee', fontSize: '18px', fontWeight: 'bold' }}
                   />
                 </Col>
                 <Col span={8}>
                   <Statistic
                     title={<span className="text-[9px] text-slate-500">SPEED</span>}
                     value={`${speed}x`}
-                    styles={{ content: { color: '#fbbf24', fontSize: '18px', fontWeight: 'bold' } }}
+                    valueStyle={{ color: '#fbbf24', fontSize: '18px', fontWeight: 'bold' }}
                   />
                 </Col>
               </Row>

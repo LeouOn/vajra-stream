@@ -719,12 +719,10 @@ export default function PracticeDetail({
                       <span className="!text-white/60 !text-[10px] sm:!text-xs">Beads</span>
                     }
                     value={count}
-                    styles={{
-                      content: {
-                        color: practice.color,
-                        fontSize: 'clamp(14px, 4vw, 20px)',
-                        fontFamily: 'monospace',
-                      },
+                    valueStyle={{
+                      color: practice.color,
+                      fontSize: 'clamp(14px, 4vw, 20px)',
+                      fontFamily: 'monospace',
                     }}
                   />
                   <Statistic
@@ -732,12 +730,10 @@ export default function PracticeDetail({
                       <span className="!text-white/60 !text-[10px] sm:!text-xs">Malas</span>
                     }
                     value={malaCount}
-                    styles={{
-                      content: {
-                        color: '#fcd34d',
-                        fontSize: 'clamp(14px, 4vw, 20px)',
-                        fontFamily: 'monospace',
-                      },
+                    valueStyle={{
+                      color: '#fcd34d',
+                      fontSize: 'clamp(14px, 4vw, 20px)',
+                      fontFamily: 'monospace',
                     }}
                   />
                   <Statistic
@@ -745,12 +741,10 @@ export default function PracticeDetail({
                       <span className="!text-white/60 !text-[10px] sm:!text-xs">Session</span>
                     }
                     value={formatElapsed(elapsedMs)}
-                    styles={{
-                      content: {
-                        color: '#67e8f9',
-                        fontSize: 'clamp(12px, 3.5vw, 16px)',
-                        fontFamily: 'monospace',
-                      },
+                    valueStyle={{
+                      color: '#67e8f9',
+                      fontSize: 'clamp(12px, 3.5vw, 16px)',
+                      fontFamily: 'monospace',
                     }}
                   />
                 </div>
@@ -857,7 +851,7 @@ export default function PracticeDetail({
                 percent={((count % MALA_BEADS) / MALA_BEADS) * 100}
                 showInfo={false}
                 strokeColor={practice.color}
-                trailColor={`rgba(${practice.colorRgb}, 0.1)`}
+                railColor={`rgba(${practice.colorRgb}, 0.1)`}
               />
             </Space>
           </Card>

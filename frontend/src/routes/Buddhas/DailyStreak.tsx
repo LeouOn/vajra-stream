@@ -101,7 +101,7 @@ export default function DailyStreak() {
           value={streak.count}
           prefix={<Flame size={18} className="text-orange-400" />}
           suffix={streak.count === 1 ? 'day' : 'days'}
-          styles={{ content: { color: '#ffd700' } }}
+          valueStyle={{ color: '#ffd700' }}
         />
         <Button
           block

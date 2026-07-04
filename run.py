@@ -221,6 +221,23 @@ def show_status():
 
 
 def preflight_checks():
+    marker = SCRIPT_DIR / ".vajra_preflight_ok"
+    req_file = SCRIPT_DIR / "requirements.txt"
+    pkg_file = SCRIPT_DIR / "frontend" / "package.json"
+
+    def _stale():
+        if not marker.exists():
+            return True
+        marker_mtime = marker.stat().st_mtime
+        for f in (req_file, pkg_file):
+            if f.exists() and f.stat().st_mtime > marker_mtime:
+                return True
+        return False
+
+    if marker.exists() and not _stale():
+        print("Preflight checks skipped (cache marker found)")
+        return
+
     print("=" * 60)
     print("  Performing System Pre-Flight Checks...")
     print("=" * 60)
@@ -341,6 +358,11 @@ def preflight_checks():
             print("[OK] Frontend dependencies are installed.")
 
     print("Pre-flight checks complete.\n")
+
+    try:
+        marker.touch()
+    except OSError:
+        pass
 
 
 def main():

@@ -107,14 +107,25 @@ async def stop_practice(practice_id: str, body: StopPracticeRequest | None = Non
 
 @router.get("/{practice_id}/status", summary="Get current status of a practice")
 async def practice_status(practice_id: str) -> dict:
-    """Return the live status of ``practice_id`` or 404 if never started."""
+    """
+    Return the live status of ``practice_id``.
+
+    A 404 is only raised when the practice id itself is unknown. If the
+    practice exists but no session has been started yet, we return a
+    ``not_started`` payload so the frontend can render an idle state
+    without treating it as an error.
+    """
     engine = get_practice_engine()
+    definition = engine.get_definition(practice_id)
+    if definition is None:
+        raise HTTPException(status_code=404, detail=f"Unknown practice: {practice_id}")
     status = engine.status(practice_id)
     if status is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No session found for practice: {practice_id}",
-        )
+        return {
+            "status": "not_started",
+            "practice_id": practice_id,
+            "name": definition.name,
+        }
     return status
 
 

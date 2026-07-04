@@ -11,6 +11,9 @@ ENV/
 dist/
 build/
 
+# Run.py preflight cache marker
+.vajra_preflight_ok
+
 # Database
 *.db
 *.db-journal
