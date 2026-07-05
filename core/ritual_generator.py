@@ -79,6 +79,44 @@ def _load_sutra_db() -> dict:
 
 
 @lru_cache(maxsize=1)
+def _load_tarot_deck() -> dict:
+    """Load knowledge/tarot_deck.json once (cached for the session).
+
+    Returns the parsed JSON dict (with a 'cards' list of 78 entries) or
+    an empty dict on missing/corrupt file so callers can fall back
+    gracefully without a ritual-blocking exception.
+    """
+    path = Path(__file__).resolve().parent.parent / "knowledge" / "tarot_deck.json"
+    if not path.exists():
+        logger.debug("tarot_deck.json not found at %s", path)
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to load tarot_deck.json: %s", exc)
+        return {}
+
+
+@lru_cache(maxsize=1)
+def _load_iching() -> dict:
+    """Load knowledge/iching.json once (cached for the session).
+
+    Returns the parsed JSON dict (with a 'hexagrams' list of 64 entries)
+    or an empty dict on missing/corrupt file so callers can fall back
+    gracefully without a ritual-blocking exception.
+    """
+    path = Path(__file__).resolve().parent.parent / "knowledge" / "iching.json"
+    if not path.exists():
+        logger.debug("iching.json not found at %s", path)
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to load iching.json: %s", exc)
+        return {}
+
+
+@lru_cache(maxsize=1)
 def _load_dharanis_db() -> list[dict]:
     """Load knowledge/dharanis.json once (cached for the session).
 
@@ -784,17 +822,91 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
             lines.append("**Astrology:** *(data unavailable — practice timed by universal compassion, not planetary alignment)*")
             lines.append("")
 
-        # Tarot
-        card = self._rng.choice(self.MAJOR_ARCANA)
-        lines.append(f"**Tarot Card Drawn:** {card[0]}")
-        lines.append(f"*{card[1]}*")
-        lines.append(f"This card speaks to the energy present in this moment of practice.")
+        # Tarot — draw from the full 78-card deck in knowledge/tarot_deck.json.
+        # Prefer Major Arcana (22 cards) when the file distinguishes them; fall
+        # back to the curated MAJOR_ARCANA class attribute if the file is
+        # missing or corrupt so the ritual still produces a card.
+        tarot_db = _load_tarot_deck()
+        cards = tarot_db.get("cards") if isinstance(tarot_db, dict) else None
+        if cards:
+            major_cards = [c for c in cards if str(c.get("arcana", "")).lower() == "major"]
+            pool = major_cards if major_cards else cards
+            card = self._rng.choice(pool)
+            card_name = card.get("name", "(unknown card)")
+            upright = card.get("upright", "").strip()
+            keywords = card.get("keywords") or []
+            elements = card.get("element")
+            lines.append(f"**Tarot Card Drawn:** {card_name}")
+            if upright:
+                # Trim long upright text so the section stays readable;
+                # the full meaning lives in the deck file.
+                summary = upright if len(upright) <= 280 else upright[:277].rstrip() + "..."
+                lines.append(f"*{summary}*")
+            else:
+                lines.append(f"*{card.get('desc', '').strip()}*")
+            bits = []
+            if keywords:
+                bits.append(" / ".join(str(k) for k in keywords[:5]))
+            if elements:
+                bits.append(f"element: {elements}")
+            if bits:
+                lines.append(f"This card speaks to the energy present in this moment of practice — {'; '.join(bits)}.")
+            else:
+                lines.append("This card speaks to the energy present in this moment of practice.")
+        else:
+            card = self._rng.choice(self.MAJOR_ARCANA)
+            lines.append(f"**Tarot Card Drawn:** {card[0]}")
+            lines.append(f"*{card[1]}*")
+            lines.append("This card speaks to the energy present in this moment of practice.")
         lines.append("")
 
-        # I Ching
-        hexagram = self._rng.choice(self.HEXAGRAMS)
-        lines.append(f"**I Ching Hexagram:** #{hexagram[0]} — {hexagram[1]}")
-        lines.append(f"*{hexagram[2]}*")
+        # I Ching — draw from all 64 hexagrams in knowledge/iching.json.
+        # Fall back to the curated HEXAGRAMS class attribute if the file is
+        # missing or corrupt so the ritual still produces a hexagram.
+        iching_db = _load_iching()
+        hexagrams = iching_db.get("hexagrams") if isinstance(iching_db, dict) else None
+        if hexagrams:
+            hexagram = self._rng.choice(hexagrams)
+            number = hexagram.get("number", "?")
+            # Name: prefer English name, fall back to pinyin/chinese.
+            name = (
+                hexagram.get("name_english")
+                or hexagram.get("english")
+                or hexagram.get("name_pinyin")
+                or hexagram.get("name")
+                or "(unnamed hexagram)"
+            )
+            pinyin = hexagram.get("name_pinyin") or hexagram.get("name") or ""
+            chinese = hexagram.get("name_chinese") or hexagram.get("chinese") or ""
+            upper = hexagram.get("upper_trigram", "?")
+            lower = hexagram.get("lower_trigram", "?")
+            judgment = (hexagram.get("judgment") or "").strip()
+            image = (hexagram.get("image") or hexagram.get("images") or "").strip()
+            keywords = hexagram.get("keywords") or []
+            meaning = (hexagram.get("meaning") or "").strip()
+
+            title_bits = [str(number), name]
+            if pinyin and pinyin != name:
+                title_bits.append(f"({pinyin})")
+            if chinese:
+                title_bits.append(chinese)
+            lines.append(f"**I Ching Hexagram:** #{title_bits[0]} — " + " ".join(title_bits[1:]))
+            lines.append(f"*Image: {upper} above, {lower} below.*")
+            if judgment:
+                j_summary = judgment if len(judgment) <= 320 else judgment[:317].rstrip() + "..."
+                lines.append(f"*Judgment:* {j_summary}")
+            if image:
+                i_summary = image if len(image) <= 320 else image[:317].rstrip() + "..."
+                lines.append(f"*Image:* {i_summary}")
+            if keywords:
+                lines.append(f"*Keywords:* {' · '.join(str(k) for k in keywords)}")
+            if meaning:
+                m_summary = meaning if len(meaning) <= 200 else meaning[:197].rstrip() + "..."
+                lines.append(f"*Meaning:* {m_summary}")
+        else:
+            hexagram = self._rng.choice(self.HEXAGRAMS)
+            lines.append(f"**I Ching Hexagram:** #{hexagram[0]} — {hexagram[1]}")
+            lines.append(f"*{hexagram[2]}*")
         lines.append("")
 
         # Geomancy (simplified)
