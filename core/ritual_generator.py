@@ -822,20 +822,20 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
             lines.append("**Astrology:** *(data unavailable — practice timed by universal compassion, not planetary alignment)*")
             lines.append("")
 
-        # Tarot — draw from the full 78-card deck in knowledge/tarot_deck.json.
-        # Prefer Major Arcana (22 cards) when the file distinguishes them; fall
-        # back to the curated MAJOR_ARCANA class attribute if the file is
-        # missing or corrupt so the ritual still produces a card.
+        # Tarot — draw from the full 78-card deck in knowledge/tarot_deck.json
+        # (22 Major Arcana + 40 Minor Arcana + 16 Court Cards). Falls back to
+        # the curated MAJOR_ARCANA class attribute if the file is missing or
+        # corrupt so the ritual still produces a card.
         tarot_db = _load_tarot_deck()
         cards = tarot_db.get("cards") if isinstance(tarot_db, dict) else None
         if cards:
-            major_cards = [c for c in cards if str(c.get("arcana", "")).lower() == "major"]
-            pool = major_cards if major_cards else cards
+            pool = cards  # full 78-card deck
             card = self._rng.choice(pool)
             card_name = card.get("name", "(unknown card)")
             upright = card.get("upright", "").strip()
             keywords = card.get("keywords") or []
             elements = card.get("element")
+            suit = card.get("suit", "")
             lines.append(f"**Tarot Card Drawn:** {card_name}")
             if upright:
                 # Trim long upright text so the section stays readable;
@@ -847,6 +847,8 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
             bits = []
             if keywords:
                 bits.append(" / ".join(str(k) for k in keywords[:5]))
+            if suit:
+                bits.append(f"suit: {suit}")
             if elements:
                 bits.append(f"element: {elements}")
             if bits:
@@ -909,16 +911,24 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
             lines.append(f"*{hexagram[2]}*")
         lines.append("")
 
-        # Geomancy (simplified)
+        # Geomancy — full 16 figures of the Arabic/Latin tradition
         geomancy_figures = [
             ("Via", "the path forward — a journey through changing conditions"),
             ("Populus", "the people — community gathering, collective strength"),
             ("Fortuna Major", "greater fortune — success through perseverance"),
-            ("Amissio", "loss — letting go so new growth can emerge"),
+            ("Fortuna Minor", "lesser fortune — quick success that may not last"),
             ("Acquisitio", "gain — receiving what is needed, abundance"),
+            ("Amissio", "loss — letting go so new growth can emerge"),
             ("Conjunctio", "union — coming together, reconciliation"),
             ("Carcer", "restriction — patience within limitation"),
             ("Tristitia", "sorrow — the earth energy that grounds grief into wisdom"),
+            ("Laetitia", "joy — upward movement, lightness after heaviness"),
+            ("Puer", "the warrior — bold action, initiative, masculine energy"),
+            ("Puella", "the maiden — beauty, receptivity, feminine energy"),
+            ("Albus", "white — purity, clarity, peaceful wisdom"),
+            ("Rubeus", "red — passion, intensity, warning against impulsiveness"),
+            ("Caput Draconis", "head of the dragon — new beginnings, opportunity, entry"),
+            ("Cauda Draconis", "tail of the dragon — endings, letting go, exit"),
         ]
         figure = self._rng.choice(geomancy_figures)
         lines.append(f"**Geomantic Figure:** {figure[0]}")
