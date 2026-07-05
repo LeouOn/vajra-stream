@@ -1,43 +1,37 @@
 /**
- * SystemMonitorsCard — the "SYSTEM MONITORS" sidebar card.
+ * SystemMonitorsCard — focused "FIELD READINGS" panel for scalar / aura /
+ * attunement. Previously also hosted the link / audio / crystal status rows
+ * and the active-blessing-rotation list; both moved out during the
+ * CommandCenter cleanup:
  *
- * Extracted verbatim from `components/UI/CommandCenter.jsx` (lines 547-659) as
- * part of the CommandCenter decomposition (Task 3.3, item 4). Pure
- * presentational component: props-only, zero coupling to CommandCenter state.
+ *   - Link / Audio / Crystal status → compact header pill bar in CommandCenter.
+ *   - Active Blessing Rotations      → collapsible panel in CommandCenter.
  *
- * Renders the scalar-wave visualizer, the Aura Field Coherence VU meter, the
- * live Attunement metrics chart, and a stack of link/carrier/crystal/scalar/
- * session status rows.
+ * Keeping this card purely about *field readings* reduces vertical weight and
+ * matches the calmer, less-control-room aesthetic the operator wanted.
+ *
+ * Pure presentational component: props-only, zero coupling to CommandCenter
+ * state (auraCoherence is now the only value it reads live).
  *
  * @component
  * @param {Object}      props
  * @param {number}      props.auraCoherence  - 0-100 coherence value for the VU meter.
- * @param {boolean}     props.isConnected    - websocket link status.
- * @param {boolean}     props.isPlaying      - audio carrier running.
- * @param {number}      props.frequency      - current carrier frequency in Hz.
- * @param {Object}      props.crystalStatus  - crystal broadcaster status object.
- * @param {Object}      props.scalarStatus   - scalar array status object.
- * @param {Object}      props.sessions       - active blessing sessions keyed by id.
+ * @param {Object}      props.scalarStatus   - scalar array status object (read for `.rate`).
  */
 import React from 'react';
 import { Card } from 'antd';
-import { Activity, Wifi } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 import ScalarWaveVisualizer from '../2D/ScalarWaveVisualizer';
 import { AttunementChart } from '../UI/AttunementChart';
 
 function SystemMonitorsCardInner({
   auraCoherence,
-  isConnected,
-  isPlaying,
-  frequency,
-  crystalStatus,
-  scalarStatus,
-  sessions
+  scalarStatus
 }) {
   return (
     <Card
-      title={<span className="text-white text-sm tracking-wider font-bold"><Activity className="w-4 h-4 text-purple-400 inline mr-2" />SYSTEM MONITORS</span>}
+      title={<span className="text-white text-sm tracking-wider font-bold"><Activity className="w-4 h-4 text-purple-400 inline mr-2" />FIELD READINGS</span>}
       className="bg-gray-900/80 border-purple-500/20"
       styles={{ body: { padding: '16px' } }}
     >
@@ -83,68 +77,12 @@ function SystemMonitorsCardInner({
           <AttunementChart />
         </div>
 
-        {/* Connection Status */}
-        <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
-          <span className="text-xs text-gray-400 font-medium">Link Status</span>
-          <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex items-center gap-1.5 ${
-            isConnected
-              ? 'bg-green-950/80 border border-green-500/30 text-green-400'
-              : 'bg-red-950/80 border border-red-500/30 text-red-400'
-          }`}>
-            <Wifi className="w-3 h-3" />
-            {isConnected ? 'LIVE CONNECTED' : 'OFFLINE'}
-          </span>
-        </div>
-
-        {/* Freq generator status */}
-        <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
-          <span className="text-xs text-gray-400 font-medium">Audio Carrier</span>
-          <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex items-center gap-1.5 ${
-            isPlaying
-              ? 'bg-cyan-950/80 border border-cyan-500/30 text-cyan-400 animate-pulse'
-              : 'bg-gray-800/80 border border-white/10 text-gray-400'
-          }`}>
-            {isPlaying ? `${frequency.toFixed(1)} Hz` : 'INACTIVE'}
-          </span>
-        </div>
-
-        {/* Crystal Broadcaster Grid status */}
-        <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
-          <span className="text-xs text-gray-400 font-medium">Crystal Broadcaster</span>
-          <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
-            crystalStatus?.is_programmed
-              ? 'bg-yellow-950/80 border border-yellow-500/30 text-yellow-400'
-              : 'bg-gray-800/80 border border-white/10 text-gray-400'
-          }`}>
-            {crystalStatus?.is_programmed ? 'PROGRAMMED' : 'STANDBY'}
-          </span>
-        </div>
-
-        {/* Scalar status */}
+        {/* Scalar status (the one scalar reading still anchored here) */}
         <div className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5">
           <span className="text-xs text-gray-400 font-medium">Scalar Array Rate</span>
           <span className="text-xs font-mono text-indigo-300 font-bold bg-indigo-950/40 px-2 py-0.5 border border-indigo-500/20 rounded">
             {scalarStatus?.rate || '0.00 / 0.00'}
           </span>
-        </div>
-
-        {/* Active session count */}
-        <div className="bg-white/5 p-3 rounded-lg border border-white/5">
-          <div className="text-xs text-gray-400 font-medium mb-2">Active Blessing Rotations</div>
-          {Object.keys(sessions).length > 0 ? (
-            <div className="space-y-1.5 max-h-24 overflow-y-auto">
-              {Object.values(sessions).map(session => (
-                <div key={session.id} className="flex justify-between items-center text-xs">
-                  <span className="text-purple-300 truncate max-w-[70%]">{session.name}</span>
-                  <span className="text-[10px] bg-green-950 text-green-400 border border-green-500/30 px-1.5 py-0.2 rounded-full uppercase">
-                    {session.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-xs text-gray-500 italic">No operations active</div>
-          )}
         </div>
       </div>
 

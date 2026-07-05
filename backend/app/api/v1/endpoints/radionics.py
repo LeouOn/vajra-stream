@@ -693,12 +693,106 @@ async def dharani_recitation(
     }
 
 
+@router.get("/mantras")
+async def list_mantras():
+    """List all available mantras grouped by tradition.
+
+    Reads ``knowledge/mantras.json`` (a nested map of tradition → mantra id →
+    mantra dict) and flattens it into a single list. Each flattened mantra
+    carries its ``tradition`` key as an explicit field so the Library UI can
+    render it without re-grouping.
+
+    The top-level ``aspirations`` section (which contains verse arrays rather
+    than mantra objects) is exposed separately under ``aspirations`` so the
+    Library page can render the Four Immeasurables, bodhisattva vows, and
+    dedication verses alongside the mantras.
+
+    Each mantra in the response has:
+      - tradition, key, name, sanskrit, sanskrit_iast, meaning, purpose,
+        times, chakra, plus optional language fields (tibetan, chinese,
+        pinyin, arabic, transliteration, etc.) preserved from the source.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    path = _Path(__file__).resolve().parent.parent.parent.parent.parent / "knowledge" / "mantras.json"
+    if not path.exists():
+        return {"status": "error", "detail": "mantras.json not found", "mantras": [], "aspirations": {}}
+
+    try:
+        raw = _json.loads(path.read_text(encoding="utf-8"))
+    except (_json.JSONDecodeError, OSError) as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to parse mantras.json: {exc}")
+
+    # Whitelist of top-level keys that map to mantra dictionaries. Any other
+    # top-level key (e.g. ``aspirations``) is exposed separately.
+    tradition_keys = {
+        "buddhist",
+        "chinese_buddhist",
+        "taoist",
+        "hindu",
+        "sufi",
+        "christian",
+        "shamanic",
+        "universal",
+    }
+
+    mantras: list[dict] = []
+    for tradition, entries in raw.items():
+        if tradition not in tradition_keys:
+            continue
+        if not isinstance(entries, dict):
+            continue
+        for mantra_key, mantra in entries.items():
+            if not isinstance(mantra, dict):
+                continue
+            mantras.append(
+                {
+                    "tradition": tradition,
+                    "key": mantra_key,
+                    "name": mantra.get("name", ""),
+                    "sanskrit": mantra.get("sanskrit", ""),
+                    "sanskrit_iast": mantra.get("sanskrit_iast", ""),
+                    "tibetan": mantra.get("tibetan", ""),
+                    "chinese": mantra.get("chinese", ""),
+                    "pinyin": mantra.get("pinyin", ""),
+                    "pali": mantra.get("pali", ""),
+                    "arabic": mantra.get("arabic", ""),
+                    "hebrew": mantra.get("hebrew", ""),
+                    "greek": mantra.get("greek", ""),
+                    "native": mantra.get("native", ""),
+                    "lakota": mantra.get("lakota", ""),
+                    "celtic": mantra.get("celtic", ""),
+                    "punjabi": mantra.get("punjabi", ""),
+                    "japanese": mantra.get("japanese", ""),
+                    "transliteration": mantra.get("transliteration", ""),
+                    "meaning": mantra.get("meaning", ""),
+                    "purpose": mantra.get("purpose", ""),
+                    "times": mantra.get("times", 108),
+                    "chakra": mantra.get("chakra", ""),
+                    "source_tradition": mantra.get("tradition", ""),
+                }
+            )
+
+    return {
+        "status": "success",
+        "total": len(mantras),
+        "traditions": sorted({m["tradition"] for m in mantras}),
+        "mantras": mantras,
+        "aspirations": raw.get("aspirations", {}),
+    }
+
+
 @router.get("/sutras")
 async def list_sutras():
-    """List all available sutra passages for recitation.
+    """List all available sutra passages for recitation and study.
 
-    Returns passages from knowledge/sutra_passages.json with their IDs,
-    themes, and tags so the caller can choose one for /sutra-recitation.
+    Returns passages from knowledge/sutra_passages.json with IDs, themes,
+    tags, ``provenance`` (canonical/paraphrased/thematic/composed), the
+    full ``passage`` text, and surrounding context — enough for the
+    Library page to render a read-only contemplation view, while the
+    /sutra-recitation endpoint still uses the same dataset to drive
+    crystal-bowl broadcast + TTS recitation.
     """
     from core.ritual_generator import _load_sutra_db
 
@@ -714,7 +808,9 @@ async def list_sutras():
                 "sanskrit_name": p.get("sanskrit_name", ""),
                 "chapter": p.get("chapter", ""),
                 "theme": p.get("theme", ""),
+                "provenance": p.get("provenance", "unknown"),
                 "tags": p.get("tags", []),
+                "passage": p.get("passage", ""),
                 "context": p.get("context", ""),
             }
             for p in passages
