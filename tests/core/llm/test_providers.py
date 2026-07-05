@@ -28,7 +28,7 @@ def test_openrouter_provider_construction(monkeypatch):
     assert p.name == "openrouter"
     assert p.priority == 90
     assert p.default_model == "deepseek/deepseek-v4-pro"
-    assert p._fallback_models == ["deepseek/deepseek-v4-flash", "meta-llama/llama-3.1-8b-instruct:free"]
+    assert p._fallback_models == ["deepseek/deepseek-v4-flash", "google/gemini-3.5-flash", "xiaomi/mimo-v2.5-pro"]
 
 
 def test_deepseek_provider_construction(monkeypatch):

@@ -24,7 +24,8 @@ _OPENROUTER_DEFAULT_MODEL = "deepseek/deepseek-v4-pro"
 
 _OPENROUTER_DEFAULT_FALLBACKS = [
     "deepseek/deepseek-v4-flash",
-    "meta-llama/llama-3.1-8b-instruct:free",
+    "google/gemini-3.5-flash",
+    "xiaomi/mimo-v2.5-pro",
 ]
 
 
