@@ -49,6 +49,7 @@ class OpenAICompatibleProvider:
         default_model: str,
         timeout_seconds: int = 120,
         priority: int = 50,
+        fallback_models: list[str] | None = None,
     ) -> None:
         if not api_key:
             raise ValueError(f"{name} provider requires a non-empty api_key")
@@ -58,6 +59,7 @@ class OpenAICompatibleProvider:
         self.priority = priority
         self.default_model = default_model
         self.timeout_seconds = timeout_seconds
+        self._fallback_models = fallback_models or []
         self._client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
@@ -98,27 +100,63 @@ class OpenAICompatibleProvider:
 
     async def generate(self, request: ChatRequest) -> ChatResponse:
         messages = self._build_messages(request)
-        model = request.model or self.default_model
-        try:
-            response = await self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=request.max_tokens,
-                temperature=request.temperature,
-                tools=[t.model_dump() for t in request.tools] if request.tools else None,
-            )
-            choice = response.choices[0]
-            return ChatResponse(
-                content=choice.message.content or "",
-                provider=self.name,
-                model=model,
-                input_tokens=response.usage.prompt_tokens if response.usage else 0,
-                output_tokens=response.usage.completion_tokens if response.usage else 0,
-                finish_reason=choice.finish_reason or "stop",
-            )
-        except Exception as e:
-            logger.error(f"generate failed for {self.name}/{model}: {e}")
-            raise RuntimeError(f"{self.name} generation failed: {e}") from e
+
+        # Build the model chain. If the caller specified an explicit model,
+        # honor it without fallback (they chose it for a reason). Otherwise
+        # use default_model → fallback_models[0] → [1] → ...
+        if request.model:
+            model_chain = [request.model]
+        else:
+            model_chain = [self.default_model] + self._fallback_models
+
+        last_exc: Exception | None = None
+        for tier, model in enumerate(model_chain):
+            try:
+                response = await self._client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=request.max_tokens,
+                    temperature=request.temperature,
+                    tools=[t.model_dump() for t in request.tools] if request.tools else None,
+                )
+                choice = response.choices[0]
+                if tier > 0:
+                    logger.info(
+                        f"Model fallback succeeded: {model} (tier {tier}) "
+                        f"after {model_chain[0]} failed"
+                    )
+                return ChatResponse(
+                    content=choice.message.content or "",
+                    provider=self.name,
+                    model=model,
+                    input_tokens=response.usage.prompt_tokens if response.usage else 0,
+                    output_tokens=response.usage.completion_tokens if response.usage else 0,
+                    finish_reason=choice.finish_reason or "stop",
+                )
+            except Exception as e:
+                last_exc = e
+                logger.warning(
+                    f"Model {model} failed (tier {tier}/{len(model_chain) - 1}) "
+                    f"on {self.name}: {e}"
+                )
+                # Error classification: non-retryable errors (auth, bad request)
+                # should skip remaining fallback models — they'll all fail the
+                # same way.
+                err_str = str(e).lower()
+                if any(code in err_str for code in ("401", "403", "invalid_api_key", "content_policy")):
+                    logger.warning(
+                        f"Non-retryable error for {model} on {self.name}, "
+                        f"skipping {len(model_chain) - tier - 1} remaining models"
+                    )
+                    break
+                # Retryable (429, timeout, 500, 503): try next model
+                continue
+
+        # All models exhausted
+        raise RuntimeError(
+            f"All {len(model_chain)} model(s) failed on {self.name}: "
+            f"chain={model_chain}"
+        ) from last_exc
 
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
         messages = self._build_messages(request)

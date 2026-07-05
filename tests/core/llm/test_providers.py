@@ -26,8 +26,9 @@ def test_openrouter_provider_construction(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
     p = OpenRouterProvider()
     assert p.name == "openrouter"
-    assert p.priority == 50
-    assert p.default_model == "meta-llama/llama-3.1-8b-instruct:free"
+    assert p.priority == 90
+    assert p.default_model == "deepseek/deepseek-v4-pro"
+    assert p._fallback_models == ["deepseek/deepseek-v4-flash", "meta-llama/llama-3.1-8b-instruct:free"]
 
 
 def test_deepseek_provider_construction(monkeypatch):
