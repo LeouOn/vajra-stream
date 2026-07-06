@@ -272,11 +272,19 @@ export default function OutlookDashboard() {
         fetch(`/api/v1/outlook/characters/roles/list`),
         fetch(`/api/v1/outlook/locations/types/list`),
       ]);
-      if (realmsRes.ok) setRealms(await realmsRes.json() as Realm[]);
-      if (charsRes.ok) setCharacters(await charsRes.json() as Character[]);
-      if (popsRes.ok) setPopulations(await popsRes.json() as Population[]);
-      if (rolesRes.ok) setRoles(await rolesRes.json() as string[]);
-      if (typesRes.ok) setLocationTypes(await typesRes.json() as string[]);
+      // Defensive unwrap — same crash class as AstrologyExtractionPanel's
+      // ``runs.some is not a function`` bug. Backend today returns bare arrays
+      // for these 5 endpoints, but a future envelope wrap (e.g. ``{items: [...]}``
+      // or ``{data: [...]}``) would silently store the envelope object in state
+      // and crash every downstream ``.map()`` / ``.filter()`` call with
+      // "object is not iterable". Accept either shape; fall back to ``[]``.
+      const unwrap = <T,>(v: unknown): T[] =>
+        Array.isArray(v) ? v as T[] : Array.isArray((v as any)?.items) ? (v as any).items : Array.isArray((v as any)?.data) ? (v as any).data : [];
+      if (realmsRes.ok) setRealms(unwrap<Realm>(await realmsRes.json()));
+      if (charsRes.ok) setCharacters(unwrap<Character>(await charsRes.json()));
+      if (popsRes.ok) setPopulations(unwrap<Population>(await popsRes.json()));
+      if (rolesRes.ok) setRoles(unwrap<string>(await rolesRes.json()));
+      if (typesRes.ok) setLocationTypes(unwrap<string>(await typesRes.json()));
     } catch (e) {
       addToast({ type: 'error', title: 'Could not load realms', message: 'Backend unreachable. Some data may be stale.', duration: 3000 });
     }

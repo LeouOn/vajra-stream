@@ -458,12 +458,22 @@ class OutlookService:
                         self._loop_config["genre_index"] = idx + 1
                         logger.info(f"Cycling genre: {current_genre}")
 
-                    # Create the context for the sequencer
+                    # Create the context for the sequencer.
+                    # NOTE: RitualState has fields ``intention``, ``genre``,
+                    # and ``metadata`` — NOT ``lat``, ``lon``, or
+                    # ``target_intention``. The previous constructor call
+                    # passed non-existent kwargs, raising TypeError which was
+                    # silently swallowed by the broad ``except Exception``
+                    # at line 517, so the broadcast loop NEVER produced a
+                    # narrative. Fixed: pass lat/lon via ``metadata`` dict
+                    # and intention via the correct field name.
                     context = RitualContext(
                         genre=config.get("genre", "healing"),
-                        lat=config.get("lat", 34.0522),
-                        lon=config.get("lon", -118.2437),
-                        target_intention=config.get("custom_context") or "",
+                        intention=config.get("custom_context") or "",
+                        metadata={
+                            "lat": config.get("lat", 34.0522),
+                            "lon": config.get("lon", -118.2437),
+                        },
                     )
 
                     # Instantiate and execute the workflow engine sequence
@@ -505,8 +515,17 @@ class OutlookService:
                                 final_context.invocation_narrative,
                                 json.dumps(final_context.astrology_results),
                                 json.dumps(final_context.divination_results),
-                                json.dumps(final_context.divination_results),
-                                "",  # entities
+                                # Previously wrote divination_results into
+                                # BOTH divination_context AND divination_raw
+                                # columns — the raw data (with merged
+                                # radionics rates + sigil coordinates) was
+                                # lost. Fixed to use the correct field.
+                                json.dumps(final_context.divination_raw or final_context.divination_results),
+                                # Previously hardcoded to "" — the entity
+                                # invocation text (buddha + yidam with
+                                # qualities/description/purpose) was computed
+                                # and shown to the LLM but never persisted.
+                                final_context.entities_used or "",
                             ),
                         )
                         conn.commit()

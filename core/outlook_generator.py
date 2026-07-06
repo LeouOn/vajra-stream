@@ -131,7 +131,11 @@ class OutlookGenerator:
                 return json.load(f)
         return {}
 
-    def _gather_astrology_context(self, lat: float, lon: float, date: datetime = None) -> str:
+    def _gather_astrology_context(
+        self, lat: float, lon: float, date: datetime = None,
+        natal_dt: datetime | None = None,
+        natal_location: tuple[float, float] | None = None,
+    ) -> str:
         if not self.astro_engine:
             return "Astrological alignment: The stars dance in unknown but auspicious patterns."
         if not hasattr(self.astro_engine, "calculate_chart"):
@@ -198,6 +202,35 @@ class OutlookGenerator:
                 top_aspects = sorted(aspects, key=lambda a: -a.get("exactness", 0))[:5]
                 aspect_lines = [f"  {a['description']}" for a in top_aspects]
                 lines.append("Major Aspects:\n" + "\n".join(aspect_lines))
+
+            # --- Transit-to-Natal Aspects ---
+            # The single biggest astrology quality gap: previously the LLM
+            # only saw where planets ARE right now (transit-to-transit),
+            # never how they interact with the birth chart. If a natal chart
+            # is provided, compute transit-to-natal aspects and inject the
+            # most exact ones so the LLM can write "Transit Saturn squares
+            # your natal Moon" instead of generic "Saturn is in Aries".
+            if natal_dt and natal_location:
+                try:
+                    transit_aspects = self.astro_engine.get_transits_to_natal(
+                        natal_dt, natal_location, target_date
+                    )
+                    if transit_aspects:
+                        # Filter to harmonious + challenging (skip cusp-only)
+                        notable = [
+                            a for a in transit_aspects
+                            if a.get("aspect") in ("Conjunction", "Trine", "Sextile", "Square", "Opposition")
+                        ][:7]
+                        if notable:
+                            tn_lines = [
+                                f"  Transit {a['transit_planet'].title()} {a['aspect']} "
+                                f"Natal {a['natal_planet'].title()} "
+                                f"(orb {a['orb']:.1f}°)"
+                                for a in notable
+                            ]
+                            lines.append("Transit-to-Natal Aspects:\n" + "\n".join(tn_lines))
+                except Exception:
+                    pass  # transit-to-natal is optional enrichment
 
             # --- Moon Phase ---
             try:
@@ -315,10 +348,24 @@ class OutlookGenerator:
             )
         )
 
-        return (
-            f"Under the auspices of {buddha['name']}, Buddha of the Fortunate Eon. "
-            f"Invoking the Yidam {yidam['name']} with the dharani: {yidam['dharani_mantra']}."
-        )
+        # Rich entity context — previously only name + dharani_mantra were
+        # injected, leaving the qualities/element/description/purpose fields
+        # loaded from sacred_entities.json silently discarded. These rich
+        # descriptions give the LLM the flavor it needs to write compelling,
+        # entity-specific invocations rather than generic mystical filler.
+        parts = [f"Under the auspices of {buddha['name']}, Buddha of the Fortunate Eon."]
+        if buddha.get("qualities"):
+            parts.append(f"  Qualities: {buddha['qualities']}")
+        if buddha.get("element"):
+            parts.append(f"  Elemental Nature: {buddha['element']}")
+
+        parts.append(f"Invoking the Yidam {yidam['name']} with the dharani: {yidam['dharani_mantra']}.")
+        if yidam.get("description"):
+            parts.append(f"  Nature: {yidam['description']}")
+        if yidam.get("purpose"):
+            parts.append(f"  Purpose: {yidam['purpose']}")
+
+        return " ".join(parts)
 
     def _debug_log_prompt(self, prompt: str, genre: str, lat: float, lon: float) -> str:
         """Write the full LLM prompt to a debug file and print summary to console."""
@@ -430,20 +477,34 @@ Generated Ritual:
         randomize_realm: bool = False,
         randomize_characters: bool = False,
         sensor_context: str | None = None,
+        natal_dt: datetime | None = None,
+        natal_location: tuple[float, float] | None = None,
     ) -> dict[str, Any]:
         """
         Generates a dense, 300-3000 token single-pass narrative outlook.
+
+        ``natal_dt`` and ``natal_location``: if provided, transit-to-natal
+        aspects are computed and injected into the astrology context so the
+        LLM can reference "Transit Saturn squares your natal Moon" rather
+        than only "Saturn is in Aries".
         """
         if randomize_realm and get_location_manager:
             active_locs = get_location_manager().get_active_locations()
             if active_locs:
-                realm_id = random.choice(active_locs).id
+                # Weighted random by priority — higher-priority sacred sites
+                # (Mount Kailash priority 8, Heavenly Court priority 10) are
+                # picked more often than lower-priority ones. Previously
+                # used unweighted random.choice giving equal odds to all.
+                weights = [max(getattr(l, "priority", 5), 1) for l in active_locs]
+                realm_id = random.choices(active_locs, weights=weights, k=1)[0].id
 
         if randomize_characters and get_character_manager:
             active_chars = get_character_manager().get_active_characters()
             if active_chars:
+                # Same weighted approach for characters.
+                weights = [max(getattr(c, "priority", 5), 1) for c in active_chars]
                 k = min(random.randint(2, 3), len(active_chars))
-                chosen = random.sample(active_chars, k)
+                chosen = random.choices(active_chars, weights=weights, k=k)
                 character_ids = [c.id for c in chosen]
         if realm_id and get_location_manager:
             loc = get_location_manager().get_location(realm_id)
@@ -454,7 +515,7 @@ Generated Ritual:
                     lon = loc.longitude
 
         astro_context = (
-            self._gather_astrology_context(lat, lon, date)
+            self._gather_astrology_context(lat, lon, date, natal_dt=natal_dt, natal_location=natal_location)
             if include_astrology
             else "The stars wheel in their ancient courses."
         )
@@ -481,6 +542,16 @@ Generated Ritual:
                     detailed_context.append(f"Governor / Guardian of this Realm: {loc.realm_governor}")
                 if loc.elemental_affinity:
                     detailed_context.append(f"Elemental Affinity: {loc.elemental_affinity}")
+                # Previously dropped — these fields give the LLM the
+                # astrological signature and contextual notes of the sacred
+                # site, e.g. "Saturn conjunct Midheaven" for Mount Kailash
+                # or "Primary Buddhist pure land" for Sukhavati.
+                astro_anchor = getattr(loc, "astrological_anchor", None)
+                if astro_anchor:
+                    detailed_context.append(f"Astrological Anchor: {astro_anchor}")
+                loc_notes = getattr(loc, "notes", None)
+                if loc_notes:
+                    detailed_context.append(f"Realm Notes: {loc_notes}")
 
         if character_ids and get_character_manager:
             char_texts = []
@@ -619,6 +690,8 @@ Length: 5-8 paragraphs of dense, visionary prose.
         randomize_realm: bool = False,
         randomize_characters: bool = False,
         sensor_context: str | None = None,
+        natal_dt: datetime | None = None,
+        natal_location: tuple[float, float] | None = None,
     ) -> dict[str, Any]:
         """
         Orchestrates a multi-stage (e.g. 9-12 stages) epic narrative outlook.
@@ -631,13 +704,20 @@ Length: 5-8 paragraphs of dense, visionary prose.
         if randomize_realm and get_location_manager:
             active_locs = get_location_manager().get_active_locations()
             if active_locs:
-                realm_id = random.choice(active_locs).id
+                # Weighted random by priority — higher-priority sacred sites
+                # (Mount Kailash priority 8, Heavenly Court priority 10) are
+                # picked more often than lower-priority ones. Previously
+                # used unweighted random.choice giving equal odds to all.
+                weights = [max(getattr(l, "priority", 5), 1) for l in active_locs]
+                realm_id = random.choices(active_locs, weights=weights, k=1)[0].id
 
         if randomize_characters and get_character_manager:
             active_chars = get_character_manager().get_active_characters()
             if active_chars:
+                # Same weighted approach for characters.
+                weights = [max(getattr(c, "priority", 5), 1) for c in active_chars]
                 k = min(random.randint(2, 3), len(active_chars))
-                chosen = random.sample(active_chars, k)
+                chosen = random.choices(active_chars, weights=weights, k=k)
                 character_ids = [c.id for c in chosen]
         if realm_id and get_location_manager:
             loc = get_location_manager().get_location(realm_id)
@@ -648,7 +728,7 @@ Length: 5-8 paragraphs of dense, visionary prose.
                     lon = loc.longitude
 
         astro_context = (
-            self._gather_astrology_context(lat, lon, date)
+            self._gather_astrology_context(lat, lon, date, natal_dt=natal_dt, natal_location=natal_location)
             if include_astrology
             else "The stars wheel in their ancient courses."
         )
@@ -674,6 +754,16 @@ Length: 5-8 paragraphs of dense, visionary prose.
                     detailed_context.append(f"Governor / Guardian of this Realm: {loc.realm_governor}")
                 if loc.elemental_affinity:
                     detailed_context.append(f"Elemental Affinity: {loc.elemental_affinity}")
+                # Previously dropped — these fields give the LLM the
+                # astrological signature and contextual notes of the sacred
+                # site, e.g. "Saturn conjunct Midheaven" for Mount Kailash
+                # or "Primary Buddhist pure land" for Sukhavati.
+                astro_anchor = getattr(loc, "astrological_anchor", None)
+                if astro_anchor:
+                    detailed_context.append(f"Astrological Anchor: {astro_anchor}")
+                loc_notes = getattr(loc, "notes", None)
+                if loc_notes:
+                    detailed_context.append(f"Realm Notes: {loc_notes}")
 
         if character_ids and get_character_manager:
             char_texts = []

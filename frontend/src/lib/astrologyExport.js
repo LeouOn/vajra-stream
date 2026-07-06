@@ -562,20 +562,32 @@ export function formatTransitReportMarkdown(data, options = {}) {
   sections.push(header);
 
   // --- Natal Placements ---------------------------------------------------
-  sections.push(['## Natal Placements', '', ...buildHouseTableLines(d.natal_houses)]);
+  sections.push(['## Natal Placements (Tropical / Western)', '', ...buildHouseTableLines(d.natal_houses)]);
 
   // --- Transit Placements -------------------------------------------------
-  sections.push(['## Transit Placements', '', ...buildHouseTableLines(d.transit_houses)]);
+  sections.push(['## Transit Placements (Tropical / Western)', '', ...buildHouseTableLines(d.transit_houses)]);
 
   // --- Harmonious / Challenging Transits ---------------------------------
   sections.push(['## Harmonious Transits', '', ...buildTransitListLines(d.top_harmonious)]);
   sections.push(['## Challenging Transits', '', ...buildTransitListLines(d.top_challenging)]);
 
+  // --- House Cusp Transits (separate bucket so cusps don't displace
+  //     planet-to-planet aspects in the harmonious / challenging top-10) ---
+  if (Array.isArray(d.top_cusp_transits) && d.top_cusp_transits.length > 0) {
+    sections.push(['## House Cusp Transits', '', ...buildTransitListLines(d.top_cusp_transits)]);
+  }
+
   // --- BaZi ---------------------------------------------------------------
   sections.push(['## BaZi', '', ...buildBaziLines(d.bazi_clashes)]);
 
   // --- Gochara ------------------------------------------------------------
-  sections.push(['## Gochara (from Natal Moon)', '', ...buildGocharaLines(d.gochara)]);
+  sections.push([
+    '## Gochara (from Natal Moon)',
+    '',
+    '_Sidereal (Lahiri ayanamsa). Houses are counted whole-sign from the natal Moon rashi, so the transit rashi names below may differ from the Tropical placements above by ~24\u00B0._',
+    '',
+    ...buildGocharaLines(d.gochara),
+  ]);
 
   return joinLines(sections);
 }

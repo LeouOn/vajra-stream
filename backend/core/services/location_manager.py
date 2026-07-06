@@ -202,7 +202,54 @@ class LocationManager:
         ]
         for loc in defaults:
             self.locations[loc.id] = loc
+        self._seed_holy_sites()
         self._save()
+
+    def _seed_holy_sites(self):
+        """Load real-world sacred sites from ``data/astrology_locations.json``.
+
+        The 10 holy sites (Kailash, Uluru, Stonehenge, Machu Picchu, Sinai,
+        Fuji, Varanasi, Sedona, Glastonbury Tor, Mount Shasta) previously
+        lived ONLY in the ``astrology_locations`` SQLite table — unreachable
+        by ``OutlookGenerator`` which queries ``LocationManager``. This method
+        bridges that gap by importing them into the same pool the ritual
+        generator uses for ``randomize_realm``.
+
+        Existing entries (by ``id``) are NOT overwritten — if the user has
+        already customised a location with the same id, their version wins.
+        """
+        try:
+            # Resolve path: data/astrology_locations.json relative to project root.
+            # __file__ is backend/core/services/location_manager.py, so project
+            # root is 3 parents up.
+            project_root = Path(__file__).resolve().parents[3]
+            holy_sites_path = project_root / "data" / "astrology_locations.json"
+            if not holy_sites_path.exists():
+                return
+            with open(holy_sites_path, encoding="utf-8") as f:
+                data = json.load(f)
+            for entry in data.get("locations", []):
+                if entry.get("category") != "sacred_site":
+                    continue  # skip astrocartography anchors
+                loc_id = entry["id"]
+                if loc_id in self.locations:
+                    continue  # don't overwrite existing
+                self.locations[loc_id] = NarrativeLocation(
+                    id=loc_id,
+                    name=entry["name"],
+                    description=entry.get("notes", entry["name"]),
+                    location_type=LocationType.EARTHLY_SACRED,
+                    source_type=LocationSourceType.GEOGRAPHIC,
+                    is_metaphysical=False,
+                    latitude=entry.get("lat"),
+                    longitude=entry.get("lon"),
+                    timezone=entry.get("timezone", "UTC"),
+                    priority=7,
+                    notes=entry.get("notes", ""),
+                    tags=entry.get("tags", []),
+                )
+        except Exception as e:
+            print(f"Warning: could not load holy sites from data/astrology_locations.json: {e}")
 
     def create_location(
         self,

@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import {
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload, Copy
 } from 'lucide-react';
-import { Card, Row, Col, Tag, Button, Space, Segmented, Switch, Tooltip, message } from 'antd';
+import { Card, Row, Col, Tag, Button, Space, Segmented, Switch, Tooltip, message, Select } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -17,7 +17,7 @@ import VedicPanchanga from './VedicPanchanga';
 import ChineseBaZi from './ChineseBaZi';
 
 // Always-visible sub-components — imported eagerly
-import SavedChartsDrawer from './SavedChartsDrawer';
+import SavedChartsDrawer, { type SavedChart } from './SavedChartsDrawer';
 import NatalCalculator from './NatalCalculator';
 import NatalChartWheel from './NatalChartWheel';
 import ErrorBoundary from './ErrorBoundary';
@@ -112,12 +112,12 @@ export default function AstrologyPanel() {
   const [piiEnabled, setPiiEnabled] = useState(true); // PII toggle for exports (default: ON = keep personal info)
 
   // Database-backed state
-  const [charts, setCharts] = useState([]);
-  const [activeChart, setActiveChart] = useState(null);
-  const [transitChart, setTransitChart] = useState(null);
-  const [subjectA, setSubjectA] = useState(null);
-  const [subjectB, setSubjectB] = useState(null);
-  const [editingChart, setEditingChart] = useState(null);
+  const [charts, setCharts] = useState<SavedChart[]>([]);
+  const [activeChart, setActiveChart] = useState<SavedChart | null>(null);
+  const [transitChart, setTransitChart] = useState<SavedChart | null>(null);
+  const [subjectA, setSubjectA] = useState<SavedChart | null>(null);
+  const [subjectB, setSubjectB] = useState<SavedChart | null>(null);
+  const [editingChart, setEditingChart] = useState<SavedChart | null>(null);
   
   // Navigation tabs: 'wheel' (Consolidated Charts), 'transits' (Transit aspect comparison), 'synastry' (Synastry matching)
   const [activeTab, setActiveTab] = useState('wheel');
@@ -545,7 +545,13 @@ export default function AstrologyPanel() {
       '木': 'Wood', '火': 'Fire', '土': 'Earth', '金': 'Metal', '水': 'Water'
     };
     
-    Object.values(activeData.chinese.bazi).forEach(val => {
+    // Defensive: backend fallback (when core/astrology.py import fails) returns
+    // a payload WITHOUT a `chinese` key. Guard so we don't crash the panel.
+    const baziValues = activeData?.chinese?.bazi
+      ? Object.values(activeData.chinese.bazi)
+      : [];
+    baziValues.forEach((val) => {
+      if (typeof val !== 'string') return;
       const match = val.match(/\(([^)]+)\)/);
       if (match && match[1]) {
         const elementsStr = match[1];
@@ -715,6 +721,27 @@ export default function AstrologyPanel() {
                       </Col>
                       <Col>
                         <Space size={8} align="center">
+                          {!isLiveMode && charts.length > 0 && (
+                            <Select
+                              size="small"
+                              value={activeChart?.id}
+                              onChange={(id) => {
+                                const picked = charts.find((c) => c.id === id);
+                                if (picked) {
+                                  setActiveChart(picked);
+                                  loadNatalChart(picked);
+                                  audioFeedback.playClick();
+                                }
+                              }}
+                              options={charts.map((c) => ({
+                                value: c.id,
+                                label: `${c.name} (${c.city})`,
+                              }))}
+                              placeholder="Switch natal chart"
+                              style={{ minWidth: 200 }}
+                              classNames={{ popup: { root: 'bg-gray-950 border-gray-800 text-white' } }}
+                            />
+                          )}
                           <span className="text-[10px] text-gray-500 font-mono">COORD: GEOCENTRIC</span>
                         </Space>
                       </Col>
@@ -921,7 +948,14 @@ export default function AstrologyPanel() {
             <div key="transits" className="animate-slide-up">
               <ErrorBoundary fallbackTitle="Transit comparison failed to load">
                 <Suspense fallback={<LazyFallback />}>
-                  <TransitComparison chart={transitChart || activeChart} />
+                  <TransitComparison
+                    chart={transitChart || activeChart}
+                    charts={charts}
+                    onSelectChart={(c) => {
+                      setTransitChart(c);
+                      audioFeedback.playSuccess();
+                    }}
+                  />
                 </Suspense>
               </ErrorBoundary>
             </div>
@@ -954,7 +988,7 @@ export default function AstrologyPanel() {
           {activeTab === 'advanced' && (
             <div key="advanced" className="animate-slide-up">
               <Suspense fallback={<LazyFallback />}>
-                <LazyAdvancedAstrology />
+                <LazyAdvancedAstrology activeChart={activeChart} />
               </Suspense>
             </div>
           )}

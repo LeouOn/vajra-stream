@@ -42,6 +42,10 @@ From the Cittamatra perspective, all phenomena arise from mind - the silicon cir
 ### Requirements
 - **Python**: 3.10 - 3.13 recommended (some optional packages don't support 3.14+ yet)
 - **OS**: Windows, Linux, or macOS
+- **Astrology deps (required for `/api/v1/astrology/*` endpoints)**:
+  - `pyswisseph>=2.10.3.2` — Swiss Ephemeris wheel; backs Western + Vedic calculations
+  - `lunar-python>=1.4.8` — Chinese lunisolar calendar; backs BaZi / Gochara / Sheng Xiao
+  - Both are listed in `requirements.txt`, `requirements-minimal.txt`, and `backend/requirements.txt`. Without them, `core/astrology.py` fails to import and every astrology endpoint degrades to a stub that omits the `western` / `indian` / `chinese` keys from the response payload. The `requirements-minimal.txt` install path includes them; if you install only `pyproject.toml`'s main dependencies, opt into the `astrology` extra: `pip install vajra-stream[astrology]`.
 
 ### Installation
 

@@ -11,6 +11,22 @@ import sqlite3
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+# Module-level guarded import — `core.astrology` does an unguarded
+# ``import swisseph as swe`` at module load time, so a missing ``pyswisseph``
+# wheel on the host (e.g. minimal install before the requirements fix)
+# would otherwise cause every endpoint below to 500. With this guard the
+# entire astrology router degrades gracefully: ``AstrologicalCalculator``
+# becomes ``None`` and each call site falls through to the same fallback
+# path that ``vajra_service._get_astrology_data`` uses when
+# ``self.astrology is None``. The previous shape had 18 *inline* copies
+# of this import scattered through the endpoints — refactored to one
+# module-level import with the same pattern as
+# ``backend/core/services/vajra_service.py:24-27``.
+try:
+    from core.astrology import AstrologicalCalculator
+except ImportError:
+    AstrologicalCalculator = None  # type: ignore[assignment,misc]
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -626,7 +642,6 @@ async def create_saved_chart(chart: SavedChartCreate):
         import pytz
         from dateutil import parser
 
-        from core.astrology import AstrologicalCalculator
 
         calc = AstrologicalCalculator()
         dt = parser.parse(chart.birth_time_iso)
@@ -709,7 +724,6 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
         import pytz
         from dateutil import parser
 
-        from core.astrology import AstrologicalCalculator
 
         calc = AstrologicalCalculator()
         dt = parser.parse(chart.birth_time_iso)
@@ -810,7 +824,6 @@ async def recalculate_chart(chart_id: int):
         import pytz
         from dateutil import parser
 
-        from core.astrology import AstrologicalCalculator
 
         calc = AstrologicalCalculator()
         dt = parser.parse(chart["birth_time_iso"])
@@ -861,7 +874,6 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
         import pytz
         from dateutil import parser
 
-        from core.astrology import AstrologicalCalculator
 
         calc = AstrologicalCalculator()
 
@@ -929,7 +941,6 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
         import pytz
         from dateutil import parser
 
-        from core.astrology import AstrologicalCalculator
 
         calc = AstrologicalCalculator()
 
@@ -954,12 +965,23 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
 
         sorted_aspects = sorted(western_aspects, key=lambda a: a.get("exactness", 0), reverse=True)
 
+        # Cusp aspects (natal_planet matches "house_N") are bucketed separately
+        # so they don't displace planet-to-planet aspects in the harmonious /
+        # challenging top-10 lists. Angles (ascendant, midheaven) stay in the
+        # main buckets because they are first-class chart points.
+        def _is_cusp_aspect(a: dict) -> bool:
+            natal_target = a.get("natal_planet", "")
+            return isinstance(natal_target, str) and natal_target.startswith("house_")
+
         top_harmonious = [
-            a for a in sorted_aspects if a.get("aspect") in HARMONIOUS_ASPECTS
+            a for a in sorted_aspects
+            if a.get("aspect") in HARMONIOUS_ASPECTS and not _is_cusp_aspect(a)
         ][:10]
         top_challenging = [
-            a for a in sorted_aspects if a.get("aspect") in CHALLENGING_ASPECTS
+            a for a in sorted_aspects
+            if a.get("aspect") in CHALLENGING_ASPECTS and not _is_cusp_aspect(a)
         ][:10]
+        top_cusp_transits = [a for a in sorted_aspects if _is_cusp_aspect(a)][:10]
 
         return {
             "status": "success",
@@ -971,6 +993,7 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
                 "transit_houses": transit_houses,
                 "top_harmonious": top_harmonious,
                 "top_challenging": top_challenging,
+                "top_cusp_transits": top_cusp_transits,
                 "gochara": gochara,
                 "bazi_clashes": bazi_transits,
                 "house_systems": ["Placidus", "Whole Sign"],
@@ -1007,7 +1030,6 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
         import pytz
         from dateutil import parser
 
-        from core.astrology import AstrologicalCalculator
 
         calc = AstrologicalCalculator()
 
@@ -1084,7 +1106,6 @@ async def get_chart_vedic_dasha(chart_id: int):
         import pytz
         from dateutil import parser
 
-        from core.astrology import AstrologicalCalculator
 
         calc = AstrologicalCalculator()
         birth_dt = parser.parse(chart["birth_time_iso"])
@@ -1227,8 +1248,6 @@ async def import_saved_charts(req: dict):
                     import pytz
                     from dateutil import parser
 
-                    from core.astrology import AstrologicalCalculator
-
                     calc = AstrologicalCalculator()
                     dt = parser.parse(birth_time_iso)
                     if dt.tzinfo is None:
@@ -1365,7 +1384,6 @@ class AstrocartographyRequest(BaseModel):
 async def post_lots(req: LotsRequest):
     """Hellenistic lots (Fortune, Spirit, Eros, Necessity, Courage, Victory, Nemesis)."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
@@ -1382,7 +1400,6 @@ async def post_lots(req: LotsRequest):
 async def post_midpoints(req: OrbRequest):
     """Midpoint of every pair of 10 planets (45 midpoints)."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
@@ -1399,7 +1416,6 @@ async def post_midpoints(req: OrbRequest):
 async def post_antiscia(req: DateLocationRequest):
     """Antiscion + contrantiscion for each of the 10 planets."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
@@ -1416,7 +1432,6 @@ async def post_antiscia(req: DateLocationRequest):
 async def post_fixed_stars(req: OrbRequest):
     """Royal stars + Spica/Algol/Sirius with precession-adjusted longitudes."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
@@ -1433,7 +1448,6 @@ async def post_fixed_stars(req: OrbRequest):
 async def post_secondary_progressions(req: SecondaryProgressionsRequest):
     """Day-for-year secondary progressions with progressed Moon phase."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         natal_dt = _parse_dt(req.natal_date_iso)
         target_dt = _parse_dt(req.target_date_iso)
@@ -1451,7 +1465,6 @@ async def post_secondary_progressions(req: SecondaryProgressionsRequest):
 async def post_solar_return(req: SolarReturnRequest):
     """Solar return chart for the given year at natal or relocated location."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         natal_dt = _parse_dt(req.natal_date_iso)
         return_loc = None
@@ -1476,7 +1489,6 @@ async def post_solar_return(req: SolarReturnRequest):
 async def post_profection(req: ProfectionRequest):
     """Annual profection: profected Asc sign + lord for the target year."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         natal_dt = _parse_dt(req.natal_date_iso)
         calc = AstrologicalCalculator()
@@ -1493,7 +1505,6 @@ async def post_profection(req: ProfectionRequest):
 async def post_solar_arc(req: SolarArcRequest):
     """Solar arc directions: every natal body shifted by progressed Sun - natal Sun."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         natal_dt = _parse_dt(req.natal_date_iso)
         target_dt = _parse_dt(req.target_date_iso)
@@ -1511,7 +1522,6 @@ async def post_solar_arc(req: SolarArcRequest):
 async def post_year_ahead(req: YearAheadRequest):
     """Year-ahead transit timeline: lunations, ingresses, transits-to-natal."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         natal_dt = _parse_dt(req.natal_date_iso)
         start_dt = _parse_dt(req.start_date_iso) if req.start_date_iso else None
@@ -1536,7 +1546,6 @@ async def post_year_ahead(req: YearAheadRequest):
 async def post_astrocartography(req: AstrocartographyRequest):
     """Astrocartography lines: AC/DC/MC/IC per planet (coarse, step_degrees sampling)."""
     try:
-        from core.astrology import AstrologicalCalculator
 
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()

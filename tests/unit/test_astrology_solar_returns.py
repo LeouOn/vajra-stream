@@ -2,7 +2,12 @@
 
 from datetime import datetime, timezone
 
-from core.astrology import AstrologicalCalculator
+import pytest
+
+# Skip cleanly when ``swisseph`` is missing — see tests/unit/test_astrology.py.
+swisseph = pytest.importorskip("swisseph")
+
+from core.astrology import AstrologicalCalculator  # noqa: E402  (guarded by importorskip)
 
 
 def test_imports():

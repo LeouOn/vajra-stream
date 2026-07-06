@@ -18,13 +18,31 @@ export default function EpicStoryViewer({
 }) {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
 
-  const allText = (narrativeParts || [])
+  // Defensive normalization — the OutlookDashboard.tsx:129 type union permits
+  // ``narrative_parts?: string[] | string`` because the backend's `/history`
+  // endpoint at outlook.py:234-238 falls back to the raw JSON string when
+  // ``json.loads(row["content"])`` fails. Without this guard, a string value
+  // crashes at line 96 below (``narrativeParts.map is not a function``) —
+  // same crash class as the AstrologyExtractionPanel replay-tab bug.
+  // If we get a string, wrap it as a single chapter so the user sees the
+  // raw text rather than a broken UI.
+  // Use ``any[]`` here because the backend's epic shape is ``{chapter, title,
+  // content}`` but the type union in the parent only declares ``string[] | string``;
+  // we don't want to tighten the parent type and break call sites.
+  const rawParts: unknown = narrativeParts;
+  const parts: any[] = Array.isArray(rawParts)
+    ? rawParts
+    : (typeof rawParts === 'string' && (rawParts as string).length > 0
+        ? [rawParts]
+        : []);
+
+  const allText = parts
     .map(p => (typeof p === 'object' && p ? p.content : '') || '')
     .filter(Boolean)
     .join('\n\n');
-  const currentText = narrativeParts[currentChapterIndex]?.content || '';
+  const currentText = parts[currentChapterIndex]?.content || '';
 
-  if (!narrativeParts || narrativeParts.length === 0) {
+  if (parts.length === 0) {
     return (
       <div className="p-8 text-center text-gray-500 italic">
         No epic narrative chapters loaded.
@@ -32,7 +50,7 @@ export default function EpicStoryViewer({
     );
   }
 
-  const currentChapter = narrativeParts[currentChapterIndex];
+  const currentChapter = parts[currentChapterIndex];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
@@ -71,7 +89,7 @@ export default function EpicStoryViewer({
                 showAdvanced
               />
               <div className="text-xs bg-purple-950/50 text-purple-300 px-3 py-1 rounded-full border border-purple-500/20 font-mono">
-                Stage {currentChapterIndex + 1} of {narrativeParts.length}
+                Stage {currentChapterIndex + 1} of {parts.length}
               </div>
             </div>
           </div>
@@ -93,7 +111,7 @@ export default function EpicStoryViewer({
           </button>
 
           <div className="flex gap-1.5 overflow-x-auto max-w-xs py-1">
-            {narrativeParts.map((_, idx) => (
+            {parts.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentChapterIndex(idx)}
@@ -108,8 +126,8 @@ export default function EpicStoryViewer({
           </div>
 
           <button
-            onClick={() => setCurrentChapterIndex(prev => Math.min(narrativeParts.length - 1, prev + 1))}
-            disabled={currentChapterIndex === narrativeParts.length - 1}
+            onClick={() => setCurrentChapterIndex(prev => Math.min(parts.length - 1, prev + 1))}
+            disabled={currentChapterIndex === parts.length - 1}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-cyan-600 to-teal-600 text-white hover:from-cyan-700 hover:to-teal-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           >
             Next Stage

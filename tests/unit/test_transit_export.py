@@ -4,7 +4,10 @@ import pytest
 import pytz
 from fastapi.testclient import TestClient
 
-from core.astrology import AstrologicalCalculator
+# Skip cleanly when ``swisseph`` is missing — see tests/unit/test_astrology.py.
+swisseph = pytest.importorskip("swisseph")
+
+from core.astrology import AstrologicalCalculator  # noqa: E402  (guarded by importorskip)
 
 EXPECTED_PLANETS = [
     "sun", "moon", "mercury", "venus", "mars",
@@ -136,7 +139,7 @@ class TestTransitExportEndpoint:
             expected_fields = [
                 "name", "birth_time_iso", "transit_time",
                 "natal_houses", "transit_houses",
-                "top_harmonious", "top_challenging",
+                "top_harmonious", "top_challenging", "top_cusp_transits",
                 "gochara", "bazi_clashes", "house_systems",
             ]
             for field in expected_fields:
@@ -145,6 +148,7 @@ class TestTransitExportEndpoint:
             assert data["house_systems"] == ["Placidus", "Whole Sign"]
             assert isinstance(data["top_harmonious"], list)
             assert isinstance(data["top_challenging"], list)
+            assert isinstance(data["top_cusp_transits"], list)
         finally:
             client.delete(f"/api/v1/astrology/charts/{chart_id}")
 
@@ -180,6 +184,42 @@ class TestTransitExportEndpoint:
             if len(challenging) > 1:
                 for i in range(len(challenging) - 1):
                     assert challenging[i]["exactness"] >= challenging[i + 1]["exactness"]
+        finally:
+            client.delete(f"/api/v1/astrology/charts/{chart_id}")
+
+    def test_transit_export_cusps_separated_from_main_buckets(self, client):
+        """House-cusp aspects must live in their own ``top_cusp_transits`` bucket
+        and NOT contaminate ``top_harmonious`` / ``top_challenging``. Angles
+        (ascendant, midheaven) stay in the main buckets because they are
+        first-class chart points rather than intermediate cusps."""
+        chart_id = _create_test_chart(client)
+        try:
+            resp = client.post(
+                f"/api/v1/astrology/charts/{chart_id}/transit-export",
+                json={"transit_time_iso": "2026-06-01T12:00:00"},
+            )
+            assert resp.status_code == 200
+            data = resp.json()["data"]
+
+            for bucket_name in ("top_harmonious", "top_challenging"):
+                for asp in data[bucket_name]:
+                    natal_target = asp.get("natal_planet", "")
+                    assert not (
+                        isinstance(natal_target, str) and natal_target.startswith("house_")
+                    ), (
+                        f"{bucket_name} should not contain cusp aspects; "
+                        f"found {natal_target!r}"
+                    )
+
+            # Every entry in top_cusp_transits MUST be a cusp aspect.
+            for asp in data["top_cusp_transits"]:
+                natal_target = asp.get("natal_planet", "")
+                assert isinstance(natal_target, str) and natal_target.startswith("house_"), (
+                    f"top_cusp_transits should only contain cusp aspects; "
+                    f"found {natal_target!r}"
+                )
+
+            assert len(data["top_cusp_transits"]) <= 10
         finally:
             client.delete(f"/api/v1/astrology/charts/{chart_id}")
 

@@ -144,7 +144,20 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
     setLoading(true);
     try {
       const r = await fetch(`/api/v1/astrology/runs`);
-      if (r.ok) setRuns(await r.json());
+      if (r.ok) {
+        // Backend wraps the list in a {limit, offset, total, runs: [...]}
+        // envelope. Unwrap defensively — if the shape ever drifts (error
+        // payload, validation error, empty 204) we fall back to [] instead
+        // of crashing the antd <Table> with "runs.some is not a function"
+        // (Table calls .some/.map on dataSource internally).
+        const payload = await r.json();
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.runs)
+            ? payload.runs
+            : [];
+        setRuns(list);
+      }
     } catch (e: unknown) {
       const err = e as Error;
       message.error('Failed to load runs: ' + err.message);

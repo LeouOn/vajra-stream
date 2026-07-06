@@ -2,9 +2,15 @@
  * AdvancedAstrologyPanel — exposes 10 hidden backend astrology endpoints
  * (Solar Return, Progressions, Year Ahead, Profection, Solar Arc,
  *  Astrocartography, Lots, Fixed Stars, Midpoints, Antiscia) behind a
- * single tabbed UI. Self-contained — no props, no parent data needed.
+ *  single tabbed UI.
+ *
+ * Optional ``activeChart`` prop: when the parent (AstrologyPanel) has a
+ * chart selected in the wheel tab above, pass it down here so the user
+ * doesn't have to re-type natal data. Falls back to the previous hardcoded
+ * defaults (NYC 1990-01-01) when no chart is selected — preserves
+ * backward compatibility for any caller that mounts this without a parent.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Card, Segmented, Button, Input, InputNumber, Select, Tag, message,
   Row, Col, Space,
@@ -14,6 +20,7 @@ import {
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { createLogger } from '../../utils/logger';
+import type { SavedChart } from './SavedChartsDrawer';
 
 const log = createLogger('AdvancedAstrologyPanel');
 
@@ -68,22 +75,69 @@ interface FormState {
 
 const NOW_YEAR = new Date().getFullYear();
 
+// datetime-local input format: ``YYYY-MM-DDTHH:mm`` (16 chars, no seconds, no tz).
+// Backend's ``toIso`` (line 96) appends ``:00`` seconds before sending.
+const toDatetimeLocal = (d: Date): string => d.toISOString().slice(0, 16);
+
+// Defaults for the year-ahead range — previously both fields were empty
+// strings, which silently fell through to the backend's "natal_dt as
+// start, +365 days as end" default. That made the UI confusing because
+// the empty inputs didn't communicate what would actually be queried.
+// Now we default to ``now`` → ``now + 1 year`` so the user sees exactly
+// what window will be scanned.
+const todayForDefaults = new Date();
+const nextYearForDefaults = new Date(todayForDefaults);
+nextYearForDefaults.setFullYear(todayForDefaults.getFullYear() + 1);
+const DEFAULT_START_ISO = toDatetimeLocal(todayForDefaults);
+const DEFAULT_END_ISO = toDatetimeLocal(nextYearForDefaults);
+
 const initialState: FormState = {
   natal_date_iso: '1990-01-01T12:00',
   natal_lat: 40.7128,
   natal_lon: -74.0060,
-  date_iso: new Date().toISOString().slice(0, 16),
+  date_iso: toDatetimeLocal(new Date()),
   lat: 40.7128,
   lon: -74.0060,
   return_year: NOW_YEAR + 1,
   target_year: NOW_YEAR + 1,
-  target_date_iso: new Date().toISOString().slice(0, 16),
-  start_date_iso: '',
-  end_date_iso: '',
+  target_date_iso: toDatetimeLocal(new Date()),
+  start_date_iso: DEFAULT_START_ISO,
+  end_date_iso: DEFAULT_END_ISO,
   step_degrees: 5.0,
   orb: 1.0,
   sect: 'day',
 };
+
+/**
+ * Build a partial FormState override from a SavedChart — only the natal
+ * fields that exist on the chart are returned; missing fields fall through
+ * to ``initialState`` via the spread in the caller.
+ *
+ * The SavedChart interface types ``latitude``/``longitude`` as ``unknown``
+ * via the catch-all ``[key: string]: unknown`` index signature, so we
+ * coerce defensively. The backend always persists them as floats.
+ */
+function formOverrideFromChart(chart: SavedChart | null | undefined): Partial<FormState> {
+  if (!chart) return {};
+  const out: Partial<FormState> = {};
+  if (typeof chart.birth_time_iso === 'string' && chart.birth_time_iso.length > 0) {
+    // datetime-local wants YYYY-MM-DDTHH:mm (16 chars). Backend stores
+    // full ISO 8601 with seconds + tz offset; slice works for both
+    // ``1990-01-06T12:00:00+00:00`` and ``1990-01-06T12:00`` shapes.
+    out.natal_date_iso = chart.birth_time_iso.slice(0, 16);
+  }
+  const lat = chart.latitude;
+  if (typeof lat === 'number' && Number.isFinite(lat)) {
+    out.natal_lat = lat;
+    out.lat = lat;
+  }
+  const lon = chart.longitude;
+  if (typeof lon === 'number' && Number.isFinite(lon)) {
+    out.natal_lon = lon;
+    out.lon = lon;
+  }
+  return out;
+}
 
 // Iso-8601 normalization: datetime-local produces YYYY-MM-DDTHH:mm.
 // Backend pydantic accepts that, but we add :00 seconds for symmetry.
@@ -135,8 +189,8 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
       return body;
     },
     extraFields: [
-      { key: 'start_date_iso', label: 'Start Date (optional)', type: 'datetime' },
-      { key: 'end_date_iso', label: 'End Date (optional)', type: 'datetime' },
+      { key: 'start_date_iso', label: 'Start Date', type: 'datetime' },
+      { key: 'end_date_iso', label: 'End Date', type: 'datetime' },
       { key: 'orb', label: 'Orb (degrees)', type: 'number', defaultValue: 1.0, step: 0.1 },
     ],
   },
@@ -232,12 +286,39 @@ const USES_TRANSIT_LOCATION = new Set<TechniqueKey>([
   'lots', 'fixed-stars', 'midpoints', 'antiscia',
 ]);
 
-const AdvancedAstrologyPanel: React.FC = () => {
+interface AdvancedAstrologyPanelProps {
+  /** When the parent AstrologyPanel has a chart selected in the wheel tab,
+   *  pass it here so the user doesn't have to re-type natal data. Falls
+   *  back to the hardcoded defaults (NYC 1990-01-01) when null/undefined. */
+  activeChart?: SavedChart | null;
+}
+
+const AdvancedAstrologyPanel: React.FC<AdvancedAstrologyPanelProps> = ({ activeChart }) => {
   const [technique, setTechnique] = useState<TechniqueKey>('solar-return');
-  const [form, setForm] = useState<FormState>(initialState);
+  const [form, setForm] = useState<FormState>(() => ({
+    ...initialState,
+    ...formOverrideFromChart(activeChart),
+  }));
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Re-sync natal fields when the parent's active chart changes (e.g. user
+  // picks a different chart in the wheel tab above). Only touches the
+  // natal_* fields — leaves technique-specific fields (orb, step_degrees,
+  // return_year, etc.) alone so the user's in-flight edits aren't lost.
+  // Keying on activeChart?.id (not the object reference) avoids re-runs
+  // when the parent re-renders with a new object for the same chart.
+  const activeChartId = activeChart?.id;
+  useEffect(() => {
+    if (!activeChartId) return;
+    setForm((prev) => ({
+      ...prev,
+      ...formOverrideFromChart(activeChart),
+    }));
+    audioFeedback.playClick();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChartId]);
 
   const updateField = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -360,6 +441,27 @@ const AdvancedAstrologyPanel: React.FC = () => {
             </span>
           }
         >
+          {/* Data-source banner — tells the user whether the natal fields
+              above were pre-filled from the wheel tab's active chart or
+              are using the default (NYC 1990-01-01). When a chart is
+              active, also shows its name so the user can confirm they
+              picked the right one. */}
+          {activeChart ? (
+            <div className="mb-3 p-2 rounded-lg bg-cyan-950/30 border border-cyan-500/20 flex items-center gap-2">
+              <Compass className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+              <span className="text-[10px] text-cyan-300 font-mono">
+                Pre-filled from active chart: <strong>{activeChart.name}</strong>
+                {activeChart.city ? ` (${activeChart.city})` : ''}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-3 p-2 rounded-lg bg-amber-950/30 border border-amber-500/20 flex items-center gap-2">
+              <MapPin className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <span className="text-[10px] text-amber-300 font-mono">
+                Using default natal data — select a chart in the wheel tab above to pre-fill.
+              </span>
+            </div>
+          )}
           <Row gutter={[12, 12]}>
             <Col xs={24} md={12}>
               <label className="text-[10px] text-gray-400 font-mono block uppercase mb-1">Birth Date / Time</label>

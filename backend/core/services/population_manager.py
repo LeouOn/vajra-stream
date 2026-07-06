@@ -131,6 +131,8 @@ class PopulationManager:
         self.storage_path = storage_path
         self.populations: dict[str, TargetPopulation] = {}
         self._load()
+        if not self.populations:
+            self._seed_knowledge_populations()
 
     def _load(self):
         """Load populations from JSON file"""
@@ -148,6 +150,52 @@ class PopulationManager:
 
         except Exception as e:
             print(f"Error loading populations: {e}")
+
+    def _seed_knowledge_populations(self):
+        """Seed the ~58 blessing targets from ``knowledge/blessing_populations/*.json``.
+
+        These files contain deeply-written compassion targets (Hungry Ghosts,
+        Bardo beings, Genocide victims, Land Spirits at Destroyed Sacred Sites,
+        etc.) that were previously orphaned — they existed as static knowledge
+        but were never loaded into the PopulationManager, so the OutlookGenerator
+        could not reference them. Now they are available for ``randomize`` and
+        manual selection alongside any user-created populations.
+        """
+        try:
+            project_root = Path(__file__).resolve().parents[3]
+            knowledge_dir = project_root / "knowledge" / "blessing_populations"
+            if not knowledge_dir.exists():
+                return
+            for json_file in sorted(knowledge_dir.glob("*.json")):
+                try:
+                    with open(json_file, encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception:
+                    continue
+                file_stem = json_file.stem
+                for target in data.get("targets", []):
+                    pop_id = f"kp_{file_stem}_{target.get('name', 'unknown')[:30].replace(' ', '_').lower()}"
+                    if pop_id in self.populations:
+                        continue
+                    intentions = []
+                    raw_intention = target.get("intention", "")
+                    if raw_intention:
+                        intentions = [raw_intention]
+                    self.populations[pop_id] = TargetPopulation(
+                        id=pop_id,
+                        name=target.get("name", "Unknown"),
+                        description=target.get("description", ""),
+                        category=PopulationCategory.CUSTOM,
+                        source_type=SourceType.MANUAL,
+                        intentions=intentions or ["love", "healing", "peace"],
+                        priority=target.get("priority", 5),
+                        is_urgent=target.get("priority", 5) >= 9,
+                        notes=target.get("additional_data", "") if isinstance(target.get("additional_data"), str) else json.dumps(target.get("additional_data", {})) if target.get("additional_data") else "",
+                        tags=target.get("category", "").split() if target.get("category") else [],
+                    )
+            self._save()
+        except Exception as e:
+            print(f"Warning: could not seed knowledge populations: {e}")
 
     def _save(self):
         """Save populations to JSON file"""

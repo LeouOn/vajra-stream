@@ -41,5 +41,13 @@ aiofiles>=0.8.0  # For async file operations
 python-multipart>=0.0.6  # For file uploads
 pytz>=2023.3  # For timezone handling
 
+# Astrology engine — required by /api/v1/astrology/* endpoints
+# core/astrology.py does an unguarded ``import swisseph as swe`` at module
+# load, so a minimal install without these breaks all astrology endpoints
+# (with HTTP 500) and triggers the silent fallback in vajra_service that
+# omits the entire ``indian`` / ``chinese`` / ``western`` payload keys.
+pyswisseph>=2.10.3.2  # Swiss Ephemeris — required for Western + Vedic calc
+lunar-python>=1.4.8  # Chinese calendar / BaZi / Gochara — required for Chinese calc
+
 # To install full system with all features:
 # pip install -r requirements.txt

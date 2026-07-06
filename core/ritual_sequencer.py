@@ -51,6 +51,12 @@ class RitualState:
     invocation_narrative: str = ""
     astrology_results: dict[str, Any] = field(default_factory=dict)
     divination_results: dict[str, Any] = field(default_factory=dict)
+    # Raw divination data (merged with radionics rates + sigil coordinates)
+    # and the sacred-entity invocation text — both returned by
+    # generate_single_outlook but previously NOT captured by execute_ritual,
+    # so the broadcast loop wrote empty values into the DB.
+    divination_raw: dict[str, Any] = field(default_factory=dict)
+    entities_used: str = ""
     genre: str = "healing"
 
     def to_dict(self) -> dict[str, Any]:
@@ -185,8 +191,16 @@ class RitualSequencer:
                         lat=lat, lon=lon, genre=self.state.genre, custom_context=self.state.intention
                     )
                     self.state.invocation_narrative = res.get("narrative", "")
-                    self.state.astrology_results = res.get("astrology", {})
-                    self.state.divination_results = res.get("divination", {})
+                    # Key mismatch: generate_single returns ``astrology_used``
+                    # and ``divination_used``, NOT ``astrology`` / ``divination``.
+                    # The previous keys silently returned ``{}`` every time.
+                    self.state.astrology_results = res.get("astrology_used", res.get("astrology", {}))
+                    self.state.divination_results = res.get("divination_used", res.get("divination", {}))
+                    # Also capture the raw divination data (with merged
+                    # radionics rates + sigil coords) and the entity
+                    # invocation text so the broadcast loop can persist them.
+                    self.state.divination_raw = res.get("divination_raw", {})
+                    self.state.entities_used = res.get("entities_used", "")
 
             elif current == RitualPhase.BROADCAST:
                 if self.event_bus:

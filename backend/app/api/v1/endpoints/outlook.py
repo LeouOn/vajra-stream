@@ -7,6 +7,7 @@ on their birth chart, current transits, and divination results.
 """
 
 import json
+import logging
 import os
 import sqlite3
 from datetime import datetime
@@ -19,6 +20,8 @@ from pydantic import BaseModel, Field
 from backend.app.config import settings
 from backend.core.services.character_manager import CharacterRole, CharacterSourceType, get_character_manager
 from backend.core.services.location_manager import LocationSourceType, LocationType, get_location_manager
+
+logger = logging.getLogger(__name__)
 
 # Assume container handles our DI
 from container import container
@@ -106,6 +109,7 @@ async def generate_single(request: OutlookRequest):
         )
 
         # Save to database
+        db_save_error: str | None = None
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -134,7 +138,19 @@ async def generate_single(request: OutlookRequest):
             result["id"] = inserted_id
             conn.close()
         except Exception as db_err:
-            print(f"Error saving outlook to db: {db_err}")
+            # Previously swallowed silently with a bare ``print`` — the
+            # frontend received HTTP 200 with no ``id`` and could not tell
+            # the save failed. Now we surface the failure as a flag on the
+            # response payload so the client can warn the user that the
+            # narrative was generated but not persisted.
+            logger.warning("Outlook single save failed: %s", db_err)
+            db_save_error = str(db_err)
+
+        if db_save_error:
+            result["persisted"] = False
+            result["persist_error"] = db_save_error
+        else:
+            result["persisted"] = True
 
         return result
     except Exception as e:
@@ -195,7 +211,15 @@ async def generate_epic(request: EpicOutlookRequest):
             result["id"] = inserted_id
             conn.close()
         except Exception as db_err:
-            print(f"Error saving epic outlook to db: {db_err}")
+            # Previously swallowed silently — see /generate_single for the
+            # rationale. Surface as ``persisted: False`` + ``persist_error``
+            # so the client can warn that the epic was generated but not
+            # persisted to the history list.
+            logger.warning("Outlook epic save failed: %s", db_err)
+            result["persisted"] = False
+            result["persist_error"] = str(db_err)
+        else:
+            result["persisted"] = True
 
         return result
     except Exception as e:
@@ -284,6 +308,14 @@ class OutlookSpeakRequest(BaseModel):
     )
     project_id: str | None = Field(default=None, description="Project id for per-project speaker overrides")
     chunk_max_chars: int = Field(default=900, description="Max characters per chunk for long narratives")
+    voice_preset: str | None = Field(
+        default=None,
+        description=(
+            "Qwen3-TTS voice design preset name (Qwen backend only). "
+            "Options: compassionate_bodhisattva, meditation_master, "
+            "sutra_chanter, zen_teacher, english_sacred."
+        ),
+    )
 
 
 @router.post("/speak", summary="Speak a generated outlook narrative via TTS")
@@ -307,11 +339,29 @@ async def speak_narrative(request: OutlookSpeakRequest):
     try:
         # Pick a sensible default role based on the front-end flag
         role = request.role or "outlook_narrative"
+
+        # Strip markdown before TTS — previously headings (#), bold (**),
+        # italic (*), code (``), and list markers (- / * / 1.) were read
+        # aloud literally by both Edge TTS and Qwen3-TTS, producing
+        # garbled-sounding narration like "hash hash hash Invocatio".
+        import re
+
+        def _strip_markdown(s: str) -> str:
+            s = re.sub(r"^#{1,6}\s+", "", s, flags=re.MULTILINE)  # headings
+            s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)  # bold
+            s = re.sub(r"\*(.+?)\*", r"\1", s)  # italic
+            s = re.sub(r"__(.+?)__", r"\1", s)  # underline
+            s = re.sub(r"`(.+?)`", r"\1", s)  # inline code
+            s = re.sub(r"^\s*[-*+]\s+", "", s, flags=re.MULTILINE)  # bullet lists
+            s = re.sub(r"^\s*\d+\.\s+", "", s, flags=re.MULTILINE)  # numbered lists
+            s = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", s)  # links → text
+            return s
+
+        text = _strip_markdown(request.text).strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Empty narrative text after markdown stripping")
         # Chunk the text on paragraph boundaries; cap chunk size
         chunks: list[str] = []
-        text = request.text.strip()
-        if not text:
-            raise HTTPException(status_code=400, detail="Empty narrative text")
         # Try paragraph-aware splitting first
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
         current = ""
@@ -333,19 +383,46 @@ async def speak_narrative(request: OutlookSpeakRequest):
         if not chunks:
             chunks = [text[: request.chunk_max_chars]]
 
+        # Resolve voice design preset → instruct string for Qwen3-TTS.
+        # The 5 presets (compassionate_bodhisattva, meditation_master, etc.)
+        # were defined in core/qwen_tts.py but unreachable from /speak.
+        instruct_text: str | None = None
+        if request.voice_preset:
+            try:
+                from core.qwen_tts import VOICE_DESIGN_PRESETS
+
+                preset = VOICE_DESIGN_PRESETS.get(request.voice_preset)
+                if preset:
+                    instruct_text = preset.get("instruct")
+                    if preset.get("language") and not request.language:
+                        request.language = preset["language"]
+            except Exception:
+                pass  # preset lookup is best-effort
+
         # Render all chunks and concatenate
         all_audio: list[bytes] = []
         mime_type = "audio/mpeg"
         backend_id = provider.active_backend.value
-        for chunk in chunks:
+        for chunk_idx, chunk in enumerate(chunks):
             result = await provider.speak_stream(
                 text=chunk,
                 voice=request.voice,
                 rate=request.rate,
                 language=request.language,
                 role=role,
+                instruct=instruct_text,
             )
             if result is None:
+                # Previously silently skipped — now logged so operators can
+                # diagnose partial TTS failures (missing audio gaps the user
+                # hears as silent sections in the narration).
+                logger.warning(
+                    "TTS chunk %d/%d returned None (backend=%s, chars=%d)",
+                    chunk_idx + 1,
+                    len(chunks),
+                    backend_id,
+                    len(chunk),
+                )
                 continue
             audio_bytes, mtype, bid = result
             mime_type = mtype

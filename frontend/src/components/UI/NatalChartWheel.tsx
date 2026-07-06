@@ -309,7 +309,9 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
           })}
 
           <AngleMark name="ascendant" longitude={positions.ascendant.longitude} ascLon={ascLon} label="ASC" color="#22d3ee" />
-          <AngleMark name="midheaven" longitude={positions.midheaven.longitude} ascLon={ascLon} label="MC" color="#22d3ee" />
+          {positions.midheaven && (
+            <AngleMark name="midheaven" longitude={positions.midheaven.longitude} ascLon={ascLon} label="MC" color="#22d3ee" />
+          )}
           <AngleMark
             name="dcs"
             longitude={(positions.ascendant.longitude + 180) % 360}
@@ -317,13 +319,15 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
             label="DSC"
             color="#22d3ee"
           />
-          <AngleMark
-            name="ic"
-            longitude={(positions.midheaven.longitude + 180) % 360}
-            ascLon={ascLon}
-            label="IC"
-            color="#22d3ee"
-          />
+          {positions.midheaven && (
+            <AngleMark
+              name="ic"
+              longitude={(positions.midheaven.longitude + 180) % 360}
+              ascLon={ascLon}
+              label="IC"
+              color="#22d3ee"
+            />
+          )}
 
           {planetEntries.map(([pname, info], idx) => {
             const ringOffset = (idx % 3);

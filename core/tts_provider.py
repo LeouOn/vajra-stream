@@ -363,6 +363,7 @@ class TTSProvider:
         rate: str | None = None,
         language: str | None = None,
         role: str | None = None,
+        instruct: str | None = None,
     ) -> tuple[bytes, str, str] | None:
         """
         Generate speech and return (audio_bytes, mime_type, backend_id).
@@ -372,6 +373,13 @@ class TTSProvider:
 
         - Edge TTS → audio/mpeg
         - Qwen3-TTS → audio/wav (raw PCM wrapped in a WAV header)
+
+        ``instruct`` is forwarded to Qwen3-TTS's VoiceDesign model when
+        present — this unlocks the 5 ritual voice presets defined in
+        ``core/qwen_tts.py:VOICE_DESIGN_PRESETS`` (compassionate_bodhisattva,
+        meditation_master, sutra_chanter, zen_teacher, english_sacred).
+        Previously these presets existed but were unreachable from the
+        ``/speak`` endpoint.
         """
         backend = self.active_backend
         edge_v, qwen_s = self._resolve_voice(voice, role)
@@ -384,6 +392,7 @@ class TTSProvider:
                 text=text,
                 speaker=qwen_s,
                 language=language or self.config.qwen_language,
+                instruct=instruct or "",
             )
             if result is None:
                 return None

@@ -44,20 +44,11 @@ export default function NarrativeTTSPlayer({
   const [volume, setVolume] = useState<number>(0.85);
   const lastTextRef = useRef<string | null>(null);
 
-  // Stop + cleanup on unmount
-  useEffect(() => {
-    return () => stopAndCleanup();
-  }, [stopAndCleanup]);
-
-  // Auto-speak when the narrative text changes
-  useEffect(() => {
-    if (!autoSpeak) return;
-    if (!text) return;
-    if (text === lastTextRef.current) return;
-    lastTextRef.current = text;
-    handleSpeak();
-  }, [text, autoSpeak, handleSpeak]);
-
+  // IMPORTANT: declare callbacks BEFORE the useEffects that reference them.
+  // The previous order had these two ``useCallback`` blocks AFTER the
+  // ``useEffect`` blocks — a TDZ violation that crashed the Outlook
+  // dashboard with "Cannot access 'stopAndCleanup' before initialization"
+  // every time a narrative result was rendered.
   const stopAndCleanup = useCallback(() => {
     if (audioRef.current) {
       try { audioRef.current.pause(); } catch { /* noop */ }
@@ -124,6 +115,20 @@ export default function NarrativeTTSPlayer({
       setLoading(false);
     }
   }, [text, voice, role, projectId, volume, stopAndCleanup]);
+
+  // Stop + cleanup on unmount — now safely AFTER ``stopAndCleanup`` is declared.
+  useEffect(() => {
+    return () => stopAndCleanup();
+  }, [stopAndCleanup]);
+
+  // Auto-speak when the narrative text changes — now safely AFTER ``handleSpeak``.
+  useEffect(() => {
+    if (!autoSpeak) return;
+    if (!text) return;
+    if (text === lastTextRef.current) return;
+    lastTextRef.current = text;
+    handleSpeak();
+  }, [text, autoSpeak, handleSpeak]);
 
   const handleStop = (): void => {
     stopAndCleanup();

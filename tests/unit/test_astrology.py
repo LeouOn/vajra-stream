@@ -4,7 +4,13 @@ import pytest
 import pytz
 from fastapi.testclient import TestClient
 
-from core.astrology import AstrologicalCalculator
+# Skip the entire module cleanly when the heavy astronomy dependency
+# (``swisseph``) is missing — ``core.astrology`` does an unguarded
+# ``import swisseph as swe`` at module load time, which would otherwise
+# hard-fail pytest collection on minimal installs.
+swisseph = pytest.importorskip("swisseph")
+
+from core.astrology import AstrologicalCalculator  # noqa: E402  (guarded by importorskip)
 
 
 @pytest.fixture
@@ -590,10 +596,117 @@ class TestAstrologyTransitFixes:
         )
 
         # Each interaction must have description + type
+        # Accept the full type set produced by compare_bazi_transits:
+        #   - Clash (六冲) / Harmony (六合): pair-based, original behavior
+        #   - Harm (相害) / Punishment (相刑): pair-based, added in the
+        #     BaZi engine expansion (mutual Zi-Mao punishment + cross-pillar harms)
+        #   - Three-Harmony (三合, full or partial): set-based across all 8 branches
+        #   - Punishment (three-way Yin-Si-Shen, Chou-Xu-Wei): set-based
+        accepted_types = {
+            "Clash", "Harmony",
+            "Harm", "Punishment",
+            "Three-Harmony", "Three-Harmony (Partial)",
+        }
         for ix in interactions:
             assert "type" in ix
             assert "description" in ix
-            assert ix["type"] in ("Clash", "Harmony")
+            assert ix["type"] in accepted_types, (
+                f"unexpected interaction type {ix['type']!r}; pillar={ix.get('pillar')!r}"
+            )
+
+    def test_bazi_detects_three_harmony_partial(self, calculator, monkeypatch):
+        """The expanded BaZi engine must surface partial Three-Harmony trines
+        (半三合) when 2 of the 3 branches in a trine set are present across
+        the 8 visible pillars (4 natal + 4 transit)."""
+        from datetime import datetime
+
+        import pytz
+
+        natal_dt = datetime(1995, 10, 15, 8, 30, tzinfo=pytz.UTC)
+        transit_dt = datetime(2026, 6, 3, 12, 0, tzinfo=pytz.UTC)
+
+        # Wood trine = {Hai, Mao, Wei}. Natal hour = Mao; transit hour = Wei.
+        # Two of three present → partial Wood trine expected.
+        def fake_get_chinese_astrology(dt, *args, **kwargs):
+            if dt == natal_dt:
+                return {
+                    "bazi": {
+                        "year": "甲子/Jia-Zi-Rat",
+                        "month": "丙寅/Bing-Yin-Tiger",
+                        "day": "戊辰/Wu-Chen-Dragon",
+                        "hour": "己卯/Ji-Mao-Rabbit",
+                    }
+                }
+            return {
+                "bazi": {
+                    "year": "丙午/Bing-Wu-Horse",
+                    "month": "辛巳/Xin-Si-Snake",
+                    "day": "癸未/Gui-Wei-Goat",
+                    "hour": "甲戌/Jia-Xu-Dog",
+                }
+            }
+
+        monkeypatch.setattr(calculator, "get_chinese_astrology", fake_get_chinese_astrology)
+        result = calculator.compare_bazi_transits(natal_dt, transit_dt)
+        interactions = result["interactions"]
+
+        trine_types = {ix["type"] for ix in interactions if "Three-Harmony" in ix["type"]}
+        assert trine_types, (
+            f"expected at least one Three-Harmony interaction; got {interactions}"
+        )
+        # Wood trine {Hai, Mao, Wei} should be partial (Mao + Wei present, no Hai)
+        wood = [
+            ix for ix in interactions
+            if "Wood" in ix.get("description", "") and "Three-Harmony" in ix["type"]
+        ]
+        assert wood, (
+            f"expected partial Wood trine (Mao + Wei); interactions={interactions}"
+        )
+
+    def test_bazi_detects_harm_pairs(self, calculator, monkeypatch):
+        """The expanded BaZi engine must surface 相害 (Harm) pair interactions
+        that are not also clashes or harmonies (Zi-Wei harm in this fixture)."""
+        from datetime import datetime
+
+        import pytz
+
+        natal_dt = datetime(1995, 10, 15, 8, 30, tzinfo=pytz.UTC)
+        transit_dt = datetime(2026, 6, 3, 12, 0, tzinfo=pytz.UTC)
+
+        # Zi-Wei harm: Natal Year=Zi, Transit Month=Wei → Harm expected.
+        # Neither Zi nor Wei is in clash or harmony with the other, so this
+        # interaction would have been missed by the pre-expansion engine.
+        def fake_get_chinese_astrology(dt, *args, **kwargs):
+            if dt == natal_dt:
+                return {
+                    "bazi": {
+                        "year": "甲子/Jia-Zi-Rat",
+                        "month": "丙寅/Bing-Yin-Tiger",
+                        "day": "戊辰/Wu-Chen-Dragon",
+                        "hour": "己巳/Ji-Si-Snake",
+                    }
+                }
+            return {
+                "bazi": {
+                    "year": "丙午/Bing-Wu-Horse",
+                    "month": "辛未/Xin-Wei-Goat",
+                    "day": "癸申/Gui-Shen-Monkey",
+                    "hour": "甲戌/Jia-Xu-Dog",
+                }
+            }
+
+        monkeypatch.setattr(calculator, "get_chinese_astrology", fake_get_chinese_astrology)
+        result = calculator.compare_bazi_transits(natal_dt, transit_dt)
+        interactions = result["interactions"]
+
+        harms = [ix for ix in interactions if ix["type"] == "Harm"]
+        assert harms, (
+            f"expected at least one Harm (Zi-Wei); got {interactions}"
+        )
+        # The Zi↔Wei harm must mention both branch names
+        assert any("Zi" in ix["description"] and "Wei" in ix["description"] for ix in harms), (
+            f"Zi-Wei harm not found; harms={harms}"
+        )
 
     def test_comprehensive_includes_chiron_and_houses(self, calculator):
         """get_comprehensive_astrology must include Chiron in positions and 12 houses.

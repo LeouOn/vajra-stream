@@ -60,9 +60,30 @@ interface PanchangaRowItem {
 }
 
 export default function VedicPanchanga({ indianData }: VedicPanchangaProps) {
-  if (!indianData) return null;
-  const panchanga: Panchanga = indianData.panchanga || {};
-  const positions: Record<string, SiderealPosition> = indianData.sidereal_positions || {};
+  // Render a clear empty state when payload is missing or empty so the user
+  // knows the data is absent rather than seeing five "—" placeholder cards.
+  // The backend fallback path (vajra_service._get_astrology_data) returns a
+  // payload WITHOUT an "indian" key — the previous version of this component
+  // silently rendered placeholder cards in that case, which the user
+  // reported as confusing.
+  const panchanga: Panchanga = indianData?.panchanga || {};
+  const positions: Record<string, SiderealPosition> = indianData?.sidereal_positions || {};
+  const hasAnyData =
+    Object.keys(panchanga).length > 0 || Object.keys(positions).length > 0;
+  if (!indianData || !hasAnyData) {
+    return (
+      <Card
+        title={<span className="text-amber-400 font-mono text-xs tracking-wider uppercase"><Moon className="w-4 h-4 inline mr-2" />II. Vedic Sidereal Astrology (Panchanga)</span>}
+        extra={<Tag color="default" className="font-mono text-[8px]">LAHIRI AYANAMSA</Tag>}
+        className="bg-gray-900/80 border-purple-500/20"
+        styles={{ body: { padding: '20px' } }}
+      >
+        <div className="text-center text-xs text-gray-500 italic font-mono py-8">
+          Vedic panchanga unavailable for this chart — no sidereal data returned.
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card
@@ -117,15 +138,20 @@ export default function VedicPanchanga({ indianData }: VedicPanchangaProps) {
       {/* Sidereal Positions */}
       <Row gutter={[8, 8]}>
         {Object.entries(positions).map(([name, pos]) => {
+          // Defensive: skip non-object entries (e.g. null from a transient
+          // backend failure). Same crash class as AstrologyExtractionPanel's
+          // `.some is not a function` — the TS type Record<string, SiderealPosition>
+          // is erased at runtime, so a `null` value at any key throws.
+          if (!pos || typeof pos !== 'object') return null;
           const rashiName = (pos.rashi_name || pos.rashi || '').split(' ')[0];
           const rashiColor = RASHI_COLORS[rashiName] || '#94a3b8';
           return (
             <Col xs={12} sm={8} md={6} lg={4} key={name}>
-              <Tooltip title={`${pos.rashi || ''} · ${pos.degree?.toFixed(2)}°`}>
+              <Tooltip title={`${pos.rashi || ''} · ${pos.degree?.toFixed(2) ?? '—'}`}>
                 <div className="p-2 bg-white/3 hover:bg-white/8 rounded-lg border border-white/5 transition-colors text-center">
                   <div className="text-[9px] text-gray-500 capitalize mb-0.5">{name.replace('_',' ')}</div>
                   <div className="text-xs font-bold" style={{ color: rashiColor }}>
-                    {rashiName}
+                    {rashiName || '—'}
                   </div>
                   <div className="text-[9px] text-gray-500 font-mono">{pos.degree?.toFixed(1)}°</div>
                 </div>

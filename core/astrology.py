@@ -6,11 +6,14 @@ Uses Swiss Ephemeris and lunar-python for precise, offline-first calculations.
 
 __version__ = "1.0.0"
 
+import logging
 import math
 from datetime import datetime, timedelta
 
 import pytz
 import swisseph as swe
+
+logger = logging.getLogger(__name__)
 
 
 class AstrologicalCalculator:
@@ -1174,6 +1177,19 @@ class AstrologicalCalculator:
         except ImportError:
             # Fallback in case dependencies are not installed
             # Calculate simple mathematical stem/branch approximation using Julian Date
+            #
+            # NOTE: this fallback produces bazi pillar strings WITHOUT the "/"
+            # separator that ``compare_bazi_transits.extract_sb`` requires. Any
+            # caller of ``compare_bazi_transits`` will therefore silently see an
+            # empty ``interactions`` list when ``lunar_python`` is missing. We
+            # log loudly here so deployments with a missing dependency are
+            # diagnosable instead of producing mysteriously empty BaZi output.
+            logger.warning(
+                "lunar_python is not installed; falling back to approximate "
+                "Chinese astrology. BaZi pillar format will be incomplete and "
+                "compare_bazi_transits() will return no interactions. "
+                "Install with: pip install lunar-python"
+            )
             jd = self.get_julian_day(dt)
             stems = ["Jia", "Yi", "Bing", "Ding", "Wu", "Ji", "Geng", "Xin", "Ren", "Gui"]
             branches = [
@@ -1925,6 +1941,126 @@ class AstrologicalCalculator:
                         "pillar": f"Day→{label}",
                         "type": "Harmony",
                         "description": f"Transit Day branch {t_d_b} COMBINES with Natal {label} branch {n_branch}. Harmonious support, cooperation, and stability.",
+                    }
+                )
+
+        # 3. Cross-pillar pair checks: Harms (相害) and Zi-Mao mutual punishment (无礼之刑).
+        # These are mutual pair relations not covered by clash/harmony. We test every
+        # transit-pillar branch against every natal-pillar branch (skipping same-pillar
+        # pairs already handled above) so that e.g. Transit Year vs Natal Day harms are
+        # surfaced, not only Day-driven ones.
+        harm_map = {
+            "Zi": "Wei", "Wei": "Zi",
+            "Chou": "Wu", "Wu": "Chou",
+            "Yin": "Si", "Si": "Yin",
+            "Mao": "Chen", "Chen": "Mao",
+            "Shen": "Hai", "Hai": "Shen",
+            "You": "Xu", "Xu": "You",
+        }
+        mutual_punishment_map = {  # 子卯 mutual punishment (无礼之刑)
+            "Zi": "Mao", "Mao": "Zi",
+        }
+        natal_pillars_labeled = [
+            ("Year", n_y_b),
+            ("Month", n_m_b),
+            ("Day", n_d_b),
+            ("Hour", n_h_b),
+        ]
+        transit_pillars_labeled = [
+            ("Year", t_y_b),
+            ("Month", t_m_b),
+            ("Day", t_d_b),
+            ("Hour", t_h_b),
+        ]
+        for t_label, t_b in transit_pillars_labeled:
+            if t_b == "Unknown":
+                continue
+            for n_label, n_b in natal_pillars_labeled:
+                if n_b == "Unknown" or t_label == n_label:
+                    continue
+                pair_label = f"{t_label}→{n_label}"
+                if harm_map.get(t_b) == n_b:
+                    interactions.append(
+                        {
+                            "pillar": pair_label,
+                            "type": "Harm",
+                            "description": f"Transit {t_label} branch {t_b} HARMS Natal {n_label} branch {n_b}. Hidden friction, subtle obstruction, or interpersonal jealousy.",
+                        }
+                    )
+                elif mutual_punishment_map.get(t_b) == n_b:
+                    interactions.append(
+                        {
+                            "pillar": pair_label,
+                            "type": "Punishment",
+                            "description": f"Transit {t_label} branch {t_b} PUNISHES Natal {n_label} branch {n_b} (Zi-Mao 无礼之刑). Conflict, discourtesy, or legal/relational friction.",
+                        }
+                    )
+
+        # 4. Set-based interactions across all 8 visible pillars (4 natal + 4 transit):
+        #    - Three-Harmony trines 三合 (full and partial)
+        #    - Three-way punishments 三刑 (Yin-Si-Shen, Chou-Xu-Wei)
+        branch_to_sources: dict[str, list[str]] = {}
+        for label, b in [
+            ("Natal Year", n_y_b),
+            ("Natal Month", n_m_b),
+            ("Natal Day", n_d_b),
+            ("Natal Hour", n_h_b),
+            ("Transit Year", t_y_b),
+            ("Transit Month", t_m_b),
+            ("Transit Day", t_d_b),
+            ("Transit Hour", t_h_b),
+        ]:
+            if b != "Unknown":
+                branch_to_sources.setdefault(b, []).append(label)
+
+        def _format_participants(branches: set[str]) -> str:
+            parts = []
+            for b in sorted(branches):
+                sources = branch_to_sources.get(b, [])
+                if sources:
+                    parts.append(f"{b} ({', '.join(sources)})")
+                else:
+                    parts.append(b)
+            return ", ".join(parts)
+
+        trine_sets = [
+            ({"Shen", "Zi", "Chen"}, "Water (水局)"),
+            ({"Hai", "Mao", "Wei"}, "Wood (木局)"),
+            ({"Yin", "Wu", "Xu"}, "Fire (火局)"),
+            ({"Si", "You", "Chou"}, "Metal (金局)"),
+        ]
+        for trine, element in trine_sets:
+            present = trine & branch_to_sources.keys()
+            if len(present) == 3:
+                interactions.append(
+                    {
+                        "pillar": "Three-Harmony",
+                        "type": "Three-Harmony",
+                        "description": f"Full Three-Harmony Trine {element}: {_format_participants(present)}. Three branches combine into a powerful supportive frame — major harmonious force.",
+                    }
+                )
+            elif len(present) == 2:
+                missing = next(iter(trine - present))
+                interactions.append(
+                    {
+                        "pillar": "Three-Harmony (Partial)",
+                        "type": "Three-Harmony (Partial)",
+                        "description": f"Partial Three-Harmony {element}: {_format_participants(present)}. Awaiting {missing} to complete the trine — semi-supportive frame.",
+                    }
+                )
+
+        three_way_punishments = [
+            ({"Yin", "Si", "Shen"}, "Yin-Si-Shen (恃势之刑)"),
+            ({"Chou", "Xu", "Wei"}, "Chou-Xu-Wei (无恩之刑)"),
+        ]
+        for punish_set, label in three_way_punishments:
+            present = punish_set & branch_to_sources.keys()
+            if len(present) == 3:
+                interactions.append(
+                    {
+                        "pillar": "Three-Way Punishment",
+                        "type": "Punishment",
+                        "description": f"Full Three-Way Punishment {label}: {_format_participants(present)}. Three branches mutually punish — legal, health, or relationship turmoil; caution advised.",
                     }
                 )
 
@@ -2896,8 +3032,87 @@ def _shortest_angular_delta(a: float, b: float) -> float:
     d = (b - a + 180.0) % 360.0 - 180.0
     return d
 
-
 AstrologyEngine = AstrologicalCalculator
+
+
+def format_astrological_report(data: dict) -> str:
+    """Pretty-print a ``get_current_energetics`` (or compatible) payload.
+
+    Used by ``scripts/vajra_orchestrator.py`` and ``scripts/radionics_operation.py``
+    for terminal / log output. Defensive — gracefully handles missing keys so
+    the scripts don't crash when the backend returns a partial payload (e.g.
+    fallback from ``vajra_service._get_astrology_data`` which omits several
+    fields when ``self.astrology`` is None).
+
+    Args:
+        data: A dict from :meth:`AstrologicalCalculator.get_current_energetics`,
+            or any object with the same shape. Expected keys (all optional):
+            ``datetime``, ``moon_phase``, ``lunar_mansion``,
+            ``planetary_positions``, ``auspicious_times``, ``planetary_hours``.
+
+    Returns:
+        str: Multi-line, plain-text report ready for ``print``.
+    """
+    lines: list[str] = []
+
+    datetime_str = data.get("datetime")
+    if datetime_str:
+        lines.append(f"Timestamp: {datetime_str}")
+        lines.append("")
+
+    moon_phase = data.get("moon_phase")
+    if moon_phase:
+        mp_name = moon_phase.get("phase_name") or moon_phase.get("phase") or "—"
+        mp_illum = moon_phase.get("illumination")
+        # ``illumination`` is already 0–100 (see get_moon_phase line 1285:
+        # ``illumination = (1 - math.cos(math.radians(phase_angle))) / 2 * 100``),
+        # so just print as-is.
+        mp_pct = (
+            f" ({mp_illum:.1f}% illuminated)"
+            if isinstance(mp_illum, (int, float))
+            else ""
+        )
+        lines.append(f"Moon Phase: {mp_name}{mp_pct}")
+        lines.append("")
+
+    lunar_mansion = data.get("lunar_mansion")
+    if lunar_mansion:
+        lm_name = lunar_mansion.get("name") or "—"
+        lines.append(f"Lunar Mansion: {lm_name}")
+        lines.append("")
+
+    planetary_positions = data.get("planetary_positions")
+    if isinstance(planetary_positions, dict) and planetary_positions:
+        lines.append("Planetary Positions:")
+        for planet, info in planetary_positions.items():
+            if not isinstance(info, dict):
+                # Defensive — skip non-object values, same crash class as
+                # the VedicPanchanga / AstrologyExtractionPanel fixes.
+                continue
+            sign = info.get("sign") or "—"
+            degree = info.get("degree")
+            deg_str = f"{degree:.2f}°" if isinstance(degree, (int, float)) else "—"
+            retro = " (R)" if info.get("retrograde") else ""
+            lines.append(f"  {planet.title()}: {sign} {deg_str}{retro}")
+        lines.append("")
+
+    auspicious = data.get("auspicious_times")
+    if isinstance(auspicious, dict) and auspicious:
+        lines.append("Auspicious Times:")
+        for k, v in auspicious.items():
+            lines.append(f"  {k.replace('_', ' ').title()}: {v}")
+        lines.append("")
+
+    planetary_hours = data.get("planetary_hours")
+    if planetary_hours:
+        ph_planet = planetary_hours.get("current_planetary_hour") or "—"
+        ph_day = planetary_hours.get("day_planet") or "—"
+        lines.append(f"Planetary Hour: {ph_planet} (day ruler: {ph_day})")
+
+    if not lines:
+        return "(no astrological data available)"
+    return "\n".join(lines)
+
 
 if __name__ == "__main__":
     import sys

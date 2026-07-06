@@ -122,20 +122,25 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
     mock_realm = MagicMock()
     mock_realm.id = "mock_realm_id"
     mock_realm.is_metaphysical = True
+    mock_realm.priority = 7
 
     mock_char = MagicMock()
     mock_char.id = "mock_char_id"
+    mock_char.priority = 5
 
     with (
         patch("core.outlook_generator.get_location_manager") as mock_lm,
         patch("core.outlook_generator.get_character_manager") as mock_cm,
-        patch("core.outlook_generator.random.choice") as mock_choice,
-        patch("core.outlook_generator.random.sample") as mock_sample,
+        # Updated: randomization now uses random.choices (weighted) instead
+        # of random.choice / random.sample.
+        patch("core.outlook_generator.random.choices") as mock_choices,
+        patch("core.outlook_generator.random.randint") as mock_randint,
     ):
         mock_lm.return_value.get_active_locations.return_value = [mock_realm]
         mock_cm.return_value.get_active_characters.return_value = [mock_char]
-        mock_choice.return_value = mock_realm
-        mock_sample.return_value = [mock_char]
+        # random.choices returns a list, so mock the realm/char selections
+        mock_choices.side_effect = [[mock_realm], [mock_char, mock_char]]
+        mock_randint.return_value = 2  # min(randint(2,3), len(active_chars))
 
         # Use mock LLM to avoid real generation calls
         fresh_outlook_service.generator.llm = MagicMock()
@@ -148,5 +153,5 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
         assert result["status"] == "success"
         mock_lm.return_value.get_active_locations.assert_called_once()
         mock_cm.return_value.get_active_characters.assert_called_once()
-        assert mock_choice.call_count == 3
-        mock_sample.assert_called_once()
+        # random.choices is called for realm selection AND character selection
+        assert mock_choices.call_count >= 2
