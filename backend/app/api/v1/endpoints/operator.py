@@ -347,7 +347,30 @@ async def journey_status():
     from container import container
 
     try:
-        return container.operator.get_journey_status()
+        status = container.operator.get_journey_status()
+        # Augment the response with dharmic metadata from the canonical stage
+        # config. STAGE_CONFIG.significance and STAT_MEANINGS live in
+        # core/character_journey.py — we surface them here at the API edge so
+        # the frontend can render contemplative commentary without round-trip
+        # or duplication. The fields are additive: any consumer that ignores
+        # them sees no change.
+        from core.character_journey import STAGE_CONFIG, STAT_MEANINGS
+
+        status["stages_metadata"] = [
+            {
+                "stage": stage["stage"].value,
+                "name": stage["name"],
+                "description": stage["description"],
+                "significance": stage["significance"],
+                "frequency_shift": stage["frequency_shift"],
+                "blessing_theme": stage["blessing_theme"],
+                "duration_hint": stage["duration_hint"],
+                "stat_growth": dict(stage["stat_growth"]),
+            }
+            for stage in STAGE_CONFIG
+        ]
+        status["stat_meanings"] = dict(STAT_MEANINGS)
+        return status
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

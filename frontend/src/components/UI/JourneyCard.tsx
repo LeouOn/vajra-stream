@@ -18,7 +18,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
-import { message } from 'antd';
+import { message, Tooltip } from 'antd';
 
 type StageKey = 'initiation' | 'training' | 'working' | 'overcoming' | 'utopia' | 'multiverse';
 type StatKey = 'vitality' | 'wisdom' | 'courage' | 'empathy' | 'focus' | 'resonance';
@@ -51,6 +51,20 @@ interface StageResult {
   completed_at?: string;
 }
 
+// Mirrors STAGE_CONFIG entries in core/character_journey.py. Surfaced through
+// the journey status API so the frontend can render dharmic commentary
+// (significance, duration_hint, blessing_theme, etc.) without duplication.
+interface StageMetadata {
+  stage: string;
+  name: string;
+  description: string;
+  significance: string;
+  frequency_shift: number;
+  blessing_theme: string;
+  duration_hint: string;
+  stat_growth: Partial<Record<StatKey, number>>;
+}
+
 interface JourneyStatus {
   active: boolean;
   character_name?: string;
@@ -59,6 +73,8 @@ interface JourneyStatus {
   is_complete?: boolean;
   character?: CharacterSheet;
   stage_results?: StageResult[];
+  stages_metadata?: StageMetadata[];
+  stat_meanings?: Partial<Record<StatKey, string>>;
 }
 
 const STAGE_NAMES: Record<StageKey, string> = {
@@ -282,6 +298,19 @@ export default function JourneyCard() {
   // Clamp progress to [0, 100] — stageIdx can exceed 6 after completion.
   const progress = Math.min(100, Math.round((Math.min(stageIdx, 6) / 6) * 100));
 
+  // Dharmic commentary lookup — surface STAGE_CONFIG entries (significance,
+  // duration_hint, blessing_theme, etc.) from the API for the current and
+  // next stages. Both fall back to undefined when the backend hasn't yet
+  // supplied the new metadata, which lets the contemplative UI gracefully
+  // degrade to the existing dashboard-style descriptions.
+  const stagesMeta = journey.stages_metadata;
+  const currentStageMeta = !isComplete && stagesMeta
+    ? stagesMeta[Math.min(stageIdx, stagesMeta.length - 1)]
+    : undefined;
+  const nextStageMeta = !isComplete && stagesMeta && stageIdx + 1 < stagesMeta.length
+    ? stagesMeta[stageIdx + 1]
+    : undefined;
+
   return (
     <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-950/40 via-slate-900/60 to-pink-950/30 border border-purple-500/20 shadow-xl">
       <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/3 rounded-full blur-3xl" />
@@ -370,8 +399,16 @@ export default function JourneyCard() {
                 {(Object.entries(STAT_META) as [StatKey, typeof STAT_META[StatKey]]).map(([key, meta]) => {
                   const val = charData.stats?.[key] || 0;
                   const Icon = meta.icon;
-                  return (
-                    <div key={key} className="space-y-1">
+                  // Dharmic meaning for this stat from the journey API. Falls
+                  // back to undefined on older payloads — the bar + value
+                  // render exactly as before in that case. The `as StatKey`
+                  // assertion re-asserts the literal-union type after the
+                  // upstream Object.entries cast widens `key` to `any`.
+                  const meaning = journey.stat_meanings?.[key as StatKey];
+                  // Shared stat row: label/value header, the progress bar, and
+                  // an italic dharmic subtitle (only when a meaning exists).
+                  const statContent = (
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="flex items-center gap-1 text-[9px] text-slate-500 font-mono uppercase">
                           <Icon className={`w-2.5 h-2.5 ${meta.color}`} />
@@ -385,7 +422,26 @@ export default function JourneyCard() {
                           style={{ width: `${Math.min(100, val * 10)}%` }}
                         />
                       </div>
+                      {meaning && (
+                        <p className="text-[9px] text-slate-500 italic leading-snug">
+                          {meaning}
+                        </p>
+                      )}
                     </div>
+                  );
+                  // Wrap with antd Tooltip only when a meaning exists so we
+                  // don't surface empty tooltips on legacy payloads.
+                  return meaning ? (
+                    <Tooltip
+                      key={key}
+                      title={meaning}
+                      placement="top"
+                      mouseEnterDelay={0.3}
+                    >
+                      {statContent}
+                    </Tooltip>
+                  ) : (
+                    <div key={key}>{statContent}</div>
                   );
                 })}
               </div>
@@ -475,6 +531,51 @@ export default function JourneyCard() {
                   : (journey.stage_results?.[journey.stage_results.length - 1]?.description
                     || STAGE_DESCRIPTIONS[currentStage])}
               </div>
+              {/* Stage significance — contemplative dharma commentary from the
+                  journey API. Rendered as a sacred aside below the dashboard-
+                  style description so the UI feels like scripture, not a log. */}
+              {currentStageMeta?.significance && (
+                <p
+                  className="font-serif italic text-[11px] text-slate-300/90 leading-relaxed mt-2 pl-3 border-l-2 tracking-wide"
+                  style={{ borderLeftColor: color }}
+                >
+                  {currentStageMeta.significance}
+                </p>
+              )}
+              {/* What's Next preview — a single contemplative line pointing
+                  toward the next stage (icon + name + 1-line description), or
+                  the closing mantra when the journey is complete. */}
+              {isComplete ? (
+                <p className="font-serif italic text-[10px] text-slate-500 mt-2 leading-relaxed">
+                  Journey complete. The circle begins again.
+                </p>
+              ) : nextStageMeta ? (
+                <div className="flex items-center gap-1.5 mt-2 text-[10px] flex-wrap min-w-0">
+                  <span className="text-[8px] uppercase tracking-widest text-slate-600 font-mono flex-shrink-0">
+                    Next
+                  </span>
+                  {(() => {
+                    const nextKey = nextStageMeta.stage as StageKey;
+                    const NextIcon = STAGE_ICONS[nextKey] || Sparkles;
+                    const nextColor = STAGE_COLORS[nextKey] || '#a855f7';
+                    return (
+                      <>
+                        <NextIcon
+                          className="w-3 h-3 flex-shrink-0"
+                          style={{ color: nextColor }}
+                        />
+                        <span className="font-medium text-slate-300 flex-shrink-0">
+                          {nextStageMeta.name}
+                        </span>
+                        <span className="text-slate-700 flex-shrink-0">·</span>
+                        <span className="italic font-serif text-slate-500 truncate">
+                          {nextStageMeta.description}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : null}
             </div>
             {!isComplete && (
               <button
@@ -592,15 +693,19 @@ export default function JourneyCard() {
                       {r.blessings_count} blessings{timestamp ? ` · ${timestamp}` : ''}
                     </span>
                   </div>
-                  {/* Blessing narrative text — filter out error messages */}
+                  {/* Blessing narrative text — filter out error messages and render as a
+                      contemplative blockquote in the stage's sacred color. */}
                   {r.blessings && r.blessings.length > 0 && (() => {
                     const cleanBlessing = r.blessings.find(b =>
                       b && !b.includes('generation failed') && !b.includes('Error code:')
                     );
                     return cleanBlessing ? (
-                      <p className="text-[10px] text-slate-400 italic leading-relaxed pl-4 border-l border-purple-500/30">
+                      <blockquote
+                        className="font-serif italic text-[11px] text-slate-300/90 leading-loose pl-4 pr-2 py-1 border-l-2 my-1 tracking-wide"
+                        style={{ borderLeftColor: sColor }}
+                      >
                         {cleanBlessing}
-                      </p>
+                      </blockquote>
                     ) : null;
                   })()}
                 </div>

@@ -32,6 +32,7 @@ STAGE_CONFIG = [
         "stage": JourneyStage.INITIATION,
         "name": "The Awakening",
         "description": "The character awakens to their calling. First contact with the sacred.",
+        "significance": "The first stirrings. In every tradition, the call comes before the caller. The Awakening is when the soul remembers it chose this path before it was born. The light that was always there is simply seen for the first time.",
         "frequency_shift": 0,
         "blessing_theme": "discovery and purpose",
         "duration_hint": "brief — a spark of recognition",
@@ -41,6 +42,7 @@ STAGE_CONFIG = [
         "stage": JourneyStage.TRAINING,
         "name": "The Forge",
         "description": "Rigorous training. The character hones their gifts through discipline.",
+        "significance": "The fire that burns away what is not essential. Mastery is not arrival — it is the willingness to begin again, one breath closer to clarity. The forge does not ask whether you deserve to be shaped; it shapes you anyway.",
         "frequency_shift": 36,
         "blessing_theme": "discipline and mastery",
         "duration_hint": "sustained — like hammer on anvil",
@@ -50,6 +52,7 @@ STAGE_CONFIG = [
         "stage": JourneyStage.WORKING,
         "name": "The Great Work",
         "description": "The character applies their power. Real quests, real consequences.",
+        "significance": "The training becomes service. The practice becomes real. There is no rehearsal now — only the moment and the need. What was learned in the forge meets the world, and the world is not gentle. Still, the character does not turn away.",
         "frequency_shift": 72,
         "blessing_theme": "service and action",
         "duration_hint": "intense — the world needs you now",
@@ -59,6 +62,7 @@ STAGE_CONFIG = [
         "stage": JourneyStage.OVERCOMING,
         "name": "The Shadow Trial",
         "description": "The darkest hour. The character faces their greatest fear or enemy.",
+        "significance": "The trial that was always a gate. In the cold heart of the darkness, the character sees their own reflection wearing the face of the enemy. What is faced is freed. What is broken open becomes a door for light to enter. This is the alchemical moment — the suffering itself becomes the cure.",
         "frequency_shift": -24,
         "blessing_theme": "protection and breakthrough",
         "duration_hint": "critical — everything hangs in the balance",
@@ -68,6 +72,7 @@ STAGE_CONFIG = [
         "stage": JourneyStage.UTOPIA,
         "name": "The Golden Age",
         "description": "Victory achieved. The character basks in the light of accomplishment.",
+        "significance": "Victory arrives not as a shout but as a hush. The merit of the journey flows outward in every direction. But this completion is not the end — it is the gathering before the giving. The Golden Age belongs to everyone who ever walked beside the character.",
         "frequency_shift": 108,
         "blessing_theme": "celebration and gratitude",
         "duration_hint": "radiant — the world is transformed",
@@ -77,12 +82,27 @@ STAGE_CONFIG = [
         "stage": JourneyStage.MULTIVERSE,
         "name": "The Infinite Return",
         "description": "The character transcends form. Their story echoes across all timelines.",
+        "significance": "The circle closes, and in closing, opens. The character returns as the element returning to itself — timeless, formless, eternally available. Wherever there is need, the story begins again. The work is never truly done, and that is the gift.",
         "frequency_shift": 144,
         "blessing_theme": "transcendence and eternal return",
         "duration_hint": "eternal — the circle completes and begins again",
         "stat_growth": {"resonance": 3, "wisdom": 2},
     },
 ]
+
+
+# ─── Stat Meanings (dharmic context) ──────────────────────────
+# These explain what each stat represents in the practice. Shown in the
+# JourneyCard so the user understands why their stats are growing.
+
+STAT_MEANINGS: dict[str, str] = {
+    "vitality": "The life force. The capacity to sustain practice and hold presence through long work.",
+    "wisdom": "The depth of seeing. The ability to discern what is real from what merely appears.",
+    "courage": "The heart's willingness to face fear and act anyway. Not the absence of fear, but action in its presence.",
+    "empathy": "The capacity to feel what others feel without losing yourself. The heart that holds the world's suffering without breaking.",
+    "focus": "The mind's capacity to stay with one thing. The ability to return to the practice after wandering.",
+    "resonance": "The alignment between inner and outer. When resonance is high, the practice and the world harmonize — the planetary hour, the element, the moment all conspire to support what is being done.",
+}
 
 
 # ─── Fallback Narrative Blessings ──────────────────────────
