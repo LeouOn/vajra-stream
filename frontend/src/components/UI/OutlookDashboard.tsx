@@ -1267,18 +1267,22 @@ export default function OutlookDashboard() {
                         {/* Divination */}
                         {currentNarrative.divination_raw && (
                           <Card size="small" title={<Text strong className="font-mono text-xs uppercase">🔮 Esoteric Reading</Text>}>
-                            {currentNarrative.divination_raw.tarot?.svg && (
-                              <div className="flex flex-col items-center mb-3">
-                                <div dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.tarot.svg }}
-                                  className="divination-card-container w-24 h-36 flex justify-center" />
-                                <Text strong style={{ fontSize: 10 }}>{currentNarrative.divination_raw.tarot.name}</Text>
+                            {/* SVGs suppressed — they were taking up all available space.
+                                The text descriptions below carry the same information. */}
+                            {currentNarrative.divination_raw.tarot?.name && (
+                              <div className="mb-2">
+                                <Tag color="purple" style={{ fontSize: 10 }}>
+                                  🃏 {currentNarrative.divination_raw.tarot.name}
+                                  {currentNarrative.divination_raw.tarot.orientation ? ` (${currentNarrative.divination_raw.tarot.orientation})` : ''}
+                                </Tag>
                               </div>
                             )}
-                            {currentNarrative.divination_raw.iching?.svg && (
-                              <div className="flex flex-col items-center mb-3">
-                                <div dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.iching.svg }}
-                                  className="divination-card-container w-24 h-36 flex justify-center" />
-                                <Text strong style={{ fontSize: 10 }}>{currentNarrative.divination_raw.iching.name?.split(' / ')[0]}</Text>
+                            {currentNarrative.divination_raw.iching?.name && (
+                              <div className="mb-2">
+                                <Tag color="cyan" style={{ fontSize: 10 }}>
+                                  ☯️ {currentNarrative.divination_raw.iching.name}
+                                  {currentNarrative.divination_raw.iching.changing_lines ? ` → ${currentNarrative.divination_raw.iching.relating_name || ''}` : ''}
+                                </Tag>
                               </div>
                             )}
                             {currentNarrative.divination_used && (

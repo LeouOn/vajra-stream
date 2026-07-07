@@ -147,17 +147,11 @@ export default function EpicStoryViewer({
             </h4>
             
             <div className="grid grid-cols-2 gap-3">
-              {/* Tarot Draw */}
-              {divinationRaw.tarot && divinationRaw.tarot.svg && (
+              {/* Tarot Draw — SVG suppressed, text-only */}
+              {divinationRaw.tarot && divinationRaw.tarot.name && (
                 <div className="flex flex-col items-center bg-black/40 p-2.5 rounded-lg border border-white/5 text-center">
                   <span className="text-[9px] text-gray-500 font-mono block uppercase">TAROT RULER</span>
-                  <div className="w-20 h-28 my-1.5 flex items-center justify-center relative overflow-hidden rounded">
-                    <div 
-                      dangerouslySetInnerHTML={{ __html: divinationRaw.tarot.svg }} 
-                      className="divination-card-container w-full h-full flex justify-center" 
-                    />
-                  </div>
-                  <span className="text-[10px] font-bold text-white truncate max-w-full block">
+                  <span className="text-[10px] font-bold text-white truncate max-w-full block mt-1.5">
                     {divinationRaw.tarot.name}
                   </span>
                   <span className="text-[8px] text-purple-400 font-serif italic block truncate max-w-full">
@@ -166,17 +160,11 @@ export default function EpicStoryViewer({
                 </div>
               )}
 
-              {/* I Ching Draw */}
-              {divinationRaw.iching && divinationRaw.iching.svg && (
+              {/* I Ching Draw — SVG suppressed, text-only */}
+              {divinationRaw.iching && divinationRaw.iching.name && (
                 <div className="flex flex-col items-center bg-black/40 p-2.5 rounded-lg border border-white/5 text-center">
                   <span className="text-[9px] text-gray-500 font-mono block uppercase">HEXAGRAM</span>
-                  <div className="w-20 h-28 my-1.5 flex items-center justify-center relative overflow-hidden rounded">
-                    <div 
-                      dangerouslySetInnerHTML={{ __html: divinationRaw.iching.svg }} 
-                      className="divination-card-container w-full h-full flex justify-center" 
-                    />
-                  </div>
-                  <span className="text-[10px] font-bold text-white truncate max-w-full block">
+                  <span className="text-[10px] font-bold text-white truncate max-w-full block mt-1.5">
                     {divinationRaw.iching.name.split(' / ')[0]}
                   </span>
                   <span className="text-[8px] text-cyan-400 font-serif italic block truncate max-w-full">
