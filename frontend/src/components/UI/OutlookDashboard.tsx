@@ -949,6 +949,9 @@ export default function OutlookDashboard() {
                       options={modelOptions}
                       placeholder="Auto-detect"
                       disabled={randomModel}
+                      showSearch
+                      optionFilterProp="label"
+                      filterSort={(a: ModelSelectOption, b: ModelSelectOption) => a.label.localeCompare(b.label)}
                     />
                     {randomModel && (
                       <Text type="secondary" style={{ fontSize: 10, display: 'block', marginTop: 2 }}>
@@ -1147,13 +1150,22 @@ export default function OutlookDashboard() {
                 </Card>
               ) : currentNarrative ? (
                 currentNarrative.type === 'epic' || currentNarrative.narrative_parts ? (
-                  <EpicStoryViewer
-                    narrativeParts={currentNarrative.narrative_parts}
-                    astrologyContext={currentNarrative.astrology_used}
-                    divinationContext={currentNarrative.divination_used}
-                    divinationRaw={currentNarrative.divination_raw}
-                    entitiesInvoked={currentNarrative.entities_used}
-                  />
+                  <>
+                    {currentNarrative.model_used && (
+                      <div style={{ marginBottom: 8 }}>
+                        <Tag color="blue" style={{ fontSize: 10 }}>
+                          🤖 {currentNarrative.provider_used || 'unknown'}/{currentNarrative.model_used}
+                        </Tag>
+                      </div>
+                    )}
+                    <EpicStoryViewer
+                      narrativeParts={currentNarrative.narrative_parts}
+                      astrologyContext={currentNarrative.astrology_used}
+                      divinationContext={currentNarrative.divination_used}
+                      divinationRaw={currentNarrative.divination_raw}
+                      entitiesInvoked={currentNarrative.entities_used}
+                    />
+                  </>
                 ) : (
                   <Row gutter={[24, 24]}>
                     <Col xs={24} lg={16}>
