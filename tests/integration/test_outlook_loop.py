@@ -68,6 +68,8 @@ def test_outlook_request_parameters(client):
                 include_geomancy=True,
                 randomize_realm=True,
                 randomize_characters=True,
+                natal_dt=None,
+                natal_location=None,
             )
 
 

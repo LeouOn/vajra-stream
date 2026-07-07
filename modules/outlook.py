@@ -248,6 +248,8 @@ class OutlookService:
         include_geomancy: bool = True,
         randomize_realm: bool = False,
         randomize_characters: bool = False,
+        natal_dt: datetime | None = None,
+        natal_location: tuple[float, float] | None = None,
     ) -> dict[str, Any]:
         """Generate a single-pass narrative outlook."""
         if languages is None:
@@ -292,6 +294,8 @@ class OutlookService:
             randomize_realm=randomize_realm,
             randomize_characters=randomize_characters,
             sensor_context=sensor_context,
+            natal_dt=natal_dt,
+            natal_location=natal_location,
         )
 
         # Stamp the generated outlook back into the healing session row so the

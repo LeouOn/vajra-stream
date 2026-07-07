@@ -62,6 +62,15 @@ class OutlookGenerator:
     Weaves astrology, divination (I Ching, Tarot), and sacred entities into sutra-style blessings.
     """
 
+    GENRE_SYSTEM_PROMPTS = {
+        "healing": "You are a compassionate healer and medicine buddha, channeling the emerald light of Bhaisajyaguru. Your words soothe suffering, mend what is broken, and restore wholeness to body, speech, and mind.",
+        "victory": "You are a wrathful protector and dharma warrior, wielding the vajra of discriminating wisdom. Your words shatter obstacles, pacify negative forces, and establish the triumph of wisdom over ignorance.",
+        "alchemist": "You are a hermetic adept and inner alchemist, transmuting base consciousness into golden awareness. Your words reveal hidden correspondences and perform the Great Work of spiritual transformation.",
+        "dharani": "You are a mantra master and sound healer, wielding seed syllables that reshape reality. Your words carry the vibrational power of ancient dharanis and Sanskrit invocations.",
+        "fun_parable": "You are a warm storyteller and wisdom keeper, weaving delightful parables that teach through joy rather than severity. Your words bring smiles and quiet insight.",
+    }
+    DEFAULT_SYSTEM_PROMPT = "You are a transcendent oracle and dharma scribe, speaking across eons. Your words heal, transform, and reveal the hidden architecture of reality."
+
     def __init__(self, llm_integration=None):
         self.llm = llm_integration
         self.astro_engine = AstrologyEngine() if AstrologyEngine else None
@@ -79,7 +88,7 @@ class OutlookGenerator:
             self.radionics_analyzer = None
             self.signature_calc = None
 
-    def _calculate_radionics_and_sigils(self, genre: str, intention: str) -> tuple[str, dict]:
+    def _calculate_radionics_and_sigils(self, genre: str, intention: str, dominant_element: str | None = None) -> tuple[str, dict]:
         parts = []
         raw = {}
 
@@ -98,6 +107,26 @@ class OutlookGenerator:
             kamea = "saturn"
             freq = "432Hz (Harmonic Resonance)"
 
+        # Override kamea based on chart's dominant element when provided
+        if dominant_element:
+            element_kamea = {
+                "Fire": "sun",
+                "Earth": "earth",
+                "Air": "mercury",
+                "Water": "moon",
+                "Aether": "saturn",
+            }
+            element_freq = {
+                "Fire": "126.22Hz (Sun)",
+                "Earth": "136.10Hz (Earth)",
+                "Air": "141.27Hz (Mercury)",
+                "Water": "210.42Hz (Moon)",
+                "Aether": "432Hz (Harmonic Resonance)",
+            }
+            if dominant_element in element_kamea:
+                kamea = element_kamea[dominant_element]
+                freq = element_freq[dominant_element]
+
         parts.append(f"Vibrational Frequencies locked to {freq}.")
         parts.append(f"Kamea Grid Selected: The Planetary Square of {kamea.capitalize()}.")
 
@@ -105,6 +134,14 @@ class OutlookGenerator:
         if self.signature_calc and self.radionics_analyzer:
             sig_rate = self.signature_calc.text_to_rate(intention, num_dials=3)
             parts.append(f"Base Radionic Signature Rate: {sig_rate}")
+            # Surface the rich fields (description, potency) — __str__ only
+            # emits name + dial values, so the LLM was previously blind to
+            # what the rate actually represents.
+            sig_dict = sig_rate.to_dict() if hasattr(sig_rate, "to_dict") else {}
+            if sig_dict.get("description"):
+                parts.append(f"  Rate Focus: {sig_dict['description']}")
+            if sig_dict.get("potency"):
+                parts.append(f"  Potency: {sig_dict['potency']}")
 
             balancing = self.radionics_analyzer.find_balancing_rates(intention, num_rates=1)
             if balancing:
@@ -247,16 +284,73 @@ class OutlookGenerator:
                 if animal:
                     lines.append(f"Chinese Zodiac: {elem} {animal} — {lunar}")
 
-            # --- Vedic Nakshatra ---
+            # --- BaZi Pillar Dynamics ---
+            bazi = chinese.get("bazi", {})
+            if bazi:
+                pillar_descs = []
+                for pillar_key, pillar_val in bazi.items():
+                    if isinstance(pillar_val, str) and len(pillar_val) > 3:
+                        pillar_descs.append(f"  {pillar_key.title()}: {pillar_val}")
+                if pillar_descs:
+                    lines.append("BaZi Four Pillars:\n" + "\n".join(pillar_descs))
+
+            # --- Full Panchanga (5 angas) ---
             panchanga = indian.get("panchanga", {})
             nakshatra = panchanga.get("nakshatra", {})
             if nakshatra.get("name"):
                 lines.append(f"Vedic Nakshatra: Moon in {nakshatra['name']} (Pada {nakshatra.get('pada', '?')})")
 
+            # The 4 missing angas — previously dropped:
+            tithi = panchanga.get("tithi", {})
+            if tithi.get("name"):
+                tithi_str = f"Tithi: {tithi['name']}"
+                if tithi.get("paksha"):
+                    tithi_str += f" ({tithi['paksha']})"
+                lines.append(tithi_str)
+
+            yoga = panchanga.get("yoga", {})
+            if yoga.get("name"):
+                lines.append(f"Yoga: {yoga['name']}")
+
+            karana = panchanga.get("karana", {})
+            if karana.get("name"):
+                lines.append(f"Karana: {karana['name']}")
+
+            vara = panchanga.get("vara", {})
+            if vara.get("name"):
+                lines.append(f"Vara (Weekday Lord): {vara['name']}")
+
             # --- Planetary Hour ---
             ruler = planetary_hours.get("current_ruler", "")
             if ruler:
                 lines.append(f"Planetary Hour Ruler: {ruler}")
+
+            # --- Vimshottari Dasha (current planetary period) ---
+            try:
+                if hasattr(self.astro_engine, 'calculate_vimshottari_dasha'):
+                    dasha_periods = self.astro_engine.calculate_vimshottari_dasha(target_date, (lat, lon))
+                    if dasha_periods:
+                        current = dasha_periods[0]
+                        lines.append(f"Vimshottari Dasha: {current.get('ruler', '?')} period (started {current.get('start', '?')[:10] if current.get('start') else '?'})")
+            except Exception:
+                pass
+
+            # --- Gochara (Vedic transit houses) ---
+            try:
+                if hasattr(self.astro_engine, 'get_vedic_gochara'):
+                    gochara = self.astro_engine.get_vedic_gochara(target_date, (lat, lon), target_date)
+                    if gochara:
+                        gochara_lines = []
+                        for planet, info in list(gochara.items())[:6]:  # top 6 planets
+                            if isinstance(info, dict):
+                                house = info.get("gochara_house", "?")
+                                rashi = info.get("transit_rashi", "")
+                                rashi_short = rashi.split(" ")[0] if rashi else "?"
+                                gochara_lines.append(f"  {planet.title()}: House {house} from Moon ({rashi_short})")
+                        if gochara_lines:
+                            lines.append("Gochara (Transit Houses from Moon):\n" + "\n".join(gochara_lines))
+            except Exception:
+                pass
 
             # --- Local Time ---
             try:
@@ -479,6 +573,7 @@ Generated Ritual:
         sensor_context: str | None = None,
         natal_dt: datetime | None = None,
         natal_location: tuple[float, float] | None = None,
+        previous_narrative: str | None = None,
     ) -> dict[str, Any]:
         """
         Generates a dense, 300-3000 token single-pass narrative outlook.
@@ -525,7 +620,16 @@ Generated Ritual:
 
         # Calculate Radionics and Sigils
         intention = custom_context if custom_context else f"Blessing for {lat},{lon}"
-        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention)
+        # Extract dominant element from chart for kamea override (graceful when astro_engine unavailable)
+        dom_elem = None
+        if self.astro_engine and hasattr(self.astro_engine, "calculate_chart"):
+            try:
+                _chart = self.astro_engine.calculate_chart(date or datetime.now(), lat, lon)
+                _western = _chart.get("western") or {}
+                dom_elem = _western.get("dominant_element") or None
+            except Exception:
+                dom_elem = None
+        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention, dominant_element=dom_elem)
         divination_raw.update(radionics_raw)
 
         entity_context = self._select_sacred_entities()
@@ -609,6 +713,10 @@ Contexts to weave deeply into the imagery:
         if extra_context_str:
             prompt += f"\n\nEsoteric Settings & Universe Context:\n{extra_context_str}"
 
+        if previous_narrative:
+            # Brief callback — don't repeat, just acknowledge continuity
+            prompt += f"\n\nPrevious Blessing Context (for continuity — do NOT repeat, but weave references): {previous_narrative[:500]}..."
+
         if include_dialogue and character_ids:
             prompt += "\n\nCRITICAL INSTRUCTION: Include direct dialogue between the present characters. Write spoken lines that reflect their specific Dialogue Styles (e.g. speaking in koans, regally, or hermetically). Ground the ritual in their sensory experience using their specified Grounding Senses, depict them entering their Channeling States, and describe them executing their Anchoring Rituals."
 
@@ -641,7 +749,7 @@ Length: 5-8 paragraphs of dense, visionary prose.
             try:
                 result = self.llm.generate(
                     prompt=prompt,
-                    system_prompt="You are a transcendent oracle and dharma scribe, speaking across eons. Your words heal, transform, and reveal the hidden architecture of reality.",
+                    system_prompt=self.GENRE_SYSTEM_PROMPTS.get(genre.lower(), self.DEFAULT_SYSTEM_PROMPT),
                     max_tokens=4000,
                     temperature=0.7,
                     model=effective_model,
@@ -751,7 +859,16 @@ Length: 5-8 paragraphs of dense, visionary prose.
         )
 
         intention = custom_context if custom_context else f"Blessing for {lat},{lon}"
-        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention)
+        # Extract dominant element from chart for kamea override (graceful when astro_engine unavailable)
+        dom_elem = None
+        if self.astro_engine and hasattr(self.astro_engine, "calculate_chart"):
+            try:
+                _chart = self.astro_engine.calculate_chart(date or datetime.now(), lat, lon)
+                _western = _chart.get("western") or {}
+                dom_elem = _western.get("dominant_element") or None
+            except Exception:
+                dom_elem = None
+        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention, dominant_element=dom_elem)
         divination_raw.update(radionics_raw)
 
         entity_context = self._select_sacred_entities()
@@ -877,7 +994,13 @@ Radionics/Sigils: {radionics_context}"""
 
         log_filename_1 = self._debug_log_prompt(prompt_1, f"{genre}_epic_ch1", lat, lon)
         try:
-            chap_1 = self.llm.generate(prompt_1, max_tokens=4000, temperature=0.7, model=epic_model)
+            chap_1 = self.llm.generate(
+                prompt_1,
+                system_prompt=self.GENRE_SYSTEM_PROMPTS.get(genre.lower(), self.DEFAULT_SYSTEM_PROMPT),
+                max_tokens=4000,
+                temperature=0.7,
+                model=epic_model,
+            )
             if chap_1 and "No LLM initialized" in chap_1:
                 is_fallback = True
                 chap_1 = f"LLM unavailable. Fallback Epic Stage 1:\n\n{entity_context}\n{astro_context}\n{divination_context}"
@@ -888,6 +1011,32 @@ Radionics/Sigils: {radionics_context}"""
             is_fallback = True
 
         epic_narrative.append({"chapter": 1, "title": "The Invocation", "content": chap_1})
+
+        # Generate intermediate chapters (chapters 2..stages-1). Skipped when
+        # the LLM was already flagged as unavailable on chapter 1 — the
+        # fallback path would just produce duplicated "LLM unavailable" stubs.
+        for stage_num in range(2, stages):
+            if is_fallback:
+                break
+            prev_content = epic_narrative[-1]["content"][:300] if epic_narrative else ""
+            prompt_mid = f"""Continue the epic {stages}-part '{genre}' sutra.
+Previous chapter ended with: {prev_content}...
+Write Chapter {stage_num}. Continue the narrative flow. Introduce a new challenge, deepening, or revelation. End with forward momentum.
+Keep the same tone and style. Languages: {lang_str}."""
+
+            if extra_context_str:
+                prompt_mid += f"\n\nEsoteric Settings & Universe Context:\n{extra_context_str}"
+
+            try:
+                chap_mid = self.llm.generate(prompt_mid, max_tokens=4000, temperature=0.7, model=epic_model)
+                if chap_mid and "No LLM" in chap_mid:
+                    break
+                self._debug_log_response(self._debug_log_prompt(prompt_mid, f"{genre}_epic_ch{stage_num}", lat, lon), chap_mid)
+            except Exception as e:
+                chap_mid = f"Error generating Chapter {stage_num}: {e}"
+                break
+
+            epic_narrative.append({"chapter": stage_num, "title": f"Chapter {stage_num}", "content": chap_mid})
 
         # Final chapter
         prompt_final = f"""Context: The epic started with: {chap_1[:200]}...
@@ -910,7 +1059,13 @@ Seal the dharani, resolve the oracle's prophecy ({divination_context}), and show
             self._debug_log_response(log_filename_final, chap_final)
         else:
             try:
-                chap_final = self.llm.generate(prompt_final, max_tokens=4000, temperature=0.7, model=epic_model)
+                chap_final = self.llm.generate(
+                    prompt_final,
+                    system_prompt=self.GENRE_SYSTEM_PROMPTS.get(genre.lower(), self.DEFAULT_SYSTEM_PROMPT),
+                    max_tokens=4000,
+                    temperature=0.7,
+                    model=epic_model,
+                )
                 if chap_final and "No LLM initialized" in chap_final:
                     chap_final = "LLM unavailable. Fallback Epic Final Stage:\n\nMay this transmission bring peace to all beings."
                 self._debug_log_response(log_filename_final, chap_final)
@@ -951,7 +1106,7 @@ Seal the dharani, resolve the oracle's prophecy ({divination_context}), and show
         return {
             "status": "success",
             "type": "epic",
-            "stages_generated": 2,  # simplified for sync return
+            "stages_generated": len(epic_narrative),
             "astrology_used": astro_context,
             "divination_used": divination_context,
             "divination_raw": divination_raw,

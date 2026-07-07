@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from dateutil import parser as _dt_parser
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -55,6 +56,9 @@ class OutlookRequest(BaseModel):
     include_geomancy: bool = Field(default=True, description="Whether to include geomancy in the divination context")
     randomize_realm: bool = Field(default=False, description="Whether to select a random active setting/realm")
     randomize_characters: bool = Field(default=False, description="Whether to select 2-3 random active characters")
+    natal_date_iso: str | None = Field(default=None, description="Natal birth datetime for transit-to-natal aspects")
+    natal_lat: float | None = Field(default=None, description="Natal birth latitude")
+    natal_lon: float | None = Field(default=None, description="Natal birth longitude")
 
 
 class EpicOutlookRequest(OutlookRequest):
@@ -90,6 +94,16 @@ async def generate_single(request: OutlookRequest):
     divinatory, and sacred entity contexts into a localized blessing.
     """
     try:
+        natal_dt = None
+        if request.natal_date_iso:
+            try:
+                natal_dt = _dt_parser.parse(request.natal_date_iso)
+            except Exception:
+                pass
+        natal_location: tuple[float, float] | None = None
+        if request.natal_lat is not None and request.natal_lon is not None:
+            natal_location = (request.natal_lat, request.natal_lon)
+
         result = container.outlook.generate_single(
             lat=request.lat,
             lon=request.lon,
@@ -106,6 +120,8 @@ async def generate_single(request: OutlookRequest):
             include_geomancy=request.include_geomancy,
             randomize_realm=request.randomize_realm,
             randomize_characters=request.randomize_characters,
+            natal_dt=natal_dt,
+            natal_location=natal_location,
         )
 
         # Save to database
