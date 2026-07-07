@@ -13,7 +13,7 @@ import {
   Compass, Sparkles, Globe, Clock, Shield, Users, Settings,
   History, RefreshCw, Copy, CheckCircle, Play, Square,
   Plus, Edit2, Trash2, Search, Filter, ArrowUpDown, X,
-  BookOpen, Sun, Moon, Layers, Shuffle, Dices,
+  BookOpen, Sun, Moon, Layers, Shuffle, Dices, Zap,
 } from 'lucide-react';
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
@@ -26,6 +26,7 @@ import { useAudioStore } from '../../stores/audioStore';
 import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
+import GuidedRitualFlow from './GuidedRitualFlow';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
@@ -219,6 +220,9 @@ export default function OutlookDashboard() {
   const [loopActive, setLoopActive] = useState<boolean>(false);
   const [loopInterval, setLoopInterval] = useState<number>(5);
   const [loopMode, setLoopMode] = useState<LoopMode>('sequential_delay');
+
+  // ─── Generation Mode ─────────────────────────────────────
+  const [generationMode, setGenerationMode] = useState<'guided' | 'quick'>('guided');
 
   // ─── Result State ────────────────────────────────────────
   const [loading, setLoading] = useState<boolean>(false);
@@ -790,15 +794,41 @@ export default function OutlookDashboard() {
             GENERATOR TAB
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'generator' && (
-          <Row gutter={[24, 24]}>
-            {/* ── Left: Settings ── */}
-            <Col xs={24} xl={8}>
-              <Card
-                title={<Text strong className="font-mono text-xs uppercase">Transmission Settings</Text>}
-                extra={loopActive && <Badge status="processing" color="cyan" text="Loop Active" />}
-                size="small"
-              >
-                <Space orientation="vertical" className="w-full" size="middle">
+          <>
+            {/* Mode Toggle */}
+            <div style={{ marginBottom: 16 }}>
+              <Segmented
+                value={generationMode}
+                onChange={(v) => { setGenerationMode(v as 'guided' | 'quick'); audioFeedback.playTabChange(); }}
+                options={[
+                  { label: <span><Sparkles className="w-3 h-3 inline mr-1" />🔮 Guided Flow</span>, value: 'guided' },
+                  { label: <span><Zap className="w-3 h-3 inline mr-1" />⚡ Quick Generate</span>, value: 'quick' },
+                ]}
+                className="bg-black/40 border border-white/5"
+              />
+            </div>
+            <Row gutter={[24, 24]}>
+              {/* ── Left: Settings or Guided Flow ── */}
+              <Col xs={24} xl={8}>
+                {generationMode === 'guided' ? (
+                  <GuidedRitualFlow
+                    cosmicData={undefined}
+                    activeChart={null}
+                    result={currentNarrative}
+                    broadcastActive={loopActive}
+                    onResult={(data) => setCurrentNarrative(data as CurrentNarrative)}
+                    onStartBroadcast={() => { void handleStartLoop(); }}
+                    onComplete={() => setGenerationMode('quick')}
+                    onBackToQuick={() => setGenerationMode('quick')}
+                  />
+                ) : (
+                  <>
+                  <Card
+                    title={<Text strong className="font-mono text-xs uppercase">Transmission Settings</Text>}
+                    extra={loopActive && <Badge status="processing" color="cyan" text="Loop Active" />}
+                    size="small"
+                  >
+                    <Space orientation="vertical" className="w-full" size="middle">
 
                   {/* Active selections summary */}
                   {(selectedRealmId || selectedCharIds.length > 0 || selectedPopIds.length > 0) && (
@@ -1137,6 +1167,8 @@ export default function OutlookDashboard() {
                   )}
                 </Space>
               </Card>
+                  </>
+                )}
             </Col>
 
             {/* ── Right: Narrative Display ── */}
@@ -1323,6 +1355,7 @@ export default function OutlookDashboard() {
               )}
             </Col>
           </Row>
+          </>
         )}
 
         {/* ═══════════════════════════════════════════════════════
