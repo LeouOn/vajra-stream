@@ -13,9 +13,15 @@ logger = logging.getLogger(__name__)
 
 
 class ProviderRegistry:
+    # Hysteresis: a provider must fail this many *consecutive* health checks
+    # before being treated as down. Prevents Down->Healthy->Down thrashing when
+    # upstream providers (e.g. DeepSeek) have transient latency spikes.
+    FAILURE_THRESHOLD = 2
+
     def __init__(self, health_cache_ttl: int = 60) -> None:
         self._providers: list[BaseLLMProvider] = []
         self._health_cache = TTLCache(default_ttl=health_cache_ttl)
+        self._consecutive_failures: dict[str, int] = {}
 
     @property
     def providers(self) -> list[BaseLLMProvider]:
@@ -29,6 +35,7 @@ class ProviderRegistry:
 
     def unregister(self, name: str) -> None:
         self._providers = [p for p in self._providers if p.name != name]
+        self._consecutive_failures.pop(name, None)
 
     async def health_check_all(self, use_cache: bool = True) -> list[HealthStatus]:
         providers = self.providers
@@ -50,18 +57,44 @@ class ProviderRegistry:
         await self._health_cache.set(f"health:{provider.name}", status)
         return status
 
+    def _is_effectively_healthy(self, provider_name: str, status: HealthStatus) -> bool:
+        """Apply hysteresis to a health status update.
+
+        A single failed health check is treated as a transient blip -- the
+        provider is kept healthy until it fails ``FAILURE_THRESHOLD`` checks
+        in a row. A success resets the consecutive-failure counter to zero.
+        """
+        if status.healthy:
+            self._consecutive_failures[provider_name] = 0
+            return True
+        count = self._consecutive_failures.get(provider_name, 0) + 1
+        self._consecutive_failures[provider_name] = count
+        if count < self.FAILURE_THRESHOLD:
+            logger.info(
+                "Provider %s failed health check (%d/%d consecutive), keeping healthy",
+                provider_name,
+                count,
+                self.FAILURE_THRESHOLD,
+            )
+            return True
+        return False
+
     async def pick_best(self, use_cache: bool = True) -> BaseLLMProvider | None:
         statuses = await self.health_check_all(use_cache=use_cache)
-        healthy_names = {s.provider for s in statuses if s.healthy}
         for provider in self.providers:
-            if provider.name in healthy_names:
+            status = next((s for s in statuses if s.provider == provider.name), None)
+            if status is not None and self._is_effectively_healthy(provider.name, status):
                 return provider
         return None
 
     async def failover_chain(self) -> list[BaseLLMProvider]:
         statuses = await self.health_check_all()
-        healthy_names = {s.provider for s in statuses if s.healthy}
-        return [p for p in self.providers if p.name in healthy_names]
+        chain: list[BaseLLMProvider] = []
+        for provider in self.providers:
+            status = next((s for s in statuses if s.provider == provider.name), None)
+            if status is not None and self._is_effectively_healthy(provider.name, status):
+                chain.append(provider)
+        return chain
 
     async def close_all(self) -> None:
         await asyncio.gather(*[p.close() for p in self._providers], return_exceptions=True)

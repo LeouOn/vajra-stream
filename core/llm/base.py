@@ -69,7 +69,7 @@ class OpenAICompatibleProvider:
     async def health_check(self) -> HealthStatus:
         start = time.time()
         try:
-            models = await asyncio.wait_for(self._client.models.list(), timeout=2.0)
+            models = await asyncio.wait_for(self._client.models.list(), timeout=5.0)
             latency_ms = (time.time() - start) * 1000
             return HealthStatus(
                 provider=self.name,

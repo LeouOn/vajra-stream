@@ -364,10 +364,21 @@ async def test_insights_update_empty_when_no_keywords():
 
 
 async def test_respond_raises_runtime_error_when_no_healthy_provider():
-    """When the registry has no healthy provider, respond() raises RuntimeError."""
+    """When the registry has no effectively-healthy provider, respond() raises
+    ``RuntimeError``.
+
+    The registry applies hysteresis: a single failed health check is treated as
+    a transient blip. We must trigger ``FAILURE_THRESHOLD`` consecutive
+    failures before ``pick_best()`` returns ``None`` and ``respond()`` raises.
+    """
     registry = ProviderRegistry()
     registry.register(FakeProvider(name="sick", healthy=False, priority=90))
     dialogue = AsyncHealingDialogue(registry)
+
+    # Trigger FAILURE_THRESHOLD (2) consecutive failures on "sick" before
+    # respond() picks, so the registry now treats it as down.
+    await registry.pick_best(use_cache=False)
+    await registry.pick_best(use_cache=False)
 
     with pytest.raises(RuntimeError, match="No healthy LLM provider"):
         await dialogue.respond(

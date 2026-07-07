@@ -1595,6 +1595,33 @@ async def list_models():
         }
 
 
+@router.get("/providers/{provider_name}/models", summary="List all models from a specific provider")
+async def list_provider_models(provider_name: str) -> dict:
+    """List all available models from a specific LLM provider."""
+    from core.llm.bootstrap import build_default_registry
+
+    registry = build_default_registry()
+    for provider in registry.providers:
+        if provider.name == provider_name:
+            try:
+                models = await provider.list_models()
+                return {
+                    "status": "success",
+                    "provider": provider_name,
+                    "models": [{"id": m.id, "provider": m.provider} for m in models],
+                    "count": len(models),
+                }
+            except Exception as e:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Failed to list models for {provider_name}: {e}",
+                )
+    raise HTTPException(
+        status_code=404,
+        detail=f"Provider '{provider_name}' not found",
+    )
+
+
 @router.get("/providers/health")
 async def get_providers_health(request: Request) -> dict:
     """Return current health status for all registered providers."""
