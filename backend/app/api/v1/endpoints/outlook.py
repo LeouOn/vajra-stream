@@ -296,6 +296,46 @@ async def get_status():
 
 
 # ----------------- TTS / NARRATIVE RECITATION -----------------
+
+# Language → voice mapping. Outlook narratives mix English prose with
+# CJK astrological / panchanga terms (丙午年, 马, Horse) and Sanskrit
+# mantras (Om Mani Padme Hum). Reading the whole narrative with one
+# voice — typically zh-CN-YunxiNeural — gives Chinese-accented English
+# or English-accented Chinese. Per-chunk language detection lets each
+# chunk pick a native-sounding voice.
+LANGUAGE_VOICE_MAP: dict[str, str] = {
+    "zh": "zh-CN-YunxiNeural",     # Male, warm — traditional sutra feel
+    "en": "en-US-AriaNeural",      # Female, warm and engaging
+}
+
+
+def _detect_dominant_language(text: str) -> str:
+    """Detect the dominant script/language of a text chunk.
+
+    Counts CJK (Chinese, Japanese kana, Korean Hangul) characters and
+    returns ``"zh"`` when they exceed 30% of the non-whitespace content,
+    otherwise ``"en"``. Sanskrit/Tibetan (Latin transliteration or
+    Devanagari) and pure Latin scripts fall through to ``"en"``.
+    """
+    if not text:
+        return "en"
+    non_ws = [c for c in text if not c.isspace()]
+    if not non_ws:
+        return "en"
+    cjk_count = sum(
+        1
+        for c in non_ws
+        if (
+            "\u4e00" <= c <= "\u9fff"      # CJK Unified Ideographs (Chinese)
+            or "\u3040" <= c <= "\u30ff"   # Hiragana + Katakana (Japanese)
+            or "\uac00" <= c <= "\ud7af"   # Hangul Syllables (Korean)
+        )
+    )
+    if cjk_count / len(non_ws) > 0.30:
+        return "zh"
+    return "en"
+
+
 class OutlookSpeakRequest(BaseModel):
     text: str = Field(
         ..., description="Narrative text to speak (single string or joined epic parts)", min_length=1, max_length=20000
@@ -404,11 +444,22 @@ async def speak_narrative(request: OutlookSpeakRequest):
         mime_type = "audio/mpeg"
         backend_id = provider.active_backend.value
         for chunk_idx, chunk in enumerate(chunks):
+            # Per-chunk language-aware voice selection. If the caller
+            # explicitly set `voice`, respect their choice for ALL chunks
+            # (user override wins). Otherwise detect the dominant script
+            # of this chunk and pick a matching native voice, falling
+            # back to the provider's default (None) for unmapped langs.
+            if request.voice is not None:
+                chunk_voice = request.voice
+                chunk_lang = request.language
+            else:
+                chunk_lang = _detect_dominant_language(chunk)
+                chunk_voice = LANGUAGE_VOICE_MAP.get(chunk_lang)
             result = await provider.speak_stream(
                 text=chunk,
-                voice=request.voice,
+                voice=chunk_voice,
                 rate=request.rate,
-                language=request.language,
+                language=request.language or chunk_lang,
                 role=role,
                 instruct=instruct_text,
             )

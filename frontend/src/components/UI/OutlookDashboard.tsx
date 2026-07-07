@@ -131,6 +131,8 @@ interface CurrentNarrative {
   divination_used?: string;
   divination_raw?: DivinationRaw;
   entities_used?: string;
+  model_used?: string;
+  provider_used?: string;
   [key: string]: unknown;
 }
 
@@ -1179,6 +1181,13 @@ export default function OutlookDashboard() {
                               children: (
                                 <>
                                   <Title level={4} style={{ color: '#e2e8f0', textTransform: 'capitalize' }}>{currentNarrative.genre} Revelation</Title>
+                                  {currentNarrative.model_used && (
+                                    <div style={{ marginBottom: 8 }}>
+                                      <Tag color="blue" style={{ fontSize: 10 }}>
+                                        🤖 {currentNarrative.provider_used || 'unknown'}/{currentNarrative.model_used}
+                                      </Tag>
+                                    </div>
+                                  )}
                                   <Divider />
                                   <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
                                     {currentNarrative.narrative}
