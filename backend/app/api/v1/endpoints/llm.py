@@ -57,6 +57,7 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 class ChatMessage(BaseModel):
     role: str
     content: str
+    name: str | None = None  # Match core/llm/models.py ChatMessage
 
 
 class ChatRequest(BaseModel):
