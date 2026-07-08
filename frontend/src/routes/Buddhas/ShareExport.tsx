@@ -9,10 +9,10 @@
  * @component
  */
 import React, { useCallback } from 'react';
-import { Card, Button, Typography, Space, message } from 'antd';
+import { Card, Button, Typography, Space } from 'antd';
 import { Share2, ClipboardCopy, Check } from 'lucide-react';
 import type { RecitationStatus } from '../../../types';
-import { createLogger } from '../../utils/logger';
+import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Title } = Typography;
 
@@ -80,17 +80,17 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 export default function ShareExport({ buddhaStatus, intention }: ShareExportProps) {
-  const log = createLogger('ShareExport');
+  const addToast = useUIStore((s) => s.addToast);
   const handleCopy = useCallback(async () => {
     const text = buildSummary({ buddhaStatus, intention });
     try {
       await copyToClipboard(text);
-      message.success('Summary copied to clipboard.');
+      addToast({ type: 'success', title: 'Summary copied to clipboard.', duration: 3 });
     } catch (err) {
-      log.error('ShareExport: copy failed', err);
-      message.error('Could not copy — clipboard unavailable.');
+      console.error('ShareExport: copy failed', err);
+      addToast({ type: 'error', title: 'Could not copy — clipboard unavailable.', duration: 5 });
     }
-  }, [buddhaStatus, intention]);
+  }, [buddhaStatus, intention, addToast]);
 
   const disabled = !buddhaStatus && !intention;
 
@@ -104,7 +104,7 @@ export default function ShareExport({ buddhaStatus, intention }: ShareExportProp
         </Space>
       }
     >
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           Copy a plain-text snapshot of this recitation session to share anywhere.
         </Text>

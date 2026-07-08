@@ -12,12 +12,14 @@ from backend.app.api.v1.endpoints import divination as divination_endpoint
 from backend.app.api.v1.endpoints import extraction as extraction_endpoint
 from backend.app.api.v1.endpoints import healing_dialogue as healing_dialogue_endpoint
 from backend.app.api.v1.endpoints import llm as llm_endpoint
+from backend.app.api.v1.endpoints import knowledge as knowledge_endpoint
 from backend.app.api.v1.endpoints import locations as locations_endpoint
 from backend.app.api.v1.endpoints import mops as mops_endpoint
 from backend.app.api.v1.endpoints import operator as operator_endpoint
 from backend.app.api.v1.endpoints import outlook as outlook_endpoint
 from backend.app.api.v1.endpoints import personal_healing as personal_healing_endpoint
 from backend.app.api.v1.endpoints import populations as populations_endpoint
+from backend.app.api.v1.endpoints import practices as practices_endpoint
 from backend.app.api.v1.endpoints import prayer_wheel as prayer_wheel_endpoint
 from backend.app.api.v1.endpoints import radionics as radionics_endpoint
 from backend.app.api.v1.endpoints import radionics_narratives as radionics_narratives_endpoint
@@ -54,6 +56,7 @@ api_router.include_router(dharma_tales_endpoint.router, prefix="/dharma", tags=[
 api_router.include_router(personal_healing_endpoint.router, prefix="/healing", tags=["healing"])
 api_router.include_router(healing_dialogue_endpoint.router, tags=["healing-dialogue"])
 api_router.include_router(llm_endpoint.router, tags=["llm"])
+api_router.include_router(knowledge_endpoint.router, tags=["knowledge"])
 api_router.include_router(mops_endpoint.router, tags=["mops"])
 api_router.include_router(sigils_endpoint.router, tags=["sigils"])
 api_router.include_router(divination_endpoint.router, tags=["divination"])
@@ -64,3 +67,4 @@ api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["out
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])
 api_router.include_router(ritual_engine_endpoint.router, prefix="/ritual", tags=["ritual-engine"])
+api_router.include_router(practices_endpoint.router, tags=["practices"])

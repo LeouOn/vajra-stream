@@ -65,8 +65,12 @@ class UnifiedOrchestrator:
     Manages services, event bus, and session lifecycle.
     """
 
-    def __init__(self):
-        self.event_bus = EnhancedEventBus(persistence_path="data/events.jsonl")
+    def __init__(self, event_bus=None):
+        # Allow callers (e.g. the FastAPI bridge) to inject a shared event bus
+        # so all services publish to the same bus. CLI scripts that construct
+        # UnifiedOrchestrator without arguments still get their own persisted
+        # EnhancedEventBus, preserving backward compatibility.
+        self.event_bus = event_bus or EnhancedEventBus(persistence_path="data/events.jsonl")
         self.settings = settings
         self.services = {}
         self.active_sessions = {}

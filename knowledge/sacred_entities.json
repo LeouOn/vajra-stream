@@ -79,10 +79,223 @@
       "purpose": "Deep karmic purification."
     },
     {
+      "name": "Cundi Buddha Mother (准提佛母 / Chunti)",
+      "description": "The Buddha Mother of seven million Buddhas, one of the most powerful esoteric Buddhist deities for purification and wish-fulfillment. Manifests with a white or golden-yellow body, three eyes, and eighteen arms each holding a Dharma implement, seated upon a white lotus. The eighteen arms symbolize the eighteen distinctive qualities (āveṇika-dharmāḥ) of a Buddha. A uniquely accessible practice — Cundi's dharani does NOT require abhisheka (empowerment) and may be practiced by anyone.",
+      "dharani_mantra": "Namaḥ Saptānāṃ Samyaksaṃbuddha Koṭīnāṃ Tadyathā Oṃ Cale Cule Cuṇḍe Svāhā (heart: Oṃ Cale Cule Cuṇḍe Svāhā)",
+      "purpose": "Purification of all karmic obscurations, wish-fulfillment for beneficial goals, removal of obstacles to spiritual practice.",
+      "color": "white or yellow (golden) — varies by tradition",
+      "element": "Fire",
+      "chakra": "solar_plexus",
+      "mudra": "Cundi Mudra (准提印) — fingers interlocked with both index fingers pointing upward, forming a pointed peak",
+      "iconography": {
+        "arms": 18,
+        "arms_meaning": "The 18 distinctive qualities of a Buddha (āveṇika-dharmāḥ)",
+        "eyes": 3,
+        "seat": "white lotus",
+        "body_color": "white or yellow-gold",
+        "implements": "Each of the 18 hands holds a different Dharma implement (vajra, wheel, lotus, sword, mala, bow, arrow, conch, vase, etc.)"
+      },
+      "frequency_hz": 417
+    },
+    {
       "name": "Manjushri",
       "description": "The embodiment of transcendent wisdom.",
       "dharani_mantra": "Om Ah Ra Pa Tsa Na Dhi",
       "purpose": "Cutting through delusion, gaining profound insight."
     }
-  ]
+  ],
+  "vajrayana_foundational_entities": [
+    {
+      "name": "Medicine Buddha (Bhaiṣajyaguru Vaiḍūryaprabhārāja)",
+      "name_chinese": "藥師佛 (Yàoshīfó)",
+      "category": "healing",
+      "color": "#1B4F8B",
+      "color_name": "Lapis Lazuli Blue",
+      "iconography": {
+        "body_color": "Transparent lapis lazuli blue, radiating healing light",
+        "right_hand": "Mudrā of supreme giving over the right knee, holding a myrobalan (arura) plant — the king of medicinal herbs",
+        "left_hand": "Meditation mudrā in the lap, holding a lapis lazuli begging bowl filled with healing nectar",
+        "posture": "Seated in vajra posture (full lotus) on a lotus and moon disc",
+        "robes": "Three dharma robes of a fully ordained monk"
+      },
+      "attributes": ["Myrobalan plant (arura)", "Lapis begging bowl of healing nectar", "Lapis light", "Medicine bowl"],
+      "pure_land": "Eastern Pure Land of Pure Lapis Lazuli (Vaiḍūrya)",
+      "vows": "12 great vows to heal physical illness, mental afflictions, and spiritual obscurations of all beings",
+      "frequency_hz": 285,
+      "element": "Water",
+      "chakra": "third_eye",
+      "mantra_ref": "vajrayana_foundational.medicine_buddha_long",
+      "practice_ref": "medicine_buddha",
+      "purpose": "Healing of physical and mental illness; alleviation of suffering; restoration of balance and vitality"
+    },
+    {
+      "name": "Vajrasattva (Vajrasattva — Diamond Being)",
+      "name_chinese": "金剛薩埵 (Jīngāng Sǎduǒ)",
+      "category": "purification",
+      "color": "#FFFFFF",
+      "color_name": "Pure White",
+      "iconography": {
+        "body_color": "Brilliant pure white, translucent and luminous like crystal or snow mountain",
+        "right_hand": "Holds a five-pronged vajra (diamond scepter) at the heart — method and compassion",
+        "left_hand": "Holds a bell (ghaṇṭā) at the hip — wisdom and emptiness",
+        "posture": "Seated in vajra posture, sometimes in union with consort Vajragarvī (Dorje Nyéma)",
+        "ornaments": "Wears the thirteen sambhogakāya ornaments (crown, earrings, necklace, bracelets, etc.)",
+        "consort": "Vajragarvī (Dorje Nyéma) — when in union, represents the nonduality of bliss and emptiness"
+      },
+      "attributes": ["Vajra (diamond scepter)", "Bell (ghaṇṭā)", "Consort Vajragarvī", "White light", "Purity"],
+      "pure_land": "Primordial pure land of the dharmadhātu — the Akanistha realm",
+      "vows": "Vajrasattva is the condensation of the purity of all Buddhas; whoever recites his mantra is freed from all negative karma",
+      "frequency_hz": 396,
+      "element": "Space",
+      "chakra": "crown",
+      "mantra_ref": "vajrayana_foundational.vajrasattva_100_syllable",
+      "practice_ref": "vajrasattva",
+      "purpose": "Purification of all negative karma and obscurations; restoration of vows; primordial purity of mind"
+    },
+    {
+      "name": "Amitabha Buddha (Amitābha — Infinite Light)",
+      "name_chinese": "阿彌陀佛 (Āmítuófó)",
+      "name_japanese": "阿弥陀仏 (Amida Butsu)",
+      "category": "peace_transition",
+      "color": "#DC143C",
+      "color_name": "Amitabha Red (Crimson)",
+      "iconography": {
+        "body_color": "Radiant red, the color of the setting sun, glowing with infinite light in all directions",
+        "hands": "Both hands rest in the lap in dhyāna (meditation) mudrā, holding a monk's begging bowl (patra) filled with the nectar of immortality",
+        "posture": "Seated in vajra posture on a lotus and moon disc",
+        "robes": "Three dharma robes of a fully ordained monk",
+        "retinue": "Flanked by Avalokiteśvara (right, holding a lotus) and Mahāsthāmaprāpta (left, holding a vase of light) — the Three Holy Ones of the Western Pure Land"
+      },
+      "attributes": ["Red light of infinite illumination", "Lotus throne", "Begging bowl of immortal nectar", "Western Pure Land"],
+      "pure_land": "Sukhāvatī — the Western Realm of Great Bliss (Pure Land)",
+      "vows": "48 great vows, especially the 18th vow: 'If any being, with sincere faith and aspiration, recites my name even ten times, and is not born in my Pure Land, may I not attain supreme awakening.'",
+      "frequency_hz": 174,
+      "element": "Fire",
+      "chakra": "throat",
+      "mantra_ref": "vajrayana_foundational.amitabha_nianfo_sanskrit",
+      "practice_ref": "amitabha",
+      "purpose": "Rebirth in Sukhāvatī (Pure Land); peace; transition support for the deceased; transformation of desire into discriminating wisdom"
+    },
+    {
+      "name": "Avalokiteśvara (Thousand-Armed, Thousand-Eyed)",
+      "name_chinese": "千手千眼觀世音菩薩 (Qiānshǒu Qiānyǎn Guānshìyīn Púsà)",
+      "name_tibetan": "Chenrezig (སྤྱན་རས་གཟིགས་)",
+      "category": "compassion_protection",
+      "color": "#00A86B",
+      "color_name": "Compassion Green (also white)",
+      "iconography": {
+        "body_color": "Brilliant white, suffused with hues of green and soft pink",
+        "heads": "Eleven heads stacked in tiers — the 10 stages of bodhisattva development crowned by the head of Amitabha (his spiritual father)",
+        "arms": "One thousand arms radiate outward like a mandala; each palm contains an eye of wisdom — seeing all suffering and reaching out to relieve it",
+        "central_hands": "Two principal hands pressed together at the heart in añjali mudrā, holding a wish-fulfilling gem (cintāmaṇi)",
+        "principal_attributes_held": "White lotus (purity), crystal vase (healing nectar), willow branch (healing), mala (recitation), bow and arrow (skillful means), wheel (dharma teaching)",
+        "posture": "Standing gracefully on a lotus, or seated with one leg extended (ready to spring to the aid of beings)"
+      },
+      "attributes": ["1000 arms", "1000 eyes (one in each palm)", "Willow branch", "Crystal vase of healing nectar", "White lotus", "Wish-fulfilling gem"],
+      "pure_land": "Potalaka Mountain (the southern wish-fulfilling mountain), and also a regent of Sukhāvatī (Amitabha's Pure Land)",
+      "vows": "Vowed: 'Should any being hear my name, see my form, or recite my mantra, may they be freed from all suffering. Should I ever waver in compassion, may my head split into a thousand pieces.' The vow was sealed — his head shattered and was reformed as 11 heads, his arms multiplied to 1000.",
+      "frequency_hz": 639,
+      "element": "Wind",
+      "chakra": "heart",
+      "mantra_ref": "vajrayana_foundational.avalokiteshvara_great_compassion",
+      "practice_ref": "avalokiteshvara",
+      "purpose": "Great Compassion; healing; protection from all dangers; fulfillment of all virtuous wishes"
+    },
+    {
+      "name": "Prajñāpāramitā (the Perfection of Wisdom — Mother of All Buddhas)",
+      "name_sanskrit": "Prajñāpāramitā Devī",
+      "name_chinese": "般若佛母 (Bōrě Fómǔ)",
+      "category": "wisdom",
+      "color": "#FFD700",
+      "color_name": "Golden Yellow",
+      "iconography": {
+        "body_color": "Radiant golden yellow, luminous like refined gold or the morning sun",
+        "faces_arms": "One face and four arms (most common form)",
+        "first_right_hand": "Holds a vajra (some forms) or in dharma-teaching mudrā",
+        "second_right_hand": "Holds a golden Prajñāpāramitā text (the Perfection of Wisdom sutra) on a blue lotus",
+        "first_left_hand": "Holds a blue utpala lotus supporting the wisdom text",
+        "second_left_hand": "In dhyāna (meditation) mudrā in the lap",
+        "posture": "Seated in vajra posture on a lotus and moon disc, surrounded by an aura of golden light"
+      },
+      "attributes": ["Prajñāpāramitā text/book (the Perfection of Wisdom sutra)", "Golden light", "Blue utpala lotus", "Vajra", "Vessel of wisdom"],
+      "pure_land": "The dharmadhātu expanse — the ultimate pure land of wisdom",
+      "vows": "Prajñāpāramitā is the mother who gives birth to all the Buddhas of the three times. She is the realization of emptiness itself, personified.",
+      "frequency_hz": 852,
+      "element": "Space",
+      "chakra": "third_eye",
+      "mantra_ref": "vajrayana_foundational.heart_sutra_prajnaparamita",
+      "practice_ref": "heart_sutra",
+      "purpose": "Wisdom; realization of emptiness; cutting through all delusion; the perfection that gives birth to all Buddhas"
+    }
+  ],
+  "tara_manifestations": {
+    "description": "Tara (Sanskrit: Tārā; Tibetan: Drolma; Chinese: 度母 Dù Mǔ) is the 'Mother of all Buddhas' — the feminine embodiment of enlightened activity and swift compassion. She arose from the tear of Chenrezig (Avalokiteshvara) out of boundless compassion for suffering beings. The 21 principal emanations cover the full spectrum of enlightened action (peace, increase, magnetizing, subjugating).",
+    "epithet_universal": "Jetsunma (Venerable Lady) — She who ferries beings across samsara",
+    "lineage_note": "Principally transmitted via Suryagupta (Kashmiri) and Atisha (Kadampa) lineages; central to all Tibetan schools, particularly the Kagyu and Nyingma.",
+    "primary_emanations": [
+      {
+        "name": "Green Tara (绿度母)",
+        "sanskrit_name": "Śyāmatārā",
+        "tibetan_name": "Yangchen Drolma (ལྷ་མོ་སྒྲོལ་མ་སྔོན་མོ)",
+        "color": "green",
+        "element": "air (wind)",
+        "chakra": "heart",
+        "frequency_hz": 528,
+        "iconography": "Green-complexioned youthful goddess; right leg extended (ready to spring into action), left leg folded in meditation; right hand in varada mudra (boon-giving) resting on the right knee, left hand at heart in abhaya mudra (fearlessness) holding the stem of a blue utpala lotus (night-blooming celestial lotus); adorned with silks and jewel ornaments; seated on a moon disc atop a lotus.",
+        "mudras": {
+          "right_hand": "varada mudra — boon-giving / granting wishes",
+          "left_hand": "abhaya mudra — fearlessness / protection"
+        },
+        "attributes": [
+          "blue utpala (night lotus)",
+          "springing forth from the lotus to act swiftly"
+        ],
+        "role": "Swift Liberator — acts instantly to remove obstacles and the eight great fears (lions, elephants, fire, snakes, thieves, water, captivity, demons)",
+        "resonance": "Compassion in action — the dynamic, swift feminine aspect of enlightenment",
+        "purpose": "Swift protection from fear, obstacles, and danger; awakening of compassionate activity; quickening on the path",
+        "mantra_ref": "mantras.json → buddhist.green_tara"
+      },
+      {
+        "name": "White Tara (白度母)",
+        "sanskrit_name": "Sitatārā",
+        "tibetan_name": "Drolkar (སྒྲོལ་དཀར་)",
+        "color": "white",
+        "element": "space",
+        "chakra": "crown",
+        "frequency_hz": 396,
+        "iconography": "White-complexioned radiant goddess; seated in vajra posture (full lotus); both hands in varada mudra at the heart; seven eyes of omniscient vision — two ordinary eyes, one third eye on the forehead, plus one eye in each palm and each sole; adorned with silks and jewels; surrounded by the luminous radiance of the full moon; holds the stem of a white lotus.",
+        "mudras": {
+          "both_hands": "varada mudra at heart — bestowing boons of long life and healing"
+        },
+        "attributes": [
+          "seven eyes (third eye + palms + soles) — seeing all suffering in all realms",
+          "white lotus of purity",
+          "full moon aura of healing radiance"
+        ],
+        "role": "Healer and Bestower of Longevity — counterpart to Amitayus in the long-life trinity",
+        "resonance": "Full moon energy — luminous, cooling, healing, life-extending",
+        "purpose": "Longevity, healing of body and mind, restoration of vitality, wish-fulfilling, purification of illness-causing karma",
+        "mantra_ref": "mantras.json → buddhist.white_tara",
+        "companions": "Practiced as part of the three long-life deities alongside Amitayus and Ushnishavijaya"
+      }
+    ],
+    "the_21_taras_summary": {
+      "text_ref": "mantras.json → buddhist.twenty_one_praises_to_tara",
+      "emanation_groups": {
+        "peaceful": "Pacifying illness, negative karma, demonic disturbances",
+        "increasing": "Extending life, merit, wisdom, prosperity",
+        "magnetizing": "Drawing beings to the Dharma, gathering auspicious conditions",
+        "wrathful": "Subjugating demons, obstacles, and negative forces"
+      },
+      "key_eminations": [
+        "Green Tara — swift action",
+        "White Tara — healing and longevity",
+        "Red Tara (Kurukullā) — magnetizing and enchantment",
+        "Black Tara — wrathful subjugation of demons",
+        "Yellow Tara (Basundhara) — prosperity and abundance",
+        "Orange Tara — great wisdom",
+        "Iron Hook Red Tara — drawing of good fortune"
+      ]
+    }
+  }
 }

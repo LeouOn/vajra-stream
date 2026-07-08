@@ -1,0 +1,62 @@
+{
+  "practice_id": "vajrasattva",
+  "name": "Vajrasattva Practice (Hundred-Syllable Mantra Sādhana)",
+  "name_sanskrit": "Vajrasattva Śatākṣara",
+  "name_chinese": "金剛薩埵百字明 — Jīngāng Sǎduǒ Bǎi Zì Míng",
+  "tradition": "Vajrayana (Tibetan Buddhism, Nyingma/Kagyu/Sakya/Gelug)",
+  "category": "purification",
+  "primary_purpose": "Purification of all negative karma and obscurations — the most powerful purification practice in Vajrayana",
+  "mantras": [
+    {
+      "mantra_id": "vajrasattva_100_syllable",
+      "use": "Primary hundred-syllable mantra",
+      "recommended_count": 108,
+      "traditional_purification_count": 100000
+    },
+    {
+      "mantra_id": "vajrasattva",
+      "use": "Short form (Om Vajrasattva Hum)",
+      "recommended_count": 108
+    }
+  ],
+  "visualizations": [
+    "Vajrasattva appears above the crown of your head, seated on a lotus and moon disc",
+    "His body is brilliant pure white (#FFFFFF), translucent and luminous like a crystal mountain",
+    "He holds a vajra (diamond scepter) in his right hand at his heart, and a bell (ghaṇṭā) in his left hand at his hip — symbolizing method and wisdom united",
+    "He may be visualized in union with his consort Vajragarvī (Dorje Nyéma), representing the union of bliss and emptiness",
+    "From the HŪṂ at his heart, a stream of white nectar (like moonlight mixed with water) flows down through his body and into your crown",
+    "The nectar fills your body — first washing away all diseases and physical obscurations, then all negative karma (taken as black smoke or ink dissolving into the nectar and flowing out through your lower orifices into the mouth of Yama who swallows it",
+    "Your body becomes completely clear and luminous, like a transparent glass vessel filled with white light",
+    "Vajrasattva dissolves into light and merges with you — your body, speech, and mind become inseparable from his"
+  ],
+  "benefits": [
+    "Purification of all negative karma accumulated in this and previous lives",
+    "Healing of karmic illness at its root cause",
+    "Removal of obstacles to meditation and spiritual progress",
+    "Restoration of broken samaya and vows",
+    "Purification of the four types of obscurations: karma, afflictive, cognitive, and habitual",
+    "Preparation for higher Vajrayana practices",
+    "Removal of hindrances to rebirth in pure realms",
+    "Mind becomes clearer, lighter, more spacious"
+  ],
+  "frequency_hz": 396,
+  "frequency_purpose": "Solfeggio liberation from fear and guilt — root-frequency purification",
+  "color": "#FFFFFF",
+  "color_name": "Pure White (Dorje White)",
+  "element": "Space (all-encompassing purity)",
+  "chakra": "crown",
+  "four_opponents_powers_required": [
+    "1. Power of Refuge and Bodhicitta (taking refuge and generating compassion for all beings)",
+    "2. Power of Remorse (recognizing negativity as a grave mistake)",
+    "3. Power of Resolve (pledging not to repeat the negative action)",
+    "4. Power of Antidote (reciting the mantra with strong visualization)"
+  ],
+  "best_times": [
+    "Daily, ideally in the morning before other practices",
+    "Within the ngöndro (preliminary practices) cycle of 100,000 recitations",
+    "After any action that breaks vows or precepts",
+    "Before sleep to purify the day's karma",
+    "Particularly effective on Dakini Day (25th lunar) and Buddha Day (15th lunar)"
+  ],
+  "dedication": "By this practice, may all my negative karma and obscurations be purified. May I and all beings attain the state of Vajrasattva — the primordial purity of mind."
+}

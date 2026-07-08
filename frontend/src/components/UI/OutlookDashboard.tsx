@@ -18,16 +18,16 @@ import {
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
   Segmented, Row, Col, Space, Slider, Collapse, List, Typography,
-  Spin, Empty, Divider, Badge, Tooltip, message, Modal, Checkbox,
+  Spin, Empty, Divider, Badge, Tooltip, message, Modal,
 } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
+import { stripThinking } from '../../utils/thinkStrip';
 import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
-import { createLogger } from '../../utils/logger';
-import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import PageHeader from './PageHeader';
 
 const { Text, Paragraph, Title } = Typography;
 
@@ -131,8 +131,6 @@ interface CurrentNarrative {
   divination_used?: string;
   divination_raw?: DivinationRaw;
   entities_used?: string;
-  model_used?: string;
-  provider_used?: string;
   [key: string]: unknown;
 }
 
@@ -142,9 +140,34 @@ interface OutlookModels {
   api?: string[];
 }
 
+interface AvailableModel {
+  id: string;
+  name: string;
+  provider: string;
+  context_length: number | null;
+  input_per_m: number;
+  output_per_m: number;
+  is_free: boolean;
+  featured: boolean;
+  description: string;
+  source: string;
+}
+
+interface SavedCustomModel {
+  model_id: string;
+  display_name: string;
+  provider: string;
+  added_at: string;
+}
+
 interface ModelSelectOption {
   value: string;
   label: string;
+}
+
+interface ModelSelectGroup {
+  label: string;
+  options: ModelSelectOption[];
 }
 
 type ResultTab = 'narrative' | 'affirmation';
@@ -166,11 +189,6 @@ const LANGUAGES: string[] = [
   'English', 'Sanskrit', 'Tibetan', 'Chinese', 'Latin', 'Greek', 'Hebrew',
 ];
 
-// Pre-compute option arrays from module-level constants so they're stable
-// across renders (previously each .map() created a new array on every render).
-const GENRE_OPTIONS = GENRES.map(g => ({ value: g.value, label: g.label }));
-const LANGUAGE_OPTIONS = LANGUAGES.map(l => ({ value: l, label: l }));
-
 const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   { id: 'mild', label: 'Mild', desc: 'Minor obstacles and everyday challenges' },
   { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
@@ -190,8 +208,7 @@ const GLOBAL_INTENTIONS: GlobalIntention[] = [
 
 export default function OutlookDashboard() {
   const { isPlaying } = useAudioStore();
-  const addToast = useUIStore((s) => s.addToast);
-  const { isConnected } = useWebSocketStable();
+  const { addToast } = useUIStore();
   const [activeTab, setActiveTab] = useState<GeneratorTab>('generator');
 
   // ─── Generator State ─────────────────────────────────────
@@ -260,8 +277,9 @@ export default function OutlookDashboard() {
   const [randomModel, setRandomModel] = useState<boolean>(false);
   const [randomLoop, setRandomLoop] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
+  const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
+  const [savedModels, setSavedModels] = useState<SavedCustomModel[]>([]);
   const [healthyProviders, setHealthyProviders] = useState<Record<string, boolean>>({});
-  const log = createLogger('OutlookDashboard');
 
   // ─── Data Fetching ───────────────────────────────────────
 
@@ -274,20 +292,13 @@ export default function OutlookDashboard() {
         fetch(`/api/v1/outlook/characters/roles/list`),
         fetch(`/api/v1/outlook/locations/types/list`),
       ]);
-      // Defensive unwrap — same crash class as AstrologyExtractionPanel's
-      // ``runs.some is not a function`` bug. Backend today returns bare arrays
-      // for these 5 endpoints, but a future envelope wrap (e.g. ``{items: [...]}``
-      // or ``{data: [...]}``) would silently store the envelope object in state
-      // and crash every downstream ``.map()`` / ``.filter()`` call with
-      // "object is not iterable". Accept either shape; fall back to ``[]``.
-      const unwrap = <T,>(v: unknown): T[] =>
-        Array.isArray(v) ? v as T[] : Array.isArray((v as any)?.items) ? (v as any).items : Array.isArray((v as any)?.data) ? (v as any).data : [];
-      if (realmsRes.ok) setRealms(unwrap<Realm>(await realmsRes.json()));
-      if (charsRes.ok) setCharacters(unwrap<Character>(await charsRes.json()));
-      if (popsRes.ok) setPopulations(unwrap<Population>(await popsRes.json()));
-      if (rolesRes.ok) setRoles(unwrap<string>(await rolesRes.json()));
-      if (typesRes.ok) setLocationTypes(unwrap<string>(await typesRes.json()));
+      if (realmsRes.ok) setRealms(await realmsRes.json() as Realm[]);
+      if (charsRes.ok) setCharacters(await charsRes.json() as Character[]);
+      if (popsRes.ok) setPopulations(await popsRes.json() as Population[]);
+      if (rolesRes.ok) setRoles(await rolesRes.json() as string[]);
+      if (typesRes.ok) setLocationTypes(await typesRes.json() as string[]);
     } catch (e) {
+      console.error('Universe fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load realms', message: 'Backend unreachable. Some data may be stale.', duration: 3000 });
     }
   }, [addToast]);
@@ -297,6 +308,7 @@ export default function OutlookDashboard() {
       const res = await fetch(`/api/v1/outlook/history?limit=15`);
       if (res.ok) setHistoryList(((await res.json()) as { history?: HistoryItem[] }).history || []);
     } catch (e) {
+      console.error('History fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load history', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [addToast]);
@@ -316,6 +328,7 @@ export default function OutlookDashboard() {
         }
       }
     } catch (e) {
+      console.error('Models fetch failed:', e);
       addToast({ type: 'error', title: 'Could not load LLM models', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [selectedModel, addToast]);
@@ -331,7 +344,29 @@ export default function OutlookDashboard() {
       (data.providers || []).forEach(p => { map[p.provider] = p.healthy; });
       setHealthyProviders(map);
     } catch (e) {
-      log.error('Providers health fetch failed:', e);
+      console.error('Providers health fetch failed:', e);
+    }
+  }, []);
+
+  const fetchAvailableModels = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/llm/models/available`);
+      if (!res.ok) return;
+      const data = await res.json() as { models?: AvailableModel[] };
+      setAvailableModels(data.models || []);
+    } catch (e) {
+      console.error('Available models fetch failed:', e);
+    }
+  }, []);
+
+  const fetchSavedModels = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/llm/models/saved`);
+      if (!res.ok) return;
+      const data = await res.json() as { models?: SavedCustomModel[] };
+      setSavedModels(data.models || []);
+    } catch (e) {
+      console.error('Saved models fetch failed:', e);
     }
   }, []);
 
@@ -351,6 +386,7 @@ export default function OutlookDashboard() {
         }
       }
     } catch (e) {
+      console.error('Loop status failed:', e);
       addToast({ type: 'error', title: 'Could not check loop status', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [addToast]);
@@ -360,26 +396,10 @@ export default function OutlookDashboard() {
     fetchHistory();
     fetchModels();
     fetchProvidersHealth();
+    fetchAvailableModels();
+    fetchSavedModels();
     fetchLoopStatus();
   }, []);
-
-  // WS reconnect recovery — same pattern as JourneyCard and Dashboard.
-  // When the WebSocket reconnects after a backend restart, re-run all the
-  // initial data fetches so realms/characters/populations/models/loop-status
-  // aren't stuck showing stale data until a manual refresh.
-  useEffect(() => {
-    if (isConnected) {
-      fetchUniverseData();
-      fetchHistory();
-      fetchModels();
-      fetchProvidersHealth();
-      fetchLoopStatus();
-    }
-    // Intentionally NOT listing the fetch callbacks in deps — they capture
-    // addToast and may change identity on each render, which would cause
-    // an infinite refetch loop. This matches the JourneyCard pattern.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected]);
 
   // Auto-set coordinates from selected realm
   useEffect(() => {
@@ -536,14 +556,7 @@ export default function OutlookDashboard() {
       const res = await fetch(`/api/v1/outlook/loop/start`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      if (res.ok) {
-        setLoopActive(true);
-        message.success(`Loop active — every ${loopInterval} min.`);
-        fetchLoopStatus();
-      } else {
-        message.error(`Failed to start loop: HTTP ${res.status}`);
-        audioFeedback.playError();
-      }
+      if (res.ok) { setLoopActive(true); message.success(`Loop active — every ${loopInterval} min.`); fetchLoopStatus(); }
     } catch { message.error('Failed to start loop.'); }
   };
 
@@ -591,10 +604,6 @@ export default function OutlookDashboard() {
         message.success(editingRealm ? 'Realm updated.' : 'Realm created.');
         setRealmModalOpen(false);
         fetchUniverseData();
-      } else {
-        const err = await res.json().catch(() => ({} as { detail?: string }));
-        message.error(err.detail || `Failed to save realm: HTTP ${res.status}`);
-        audioFeedback.playError();
       }
     } catch (e) {
       if ((e as { errorFields?: unknown }).errorFields) return;
@@ -614,6 +623,7 @@ export default function OutlookDashboard() {
           message.success('Realm deleted.');
           fetchUniverseData();
         } catch (e) {
+          console.error('Realm delete failed:', e);
           addToast({ type: 'error', title: 'Could not delete realm', message: 'Backend unreachable or refused the request.', duration: 3000 });
         }
       },
@@ -645,10 +655,6 @@ export default function OutlookDashboard() {
         message.success(editingChar ? 'Character updated.' : 'Character created.');
         setCharModalOpen(false);
         fetchUniverseData();
-      } else {
-        const err = await res.json().catch(() => ({} as { detail?: string }));
-        message.error(err.detail || `Failed to save character: HTTP ${res.status}`);
-        audioFeedback.playError();
       }
     } catch (e) {
       if ((e as { errorFields?: unknown }).errorFields) return;
@@ -668,6 +674,7 @@ export default function OutlookDashboard() {
           message.success('Character exiled.');
           fetchUniverseData();
         } catch (e) {
+          console.error('Character delete failed:', e);
           addToast({ type: 'error', title: 'Could not delete character', message: 'Backend unreachable or refused the request.', duration: 3000 });
         }
       },
@@ -696,24 +703,47 @@ export default function OutlookDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ─── Memoized option arrays (prevent new-array-every-render) ────────────
-
-  const realmOptions = useMemo(() =>
-    realms.map(r => ({ value: r.id, label: `${r.name} (${r.is_metaphysical ? 'Meta' : 'Earth'})` }))
-  , [realms]);
-
   // ─── Model Options ───────────────────────────────────────
 
-  const modelOptions = useMemo<ModelSelectOption[]>(() => {
+  const modelOptions = useMemo<(ModelSelectOption | ModelSelectGroup)[]>(() => {
     // Sentinel: '' → backend auto-detect (registry.pick_best()).
-    const opts: ModelSelectOption[] = [
-      { value: '', label: '✨ Auto-detect (default)' },
-    ];
+    const autoOpt: ModelSelectOption = { value: '', label: '✨ Auto-detect (default)' };
 
-    // API providers: built from the ACTUAL healthy providers reported by
-    // /llm/providers/health, cross-referenced with /llm/models so each
-    // option carries the provider's real default_model. No static list —
-    // unhealthy or unregistered providers simply do not appear.
+    // Saved models (starred) come first — cross-referenced with the available
+    // catalogue so each entry carries cost / context metadata.
+    const savedAv = savedModels
+      .map(sm => {
+        const av = availableModels.find(a => a.id === sm.model_id);
+        if (!av) {
+          // Saved but not in catalogue: still surface, with no metadata.
+          const isFree = sm.model_id.endsWith(':free');
+          const freeTag = isFree ? ' · FREE' : '';
+          return {
+            value: sm.model_id,
+            label: `★ ${sm.display_name}${freeTag}`,
+          } as ModelSelectOption;
+        }
+        const costStr = av.is_free ? 'FREE' : `$${av.input_per_m.toFixed(2)}/M`;
+        return {
+          value: sm.model_id,
+          label: `★ ${av.name} · ${costStr}${av.is_free ? ' 🟢' : ''}`,
+        } as ModelSelectOption;
+      });
+
+    // LM Studio (locally hosted) — existing source.
+    const lmStudioOpts: ModelSelectOption[] = (outlookModels.lm_studio || []).map(m => ({
+      value: `lm_studio:${m}`,
+      label: `🧪 LM Studio: ${m}`,
+    }));
+
+    // Local GGUF models — existing source.
+    const localOpts: ModelSelectOption[] = (outlookModels.local || []).map(m => ({
+      value: `local:${m}`,
+      label: `💻 Local: ${m}`,
+    }));
+
+    // API providers from the legacy /llm/models endpoint — kept for back-compat
+    // with deployments that haven't enabled OpenRouter discovery.
     const PROVIDER_LABEL: Record<string, { icon: string; name: string }> = {
       openrouter: { icon: '🧭', name: 'OpenRouter' },
       lm_studio: { icon: '🧪', name: 'LM Studio' },
@@ -724,34 +754,75 @@ export default function OutlookDashboard() {
       minimax: { icon: '🚀', name: 'MiniMax' },
       local: { icon: '💻', name: 'Local' },
     };
-    (outlookModels.api || []).forEach(entry => {
-      const m = entry.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
-      if (!m) return;
-      const providerKey = m[1];
-      const defaultModel = m[2];
-      if (healthyProviders[providerKey] === false) return;
-      const meta = PROVIDER_LABEL[providerKey] || { icon: '✨', name: providerKey };
-      opts.push({
-        value: `${providerKey}:${defaultModel}`,
-        label: `${meta.icon} ${meta.name} (${defaultModel})`,
-      });
-    });
+    const legacyApiOpts: ModelSelectOption[] = (outlookModels.api || [])
+      .map(entry => {
+        const m = entry.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+        if (!m) return null;
+        const providerKey = m[1];
+        const defaultModel = m[2];
+        if (healthyProviders[providerKey] === false) return null;
+        const meta = PROVIDER_LABEL[providerKey] || { icon: '✨', name: providerKey };
+        return {
+          value: `${providerKey}:${defaultModel}`,
+          label: `${meta.icon} ${meta.name} (${defaultModel})`,
+        } as ModelSelectOption;
+      })
+      .filter((x): x is ModelSelectOption => x !== null);
 
-    (outlookModels.lm_studio || []).forEach(m =>
-      opts.push({ value: `lm_studio:${m}`, label: `🧪 LM Studio: ${m}` }),
-    );
-    (outlookModels.local || []).forEach(m =>
-      opts.push({ value: `local:${m}`, label: `💻 Local: ${m}` }),
-    );
-    const seen = new Set<string>();
-    return opts.filter(o => { const k = o.value; if (seen.has(k)) return false; seen.add(k); return true; });
-  }, [outlookModels, healthyProviders]);
+    // Group all OpenRouter-discovered models by provider so the dropdown
+    // stays navigable even with 300+ entries. Free models get a 🟢 marker
+    // and a "FREE" cost string; paid models show input $/M.
+    const groupedByProvider: Record<string, ModelSelectOption[]> = {};
+    const seenIds = new Set<string>(savedModels.map(s => s.model_id));
+    for (const av of availableModels) {
+      if (seenIds.has(av.id)) continue; // saved already shows it on top
+      const costStr = av.is_free ? 'FREE 🟢' : `$${av.input_per_m.toFixed(2)}/M in`;
+      const ctxStr = av.context_length != null
+        ? ` · ${av.context_length >= 1_000_000 ? `${(av.context_length / 1_000_000).toFixed(0)}M` : `${Math.round(av.context_length / 1000)}K`} ctx`
+        : '';
+      const featuredStr = av.featured ? '⭐ ' : '';
+      const opt: ModelSelectOption = {
+        value: av.id,
+        label: `${featuredStr}${av.name} · ${costStr}${ctxStr}`,
+      };
+      if (!groupedByProvider[av.provider]) groupedByProvider[av.provider] = [];
+      groupedByProvider[av.provider].push(opt);
+    }
+    const openRouterGroups: ModelSelectGroup[] = Object.keys(groupedByProvider)
+      .sort((a, b) => a.localeCompare(b))
+      .map(provider => ({
+        label: `${PROVIDER_LABEL[provider]?.icon || '✨'} ${PROVIDER_LABEL[provider]?.name || provider} (${groupedByProvider[provider].length})`,
+        options: groupedByProvider[provider].sort((a, b) => a.label.localeCompare(b.label)),
+      }));
+
+    const groups: (ModelSelectOption | ModelSelectGroup)[] = [autoOpt];
+    if (savedAv.length > 0) {
+      groups.push({ label: `★ Saved (${savedAv.length})`, options: savedAv });
+    }
+    if (lmStudioOpts.length > 0) {
+      groups.push({ label: '🧪 LM Studio', options: lmStudioOpts });
+    }
+    if (localOpts.length > 0) {
+      groups.push({ label: '💻 Local GGUF', options: localOpts });
+    }
+    if (legacyApiOpts.length > 0) {
+      groups.push({ label: '🔌 API Providers', options: legacyApiOpts });
+    }
+    groups.push(...openRouterGroups);
+    return groups;
+  }, [outlookModels, healthyProviders, availableModels, savedModels]);
 
   // ─── Render ──────────────────────────────────────────────
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
       <Space orientation="vertical" size="large" className="w-full">
+
+        <PageHeader
+          icon={<Compass className="w-7 h-7 text-cyan-400" />}
+          title="Narrative Generation & Outlook"
+          subtitle="Construct localized, sutra-style blessing cycles based on high-entropy oracles, planetary lines, and active entity grids."
+        />
 
         {/* ── Header ── */}
         <Card size="small">
@@ -829,7 +900,7 @@ export default function OutlookDashboard() {
                           allowClear
                           size="small"
                           className="w-full"
-                          options={realmOptions}
+                          options={realms.map(r => ({ value: r.id, label: `${r.name} (${r.is_metaphysical ? 'Meta' : 'Earth'})` }))}
                         />
                       </Col>
                       <Col>
@@ -897,7 +968,7 @@ export default function OutlookDashboard() {
                       size="small"
                       className="w-full"
                       style={{ marginTop: 4 }}
-                      options={GENRE_OPTIONS}
+                      options={GENRES.map(g => ({ value: g.value, label: g.label }))}
                     />
                   </div>
 
@@ -923,23 +994,19 @@ export default function OutlookDashboard() {
                       onChange={setSelectedLangs}
                       className="w-full"
                       style={{ marginTop: 4 }}
-                      options={LANGUAGE_OPTIONS}
+                      options={LANGUAGES.map(l => ({ value: l, label: l }))}
                     />
                   </div>
 
                   {/* Model */}
                   <div>
-                    <Row justify="space-between" align="middle">
-                      <Col><Text strong style={{ fontSize: 12 }}>LLM Model</Text></Col>
-                      <Col>
-                        <Tooltip title="Let the backend pick a random provider each run">
-                          <Space size={4}>
-                            <Switch size="small" checked={randomModel} onChange={setRandomModel} />
-                            <Text style={{ fontSize: 11 }}><Dices className="w-3 h-3 inline mr-1" />🎲 Random</Text>
-                          </Space>
-                        </Tooltip>
-                      </Col>
-                    </Row>
+                    <Tooltip title="Let the backend pick a random provider each run">
+                      <Space size={4} style={{ marginBottom: 4 }}>
+                        <Dices className="w-3 h-3" />
+                        <Switch size="small" checked={randomModel} onChange={setRandomModel} />
+                        <Text strong style={{ fontSize: 12 }}>Random LLM</Text>
+                      </Space>
+                    </Tooltip>
                     <Select
                       size="small"
                       value={selectedModel || undefined}
@@ -949,9 +1016,6 @@ export default function OutlookDashboard() {
                       options={modelOptions}
                       placeholder="Auto-detect"
                       disabled={randomModel}
-                      showSearch
-                      optionFilterProp="label"
-                      filterSort={(a: ModelSelectOption, b: ModelSelectOption) => a.label.localeCompare(b.label)}
                     />
                     {randomModel && (
                       <Text type="secondary" style={{ fontSize: 10, display: 'block', marginTop: 2 }}>
@@ -1106,14 +1170,18 @@ export default function OutlookDashboard() {
                   />
                   <Row justify="space-between" align="middle">
                     <Col>
-                      <Checkbox
-                        checked={randomLoop}
-                        onChange={e => setRandomLoop(e.target.checked)}
-                        disabled={loopActive}
-                        style={{ fontSize: 12 }}
-                      >
-                        <Shuffle className="w-3 h-3 inline mr-1" />🔀 Random per iteration
-                      </Checkbox>
+                      <Tooltip title="Roll a fresh LLM provider each loop tick">
+                        <Space size={4}>
+                          <Shuffle className="w-3 h-3" />
+                          <Switch
+                            size="small"
+                            checked={randomLoop}
+                            onChange={setRandomLoop}
+                            disabled={loopActive}
+                          />
+                          <Text style={{ fontSize: 12 }}>Random per iteration</Text>
+                        </Space>
+                      </Tooltip>
                     </Col>
                   </Row>
                   {randomLoop && (
@@ -1150,22 +1218,13 @@ export default function OutlookDashboard() {
                 </Card>
               ) : currentNarrative ? (
                 currentNarrative.type === 'epic' || currentNarrative.narrative_parts ? (
-                  <>
-                    {currentNarrative.model_used && (
-                      <div style={{ marginBottom: 8 }}>
-                        <Tag color="blue" style={{ fontSize: 10 }}>
-                          🤖 {currentNarrative.provider_used || 'unknown'}/{currentNarrative.model_used}
-                        </Tag>
-                      </div>
-                    )}
-                    <EpicStoryViewer
-                      narrativeParts={currentNarrative.narrative_parts}
-                      astrologyContext={currentNarrative.astrology_used}
-                      divinationContext={currentNarrative.divination_used}
-                      divinationRaw={currentNarrative.divination_raw}
-                      entitiesInvoked={currentNarrative.entities_used}
-                    />
-                  </>
+                  <EpicStoryViewer
+                    narrativeParts={currentNarrative.narrative_parts}
+                    astrologyContext={currentNarrative.astrology_used}
+                    divinationContext={currentNarrative.divination_used}
+                    divinationRaw={currentNarrative.divination_raw}
+                    entitiesInvoked={currentNarrative.entities_used}
+                  />
                 ) : (
                   <Row gutter={[24, 24]}>
                     <Col xs={24} lg={16}>
@@ -1193,17 +1252,23 @@ export default function OutlookDashboard() {
                               children: (
                                 <>
                                   <Title level={4} style={{ color: '#e2e8f0', textTransform: 'capitalize' }}>{currentNarrative.genre} Revelation</Title>
-                                  {currentNarrative.model_used && (
-                                    <div style={{ marginBottom: 8 }}>
-                                      <Tag color="blue" style={{ fontSize: 10 }}>
-                                        🤖 {currentNarrative.provider_used || 'unknown'}/{currentNarrative.model_used}
-                                      </Tag>
-                                    </div>
-                                  )}
                                   <Divider />
-                                  <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
-                                    {currentNarrative.narrative}
-                                  </Paragraph>
+                                  {(() => {
+                                    const { clean, reasoning } = stripThinking(currentNarrative.narrative || '');
+                                    return (
+                                      <>
+                                        <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
+                                          {clean}
+                                        </Paragraph>
+                                        {reasoning && (
+                                          <details className="text-xs opacity-60 mt-2">
+                                            <summary>💭 Reasoning</summary>
+                                            <div className="mt-1 whitespace-pre-wrap">{reasoning}</div>
+                                          </details>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </>
                               ),
                             },
@@ -1267,22 +1332,18 @@ export default function OutlookDashboard() {
                         {/* Divination */}
                         {currentNarrative.divination_raw && (
                           <Card size="small" title={<Text strong className="font-mono text-xs uppercase">🔮 Esoteric Reading</Text>}>
-                            {/* SVGs suppressed — they were taking up all available space.
-                                The text descriptions below carry the same information. */}
-                            {currentNarrative.divination_raw.tarot?.name && (
-                              <div className="mb-2">
-                                <Tag color="purple" style={{ fontSize: 10 }}>
-                                  🃏 {currentNarrative.divination_raw.tarot.name}
-                                  {currentNarrative.divination_raw.tarot.orientation ? ` (${currentNarrative.divination_raw.tarot.orientation})` : ''}
-                                </Tag>
+                            {currentNarrative.divination_raw.tarot?.svg && (
+                              <div className="flex flex-col items-center mb-3">
+                                <div dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.tarot.svg }}
+                                  className="divination-card-container w-24 h-36 flex justify-center" />
+                                <Text strong style={{ fontSize: 10 }}>{currentNarrative.divination_raw.tarot.name}</Text>
                               </div>
                             )}
-                            {currentNarrative.divination_raw.iching?.name && (
-                              <div className="mb-2">
-                                <Tag color="cyan" style={{ fontSize: 10 }}>
-                                  ☯️ {currentNarrative.divination_raw.iching.name}
-                                  {currentNarrative.divination_raw.iching.changing_lines ? ` → ${currentNarrative.divination_raw.iching.relating_name || ''}` : ''}
-                                </Tag>
+                            {currentNarrative.divination_raw.iching?.svg && (
+                              <div className="flex flex-col items-center mb-3">
+                                <div dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.iching.svg }}
+                                  className="divination-card-container w-24 h-36 flex justify-center" />
+                                <Text strong style={{ fontSize: 10 }}>{currentNarrative.divination_raw.iching.name?.split(' / ')[0]}</Text>
                               </div>
                             )}
                             {currentNarrative.divination_used && (

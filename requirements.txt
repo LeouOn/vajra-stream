@@ -9,7 +9,7 @@ pydub>=0.25.0
 
 # Text-to-Speech
 pyttsx3>=2.90
-edge-tts>=6.1.0  # Cloud TTS — default backend for /api/v1/outlook/speak
+edge-tts>=6.1.9
 
 # Computer Vision
 opencv-python>=4.8.0

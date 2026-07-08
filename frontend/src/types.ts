@@ -87,6 +87,45 @@ export interface WSProviderHealth extends WSMessageBase {
   timestamp?: number;
 }
 
+/**
+ * LLM_USAGE_UPDATE — streamed from the backend when aggregate usage counters
+ * change. The payload drives the live cost badge in `UsageDashboard`.
+ *
+ * Backend: `core/usage_tracker.py` (broadcast on every call settlement).
+ */
+export interface WSLLMUsageUpdate extends WSMessageBase {
+  type: 'LLM_USAGE_UPDATE';
+  total_calls: number;
+  total_cost_usd: number;
+  calls_today: number;
+  cost_today: number;
+  timestamp?: number;
+}
+
+export interface WSPracticeStarted extends WSMessageBase {
+  type: 'PRACTICE_STARTED';
+  data: PracticeStartedPayload;
+  timestamp: number;
+}
+
+export interface WSPracticeRecited extends WSMessageBase {
+  type: 'PRACTICE_RECITED';
+  data: PracticeStatus;
+  timestamp: number;
+}
+
+export interface WSPracticeCompleted extends WSMessageBase {
+  type: 'PRACTICE_COMPLETED';
+  data: PracticeCompletedPayload;
+  timestamp: number;
+}
+
+export interface WSPracticeStopped extends WSMessageBase {
+  type: 'PRACTICE_STOPPED';
+  data: PracticeStoppedPayload;
+  timestamp: number;
+}
+
 export type WSMessage =
   | WSRealtimeData
   | WSAudioSpectrum
@@ -101,6 +140,11 @@ export type WSMessage =
   | WSSakaDawaCheck
   | WSRngReading
   | WSProviderHealth
+  | WSLLMUsageUpdate
+  | WSPracticeStarted
+  | WSPracticeRecited
+  | WSPracticeCompleted
+  | WSPracticeStopped
   | WSError
   | WSMessageBase;
 
@@ -240,6 +284,70 @@ export interface SakaDawaResult {
   saka_dawa_month_end?: string;
   saka_dawa_duchen?: string;
   is_duchen?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-practice engine (Tara, Zhunti, Medicine Buddha, Vajrasattva,
+// Amitabha, Avalokiteshvara, Heart Sutra, ...)
+// Backend: core/practice_engine.py + backend/app/api/v1/endpoints/practices.py
+// ---------------------------------------------------------------------------
+
+export interface PracticeListItem {
+  practice_id: string;
+  name: string;
+  primary_purpose: string;
+  tradition: string;
+  category: string;
+  benefits: string[];
+  dedication: string;
+  frequency_hz: number | null;
+  color: string | null;
+  color_name: string | null;
+  element: string;
+  chakra: string;
+  target_count: number;
+  visualizations: string[];
+  mantra_count: number;
+}
+
+export interface PracticeStatus {
+  practice_id: string;
+  practice_name: string;
+  intention: string;
+  target_count: number;
+  total_recited: number;
+  mala_count: number;
+  mala_rounds: number;
+  current_repetition: string;
+  running: boolean;
+  started_at: string;
+  last_recited_at: string;
+  elapsed_seconds: number;
+  progress_pct: number;
+}
+
+export interface PracticeStartedPayload {
+  practice_id: string;
+  practice_name: string;
+  intention: string;
+  target_count: number;
+}
+
+export interface PracticeCompletedPayload {
+  practice_id: string;
+  practice_name: string;
+  total_count: number;
+  mala_rounds: number;
+  duration_seconds: number;
+  intention: string;
+}
+
+export interface PracticeStoppedPayload {
+  practice_id: string;
+  practice_name: string;
+  total_count: number;
+  mala_rounds: number;
+  reason: string;
 }
 
 export interface RNGReading {

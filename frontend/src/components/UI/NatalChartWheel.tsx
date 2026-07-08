@@ -291,7 +291,8 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
         <svg
           viewBox="0 0 400 400"
           width="100%"
-          style={{ maxWidth: 420, maxHeight: 420, aspectRatio: '1/1' }}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ maxWidth: '100%', height: 'auto', aspectRatio: '1/1' }}
           role="img"
           aria-label={`Natal chart wheel for ${name || 'chart'}`}
         >

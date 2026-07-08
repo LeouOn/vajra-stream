@@ -31,6 +31,7 @@ class ChatRequest(BaseModel):
     include_astrology: bool = False
     include_anatomy: bool = False
     include_hardware: bool = False
+    use_rag: bool = False
     astrology_data: dict[str, Any] | None = None
 
 
@@ -50,6 +51,8 @@ class ChatResponse(BaseModel):
     cost_usd: float = 0.0
     finish_reason: str = "stop"
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    reasoning_content: str | None = None
+    reasoning_tokens: int = 0
 
 
 class HealthStatus(BaseModel):

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from 'antd';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 
 interface AttunementDataPoint {
   time: string;

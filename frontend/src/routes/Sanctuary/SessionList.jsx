@@ -119,7 +119,7 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
           background: 'rgba(4,4,8,0.55)',
           backdropFilter: 'blur(2px)',
         },
-        content: {
+        section: {
           background: C.bg,
         },
       }}

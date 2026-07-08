@@ -3,6 +3,7 @@ Divination Suite API Endpoints (Tarot, I Ching, Geomancy)
 """
 
 import asyncio
+import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -614,17 +615,143 @@ async def generate_geomancy_talisman(intention: str = "protection and clarity", 
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _build_interpretation_prompt(payload: InterpretRequest, rag_context: str = "") -> str:
+    """Construct a rich, system-aware interpretation prompt.
+
+    Renders Tarot draws card-by-card (name / position / orientation) and folds
+    in any astrological context the caller attached under ``details["astrology"]``.
+    Falls back to a compact JSON dump for I Ching / Geomancy / unknown shapes.
+
+    ``rag_context`` is optional pre-formatted grounding text retrieved from the
+    knowledge index (RAG) — when non-empty it is appended after the system
+    framing so the LLM can ground the reading in uploaded/knowledge documents.
+    """
+    system = payload.system.strip() or "Tarot"
+    question = payload.question.strip()
+    details = payload.details or {}
+    cards = details.get("cards") if isinstance(details.get("cards"), list) else None
+    astrology = details.get("astrology") or details.get("astrological_context")
+
+    lines: list[str] = []
+
+    lines.append(
+        "You are a wise dharma teacher who has spent decades studying both the "
+        "Buddhist view of emptiness and dependent origination, and the symbolic "
+        "language of the Western esoteric traditions. Speak with the compassionate, "
+        "lucid, and grounded voice of such a teacher — direct, warm, free of "
+        "superstition, and always pointing the seeker back to their own clarity."
+    )
+    lines.append("")
+
+    if rag_context:
+        lines.append(rag_context.strip())
+        lines.append("")
+
+    if question:
+        lines.append(f"## The Seeker's Question\n{question}")
+        lines.append("")
+
+    lines.append(f"## System\n{system}")
+    lines.append("")
+
+    if cards:
+        lines.append("## The Cards Drawn")
+        for i, card in enumerate(cards, start=1):
+            if not isinstance(card, dict):
+                continue
+            name = card.get("name", "Unknown card")
+            orientation = card.get("orientation", "")
+            reversed_flag = card.get("reversed")
+            if not orientation:
+                orientation = "reversed" if reversed_flag else "upright"
+            position = card.get("position") or {}
+            pos_name = position.get("name", "") if isinstance(position, dict) else str(position)
+            pos_label = position.get("label", "") if isinstance(position, dict) else ""
+            element = card.get("element", "")
+            keywords = card.get("keywords", [])
+            keywords_str = ", ".join(keywords) if isinstance(keywords, list) else str(keywords)
+            meaning = card.get("meaning", "")
+
+            card_line = f"{i}. **{name}**"
+            if pos_name:
+                card_line += f" — position: {pos_name}"
+            card_line += f" ({orientation})"
+            if element:
+                card_line += f" [{element}]"
+            lines.append(card_line)
+            if pos_label:
+                lines.append(f"   - Role: {pos_label}")
+            if keywords_str:
+                lines.append(f"   - Keywords: {keywords_str}")
+            if meaning:
+                lines.append(f"   - Traditional meaning: {meaning}")
+            if card.get("desc"):
+                lines.append(f"   - Scene: {card['desc'][:150]}")
+            if card.get("reversed_meaning") and card.get("reversed"):
+                lines.append(f"   - Shadow aspect: {card['reversed_meaning'][:150]}")
+        lines.append("")
+    else:
+        lines.append("## Reading Details")
+        lines.append("```json")
+        lines.append(json.dumps(details, ensure_ascii=False, indent=2, default=str))
+        lines.append("```")
+        lines.append("")
+
+    if astrology:
+        lines.append("## Astrological Context")
+        if isinstance(astrology, str):
+            lines.append(astrology)
+        else:
+            lines.append("```json")
+            lines.append(json.dumps(astrology, ensure_ascii=False, indent=2, default=str))
+            lines.append("```")
+        lines.append("")
+        lines.append(
+            "Weave the astrological context (transits, rulerships, elemental balance) "
+            "into the reading where genuinely relevant — do not force connections."
+        )
+        lines.append("")
+
+    lines.append("## What to Offer the Seeker")
+    lines.append(
+        "1. **Each card, read in its position** — the specific meaning of every "
+        "card in its drawn orientation as it applies to this position in the spread."
+    )
+    lines.append(
+        "2. **A combined narrative** — how the cards speak to each other and to "
+        "the question, telling one coherent story rather than a list of keywords."
+    )
+    lines.append(
+        "3. **Practical guidance** — concrete, compassionate steps the seeker can "
+        "take. Ground the esoteric in everyday action, in the spirit of upaya "
+        "(skillful means). End with a short dedication of merit for the benefit "
+        "of all beings."
+    )
+
+    return "\n".join(lines)
+
+
 @router.post("/interpret")
 async def interpret_divination(payload: InterpretRequest):
     """Interpret divination readings using local/cloud LLM operator"""
     try:
-        # Construct interpretation prompt
-        prompt = (
-            f"Please provide a deep, esoteric interpretation for a {payload.system} reading. "
-            f"The user's question was: '{payload.question}'.\n\n"
-            f"Reading details: {payload.details}\n\n"
-            f"Explain the correspondences, astrological rulers, and elemental flows with compassion and wisdom."
-        )
+        # RAG retrieval — ground the interpretation in uploaded/knowledge documents
+        rag_context = ""
+        try:
+            from core.knowledge_index import get_knowledge_index
+
+            idx = get_knowledge_index()
+            results = idx.search(payload.question, top_k=5)
+            if results:
+                rag_context = "\n\nRelevant knowledge for grounding this reading:\n"
+                for r in results:
+                    text = r.get("text", r.get("content", ""))
+                    source = r.get("source", r.get("category", "unknown"))
+                    rag_context += f"- [{source}] {text[:200]}\n"
+        except Exception:
+            pass  # RAG is optional — don't break interpretation if index fails
+
+        prompt = _build_interpretation_prompt(payload, rag_context=rag_context)
 
         # Route to local/cloud chat endpoint logic
         from backend.app.api.v1.endpoints.llm import ChatMessage, ChatRequest, chat_interaction
