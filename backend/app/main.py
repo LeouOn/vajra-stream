@@ -35,9 +35,23 @@ templates = Jinja2Templates(directory=str(template_dir))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    """
+    Startup is split into two phases so the server accepts connections
+    as fast as possible:
+
+    1. CRITICAL PATH (blocking, before ``yield``): only the DB schema
+       init — cheap and required by every endpoint.
+    2. BACKGROUND WARMUP (``asyncio.create_task``, fire-and-forget):
+       orchestrator bridge, LLM registry + health heartbeat, autonomous
+       operator, practice-engine pre-warm, real-time streaming, and the
+       LLM-usage WS broadcast hook. Each step is independently fault
+       tolerant — one failing step never blocks the others.
+
+    The shutdown phase (after ``yield``) cancels the warmup task if it
+    is still running, then runs the same teardown as before.
+    """
+    # ---- CRITICAL PATH ----------------------------------------------------
     logger.info("Vajra.Stream API starting up...")
-    logger.info("Initializing Stable WebSocket connection manager v2...")
 
     try:
         from core.schema import init_db as _schema_init_db
@@ -48,158 +62,179 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize database schema: {e}")
         logger.error(traceback.format_exc())
 
-    # Initialize Orchestrator Bridge
-    try:
-        from backend.core.orchestrator_bridge import orchestrator_bridge
+    app.state.health_task = None
+    app.state.streaming_task = None
 
-        logger.info("Initializing Orchestrator Bridge...")
-        orchestrator_bridge.initialize()
-        logger.info("Orchestrator Bridge initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize Orchestrator Bridge: {e}")
-        logger.error(traceback.format_exc())
+    # ---- BACKGROUND WARMUP ------------------------------------------------
 
-    # Initialize LLM Provider Registry
-    health_task = None
-    try:
-        from core.llm.bootstrap import build_default_registry
+    async def _warmup() -> None:
+        """Non-blocking init. Each block is independent; failures are logged."""
 
-        registry = build_default_registry()
-        app.state.llm_registry = registry
-        logger.info(f"LLM registry initialized: {[p.name for p in registry.providers]}")
-    except Exception as e:
-        logger.error(f"Failed to initialize LLM registry: {e}")
-        logger.error(traceback.format_exc())
-
-    # Start LLM health heartbeat
-    if hasattr(app.state, "llm_registry") and len(app.state.llm_registry) > 0:
         try:
-            from backend.app.config import get_llm_config
-            from core.llm.health import start_health_heartbeat
+            from backend.core.orchestrator_bridge import orchestrator_bridge
 
-            config = get_llm_config()
-
-            async def publish_health(statuses):
-                try:
-                    await stable_connection_manager_v2.broadcast(
-                        {
-                            "type": "PROVIDER_HEALTH",
-                            "statuses": [s.model_dump() for s in statuses],
-                        }
-                    )
-                except Exception as e:
-                    logger.debug(f"PROVIDER_HEALTH broadcast failed: {e}")
-
-            health_task = asyncio.create_task(
-                start_health_heartbeat(
-                    app.state.llm_registry,
-                    interval_seconds=config.health_check_interval_seconds,
-                    on_update=publish_health,
-                )
-            )
-            logger.info(
-                f"LLM health heartbeat started "
-                f"(interval={config.health_check_interval_seconds}s)"
-            )
+            logger.info("Initializing Orchestrator Bridge (background)...")
+            orchestrator_bridge.initialize()
+            logger.info("Orchestrator Bridge initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to start health heartbeat: {e}")
+            logger.error(f"Failed to initialize Orchestrator Bridge: {e}")
             logger.error(traceback.format_exc())
 
-    # Start real-time streaming with stable manager v2
-    streaming_task = None
-    try:
-        streaming_task = asyncio.create_task(stable_connection_manager_v2.start_realtime_streaming())
-        logger.info("Stable real-time streaming started")
-    except Exception as e:
-        logger.error(f"Failed to start streaming: {e}")
-        logger.error(traceback.format_exc())
-
-    # Start slow-data broadcast loop (astrology, MOPS, journey status)
-    # These replace frontend HTTP polling with WebSocket push.
-    slow_broadcast_task = None
-    try:
-        async def _slow_data_broadcast_loop():
-            """Broadcast slow-changing data every 10s via WebSocket.
-
-            Replaces frontend setInterval polling for:
-            - CURRENT_ASTROLOGY (was: 15-60s HTTP poll in 4 components)
-            - MOPS_AVERAGES (was: 2s HTTP poll in ScalarTab)
-            - JOURNEY_STATUS (was: 5s HTTP poll in JourneyCard + ScalarTab)
-            """
-            import time as _time
+        # Wire vajra_service to the shared event bus so its session events
+        # (SessionCreated/Started/Stopped, RNGReadingEvent, ...) reach the
+        # AutonomousAgent and WebSocket forwarder. Must run before the
+        # autonomous operator starts its first tick.
+        try:
             from backend.core.services.vajra_service import vajra_service
-            from backend.core.services.mops_engine import mops_engine
+            from container import container
 
-            while True:
+            vajra_service.event_bus = container.event_bus
+            logger.info("vajra_service wired to shared event bus")
+        except Exception as e:
+            logger.error(f"Failed to wire vajra_service.event_bus: {e}")
+            logger.error(traceback.format_exc())
+
+        # Initialize LLM Provider Registry
+        try:
+            from core.llm.bootstrap import build_default_registry
+
+            registry = build_default_registry()
+            app.state.llm_registry = registry
+            logger.info(
+                f"LLM registry initialized: {[p.name for p in registry.providers]}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM registry: {e}")
+            logger.error(traceback.format_exc())
+
+        # Start LLM health heartbeat
+        if hasattr(app.state, "llm_registry") and len(app.state.llm_registry) > 0:
+            try:
+                from backend.app.config import get_llm_config
+                from core.llm.health import start_health_heartbeat
+
+                config = get_llm_config()
+
+                async def publish_health(statuses):
+                    try:
+                        await stable_connection_manager_v2.broadcast(
+                            {
+                                "type": "PROVIDER_HEALTH",
+                                "statuses": [s.model_dump() for s in statuses],
+                            }
+                        )
+                    except Exception as e:
+                        logger.debug(f"PROVIDER_HEALTH broadcast failed: {e}")
+
+                app.state.health_task = asyncio.create_task(
+                    start_health_heartbeat(
+                        app.state.llm_registry,
+                        interval_seconds=config.health_check_interval_seconds,
+                        on_update=publish_health,
+                    )
+                )
+                logger.info(
+                    f"LLM health heartbeat started "
+                    f"(interval={config.health_check_interval_seconds}s)"
+                )
+            except Exception as e:
+                logger.error(f"Failed to start health heartbeat: {e}")
+                logger.error(traceback.format_exc())
+
+        # Start real-time streaming with stable manager v2
+        try:
+            app.state.streaming_task = asyncio.create_task(
+                stable_connection_manager_v2.start_realtime_streaming()
+            )
+            logger.info("Stable real-time streaming started")
+        except Exception as e:
+            logger.error(f"Failed to start streaming: {e}")
+            logger.error(traceback.format_exc())
+
+        # Start Autonomous Operator Daemon
+        try:
+            from container import container
+
+            logger.info("Starting Autonomous Radionics Operator daemon (background)...")
+            container.operator.start_autonomous_mode(interval_seconds=300)
+            logger.info(
+                "Autonomous Radionics Operator daemon activated successfully on startup"
+            )
+        except Exception as e:
+            logger.error(f"Failed to start Autonomous Operator daemon: {e}")
+
+        # Wire LLM usage WS broadcast: every Nth record (throttled inside
+        # the tracker), push a compact summary over the stable WS channel
+        # so the frontend can render a live cost panel without polling.
+        try:
+            import asyncio as _asyncio
+
+            from core.llm.usage import LLMUsageTracker
+
+            def _broadcast_usage(summary: dict) -> None:
+                payload = {
+                    "type": "LLM_USAGE_UPDATE",
+                    "data": {
+                        "total_calls": summary.get("total_calls"),
+                        "total_cost_usd": summary.get("total_cost_usd"),
+                        "calls_today": summary.get("calls_today"),
+                        "cost_today": summary.get("cost_today"),
+                        "daily_cost_usd": summary.get("daily_cost_usd"),
+                        "daily_cost_cap": summary.get("daily_cost_cap"),
+                        "over_cap": summary.get("over_cap"),
+                        "remaining_balance": summary.get("remaining_balance"),
+                        "provider_stats": summary.get("provider_stats"),
+                    },
+                }
                 try:
-                    await asyncio.sleep(10)
+                    loop = _asyncio.get_running_loop()
+                    loop.create_task(stable_connection_manager_v2.broadcast(payload))
+                except RuntimeError:
+                    # No running loop — tests/offline use; skip silently.
+                    pass
+                except Exception:  # noqa: BLE001
+                    logger.debug("LLM_USAGE_UPDATE broadcast failed", exc_info=True)
 
-                    # CURRENT_ASTROLOGY — planetary positions
-                    try:
-                        astrology_data = await vajra_service._get_astrology_data()
-                        await stable_connection_manager_v2.broadcast({
-                            "type": "CURRENT_ASTROLOGY",
-                            "data": astrology_data,
-                            "timestamp": _time.time(),
-                        })
-                    except Exception as e:
-                        logger.debug(f"CURRENT_ASTROLOGY broadcast failed: {e}")
+            LLMUsageTracker.get().add_on_record_callback(_broadcast_usage)
+            logger.info(
+                "LLM usage WS broadcast hook registered (throttled every 10 records)"
+            )
+        except Exception as e:
+            logger.error(f"Failed to register LLM usage WS broadcast: {e}")
 
-                    # MOPS_AVERAGES — scalar wave telemetry
-                    try:
-                        mops_data = mops_engine.get_rolling_averages()
-                        if mops_data:
-                            await stable_connection_manager_v2.broadcast({
-                                "type": "MOPS_AVERAGES",
-                                "data": mops_data,
-                                "timestamp": _time.time(),
-                            })
-                    except Exception as e:
-                        logger.debug(f"MOPS_AVERAGES broadcast failed: {e}")
+        # Pre-warm the multi-practice recitation engine so the first
+        # /practices/list request doesn't pay the JSON-load cost. Lazy
+        # load is idempotent; this just forces it to happen now.
+        try:
+            from core.practice_engine import get_practice_engine
 
-                    # JOURNEY_STATUS — character journey full status
-                    try:
-                        from container import container
-                        journey_data = container.operator.get_journey_status()
-                        if journey_data:
-                            await stable_connection_manager_v2.broadcast({
-                                "type": "JOURNEY_STATUS",
-                                "data": journey_data,
-                                "timestamp": _time.time(),
-                            })
-                    except Exception as e:
-                        logger.debug(f"JOURNEY_STATUS broadcast failed: {e}")
+            engine = get_practice_engine()
+            # Touch list_practices() to force definition loading eagerly.
+            engine_count = len(engine.list_practices())
+            logger.info(
+                f"Practice engine pre-warmed ({engine_count} definitions loaded)"
+            )
+        except Exception as e:
+            logger.error(f"Failed to pre-warm practice engine: {e}")
+            logger.error(traceback.format_exc())
 
-                except asyncio.CancelledError:
-                    logger.info("Slow data broadcast loop cancelled")
-                    break
-                except Exception as e:
-                    logger.error(f"Error in slow data broadcast loop: {e}")
-                    await asyncio.sleep(5)
+    warmup_task = asyncio.create_task(_warmup())
 
-        slow_broadcast_task = asyncio.create_task(_slow_data_broadcast_loop())
-        logger.info("Slow data broadcast loop started (CURRENT_ASTROLOGY, MOPS_AVERAGES, JOURNEY_STATUS at 10s)")
-    except Exception as e:
-        logger.error(f"Failed to start slow data broadcast loop: {e}")
+    yield  # Server accepts connections NOW
 
-    # Start Autonomous Operator Daemon
-    try:
-        from container import container
-
-        logger.info("Starting Autonomous Radionics Operator daemon...")
-        container.operator.start_autonomous_mode(interval_seconds=60)
-        logger.info("Autonomous Radionics Operator daemon activated successfully on startup")
-    except Exception as e:
-        logger.error(f"Failed to start Autonomous Operator daemon: {e}")
-
-    yield
-
-    # Mark app ready now that lifespan startup has completed and the server
-    # is accepting connections. The frontend /ready gate depends on this.
-    _mark_app_ready()
-
-    # Shutdown
+    # ---- SHUTDOWN ---------------------------------------------------------
     logger.info("Vajra.Stream API shutting down...")
+
+    # Cancel the warmup task first if it is still running so its
+    # sub-tasks (health heartbeat, streaming) don't race the teardown.
+    warmup_task.cancel()
+    try:
+        await warmup_task
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.debug(f"Warmup task ended with error during shutdown: {e}")
+
     stable_connection_manager_v2.stop_realtime_streaming()
 
     # Shutdown Orchestrator Bridge (cancel the crystal broadcast daemon thread)
@@ -221,6 +256,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to stop Autonomous Operator daemon: {e}")
 
+    # Stop any running multi-practice sessions so their history is
+    # recorded with reason="shutdown" rather than left dangling.
+    try:
+        from core.practice_engine import get_practice_engine
+
+        await get_practice_engine().stop_all(reason="shutdown")
+        logger.info("Practice engine stopped all running sessions")
+    except Exception as e:
+        logger.error(f"Failed to stop practice engine sessions: {e}")
+
     # Close LLM registry and cancel health heartbeat
     if hasattr(app.state, "llm_registry"):
         try:
@@ -229,6 +274,7 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to close LLM registry: {e}")
 
+    health_task = getattr(app.state, "health_task", None)
     if health_task:
         health_task.cancel()
         try:
@@ -236,17 +282,11 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
 
+    streaming_task = getattr(app.state, "streaming_task", None)
     if streaming_task:
         streaming_task.cancel()
         try:
             await streaming_task
-        except asyncio.CancelledError:
-            pass
-
-    if slow_broadcast_task:
-        slow_broadcast_task.cancel()
-        try:
-            await slow_broadcast_task
         except asyncio.CancelledError:
             pass
 
@@ -300,30 +340,6 @@ async def health_check():
         "websocket_connections": stable_connection_manager_v2.get_connection_count(),
         "streaming_active": stable_connection_manager_v2.is_streaming(),
     }
-
-
-# Module-level flag set to True once the lifespan has finished its pre-yield
-# init steps. Frontend useWebSocketStable polls /ready before opening the
-# WS connection to avoid the "WebSocket is closed before the connection is
-# established" race when the backend is still booting.
-_app_ready = False
-
-
-@app.get("/ready")
-async def readiness_check():
-    """Returns {"ready": true} once lifespan startup has completed.
-
-    The frontend polls this before opening the WebSocket. Without this gate
-    the browser's first WS upgrade can race the backend lifespan and be
-    rejected before the endpoint is accepting connections.
-    """
-    return {"ready": _app_ready}
-
-
-def _mark_app_ready() -> None:
-    """Called by the lifespan after yield so /ready returns true."""
-    global _app_ready
-    _app_ready = True
 
 
 @app.get("/ws-stats")
@@ -382,16 +398,16 @@ async def search_stories(q: str = ""):
 async def websocket_endpoint(websocket: WebSocket):
     connection_id = None
     try:
-        print("WebSocket connection attempt received")
+        logger.debug("WebSocket connection attempt received")
         connection_id = await stable_connection_manager_v2.connect(websocket)
-        print(f"WebSocket {connection_id} accepted successfully")
+        logger.info(f"WebSocket {connection_id} accepted successfully")
 
         # Message handling loop
         while True:
             try:
                 # Receive message with timeout
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
-                print(f"Received WebSocket message from {connection_id}: {data[:100]}...")  # Truncate long messages
+                logger.debug(f"Received WebSocket message from {connection_id}: {data[:100]}...")  # Truncate long messages
 
                 # Handle message using stable manager v2
                 await stable_connection_manager_v2.handle_message(connection_id, data)
@@ -401,13 +417,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 await stable_connection_manager_v2.send_personal_message(
                     {"type": "ping", "timestamp": asyncio.get_event_loop().time()}, connection_id
                 )
-                print(f"Sent ping to {connection_id} to keep alive")
+                logger.debug(f"Sent ping to {connection_id} to keep alive")
 
     except WebSocketDisconnect as e:
-        print(f"WebSocket {connection_id} disconnected with code: {e.code}")
         logger.info(f"WebSocket {connection_id} disconnected cleanly: {e.code} {e.reason}")
     except Exception as e:
-        print(f"WebSocket error for {connection_id}: {e}")
         logger.error(f"WebSocket error for {connection_id}: {e}")
         logger.error(traceback.format_exc())
     finally:
@@ -490,11 +504,11 @@ async def get_frontend():
 if __name__ == "__main__":
     import uvicorn
 
-    print("Starting Vajra.Stream API Server (Stable WebSocket Version v2)...")
-    print("WebSocket endpoint: ws://localhost:8008/ws")
-    print("API Documentation: http://localhost:8008/docs")
-    print("WebSocket Statistics: http://localhost:8008/ws-stats")
-    print("Visualization Gallery: http://localhost:8008/visualizations")
-    print("React/Vite frontend (if used): http://localhost:3009")
+    logger.info("Starting Vajra.Stream API Server (Stable WebSocket Version v2)...")
+    logger.info("WebSocket endpoint: ws://localhost:8008/ws")
+    logger.info("API Documentation: http://localhost:8008/docs")
+    logger.info("WebSocket Statistics: http://localhost:8008/ws-stats")
+    logger.info("Visualization Gallery: http://localhost:8008/visualizations")
+    logger.info("React/Vite frontend (if used): http://localhost:3009")
 
     uvicorn.run(app, host="0.0.0.0", port=8008, reload=True, log_level="info")
