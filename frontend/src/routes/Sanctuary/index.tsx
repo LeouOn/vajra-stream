@@ -25,18 +25,94 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Input, Button, Typography, Spin, message } from 'antd';
+import { Input, Spin, Typography } from 'antd';
+import type { InputRef } from 'antd';
 import { Send, Plus, Archive } from 'lucide-react';
 import { apiUrl } from '../../utils/api';
 import { createLogger } from '../../utils/logger';
+import { useUIStore } from '../../stores/uiStore';
 import SessionList from './SessionList';
+import type { SessionListItem } from './SessionList';
 
 const log = createLogger('Sanctuary');
 
 const { Text } = Typography;
 
 /** The five-phase arc (terminal "completed" is handled separately). */
-const PHASES = [
+type PhaseKey = 'arrival' | 'seeing' | 'meeting' | 'release' | 'dedication';
+type Phase = PhaseKey | 'completed';
+
+interface PhaseMeta {
+  key: PhaseKey;
+  label: string;
+  role: string;
+}
+
+/** A single transcript entry — used in the messages list and POST payloads. */
+interface HealingMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** Shape returned by POST /sessions. */
+interface HealingSessionCreate {
+  session_id: string;
+  phase?: Phase;
+  started_at?: string;
+  [key: string]: unknown;
+}
+
+/** Shape returned by POST /sessions/{id}/messages — server may auto-advance. */
+interface HealingMessageResponse {
+  session_id?: string;
+  phase?: Phase;
+  phase_hint?: string | null;
+  content?: string;
+  [key: string]: unknown;
+}
+
+/** Shape returned by POST /sessions/{id}/advance. */
+interface HealingAdvanceResponse {
+  session_id?: string;
+  phase?: Phase;
+  [key: string]: unknown;
+}
+
+/** A single entry in `message_history` returned by GET /sessions/{id}. */
+interface SessionHistoryEntry {
+  role?: unknown;
+  content?: unknown;
+}
+
+/** Full session detail returned by GET /sessions/{id}. */
+interface HealingSessionDetail {
+  session_id: string;
+  phase?: Phase;
+  started_at?: string;
+  ended_at?: string | null;
+  phases_completed?: PhaseKey[];
+  summary?: string | null;
+  dedication_text?: string | null;
+  message_history?: SessionHistoryEntry[];
+  [key: string]: unknown;
+}
+
+/** Local copy we use when seeding a freshly created session into the drawer. */
+interface LocalSessionSeed {
+  session_id: string;
+  started_at?: string;
+  phases_completed: PhaseKey[];
+  summary: string | null;
+  ended_at: null;
+}
+
+/** A sealed completion bundle (summary + dedication). */
+interface CompletedSealPayload {
+  summary: string | null;
+  dedication: string | null;
+}
+
+const PHASES: PhaseMeta[] = [
   { key: 'arrival', label: 'Arrival', role: 'Witness' },
   { key: 'seeing', label: 'Seeing', role: 'Oracle' },
   { key: 'meeting', label: 'Meeting', role: 'Guide' },
@@ -44,11 +120,13 @@ const PHASES = [
   { key: 'dedication', label: 'Dedication', role: 'Officiant' },
 ];
 
-const PHASE_LABEL = Object.fromEntries(PHASES.map((p) => [p.key, p.label]));
+const PHASE_LABEL: Record<string, string> = Object.fromEntries(
+  PHASES.map((p) => [p.key, p.label]),
+);
 PHASE_LABEL.completed = 'Sealed';
 
 /** Soft copy shown beneath each phase role — sets the tone without clutter. */
-const PHASE_INVOCATION = {
+const PHASE_INVOCATION: Record<PhaseKey, string> = {
   arrival: 'A space to land. Nothing to fix.',
   seeing: 'The sky above and the body below.',
   meeting: 'Staying present with what is here.',
@@ -56,48 +134,61 @@ const PHASE_INVOCATION = {
   dedication: 'Offering the merit outward.',
 };
 
-function phaseIndex(key) {
+function phaseIndex(key: Phase | null): number | null {
+  if (key == null) return null;
   const idx = PHASES.findIndex((p) => p.key === key);
   return idx === -1 ? null : idx;
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 /**
  * SanctuaryPage
  */
-export default function SanctuaryPage() {
-  const [sessionId, setSessionId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [currentPhase, setCurrentPhase] = useState(null);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [phaseHint, setPhaseHint] = useState(null);
-  const [sessions, setSessions] = useState([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [completedSeal, setCompletedSeal] = useState(null);
-  const [wavered, setWavered] = useState(false); // gentle error flag
+export default function SanctuaryPage(): React.ReactElement {
+  const addToast = useUIStore((s) => s.addToast);
 
-  const scrollRef = useRef(null);
-  const inputRef = useRef(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<HealingMessage[]>([]);
+  const [currentPhase, setCurrentPhase] = useState<Phase | null>(null);
+  const [input, setInput] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
+  const [phaseHint, setPhaseHint] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<SessionListItem[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
+  const [completedSeal, setCompletedSeal] = useState<CompletedSealPayload | null>(null);
+  const [wavered, setWavered] = useState<boolean>(false); // gentle error flag
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<InputRef | null>(null);
 
   // -------------------------------------------------------------------------
   // API helpers (soft failures — the container "wavers" rather than throws).
   // -------------------------------------------------------------------------
 
-  const fetchSessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (): Promise<SessionListItem[]> => {
     try {
       const res = await fetch(apiUrl('/healing/sessions?limit=30'));
       if (!res.ok) throw new Error(`list ${res.status}`);
       const data = await res.json();
-      return Array.isArray(data?.sessions) ? data.sessions : [];
+      const list = Array.isArray(data?.sessions) ? (data.sessions as SessionListItem[]) : [];
+      return list;
     } catch (err) {
       log.warn('Sanctuary: list sessions wavered', err);
-      message.error('Could not load sessions: ' + (err instanceof Error ? err.message : String(err)));
+      addToast({
+        type: 'error',
+        title: 'Could not load sessions',
+        message: errMessage(err),
+        duration: 5,
+      });
       return [];
     }
-  }, []);
+  }, [addToast]);
 
-  const createSession = useCallback(async () => {
+  const createSession = useCallback(async (): Promise<HealingSessionCreate> => {
     const res = await fetch(apiUrl('/healing/sessions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -107,7 +198,7 @@ export default function SanctuaryPage() {
     return res.json();
   }, []);
 
-  const loadSession = useCallback(async (id) => {
+  const loadSession = useCallback(async (id: string): Promise<HealingSessionDetail> => {
     const res = await fetch(apiUrl(`/healing/sessions/${id}`));
     if (!res.ok) throw new Error(`get ${res.status}`);
     return res.json();
@@ -129,19 +220,29 @@ export default function SanctuaryPage() {
         // If there are past sessions, load the most recent one so the user
         // can continue where they left off. But if none exist, leave
         // sessionId null — the landing screen will show a "Begin" button.
-        if (recent.length > 0) {
+        if (recent.length > 0 && recent[0]?.session_id) {
           try {
             const full = await loadSession(recent[0].session_id);
             if (cancelled) return;
             hydrateFromSession(full);
           } catch (err) {
             log.warn('Sanctuary: load latest wavered', err);
-            message.error('Could not load recent session: ' + (err instanceof Error ? err.message : String(err)));
+            addToast({
+              type: 'error',
+              title: 'Could not load recent session',
+              message: errMessage(err),
+              duration: 5,
+            });
           }
         }
       } catch (err) {
         log.error('Sanctuary: initialization failed', err);
-        message.error('Could not initialize Sanctuary: ' + (err instanceof Error ? err.message : String(err)));
+        addToast({
+          type: 'error',
+          title: 'Could not initialize Sanctuary',
+          message: errMessage(err),
+          duration: 5,
+        });
         if (!cancelled) setWavered(true);
       } finally {
         if (!cancelled) setIsInitializing(false);
@@ -154,31 +255,36 @@ export default function SanctuaryPage() {
   }, []);
 
   /** Populate state from a GET /sessions/{id} response. */
-  function hydrateFromSession(full) {
+  const hydrateFromSession = useCallback((full: HealingSessionDetail): void => {
     const history = Array.isArray(full?.message_history) ? full.message_history : [];
     setSessionId(full?.session_id ?? null);
     setMessages(
       history
-        .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+        .filter(
+          (m): m is SessionHistoryEntry & { role: 'user' | 'assistant'; content: string } =>
+            m != null &&
+            (m.role === 'user' || m.role === 'assistant') &&
+            typeof m.content === 'string',
+        )
         .map((m) => ({ role: m.role, content: m.content })),
     );
-    setCurrentPhase(full?.phase || 'arrival');
+    setCurrentPhase(full?.phase ?? 'arrival');
     setPhaseHint(null);
     if (full?.phase === 'completed') {
       setCompletedSeal({
-        summary: full?.summary || null,
-        dedication: full?.dedication_text || null,
+        summary: full?.summary ?? null,
+        dedication: full?.dedication_text ?? null,
       });
     } else {
       setCompletedSeal(null);
     }
-  }
+  }, []);
 
   // -------------------------------------------------------------------------
   // Scroll handling — glide to the newest message.
   // -------------------------------------------------------------------------
 
-  const scrollToBottom = useCallback((smooth = true) => {
+  const scrollToBottom = useCallback((smooth = true): void => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
@@ -197,7 +303,7 @@ export default function SanctuaryPage() {
   // Actions
   // -------------------------------------------------------------------------
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(async (): Promise<void> => {
     const text = input.trim();
     if (!text || isLoading || sessionId == null) return;
     setInput('');
@@ -205,7 +311,7 @@ export default function SanctuaryPage() {
     setWavered(false);
 
     // Optimistic user bubble.
-    const userMsg = { role: 'user', content: text };
+    const userMsg: HealingMessage = { role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
 
     try {
@@ -215,9 +321,9 @@ export default function SanctuaryPage() {
         body: JSON.stringify({ message: text }),
       });
       if (!res.ok) throw new Error(`messages ${res.status}`);
-      const data = await res.json();
+      const data: HealingMessageResponse = await res.json();
       const assistantContent = typeof data?.content === 'string' ? data.content : '';
-      const assistantMsg = { role: 'assistant', content: assistantContent };
+      const assistantMsg: HealingMessage = { role: 'assistant', content: assistantContent };
       setMessages((prev) => [...prev, assistantMsg]);
       if (data?.phase) setCurrentPhase(data.phase);
       setPhaseHint(data?.phase_hint ?? null);
@@ -227,8 +333,8 @@ export default function SanctuaryPage() {
         try {
           const full = await loadSession(sessionId);
           setCompletedSeal({
-            summary: full?.summary || null,
-            dedication: full?.dedication_text || null,
+            summary: full?.summary ?? null,
+            dedication: full?.dedication_text ?? null,
           });
         } catch {
           setCompletedSeal({ summary: null, dedication: null });
@@ -238,7 +344,12 @@ export default function SanctuaryPage() {
       }
     } catch (err) {
       log.warn('Sanctuary: send wavered', err);
-      message.error('Could not send message: ' + (err instanceof Error ? err.message : String(err)));
+      addToast({
+        type: 'error',
+        title: 'Could not send message',
+        message: errMessage(err),
+        duration: 5,
+      });
       // Roll back the optimistic bubble and surface a gentle notice.
       setMessages((prev) => prev.filter((m) => m !== userMsg));
       setInput(text); // restore the draft so nothing is lost
@@ -248,9 +359,9 @@ export default function SanctuaryPage() {
       // Return focus to the input for continuous dialogue.
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [input, isLoading, sessionId, loadSession, fetchSessions]);
+  }, [input, isLoading, sessionId, loadSession, fetchSessions, addToast]);
 
-  const handleAdvance = useCallback(async () => {
+  const handleAdvance = useCallback(async (): Promise<void> => {
     if (sessionId == null) return;
     setPhaseHint(null);
     setIsLoading(true);
@@ -260,14 +371,14 @@ export default function SanctuaryPage() {
         method: 'POST',
       });
       if (!res.ok) throw new Error(`advance ${res.status}`);
-      const data = await res.json();
+      const data: HealingAdvanceResponse = await res.json();
       if (data?.phase) setCurrentPhase(data.phase);
       if (data?.phase === 'completed') {
         try {
           const full = await loadSession(sessionId);
           setCompletedSeal({
-            summary: full?.summary || null,
-            dedication: full?.dedication_text || null,
+            summary: full?.summary ?? null,
+            dedication: full?.dedication_text ?? null,
           });
         } catch {
           setCompletedSeal({ summary: null, dedication: null });
@@ -276,45 +387,53 @@ export default function SanctuaryPage() {
       }
     } catch (err) {
       log.warn('Sanctuary: advance wavered', err);
-      message.error('Could not advance phase: ' + (err instanceof Error ? err.message : String(err)));
+      addToast({
+        type: 'error',
+        title: 'Could not advance phase',
+        message: errMessage(err),
+        duration: 5,
+      });
       setWavered(true);
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, loadSession, fetchSessions]);
+  }, [sessionId, loadSession, fetchSessions, addToast]);
 
-  const handleNewSession = useCallback(async () => {
+  const handleNewSession = useCallback(async (): Promise<void> => {
     setIsInitializing(true);
     setWavered(false);
     try {
       const created = await createSession();
       setSessionId(created.session_id);
-      setCurrentPhase(created.phase || 'arrival');
+      setCurrentPhase(created.phase ?? 'arrival');
       setMessages([]);
       setPhaseHint(null);
       setCompletedSeal(null);
-      setSessions((prev) => [
-        {
-          session_id: created.session_id,
-          started_at: created.started_at,
-          phases_completed: ['arrival'],
-          summary: null,
-          ended_at: null,
-        },
-        ...prev,
-      ]);
+      const seed: LocalSessionSeed = {
+        session_id: created.session_id,
+        started_at: created.started_at,
+        phases_completed: ['arrival'],
+        summary: null,
+        ended_at: null,
+      };
+      setSessions((prev) => [seed as SessionListItem, ...prev]);
       requestAnimationFrame(() => inputRef.current?.focus());
     } catch (err) {
       log.error('Sanctuary: new session failed', err);
-      message.error('Could not start a new session: ' + (err instanceof Error ? err.message : String(err)));
+      addToast({
+        type: 'error',
+        title: 'Could not start a new session',
+        message: errMessage(err),
+        duration: 5,
+      });
       setWavered(true);
     } finally {
       setIsInitializing(false);
     }
-  }, [createSession]);
+  }, [createSession, addToast]);
 
   const handleSelectSession = useCallback(
-    async (id) => {
+    async (id: string): Promise<void> => {
       setDrawerOpen(false);
       if (id == null) return;
       setIsInitializing(true);
@@ -324,13 +443,18 @@ export default function SanctuaryPage() {
         hydrateFromSession(full);
       } catch (err) {
         log.warn('Sanctuary: select session wavered', err);
-        message.error('Could not load selected session: ' + (err instanceof Error ? err.message : String(err)));
+        addToast({
+          type: 'error',
+          title: 'Could not load selected session',
+          message: errMessage(err),
+          duration: 5,
+        });
         setWavered(true);
       } finally {
         setIsInitializing(false);
       }
     },
-    [loadSession],
+    [loadSession, hydrateFromSession, addToast],
   );
 
   // -------------------------------------------------------------------------
@@ -338,9 +462,14 @@ export default function SanctuaryPage() {
   // -------------------------------------------------------------------------
 
   const isCompleted = currentPhase === 'completed';
-  const activeIdx = useMemo(() => (isCompleted ? PHASES.length : phaseIndex(currentPhase)), [currentPhase, isCompleted]);
-  const currentPhaseMeta = useMemo(() => {
-    if (isCompleted) return { label: 'Sealed', role: '', invocation: 'The container is closed. The merit has been offered.' };
+  const activeIdx = useMemo<number | null>(
+    () => (isCompleted ? PHASES.length : phaseIndex(currentPhase)),
+    [currentPhase, isCompleted],
+  );
+  const currentPhaseMeta = useMemo<{ label: string; role: string; invocation: string }>(() => {
+    if (isCompleted) {
+      return { label: 'Sealed', role: '', invocation: 'The container is closed. The merit has been offered.' };
+    }
     const p = PHASES.find((x) => x.key === currentPhase);
     return p
       ? { label: p.label, role: p.role, invocation: PHASE_INVOCATION[p.key] || '' }
@@ -352,19 +481,19 @@ export default function SanctuaryPage() {
    * (so phase === hint). We only offer a manual advance when the hint
    * names a phase genuinely ahead of the current one.
    */
-  const hintAhead = useMemo(() => {
+  const hintAhead = useMemo<string | null>(() => {
     if (!phaseHint || typeof phaseHint !== 'string') return null;
     const target = phaseHint.toLowerCase();
     if (target === 'completed' || target === currentPhase) return null;
     const curIdx = phaseIndex(currentPhase);
-    const tgtIdx = phaseIndex(target);
+    const tgtIdx = phaseIndex(target as PhaseKey);
     if (curIdx == null) return null;
     if (tgtIdx == null) return null;
     if (tgtIdx <= curIdx) return null;
     return PHASE_LABEL[target] || target;
   }, [phaseHint, currentPhase]);
 
-  const hintAcknowledged = useMemo(() => {
+  const hintAcknowledged = useMemo<string | null>(() => {
     if (!phaseHint || typeof phaseHint !== 'string') return null;
     if (phaseHint.toLowerCase() === currentPhase) {
       return PHASE_LABEL[phaseHint.toLowerCase()] || null;
@@ -379,7 +508,10 @@ export default function SanctuaryPage() {
   // -------------------------------------------------------------------------
 
   return (
-    <div className="sanctuary-root" style={{ '--sanctuary-active-idx': activeIdx ?? 0 }}>
+    <div
+      className="sanctuary-root"
+      style={{ '--sanctuary-active-idx': activeIdx ?? 0 } as React.CSSProperties}
+    >
       <StyleBlock />
 
       {/* Ambient field — a barely-there warm glow, like a single lamp. */}
@@ -422,7 +554,7 @@ export default function SanctuaryPage() {
       </header>
 
       {/* Phase invocation line — one breath of context under the indicator */}
-      <div className="sanctuary-invocation" key={currentPhase}>
+      <div className="sanctuary-invocation" key={currentPhase ?? 'none'}>
         <span className="sanctuary-invocation-role">{currentPhaseMeta.role}</span>
         <span className="sanctuary-invocation-sep" aria-hidden="true">·</span>
         <span className="sanctuary-invocation-text">{currentPhaseMeta.invocation}</span>
@@ -516,8 +648,8 @@ export default function SanctuaryPage() {
             ref={inputRef}
             className="sanctuary-input"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onPressEnter={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
+            onPressEnter={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
               if (!e.shiftKey) {
                 e.preventDefault();
                 handleSend();
@@ -565,21 +697,35 @@ export default function SanctuaryPage() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
+interface PhaseIndicatorProps {
+  phases: PhaseMeta[];
+  activeIdx: number | null;
+  isCompleted: boolean;
+  currentLabel: string;
+}
+
 /**
  * PhaseIndicator — five dots joined by a hairline; the active one glows.
  * Compact, uppercase labels sit beneath each node.
  */
-function PhaseIndicator({ phases, activeIdx, isCompleted }) {
+function PhaseIndicator({ phases, activeIdx, isCompleted, currentLabel }: PhaseIndicatorProps) {
   return (
     <nav className="sanctuary-phase" aria-label="Dialogue phase">
       <div className="sanctuary-phase-track">
         {phases.map((p, i) => {
-          const state = isCompleted || i < activeIdx ? 'done' : i === activeIdx ? 'active' : 'future';
+          const state =
+            isCompleted || (activeIdx != null && i < activeIdx)
+              ? 'done'
+              : i === activeIdx
+                ? 'active'
+                : 'future';
           return (
             <div
               key={p.key}
               className={`sanctuary-phase-node sanctuary-phase-node--${state}`}
               data-active={i === activeIdx && !isCompleted}
+              aria-current={i === activeIdx && !isCompleted ? 'step' : undefined}
+              title={currentLabel}
             >
               <span className="sanctuary-phase-dot" />
               <span className="sanctuary-phase-label">{p.label}</span>
@@ -591,11 +737,17 @@ function PhaseIndicator({ phases, activeIdx, isCompleted }) {
   );
 }
 
+interface MessageBubbleProps {
+  role: 'user' | 'assistant';
+  content: string;
+  index: number;
+}
+
 /**
  * MessageBubble — LLM turns read like a letter (serif, soft card, left);
  * user turns are brief, right-aligned, muted lavender.
  */
-function MessageBubble({ role, content, index }) {
+function MessageBubble({ role, content, index }: MessageBubbleProps) {
   const isUser = role === 'user';
   return (
     <div
@@ -611,8 +763,12 @@ function MessageBubble({ role, content, index }) {
   );
 }
 
+interface OpeningPhraseProps {
+  isCompleted: boolean;
+}
+
 /** Opening phrase shown when a session has no messages yet. */
-function OpeningPhrase({ isCompleted }) {
+function OpeningPhrase({ isCompleted }: OpeningPhraseProps) {
   if (isCompleted) return null;
   return (
     <div className="sanctuary-opening">
@@ -628,8 +784,15 @@ function OpeningPhrase({ isCompleted }) {
   );
 }
 
+interface PhaseTransitionPromptProps {
+  label: string;
+  onAdvance: () => void;
+  onDismiss: () => void;
+  disabled: boolean;
+}
+
 /** Subtle inline prompt offering a phase advance. */
-function PhaseTransitionPrompt({ label, onAdvance, onDismiss, disabled }) {
+function PhaseTransitionPrompt({ label, onAdvance, onDismiss, disabled }: PhaseTransitionPromptProps) {
   return (
     <div className="sanctuary-prompt">
       <div className="sanctuary-prompt-text">
@@ -647,8 +810,13 @@ function PhaseTransitionPrompt({ label, onAdvance, onDismiss, disabled }) {
   );
 }
 
+interface CompletedSealProps {
+  seal: CompletedSealPayload | null;
+  onNewSession: () => void;
+}
+
 /** The sealed state — dedication + summary + a way to begin again. */
-function CompletedSeal({ seal, onNewSession }) {
+function CompletedSeal({ seal, onNewSession }: CompletedSealProps) {
   return (
     <div className="sanctuary-seal">
       <div className="sanctuary-seal-rule" aria-hidden="true" />
