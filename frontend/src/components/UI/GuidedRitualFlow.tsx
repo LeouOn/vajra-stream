@@ -51,7 +51,7 @@ interface CurrentNarrativeLike {
 // ─── Constants ────────────────────────────────────────────
 
 const GENRE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'healing', label: '🌿 Healing' },
+  { label: '❤️ Healing'
   { value: 'victory', label: '🛡️ Victory' },
   { value: 'alchemist', label: '⚗️ Alchemist' },
   { value: 'dharani', label: '📿 Dharani' },
@@ -75,12 +75,12 @@ const INTENTION_PRESETS: ReadonlyArray<{
   genre: string;
   keywords: string;
 }> = [
-  { label: '🕊️ World Peace', value: 'World peace and the cessation of all conflict', genre: 'healing', keywords: 'peace conflict war' },
-  { label: '💎 Prosperity', value: 'Abundance and prosperity for all beings', genre: 'alchemist', keywords: 'abundance prosperity wealth' },
-  { label: '☀️ Healing', value: 'Healing of all physical, mental, and spiritual illness', genre: 'healing', keywords: 'healing illness disease sickness' },
-  { label: '🌲 Reforestation', value: "Healing and restoration of the world's forests and ecosystems", genre: 'healing', keywords: 'forest tree reforestation ecosystem nature' },
-  { label: '🌊 Purification', value: 'Purification of all negativity and obscurations', genre: 'dharani', keywords: 'purify purification clean cleansing' },
-  { label: '✨ Liberation', value: 'Liberation of all sentient beings from samsara', genre: 'victory', keywords: 'liberation freedom awakening samsara' },
+  { label: '🕊 World Peace'
+  { label: '💎 Prosperity'
+  { label: '❤️ Healing'
+  { label: '❤️ Healing'
+  { label: '🕵️ Purification'
+  { label: '🌟 Liberation'
 ];
 
 const STEP_TITLES = ['Intention', 'Alignment', 'Generation', 'Recitation', 'Continuation'] as const;
