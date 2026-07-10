@@ -7,6 +7,8 @@ import datetime
 import json
 import logging
 import sqlite3
+import uuid
+from datetime import timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -921,6 +923,130 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
 HARMONIOUS_ASPECTS = {"Conjunction", "Trine", "Sextile"}
 CHALLENGING_ASPECTS = {"Square", "Opposition"}
 
+# Cusp proximity threshold (degrees). A planet within this distance of any
+# house cusp is flagged ``is_cuspal=True`` in the v2 planet shape.
+CUSPAL_THRESHOLD_DEG = 1.0
+
+
+def _build_metadata(chart: dict, calc) -> dict:
+    """Build the schema-v2 metadata block for an export response.
+
+    Args:
+        chart: A row dict from ``saved_natal_charts`` (must contain
+            ``latitude``, ``longitude``, and ``timezone``).
+        calc: An :class:`AstrologicalCalculator` instance (used to read
+            ``NODE_TYPE``); may be ``None`` in fallback deployments.
+
+    Returns:
+        dict: Static provenance + ephemeris metadata for the export.
+    """
+    node_type = "mean"
+    if calc is not None and hasattr(calc, "NODE_TYPE"):
+        node_type = calc.NODE_TYPE
+    return {
+        "schema_version": "2.0",
+        "request_id": str(uuid.uuid4())[:8],
+        "generated_at_utc": datetime.datetime.now(timezone.utc).isoformat(),
+        "ephemeris": "swisseph 2.10",
+        "ayanamsa": "Lahiri",
+        "ayanamsa_offset_deg": 24.13,
+        "house_systems": ["Placidus", "Whole Sign"],
+        "latitude": chart.get("latitude"),
+        "longitude": chart.get("longitude"),
+        "timezone": chart.get("timezone"),
+        "node_type": node_type,
+    }
+
+
+def _angular_delta_signed(a: float, b: float) -> float:
+    return (b - a + 180.0) % 360.0 - 180.0
+
+
+def _enrich_planets_v2(positions: dict, cusps: dict) -> list[dict]:
+    """Re-shape a planet positions dict into the schema-v2 list form with
+    cuspal-proximity flags.
+
+    Each entry contains: ``body``, ``longitude``, ``sign``, ``degree_in_sign``,
+    ``retrograde``, ``house_placidus``, ``house_whole_sign``,
+    ``distance_to_nearest_cusp_deg``, ``is_cuspal``. Angles (ascendant,
+    midheaven) are kept; ``house_*`` pseudo-entries from the calc engine
+    are dropped.
+
+    Args:
+        positions: Output of ``calc.get_planet_house_map`` — each planet has
+            ``longitude``, ``sign``, ``degree``, ``retrograde``,
+            ``house_placidus``, ``house_whole_sign``.
+        cusps: Output of ``calc.get_house_cusps`` with ``placidus`` and
+            ``whole_sign`` 12-element lists.
+
+    Returns:
+        list[dict]: v2 planet entries.
+    """
+    placidus_cusps = cusps.get("placidus", []) or []
+    enriched: list[dict] = []
+    for body, info in positions.items():
+        if not isinstance(info, dict):
+            continue
+        if isinstance(body, str) and body.startswith("house_"):
+            continue
+        lon = info.get("longitude")
+        if not isinstance(lon, (int, float)):
+            continue
+
+        nearest = None
+        for c in placidus_cusps:
+            d = abs(_angular_delta_signed(c, lon))
+            if nearest is None or d < nearest:
+                nearest = d
+        if nearest is None:
+            nearest = 360.0
+
+        enriched.append({
+            "body": body,
+            "longitude": round(float(lon), 4),
+            "sign": info.get("sign"),
+            "degree_in_sign": round(float(info.get("degree", 0.0)), 4),
+            "retrograde": bool(info.get("retrograde", False)),
+            "house_placidus": info.get("house_placidus"),
+            "house_whole_sign": info.get("house_whole_sign"),
+            "distance_to_nearest_cusp_deg": round(nearest, 4),
+            "is_cuspal": nearest <= CUSPAL_THRESHOLD_DEG,
+        })
+    return enriched
+
+
+def _build_bazi_block(calc, natal_dt: datetime.datetime) -> dict:
+    """Return the schema-v2 BaZi block (complete pillars + day master +
+    five-elements tally) merged with the legacy display pillar strings.
+
+    The legacy ``compare_bazi_transits`` display strings are preserved
+    under ``display_pillars`` so existing consumers keep working.
+    """
+    detailed = calc.get_bazi_detailed(natal_dt)
+    display = calc.get_chinese_astrology(natal_dt)
+    return {
+        "pillars": detailed.get("pillars"),
+        "day_master": detailed.get("day_master"),
+        "five_elements": detailed.get("five_elements"),
+        "display_pillars": display.get("bazi", {}),
+    }
+
+
+def _build_gochara_v2(gochara: dict, natal_vedic: dict) -> dict:
+    """Enrich the existing Gochara payload with explicit natal-moon
+    position labels (rashi name + nakshatra name) so consumers do not
+    need to back-calculate from a rashi number.
+    """
+    sidereal = natal_vedic.get("sidereal_positions", {}) or {}
+    panchanga = natal_vedic.get("panchanga", {}) or {}
+    moon = sidereal.get("moon", {}) if isinstance(sidereal, dict) else {}
+    nakshatra = panchanga.get("nakshatra", {}) if isinstance(panchanga, dict) else {}
+
+    enriched = dict(gochara) if isinstance(gochara, dict) else {}
+    enriched["natal_moon_rashi"] = moon.get("rashi") or moon.get("rashi_name")
+    enriched["natal_moon_nakshatra"] = nakshatra.get("name")
+    return enriched
+
 
 @router.post("/charts/{chart_id}/transit-export")
 async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
@@ -964,6 +1090,17 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
         natal_houses = calc.get_planet_house_map(birth_dt, location)
         transit_houses = calc.get_planet_house_map(transit_dt, location)
 
+        # --- schema-v2 enrichment (additive) ---
+        metadata = _build_metadata(chart, calc)
+        natal_cusps = calc.get_house_cusps(birth_dt, location)
+        transit_cusps = calc.get_house_cusps(transit_dt, location)
+        natal_vedic = calc.get_indian_astrology(birth_dt, location)
+        gochara_v2 = _build_gochara_v2(gochara, natal_vedic)
+        natal_planets_v2 = _enrich_planets_v2(natal_houses, natal_cusps)
+        transit_planets_v2 = _enrich_planets_v2(transit_houses, transit_cusps)
+        natal_aspects = calc.get_natal_aspects(birth_dt, location)
+        bazi_complete = _build_bazi_block(calc, birth_dt)
+
         sorted_aspects = sorted(western_aspects, key=lambda a: a.get("exactness", 0), reverse=True)
 
         # Cusp aspects (natal_planet matches "house_N") are bucketed separately
@@ -1002,6 +1139,17 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
                 "bazi_clashes": bazi_transits,
                 "house_systems": ["Placidus", "Whole Sign"],
                 "pii_stripped": req.strip_pii,
+                # --- schema-v2 additions (additive) ---
+                "metadata": metadata,
+                "cusps": {
+                    "natal": natal_cusps,
+                    "transit": transit_cusps,
+                },
+                "natal_planets": natal_planets_v2,
+                "transit_planets": transit_planets_v2,
+                "natal_aspects": natal_aspects,
+                "bazi": bazi_complete,
+                "gochara_v2": gochara_v2,
             },
         }
     except HTTPException:
@@ -1048,6 +1196,13 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
         indian = calc.get_indian_astrology(birth_dt, location)
         houses = calc.get_planet_house_map(birth_dt, location)
 
+        # --- schema-v2 enrichment (additive) ---
+        metadata = _build_metadata(chart, calc)
+        cusps = calc.get_house_cusps(birth_dt, location)
+        natal_planets_v2 = _enrich_planets_v2(houses, cusps)
+        natal_aspects = calc.get_natal_aspects(birth_dt, location)
+        bazi_complete = _build_bazi_block(calc, birth_dt)
+
         # Flatten the Vedic payload into the shape the LLM formatter expects:
         # top-level Panchanga factors plus ascendant / planets split out.
         sidereal = indian.get("sidereal_positions", {}) or {}
@@ -1085,6 +1240,12 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
                 "vedic": vedic,
                 "houses": houses,
                 "pii_stripped": req.strip_pii,
+                # --- schema-v2 additions (additive) ---
+                "metadata": metadata,
+                "cusps": cusps,
+                "natal_planets": natal_planets_v2,
+                "natal_aspects": natal_aspects,
+                "bazi": bazi_complete,
             },
         }
     except HTTPException:
