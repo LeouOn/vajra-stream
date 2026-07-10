@@ -58,6 +58,7 @@ class ChatMessage(BaseModel):
     role: str
     content: str
     name: str | None = None  # Match core/llm/models.py ChatMessage
+    tool_call_id: str | None = None  # Required by tool loop message injection
 
 
 class ChatRequest(BaseModel):
