@@ -10,13 +10,35 @@ import { BookOpen, Sparkles, Compass, Moon, Sun, ChevronLeft, ChevronRight, Eye 
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import { stripThinking } from '../../utils/thinkStrip';
 
+interface SigilData {
+  kamea?: string;
+  reduced?: string;
+  svg?: string;
+  [key: string]: unknown;
+}
+
+interface DivinationRawPayload {
+  tarot?: { svg?: string; name?: string; orientation?: string; [k: string]: unknown };
+  iching?: { svg?: string; name?: string; [k: string]: unknown };
+  sigil?: SigilData;
+  [key: string]: unknown;
+}
+
+interface EpicStoryViewerProps {
+  narrativeParts?: Array<{ chapter: number; title: string; content: string }>;
+  astrologyContext?: string;
+  divinationContext?: string;
+  divinationRaw?: DivinationRawPayload | null;
+  entitiesInvoked?: string;
+}
+
 export default function EpicStoryViewer({
   narrativeParts = [],
   astrologyContext = '',
   divinationContext = '',
   divinationRaw = null,
   entitiesInvoked = ''
-}) {
+}: EpicStoryViewerProps = {}) {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
 
   const allText = (narrativeParts || [])
@@ -184,6 +206,23 @@ export default function EpicStoryViewer({
                 "{divinationContext}"
               </p>
             )}
+          </div>
+        )}
+
+        {/* Sigil Kamea Trace */}
+        {divinationRaw?.sigil?.svg && (
+          <div className="bg-gray-950/40 p-4 rounded-xl border border-white/5 space-y-2">
+            <h4 className="text-xs font-bold font-mono text-vajra-cyan tracking-wider flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              KAMEA SIGIL
+            </h4>
+            <div
+              dangerouslySetInnerHTML={{ __html: divinationRaw.sigil.svg }}
+              className="svg-container w-full max-w-[220px] mx-auto"
+            />
+            <p className="text-[10px] text-gray-400 font-mono text-center">
+              {divinationRaw.sigil.reduced} · {divinationRaw.sigil.kamea} grid
+            </p>
           </div>
         )}
 

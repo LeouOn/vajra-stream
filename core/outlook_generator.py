@@ -307,7 +307,18 @@ class OutlookGenerator:
             parts.append(
                 f"Sigil traced over {kamea.capitalize()} grid via reduction '{reduced_text}'. Coordinates: {coord_str}"
             )
-            raw["sigil"] = {"kamea": kamea, "reduced": reduced_text, "coordinates": coords}
+            # Pre-render SVG here (coords already computed) so the frontend
+            # can display the kamea sigil without a second round-trip.
+            try:
+                sigil_svg = self.sigil.render_svg_from_coords(coords, kamea)
+            except Exception:
+                sigil_svg = None
+            raw["sigil"] = {
+                "kamea": kamea,
+                "reduced": reduced_text,
+                "coordinates": coords,
+                "svg": sigil_svg,
+            }
 
         return " ".join(parts), raw
 

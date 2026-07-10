@@ -117,9 +117,17 @@ interface DivinationCardPayload {
   [key: string]: unknown;
 }
 
+interface SigilData {
+  kamea?: string;
+  reduced?: string;
+  coordinates?: Array<{ x: number; y: number; value?: number; letter?: string }>;
+  svg?: string;
+}
+
 interface DivinationRaw {
   tarot?: DivinationCardPayload;
   iching?: DivinationCardPayload;
+  sigil?: SigilData;
   [key: string]: unknown;
 }
 
@@ -1292,6 +1300,18 @@ export default function OutlookDashboard() {
                                   <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#e5e7eb' }}>
                                     {currentNarrative.narrative}
                                   </Paragraph>
+                                  {currentNarrative.divination_raw?.sigil?.svg && (
+                                    <div style={{ marginTop: 16, textAlign: 'center' }}>
+                                      <div
+                                        dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.sigil.svg }}
+                                        className="svg-container"
+                                        style={{ maxWidth: 280, margin: '0 auto' }}
+                                      />
+                                      <Text type="secondary" style={{ fontSize: 11 }}>
+                                        Sigil: {currentNarrative.divination_raw.sigil.reduced} on {currentNarrative.divination_raw.sigil.kamea} grid
+                                      </Text>
+                                    </div>
+                                  )}
                                 </>
                               ),
                             },
