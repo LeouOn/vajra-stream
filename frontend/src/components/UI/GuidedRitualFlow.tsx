@@ -412,7 +412,7 @@ export default function GuidedRitualFlow({
       <Card size="small" className="bg-gray-900/80 border-purple-500/20">
         <Steps
           size="small"
-          direction="horizontal"
+          orientation="horizontal"
           current={step}
           items={STEP_TITLES.map((title, idx) => ({ title }))}
           className="[&_.ant-steps-item-title]:text-[10px] [&_.ant-steps-item-title]:font-mono [&_.ant-steps-item-title]:uppercase [&_.ant-steps-item-title]:tracking-wider"
