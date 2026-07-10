@@ -16,12 +16,13 @@
  * @route /buddhas
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result, Tooltip } from 'antd';
+import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result, Tooltip, Switch } from 'antd';
 import {
   BookOpen, Sparkles, Compass, Zap, Activity, Play, Square, Loader2,
   Volume2, VolumeX,
 } from 'lucide-react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { useAmbientBowl } from '../../hooks/useAmbientBowl';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
 import type { RecitationStatus } from '../../../types';
@@ -208,6 +209,17 @@ export default function BuddhasPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
 
+  // 136.1 Hz = 88_Buddhas catalog frequency (Om, the Great Confession).
+  const [ambientEnabled, setAmbientEnabled] = useState<boolean>(false);
+  const ambient = useAmbientBowl();
+  useEffect(() => {
+    if (running && ambientEnabled && ttsEnabled) {
+      ambient.start(136.1);
+    } else {
+      ambient.stop();
+    }
+  }, [running, ambientEnabled, ttsEnabled, ambient]);
+
   const speakBuddhaName = useCallback(async (name: string, pinyin?: string): Promise<void> => {
     if (!ttsEnabled) return;
 
@@ -347,6 +359,25 @@ export default function BuddhasPage() {
                     >
                       {ttsEnabled ? 'TTS On' : 'TTS Off'}
                     </Button>
+                  </Tooltip>
+
+                  <Tooltip
+                    title={
+                      ambientEnabled
+                        ? 'Singing-bowl drone at 136.1 Hz will hum during TTS'
+                        : 'Silent — no ambient bowl tone'
+                    }
+                  >
+                    <div className="flex items-center gap-2 px-3 h-10 rounded-lg bg-white/5 border border-white/10 text-white/80">
+                      <span className="text-base leading-none" aria-hidden>🥣</span>
+                      <span className="text-sm">Ambient Bowl</span>
+                      <Switch
+                        size="small"
+                        checked={ambientEnabled}
+                        onChange={setAmbientEnabled}
+                        aria-label="Toggle ambient bowl drone tone"
+                      />
+                    </div>
                   </Tooltip>
                 </Space>
               </Card>

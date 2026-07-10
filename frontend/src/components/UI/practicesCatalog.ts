@@ -45,6 +45,12 @@ export interface Practice {
   mantraMeaning?: string;
   /** Practice instructions — short prose. */
   instructions?: string;
+  /**
+   * Resonant bowl frequency in Hz for the ambient drone. Used by the
+   * PracticeDetail ambient-bowl oscillator when the toggle is on and
+   * TTS is speaking. Falls back to the audio store default when omitted.
+   */
+  frequencyHz?: number;
 }
 
 export const PRACTICES: Practice[] = [
@@ -66,6 +72,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'Homage to the 88 Buddhas',
     instructions:
       'Recite the names of the 88 Buddhas in sequence, visualizing each Buddha at the crown of your head emitting purifying light that cleanses negative karma.',
+    frequencyHz: 136.1,
   },
   {
     id: 'green_tara',
@@ -85,6 +92,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'May Tara liberate us from suffering',
     instructions:
       'Visualize Green Tara at your heart, emerald-green, seated on a lotus. With each recitation, send her compassionate activity out into the world to liberate all beings from the eight fears.',
+    frequencyHz: 261.63,
   },
   {
     id: 'white_tara',
@@ -104,6 +112,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'May Tara bestow long life, merit, and wisdom',
     instructions:
       'Visualize White Tara seated on a moon disc, peaceful and smiling, with seven eyes (palms, soles, forehead) seeing all suffering. Recite to extend your lifespan and that of all beings.',
+    frequencyHz: 293.66,
   },
   {
     id: 'zhunti',
@@ -123,6 +132,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'Homage to the Bodhisattva of Pure Awareness',
     instructions:
       'Visualize Cundi Bodhisattva, pure and serene, atop a lotus. Each recitation purifies obscurations and sharpens discriminating-awareness wisdom.',
+    frequencyHz: 329.63,
   },
   {
     id: 'medicine_buddha',
@@ -142,6 +152,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'May all beings be healed of sickness',
     instructions:
       'Visualize Medicine Buddha, deep blue as lapis lazuli, holding a medicine bowl and the stem of a myrobalan plant. Rays of blue light emanate from his heart, healing all illness.',
+    frequencyHz: 528.0,
   },
   {
     id: 'vajrasattva',
@@ -161,6 +172,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'May Vajrasattva purify all obscurations',
     instructions:
       'Visualize Vajrasattva, white as the full moon, holding a vajra and bell at your crown. With each recitation, nectar streams down from his heart, purifying all broken vows and negative karma.',
+    frequencyHz: 396.0,
   },
   {
     id: 'amitabha',
@@ -180,6 +192,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'Homage to Amitābha Buddha of Infinite Light',
     instructions:
       'Visualize Amitābha, ruby-red and radiant, seated in Sukhāvatī. Recitations build the karmic cause to be reborn in his Western Pure Land at the moment of death.',
+    frequencyHz: 174.61,
   },
   {
     id: 'avalokiteshvara',
@@ -199,6 +212,7 @@ export const PRACTICES: Practice[] = [
     mantraMeaning: 'The jewel is in the lotus — may compassion arise',
     instructions:
       "Visualize Chenrezig, white and four-armed, at your crown. Each recitation of the six syllables opens the lotus of your heart and liberates all beings from the six realms of samsāra.",
+    frequencyHz: 220.0,
   },
   {
     id: 'heart_sutra',
@@ -218,6 +232,7 @@ export const PRACTICES: Practice[] = [
       'Gone, gone, gone beyond, gone utterly beyond — awakening, so be it',
     instructions:
       'Recite the Heart Sutra, contemplating form as emptiness and emptiness as form. The closing mantra seals the realization of prajñāpāramitā.',
+    frequencyHz: 432.0,
   },
 ];
 

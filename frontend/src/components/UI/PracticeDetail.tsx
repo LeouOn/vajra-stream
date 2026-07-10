@@ -51,6 +51,8 @@ import {
   Divider,
   Skeleton,
   Switch,
+  Collapse,
+  message,
 } from 'antd';
 import {
   ArrowLeft,
@@ -68,18 +70,33 @@ import {
   CheckCircle2,
   Volume2,
   VolumeX,
+  Flame,
+  CalendarCheck,
+  BookText,
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
 import { getPracticeById, type Practice } from './practicesCatalog';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
+import { useAmbientBowl } from '../../hooks/useAmbientBowl';
+import {
+  appendJournal,
+  computeCurrentStreak,
+  readJournal,
+  readStreaks,
+  recordSession,
+  todayStr,
+  writeStreaks,
+  type JournalEntry,
+  type StreakMap,
+} from '../../utils/practiceStorage';
 import type { PracticeStatus } from '../../types';
-import TaraGreenLotus from '../3D/TaraGreenLotus';
-import ZhuntiMandala from '../3D/ZhuntiMandala';
-import MedicineBuddhaHealing from '../3D/MedicineBuddhaHealing';
-import SacredGeometry from '../3D/SacredGeometry';
-import SacredMandala from '../3D/SacredMandala';
+const TaraGreenLotusLazy = React.lazy(() => import('../3D/TaraGreenLotus'));
+const ZhuntiMandalaLazy = React.lazy(() => import('../3D/ZhuntiMandala'));
+const MedicineBuddhaHealingLazy = React.lazy(() => import('../3D/MedicineBuddhaHealing'));
+const SacredGeometryLazy = React.lazy(() => import('../3D/SacredGeometry'));
+const SacredMandalaLazy = React.lazy(() => import('../3D/SacredMandala'));
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -115,16 +132,18 @@ interface VizComponentProps {
  *  - Avalokiteshvara   → TaraGreenLotus (compassionate lotus seat)
  *  - Heart Sutra       → ZhuntiMandala (pure-awareness mandala)
  */
-const PRACTICE_VISUALIZATIONS: Record<string, React.ComponentType<VizComponentProps>> = {
-  green_tara: TaraGreenLotus,
-  white_tara: TaraGreenLotus,
-  zhunti: ZhuntiMandala,
-  medicine_buddha: MedicineBuddhaHealing,
-  vajrasattva: MedicineBuddhaHealing,
-  amitabha: SacredMandala,
-  avalokiteshvara: TaraGreenLotus,
-  heart_sutra: ZhuntiMandala,
-  '88_buddhas': SacredGeometry,
+type LazyVizComponent = React.LazyExoticComponent<React.ComponentType<VizComponentProps>>;
+
+const PRACTICE_VISUALIZATIONS: Record<string, LazyVizComponent> = {
+  green_tara: TaraGreenLotusLazy as unknown as LazyVizComponent,
+  white_tara: TaraGreenLotusLazy as unknown as LazyVizComponent,
+  zhunti: ZhuntiMandalaLazy as unknown as LazyVizComponent,
+  medicine_buddha: MedicineBuddhaHealingLazy as unknown as LazyVizComponent,
+  vajrasattva: MedicineBuddhaHealingLazy as unknown as LazyVizComponent,
+  amitabha: SacredMandalaLazy as unknown as LazyVizComponent,
+  avalokiteshvara: TaraGreenLotusLazy as unknown as LazyVizComponent,
+  heart_sutra: ZhuntiMandalaLazy as unknown as LazyVizComponent,
+  '88_buddhas': SacredGeometryLazy as unknown as LazyVizComponent,
 };
 
 /** Optional props — App.tsx passes the live WS practice map for real-time updates. */
@@ -292,6 +311,12 @@ function useInterval(enabled: boolean, intervalMs: number): number {
   return tick;
 }
 
+/**
+ * Triple of Web Audio nodes backing the ambient bowl drone. The
+ * `useAmbientBowl` hook owns the lifecycle; we just call start/stop
+ * from a useEffect gated on `running`/`enableAmbient`/`enableTts`.
+ */
+
 export default function PracticeDetail({
   wsPractices,
 }: PracticeDetailProps = {}): React.ReactElement {
@@ -317,6 +342,16 @@ export default function PracticeDetail({
   const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const [enableTts, setEnableTts] = useState<boolean>(true);
 
+  // Per-practice streak (keyed by practiceId, persists to localStorage).
+  const [streaks, setStreaks] = useState<StreakMap>({});
+
+  // Post-session reflection input and the user's journal history.
+  const [reflection, setReflection] = useState<string>('');
+  const [journal, setJournal] = useState<JournalEntry[]>([]);
+
+  // Ambient bowl drone toggle (drives the AudioContext oscillator).
+  const [enableAmbient, setEnableAmbient] = useState<boolean>(false);
+
   /**
    * Audio + live-practice state from the shared hooks. The 3D viz
    * components consume `audioSpectrum` / `isPlaying` / `frequency`
@@ -332,6 +367,12 @@ export default function PracticeDetail({
   // Re-render every second while running so the timer ticks.
   useInterval(running, 1000);
   const elapsedMs = sessionStartedAt ? Date.now() - sessionStartedAt : 0;
+
+  // Hydrate streak + journal state from localStorage once on mount.
+  useEffect(() => {
+    setStreaks(readStreaks());
+    setJournal(readJournal());
+  }, []);
 
   /**
    * When the backend pushes a fresher session state via WebSocket
@@ -362,6 +403,34 @@ export default function PracticeDetail({
   const mantraAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenCountRef = useRef<number>(0);
 
+  /**
+   * Ambient bowl drone — a held sine-wave oscillator at the practice's
+   * `frequencyHz`, started/stopped in lockstep with TTS playback and
+   * the practice toggle. Owned by the shared `useAmbientBowl` hook so
+   * the same Web Audio plumbing backs both the practice and 88-Buddhas
+   * pages.
+   */
+  const ambient = useAmbientBowl();
+
+  /**
+   * Drive ambient bowl start/stop from `running` + `enableAmbient` +
+   * `enableTts`. The drone plays only while the practice is running,
+   * the toggle is on, and TTS is enabled (per spec: "while TTS is
+   * speaking"). It tears down cleanly on unmount.
+   */
+  useEffect(() => {
+    const desired = running && enableAmbient && enableTts && id === practice?.id;
+    const freq = practice?.frequencyHz;
+    if (desired && freq) {
+      ambient.start(freq);
+    } else {
+      ambient.stop();
+    }
+    return () => {
+      ambient.stop();
+    };
+  }, [running, enableAmbient, enableTts, id, practice, ambient]);
+
   /** Clean up any in-flight audio on unmount. */
   useEffect(() => {
     return () => {
@@ -369,8 +438,9 @@ export default function PracticeDetail({
         mantraAudioRef.current.pause();
         mantraAudioRef.current = null;
       }
+      ambient.stop();
     };
-  }, []);
+  }, [ambient]);
 
   /** Speak the practice mantra on each new recitation. */
   useEffect(() => {
@@ -490,6 +560,10 @@ export default function PracticeDetail({
         setRunning(false);
         setSessionStartedAt(null);
         audioFeedback.playSuccess();
+
+        // Ambient drone cleanup is owned by the [running, enableAmbient,
+// enableTts] useEffect above; reflection prompt is rendered in JSX.
+        setReflection('');
       } else {
         const res = await fetch(apiUrl(`/practices/${practice.id}/start`), {
           method: 'POST',
@@ -508,6 +582,22 @@ export default function PracticeDetail({
         const resolvedSessionId = data.session?.practice_id ?? data.session_id;
         if (resolvedSessionId) setSessionId(resolvedSessionId);
         audioFeedback.playSuccess();
+
+        // Record today on the streak ledger + fire the milestone toast.
+        const today = todayStr();
+        const prevDates = streaks[practice.id] ?? [];
+        const prevStreak = computeCurrentStreak(prevDates, today);
+        const nextDates = recordSession(streaks, practice.id, today);
+        const nextStreak = computeCurrentStreak(nextDates, today);
+        setStreaks({ ...streaks, [practice.id]: nextDates });
+        const totalSessions = nextDates.length;
+        const milestoneDays = [3, 7, 21, 30, 49, 100, 108, 365, 1000];
+        if (nextStreak > prevStreak && milestoneDays.includes(nextStreak)) {
+          message.success(
+            `🎉 ${nextStreak}-day streak! ${totalSessions} sessions completed!`,
+            4,
+          );
+        }
       }
     } catch (err) {
       // Local optimistic fallback — flip the UI even if the backend
@@ -523,7 +613,7 @@ export default function PracticeDetail({
     } finally {
       setActionLoading(false);
     }
-  }, [practice, running, intention, enableTts]);
+  }, [practice, running, intention, enableTts, streaks]);
 
   /** Manual increment — bumped while reciting outside the backend. */
   const handleIncrement = useCallback((): void => {
@@ -542,6 +632,21 @@ export default function PracticeDetail({
     lastSpokenCountRef.current = 0;
     setSessionStartedAt(running ? Date.now() : null);
   }, [running]);
+
+  const handleSaveReflection = useCallback((): void => {
+    const trimmed = reflection.trim();
+    if (!trimmed || !practice) return;
+    const entry: JournalEntry = {
+      date: todayStr(),
+      practiceId: practice.id,
+      reflection: trimmed.slice(0, 1000),
+      recited: count,
+    };
+    appendJournal(entry);
+    setJournal(readJournal());
+    setReflection('');
+    message.success('Reflection saved', 2);
+  }, [reflection, practice, count]);
 
   // -- Loading state --------------------------------------------------------
   if (loading) {
@@ -581,6 +686,14 @@ export default function PracticeDetail({
     ['--practice-color' as string]: practice.color,
     ['--practice-color-rgb' as string]: practice.colorRgb,
   } as React.CSSProperties;
+
+  const today = todayStr();
+  const practiceStreakDates = streaks[practice.id] ?? [];
+  const currentStreak = computeCurrentStreak(practiceStreakDates, today);
+  const totalSessions = practiceStreakDates.length;
+  const journalForPractice = journal
+    .filter((j) => j.practiceId === practice.id)
+    .slice(0, 3);
 
   const VizComponent = id ? PRACTICE_VISUALIZATIONS[id] : undefined;
 
@@ -783,6 +896,19 @@ export default function PracticeDetail({
                 >
                   Mala Counter
                 </Text>
+                <div
+                  className="flex items-center justify-center gap-3 w-full"
+                  aria-label="Practice streak and total sessions"
+                >
+                  <span className="flex items-center gap-1 text-orange-400 text-sm font-mono">
+                    <Flame size={14} aria-hidden /> {currentStreak}
+                    -day streak
+                  </span>
+                  <span className="text-white/30" aria-hidden>|</span>
+                  <span className="text-white/70 text-sm font-mono">
+                    Total: {totalSessions} session{totalSessions === 1 ? '' : 's'}
+                  </span>
+                </div>
                 <BeadRing
                   count={count}
                   color={practice.color}
@@ -919,6 +1045,25 @@ export default function PracticeDetail({
                     />
                   </div>
                 </Tooltip>
+
+                <Tooltip
+                  title={
+                    enableAmbient
+                      ? `Singing-bowl drone at ${practice.frequencyHz ?? 136.1} Hz will hum during TTS`
+                      : 'Silent — no ambient bowl tone'
+                  }
+                >
+                  <div className="flex items-center gap-2 px-4 h-10 rounded-lg bg-white/5 border border-white/10 text-white/80">
+                    <span className="text-base leading-none" aria-hidden>🥣</span>
+                    <span className="text-sm">Ambient Bowl</span>
+                    <Switch
+                      size="small"
+                      checked={enableAmbient}
+                      onChange={setEnableAmbient}
+                      aria-label="Toggle ambient bowl drone tone"
+                    />
+                  </div>
+                </Tooltip>
               </div>
 
               {/* Progress bar reflects beads within the current mala */}
@@ -978,6 +1123,82 @@ export default function PracticeDetail({
                   </li>
                 ))}
               </ul>
+            </Space>
+          </Card>
+
+          {/* Session Journal — reflection prompt + collapsible history */}
+          <Card
+            className="!bg-black/40 !border-white/10 backdrop-blur-md"
+            styles={{ body: { padding: 24 } }}
+          >
+            <Space orientation="vertical" size={12} className="w-full">
+              <div className="flex items-center gap-2">
+                <BookText size={16} style={{ color: '#a78bfa' }} />
+                <Text strong className="!text-white !uppercase !tracking-widest !text-xs">
+                  Session Journal
+                </Text>
+              </div>
+
+              {!running && (
+                <Space.Compact style={{ width: '100%' }}>
+                  <Input.TextArea
+                    rows={2}
+                    value={reflection}
+                    onChange={(e) => setReflection(e.target.value)}
+                    placeholder="Reflect on this session (optional)"
+                    maxLength={1000}
+                    className="!bg-black/30 !border-white/10 !text-white"
+                  />
+                  <Button
+                    type="primary"
+                    icon={<CalendarCheck size={14} />}
+                    onClick={handleSaveReflection}
+                    disabled={!reflection.trim()}
+                    style={{
+                      background: `linear-gradient(135deg, ${practice.color}, ${practice.color}dd)`,
+                      border: 0,
+                    }}
+                  >
+                    Save
+                  </Button>
+                </Space.Compact>
+              )}
+
+              {journalForPractice.length > 0 && (
+                <Collapse
+                  ghost
+                  items={[
+                    {
+                      key: 'recent',
+                      label: (
+                        <Text className="!text-white/80 !text-sm">
+                          Past reflections ({journalForPractice.length})
+                        </Text>
+                      ),
+                      children: (
+                        <Space orientation="vertical" size={10} className="w-full">
+                          {journalForPractice.map((j, i) => (
+                            <div
+                              key={`${j.date}-${i}`}
+                              className="rounded-md px-3 py-2 bg-white/5 border border-white/10"
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <CalendarCheck size={12} className="text-white/50" />
+                                <Text type="secondary" className="!text-xs !font-mono">
+                                  {j.date} · {j.recited} recitation{j.recited === 1 ? '' : 's'}
+                                </Text>
+                              </div>
+                              <Paragraph className="!mb-0 !text-white/85 !text-sm !whitespace-pre-wrap">
+                                {j.reflection}
+                              </Paragraph>
+                            </div>
+                          ))}
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              )}
             </Space>
           </Card>
 
