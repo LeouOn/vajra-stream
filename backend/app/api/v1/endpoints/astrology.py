@@ -535,6 +535,7 @@ class TransitToNatalRequest(BaseModel):
 
 class TransitExportRequest(BaseModel):
     transit_time_iso: str | None = None
+    strip_pii: bool = True
 
 
 class SavedChartsImportRequest(BaseModel):
@@ -983,11 +984,14 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
         ][:10]
         top_cusp_transits = [a for a in sorted_aspects if _is_cusp_aspect(a)][:10]
 
+        export_name = "Anonymous" if req.strip_pii else chart["name"]
+        export_birth = None if req.strip_pii else chart["birth_time_iso"]
+
         return {
             "status": "success",
             "data": {
-                "name": chart["name"],
-                "birth_time_iso": chart["birth_time_iso"],
+                "name": export_name,
+                "birth_time_iso": export_birth,
                 "transit_time": transit_dt.isoformat(),
                 "natal_houses": natal_houses,
                 "transit_houses": transit_houses,
@@ -997,6 +1001,7 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
                 "gochara": gochara,
                 "bazi_clashes": bazi_transits,
                 "house_systems": ["Placidus", "Whole Sign"],
+                "pii_stripped": req.strip_pii,
             },
         }
     except HTTPException:
@@ -1061,14 +1066,14 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
         return {
             "status": "success",
             "data": {
-                "name": chart["name"],
-                "birth_time_iso": chart["birth_time_iso"],
+                "name": "Anonymous" if req.strip_pii else chart["name"],
+                "birth_time_iso": None if req.strip_pii else chart["birth_time_iso"],
                 "birth_location": {
                     "latitude": chart["latitude"],
                     "longitude": chart["longitude"],
                 },
                 "timezone": chart.get("timezone"),
-                "city": chart.get("city"),
+                "city": None if req.strip_pii else chart.get("city"),
                 "western": {
                     "positions": western.get("positions", {}),
                     "elements": western.get("elements", {}),
@@ -1079,6 +1084,7 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
                 },
                 "vedic": vedic,
                 "houses": houses,
+                "pii_stripped": req.strip_pii,
             },
         }
     except HTTPException:
