@@ -66,6 +66,11 @@ class ChatRequest(BaseModel):
     api_key: str | None = None
     provider: str | None = "auto"  # 'openai', 'anthropic', 'local', 'auto'
     model: str | None = None
+    max_tokens: int = 4096
+    temperature: float = 0.7
+    system_prompt: str | None = None
+    stream: bool = False
+    tools: list | None = None
     include_astrology: bool | None = False
     include_anatomy: bool | None = False
     include_hardware: bool | None = False
