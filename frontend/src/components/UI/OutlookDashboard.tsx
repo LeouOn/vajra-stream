@@ -1289,7 +1289,7 @@ export default function OutlookDashboard() {
                                     </div>
                                   )}
                                   <Divider />
-                                  <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
+                                  <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#e5e7eb' }}>
                                     {currentNarrative.narrative}
                                   </Paragraph>
                                 </>

@@ -412,9 +412,11 @@ export default function GuidedRitualFlow({
       <Card size="small" className="bg-gray-900/80 border-purple-500/20">
         <Steps
           size="small"
+          direction="horizontal"
           current={step}
           items={STEP_TITLES.map((title, idx) => ({ title }))}
           className="[&_.ant-steps-item-title]:text-[10px] [&_.ant-steps-item-title]:font-mono [&_.ant-steps-item-title]:uppercase [&_.ant-steps-item-title]:tracking-wider"
+          style={{ overflowX: 'auto', minWidth: 0 }}
         />
       </Card>
 
@@ -433,7 +435,7 @@ export default function GuidedRitualFlow({
           }
         >
           <Space orientation="vertical" size="middle" className="w-full">
-            <Text style={{ fontSize: 12 }} type="secondary">
+            <Text style={{ fontSize: 12, color: '#cbd5e1' }}>
               Choose an intention, or compose your own. The genre will follow the meaning.
             </Text>
 
@@ -757,7 +759,7 @@ export default function GuidedRitualFlow({
                 <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
                 <div>
                   <Text strong className="text-red-300">Generation failed</Text>
-                  <Paragraph className="!mb-0 text-sm" type="secondary">
+                  <Paragraph className="!mb-0 text-sm" style={{ color: '#fda4af' }}>
                     {generationError}
                   </Paragraph>
                 </div>
@@ -852,7 +854,7 @@ export default function GuidedRitualFlow({
                 <Paragraph
                   className="!mt-3 text-sm leading-relaxed"
                   style={{
-                    color: '#cbd5e1',
+                    color: '#e5e7eb',
                     maxHeight: 220,
                     overflowY: 'auto',
                     background: 'rgba(0,0,0,0.4)',

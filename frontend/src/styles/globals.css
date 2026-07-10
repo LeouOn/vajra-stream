@@ -13,6 +13,18 @@
     --glow-purple: 139 92 246;
     --glow-gold: 255 215 0;
     --glow-cyan: 6 182 212;
+
+    /* ── Semantic text tokens (Issue 1 — text contrast on dark surfaces).
+       Single source of truth for text legibility on `bg-gray-900` /
+       `bg-black/40` / dark AntD cards. The lightest tier (#e5e7eb) sits
+       against the deep purple radial-gradient void with ≥ 12:1 contrast,
+       the secondary tier (#cbd5e1) still passes WCAG AA Large at 7.4:1,
+       and muted (#94a3b8) is reserved for non-critical metadata only. */
+    --text-primary: #e5e7eb;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-accent: #67e8f9;
+    --text-amber: #fcd34d;
   }
 
   * {
@@ -154,6 +166,22 @@
   .ant-menu-horizontal > .ant-menu-item,
   .ant-menu-horizontal > .ant-menu-submenu {
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease !important;
+  }
+
+  /* AntD Steps — force visible step titles + descriptions against the
+     dark wizard card. AntD v6 with `theme.darkAlgorithm` defaults the
+     title color to `colorTextDescription`, which on a `bg-gray-900/80`
+     surface sits around 4:1 contrast — readable but borderline. We lift
+     titles to `#e5e7eb` (≈13:1) so the 5-step ritual indicator always
+     reads at a glance. The !important is needed because AntD v6 cssinjs
+     injects component colors unlayered and beats Tailwind's `@apply`.
+     Fixes Issue 1 (invisible step titles) from the UI feedback. */
+  .ant-steps-item-title,
+  .ant-steps-item-description {
+    color: var(--text-primary) !important;
+  }
+  .ant-steps-item-title::after {
+    background-color: rgba(192, 192, 192, 0.4) !important;
   }
 
   .mystical-range {
