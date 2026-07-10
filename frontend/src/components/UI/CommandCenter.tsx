@@ -9,15 +9,18 @@
  *
  * @component
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import {
   Send, Terminal, Cpu, AlertTriangle,
   Sparkles, Shield, Compass, BookOpen, Clock, Play, Square, X, Sun,
-  RefreshCw, Bug
+  RefreshCw, Bug, RotateCcw, Activity, HeartPulse
 } from 'lucide-react';
 import { Card, Input, Button, Select, Switch, Tag, Badge, Space, Statistic, Tooltip } from 'antd';
+import type { DefaultOptionType } from 'antd/es/select';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
+import { apiUrl } from '../../utils/api';
 
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import SakaDawaBanner from './SakaDawaBanner';
@@ -32,6 +35,143 @@ import LogsCard from '../CommandCenter/LogsCard';
 import ZoomModal from '../CommandCenter/ZoomModal';
 import PageHeader from './PageHeader';
 
+// ─── Types ──────────────────────────────────────────────────────────
+
+/** A single tool-call result from the chat API. */
+interface ToolCall {
+  tool_name: string;
+  arguments: Record<string, unknown>;
+  status: string;
+  result?: unknown;
+  error?: string | null;
+}
+
+/** Per-message debug telemetry returned by /api/v1/llm/chat (debug_mode=true). */
+interface DebugInfo {
+  model?: string;
+  provider?: string;
+  provider_selected?: string;
+  model_selected?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  finish_reason?: string;
+  reasoning_content?: string;
+  reasoning_tokens?: number;
+  system_prompt?: string;
+  messages_sent?: Array<{ role: string; content: string }>;
+  tools_available?: string[];
+  timestamp?: number;
+  [key: string]: unknown;
+}
+
+/** A chat message (user or assistant) with optional debug telemetry. */
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  action?: string;
+  toolCalls?: ToolCall[];
+  debugInfo?: DebugInfo | null;
+  reasoningContent?: string | null;
+  modelUsed?: string | null;
+  providerUsed?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  latencyMs?: number | null;
+  costUsd?: number | null;
+  promptMessages?: ChatMessage[];
+  isError?: boolean;
+  retryInput?: string;
+}
+
+/** Rich model metadata from GET /api/v1/llm/models/available. */
+interface AvailableModelMeta {
+  id: string;
+  name: string;
+  provider: string;
+  context_length: number | null;
+  input_per_m: number;
+  output_per_m: number;
+  is_free: boolean;
+  featured: boolean;
+  description: string;
+  source: string;
+}
+
+/** Response shape of GET /api/v1/llm/models/available. */
+interface AvailableModelsResponse {
+  status: string;
+  count: number;
+  fetched_at: number | null;
+  source: string;
+  models: AvailableModelMeta[];
+}
+
+/** Per-model pricing entry for client-side cost computation. */
+interface ModelPricing {
+  input_per_m: number;
+  output_per_m: number;
+  is_free: boolean;
+}
+
+/** Provider health entry from GET /api/v1/llm/providers/health. */
+interface ProviderHealthEntry {
+  provider: string;
+  healthy: boolean;
+  latency_ms: number | null;
+  error: string | null;
+  checked_at: number;
+}
+
+/** Response shape of GET /api/v1/llm/providers/health. */
+interface ProviderHealthResponse {
+  providers: ProviderHealthEntry[];
+  healthy_count: number;
+  total_count: number;
+  message?: string;
+}
+
+/** MOPS throughput rolling-average window. */
+interface MopsWindow {
+  '1s'?: number;
+  '10s'?: number;
+  '60s'?: number;
+  '5m'?: number;
+}
+
+/** MOPS throughput averages (matches backend core/services/mops_engine.py). */
+interface MopsAverages {
+  scalar_pulses?: MopsWindow;
+  mantras?: MopsWindow;
+  crystals?: MopsWindow;
+  divination?: MopsWindow;
+  tuning?: MopsWindow;
+}
+
+/** Chakra entry from GET /api/v1/healing/chakra/all. */
+interface ChakraEntry {
+  name?: string;
+  sanskrit?: string;
+  english?: string;
+  element?: string;
+  color?: string;
+  frequency?: number | number[];
+  qualities?: string[];
+  location?: string;
+  [key: string]: unknown;
+}
+
+/** Basic models endpoint response (GET /api/v1/llm/models). */
+interface BasicModelsResponse {
+  status: string;
+  available: {
+    local: string[];
+    api: string[];
+    lm_studio: string[];
+  };
+  default_model: string;
+  lm_studio_connected: boolean;
+}
+
 export default function CommandCenter({ 
   isConnected, 
   isPlaying, 
@@ -42,8 +182,8 @@ export default function CommandCenter({
   buddhaStatus,
   sakaDawa
 }) {
-  const [activeZoomItem, setActiveZoomItem] = useState(null);
-  const [messages, setMessages] = useState([
+  const [activeZoomItem, setActiveZoomItem] = useState<unknown>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
       content: '🔮 **Vajra.Stream Command Center Ready**\n\nI am your AI operator. I can assist you with system calibration, crystal programming, automated population blessings, and scalar broadcasts. How shall we direct the intention today?'
@@ -59,15 +199,22 @@ export default function CommandCenter({
     }
   ]);
   const [auraCoherence, setAuraCoherence] = useState(35);
-  const [astroData, setAstroData] = useState(null);
+  const [astroData, setAstroData] = useState<Record<string, unknown> | null>(null);
   const [includeAstrology, setIncludeAstrology] = useState(true);
   const [includeAnatomy, setIncludeAnatomy] = useState(true);
   const [includeHardware, setIncludeHardware] = useState(true);
-  const [availableModels, setAvailableModels] = useState({ local: [], api: [], lm_studio: [] });
-  const [selectedModel, setSelectedModel] = useState('');
+  const [availableModels, setAvailableModels] = useState<{ local: string[]; api: string[]; lm_studio: string[] }>({ local: [], api: [], lm_studio: [] });
+  const [selectedModel, setSelectedModel] = useState('auto');
   const [debugMode, setDebugMode] = useState(false);
-  const [debugPayload, setDebugPayload] = useState(null);
+  const [debugPayload, setDebugPayload] = useState<DebugInfo | Record<string, unknown> | null>(null);
   const [activeLogTab, setActiveLogTab] = useState('tools');
+
+  const [availableModelList, setAvailableModelList] = useState<AvailableModelMeta[]>([]);
+  const [modelPricing, setModelPricing] = useState<Record<string, ModelPricing>>({});
+  const [providerHealth, setProviderHealth] = useState<ProviderHealthEntry[]>([]);
+  const [chakraData, setChakraData] = useState<ChakraEntry[] | null>(null);
+  const [mopsData, setMopsData] = useState<MopsAverages | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   
   useEffect(() => {
     const doFetch = async (lat, lon) => {
@@ -105,13 +252,14 @@ export default function CommandCenter({
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const res = await fetch(`/api/v1/llm/models`);
+        const res = await fetch(apiUrl('/llm/models'));
         if (res.ok) {
-          const data = await res.json();
+          const data: BasicModelsResponse = await res.json();
           if (data.status === 'success') {
             setAvailableModels(data.available || { local: [], api: [], lm_studio: [] });
-            const model = data.default_model || '';
-            setSelectedModel(model);
+            if (!selectedModel || selectedModel === 'auto') {
+              setSelectedModel('auto');
+            }
           }
         }
       } catch (e) {
@@ -121,17 +269,108 @@ export default function CommandCenter({
     fetchModels();
   }, []);
 
+  useEffect(() => {
+    const fetchModelCatalog = async () => {
+      try {
+        const res = await fetch(apiUrl('/llm/models/available'));
+        if (res.ok) {
+          const data: AvailableModelsResponse = await res.json();
+          if (data.status === 'success' && Array.isArray(data.models)) {
+            setAvailableModelList(data.models);
+            const pricing: Record<string, ModelPricing> = {};
+            for (const m of data.models) {
+              pricing[m.id] = {
+                input_per_m: m.input_per_m,
+                output_per_m: m.output_per_m,
+                is_free: m.is_free,
+              };
+            }
+            setModelPricing(pricing);
+          }
+        }
+      } catch {
+        /* catalog is best-effort; basic /models still provides the selector */
+      }
+    };
+    fetchModelCatalog();
+  }, []);
+
+  useEffect(() => {
+    const fetchHealth = async () => {
+      try {
+        const res = await fetch(apiUrl('/llm/providers/health'));
+        if (res.ok) {
+          const data: ProviderHealthResponse = await res.json();
+          setProviderHealth(data.providers || []);
+        }
+      } catch {
+        /* health checks are best-effort */
+      }
+    };
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!includeAnatomy) {
+      setChakraData(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchChakras = async () => {
+      try {
+        const res = await fetch(apiUrl('/healing/chakra/all'));
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.chakras) {
+            setChakraData(data.chakras as ChakraEntry[]);
+          }
+        }
+      } catch {
+        /* chakra context is best-effort */
+      }
+    };
+    fetchChakras();
+    return () => { cancelled = true; };
+  }, [includeAnatomy]);
+
+  useEffect(() => {
+    if (!includeHardware) {
+      setMopsData(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchMops = async () => {
+      try {
+        const res = await fetch(apiUrl('/mops/current'));
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.mops) {
+            setMopsData(data.mops as MopsAverages);
+          }
+        }
+      } catch {
+        /* mops context is best-effort */
+      }
+    };
+    fetchMops();
+    const interval = setInterval(fetchMops, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [includeHardware]);
+
   // Ref to hold latest handleSendMessage (avoids stale closure in event listener)
   const handleSendMessageRef = useRef(handleSendMessage);
   handleSendMessageRef.current = handleSendMessage;
 
   // Listen for vajra:quick-command custom events (fired by SakaDawaBanner, etc.)
   useEffect(() => {
-    const handler = (e) => {
-      if (e.detail?.command) {
-        setInput(e.detail.command);
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ command?: string }>).detail;
+      if (detail?.command) {
+        setInput(detail.command);
         setTimeout(() => {
-          handleSendMessageRef.current(e.detail.command);
+          handleSendMessageRef.current(detail.command);
         }, 200);
       }
     };
@@ -139,8 +378,8 @@ export default function CommandCenter({
     return () => window.removeEventListener('vajra:quick-command', handler);
   }, []);
 
-  const messagesEndRef = useRef(null);
-  const logEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   // Dynamic Aura Coherence simulation
   useEffect(() => {
@@ -191,7 +430,7 @@ export default function CommandCenter({
     }
   }, [toolLogs]);
 
-  const addToolLog = (type, message, status = 'info') => {
+  const addToolLog = (type: string, message: string, status: string = 'info') => {
     setToolLogs(prev => [
       ...prev,
       {
@@ -203,61 +442,171 @@ export default function CommandCenter({
     ]);
   };
 
-  const buildModelOptions = () => {
-    // Backend returns `available.local` ALREADY PREFIXED (`local:file.gguf`)
-    // but `available.lm_studio` as bare ids and `available.api` as
-    // `"provider (model)"` strings. Normalize so the Select's `value` matches
-    // the option's `value` exactly — otherwise AntD shows the placeholder
-    // ("Select model...") even when a default_model is set.
+  const buildModelOptions = (): DefaultOptionType[] => {
     const stripPrefix = (m: string, prefix: string) =>
       m.startsWith(`${prefix}:`) ? m.slice(prefix.length + 1) : m;
 
-    return [
-      ...(availableModels.lm_studio && availableModels.lm_studio.length > 0
-        ? [{
-            label: 'LM Studio (Active)',
-            options: availableModels.lm_studio.map(m => ({
-              value: `lm_studio:${m}`,
-              label: m,
-            })),
-          }]
-        : []),
-      ...(availableModels.local && availableModels.local.length > 0
-        ? [{
-            label: 'Local GGUF',
-            options: availableModels.local.map(m => {
-              const bare = stripPrefix(m, 'local');
-              return {
-                value: `local:${bare}`,
-                label: bare,
-              };
-            }),
-          }]
-        : []),
-      ...(availableModels.api && availableModels.api.length > 0
-        ? [{
-            label: 'API Providers',
-            options: availableModels.api
-              .map((m): { value: string; label: string } | null => {
-                const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
-                if (!match) return null;
-                const providerVal = match[1];
-                const defaultName = match[2];
-                return {
-                  value: `${providerVal}:${defaultName}`,
-                  label: m,
-                };
-              })
-              .filter((opt): opt is { value: string; label: string } => opt !== null),
-          }]
-        : []),
-    ];
+    const groups: DefaultOptionType[] = [{
+      label: '⚡ Auto',
+      title: 'Auto-select',
+      options: [
+        { value: 'auto', label: '⚡ Auto (registry pick_best)' },
+      ],
+    }];
+
+    if (availableModels.lm_studio && availableModels.lm_studio.length > 0) {
+      groups.push({
+        label: '🖥 LM Studio',
+        title: 'LM Studio (Active)',
+        options: availableModels.lm_studio.map(m => ({
+          value: `lm_studio:${m}`,
+          label: m,
+        })),
+      });
+    }
+
+    if (availableModels.local && availableModels.local.length > 0) {
+      groups.push({
+        label: '💾 Local GGUF',
+        title: 'Local GGUF',
+        options: availableModels.local.map(m => {
+          const bare = stripPrefix(m, 'local');
+          return { value: `local:${bare}`, label: bare };
+        }),
+      });
+    }
+
+    const apiByProvider = new Map<string, AvailableModelMeta[]>();
+    for (const m of availableModelList) {
+      const arr = apiByProvider.get(m.provider) || [];
+      arr.push(m);
+      apiByProvider.set(m.provider, arr);
+    }
+    const sortedProviders = Array.from(apiByProvider.keys()).sort();
+    for (const provider of sortedProviders) {
+      const models = apiByProvider.get(provider)!;
+      groups.push({
+        label: provider.charAt(0).toUpperCase() + provider.slice(1),
+        title: provider,
+        options: models.map(m => ({
+          value: m.id,
+          label: (
+            <span className="flex items-center gap-1.5">
+              <span className="truncate">{m.name}</span>
+              {m.is_free
+                ? <Tag color="green" style={{ fontSize: '8px', lineHeight: '14px', margin: 0, padding: '0 4px' }}>FREE</Tag>
+                : <span className="text-gray-500 text-[9px] ml-auto font-mono">
+                    ${m.input_per_m.toFixed(2)}/${m.output_per_m.toFixed(2)} per M
+                  </span>}
+            </span>
+          ),
+        })),
+      });
+    }
+
+    if (availableModels.api && availableModels.api.length > 0 && availableModelList.length === 0) {
+      groups.push({
+        label: '🌐 API Providers',
+        title: 'API Providers',
+        options: availableModels.api
+          .map((m): { value: string; label: string } | null => {
+            const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+            if (!match) return null;
+            return { value: `${match[1]}:${match[2]}`, label: m };
+          })
+          .filter((opt): opt is { value: string; label: string } => opt !== null),
+      });
+    }
+
+    return groups;
   };
 
-  /**
-   * Core chat call — single source of truth for first-send and regenerate.
-   */
-  async function callChatAPI(msgs, opts = {}) {
+  function formatAstrologyContext(data: Record<string, unknown>): string {
+    const lines: string[] = ['🪐 **Current Astrological Context:**'];
+    const western = data.western as Record<string, unknown> | undefined;
+    if (western) {
+      if (western.sun_sign) lines.push(`- Sun: ${western.sun_sign}`);
+      if (western.moon_sign) lines.push(`- Moon: ${western.moon_sign}`);
+      if (western.ascendant) lines.push(`- Ascendant: ${western.ascendant}`);
+    }
+    const moonPhase = data.moon_phase as Record<string, unknown> | undefined;
+    if (moonPhase) {
+      if (moonPhase.phase_name) lines.push(`- Moon Phase: ${moonPhase.phase_name} (${moonPhase.illumination ?? ''}%)`);
+    }
+    const indian = data.indian as Record<string, unknown> | undefined;
+    if (indian) {
+      if (indian.nakshatra) lines.push(`- Nakshatra: ${indian.nakshatra}`);
+    }
+    return lines.join('\n');
+  }
+
+  function formatChakraContext(chakras: ChakraEntry[]): string {
+    const lines: string[] = ['💚 **Energetic Anatomy (Chakra System) Context:**'];
+    for (const c of chakras.slice(0, 7)) {
+      const freq = Array.isArray(c.frequency) ? c.frequency.join('/') : (c.frequency ?? '');
+      lines.push(`- ${c.name || c.sanskrit || 'Unknown'} (${c.sanskrit || ''}): ${c.element || ''} element, ${c.color || ''} color${freq ? `, ${freq} Hz` : ''}`);
+    }
+    return lines.join('\n');
+  }
+
+  function formatMopsContext(mops: MopsAverages): string {
+    const lines: string[] = ['⚙️ **System Metrics (MOPS Throughput):**'];
+    const categories: Array<[string, string, MopsWindow | undefined]> = [
+      ['Scalar Pulses', 'scalar_pulses', mops.scalar_pulses],
+      ['Mantras', 'mantras', mops.mantras],
+      ['Crystals', 'crystals', mops.crystals],
+      ['Divination', 'divination', mops.divination],
+      ['Tuning', 'tuning', mops.tuning],
+    ];
+    for (const [label, , win] of categories) {
+      if (win) {
+        const rate = win['60s'] ?? win['10s'] ?? win['1s'] ?? 0;
+        lines.push(`- ${label}: ${rate.toFixed(2)}/s (60s avg)`);
+      }
+    }
+    return lines.join('\n');
+  }
+
+  function buildContextSystemMessage(): string | null {
+    const parts: string[] = [];
+    if (includeAstrology && astroData) {
+      const ctx = formatAstrologyContext(astroData);
+      if (ctx) parts.push(ctx);
+    }
+    if (includeAnatomy && chakraData && chakraData.length > 0) {
+      parts.push(formatChakraContext(chakraData));
+    }
+    if (includeHardware && mopsData) {
+      const ctx = formatMopsContext(mopsData);
+      if (ctx) parts.push(ctx);
+    }
+    return parts.length > 0 ? parts.join('\n\n---\n\n') : null;
+  }
+
+  function computeCostUsd(modelId: string | null, inputTokens: number | null, outputTokens: number | null): number | null {
+    if (!modelId || inputTokens == null || outputTokens == null) return null;
+    const pricing = modelPricing[modelId];
+    if (!pricing) return null;
+    if (pricing.is_free) return 0;
+    const cost = (inputTokens * pricing.input_per_m / 1_000_000) + (outputTokens * pricing.output_per_m / 1_000_000);
+    return Math.round(cost * 1e6) / 1e6;
+  }
+
+  async function callChatAPI(
+    msgs: ChatMessage[],
+    opts: {
+      model?: string;
+      astrology?: boolean;
+      anatomy?: boolean;
+      hardware?: boolean;
+      debug?: boolean;
+    } = {}
+  ): Promise<{
+    response: string;
+    tool_calls?: ToolCall[];
+    debug_info?: DebugInfo;
+    latencyMs: number;
+  }> {
     const {
       model = selectedModel,
       astrology = includeAstrology,
@@ -265,13 +614,20 @@ export default function CommandCenter({
       hardware = includeHardware,
       debug = debugMode,
     } = opts;
-    const chatResponse = await fetch(`/api/v1/llm/chat`, {
+
+    const contextSystem = buildContextSystemMessage();
+    const messagesToSend = contextSystem
+      ? [{ role: 'system' as const, content: contextSystem }, ...msgs]
+      : msgs;
+
+    const start = Date.now();
+    const chatResponse = await fetch(apiUrl('/llm/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        messages: msgs.map(m => ({ role: m.role, content: m.content })),
-        provider: "auto",
-        model: model || null,
+        messages: messagesToSend.map(m => ({ role: m.role, content: m.content })),
+        provider: 'auto',
+        model: model === 'auto' ? null : (model || null),
         include_astrology: astrology,
         astrology_data: astrology ? astroData : null,
         include_anatomy: anatomy,
@@ -279,22 +635,25 @@ export default function CommandCenter({
         debug_mode: debug,
       }),
     });
+    const latencyMs = Date.now() - start;
     if (!chatResponse.ok) {
-      throw new Error(`Chat API error: ${chatResponse.statusText}`);
+      throw new Error(`Chat API error: ${chatResponse.status} ${chatResponse.statusText}`);
     }
-    return chatResponse.json();
+    const json = await chatResponse.json();
+    return { ...json, latencyMs };
   }
 
-  async function handleSendMessage(textToSend) {
+  async function handleSendMessage(textToSend?: string) {
     const text = textToSend || input;
     if (!text.trim()) return;
 
     setInput('');
     setIsLoading(true);
+    setLastError(null);
     audioFeedback.playTelemetry();
 
     const priorMessages = messages;
-    const userMsg = { role: 'user', content: text };
+    const userMsg: ChatMessage = { role: 'user', content: text };
     const newMessages = [...priorMessages, userMsg];
     setMessages(newMessages);
     addToolLog('user', `User requested: "${text}"`);
@@ -303,6 +662,7 @@ export default function CommandCenter({
       addToolLog('llm', 'Analyzing intent and planning operations...', 'pending');
 
       const data = await callChatAPI(newMessages);
+      const latencyMs = data.latencyMs;
       if (data.debug_info) {
         setDebugPayload(data.debug_info);
       } else {
@@ -310,7 +670,7 @@ export default function CommandCenter({
       }
 
       if (data.tool_calls && data.tool_calls.length > 0) {
-        data.tool_calls.forEach(tc => {
+        data.tool_calls.forEach((tc: ToolCall) => {
           if (tc.status === 'success') {
             addToolLog(
               'tool',
@@ -330,28 +690,36 @@ export default function CommandCenter({
       }
 
       const dbg = data.debug_info || null;
-      const assistantMsg = {
+      const modelUsed = dbg?.model || (selectedModel !== 'auto' ? selectedModel : null);
+      const inputTokens = dbg?.input_tokens ?? null;
+      const outputTokens = dbg?.output_tokens ?? null;
+      const assistantMsg: ChatMessage = {
         role: 'assistant',
         content: data.response,
         toolCalls: data.tool_calls,
         debugInfo: dbg,
         reasoningContent: dbg?.reasoning_content || null,
-        modelUsed: dbg?.model || (selectedModel || null),
-        providerUsed: dbg?.provider || null,
-        inputTokens: dbg?.input_tokens ?? null,
-        outputTokens: dbg?.output_tokens ?? null,
-        latencyMs: dbg?.latency_ms ?? dbg?.duration_ms ?? null,
+        modelUsed,
+        providerUsed: dbg?.provider || dbg?.provider_selected || null,
+        inputTokens,
+        outputTokens,
+        latencyMs,
+        costUsd: computeCostUsd(modelUsed, inputTokens, outputTokens),
         promptMessages: newMessages,
       };
       setMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Chat error:', error);
-      addToolLog('system', `Error: ${error.message}`, 'error');
+      addToolLog('system', `Error: ${errMsg}`, 'error');
+      setLastError(errMsg);
       setMessages(prev => [
         ...prev,
         {
-          role: 'assistant',
-          content: `⚠️ **Operator Error**: Connection failure or API request blocked. Switched to standby mode. \n\nError details: \`${error.message}\``,
+          role: 'assistant' as const,
+          content: `⚠️ **Operator Error**: Connection failure or API request blocked.\n\nError details: \`${errMsg}\``,
+          isError: true,
+          retryInput: text,
         },
       ]);
     } finally {
@@ -359,10 +727,7 @@ export default function CommandCenter({
     }
   }
 
-  /**
-   * Regenerate an assistant message in-place. `newModel` overrides global.
-   */
-  async function handleRegenerate(index, newModel = null) {
+  async function handleRegenerate(index: number, newModel: string | null = null) {
     const target = messages[index];
     if (!target || target.role !== 'assistant' || isLoading) return;
     const promptMessages = Array.isArray(target.promptMessages)
@@ -376,24 +741,32 @@ export default function CommandCenter({
     try {
       const data = await callChatAPI(promptMessages, newModel ? { model: newModel } : {});
       const dbg = data.debug_info || target.debugInfo || null;
-      const updated = {
+      const modelUsed = dbg?.model || newModel || target.modelUsed || (selectedModel !== 'auto' ? selectedModel : null);
+      const inputTokens = dbg?.input_tokens ?? target.inputTokens ?? null;
+      const outputTokens = dbg?.output_tokens ?? target.outputTokens ?? null;
+      const updated: ChatMessage = {
         ...target,
         content: data.response,
         toolCalls: data.tool_calls ?? target.toolCalls,
         debugInfo: dbg,
         reasoningContent: dbg?.reasoning_content || null,
-        modelUsed: dbg?.model || newModel || target.modelUsed || (selectedModel || null),
-        providerUsed: dbg?.provider || target.providerUsed || null,
-        inputTokens: dbg?.input_tokens ?? target.inputTokens ?? null,
-        outputTokens: dbg?.output_tokens ?? target.outputTokens ?? null,
+        modelUsed,
+        providerUsed: dbg?.provider || dbg?.provider_selected || target.providerUsed || null,
+        inputTokens,
+        outputTokens,
+        latencyMs: data.latencyMs ?? target.latencyMs ?? null,
+        costUsd: computeCostUsd(modelUsed, inputTokens, outputTokens),
+        isError: false,
         promptMessages,
       };
       setMessages(prev => prev.map((m, i) => (i === index ? updated : m)));
       if (data.debug_info) setDebugPayload(data.debug_info);
       addToolLog('llm', 'Regeneration complete', 'success');
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Regenerate error:', error);
-      addToolLog('system', `Regenerate error: ${error.message}`, 'error');
+      addToolLog('system', `Regenerate error: ${errMsg}`, 'error');
+      setLastError(errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -401,11 +774,11 @@ export default function CommandCenter({
 
   const operatorActions = createOperatorActions({ frequency, isPlaying, sessions, crystalStatus, scalarStatus });
 
-  async function handleOperatorAction(action) {
+  async function handleOperatorAction(action: { key: string; label: string; icon: string; prompt: string; endpoint: string; body: () => Record<string, unknown> }) {
     if (isLoading) return;
     setIsLoading(true);
     audioFeedback.playTelemetry();
-    setMessages(prev => [...prev, { role: 'user', content: `[${action.label}] ${action.prompt}`, action: action.key }]);
+    setMessages(prev => [...prev, { role: 'user' as const, content: `[${action.label}] ${action.prompt}`, action: action.key }]);
     addToolLog('user', `Operator action: ${action.label}`);
     addToolLog('llm', `Calling ${action.endpoint.split('/').pop()}...`, 'pending');
     try {
@@ -419,15 +792,15 @@ export default function CommandCenter({
         const summary = action.key === 'analyze'
           ? `🎯 Target: ${data.analysis?.target || '—'}\n🌀 Chakra: ${data.analysis?.primary_chakra || '—'}\n📡 Freq: ${data.analysis?.recommended_frequency || '—'} Hz\n🕉️ Mantra: ${data.analysis?.recommended_mantra_tradition || '—'}`
           : action.key === 'rates'
-            ? `📊 ${(data.rates || []).map((r, i) => `${i + 1}. ${r.name || 'Rate ' + (i + 1)} → ${Array.isArray(r.values) ? r.values.join('-') : r.values}`).join('\n')}`
+            ? `📊 ${(data.rates || []).map((r: Record<string, unknown>, i: number) => `${i + 1}. ${r.name || 'Rate ' + (i + 1)} → ${Array.isArray(r.values) ? (r.values as unknown[]).join('-') : r.values}`).join('\n')}`
             : data.insight || JSON.stringify(data);
-        setMessages(prev => [...prev, { role: 'assistant', content: summary, action: action.key }]);
+        setMessages(prev => [...prev, { role: 'assistant' as const, content: summary, action: action.key }]);
         addToolLog('llm', `${action.label} complete`, 'success');
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Operator service unavailable.', action: 'error' }]);
+        setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Operator service unavailable.', action: 'error' }]);
       }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Unable to reach operator.', action: 'error' }]);
+      setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Unable to reach operator.', action: 'error' }]);
     }
     setIsLoading(false);
   }
@@ -486,11 +859,28 @@ export default function CommandCenter({
                 {msg.role === 'assistant' && msg.toolCalls && (
                   <RenderMessageWidgets toolCalls={msg.toolCalls} onZoomItemClick={setActiveZoomItem} />
                 )}
-                {msg.role === 'assistant' && index > 0 && (
+                {msg.role === 'assistant' && msg.isError && msg.retryInput && (
+                  <div className="mt-2 pt-2 border-t border-red-500/20">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessages(prev => prev.filter((_, i) => i !== index));
+                        handleSendMessage(msg.retryInput!);
+                      }}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono text-red-300 border border-red-500/30 hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <RotateCcw style={{ width: 11, height: 11 }} />
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {msg.role === 'assistant' && index > 0 && !msg.isError && (
                   <MessageControls
                     msg={msg}
                     disabled={isLoading}
                     modelOptions={buildModelOptions()}
+                    providerHealth={providerHealth}
                     onRegenerate={(model) => handleRegenerate(index, model)}
                   />
                 )}
@@ -499,10 +889,13 @@ export default function CommandCenter({
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-purple-950/25 backdrop-blur-md rounded-xl rounded-bl-none px-4 py-3 border border-purple-500/20 shadow-lg flex items-center space-x-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="bg-purple-950/25 backdrop-blur-md rounded-xl rounded-bl-none px-4 py-3 border border-purple-500/20 shadow-lg flex items-center space-x-3">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-[11px] font-mono text-purple-300/80">Generating...</span>
               </div>
             </div>
           )}
@@ -578,15 +971,40 @@ export default function CommandCenter({
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Model:</span>
             <Select
               size="small"
-              value={selectedModel || undefined}
-              onChange={(val) => { setSelectedModel(val); audioFeedback.playClick(); }}
+              value={selectedModel || 'auto'}
+              onChange={(val: string) => { setSelectedModel(val); audioFeedback.playClick(); }}
               style={{ minWidth: 160, fontSize: '11px' }}
               className="font-mono"
-              styles={{ popup: { minWidth: 220 } }}
+              styles={{ popup: { minWidth: 260 } }}
               placeholder="Select model..."
+              showSearch
+              optionFilterProp="label"
               options={buildModelOptions()}
             />
           </Space>
+
+          {providerHealth.length > 0 && (
+            <Tooltip
+              title={
+                <div className="text-[10px] font-mono space-y-0.5">
+                  {providerHealth.map(ph => (
+                    <div key={ph.provider} className="flex items-center gap-1">
+                      <span style={{ color: ph.healthy ? '#52c41a' : '#ff4d4f' }}>
+                        {ph.healthy ? '●' : '○'}
+                      </span>
+                      <span>{ph.provider}</span>
+                      {ph.latency_ms != null && <span className="text-gray-400">{Math.round(ph.latency_ms)}ms</span>}
+                    </div>
+                  ))}
+                </div>
+              }
+            >
+              <span className="text-[10px] font-mono text-gray-500 flex items-center gap-1 cursor-help">
+                <Activity style={{ width: 10, height: 10 }} />
+                {providerHealth.filter(p => p.healthy).length}/{providerHealth.length} providers
+              </span>
+            </Tooltip>
+          )}
 
           <Space size={4} style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>
             <Switch size="small" checked={debugMode} onChange={(v) => { setDebugMode(v); audioFeedback.playClick(); }} />
@@ -666,20 +1084,33 @@ export default function CommandCenter({
   );
 }
 
-/**
- * MessageControls — per-message Debug / Regenerate / model selector.
- * Rendered inline under each assistant message. Sources debug info from
- * the chat response `debug_info` block + `reasoning_content`.
- */
-function MessageControls({ msg, disabled, modelOptions, onRegenerate }) {
+interface MessageControlsProps {
+  msg: ChatMessage;
+  disabled: boolean;
+  modelOptions: DefaultOptionType[];
+  providerHealth?: ProviderHealthEntry[];
+  onRegenerate: (model: string | null) => void;
+}
+
+function MessageControls({ msg, disabled, modelOptions, providerHealth = [], onRegenerate }: MessageControlsProps) {
   const [showDebug, setShowDebug] = useState(false);
   const [pickModel, setPickModel] = useState(false);
   const dbg = msg.debugInfo || {};
   const hasDebug = !!msg.debugInfo;
-  const tokenLine = (msg.inputTokens != null || msg.outputTokens != null)
-    ? `in ${msg.inputTokens ?? '?'} / out ${msg.outputTokens ?? '?'}`
+
+  const tokenPart = (msg.inputTokens != null && msg.outputTokens != null)
+    ? `${msg.inputTokens}→${msg.outputTokens} tokens`
     : null;
-  const latencyLine = msg.latencyMs != null ? `${Math.round(msg.latencyMs)} ms` : null;
+  const latencyPart = msg.latencyMs != null ? `${(msg.latencyMs / 1000).toFixed(1)}s` : null;
+  const costPart = msg.costUsd != null ? `$${msg.costUsd.toFixed(4)}` : null;
+
+  const compactParts = [tokenPart, latencyPart, costPart].filter(Boolean);
+  const compactLine = compactParts.length > 0 ? compactParts.join(' | ') : null;
+
+  const msgProvider = msg.providerUsed || dbg.provider || dbg.provider_selected;
+  const providerHealthEntry = msgProvider
+    ? providerHealth.find(p => p.provider === msgProvider)
+    : undefined;
 
   return (
     <div className="mt-2 pt-2 border-t border-white/5 flex flex-col gap-1.5">
@@ -690,8 +1121,7 @@ function MessageControls({ msg, disabled, modelOptions, onRegenerate }) {
           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono text-purple-300/80 hover:text-purple-200 hover:bg-purple-500/10 transition-colors"
           title="Toggle debug info"
         >
-          <Bug style={{ width: 11, height: 11 }} />
-          Debug
+          🔧 Debug
         </button>
 
         <button
@@ -713,17 +1143,25 @@ function MessageControls({ msg, disabled, modelOptions, onRegenerate }) {
           title="Regenerate with the same model"
           disabled={disabled}
         >
-          <RefreshCw style={{ width: 11, height: 11 }} />
-          Regenerate
+          🔄 Regenerate
         </button>
 
-        {tokenLine && (
-          <span className="text-[9px] font-mono text-gray-500 ml-auto">{tokenLine}</span>
-        )}
-        {latencyLine && (
-          <span className="text-[9px] font-mono text-gray-500">· {latencyLine}</span>
+        {compactLine && (
+          <span className="text-[9px] font-mono text-gray-500 ml-auto">{compactLine}</span>
         )}
       </div>
+
+      {msg.modelUsed && (
+        <div className="text-[9px] font-mono text-gray-600">
+          Model: {msg.modelUsed}
+          {msgProvider && providerHealthEntry && (
+            <span style={{ color: providerHealthEntry.healthy ? '#52c41a' : '#ff4d4f' }}>
+              {' '}({providerHealthEntry.healthy ? '✓' : '✗'} {msgProvider})
+            </span>
+          )}
+          {compactLine && <span className="text-gray-500"> | {compactLine}</span>}
+        </div>
+      )}
 
       {pickModel && (
         <div className="bg-black/40 border border-white/10 rounded p-2">
@@ -735,8 +1173,9 @@ function MessageControls({ msg, disabled, modelOptions, onRegenerate }) {
             showSearch
             placeholder="Pick a model..."
             style={{ width: '100%', fontSize: '11px' }}
+            optionFilterProp="label"
             options={modelOptions}
-            onChange={(val) => {
+            onChange={(val: string) => {
               setPickModel(false);
               onRegenerate(val);
             }}
@@ -747,17 +1186,33 @@ function MessageControls({ msg, disabled, modelOptions, onRegenerate }) {
       {showDebug && (
         <div className="bg-black/50 border border-yellow-500/20 rounded p-2 text-[10px] font-mono text-yellow-200/90 space-y-1 overflow-x-auto">
           <div><span className="text-yellow-500">model:</span> {msg.modelUsed || '—'}</div>
-          <div><span className="text-yellow-500">provider:</span> {msg.providerUsed || dbg.provider || '—'}</div>
-          {tokenLine && <div><span className="text-yellow-500">tokens:</span> {tokenLine}</div>}
-          {latencyLine && <div><span className="text-yellow-500">latency:</span> {latencyLine}</div>}
+          <div><span className="text-yellow-500">provider:</span> {msgProvider || '—'}</div>
+          {tokenPart && <div><span className="text-yellow-500">tokens:</span> {tokenPart}</div>}
+          {latencyPart && <div><span className="text-yellow-500">latency:</span> {latencyPart}</div>}
+          {costPart && <div><span className="text-yellow-500">cost:</span> {costPart}</div>}
           {dbg.finish_reason && <div><span className="text-yellow-500">finish:</span> {dbg.finish_reason}</div>}
           {dbg.reasoning_tokens != null && (
             <div><span className="text-yellow-500">reasoning_tokens:</span> {dbg.reasoning_tokens}</div>
           )}
+          {providerHealth.length > 0 && (
+            <div className="pt-1 mt-1 border-t border-yellow-500/10">
+              <div className="text-yellow-500 mb-0.5">provider health:</div>
+              {providerHealth.map(ph => (
+                <div key={ph.provider} className="flex items-center gap-1">
+                  <span style={{ color: ph.healthy ? '#52c41a' : '#ff4d4f' }}>
+                    {ph.healthy ? '●' : '○'}
+                  </span>
+                  <span>{ph.provider}</span>
+                  {ph.latency_ms != null && <span className="text-gray-400">{Math.round(ph.latency_ms)}ms</span>}
+                  {ph.error && <span className="text-red-400 truncate">{ph.error}</span>}
+                </div>
+              ))}
+            </div>
+          )}
           {msg.reasoningContent && (
             <details className="mt-1">
               <summary className="cursor-pointer text-yellow-400/80 select-none">💭 Reasoning content</summary>
-              <pre className="mt-1 whitespace-pre-wrap break-words text-yellow-100/70">{msg.reasoningContent}</pre>
+              <pre className="mt-1 whitespace-pre-wrap break-words text-yellow-100/70 max-h-60 overflow-y-auto">{msg.reasoningContent}</pre>
             </details>
           )}
           {!hasDebug && (
