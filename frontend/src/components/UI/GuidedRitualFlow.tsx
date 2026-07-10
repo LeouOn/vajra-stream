@@ -228,7 +228,7 @@ export default function GuidedRitualFlow({
           ? '/divination/tarot/draw'
           : kind === 'iching'
           ? '/divination/iching/cast'
-          : '/divination/geomancy/cast';
+          : '/divination/geomancy/shield';
       const body = kind === 'tarot' ? JSON.stringify({ count: 1 }) : undefined;
       const res = await fetch(`/api/v1${endpoint}`, {
         method: 'POST',

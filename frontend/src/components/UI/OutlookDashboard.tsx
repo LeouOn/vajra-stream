@@ -8,7 +8,7 @@
  *
  * @component
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Compass, Sparkles, Globe, Clock, Shield, Users, Settings,
   History, RefreshCw, Copy, CheckCircle, Play, Square,
@@ -185,6 +185,45 @@ const GLOBAL_INTENTIONS: GlobalIntention[] = [
   { id: 'happiness', label: 'Happiness', planet: 'Jupiter', freq: '528Hz', icon: '🌟' },  // star
   { id: 'reforestation the world', label: 'Reforestation', planet: 'Earth', freq: '528Hz', icon: '🌲' },  // tree
   { id: 'cleaning up pollution', label: 'Clean Pollution', planet: 'Saturn', freq: '396Hz', icon: '🌊' },  // wave
+];
+
+const DEFAULT_CHARACTERS: Character[] = [
+  {
+    id: 'seed-green-tara',
+    name: 'Green Tara',
+    role: 'protector',
+    description: 'Swift protectress and Mother of Liberation; springs into action at the first cry of fear. Ferries beings across the eight great fears.',
+    tags: ['compassion', 'protection', 'swift-action'],
+    mantra_preference: 'Oṃ Tāre Tuttāre Ture Svāhā',
+    elemental_anchor: 'Air',
+    dialogue_style: 'gentle, maternal, swift',
+    priority: 9,
+    source_type: 'seed',
+  },
+  {
+    id: 'seed-medicine-buddha',
+    name: 'Medicine Buddha (Bhaiṣajyaguru)',
+    role: 'healer',
+    description: 'Lapis Lazuli Radiance of the eastern pure land; embodies the Twelve Great Vows to heal all sickness of body, speech, and mind.',
+    tags: ['healing', 'lapis-light', 'medicine'],
+    mantra_preference: 'Oṃ Bhaiṣajye Bhaiṣajye Mahābhaiṣajye Rāja Samudgate Svāhā',
+    elemental_anchor: 'Water',
+    dialogue_style: 'calm, healing, luminous',
+    priority: 9,
+    source_type: 'seed',
+  },
+  {
+    id: 'seed-vajrasattva',
+    name: 'Vajrasattva',
+    role: 'purifier',
+    description: 'Diamond Being; the embodiment of primordial purity. The hundred-syllable mantra purifies all obscurations and negative karma.',
+    tags: ['purification', 'vajra', 'purity'],
+    mantra_preference: 'Oṃ Vajrasattva Hūṃ',
+    elemental_anchor: 'Aether',
+    dialogue_style: 'precise, luminous, diamond-clear',
+    priority: 9,
+    source_type: 'seed',
+  },
 ];
 
 // ─── Component ─────────────────────────────────────────────
@@ -395,6 +434,23 @@ export default function OutlookDashboard() {
       }
     }
   }, [selectedRealmId, realms]);
+
+  // Seed defaults so first-time users don't see "Characters (0) /
+  // Populations (0)". Seed characters are local-only (not persisted);
+  // populations are auto-selected from the backend's first 3.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (characters.length === 0) {
+      setCharacters(DEFAULT_CHARACTERS);
+    }
+    if (selectedPopIds.length === 0 && populations.length > 0) {
+      setSelectedPopIds(populations.slice(0, 3).map(p => p.id));
+    }
+    if (characters.length > 0 || populations.length > 0) {
+      seededRef.current = true;
+    }
+  }, [characters.length, populations, selectedPopIds.length]);
 
   // ─── Filtered Lists ──────────────────────────────────────
 

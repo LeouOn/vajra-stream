@@ -615,6 +615,14 @@ async def generate_geomancy_talisman(intention: str = "protection and clarity", 
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _has_iching_data(details: dict[str, Any]) -> bool:
+    cast = details.get("cast") if isinstance(details.get("cast"), dict) else details
+    if not isinstance(cast, dict):
+        return False
+    primary = cast.get("primary")
+    return isinstance(primary, dict) and bool(primary.get("name") or primary.get("name_english"))
+
+
 def _build_interpretation_prompt(payload: InterpretRequest, rag_context: str = "") -> str:
     """Construct a rich, system-aware interpretation prompt.
 
@@ -689,6 +697,48 @@ def _build_interpretation_prompt(payload: InterpretRequest, rag_context: str = "
                 lines.append(f"   - Scene: {card['desc'][:150]}")
             if card.get("reversed_meaning") and card.get("reversed"):
                 lines.append(f"   - Shadow aspect: {card['reversed_meaning'][:150]}")
+        lines.append("")
+    elif _has_iching_data(details):
+        # I Ching cast — surface the classical judgment (彖辞), image (象辞),
+        # and changing-line texts so the LLM can ground its reading in the
+        # actual hexagram commentary rather than a raw JSON dump.
+        cast = details.get("cast") if isinstance(details.get("cast"), dict) else details
+        primary = cast.get("primary", {}) if isinstance(cast, dict) else {}
+        relating = cast.get("relating", {}) if isinstance(cast, dict) else {}
+        changing = cast.get("changing_lines", []) if isinstance(cast, dict) else []
+        changing_details = cast.get("changing_lines_details", []) if isinstance(cast, dict) else []
+        has_changes = cast.get("has_changes", bool(changing)) if isinstance(cast, dict) else bool(changing)
+
+        lines.append("## The Hexagram Cast")
+        if primary:
+            name = primary.get("name", primary.get("name_english", "Unknown"))
+            lines.append(f"**Primary Hexagram: {name}**")
+            if primary.get("name_chinese"):
+                lines.append(f"   - Chinese: {primary['name_chinese']} ({primary.get('name_pinyin', '')})")
+            if primary.get("meaning"):
+                lines.append(f"   - Core meaning: {primary['meaning']}")
+            if primary.get("judgment"):
+                lines.append(f"   - Judgment (彖辞 / Tuan): {primary['judgment']}")
+            if primary.get("images"):
+                lines.append(f"   - Image (象辞 / Xiang): {primary['images']}")
+            lines.append("")
+
+        if has_changes and changing:
+            lines.append(f"**Changing Lines: {', '.join(str(c) for c in changing)}**")
+            for cd in changing_details:
+                if isinstance(cd, dict):
+                    ln = cd.get("line", "?")
+                    txt = cd.get("text", cd.get("meaning", ""))
+                    if txt:
+                        lines.append(f"   - Line {ln}: {txt}")
+            if relating:
+                rel_name = relating.get("name", relating.get("name_english", "Unknown"))
+                lines.append("")
+                lines.append(f"**Relating (Transformed) Hexagram: {rel_name}**")
+                if relating.get("judgment"):
+                    lines.append(f"   - Judgment: {relating['judgment']}")
+                if relating.get("meaning"):
+                    lines.append(f"   - Core meaning: {relating['meaning']}")
         lines.append("")
     else:
         lines.append("## Reading Details")
