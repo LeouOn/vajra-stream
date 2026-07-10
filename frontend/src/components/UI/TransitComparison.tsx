@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity, Clipboard } from 'lucide-react';
-import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty } from 'antd';
+import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useUIStore } from '../../stores/uiStore';
 import {
@@ -121,6 +121,11 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
   const [aspectFilter, setAspectFilter] = useState<AspectFilter>('all');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
   const [exporting, setExporting] = useState<boolean>(false);
+  // Privacy toggle — when ON (default), personal info (name, birth time, exact
+  // location) is stripped from the export so the report can be pasted into LLMs
+  // or shared publicly without leaking the subject's identity. Mirrors the
+  // backend `TransitExportRequest.strip_pii` flag.
+  const [stripPii, setStripPii] = useState<boolean>(true);
 
   const fetchTransits = async () => {
     if (!chart) return;
@@ -159,16 +164,20 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
       const response = await fetch(`/api/v1/astrology/charts/${chart.id}/transit-export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ strip_pii: stripPii })
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       const data = result.data || result;
       const formatted = exportFormat === 'json'
-        ? formatTransitReportJSON(data)
-        : formatTransitReportMarkdown(data);
+        ? formatTransitReportJSON(data, { pii: stripPii })
+        : formatTransitReportMarkdown(data, { pii: stripPii });
       await navigator.clipboard.writeText(formatted);
-      addToast({ type: 'success', title: 'Copied to clipboard!', duration: 3 });
+      addToast({
+        type: 'success',
+        title: stripPii ? 'Copied (PII stripped) to clipboard!' : 'Copied to clipboard!',
+        duration: 3,
+      });
     } catch (e) {
       addToast({ type: 'error', title: 'Export failed: ' + (e as Error).message, duration: 5 });
     } finally {
@@ -258,7 +267,19 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
       </div>
 
       {transitData && (
-        <div className="flex items-center justify-end gap-2 mb-4">
+        <div className="flex items-center justify-end gap-3 mb-4 flex-wrap">
+          <span
+            className="inline-flex items-center gap-1.5 text-[10px] font-mono text-slate-300 select-none"
+            title="When ON, personal info (name, birth time, exact location) is stripped before copying."
+          >
+            <span aria-hidden>🔒</span>
+            <Switch
+              size="small"
+              checked={stripPii}
+              onChange={(v) => { setStripPii(v); audioFeedback.playClick(); }}
+            />
+            <span>Strip personal data</span>
+          </span>
           <Segmented
             size="small"
             value={exportFormat}

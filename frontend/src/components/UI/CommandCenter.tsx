@@ -203,43 +203,56 @@ export default function CommandCenter({
     ]);
   };
 
-  const buildModelOptions = () => [
-    ...(availableModels.lm_studio && availableModels.lm_studio.length > 0
-      ? [{
-          label: 'LM Studio (Active)',
-          options: availableModels.lm_studio.map(m => ({
-            value: `lm_studio:${m}`,
-            label: m,
-          })),
-        }]
-      : []),
-    ...(availableModels.local && availableModels.local.length > 0
-      ? [{
-          label: 'Local GGUF',
-          options: availableModels.local.map(m => ({
-            value: `local:${m}`,
-            label: m,
-          })),
-        }]
-      : []),
-    ...(availableModels.api && availableModels.api.length > 0
-      ? [{
-          label: 'API Providers',
-          options: availableModels.api
-            .map((m): { value: string; label: string } | null => {
-              const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
-              if (!match) return null;
-              const providerVal = match[1];
-              const defaultName = match[2];
+  const buildModelOptions = () => {
+    // Backend returns `available.local` ALREADY PREFIXED (`local:file.gguf`)
+    // but `available.lm_studio` as bare ids and `available.api` as
+    // `"provider (model)"` strings. Normalize so the Select's `value` matches
+    // the option's `value` exactly — otherwise AntD shows the placeholder
+    // ("Select model...") even when a default_model is set.
+    const stripPrefix = (m: string, prefix: string) =>
+      m.startsWith(`${prefix}:`) ? m.slice(prefix.length + 1) : m;
+
+    return [
+      ...(availableModels.lm_studio && availableModels.lm_studio.length > 0
+        ? [{
+            label: 'LM Studio (Active)',
+            options: availableModels.lm_studio.map(m => ({
+              value: `lm_studio:${m}`,
+              label: m,
+            })),
+          }]
+        : []),
+      ...(availableModels.local && availableModels.local.length > 0
+        ? [{
+            label: 'Local GGUF',
+            options: availableModels.local.map(m => {
+              const bare = stripPrefix(m, 'local');
               return {
-                value: `${providerVal}:${defaultName}`,
-                label: m,
+                value: `local:${bare}`,
+                label: bare,
               };
-            })
-            .filter((opt): opt is { value: string; label: string } => opt !== null),
-        }]
-      : []),
-  ];
+            }),
+          }]
+        : []),
+      ...(availableModels.api && availableModels.api.length > 0
+        ? [{
+            label: 'API Providers',
+            options: availableModels.api
+              .map((m): { value: string; label: string } | null => {
+                const match = m.match(/^([a-zA-Z0-9_-]+)\s*\(([^)]+)\)\s*$/);
+                if (!match) return null;
+                const providerVal = match[1];
+                const defaultName = match[2];
+                return {
+                  value: `${providerVal}:${defaultName}`,
+                  label: m,
+                };
+              })
+              .filter((opt): opt is { value: string; label: string } => opt !== null),
+          }]
+        : []),
+    ];
+  };
 
   /**
    * Core chat call — single source of truth for first-send and regenerate.
@@ -438,14 +451,18 @@ export default function CommandCenter({
         {/* Chat Header */}
         <div className="bg-gradient-to-r from-purple-900/40 via-indigo-900/40 to-blue-900/40 p-4 border-b border-white/10 flex justify-between items-center">
           <Space size={12}>
-            <Badge status="processing" color="purple" />
+            <Badge status={isConnected ? 'processing' : 'error'} color={isConnected ? 'purple' : 'red'} />
             <div>
               <h2 className="text-lg font-bold text-white tracking-wide" style={{ margin: 0 }}>AI Command Center</h2>
               <p className="text-xs text-purple-300" style={{ margin: 0 }}>Vajra.Stream Digital Operator v1.2</p>
             </div>
           </Space>
-          <Tag color="purple" icon={<Cpu style={{ width: 12, height: 12 }} />} className="font-mono text-[10px]">
-            LLM AGENT ACTIVE
+          <Tag
+            color={isConnected ? 'purple' : 'red'}
+            icon={<Cpu style={{ width: 12, height: 12 }} />}
+            className="font-mono text-[10px]"
+          >
+            {isConnected ? 'LLM AGENT ACTIVE' : 'LLM AGENT OFFLINE'}
           </Tag>
         </div>
 
