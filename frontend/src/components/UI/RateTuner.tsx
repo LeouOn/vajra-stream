@@ -6,6 +6,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { Sliders, Save, RotateCcw, Search, Star, Play, Square, Zap, ChevronDown, X, Bookmark } from 'lucide-react';
+import { Card, Tag, Button } from 'antd';
 import RateDial from './RateDial';
 import { useRateStore, RATE_PRESETS, type Rate, type SavedRate } from '../../stores/rateStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -17,8 +18,11 @@ import {
   HARMONIC_PRESETS,
   presetFrequencies,
   presetFrequencySummary,
+  snapToSolfeggio,
+  solfeggioName,
   type CrystalPreset,
 } from '../../lib/crystalPresets';
+import { rateToDharma } from '../../lib/rateDharma';
 
 const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
 
