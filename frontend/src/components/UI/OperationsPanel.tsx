@@ -118,9 +118,9 @@ export default function OperationsPanel() {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('divination');
   const [divinationSystem, setDivinationSystem] = useState<DivinationSystem>('tarot');
   
-  // Divination state
+  // Each system uses its own state slot so results persist across tab switches.
   const [tarotDrawCount, setTarotDrawCount] = useState<number>(3);
-  const [tarotResult, setTarotResult] = useState<TarotCard[] | null>(null);
+  const [tarotCards, setTarotCards] = useState<TarotCard[] | null>(null);
   const [tarotSpread, setTarotSpread] = useState<Array<{ name?: string; [key: string]: unknown }>>([]);
   const [tarotFlipped, setTarotFlipped] = useState<boolean[]>([]);
   const [ichingResult, setIchingResult] = useState<IchingCast | null>(null);
@@ -164,7 +164,7 @@ export default function OperationsPanel() {
       });
       if (response.ok) {
         const data = await response.json() as TarotDrawResponse;
-        setTarotResult(data.cards);
+        setTarotCards(data.cards);
         setTarotSpread(data.spread || []);
         // Start with all cards face-down, then stagger-reveal each one.
         setTarotFlipped(new Array(data.cards.length).fill(false));
@@ -238,12 +238,13 @@ export default function OperationsPanel() {
     setInterpretation('');
     try {
       let system = 'Geomancy';
-      if (tarotResult && tarotResult.length > 0) system = 'Tarot';
+      if (tarotCards && tarotCards.length > 0) system = 'Tarot';
       else if (ichingResult) system = 'I Ching';
 
       const details: Record<string, unknown> = {};
-      if (tarotResult && tarotResult.length > 0) details.cards = tarotResult;
+      if (tarotCards && tarotCards.length > 0) details.cards = tarotCards;
       if (ichingResult) details.iching = ichingResult;
+      if (geomancyResult) details.geomancy = geomancyResult;
 
       const res = await fetch('/api/v1/divination/interpret', {
         method: 'POST',
@@ -300,8 +301,9 @@ export default function OperationsPanel() {
       });
       if (res.ok) {
         const data = await res.json() as TarotDrawResponse;
-        setTarotResult(data.cards);
-        setDivinationSystem('tarot');
+        setTarotCards(data.cards);
+        setTarotSpread(data.spread || []);
+        setTarotFlipped(new Array(data.cards.length).fill(false));
       }
       await new Promise<void>(r => setTimeout(r, 1500));
     });
