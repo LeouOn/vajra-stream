@@ -277,7 +277,7 @@ const DEFAULT_CHARACTERS: Character[] = [
 export default function OutlookDashboard() {
   const { isPlaying } = useAudioStore();
   const addToast = useUIStore((s) => s.addToast);
-  const { isConnected } = useWebSocketStable();
+  const { isConnected, idleReflectionCount } = useWebSocketStable();
   const [activeTab, setActiveTab] = useState<GeneratorTab>('generator');
 
   // ─── Generator State ─────────────────────────────────────
@@ -305,6 +305,10 @@ export default function OutlookDashboard() {
   const [loopActive, setLoopActive] = useState<boolean>(false);
   const [loopInterval, setLoopInterval] = useState<number>(5);
   const [loopMode, setLoopMode] = useState<LoopMode>('sequential_delay');
+
+  // ─── Idle Reflection State ───────────────────────────────
+  const [idleEnabled, setIdleEnabled] = useState<boolean>(false);
+  const [idleInterval, setIdleInterval] = useState<number>(60);
 
   // ─── Generation Mode ─────────────────────────────────────
   const [generationMode, setGenerationMode] = useState<'guided' | 'quick'>('guided');
@@ -452,12 +456,57 @@ export default function OutlookDashboard() {
     }
   }, [addToast]);
 
+  const fetchIdleStatus = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch(`/api/v1/outlook/idle/status`);
+      if (res.ok) {
+        const data = await res.json() as { active?: boolean; config?: { interval_minutes?: number } };
+        setIdleEnabled(Boolean(data.active));
+        if (data.config?.interval_minutes) setIdleInterval(data.config.interval_minutes);
+      }
+    } catch {
+      // Non-critical — idle status is best-effort.
+    }
+  }, []);
+
+  const toggleIdle = useCallback(async (): Promise<void> => {
+    if (idleEnabled) {
+      try {
+        await fetch(`/api/v1/outlook/idle/stop`, { method: 'POST' });
+        setIdleEnabled(false);
+        message.success('Idle reflections stopped.');
+      } catch {
+        message.error('Could not stop idle reflections.');
+      }
+    } else {
+      try {
+        const res = await fetch(`/api/v1/outlook/idle/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ interval_minutes: idleInterval, enabled: true }),
+        });
+        if (res.ok) {
+          setIdleEnabled(true);
+          message.success(`Auto-reflections every ${idleInterval} min.`);
+          audioFeedback.playSuccess();
+        } else {
+          message.error('Could not start idle reflections.');
+          audioFeedback.playError();
+        }
+      } catch {
+        message.error('Backend unreachable.');
+        audioFeedback.playError();
+      }
+    }
+  }, [idleEnabled, idleInterval]);
+
   useEffect(() => {
     fetchUniverseData();
     fetchHistory();
     fetchModels();
     fetchProvidersHealth();
     fetchLoopStatus();
+    fetchIdleStatus();
   }, []);
 
   // WS reconnect recovery — same pattern as JourneyCard and Dashboard.
@@ -471,6 +520,7 @@ export default function OutlookDashboard() {
       fetchModels();
       fetchProvidersHealth();
       fetchLoopStatus();
+      fetchIdleStatus();
     }
     // Intentionally NOT listing the fetch callbacks in deps — they capture
     // addToast and may change identity on each render, which would cause
@@ -1355,6 +1405,57 @@ export default function OutlookDashboard() {
                   >
                     {loading ? 'Decrypting Transmission...' : 'Initiate Narrative Stream'}
                   </Button>
+                </Space>
+              </Card>
+
+              {/* ── Idle Mode Panel ── */}
+              <Card
+                title={
+                  <Text strong className="font-mono text-xs uppercase">
+                    <Moon className="w-3 h-3 inline mr-1" />Idle Reflection
+                    {idleEnabled && <Badge status="processing" color="purple" style={{ marginLeft: 8 }} />}
+                  </Text>
+                }
+                size="small"
+                style={{ marginTop: 16 }}
+              >
+                <Space orientation="vertical" className="w-full" size="middle">
+                  <Row justify="space-between" align="middle">
+                    <Col>
+                      <Text style={{ fontSize: 12 }}>Auto-generate blessings in the background.</Text>
+                    </Col>
+                    <Col>
+                      <Switch
+                        checked={idleEnabled}
+                        onChange={toggleIdle}
+                        checkedChildren="🌙 Auto"
+                        unCheckedChildren="Manual"
+                      />
+                    </Col>
+                  </Row>
+                  <div>
+                    <Text style={{ fontSize: 11 }}>Interval</Text>
+                    <Select
+                      value={idleInterval}
+                      onChange={setIdleInterval}
+                      size="small"
+                      disabled={idleEnabled}
+                      className="w-full"
+                      style={{ marginTop: 4 }}
+                      options={[
+                        { value: 30, label: 'Every 30 min' },
+                        { value: 60, label: 'Every hour' },
+                        { value: 180, label: 'Every 3 hours' },
+                        { value: 360, label: 'Every 6 hours' },
+                      ]}
+                    />
+                  </div>
+                  {idleReflectionCount > 0 && (
+                    <Text type="secondary" style={{ fontSize: 10 }}>
+                      <Bell className="w-3 h-3 inline mr-1" />
+                      {idleReflectionCount} idle reflection{idleReflectionCount === 1 ? '' : 's'} generated this session.
+                    </Text>
+                  )}
                 </Space>
               </Card>
 

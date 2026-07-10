@@ -218,6 +218,16 @@ async def lifespan(app: FastAPI):
             logger.error(f"Failed to pre-warm practice engine: {e}")
             logger.error(traceback.format_exc())
 
+        # Start idle reflections — auto-generates a blessing every hour.
+        # Failures are non-fatal (toggleable via /outlook/idle/stop).
+        try:
+            from backend.app.api.v1.endpoints.outlook import IdleConfig, start_idle_reflections
+
+            await start_idle_reflections(IdleConfig(interval_minutes=60))
+            logger.info("Idle reflection engine started (60min interval)")
+        except Exception as e:
+            logger.warning(f"Could not start idle reflections: {e}")
+
     warmup_task = asyncio.create_task(_warmup())
 
     yield  # Server accepts connections NOW
@@ -265,6 +275,13 @@ async def lifespan(app: FastAPI):
         logger.info("Practice engine stopped all running sessions")
     except Exception as e:
         logger.error(f"Failed to stop practice engine sessions: {e}")
+
+    try:
+        from backend.app.api.v1.endpoints.outlook import stop_idle_reflections
+
+        await stop_idle_reflections()
+    except Exception as e:
+        logger.debug(f"Idle reflection loop stop on shutdown: {e}")
 
     # Close LLM registry and cancel health heartbeat
     if hasattr(app.state, "llm_registry"):

@@ -6,6 +6,7 @@ sutra-style blessings, and astrological outlooks for individuals based
 on their birth chart, current transits, and divination results.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -898,3 +899,142 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
         return {"status": "success", "imported": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ----------------- IDLE REFLECTION ENGINE -----------------
+
+class IdleConfig(BaseModel):
+    """Configuration for the idle reflection loop."""
+
+    interval_minutes: int = Field(default=60, ge=1, le=1440, description="Minutes between reflections")
+    genres: list[str] | None = Field(default=None, description="Genres to cycle through; None = all")
+    intentions: list[str] | None = Field(default=None, description="Intentions to cycle; None = defaults")
+    enabled: bool = Field(default=True, description="Whether the loop should run")
+
+
+DEFAULT_INTENTIONS: list[str] = [
+    "May all beings find peace and happiness",
+    "May all beings be free from suffering",
+    "May all beings experience abundance and prosperity",
+    "May the world find healing and renewal",
+    "May all beings awaken to their true nature",
+    "May compassion guide all actions",
+    "May wisdom illuminate all minds",
+    "May all beings be liberated",
+]
+
+ALL_GENRES: list[str] = [
+    "healing", "victory", "alchemist", "dharani",
+    "compassion", "wisdom", "protection",
+]
+
+_idle_task: asyncio.Task | None = None
+_idle_config: IdleConfig = IdleConfig()
+
+
+async def _idle_reflection_loop(config: IdleConfig) -> None:
+    genre_cycle = config.genres or ALL_GENRES
+    intention_cycle = config.intentions or DEFAULT_INTENTIONS
+    idx = 0
+
+    while True:
+        try:
+            await asyncio.sleep(config.interval_minutes * 60)
+
+            genre = genre_cycle[idx % len(genre_cycle)]
+            intention = intention_cycle[idx % len(intention_cycle)]
+            idx += 1
+
+            now = datetime.now()
+
+            # The service-layer generate_single uses ``custom_context`` as
+            # the canonical parameter for free-form aspiration text, so the
+            # cycle's ``intention`` flows through it (not an ``intention``
+            # kwarg, which does not exist on this signature).
+            result = container.outlook.generate_single(
+                lat=34.0522,
+                lon=-118.2437,
+                languages=["English"],
+                genre=genre,
+                custom_context=intention,
+            )
+
+            try:
+                from backend.websocket.connection_manager import stable_connection_manager_v2
+
+                await stable_connection_manager_v2.broadcast(
+                    {
+                        "type": "IDLE_REFLECTION",
+                        "data": {
+                            "intention": intention,
+                            "genre": genre,
+                            "timestamp": now.isoformat(),
+                            "narrative_preview": (result.get("narrative") or "")[:200],
+                        },
+                    }
+                )
+            except Exception as ws_err:  # noqa: BLE001
+                logger.debug("IDLE_REFLECTION broadcast failed: %s", ws_err)
+
+            logger.info("Idle reflection generated: %s / %s", genre, intention[:40])
+
+        except asyncio.CancelledError:
+            break
+        except Exception as e:  # noqa: BLE001
+            logger.error("Idle reflection error: %s", e)
+            await asyncio.sleep(60)
+
+
+@router.post("/idle/start", summary="Start auto-generating reflections periodically")
+async def start_idle_reflections(config: IdleConfig):
+    """Start the idle reflection background loop.
+
+    Returns ``already_running`` if a loop is active — calling /idle/start
+    twice does not spawn a second task (no zombie duplicates).
+    """
+    global _idle_task, _idle_config
+    if _idle_task is not None and not _idle_task.done():
+        return {"status": "already_running"}
+    _idle_config = config
+    _idle_task = asyncio.create_task(_idle_reflection_loop(config))
+    logger.info(
+        "Idle reflection engine started (interval=%d min, genres=%d, intentions=%d)",
+        config.interval_minutes,
+        len(config.genres) if config.genres else len(ALL_GENRES),
+        len(config.intentions) if config.intentions else len(DEFAULT_INTENTIONS),
+    )
+    return {"status": "started", "interval_minutes": config.interval_minutes}
+
+
+@router.post("/idle/stop", summary="Stop auto-generating reflections")
+async def stop_idle_reflections():
+    """Cancel the idle reflection loop.
+
+    Idempotent — calling /idle/stop when no loop is active returns
+    ``not_running``.
+    """
+    global _idle_task
+    if _idle_task is None:
+        return {"status": "not_running"}
+    _idle_task.cancel()
+    # Await cancellation before clearing the reference so a rapid
+    # /idle/start right after /idle/stop doesn't see a stale non-None
+    # task that is still tearing down.
+    try:
+        await _idle_task
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Idle reflection task raised during cancel: %s", e)
+    _idle_task = None
+    logger.info("Idle reflection engine stopped")
+    return {"status": "stopped"}
+
+
+@router.get("/idle/status", summary="Get idle reflection loop status")
+async def idle_status():
+    """Return whether the idle loop is active and its current config."""
+    return {
+        "active": _idle_task is not None and not _idle_task.done(),
+        "config": _idle_config.model_dump(),
+    }

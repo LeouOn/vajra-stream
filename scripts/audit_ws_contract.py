@@ -57,6 +57,7 @@ ACTIVE_BACKEND_SOURCES = [
 #   - core/buddha_recitation_loop.py (BUDDHA_RECITATION_STARTED/NAME_RECITED/STOPPED)
 #   - core/ritual_engine.py (RITUAL_ENGINE_STATUS/PHASE/COMPLETED, PLANETARY_HOUR_SHIFT)
 #   - core/character_journey.py (JOURNEY_STAGE_STARTED/COMPLETED, JOURNEY_COMPLETED)
+#   - backend/app/api/v1/endpoints/outlook.py (IDLE_REFLECTION)
 #
 # Restored after remediation Task 24 regressively deleted their case branches.
 CANONICAL_SUPPLEMENT_TYPES: set[str] = {
@@ -70,6 +71,7 @@ CANONICAL_SUPPLEMENT_TYPES: set[str] = {
     "JOURNEY_STAGE_STARTED",
     "JOURNEY_STAGE_COMPLETED",
     "JOURNEY_COMPLETED",
+    "IDLE_REFLECTION",
 }
 
 FRONTEND_HOOK = "frontend/src/hooks/useWebSocketStable.ts"

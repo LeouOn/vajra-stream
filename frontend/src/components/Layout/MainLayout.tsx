@@ -16,6 +16,7 @@ import { ToastContainer } from '../UI/Toast';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { COLORS } from '../../lib/colors';
 import { ROUTES, DEFAULT_ROUTE } from '../../lib/routes';
+import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
 // Ant Design
 import { Layout, Menu, Button, Space, Badge, Drawer } from 'antd';
@@ -63,6 +64,7 @@ const MainLayoutComponent: React.FC<Props> = ({
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
+  const { idleReflectionCount } = useWebSocketStable();
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -87,7 +89,9 @@ const MainLayoutComponent: React.FC<Props> = ({
 
   const menuItems = ROUTES.map(({ key, label, icon: Icon }) => ({
     key,
-    label,
+    label: key === 'outlook' && idleReflectionCount > 0
+      ? <Badge count={idleReflectionCount} offset={[10, 0]}>{label}</Badge>
+      : label,
     icon: <Icon size={16} />,
   }));
 

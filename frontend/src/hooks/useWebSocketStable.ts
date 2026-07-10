@@ -69,6 +69,8 @@ export interface UseWebSocketStableReturn {
   lastProviderHealthUpdate: number | null;
   usageUpdate: LLMUsageUpdate | null;
   lastUsageUpdateAt: number | null;
+  idleReflectionCount: number;
+  lastIdleReflection: { intention: string; genre: string; timestamp: string; narrative_preview: string } | null;
   error: string | null;
   startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
   stopSession: (sessionId: string) => Promise<ApiResponse>;
@@ -125,6 +127,8 @@ interface WsSnapshot {
   lastProviderHealthUpdate: number | null;
   usageUpdate: LLMUsageUpdate | null;
   lastUsageUpdateAt: number | null;
+  idleReflectionCount: number;
+  lastIdleReflection: { intention: string; genre: string; timestamp: string; narrative_preview: string } | null;
   error: string | null;
 }
 
@@ -148,6 +152,8 @@ function _initialSnapshot(): WsSnapshot {
     lastProviderHealthUpdate: null,
     usageUpdate: null,
     lastUsageUpdateAt: null,
+    idleReflectionCount: 0,
+    lastIdleReflection: null,
     error: null,
   };
 }
@@ -480,6 +486,23 @@ function _connect(url: string = _url): void {
           case 'CRYSTAL_BROADCAST_STARTED':
             _updateSnapshot({ crystalStatus: { active: true, intention: data.data.intention } });
             break;
+          // Backend: backend/app/api/v1/endpoints/outlook.py — idle reflection
+          // engine broadcasts a preview each time the hourly loop fires.
+          // Drives the notification badge on the Outlook tab.
+          case 'IDLE_REFLECTION': {
+            const reflection = (data as { data?: { intention?: string; genre?: string; timestamp?: string; narrative_preview?: string } }).data;
+            console.log('New idle reflection:', reflection?.narrative_preview);
+            _updateSnapshot({
+              idleReflectionCount: _snapshot.idleReflectionCount + 1,
+              lastIdleReflection: {
+                intention: reflection?.intention ?? '',
+                genre: reflection?.genre ?? '',
+                timestamp: reflection?.timestamp ?? '',
+                narrative_preview: reflection?.narrative_preview ?? '',
+              },
+            });
+            break;
+          }
           case 'RADIONICS_RATE_BROADCAST':
             _updateSnapshot({ scalarStatus: { ..._snapshot.scalarStatus, rate: data.data.rate } });
             break;
@@ -680,6 +703,8 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     lastProviderHealthUpdate: snapshot.lastProviderHealthUpdate,
     usageUpdate: snapshot.usageUpdate,
     lastUsageUpdateAt: snapshot.lastUsageUpdateAt,
+    idleReflectionCount: snapshot.idleReflectionCount,
+    lastIdleReflection: snapshot.lastIdleReflection,
     error: snapshot.error,
     startSession,
     stopSession,
