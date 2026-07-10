@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import {
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload, Copy
 } from 'lucide-react';
-import { Card, Row, Col, Tag, Button, Space, Segmented } from 'antd';
+import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -113,6 +113,10 @@ export default function AstrologyPanel() {
   
   // Navigation tabs: 'wheel' (Consolidated Charts), 'transits' (Transit aspect comparison), 'synastry' (Synastry matching)
   const [activeTab, setActiveTab] = useState('wheel');
+
+  // Privacy toggle for LLM-export paths — defaults ON so personal info is
+  // stripped unless the user explicitly opts in to sharing it.
+  const [stripPii, setStripPii] = useState<boolean>(true);
 
   // Geolocation guard — stop retrying after user blocks permission
   const geoBlocked = useRef(false);
@@ -420,9 +424,13 @@ export default function AstrologyPanel() {
       }
       try {
         const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
-        const markdown = formatLiveAstrologyMarkdown(liveData);
+        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: stripPii });
         await navigator.clipboard.writeText(markdown);
-        addToast({ type: 'success', title: 'Current astrology copied for LLM', duration: 3 });
+        addToast({
+          type: 'success',
+          title: stripPii ? 'Current astrology copied (PII stripped) for LLM' : 'Current astrology copied for LLM',
+          duration: 3,
+        });
       } catch (e) {
         console.error(e);
         addToast({ type: 'error', title: 'Live astrology copy failed: ' + e.message, duration: 5 });
@@ -440,7 +448,7 @@ export default function AstrologyPanel() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ strip_pii: stripPii }),
         },
       );
       if (!response.ok) {
@@ -449,9 +457,13 @@ export default function AstrologyPanel() {
       const result = await response.json();
       const data = result.data || result;
       const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
-      const markdown = formatNatalChartMarkdown(data);
+      const markdown = formatNatalChartMarkdown(data, { pii: stripPii });
       await navigator.clipboard.writeText(markdown);
-      addToast({ type: 'success', title: 'Natal chart copied for LLM', duration: 3 });
+      addToast({
+        type: 'success',
+        title: stripPii ? 'Natal chart copied (PII stripped) for LLM' : 'Natal chart copied for LLM',
+        duration: 3,
+      });
     } catch (e) {
       console.error(e);
       addToast({ type: 'error', title: 'Natal chart copy failed: ' + e.message, duration: 5 });
@@ -547,6 +559,18 @@ export default function AstrologyPanel() {
             >
               Copy for LLM
             </Button>
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-mono text-slate-300 select-none"
+              title="When ON, personal info (name, birth time, exact location) is stripped before copying."
+            >
+              <span aria-hidden>🔒</span>
+              <Switch
+                size="small"
+                checked={stripPii}
+                onChange={(v) => { setStripPii(v); audioFeedback.playClick(); }}
+              />
+              <span>Strip personal data</span>
+            </span>
             <Button
               size="small"
               shape="circle"
