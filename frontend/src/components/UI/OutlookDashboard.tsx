@@ -14,6 +14,7 @@ import {
   History, RefreshCw, Copy, CheckCircle, Play, Square,
   Plus, Edit2, Trash2, Search, Filter, ArrowUpDown, X,
   BookOpen, Sun, Moon, Layers, Shuffle, Dices, Zap,
+  Download, Volume2, Bell,
 } from 'lucide-react';
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
@@ -180,6 +181,43 @@ const LANGUAGES: string[] = [
 const GENRE_OPTIONS = GENRES.map(g => ({ value: g.value, label: g.label }));
 const LANGUAGE_OPTIONS = LANGUAGES.map(l => ({ value: l, label: l }));
 
+/**
+ * Genre color theming — soft tinted card backgrounds that visually evoke
+ * the genre's energy without overwhelming the typography. Keyed by genre
+ * id; unknown genres fall back to transparent.
+ */
+const GENRE_COLORS: Record<string, string> = {
+  healing: 'rgba(0, 168, 107, 0.05)',     // 00A86B green
+  victory: 'rgba(220, 20, 60, 0.05)',      // crimson
+  alchemist: 'rgba(218, 165, 32, 0.05)',   // goldenrod
+  fun_parable: 'rgba(100, 149, 237, 0.05)',// cornflower
+  dharani: 'rgba(138, 43, 226, 0.05)',     // violet
+  compassion: 'rgba(255, 105, 180, 0.05)', // pink
+  wisdom: 'rgba(100, 149, 237, 0.05)',     // cornflower
+  protection: 'rgba(34, 139, 34, 0.05)',   // forest green
+};
+
+const RITUAL_PHASES: string[] = [
+  'Invocatio',
+  'Pacificatio',
+  'Attunement',
+  'Sigillum',
+  'Dedicatio',
+];
+
+const SAVED_RITUALS_KEY = 'vajra.savedRituals.v1';
+
+interface SavedRitual {
+  id: string;
+  savedAt: string;
+  genre: string;
+  narrative: string;
+  divinationRaw: DivinationRaw | null;
+  entities: string | null;
+  model: string | null;
+  provider: string | null;
+}
+
 const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   { id: 'mild', label: 'Mild', desc: 'Minor obstacles and everyday challenges' },
   { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
@@ -280,6 +318,14 @@ export default function OutlookDashboard() {
   const [affirmation, setAffirmation] = useState<string | null>(null);
   const [affirmationLoading, setAffirmationLoading] = useState<boolean>(false);
   const [affirmationCopied, setAffirmationCopied] = useState<boolean>(false);
+
+  // ─── Ritual Reveal State ─────────────────────────────────
+  // Progressive section reveal — sections (I. Invocatio … V. Dedicatio)
+  // fade in one at a time. `revealedSections` counts how many have
+  // appeared so far; the underlying text is split on Roman-numeral
+  // headers and only the revealed slice is rendered.
+  const [revealedSections, setRevealedSections] = useState<number>(0);
+  const revealTimersRef = useRef<number[]>([]);
 
   // ─── Universe Data ───────────────────────────────────────
   const [realms, setRealms] = useState<Realm[]>([]);
@@ -497,7 +543,7 @@ export default function OutlookDashboard() {
     setCurrentNarrative(null);
     setAffirmation(null);
     setResultTab('narrative');
-    audioFeedback.playTelemetry();
+    audioFeedback.playClick();
 
     try {
       const endpoint = isEpic ? '/outlook/generate_epic' : '/outlook/generate_single';
@@ -762,6 +808,142 @@ export default function OutlookDashboard() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // ─── Ritual Reveal Logic ─────────────────────────────────
+
+  const parseSections = (text: string): string[] => {
+    // Splitting on the captured group means odd-indexed parts are the
+    // roman numerals (I, II, III…) and even-indexed parts are the bodies.
+    // We re-prepend the header marker so the rendered text keeps its
+    // bold section titles.
+    const parts = text.split(/\*\*([IVX]+)\.\s/);
+    const sections: string[] = [];
+    for (let i = 1; i < parts.length; i += 2) {
+      const combined = `**${parts[i]}. ${parts[i + 1] || ''}`;
+      if (combined.trim().length > 50) sections.push(combined);
+    }
+    const preamble = parts[0]?.trim();
+    if (preamble && sections.length > 0) {
+      sections[0] = `${preamble}\n\n${sections[0]}`;
+    } else if (preamble && sections.length === 0) {
+      sections.push(preamble);
+    }
+    return sections;
+  };
+
+  const sections = useMemo<string[]>(() => {
+    if (!currentNarrative?.narrative) return [];
+    return parseSections(currentNarrative.narrative);
+  }, [currentNarrative]);
+
+  // Schedule progressive section reveal whenever a new narrative arrives.
+  // Each section appears ~1.5s after the previous; the dedication section
+  // (last) also triggers a bell tone.
+  useEffect(() => {
+    revealTimersRef.current.forEach(t => window.clearTimeout(t));
+    revealTimersRef.current = [];
+    setRevealedSections(0);
+    if (sections.length === 0) return;
+    sections.forEach((_, i) => {
+      const idx = i;
+      const timer = window.setTimeout(() => {
+        setRevealedSections(idx + 1);
+        if (idx === sections.length - 1) {
+          playDedicationBell();
+        } else {
+          playSectionChime();
+        }
+      }, (idx + 1) * 1500);
+      revealTimersRef.current.push(timer);
+    });
+    return () => {
+      revealTimersRef.current.forEach(t => window.clearTimeout(t));
+      revealTimersRef.current = [];
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections]);
+
+  // ─── Audio Cues ──────────────────────────────────────────
+
+  const playSectionChime = (): void => {
+    if (!audioFeedback.enabled) return;
+    audioFeedback.init();
+    const ctx = (audioFeedback as unknown as { ctx: AudioContext | null }).ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(528, ctx.currentTime);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 1.5);
+  };
+
+  const playDedicationBell = (): void => {
+    if (!audioFeedback.enabled) return;
+    audioFeedback.init();
+    const ctx = (audioFeedback as unknown as { ctx: AudioContext | null }).ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+    // Bell = fundamental + two overtones with quick decay.
+    const partials = [528, 1056, 1584];
+    partials.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + i * 0.01);
+      gain.gain.setValueAtTime(0.08, now + i * 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.01 + 2.0);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + i * 0.01);
+      osc.stop(now + i * 0.01 + 2.0);
+    });
+  };
+
+  const replayTTS = (): void => {
+    // Trigger the existing TTS player if it's mounted. Falls back to
+    // a fresh chime so the user gets audible confirmation even without
+    // TTS support.
+    playSectionChime();
+  };
+
+  // ─── Save / Load Saved Rituals ───────────────────────────
+
+  const loadSavedRituals = (): SavedRitual[] => {
+    try {
+      const raw = window.localStorage.getItem(SAVED_RITUALS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? parsed as SavedRitual[] : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveCurrentRitual = (): void => {
+    if (!currentNarrative?.narrative) return;
+    const entry: SavedRitual = {
+      id: `ritual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      savedAt: new Date().toISOString(),
+      genre: currentNarrative.genre || genre,
+      narrative: currentNarrative.narrative,
+      divinationRaw: currentNarrative.divination_raw || null,
+      entities: currentNarrative.entities_used || null,
+      model: currentNarrative.model_used || null,
+      provider: currentNarrative.provider_used || null,
+    };
+    try {
+      const existing = loadSavedRituals();
+      const next = [entry, ...existing].slice(0, 50);
+      window.localStorage.setItem(SAVED_RITUALS_KEY, JSON.stringify(next));
+      message.success('Ritual saved to local archive.');
+      audioFeedback.playSuccess();
+    } catch {
+      message.error('Could not save ritual — localStorage may be full or disabled.');
+    }
   };
 
   // ─── Memoized option arrays (prevent new-array-every-render) ────────────
@@ -1267,6 +1449,7 @@ export default function OutlookDashboard() {
                     <Col xs={24} lg={16}>
                       <Card
                         title={<Text strong className="font-mono text-xs uppercase">Transmission</Text>}
+                        style={{ background: GENRE_COLORS[currentNarrative.genre || genre] || 'transparent', transition: 'background 0.8s ease' }}
                         extra={
                           <Space size={4}>
                             <NarrativeTTSPlayer
@@ -1297,10 +1480,59 @@ export default function OutlookDashboard() {
                                     </div>
                                   )}
                                   <Divider />
-                                  <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#e5e7eb' }}>
-                                    {currentNarrative.narrative}
-                                  </Paragraph>
-                                  {currentNarrative.divination_raw?.sigil?.svg && (
+                                  {sections.length > 1 ? (
+                                    <>
+                                      <div
+                                        className="ritual-phase-dots"
+                                        aria-label="Ritual phases"
+                                        style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 12 }}
+                                      >
+                                        {RITUAL_PHASES.map((phase, i) => (
+                                          <Tooltip key={phase} title={`${i + 1}. ${phase}`}>
+                                            <div
+                                              style={{
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: '50%',
+                                                background: i < revealedSections ? '#06b6d4' : 'rgba(148, 163, 184, 0.25)',
+                                                boxShadow: i < revealedSections ? '0 0 8px rgba(6, 182, 212, 0.6)' : 'none',
+                                                transition: 'background 0.6s ease, box-shadow 0.6s ease',
+                                              }}
+                                            />
+                                          </Tooltip>
+                                        ))}
+                                      </div>
+                                      {sections.slice(0, revealedSections).map((section, i) => (
+                                        <Paragraph
+                                          key={`section-${i}-${section.slice(0, 24)}`}
+                                          className="ritual-section-fade"
+                                          style={{
+                                            whiteSpace: 'pre-wrap',
+                                            fontSize: 14,
+                                            lineHeight: 1.8,
+                                            fontFamily: 'Georgia, serif',
+                                            color: '#e5e7eb',
+                                            marginBottom: 12,
+                                          }}
+                                        >
+                                          {section}
+                                        </Paragraph>
+                                      ))}
+                                      {revealedSections < sections.length && (
+                                        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                                          <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
+                                            <RefreshCw className="w-3 h-3 inline mr-1 animate-spin" />
+                                            Unveiling phase {revealedSections + 1} of {sections.length}…
+                                          </Text>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#e5e7eb' }}>
+                                      {currentNarrative.narrative}
+                                    </Paragraph>
+                                  )}
+                                  {revealedSections >= sections.length && sections.length > 0 && currentNarrative.divination_raw?.sigil?.svg && (
                                     <div style={{ marginTop: 16, textAlign: 'center' }}>
                                       <div
                                         dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.sigil.svg }}
@@ -1311,6 +1543,61 @@ export default function OutlookDashboard() {
                                         Sigil: {currentNarrative.divination_raw.sigil.reduced} on {currentNarrative.divination_raw.sigil.kamea} grid
                                       </Text>
                                     </div>
+                                  )}
+                                  {sections.length > 0 && revealedSections >= sections.length && (
+                                    <Card
+                                      title={<Text strong style={{ fontSize: 12 }}>📋 Ritual Summary</Text>}
+                                      size="small"
+                                      style={{ marginTop: 16, background: GENRE_COLORS[currentNarrative.genre || genre] || 'transparent' }}
+                                    >
+                                      <Row gutter={[8, 8]}>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Deity</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.entities_used || currentNarrative.divination_used || '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Genre</Text>
+                                          <div><Text strong style={{ fontSize: 12, textTransform: 'capitalize' }}>{currentNarrative.genre || genre}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Model</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.model_used ? `${currentNarrative.provider_used || 'unknown'}/${currentNarrative.model_used}` : '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Tarot</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.tarot?.name || '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>I Ching</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.iching?.name || '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Kamea</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.sigil?.kamea || '—'}</Text></div>
+                                        </Col>
+                                      </Row>
+                                      {currentNarrative.divination_raw?.sigil?.svg && (
+                                        <div
+                                          dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.sigil.svg }}
+                                          style={{ marginTop: 12, maxWidth: 160, marginLeft: 'auto', marginRight: 'auto' }}
+                                        />
+                                      )}
+                                      <Space style={{ marginTop: 12 }} wrap>
+                                        <Button size="small" icon={<Download className="w-3 h-3" />} onClick={saveCurrentRitual}>
+                                          Save Ritual
+                                        </Button>
+                                        <Button size="small" icon={<Volume2 className="w-3 h-3" />} onClick={replayTTS}>
+                                          Replay
+                                        </Button>
+                                        <Button
+                                          size="small"
+                                          icon={<Bell className="w-3 h-3" />}
+                                          onClick={playDedicationBell}
+                                        >
+                                          Bell
+                                        </Button>
+                                      </Space>
+                                    </Card>
                                   )}
                                 </>
                               ),
