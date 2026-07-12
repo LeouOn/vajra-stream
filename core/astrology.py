@@ -2110,9 +2110,11 @@ class AstrologicalCalculator:
         - ``ingress`` — Sun or Moon entering a new zodiac sign. The Sun
           changes sign roughly once per month (12/year); the Moon
           changes sign every ~2.5 days (~145/year).
-        - ``transit`` — a transiting planet within ``orb`` degrees of a
-          natal planet, conjunction only (v1). Other aspects are not
-          computed.
+        - ``transit`` — a transiting planet forming a major aspect
+          (conjunction, sextile, square, trine, opposition) to a natal
+          planet. Each aspect type uses a fixed 2.0° orb; the ``orb``
+          argument governs conjunction tightness only (kept for
+          backward compatibility).
 
         Event priority for the cap (highest first): lunar phases,
         ingresses, transits. When the cap is exceeded, transit events
@@ -2131,10 +2133,23 @@ class AstrologicalCalculator:
         Returns:
             dict: ``{"period": {"start": ISO, "end": ISO},
                     "events": [{date, type, body, sign,
-                                aspect_to_natal, orb}, ...]}`` sorted
-            ascending by date and capped at
-            :attr:`YEAR_AHEAD_MAX_EVENTS` entries.
+                                aspect_to_natal, aspect_type, orb}, ...]}``
+            sorted ascending by date and capped at
+            :attr:`YEAR_AHEAD_MAX_EVENTS` entries. Transit events carry an
+            ``aspect_type`` field naming the major aspect (``"Conjunction"``,
+            ``"Sextile"``, ``"Square"``, ``"Trine"``, ``"Opposition"``).
         """
+
+        # Five Ptolemaic / major aspects. Per-aspect orb is fixed at 2.0°;
+        # the method-level ``orb`` parameter remains a conjunction-specific
+        # override (backward compatibility with v1 callers).
+        aspect_types: list[dict] = [
+            {"name": "Conjunction", "angle": 0,   "orb": 2.0},
+            {"name": "Sextile",     "angle": 60,  "orb": 2.0},
+            {"name": "Square",      "angle": 90,  "orb": 2.0},
+            {"name": "Trine",       "angle": 120, "orb": 2.0},
+            {"name": "Opposition",  "angle": 180, "orb": 2.0},
+        ]
 
         def _to_utc(dt: datetime) -> datetime:
             if dt.tzinfo is None:
@@ -2248,25 +2263,47 @@ class AstrologicalCalculator:
             prev_illumination = illumination
 
             for planet_name, planet_pos in positions.items():
+                # Solar-return style events (transit Sun conjunct natal Sun)
+                # are captured elsewhere; skip same-body pairs to avoid
+                # noisy duplicates. North Node on North Node is also
+                # meaningless (same as the get_transits_to_natal guard).
+                natal_pairs = [
+                    (n_name, n_pos)
+                    for n_name, n_pos in natal_positions.items()
+                    if n_name != planet_name
+                    and not (planet_name == "north_node" and n_name == "north_node")
+                ]
+                if not natal_pairs:
+                    continue
                 transit_lon = planet_pos["longitude"]
                 transit_sign = planet_pos["sign"]
-                for natal_name, natal_pos in natal_positions.items():
+                for natal_name, natal_pos in natal_pairs:
                     natal_lon = natal_pos["longitude"]
                     diff = abs(transit_lon - natal_lon) % 360.0
                     distance = min(diff, 360.0 - diff)
-                    if distance <= orb:
-                        body_disp = self._BODY_DISPLAY.get(planet_name, planet_name.replace("_", " ").title())
-                        natal_disp = self._BODY_DISPLAY.get(natal_name, natal_name.replace("_", " ").title())
-                        transit_events.append(
-                            {
-                                "date": scan_dt.isoformat(),
-                                "type": "transit",
-                                "body": body_disp,
-                                "sign": transit_sign,
-                                "aspect_to_natal": f"conjunct natal {natal_disp}",
-                                "orb": round(distance, 2),
-                            }
-                        )
+                    for asp in aspect_types:
+                        # Conjunction respects the legacy ``orb`` override;
+                        # all other aspects use the fixed per-aspect orb.
+                        active_orb = orb if asp["name"] == "Conjunction" else asp["orb"]
+                        asp_distance = abs(distance - asp["angle"])
+                        if asp_distance <= active_orb:
+                            body_disp = self._BODY_DISPLAY.get(planet_name, planet_name.replace("_", " ").title())
+                            natal_disp = self._BODY_DISPLAY.get(natal_name, natal_name.replace("_", " ").title())
+                            if asp["name"] == "Conjunction":
+                                aspect_label = f"conjunct natal {natal_disp}"
+                            else:
+                                aspect_label = f"{asp['name'].lower()} natal {natal_disp}"
+                            transit_events.append(
+                                {
+                                    "date": scan_dt.isoformat(),
+                                    "type": "transit",
+                                    "body": body_disp,
+                                    "sign": transit_sign,
+                                    "aspect_to_natal": aspect_label,
+                                    "aspect_type": asp["name"],
+                                    "orb": round(asp_distance, 2),
+                                }
+                            )
 
             scan_date = scan_date + timedelta(days=1)
 
