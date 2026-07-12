@@ -81,6 +81,8 @@ const INTENTION_PRESETS: ReadonlyArray<{
 ];
 
 const STEP_TITLES = ['Intention', 'Alignment', 'Generation', 'Recitation', 'Continuation'] as const;
+// Short labels for the Steps indicator — full Sanskrit names live in the Card titles.
+const STEP_SHORT = ['Intention', 'Align', 'Generate', 'Recite', 'Continue'] as const;
 type StepIndex = 0 | 1 | 2 | 3 | 4;
 
 interface CosmicData {
@@ -323,7 +325,7 @@ export default function GuidedRitualFlow({
         <Steps
           size="small"
           current={step}
-          items={STEP_TITLES.map((title, idx) => ({ title }))}
+          items={STEP_SHORT.map((title, idx) => ({ title }))}
           className="[&_.ant-steps-item-title]:text-[10px] [&_.ant-steps-item-title]:font-mono [&_.ant-steps-item-title]:uppercase [&_.ant-steps-item-title]:tracking-wider"
         />
       </Card>
@@ -357,7 +359,7 @@ export default function GuidedRitualFlow({
                       key={preset.label}
                       size="small"
                       ghost
-                      style={isActive ? PURPLE_GRADIENT_STYLE : undefined}
+                      style={isActive ? PURPLE_GRADIENT_STYLE : { color: '#c4b5fd', borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.1)' }}
                       onClick={() => handleIntentionPreset(preset.value, preset.genre)}
                     >
                       {preset.label}

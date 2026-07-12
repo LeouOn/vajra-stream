@@ -785,10 +785,12 @@ export default function OutlookDashboard() {
           </Row>
         </Card>
 
-        {/* ── Ambient Rothko ── */}
-        <Card styles={{ body: { padding: 0, height: 100, overflow: 'hidden' } }}>
-          <RothkoGenerator isPlaying={isPlaying} palette="compassion" transitionSpeed={60} />
-        </Card>
+        {/* ── Ambient Rothko — only when no narrative yet ── */}
+        {!currentNarrative && (
+          <Card styles={{ body: { padding: 0, height: 100, overflow: 'hidden' } }}>
+            <RothkoGenerator isPlaying={isPlaying} palette="compassion" transitionSpeed={60} />
+          </Card>
+        )}
 
         {/* ═══════════════════════════════════════════════════════
             GENERATOR TAB
@@ -823,6 +825,7 @@ export default function OutlookDashboard() {
                   />
                 ) : (
                   <>
+                  <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                   <Card
                     title={<Text strong className="font-mono text-xs uppercase">Transmission Settings</Text>}
                     extra={loopActive && <Badge status="processing" color="cyan" text="Loop Active" />}
@@ -1166,7 +1169,8 @@ export default function OutlookDashboard() {
                     </Text>
                   )}
                 </Space>
-              </Card>
+                  </Card>
+                  </div>
                   </>
                 )}
             </Col>
