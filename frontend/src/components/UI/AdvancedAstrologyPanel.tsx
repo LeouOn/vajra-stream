@@ -660,6 +660,37 @@ const AdvancedAstrologyPanel: React.FC<AdvancedAstrologyPanelProps> = ({ activeC
           }
         >
           <Row gutter={[12, 12]}>
+            {/* Range presets — only for year-ahead */}
+            {technique === 'year-ahead' && (
+              <Col xs={24}>
+                <Space size="small" style={{ marginBottom: 8 }} wrap>
+                  <Button size="small" onClick={() => {
+                    const now = new Date();
+                    const start = now.toISOString().slice(0, 16);
+                    const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+                    updateField('start_date_iso', start);
+                    updateField('end_date_iso', end);
+                    audioFeedback.playClick();
+                  }}>📅 Week</Button>
+                  <Button size="small" onClick={() => {
+                    const now = new Date();
+                    const start = now.toISOString().slice(0, 16);
+                    const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+                    updateField('start_date_iso', start);
+                    updateField('end_date_iso', end);
+                    audioFeedback.playClick();
+                  }}>📆 Month</Button>
+                  <Button size="small" onClick={() => {
+                    const now = new Date();
+                    const start = now.toISOString().slice(0, 16);
+                    const end = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+                    updateField('start_date_iso', start);
+                    updateField('end_date_iso', end);
+                    audioFeedback.playClick();
+                  }}>🗓️ Year</Button>
+                </Space>
+              </Col>
+            )}
             {cfg.extraFields.map(renderField)}
           </Row>
         </Card>
@@ -719,12 +750,61 @@ const AdvancedAstrologyPanel: React.FC<AdvancedAstrologyPanelProps> = ({ activeC
           }
         >
           {renderResultHighlights()}
-          <pre
-            className="text-[10px] text-slate-200 font-mono whitespace-pre-wrap break-words m-0 mt-3 p-3 bg-black/45 border border-white/5 rounded-lg overflow-auto"
-            style={{ maxHeight: '400px' }}
-          >
-            {result ? JSON.stringify(result, null, 2) : `// ${error}`}
-          </pre>
+          {/* Formatted timeline for year-ahead results */}
+          {result && Array.isArray((result as Record<string, unknown>).events) && (
+            <div style={{ maxHeight: 400, overflowY: 'auto' }} className="mt-3 space-y-2">
+              {Object.entries(
+                ((result as Record<string, unknown>).events as unknown as Array<Record<string, unknown>>).reduce<Record<string, Array<Record<string, unknown>>>>((acc, ev) => {
+                  const dateKey = typeof ev.date === 'string' ? ev.date.slice(0, 10) : 'Unknown';
+                  if (!acc[dateKey]) acc[dateKey] = [];
+                  acc[dateKey].push(ev);
+                  return acc;
+                }, {})
+              ).map(([date, events]) => (
+                <div key={date} className="border border-white/5 rounded-lg p-2 bg-black/30">
+                  <div className="text-[10px] font-mono text-amber-400 mb-1">
+                    {new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </div>
+                  {events.map((ev, idx) => {
+                    const aspectType = typeof ev.aspect_type === 'string' ? ev.aspect_type : '';
+                    const evType = typeof ev.type === 'string' ? ev.type : '';
+                    const isHarmonious = aspectType === 'Trine' || aspectType === 'Sextile' || aspectType === 'Conjunction';
+                    const isChallenging = aspectType === 'Square' || aspectType === 'Opposition';
+                    const colorClass = isHarmonious ? 'text-emerald-400' : isChallenging ? 'text-rose-400' : 'text-cyan-400';
+                    const typeIcon = evType === 'lunar_phase' ? '🌑🌕' : evType === 'ingress' ? '➡️' : '⚡';
+                    const orb = typeof ev.orb === 'number' ? ev.orb : null;
+                    return (
+                      <div key={idx} className={`text-[10px] font-mono ${colorClass} flex items-center gap-2`}>
+                        <span>{typeIcon}</span>
+                        <span className="font-bold">{typeof ev.body === 'string' ? ev.body : ''}</span>
+                        <span className="text-gray-500">{typeof ev.sign === 'string' ? ev.sign : ''}</span>
+                        {typeof ev.aspect_to_natal === 'string' && ev.aspect_to_natal && (
+                          <span className={colorClass}>{ev.aspect_to_natal}</span>
+                        )}
+                        {aspectType && (
+                          <Tag style={{ fontSize: 8, margin: 0 }} color={isHarmonious ? 'green' : isChallenging ? 'red' : 'blue'}>
+                            {aspectType}
+                          </Tag>
+                        )}
+                        {orb !== null && orb !== 0 && (
+                          <span className="text-gray-600">{orb}°</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Fallback: raw JSON for other techniques / error display */}
+          {(!result || !Array.isArray((result as Record<string, unknown>).events)) && (
+            <pre
+              className="text-[10px] text-slate-200 font-mono whitespace-pre-wrap break-words m-0 mt-3 p-3 bg-black/45 border border-white/5 rounded-lg overflow-auto"
+              style={{ maxHeight: '400px' }}
+            >
+              {result ? JSON.stringify(result, null, 2) : `// ${error}`}
+            </pre>
+          )}
         </Card>
       )}
     </div>
