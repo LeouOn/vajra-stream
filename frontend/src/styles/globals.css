@@ -1,4 +1,6 @@
 @tailwind base;
+@tailwind components;
+@tailwind utilities;
 @layer base {
   :root {
     --background: 20 10 30;
@@ -406,4 +408,27 @@ kbd,
 pre,
 samp {
   font-family: "JetBrains Mono", monospace;
+}
+
+.ant-btn-background-ghost {
+  background: rgba(139, 92, 246, 0.12) !important;
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  border-width: 1px !important;
+  color: #e2e8f0 !important;
+}
+
+.ant-btn-background-ghost:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.2) !important;
+  border-color: rgba(139, 92, 246, 0.7) !important;
+  color: #ddd6fe !important;
+}
+
+.ant-btn-background-ghost:active:not(:disabled) {
+  background: rgba(139, 92, 246, 0.25) !important;
+  border-color: rgba(139, 92, 246, 0.8) !important;
+  color: #c4b5fd !important;
+}
+
+.ant-btn-background-ghost:disabled {
+  opacity: 0.4;
 }
