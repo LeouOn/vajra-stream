@@ -545,6 +545,17 @@ export default function OperationsPanel() {
                   })}
                 </div>
               )}
+
+              {!tarotCards?.length && (
+                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                  <div className="w-16 h-16 rounded-full bg-purple-900/30 border border-purple-500/20 flex items-center justify-center mb-4">
+                    <Sparkles className="w-7 h-7 text-purple-400/60" />
+                  </div>
+                  <p className="text-sm text-gray-400 max-w-md">
+                    Cast your spread to reveal the archetypal forces at play. Each card is seeded by the quantum RNG — no two draws are alike.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -594,6 +605,17 @@ export default function OperationsPanel() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {!ichingResult && (
+                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                  <div className="w-16 h-16 rounded-full bg-cyan-900/30 border border-cyan-500/20 flex items-center justify-center mb-4">
+                    <Layers className="w-7 h-7 text-cyan-400/60" />
+                  </div>
+                  <p className="text-sm text-gray-400 max-w-md">
+                    Cast the yarrow stalks to reveal the changing lines. The I Ching maps your question onto the 64 hexagrams of the Book of Changes.
+                  </p>
                 </div>
               )}
             </div>
@@ -680,6 +702,17 @@ export default function OperationsPanel() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {!geomancyResult && (
+                <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                  <div className="w-16 h-16 rounded-full bg-amber-900/30 border border-amber-500/20 flex items-center justify-center mb-4">
+                    <Compass className="w-7 h-7 text-amber-400/60" />
+                  </div>
+                  <p className="text-sm text-gray-400 max-w-md">
+                    Cast the geomantic shield to resolve the Mothers, Daughters, Nieces, Witnesses, and Judge from binary earth patterns.
+                  </p>
                 </div>
               )}
             </div>
