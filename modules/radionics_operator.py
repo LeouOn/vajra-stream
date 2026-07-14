@@ -1318,22 +1318,36 @@ Write only the blessing text, no explanation."""
             character = generated["character"]
         sheet = CharacterSheet(
             name=character.get("name", ""),
+            chinese_name=character.get("chinese_name", ""),
+            chinese_name_pinyin=character.get("chinese_name_pinyin", ""),
+            chinese_name_meaning=character.get("chinese_name_meaning", ""),
             element={
                 "name": character.get("element", ""),
                 "quality": character.get("element_quality", ""),
                 "color": character.get("element_color", ""),
+                "chakra": character.get("element_chakra", ""),
+                "frequency": character.get("element_frequency", ""),
             },
             role={
                 "name": character.get("role", ""),
                 "icon": character.get("role_icon", ""),
                 "mantra": character.get("role_mantra", ""),
                 "virtue": character.get("role_virtue", ""),
+                "chinese": character.get("role_chinese", ""),
+                "chinese_pinyin": character.get("role_chinese_pinyin", ""),
+                "chinese_description": character.get("role_chinese_description", ""),
             },
             frequency=character.get("frequency", 528),
             origin=character.get("origin", ""),
             quest=character.get("quest", ""),
             sigil_seed=character.get("sigil_seed", ""),
+            grounding_sense=character.get("grounding_sense", ""),
+            channeling_state=character.get("channeling_state", ""),
+            anchoring_ritual=character.get("anchoring_ritual", ""),
             backstory=character.get("backstory", ""),
+            stats=character.get("stats", {}),
+            generated_at=character.get("generated_at", ""),
+            generator=character.get("generator", "rng"),
         )
         self._active_journey = CharacterJourney(self)
         return self._active_journey.begin(sheet)
@@ -1348,13 +1362,21 @@ Write only the blessing text, no explanation."""
     def get_journey_status(self) -> dict[str, Any]:
         if not hasattr(self, "_active_journey") or self._active_journey is None:
             return {"active": False}
+        journey = self._active_journey
+        character_data = None
+        if hasattr(journey, "_character") and journey._character:
+            if hasattr(journey._character, "to_dict"):
+                character_data = journey._character.to_dict()
+            elif isinstance(journey._character, dict):
+                character_data = journey._character
         return {
             "active": True,
-            "is_complete": self._active_journey.is_complete,
-            "current_stage": self._active_journey.current_stage.value if self._active_journey.current_stage else None,
-            "stage_index": self._active_journey._current_stage_index,
+            "is_complete": journey.is_complete,
+            "current_stage": journey.current_stage.value if journey.current_stage else None,
+            "stage_index": journey._current_stage_index,
             "stages_total": 6,
-            "stage_results": self._active_journey._stage_results,
+            "stage_results": journey._stage_results,
+            "character": character_data,
         }
 
     def harvest_journey(self) -> dict[str, Any]:
@@ -1373,22 +1395,36 @@ Write only the blessing text, no explanation."""
             character = generated["character"]
         sheet = CharacterSheet(
             name=character.get("name", ""),
+            chinese_name=character.get("chinese_name", ""),
+            chinese_name_pinyin=character.get("chinese_name_pinyin", ""),
+            chinese_name_meaning=character.get("chinese_name_meaning", ""),
             element={
                 "name": character.get("element", ""),
                 "quality": character.get("element_quality", ""),
                 "color": character.get("element_color", ""),
+                "chakra": character.get("element_chakra", ""),
+                "frequency": character.get("element_frequency", ""),
             },
             role={
                 "name": character.get("role", ""),
                 "icon": character.get("role_icon", ""),
                 "mantra": character.get("role_mantra", ""),
                 "virtue": character.get("role_virtue", ""),
+                "chinese": character.get("role_chinese", ""),
+                "chinese_pinyin": character.get("role_chinese_pinyin", ""),
+                "chinese_description": character.get("role_chinese_description", ""),
             },
             frequency=character.get("frequency", 528),
             origin=character.get("origin", ""),
             quest=character.get("quest", ""),
             sigil_seed=character.get("sigil_seed", ""),
+            grounding_sense=character.get("grounding_sense", ""),
+            channeling_state=character.get("channeling_state", ""),
+            anchoring_ritual=character.get("anchoring_ritual", ""),
             backstory=character.get("backstory", ""),
+            stats=character.get("stats", {}),
+            generated_at=character.get("generated_at", ""),
+            generator=character.get("generator", "rng"),
         )
         journey = CharacterJourney(self)
         return journey.run_full_journey(sheet, self)
