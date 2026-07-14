@@ -1,3 +1,6 @@
+export type BuddhaFamily = 'tathagata' | 'vajra' | 'ratna' | 'padma' | 'karma';
+export type MandalaDirection = 'center' | 'east' | 'south' | 'west' | 'north';
+
 export interface DeityVisualization {
   id: string;
   name: string;
@@ -20,6 +23,7 @@ export interface DeityVisualization {
   frequencyHz: number;
   emissionColor: string;
   vowEssence: string;
+  buddhaFamily: BuddhaFamily;
 }
 
 export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
@@ -45,6 +49,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 528,
     emissionColor: '#4ade80',
     vowEssence: 'Swift liberation from the eight great fears and all obstacles',
+    buddhaFamily: 'karma',
   },
 
   white_tara: {
@@ -69,6 +74,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 396,
     emissionColor: '#e0f2fe',
     vowEssence: 'Healing, longevity, restoration of vitality',
+    buddhaFamily: 'padma',
   },
 
   medicine_buddha: {
@@ -93,6 +99,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 285,
     emissionColor: '#60a5fa',
     vowEssence: 'The 12 great vows to heal all illness of body, speech, and mind',
+    buddhaFamily: 'vajra',
   },
 
   vajrasattva: {
@@ -117,6 +124,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 396,
     emissionColor: '#f1f5f9',
     vowEssence: 'Purification of all negative karma and obscurations; primordial purity of mind',
+    buddhaFamily: 'vajra',
   },
 
   amitabha: {
@@ -141,6 +149,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 174,
     emissionColor: '#fca5a5',
     vowEssence: 'The 48 vows — rebirth in Pure Land through faith and recitation',
+    buddhaFamily: 'padma',
   },
 
   avalokiteshvara: {
@@ -165,6 +174,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 639,
     emissionColor: '#bbf7d0',
     vowEssence: 'Compassion for all who suffer — hearing every cry for help',
+    buddhaFamily: 'padma',
   },
 
   heart_sutra: {
@@ -189,6 +199,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 852,
     emissionColor: '#fef3c7',
     vowEssence: 'Realization of emptiness — the mother who gives birth to all Buddhas',
+    buddhaFamily: 'tathagata',
   },
 
   zhunti: {
@@ -213,6 +224,7 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 417,
     emissionColor: '#fef08a',
     vowEssence: 'Purification of all obscurations + wish-fulfillment — accessible to all without empowerment',
+    buddhaFamily: 'karma',
   },
 
   '88_buddhas': {
@@ -237,8 +249,119 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = {
     frequencyHz: 396,
     emissionColor: '#fde68a',
     vowEssence: 'Great repentance and purification through homage to 88 Buddhas',
+    buddhaFamily: 'tathagata',
   },
 };
+
+export type PracticePhase = 'idle' | 'invoking' | 'reciting' | 'dedicating' | 'completed';
+
+export interface DhyaniBuddha {
+  family: BuddhaFamily;
+  name: string;
+  sanskritName: string;
+  bija: string;
+  bijaRomaji: string;
+  color: string;
+  direction: MandalaDirection;
+  element: string;
+  wisdom: string;
+  mudra: string;
+  attribute: string;
+  pureLand: string;
+  frequencyHz: number;
+  defilementPurified: string;
+}
+
+export const DHYANI_BUDDHAS: DhyaniBuddha[] = [
+  {
+    family: 'tathagata',
+    name: 'Vairocana',
+    sanskritName: 'Vairocana (The Illuminator)',
+    bija: 'अ',
+    bijaRomaji: 'A',
+    color: '#f8fafc',
+    direction: 'center',
+    element: 'Space',
+    wisdom: 'Dharmadhatu Wisdom',
+    mudra: 'Dharmacakra (teaching)',
+    attribute: 'Eight-spoked Dharma wheel',
+    pureLand: 'Akanistha — the Highest Realm',
+    frequencyHz: 136.10,
+    defilementPurified: 'Ignorance → all-encompassing wisdom',
+  },
+  {
+    family: 'vajra',
+    name: 'Akshobhya',
+    sanskritName: 'Akṣobhya (The Immovable)',
+    bija: 'हूँ',
+    bijaRomaji: 'HUM',
+    color: '#1e40af',
+    direction: 'east',
+    element: 'Water',
+    wisdom: 'Mirror-like Wisdom',
+    mudra: 'Bhumisparsha (earth-touching)',
+    attribute: 'Vajra (diamond scepter)',
+    pureLand: 'Abhirati — Eastern Joyful Realm',
+    frequencyHz: 210.42,
+    defilementPurified: 'Anger → mirror-like clarity',
+  },
+  {
+    family: 'ratna',
+    name: 'Ratnasambhava',
+    sanskritName: 'Ratnasambhava (The Jewel-Born)',
+    bija: 'त्रा',
+    bijaRomaji: 'TRA',
+    color: '#fbbf24',
+    direction: 'south',
+    element: 'Earth',
+    wisdom: 'Equanimous Wisdom',
+    mudra: 'Varada (boon-giving)',
+    attribute: 'Wish-fulfilling jewel (cintamani)',
+    pureLand: 'Srimat — Glorious Southern Realm',
+    frequencyHz: 183.58,
+    defilementPurified: 'Pride → equanimity',
+  },
+  {
+    family: 'padma',
+    name: 'Amitabha',
+    sanskritName: 'Amitābha (Infinite Light)',
+    bija: 'ह्रीः',
+    bijaRomaji: 'HRIH',
+    color: '#dc143c',
+    direction: 'west',
+    element: 'Fire',
+    wisdom: 'Discriminating Wisdom',
+    mudra: 'Dhyana (meditation)',
+    attribute: 'Begging bowl of immortal nectar',
+    pureLand: 'Sukhavati — Western Realm of Great Bliss',
+    frequencyHz: 126.22,
+    defilementPurified: 'Desire → discriminating awareness',
+  },
+  {
+    family: 'karma',
+    name: 'Amoghasiddhi',
+    sanskritName: 'Amoghasiddhi (The Unfailing Accomplisher)',
+    bija: 'हा',
+    bijaRomaji: 'HA',
+    color: '#22c55e',
+    direction: 'north',
+    element: 'Air (Wind)',
+    wisdom: 'All-Accomplishing Wisdom',
+    mudra: 'Abhaya (fearlessness)',
+    attribute: 'Double vajra (visvavajra)',
+    pureLand: 'Karmaprasiddhi — Northern Realm of Perfected Action',
+    frequencyHz: 289.00,
+    defilementPurified: 'Jealousy → all-accomplishing action',
+  },
+];
+
+export function getDhyaniBuddhaByFamily(family: BuddhaFamily): DhyaniBuddha | undefined {
+  return DHYANI_BUDDHAS.find(b => b.family === family);
+}
+
+export function getDhyaniBuddhaByDirection(direction: MandalaDirection): DhyaniBuddha | undefined {
+  return DHYANI_BUDDHAS.find(b => b.direction === direction);
+}
 
 export function getDeityVisualization(id: string): DeityVisualization | undefined {
   return DEITY_VISUALIZATIONS[id];
