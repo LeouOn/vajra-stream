@@ -475,9 +475,9 @@ export default function OperationsPanel() {
                 </div>
               </div>
 
-              {tarotResult && (
+              {tarotCards && tarotCards.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-4">
-                  {tarotResult.map((card, idx) => {
+                  {tarotCards.map((card, idx) => {
                     const position = card.position || tarotSpread[idx];
                     const isFlipped = tarotFlipped[idx];
                     const isReversed = card.reversed;
@@ -691,7 +691,7 @@ export default function OperationsPanel() {
               icon={<Sparkles />}
               loading={interpreting}
               onClick={handleInterpret}
-              disabled={!tarotResult?.length && !ichingResult}
+              disabled={!tarotCards?.length && !ichingResult}
               style={{ marginTop: 12 }}
             >
               Reveal Interpretation
