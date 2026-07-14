@@ -415,7 +415,7 @@ export default function GuidedRitualFlow({
           orientation="horizontal"
           current={step}
           items={STEP_TITLES.map((title, idx) => ({ title }))}
-          className="[&_.ant-steps-item-title]:text-[10px] [&_.ant-steps-item-title]:font-mono [&_.ant-steps-item-title]:uppercase [&_.ant-steps-item-title]:tracking-wider"
+          className="[&_.ant-steps-item-title]:text-[10px] [&_.ant-steps-item-title]:font-mono [&_.ant-steps-item-title]:uppercase [&_.ant-steps-item-title]:tracking-wider [&_.ant-steps-item-title]:text-slate-400 [&_.ant-steps-item-process_.ant-steps-item-title]:text-purple-300"
           style={{ overflowX: 'auto', minWidth: 0 }}
         />
       </Card>

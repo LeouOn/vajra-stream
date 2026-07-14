@@ -683,7 +683,9 @@ export default function AstrologyPanel() {
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">MOON ILLUMINATION</span>
                           <span className="text-sm font-bold text-cyan-400 block mt-1">
-                            {activeData?.moon_phase?.illumination?.toFixed(1) + '%' || '—'}
+                            {activeData?.moon_phase?.illumination != null
+                              ? `${(activeData.moon_phase.illumination * 100).toFixed(1)}%`
+                              : '—'}
                           </span>
                         </Card>
                       </Col>
