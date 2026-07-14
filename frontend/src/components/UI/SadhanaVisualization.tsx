@@ -1,11 +1,19 @@
 import React, { useEffect, useRef } from 'react';
-import type { DeityVisualization } from '../lib/deityVisualizations';
+import type { DeityVisualization, PracticePhase } from '../../lib/deityVisualizations';
+
+const PHASE_SPEED: Record<PracticePhase, number> = {
+  idle: 0.5, invoking: 0.8, reciting: 1.5, dedicating: 1.2, completed: 0.3,
+};
+const PHASE_OPACITY: Record<PracticePhase, number> = {
+  idle: 0.5, invoking: 0.75, reciting: 1.0, dedicating: 0.85, completed: 0.6,
+};
 
 interface SadhanaVisualizationProps {
   deity: DeityVisualization;
   size?: number;
   animate?: boolean;
   showLabels?: boolean;
+  practicePhase?: PracticePhase;
 }
 
 export default function SadhanaVisualization({
@@ -13,6 +21,7 @@ export default function SadhanaVisualization({
   size = 300,
   animate = true,
   showLabels = true,
+  practicePhase = 'idle',
 }: SadhanaVisualizationProps) {
   const glowRef = useRef<SVGSVGElement>(null);
 
@@ -21,24 +30,27 @@ export default function SadhanaVisualization({
     const svg = glowRef.current;
     let frame = 0;
     let raf = 0;
+    const freqDelta = (deity.frequencyHz / 8000) * (PHASE_SPEED[practicePhase] || 0.5);
+    const baseOpacity = PHASE_OPACITY[practicePhase] || 0.6;
+
     const animate_pulse = () => {
-      frame += 0.02;
+      frame += freqDelta;
       const glow = svg.querySelector('#radiance-glow') as SVGCircleElement | null;
       if (glow) {
         const pulse = 0.5 + 0.3 * Math.sin(frame);
-        glow.setAttribute('opacity', String(0.3 + pulse * 0.4));
+        glow.setAttribute('opacity', String(baseOpacity * 0.3 + pulse * 0.4));
       }
       const rays = svg.querySelectorAll('.light-ray') as NodeListOf<SVGLineElement>;
       rays.forEach((ray, i) => {
-        const phase = frame + (i * Math.PI * 2) / rays.length;
-        const opacity = 0.2 + 0.3 * Math.abs(Math.sin(phase));
+        const phaseOffset = frame + (i * Math.PI * 2) / rays.length;
+        const opacity = baseOpacity * (0.2 + 0.3 * Math.abs(Math.sin(phaseOffset)));
         ray.setAttribute('opacity', String(opacity));
       });
       raf = requestAnimationFrame(animate_pulse);
     };
     raf = requestAnimationFrame(animate_pulse);
     return () => cancelAnimationFrame(raf);
-  }, [animate]);
+  }, [animate, deity.frequencyHz, practicePhase]);
 
   const cx = size / 2;
   const moonR = size * 0.28;

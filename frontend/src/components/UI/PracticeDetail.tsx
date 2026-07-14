@@ -768,7 +768,7 @@ export default function PracticeDetail({
 
           {getDeityVisualization(id) && (
             <div className="flex justify-center mb-6">
-              <SadhanaVisualization deity={getDeityVisualization(id)!} size={260} />
+              <SadhanaVisualization deity={getDeityVisualization(id)!} size={260} practicePhase={running ? 'reciting' : 'idle'} />
             </div>
           )}
 

@@ -86,7 +86,7 @@ function createArmTexture(): THREE.CanvasTexture {
 const ZhuntiMandala: React.FC<ZhuntiMandalaProps> = ({
   audioSpectrum,
   isPlaying,
-  frequency: _frequency,
+  frequency,
   complexity = 'medium',
 }) => {
   const groupRef = useRef<THREE.Group>(null);
@@ -244,7 +244,7 @@ const ZhuntiMandala: React.FC<ZhuntiMandalaProps> = ({
 
     if (groupRef.current) {
       // Slow contemplative rotation
-      groupRef.current.rotation.z += delta * 0.08;
+      groupRef.current.rotation.z += delta * 0.08 * (frequency / 300);
       groupRef.current.rotation.x = Math.sin(time * 0.2) * 0.05;
     }
 

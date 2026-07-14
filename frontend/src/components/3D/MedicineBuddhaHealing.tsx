@@ -84,7 +84,7 @@ function createRayTexture(): THREE.CanvasTexture {
 const MedicineBuddhaHealing: React.FC<MedicineBuddhaHealingProps> = ({
   audioSpectrum,
   isPlaying,
-  frequency: _frequency,
+  frequency,
   complexity = 'medium',
 }) => {
   const groupRef = useRef<THREE.Group>(null);
@@ -269,7 +269,7 @@ const MedicineBuddhaHealing: React.FC<MedicineBuddhaHealingProps> = ({
     if (groupRef.current) {
       const breath = 1 + Math.sin(time * settings.pulseSpeed) * 0.06;
       groupRef.current.scale.setScalar(breath);
-      groupRef.current.rotation.y += delta * 0.06;
+      groupRef.current.rotation.y += delta * 0.06 * (frequency / 300);
     }
 
     // Rays radiate and pulse opacity with breathing.

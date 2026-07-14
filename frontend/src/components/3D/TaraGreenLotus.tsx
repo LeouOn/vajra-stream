@@ -84,7 +84,7 @@ function createPetalGeometry(size: number): THREE.BufferGeometry {
 const TaraGreenLotus: React.FC<TaraGreenLotusProps> = ({
   audioSpectrum,
   isPlaying,
-  frequency: _frequency,
+  frequency,
   complexity = 'medium',
 }) => {
   const groupRef = useRef<THREE.Group>(null);
@@ -225,7 +225,7 @@ const TaraGreenLotus: React.FC<TaraGreenLotusProps> = ({
 
     // Slow, contemplative whole-lotus rotation
     if (groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.12;
+      groupRef.current.rotation.y += delta * 0.12 * (frequency / 300);
       const breath = 1 + Math.sin(time * 0.6) * 0.04;
       groupRef.current.scale.setScalar(breath);
     }
