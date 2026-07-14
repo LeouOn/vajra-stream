@@ -896,6 +896,30 @@ export default function CommandCenter({
             </div>
           )}
           <div ref={messagesEndRef} />
+
+          {messages.length <= 1 && !isLoading && (
+            <div className="flex flex-col items-center justify-center flex-1 pb-8 px-4">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-purple-400/40 mb-4">Suggested Intentions</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full">
+                {[
+                  { icon: '🌿', label: 'Generate a healing blessing', text: 'Generate a healing blessing narrative for all beings suffering from illness' },
+                  { icon: '🛡️', label: 'Cast protection ritual', text: 'Create a protection ritual to shield against negative forces' },
+                  { icon: '☯️', label: 'Consult the I Ching', text: 'Cast the I Ching and interpret the hexagram for my current situation' },
+                  { icon: '📿', label: 'Compose a dharani', text: 'Compose a dharani for purification of all obscurations' },
+                ].map((s) => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    onClick={() => { setInput(s.text); audioFeedback.playClick(); }}
+                    className="flex items-center gap-3 p-3 rounded-xl bg-purple-950/20 border border-purple-500/15 hover:border-purple-500/40 hover:bg-purple-900/20 transition-all duration-200 text-left group"
+                  >
+                    <span className="text-xl flex-shrink-0">{s.icon}</span>
+                    <span className="text-xs text-gray-400 group-hover:text-purple-200 transition-colors">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Quick Suggestion Chips */}
