@@ -77,6 +77,8 @@ import {
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
 import { getPracticeById, type Practice } from './practicesCatalog';
+import { getDeityVisualization } from '../../lib/deityVisualizations';
+import SadhanaVisualization from './SadhanaVisualization';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
 import { useAmbientBowl } from '../../hooks/useAmbientBowl';
@@ -763,6 +765,12 @@ export default function PracticeDetail({
               {practice.description}
             </Paragraph>
           </div>
+
+          {getDeityVisualization(id) && (
+            <div className="flex justify-center mb-6">
+              <SadhanaVisualization deity={getDeityVisualization(id)!} size={260} />
+            </div>
+          )}
 
           {/* Error */}
           {error && (
