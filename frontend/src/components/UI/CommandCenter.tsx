@@ -24,13 +24,10 @@ import { apiUrl } from '../../utils/api';
 
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import SakaDawaBanner from './SakaDawaBanner';
-import JourneyCard from './JourneyCard';
-import BuddhaContemplationWidget from './BuddhaContemplationWidget';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
 import { RichMarkdownRenderer } from '../CommandCenter/RichMarkdownRenderer';
 import { quickCommands, createOperatorActions } from '../CommandCenter/constants';
 import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
-import CosmicAlignmentCard from '../CommandCenter/CosmicAlignmentCard';
 import LogsCard from '../CommandCenter/LogsCard';
 import ZoomModal from '../CommandCenter/ZoomModal';
 import PageHeader from './PageHeader';
@@ -179,7 +176,6 @@ export default function CommandCenter({
   crystalStatus, 
   scalarStatus,
   sessions,
-  buddhaStatus,
   sakaDawa
 }) {
   const [activeZoomItem, setActiveZoomItem] = useState<unknown>(null);
@@ -1042,13 +1038,7 @@ export default function CommandCenter({
 
       {/* Right Column: Status & Tool execution logs */}
       <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
-        
-        {/* Journey Card (Epic Multi-Stage Journey) */}
-        <JourneyCard />
 
-        {/* Buddha Contemplation Widget */}
-        <BuddhaContemplationWidget buddhaStatus={buddhaStatus} />
-        
         {/* Status Monitors Card */}
         <SystemMonitorsCard
           auraCoherence={auraCoherence}
@@ -1059,9 +1049,6 @@ export default function CommandCenter({
           scalarStatus={scalarStatus}
           sessions={sessions}
         />
-
-        {/* Cosmic Alignment Widget */}
-        <CosmicAlignmentCard astroData={astroData} />
 
         {/* Tool Execution / LLM Debug Logs (Terminal UI) */}
         <LogsCard

@@ -132,7 +132,6 @@ function AppContent(): React.ReactElement {
                 crystalStatus={crystalStatus}
                 scalarStatus={scalarStatus}
                 sessions={sessions}
-                buddhaStatus={buddhaStatus}
                 sakaDawa={sakaDawa}
               />
             </div>
