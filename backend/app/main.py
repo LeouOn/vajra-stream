@@ -218,15 +218,24 @@ async def lifespan(app: FastAPI):
             logger.error(f"Failed to pre-warm practice engine: {e}")
             logger.error(traceback.format_exc())
 
-        # Start idle reflections — auto-generates a blessing every hour.
-        # Failures are non-fatal (toggleable via /outlook/idle/stop).
         try:
-            from backend.app.api.v1.endpoints.outlook import IdleConfig, start_idle_reflections
+            from backend.app.api.v1.endpoints.outlook import (
+                BackgroundGenerationConfig,
+                start_background_generation,
+            )
 
-            await start_idle_reflections(IdleConfig(interval_minutes=60))
-            logger.info("Idle reflection engine started (60min interval)")
+            await start_background_generation(BackgroundGenerationConfig(
+                interval_minutes=60,
+                cycle_genres=True,
+                cycle_intentions=True,
+                include_astrology=True,
+                include_tarot=True,
+                include_iching=True,
+                include_geomancy=True,
+            ))
+            logger.info("Background generation engine started (60min interval, full oracles)")
         except Exception as e:
-            logger.warning(f"Could not start idle reflections: {e}")
+            logger.warning(f"Could not start background generation: {e}")
 
     warmup_task = asyncio.create_task(_warmup())
 
@@ -277,11 +286,11 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to stop practice engine sessions: {e}")
 
     try:
-        from backend.app.api.v1.endpoints.outlook import stop_idle_reflections
+        from backend.app.api.v1.endpoints.outlook import stop_background_generation
 
-        await stop_idle_reflections()
+        await stop_background_generation()
     except Exception as e:
-        logger.debug(f"Idle reflection loop stop on shutdown: {e}")
+        logger.debug(f"Background generation stop on shutdown: {e}")
 
     # Close LLM registry and cancel health heartbeat
     if hasattr(app.state, "llm_registry"):
