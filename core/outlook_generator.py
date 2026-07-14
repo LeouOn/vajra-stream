@@ -892,6 +892,8 @@ CRITICAL INSTRUCTION: Your output MUST be structured into exactly these 5 distin
 
 The narrative should read like a high-resonance, ceremonial, liturgical grimoire or sutra. Do not simply list the contexts—integrate them seamlessly into this compelling 5-step ritual operation.
 Length: 5-8 paragraphs of dense, visionary prose.
+
+CRITICAL: When reciting mantras and dharanis, include the FULL text — never abbreviate with ellipsis (...). Recite the complete mantra as provided in the context.
 """
 
         # Debug: log the full prompt for verification

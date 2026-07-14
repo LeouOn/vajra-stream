@@ -29,6 +29,7 @@ import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import GuidedRitualFlow from './GuidedRitualFlow';
 import JourneyCard from './JourneyCard';
+import RitualVisualization from './RitualVisualization';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
@@ -1696,12 +1697,14 @@ export default function OutlookDashboard() {
                                           <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.sigil?.kamea || '—'}</Text></div>
                                         </Col>
                                       </Row>
-                                      {currentNarrative.divination_raw?.sigil?.svg && (
-                                        <div
-                                          dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.sigil.svg }}
-                                          style={{ marginTop: 12, maxWidth: 160, marginLeft: 'auto', marginRight: 'auto' }}
+                                      <div style={{ marginTop: 12 }}>
+                                        <RitualVisualization
+                                          sigil={currentNarrative.divination_raw?.sigil as { kamea?: string; reduced?: string; coordinates?: Array<{ x: number; y: number; value?: number; letter?: string }>; svg?: string } | undefined}
+                                          rates={currentNarrative.divination_raw?.rates as { signature?: { values: number[]; name: string; potency?: number }; balancing?: Array<{ values: number[]; name: string; potency?: number }> } | undefined}
+                                          genre={currentNarrative.genre || genre}
+                                          kameaPlanet={currentNarrative.divination_raw?.sigil?.kamea}
                                         />
-                                      )}
+                                      </div>
                                       <Space style={{ marginTop: 12 }} wrap>
                                         <Button size="small" icon={<Download className="w-3 h-3" />} onClick={saveCurrentRitual}>
                                           Save Ritual
