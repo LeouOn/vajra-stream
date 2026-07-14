@@ -486,12 +486,9 @@ function _connect(url: string = _url): void {
           case 'CRYSTAL_BROADCAST_STARTED':
             _updateSnapshot({ crystalStatus: { active: true, intention: data.data.intention } });
             break;
-          // Backend: backend/app/api/v1/endpoints/outlook.py — idle reflection
-          // engine broadcasts a preview each time the hourly loop fires.
-          // Drives the notification badge on the Outlook tab.
-          case 'IDLE_REFLECTION': {
+          case 'IDLE_REFLECTION':
+          case 'BACKGROUND_GENERATION': {
             const reflection = (data as { data?: { intention?: string; genre?: string; timestamp?: string; narrative_preview?: string } }).data;
-            console.log('New idle reflection:', reflection?.narrative_preview);
             _updateSnapshot({
               idleReflectionCount: _snapshot.idleReflectionCount + 1,
               lastIdleReflection: {

@@ -55,11 +55,11 @@ export function apiUrl(path: string): string {
  * `:8008` port coupling that broke every non-localhost deployment.
  */
 function resolveWsUrl(): string {
+  if (import.meta.env?.DEV && import.meta.env.DEV) {
+    return `ws://127.0.0.1:${DEFAULT_PORT}/ws`;
+  }
   if (typeof window !== 'undefined' && window.location) {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Host-relative — same origin as the SPA. Vite proxy (dev) or reverse
-    // proxy (prod) forwards /ws → backend. Falls back to localhost:DEFAULT_PORT
-    // only when window.location is unavailable (SSR / unit-test bootstrap).
     return `${wsProtocol}//${window.location.host}/ws`;
   }
   return `ws://127.0.0.1:${DEFAULT_PORT}/ws`;
