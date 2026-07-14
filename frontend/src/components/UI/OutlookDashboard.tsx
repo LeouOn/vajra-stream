@@ -28,6 +28,7 @@ import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import GuidedRitualFlow from './GuidedRitualFlow';
+import JourneyCard from './JourneyCard';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
@@ -160,7 +161,7 @@ interface ModelSelectOption {
 type ResultTab = 'narrative' | 'affirmation';
 type UniverseTab = 'realms' | 'characters' | 'populations';
 type LoopMode = 'sequential_delay' | 'consecutive';
-type GeneratorTab = 'generator' | 'universe' | 'history';
+type GeneratorTab = 'generator' | 'universe' | 'history' | 'journey';
 
 // ─── Constants ────────────────────────────────────────────
 
@@ -223,6 +224,27 @@ const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
   { id: 'deep', label: 'Deep', desc: 'Profound wounds and life-changing difficulties' },
 ];
+
+const GENRE_BORDER_COLORS: Record<string, string> = {
+  healing: '#00A86B',
+  victory: '#dc143c',
+  alchemist: '#daa520',
+  fun_parable: '#6495ed',
+  dharani: '#8a2be2',
+  compassion: '#ff69b4',
+  wisdom: '#6495ed',
+  protection: '#228b22',
+};
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^>\s+/gm, '')
+    .trim();
+}
 
 const GLOBAL_INTENTIONS: GlobalIntention[] = [
   { id: 'world peace', label: 'World Peace', planet: 'Jupiter', freq: '852Hz', icon: '🕊' },  // dove
@@ -301,14 +323,20 @@ export default function OutlookDashboard() {
   const [randomizeRealm, setRandomizeRealm] = useState<boolean>(false);
   const [randomizeCharacters, setRandomizeCharacters] = useState<boolean>(false);
 
-  // ─── Loop State ──────────────────────────────────────────
-  const [loopActive, setLoopActive] = useState<boolean>(false);
-  const [loopInterval, setLoopInterval] = useState<number>(5);
-  const [loopMode, setLoopMode] = useState<LoopMode>('sequential_delay');
-
-  // ─── Idle Reflection State ───────────────────────────────
-  const [idleEnabled, setIdleEnabled] = useState<boolean>(false);
-  const [idleInterval, setIdleInterval] = useState<number>(60);
+  const [bgActive, setBgActive] = useState<boolean>(false);
+  const [bgInterval, setBgInterval] = useState<number>(60);
+  const [bgMode, setBgMode] = useState<LoopMode>('sequential_delay');
+  const [bgAstrology, setBgAstrology] = useState<boolean>(true);
+  const [bgTarot, setBgTarot] = useState<boolean>(true);
+  const [bgIching, setBgIching] = useState<boolean>(true);
+  const [bgCycleGenres, setBgCycleGenres] = useState<boolean>(true);
+  const [bgStats, setBgStats] = useState<{
+    total_generated?: number;
+    total_saved?: number;
+    total_errors?: number;
+    last_generated_at?: string | null;
+    last_genre?: string | null;
+  }>({});
 
   // ─── Generation Mode ─────────────────────────────────────
   const [generationMode, setGenerationMode] = useState<'guided' | 'quick'>('guided');
@@ -317,6 +345,7 @@ export default function OutlookDashboard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [currentNarrative, setCurrentNarrative] = useState<CurrentNarrative | null>(null);
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
+  const [historyGenreFilter, setHistoryGenreFilter] = useState<string>('all');
   const [copied, setCopied] = useState<boolean>(false);
   const [resultTab, setResultTab] = useState<ResultTab>('narrative');
   const [affirmation, setAffirmation] = useState<string | null>(null);
@@ -359,7 +388,6 @@ export default function OutlookDashboard() {
   // ─── Model Selection ─────────────────────────────────────
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [randomModel, setRandomModel] = useState<boolean>(false);
-  const [randomLoop, setRandomLoop] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
   const [healthyProviders, setHealthyProviders] = useState<Record<string, boolean>>({});
   const log = createLogger('OutlookDashboard');
@@ -436,61 +464,70 @@ export default function OutlookDashboard() {
     }
   }, []);
 
-  const fetchLoopStatus = useCallback(async (): Promise<void> => {
+  const fetchBgStatus = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`/api/v1/outlook/loop/status`);
+      const res = await fetch(`/api/v1/outlook/background/status`);
       if (res.ok) {
         const data = await res.json() as {
           active?: boolean;
-          interval_minutes?: number;
-          config?: { loop_mode?: LoopMode; [key: string]: unknown };
+          config?: {
+            interval_minutes?: number;
+            loop_mode?: LoopMode;
+            cycle_genres?: boolean;
+            include_astrology?: boolean;
+            include_tarot?: boolean;
+            include_iching?: boolean;
+          };
+          stats?: typeof bgStats;
         };
-        setLoopActive(Boolean(data.active));
-        if (data.active) {
-          setLoopInterval(data.interval_minutes || 5);
-          setLoopMode(data.config?.loop_mode || 'sequential_delay');
-        }
-      }
-    } catch (e) {
-      addToast({ type: 'error', title: 'Could not check loop status', message: 'Backend unreachable.', duration: 3000 });
-    }
-  }, [addToast]);
-
-  const fetchIdleStatus = useCallback(async (): Promise<void> => {
-    try {
-      const res = await fetch(`/api/v1/outlook/idle/status`);
-      if (res.ok) {
-        const data = await res.json() as { active?: boolean; config?: { interval_minutes?: number } };
-        setIdleEnabled(Boolean(data.active));
-        if (data.config?.interval_minutes) setIdleInterval(data.config.interval_minutes);
+        setBgActive(Boolean(data.active));
+        if (data.config?.interval_minutes) setBgInterval(data.config.interval_minutes);
+        if (data.config?.loop_mode) setBgMode(data.config.loop_mode);
+        if (data.config?.cycle_genres !== undefined) setBgCycleGenres(data.config.cycle_genres);
+        if (data.config?.include_astrology !== undefined) setBgAstrology(data.config.include_astrology);
+        if (data.config?.include_tarot !== undefined) setBgTarot(data.config.include_tarot);
+        if (data.config?.include_iching !== undefined) setBgIching(data.config.include_iching);
+        if (data.stats) setBgStats(data.stats);
       }
     } catch {
-      // Non-critical — idle status is best-effort.
     }
   }, []);
 
-  const toggleIdle = useCallback(async (): Promise<void> => {
-    if (idleEnabled) {
+  const toggleBackgroundGeneration = useCallback(async (): Promise<void> => {
+    if (bgActive) {
       try {
-        await fetch(`/api/v1/outlook/idle/stop`, { method: 'POST' });
-        setIdleEnabled(false);
-        message.success('Idle reflections stopped.');
+        await fetch(`/api/v1/outlook/background/stop`, { method: 'POST' });
+        setBgActive(false);
+        message.success('Background generation stopped.');
       } catch {
-        message.error('Could not stop idle reflections.');
+        message.error('Could not stop background generation.');
       }
     } else {
       try {
-        const res = await fetch(`/api/v1/outlook/idle/start`, {
+        const res = await fetch(`/api/v1/outlook/background/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ interval_minutes: idleInterval, enabled: true }),
+          body: JSON.stringify({
+            interval_minutes: bgInterval,
+            loop_mode: bgMode,
+            cycle_genres: bgCycleGenres,
+            cycle_intentions: true,
+            include_astrology: bgAstrology,
+            include_tarot: bgTarot,
+            include_iching: bgIching,
+            include_geomancy: true,
+            lat: parseFloat(String(lat)),
+            lon: parseFloat(String(lon)),
+            languages: selectedLangs,
+          }),
         });
         if (res.ok) {
-          setIdleEnabled(true);
-          message.success(`Auto-reflections every ${idleInterval} min.`);
+          setBgActive(true);
+          message.success(`Background generation every ${bgInterval} min.`);
           audioFeedback.playSuccess();
+          fetchBgStatus();
         } else {
-          message.error('Could not start idle reflections.');
+          message.error('Could not start background generation.');
           audioFeedback.playError();
         }
       } catch {
@@ -498,35 +535,38 @@ export default function OutlookDashboard() {
         audioFeedback.playError();
       }
     }
-  }, [idleEnabled, idleInterval]);
+  }, [bgActive, bgInterval, bgMode, bgCycleGenres, bgAstrology, bgTarot, bgIching, lat, lon, selectedLangs, fetchBgStatus]);
 
   useEffect(() => {
     fetchUniverseData();
     fetchHistory();
     fetchModels();
     fetchProvidersHealth();
-    fetchLoopStatus();
-    fetchIdleStatus();
+    fetchBgStatus();
   }, []);
 
-  // WS reconnect recovery — same pattern as JourneyCard and Dashboard.
-  // When the WebSocket reconnects after a backend restart, re-run all the
-  // initial data fetches so realms/characters/populations/models/loop-status
-  // aren't stuck showing stale data until a manual refresh.
   useEffect(() => {
     if (isConnected) {
       fetchUniverseData();
       fetchHistory();
       fetchModels();
       fetchProvidersHealth();
-      fetchLoopStatus();
-      fetchIdleStatus();
+      fetchBgStatus();
     }
     // Intentionally NOT listing the fetch callbacks in deps — they capture
     // addToast and may change identity on each render, which would cause
     // an infinite refetch loop. This matches the JourneyCard pattern.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
+
+  useEffect(() => {
+    if (!bgActive) return;
+    const id = window.setInterval(() => {
+      fetchBgStatus();
+      fetchHistory();
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [bgActive, fetchBgStatus, fetchHistory]);
 
   // Auto-set coordinates from selected realm
   useEffect(() => {
@@ -680,43 +720,10 @@ export default function OutlookDashboard() {
     setTimeout(() => setAffirmationCopied(false), 2000);
   };
 
-  // ─── Loop Controls ───────────────────────────────────────
-
-  const handleStartLoop = async (): Promise<void> => {
-    try {
-      const body: Record<string, unknown> = {
-        interval_minutes: parseInt(String(loopInterval)), lat: parseFloat(String(lat)), lon: parseFloat(String(lon)),
-        languages: selectedLangs, genre, custom_context: customContext || null,
-        realm_id: selectedRealmId || null,
-        population_ids: selectedPopIds.length > 0 ? selectedPopIds : null,
-        character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
-        excluded_forces: excludedForcesText ? excludedForcesText.split(',').map(s => s.trim()) : null,
-        include_dialogue: includeDialogue, loop_mode: loopMode,
-        model: randomLoop ? null : (selectedModel || null),
-        random: randomLoop || null,
-        include_astrology: includeAstrology, include_tarot: includeTarot, include_iching: includeIching,
-        randomize_realm: randomizeRealm, randomize_characters: randomizeCharacters,
-      };
-      const res = await fetch(`/api/v1/outlook/loop/start`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        setLoopActive(true);
-        message.success(`Loop active — every ${loopInterval} min.`);
-        fetchLoopStatus();
-      } else {
-        message.error(`Failed to start loop: HTTP ${res.status}`);
-        audioFeedback.playError();
-      }
-    } catch { message.error('Failed to start loop.'); }
-  };
-
-  const handleStopLoop = async (): Promise<void> => {
-    try {
-      await fetch(`/api/v1/outlook/loop/stop`, { method: 'POST' });
-      setLoopActive(false);
-      message.success('Loop stopped.');
-    } catch { message.error('Failed to stop loop.'); }
+  const handleStartBroadcast = async (): Promise<void> => {
+    if (!bgActive) {
+      await toggleBackgroundGeneration();
+    }
   };
 
   // ─── Realm CRUD ──────────────────────────────────────────
@@ -1075,6 +1082,7 @@ export default function OutlookDashboard() {
                   { label: <span><Sparkles className="w-3 h-3 inline mr-1" />Generator</span>, value: 'generator' },
                   { label: <span><Layers className="w-3 h-3 inline mr-1" />Universe</span>, value: 'universe' },
                   { label: <span><History className="w-3 h-3 inline mr-1" />History</span>, value: 'history' },
+                  { label: <span><Compass className="w-3 h-3 inline mr-1" />Journey</span>, value: 'journey' },
                 ]}
               />
             </Col>
@@ -1111,9 +1119,9 @@ export default function OutlookDashboard() {
                     cosmicData={undefined}
                     activeChart={null}
                     result={currentNarrative}
-                    broadcastActive={loopActive}
+                    broadcastActive={bgActive}
                     onResult={(data) => setCurrentNarrative(data as CurrentNarrative)}
-                    onStartBroadcast={() => { void handleStartLoop(); }}
+                    onStartBroadcast={() => { void handleStartBroadcast(); }}
                     onComplete={() => setGenerationMode('quick')}
                     onBackToQuick={() => setGenerationMode('quick')}
                   />
@@ -1121,7 +1129,7 @@ export default function OutlookDashboard() {
                   <>
                   <Card
                     title={<Text strong className="font-mono text-xs uppercase">Transmission Settings</Text>}
-                    extra={loopActive && <Badge status="processing" color="cyan" text="Loop Active" />}
+                    extra={bgActive && <Badge status="processing" color="cyan" text="BG Active" />}
                     size="small"
                   >
                     <Space orientation="vertical" className="w-full" size="middle">
@@ -1405,118 +1413,129 @@ export default function OutlookDashboard() {
                   >
                     {loading ? 'Decrypting Transmission...' : 'Initiate Narrative Stream'}
                   </Button>
-                </Space>
-              </Card>
+                 </Space>
+               </Card>
+                   </>
+                 )}
 
-              {/* ── Idle Mode Panel ── */}
-              <Card
-                title={
-                  <Text strong className="font-mono text-xs uppercase">
-                    <Moon className="w-3 h-3 inline mr-1" />Idle Reflection
-                    {idleEnabled && <Badge status="processing" color="purple" style={{ marginLeft: 8 }} />}
-                  </Text>
-                }
-                size="small"
-                style={{ marginTop: 16 }}
-              >
-                <Space orientation="vertical" className="w-full" size="middle">
-                  <Row justify="space-between" align="middle">
-                    <Col>
-                      <Text style={{ fontSize: 12 }}>Auto-generate blessings in the background.</Text>
-                    </Col>
-                    <Col>
-                      <Switch
-                        checked={idleEnabled}
-                        onChange={toggleIdle}
-                        checkedChildren="🌙 Auto"
-                        unCheckedChildren="Manual"
-                      />
-                    </Col>
-                  </Row>
-                  <div>
-                    <Text style={{ fontSize: 11 }}>Interval</Text>
-                    <Select
-                      value={idleInterval}
-                      onChange={setIdleInterval}
-                      size="small"
-                      disabled={idleEnabled}
-                      className="w-full"
-                      style={{ marginTop: 4 }}
-                      options={[
-                        { value: 30, label: 'Every 30 min' },
-                        { value: 60, label: 'Every hour' },
-                        { value: 180, label: 'Every 3 hours' },
-                        { value: 360, label: 'Every 6 hours' },
-                      ]}
-                    />
-                  </div>
-                  {idleReflectionCount > 0 && (
-                    <Text type="secondary" style={{ fontSize: 10 }}>
-                      <Bell className="w-3 h-3 inline mr-1" />
-                      {idleReflectionCount} idle reflection{idleReflectionCount === 1 ? '' : 's'} generated this session.
-                    </Text>
-                  )}
-                </Space>
-              </Card>
+                {/* ── Background Generation (unified) ── */}
+               <Card
+                 title={
+                   <Text strong className="font-mono text-xs uppercase">
+                     <Moon className="w-3 h-3 inline mr-1" />Background Generation
+                     {bgActive && <Badge status="processing" color="purple" style={{ marginLeft: 8 }} />}
+                   </Text>
+                 }
+                 size="small"
+                 style={{ marginTop: 16 }}
+               >
+                 <Space orientation="vertical" className="w-full" size="middle">
+                   <Row justify="space-between" align="middle">
+                     <Col>
+                       <Text style={{ fontSize: 12 }}>
+                         Auto-generate blessings with full oracles. Saves to history.
+                       </Text>
+                     </Col>
+                     <Col>
+                       <Switch
+                         checked={bgActive}
+                         onChange={toggleBackgroundGeneration}
+                         checkedChildren="🌙 On"
+                         unCheckedChildren="Off"
+                       />
+                     </Col>
+                   </Row>
 
-              {/* ── Loop Panel ── */}
-              <Card
-                title={<Text strong className="font-mono text-xs uppercase"><Settings className="w-3 h-3 inline mr-1" />Continuous Loop</Text>}
-                size="small"
-                style={{ marginTop: 16 }}
-              >
-                <Space orientation="vertical" className="w-full" size="middle">
-                  <div>
-                    <Text style={{ fontSize: 12 }}>Interval: {loopInterval} min</Text>
-                    <Slider min={1} max={60} value={loopInterval} onChange={setLoopInterval} disabled={loopActive} />
-                  </div>
-                  <Segmented
-                    block
-                    size="small"
-                    value={loopMode}
-                    onChange={setLoopMode}
-                    disabled={loopActive}
-                    options={[
-                      { label: 'Sequential Delay', value: 'sequential_delay' },
-                      { label: 'Consecutive', value: 'consecutive' },
-                    ]}
-                  />
-                  <Row justify="space-between" align="middle">
-                    <Col>
-                      <Checkbox
-                        checked={randomLoop}
-                        onChange={e => setRandomLoop(e.target.checked)}
-                        disabled={loopActive}
-                        style={{ fontSize: 12 }}
-                      >
-                        <Shuffle className="w-3 h-3 inline mr-1" />🔀 Random per iteration
-                      </Checkbox>
-                    </Col>
-                  </Row>
-                  {randomLoop && (
-                    <Text type="secondary" style={{ fontSize: 10 }}>
-                      Each loop tick rolls a fresh provider — ignores the LLM Model selection above.
-                    </Text>
-                  )}
-                  <Button
-                    block
-                    type={loopActive ? 'default' : 'primary'}
-                    danger={loopActive}
-                    icon={loopActive ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                    onClick={loopActive ? handleStopLoop : handleStartLoop}
-                  >
-                    {loopActive ? 'Stop Loop' : 'Start Loop'}
-                  </Button>
-                  {loopActive && (
-                    <Text type="secondary" style={{ fontSize: 10 }}>
-                      Broadcasting every {loopInterval} min — {loopMode === 'consecutive' ? 'immediate consecutive' : 'sequential delay'} mode.
-                    </Text>
-                  )}
-                </Space>
-              </Card>
-                  </>
-                )}
-            </Col>
+                   <div>
+                     <Text style={{ fontSize: 11 }}>Interval</Text>
+                     <Select
+                       value={bgInterval}
+                       onChange={setBgInterval}
+                       size="small"
+                       disabled={bgActive}
+                       className="w-full"
+                       style={{ marginTop: 4 }}
+                       options={[
+                         { value: 5, label: 'Every 5 min (testing)' },
+                         { value: 15, label: 'Every 15 min' },
+                         { value: 30, label: 'Every 30 min' },
+                         { value: 60, label: 'Every hour' },
+                         { value: 180, label: 'Every 3 hours' },
+                         { value: 360, label: 'Every 6 hours' },
+                       ]}
+                     />
+                   </div>
+
+                   <Segmented
+                     block
+                     size="small"
+                     value={bgMode}
+                     onChange={setBgMode}
+                     disabled={bgActive}
+                     options={[
+                       { label: 'Sequential', value: 'sequential_delay' },
+                       { label: 'Consecutive', value: 'consecutive' },
+                     ]}
+                   />
+
+                   <div>
+                     <Text style={{ fontSize: 11 }}>Oracle Sources</Text>
+                     <Space orientation="vertical" size={4} style={{ marginTop: 4 }}>
+                       <Space>
+                         <Switch size="small" checked={bgAstrology} onChange={setBgAstrology} disabled={bgActive} />
+                         <Text style={{ fontSize: 11 }}>🌟 Astrology</Text>
+                       </Space>
+                       <Space>
+                         <Switch size="small" checked={bgTarot} onChange={setBgTarot} disabled={bgActive} />
+                         <Text style={{ fontSize: 11 }}>🃏 Tarot</Text>
+                       </Space>
+                       <Space>
+                         <Switch size="small" checked={bgIching} onChange={setBgIching} disabled={bgActive} />
+                         <Text style={{ fontSize: 11 }}>☯️ I Ching</Text>
+                       </Space>
+                     </Space>
+                   </div>
+
+                   <Row justify="space-between" align="middle">
+                     <Col>
+                       <Checkbox
+                         checked={bgCycleGenres}
+                         onChange={e => setBgCycleGenres(e.target.checked)}
+                         disabled={bgActive}
+                         style={{ fontSize: 12 }}
+                       >
+                         🔄 Cycle all genres
+                       </Checkbox>
+                     </Col>
+                   </Row>
+
+                   {bgStats.total_generated > 0 && (
+                     <div style={{ background: 'rgba(139,92,246,0.05)', padding: 8, borderRadius: 6 }}>
+                       <Text style={{ fontSize: 10 }} className="font-mono">
+                         <Bell className="w-3 h-3 inline mr-1" />
+                         Generated: {bgStats.total_generated} · Saved: {bgStats.total_saved}
+                         {bgStats.total_errors > 0 && ` · Errors: ${bgStats.total_errors}`}
+                       </Text>
+                       {bgStats.last_generated_at && (
+                         <div>
+                           <Text type="secondary" style={{ fontSize: 9 }}>
+                             Last: {new Date(bgStats.last_generated_at).toLocaleString()}
+                             {bgStats.last_genre && ` · ${bgStats.last_genre}`}
+                           </Text>
+                         </div>
+                       )}
+                     </div>
+                   )}
+
+                   {bgActive && (
+                     <Text type="secondary" style={{ fontSize: 10 }}>
+                       Running every {bgInterval} min — {bgMode === 'consecutive' ? 'consecutive (5s apart)' : 'sequential delay'}.
+                       Genres {bgCycleGenres ? 'cycling' : 'fixed'}.
+                     </Text>
+                   )}
+                 </Space>
+               </Card>
+              </Col>
 
             {/* ── Right: Narrative Display ── */}
             <Col xs={24} xl={16}>
@@ -2014,37 +2033,167 @@ export default function OutlookDashboard() {
             HISTORY TAB
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'history' && (
-          <Card size="small" title={<Text strong className="font-mono text-xs uppercase"><History className="w-3 h-3 inline mr-1" />Past Transmissions</Text>}>
-            {historyList.length === 0 ? (
-              <Empty description="No generated narratives yet. Create one in the Generator tab." />
-            ) : (
-              <List
-                size="small"
-                dataSource={historyList}
-                renderItem={item => (
-                  <List.Item
-                    onClick={() => loadHistoryItem(item)}
-                    className="cursor-pointer hover:bg-white/5 px-3 rounded transition-colors"
-                    actions={[
-                      <Tag key="type" color={item.type === 'epic' ? 'purple' : 'cyan'}>{item.type}</Tag>,
-                      <Text key="date" type="secondary" style={{ fontSize: 11 }}>
-                        {item.date_generated ? item.date_generated.slice(0, 16).replace('T', ' ') : ''}
-                      </Text>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      title={<Text strong className="capitalize">{item.genre}</Text>}
-                      description={
-                        <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
-                          {item.type === 'epic' ? 'Multi-stage narrative' : (item.content || '').slice(0, 80)}
-                        </Text>
-                      }
+          <div className="space-y-4">
+            <Card size="small">
+              <Row justify="space-between" align="middle">
+                <Col>
+                  <Space>
+                    <History className="w-4 h-4 text-cyan-400" />
+                    <Text strong className="font-mono text-xs uppercase">Past Transmissions</Text>
+                    <Tag color="cyan">{historyList.length}</Tag>
+                  </Space>
+                </Col>
+                <Col>
+                  <Space>
+                    <Select
+                      size="small"
+                      value={historyGenreFilter}
+                      onChange={setHistoryGenreFilter}
+                      style={{ width: 150 }}
+                      options={[
+                        { value: 'all', label: 'All Genres' },
+                        ...Array.from(new Set(historyList.map(h => h.genre).filter(Boolean))).map(g => ({ value: g!, label: g!.charAt(0).toUpperCase() + g!.slice(1) })),
+                      ]}
                     />
-                  </List.Item>
-                )}
-              />
+                    <Button size="small" icon={<RefreshCw className="w-3 h-3" />} onClick={fetchHistory}>Refresh</Button>
+                  </Space>
+                </Col>
+              </Row>
+            </Card>
+
+            {historyList.length === 0 ? (
+              <Card>
+                <Empty
+                  image={<Compass className="w-16 h-16" style={{ color: '#06b6d4', opacity: 0.4 }} />}
+                  description={
+                    <div>
+                      <Title level={4} style={{ color: '#94a3b8' }}>No Transmissions Yet</Title>
+                      <Text type="secondary">Create one in the Generator tab.</Text>
+                    </div>
+                  }
+                />
+              </Card>
+            ) : (
+              <Row gutter={[16, 16]}>
+                {historyList
+                  .filter(item => historyGenreFilter === 'all' || item.genre === historyGenreFilter)
+                  .map((item, idx) => {
+                    const genre = item.genre || 'unknown';
+                    const genreColor = GENRE_COLORS[genre] || 'transparent';
+                    const borderColor = GENRE_BORDER_COLORS[genre] || '#334155';
+                    const rawContent = item.type === 'epic' ? 'Multi-stage epic narrative' : (item.content || '');
+                    const preview = stripMarkdown(rawContent);
+                    const date = item.date_generated ? new Date(item.date_generated) : null;
+                    return (
+                      <Col xs={24} md={12} lg={8} key={`hist-${idx}`}>
+                        <Card
+                          size="small"
+                          hoverable
+                          style={{
+                            background: genreColor,
+                            borderLeft: `3px solid ${borderColor}`,
+                            transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+                          }}
+                          actions={[
+                            <Tooltip title="Load in Generator" key="load">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<Play className="w-3 h-3" />}
+                                onClick={() => { loadHistoryItem(item); setActiveTab('generator'); audioFeedback.playClick(); }}
+                              />
+                            </Tooltip>,
+                            <Tooltip title="Copy text" key="copy">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<Copy className="w-3 h-3" />}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.content || '');
+                                  message.success('Copied narrative text.');
+                                  audioFeedback.playSuccess();
+                                }}
+                              />
+                            </Tooltip>,
+                            <Tooltip title="Save to archive" key="save">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<Download className="w-3 h-3" />}
+                                onClick={() => {
+                                  const entry: SavedRitual = {
+                                    id: `ritual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                                    savedAt: new Date().toISOString(),
+                                    genre: item.genre || 'unknown',
+                                    narrative: item.content || '',
+                                    divinationRaw: item.divination_raw || null,
+                                    entities: item.entities_invoked || null,
+                                    model: null,
+                                    provider: null,
+                                  };
+                                  try {
+                                    const existing = JSON.parse(window.localStorage.getItem(SAVED_RITUALS_KEY) || '[]') as SavedRitual[];
+                                    window.localStorage.setItem(SAVED_RITUALS_KEY, JSON.stringify([entry, ...existing].slice(0, 50)));
+                                    message.success('Saved to local archive.');
+                                  } catch {
+                                    message.error('Could not save — storage full or disabled.');
+                                  }
+                                }}
+                              />
+                            </Tooltip>,
+                          ]}
+                        >
+                          <Card.Meta
+                            title={
+                              <Space size={4}>
+                                <Text strong className="capitalize" style={{ fontSize: 13 }}>{genre}</Text>
+                                <Tag color={item.type === 'epic' ? 'purple' : 'cyan'} style={{ fontSize: 9 }}>
+                                  {item.type === 'epic' ? 'EPIC' : 'SINGLE'}
+                                </Tag>
+                              </Space>
+                            }
+                            description={
+                              <div>
+                                <Paragraph
+                                  ellipsis={{ rows: 3 }}
+                                  style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, lineHeight: 1.5 }}
+                                >
+                                  {preview || '(empty)'}
+                                </Paragraph>
+                                <Space size={[8, 4]} wrap>
+                                  {date && (
+                                    <Text type="secondary" style={{ fontSize: 10 }}>
+                                      <Clock className="w-2.5 h-2.5 inline mr-1" />
+                                      {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Text>
+                                  )}
+                                  {item.entities_invoked && (
+                                    <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      👤 {item.entities_invoked}
+                                    </Tag>
+                                  )}
+                                  {item.divination_context && (
+                                    <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      🔮 {item.divination_context}
+                                    </Tag>
+                                  )}
+                                </Space>
+                              </div>
+                            }
+                          />
+                        </Card>
+                      </Col>
+                    );
+                  })}
+              </Row>
             )}
-          </Card>
+          </div>
+        )}
+
+        {activeTab === 'journey' && (
+          <div className="max-w-2xl mx-auto">
+            <JourneyCard />
+          </div>
         )}
       </Space>
 
