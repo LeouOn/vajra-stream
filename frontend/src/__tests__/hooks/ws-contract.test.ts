@@ -40,7 +40,8 @@ import { resolve } from 'node:path';
  * forwarders from orchestrator_bridge._forward_event_to_websocket were
  * wired into the sessions map; 3 more (CURRENT_ASTROLOGY/MOPS_AVERAGES/
  * JOURNEY_STATUS) added when the slow-data broadcast loop replaced
- * frontend HTTP polling. Total = 34.
+ * frontend HTTP polling; 1 more (IDLE_REFLECTION) added when the idle
+ * reflection engine started emitting hourly blessing previews. Total = 35.
  * DO NOT edit this set without first updating the whitelist evidence file.
  */
 const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
@@ -88,6 +89,9 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'CURRENT_ASTROLOGY',
   'MOPS_AVERAGES',
   'JOURNEY_STATUS',
+  // Idle reflection engine (backend/app/api/v1/endpoints/outlook.py) —
+  // broadcasts a blessing preview each time the hourly auto-generation loop fires.
+  'IDLE_REFLECTION',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');

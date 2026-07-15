@@ -1,25 +1,9 @@
 /**
  * AstrologyExtractionPanel — Sweep extraction configuration UI.
- *
- * Four tabs:
- *   - Setup   — Build a sweep: locations, date grid, systems, chart options.
- *   - Sweep   — Launch the extraction and poll progress to completion.
- *   - Results — Markdown / JSON view of the active run, with copy + export.
- *   - Replay  — History table of past runs (view / recompute / delete / export).
- *
- * Setup feeds `setupState` into Sweep. When Sweep completes it surfaces the
- * run id so Results can fetch its markdown/JSON and Replay can list, view,
- * recompute, delete, and export past runs. Endpoints used:
- *   - GET    /api/v1/astrology/locations
- *   - POST   /api/v1/astrology/extract
- *   - GET    /api/v1/astrology/runs/:id
- *   - GET    /api/v1/astrology/runs/:id/results?format=…
- *   - GET    /api/v1/astrology/runs/:id/results/export?fmt=…
- *   - GET    /api/v1/astrology/runs
- *   - POST   /api/v1/astrology/runs/:id/recompute
- *   - DELETE /api/v1/astrology/runs/:id
+ * Tabs: Setup, Sweep, Results, Replay. Only the Setup tab is implemented
+ * in this revision; the remaining tabs are placeholders.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Tabs,
   Card,
@@ -40,14 +24,12 @@ import {
   Tag,
   Button,
   Dropdown,
-  message,
   Progress,
   Statistic,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { Copy, Download, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
-import { createLogger } from '../../utils/logger';
-import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { Copy, Download, Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
+import { useUIStore } from '../../stores/uiStore';
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
@@ -138,51 +120,32 @@ const DATE_MODES: SelectOption[] = [
 const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const { isConnected } = useWebSocketStable();
+  const addToast = useUIStore((s) => s.addToast);
 
-  const fetchRuns = useCallback(async () => {
+  const fetchRuns = async () => {
     setLoading(true);
     try {
       const r = await fetch(`/api/v1/astrology/runs`);
-      if (r.ok) {
-        // Backend wraps the list in a {limit, offset, total, runs: [...]}
-        // envelope. Unwrap defensively — if the shape ever drifts (error
-        // payload, validation error, empty 204) we fall back to [] instead
-        // of crashing the antd <Table> with "runs.some is not a function"
-        // (Table calls .some/.map on dataSource internally).
-        const payload = await r.json();
-        const list = Array.isArray(payload)
-          ? payload
-          : Array.isArray(payload?.runs)
-            ? payload.runs
-            : [];
-        setRuns(list);
-      }
+      if (r.ok) setRuns(await r.json());
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Failed to load runs: ' + err.message);
+      addToast({ type: 'error', title: 'Failed to load runs: ' + err.message, duration: 5 });
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => { fetchRuns(); }, [fetchRuns]);
-
-  // WS reconnect recovery — same pattern as JourneyCard, Dashboard, OutlookDashboard.
-  // Without this, a backend restart leaves the runs list stale until manual refresh.
-  useEffect(() => {
-    if (isConnected) fetchRuns();
-  }, [isConnected, fetchRuns]);
+  useEffect(() => { fetchRuns(); }, []);
 
   const handleDelete = async (id: number | string) => {
     try {
       const r = await fetch(`/api/v1/astrology/runs/${id}`, { method: 'DELETE' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      message.success(`Run ${id} deleted`);
+      addToast({ type: 'success', title: `Run ${id} deleted`, duration: 3 });
       fetchRuns();
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Delete failed: ' + err.message);
+      addToast({ type: 'error', title: 'Delete failed: ' + err.message, duration: 5 });
     }
   };
 
@@ -191,12 +154,12 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
       const r = await fetch(`/api/v1/astrology/runs/${id}/recompute`, { method: 'POST' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
-      message.success(`Recompute started: run ${data.run_id}`);
+      addToast({ type: 'success', title: `Recompute started: run ${data.run_id}`, duration: 3 });
       if (onRecompute) onRecompute(data.run_id);
       fetchRuns();
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Recompute failed: ' + err.message);
+      addToast({ type: 'error', title: 'Recompute failed: ' + err.message, duration: 5 });
     }
   };
 
@@ -209,7 +172,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
     a.remove();
   };
 
-  const columns: TableColumnsType<RunRecord> = useMemo(() => [
+  const columns: TableColumnsType<RunRecord> = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: 'Created', dataIndex: 'created_at', key: 'created_at' },
     { title: 'Total', dataIndex: 'total_tuples', key: 'total_tuples', width: 80 },
@@ -235,7 +198,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
         </Space>
       ),
     },
-  ], [onView, handleRecompute, handleDelete, handleExport]);
+  ];
 
   return (
     <Table<RunRecord>
@@ -254,6 +217,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const addToast = useUIStore((s) => s.addToast);
 
   useEffect(() => {
     if (!currentRunId) return;
@@ -280,11 +244,11 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
       }
       await navigator.clipboard.writeText(text);
       setCopied(fmt);
-      message.success(`${fmt === 'markdown' ? 'Markdown' : 'JSON'} copied to clipboard`);
+      addToast({ type: 'success', title: `${fmt === 'markdown' ? 'Markdown' : 'JSON'} copied to clipboard`, duration: 3 });
       setTimeout(() => setCopied(null), 2000);
     } catch (e: unknown) {
       const err = e as Error;
-      message.error('Copy failed: ' + err.message);
+      addToast({ type: 'error', title: 'Copy failed: ' + err.message, duration: 5 });
     }
   };
 
@@ -298,7 +262,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
   };
 
   return (
-    <Space direction="vertical" className="w-full" size="middle">
+    <Space orientation="vertical" className="w-full" size="middle">
       {!currentRunId && <Empty description="No run selected. Launch a sweep first." />}
       {loading && <Spin tip="Loading results..." />}
       {error && <Alert type="error" message={error} showIcon />}
@@ -345,7 +309,6 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
-  const log = createLogger('AstrologyExtractionPanel');
 
   const handleLaunch = async () => {
     if (!setupState) return;
@@ -404,10 +367,7 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
             if (onComplete) onComplete(currentRunId);
           }
         }
-      } catch (e) {
-        log.error('Failed to poll sweep status:', e);
-        setError('Could not poll sweep status: ' + (e instanceof Error ? e.message : String(e)));
-      }
+      } catch {}
     };
     pollRef.current = setInterval(poll, 2000);
     poll();
@@ -429,9 +389,9 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
         : 'active';
 
   return (
-    <Space direction="vertical" className="w-full" size="middle">
+    <Space orientation="vertical" className="w-full" size="middle">
       <Card>
-        <Space direction="vertical" className="w-full">
+        <Space orientation="vertical" className="w-full">
           <Space size="large" wrap>
             <Statistic title="Run ID" value={currentRunId || '—'} />
             <Statistic title="Status" value={runStatus || 'idle'} />
@@ -468,7 +428,6 @@ const AstrologyExtractionPanel = () => {
   const [locationsLoading, setLocationsLoading] = useState(false);
   const [locationsError, setLocationsError] = useState(null);
   const [selectedLocations, setSelectedLocations] = useState([]);
-  const { isConnected } = useWebSocketStable();
 
   const [dateMode, setDateMode] = useState('explicit');
   const [explicitDates, setExplicitDates] = useState([]);
@@ -482,41 +441,41 @@ const AstrologyExtractionPanel = () => {
 
   const [currentRunId, setCurrentRunId] = useState(null);
 
-  // Fetch available locations — extracted so it can be re-invoked on WS reconnect.
-  // Without this, a backend restart leaves the locations list stale until manual refresh.
-  // The cancelled flag was removed because useCallback wraps the function with
-  // empty deps (stable identity), and React's automatic prevention of state
-  // updates on unmounted components makes manual cancellation unnecessary.
-  const fetchLocations = useCallback(async () => {
-    setLocationsLoading(true);
-    setLocationsError(null);
-    try {
-      const res = await fetch(`/api/v1/astrology/locations`);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+  // Fetch available locations on mount
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLocations = async () => {
+      setLocationsLoading(true);
+      setLocationsError(null);
+      try {
+        const res = await fetch(`/api/v1/astrology/locations`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          const list = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.locations)
+              ? data.locations
+              : [];
+          setLocations(list);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLocationsError(err?.message || 'Failed to load locations');
+        }
+      } finally {
+        if (!cancelled) {
+          setLocationsLoading(false);
+        }
       }
-      const data = await res.json();
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.locations)
-          ? data.locations
-          : [];
-      setLocations(list);
-    } catch (err) {
-      setLocationsError(err?.message || 'Failed to load locations');
-    } finally {
-      setLocationsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
+    };
     fetchLocations();
-  }, [fetchLocations]);
-
-  // WS reconnect recovery — same pattern as JourneyCard, Dashboard, OutlookDashboard.
-  useEffect(() => {
-    if (isConnected) fetchLocations();
-  }, [isConnected, fetchLocations]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const locationOptions = useMemo(
     () =>
@@ -643,7 +602,7 @@ const AstrologyExtractionPanel = () => {
   };
 
   const renderSetupTab = () => (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card
         title={
           <Space>
@@ -743,6 +702,19 @@ const AstrologyExtractionPanel = () => {
         </Form>
       </Card>
     </Space>
+  );
+
+  const renderPlaceholder = (label) => (
+    <div
+      style={{
+        padding: '48px 16px',
+        textAlign: 'center',
+        color: 'rgba(255,255,255,0.55)',
+      }}
+    >
+      <Compass size={32} style={{ opacity: 0.4, marginBottom: 12 }} />
+      <div>{label} — Coming soon</div>
+    </div>
   );
 
   return (

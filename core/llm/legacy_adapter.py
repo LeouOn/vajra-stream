@@ -49,6 +49,7 @@ import threading
 import time
 from typing import Any
 
+from core.llm.base import strip_thinking
 from core.llm.models import ChatMessage, ChatRequest, ChatResponse
 from core.llm.registry import ProviderRegistry
 
@@ -173,7 +174,7 @@ def _parse_model_spec(model: str | None) -> tuple[str | None, str | None]:
 
     Supports the same prefix routing as the old ``LLMIntegration.generate``:
 
-    - ``"deepseek:deepseek-chat"`` → ``("deepseek", "deepseek-chat")``
+    - ``"deepseek:deepseek-chat"`` → ``("deepseek", "deepseek-v4-flash")``
     - ``"anthropic:claude-3-5-sonnet"`` → ``("anthropic", "claude-3-5-sonnet")``
     - ``"lm-studio:foo"`` → ``("lm_studio", "foo")`` (hyphen normalised)
     - ``"gpt-4o-mini"`` → name-based detection returns ``(None, "gpt-4o-mini")``
@@ -546,7 +547,8 @@ class LegacyLLMIntegration:
         # Record usage (best-effort; never blocks generation).
         self._record_usage(provider, response, latency_ms, success)
 
-        return response.content
+        clean_content, _ = strip_thinking(response.content)
+        return clean_content
 
     def _record_usage(
         self,

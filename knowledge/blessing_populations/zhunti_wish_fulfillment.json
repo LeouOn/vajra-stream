@@ -1,0 +1,95 @@
+{
+  "description": "Population seeking Zhunti (Cundi) Buddha Mother's wish-fulfillment for themselves, loved ones, and the world",
+  "deity": "Zhunti (Cundi) Buddha Mother",
+  "practice": "zhunti",
+  "frequency": [417, 7.83],
+  "targets": [
+    {
+      "name": "Those Praying for Loved Ones",
+      "category": "family",
+      "description": "Beings who pray for the wellbeing, health, safety, and happiness of their family members and loved ones",
+      "priority": 9,
+      "intention": "May Zhunti Buddha Mother hear and fulfill every sincere prayer offered for another's welfare, may families be blessed with harmony and wellbeing",
+      "additional_data": {
+        "mantra": "Om Cale Cule Cundi Svaha",
+        "zhunti_quality": "wish-fulfilling mother of all buddhas of the three times"
+      }
+    },
+    {
+      "name": "Students Seeking Wisdom and Success",
+      "category": "student",
+      "description": "Students of all ages and traditions seeking wisdom, understanding, discernment, and success in their studies",
+      "priority": 7,
+      "intention": "May all sincere students be blessed with clarity of mind, retentive memory, depth of insight, and accomplishment in their studies",
+      "additional_data": {
+        "estimated_count": "Over 1 billion students enrolled globally",
+        "data_sources": ["UNESCO Institute for Statistics"]
+      }
+    },
+    {
+      "name": "Those Seeking Employment",
+      "category": "livelihood",
+      "description": "Beings seeking right livelihood - meaningful work that supports themselves, their families, and benefits others",
+      "priority": 8,
+      "intention": "May all those seeking work find right livelihood aligned with their gifts, may they be free from financial fear, may their work benefit beings",
+      "additional_data": {
+        "estimated_count": "400+ million unemployed globally, many more underemployed",
+        "data_sources": ["ILO - International Labour Organization"]
+      }
+    },
+    {
+      "name": "Couples Hoping for Children",
+      "category": "family",
+      "description": "Couples and individuals longing to conceive and welcome children into their lives",
+      "priority": 7,
+      "intention": "May Zhunti Buddha Mother, mother of all buddhas, bless those longing for children, may their wish be fulfilled in ways that bring joy and dharma connection",
+      "additional_data": {
+        "estimated_count": "1 in 6 people globally affected by infertility",
+        "data_sources": ["WHO Infertility"]
+      }
+    },
+    {
+      "name": "Environmental Healing - Forests",
+      "category": "environment",
+      "description": "The world's forests suffering from deforestation, fires, disease, and climate stress - lungs of the planet",
+      "priority": 10,
+      "intention": "May Zhunti's blessing heal and protect all forests, may reforestation flourish, may the trees, animals, and ecosystems thrive in balance",
+      "additional_data": {
+        "estimated_count": "10 million hectares of forest lost annually",
+        "data_sources": ["FAO Global Forest Resources Assessment"]
+      }
+    },
+    {
+      "name": "Environmental Healing - Oceans",
+      "category": "environment",
+      "description": "The world's oceans suffering from pollution, acidification, overfishing, and warming",
+      "priority": 10,
+      "intention": "May the oceans be purified of pollution, may marine life recover, may the waters that sustain all life on Earth be healed and protected",
+      "additional_data": {
+        "threats": ["plastic pollution", "acidification", "overfishing", "warming", "dead zones"],
+        "data_sources": ["UNEP", "IOC-UNESCO"]
+      }
+    },
+    {
+      "name": "Environmental Healing - Atmosphere",
+      "category": "environment",
+      "description": "The atmosphere suffering from greenhouse gas accumulation, pollution, and climate disruption",
+      "priority": 10,
+      "intention": "May the atmosphere be purified, may humanity awaken to right relationship with Earth's climate, may balance be restored for the benefit of all beings",
+      "additional_data": {
+        "co2_ppm": "420+ ppm (highest in 800,000+ years)",
+        "data_sources": ["NOAA Mauna Loa", "IPCC"]
+      }
+    },
+    {
+      "name": "Peacemakers and Their Work",
+      "category": "peacemaker",
+      "description": "Those dedicating their lives to peacebuilding, reconciliation, environmental activism, and social justice - may their wishes for a better world be fulfilled",
+      "priority": 8,
+      "intention": "May Zhunti Buddha Mother fulfill the aspirations of all who work selflessly for peace, justice, and the healing of the world",
+      "additional_data": {
+        "fields": ["peacebuilding", "reconciliation", "environmental activism", "human rights", "social justice"]
+      }
+    }
+  ]
+}

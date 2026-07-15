@@ -7,7 +7,7 @@
  *
  * @component
  */
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useCallback } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -49,6 +49,12 @@ interface CrystalGridProps {
   crystalType?: CrystalType;
   showEnergyField?: boolean;
   intention?: string | null;
+  /**
+   * Fired when a crystal is clicked. Receives the crystal index in the
+   * current grid's `crystals` array. Parents can use this to open a
+   * programming modal, surface dharma info, etc.
+   */
+  onSelectCrystal?: ((index: number) => void) | undefined;
 }
 
 /**
@@ -62,11 +68,36 @@ const CrystalGrid: React.FC<CrystalGridProps> = ({
   gridType = 'hexagon',
   crystalType = 'quartz',
   showEnergyField = true,
-  intention = null
+  intention = null,
+  onSelectCrystal,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const crystalRefs = useRef<Array<THREE.Mesh | null>>([]);
   const energyFieldRef = useRef<THREE.Mesh>(null);
+
+  // Currently selected crystal index (or null). Drives glow intensity
+  // and is forwarded to the parent via onSelectCrystal so a programming
+  // modal can be opened from outside.
+  const [selectedCrystal, setSelectedCrystal] = useState<number | null>(null);
+
+  const handleCrystalClick = useCallback(
+    (index: number) => (event: { stopPropagation: () => void }): void => {
+      // R3F pointer events bubble through the whole group; stop
+      // propagation so clicking one crystal doesn't fire every crystal.
+      event.stopPropagation();
+      setSelectedCrystal(index);
+      onSelectCrystal?.(index);
+    },
+    [onSelectCrystal]
+  );
+
+  const handlePointerOver = useCallback((): void => {
+    document.body.style.cursor = 'pointer';
+  }, []);
+
+  const handlePointerOut = useCallback((): void => {
+    document.body.style.cursor = 'default';
+  }, []);
 
   // Crystal configurations
   const configurations = useMemo<Record<GridType, GridConfig>>(() => ({
@@ -402,15 +433,27 @@ const CrystalGrid: React.FC<CrystalGridProps> = ({
       {intentionObject && <primitive object={intentionObject} />}
 
       {/* Crystals */}
-      {crystals.map((crystal, index) => (
-        <React.Fragment key={index}>
-          <primitive
-            object={crystal.mesh}
-            ref={(el: THREE.Mesh | null) => { crystalRefs.current[index] = el; }}
-          />
-          {crystal.glow && <primitive object={crystal.glow} />}
-        </React.Fragment>
-      ))}
+      {crystals.map((crystal, index) => {
+        const isSelected = selectedCrystal === index;
+        const crystalMat = crystal.mesh.material as THREE.MeshPhysicalMaterial;
+        // Boost emissive intensity on the selected crystal so the
+        // user gets immediate visual feedback. The animation loop
+        // will re-mutate emissiveIntensity every frame, so we set a
+        // floor in the render path and the loop respects it as a min.
+        crystalMat.emissiveIntensity = Math.max(crystalMat.emissiveIntensity, isSelected ? 0.8 : 0.3);
+        return (
+          <React.Fragment key={index}>
+            <primitive
+              object={crystal.mesh}
+              ref={(el: THREE.Mesh | null) => { crystalRefs.current[index] = el; }}
+              onClick={handleCrystalClick(index)}
+              onPointerOver={handlePointerOver}
+              onPointerOut={handlePointerOut}
+            />
+            {crystal.glow && <primitive object={crystal.glow} />}
+          </React.Fragment>
+        );
+      })}
 
       {/* Energy field */}
       {energyField && <primitive object={energyField} ref={energyFieldRef} />}

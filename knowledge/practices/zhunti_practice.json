@@ -1,0 +1,57 @@
+{
+  "practice_id": "zhunti",
+  "name": "Cundi Buddha Mother Practice",
+  "name_chinese": "准提法门",
+  "name_sanskrit": "Cundī Sādhana",
+  "description": "Purification and wish-fulfillment practice through Cundi Buddha Mother (准提佛母), the Great Mother of seven million Buddhas. One of the most widely practiced esoteric Buddhist sadhanas in East Asian Buddhism, uniquely accessible because it does NOT require formal empowerment (abhisheka).",
+  "deity": "Cundi Buddha Mother (准提佛母 / Cundī Bhagavatī)",
+  "mantra_short": "嗡 折隸 主隸 準提 娑婆訶",
+  "mantra_sanskrit": "Oṃ Cale Cule Cuṇḍe Svāhā",
+  "mantra_complete_sanskrit": "Namaḥ Saptānāṃ Samyaksaṃbuddha Koṭīnāṃ Tadyathā Oṃ Cale Cule Cuṇḍe Svāhā",
+  "mantra_complete_chinese": "南無 颯哆喃 三藐三菩提 俱胝喃 怛姪他 嗡 折隸 主隸 準提 娑婆訶",
+  "target_count": 100000,
+  "mala_count": 108,
+  "requires_empowerment": false,
+  "empowerment_note": "A unique property of Cundi practice: it can be practiced by ANYONE without formal abhisheka. Oral transmission (lung) from a qualified teacher is traditionally beneficial but not strictly required.",
+  "visualizations": [
+    "18-armed Cundi Buddha Mother seated on a white lotus, white/golden-yellow body, three eyes, radiating compassionate dignity",
+    "White or yellow light radiating from her body and from each of her 18 hands, entering the practitioner and purifying all karmic obscurations",
+    "Each of her 18 arms offering a different Dharma blessing (vajra, wheel, lotus, sword, etc.), each removing a specific class of obstacle",
+    "Nectar-like light flowing from her heart center, dissolving all negativity into golden radiance at the solar plexus",
+    "Fire element: the purifying flame of Cundi's wisdom consuming karmic obscurations without harming the practitioner"
+  ],
+  "benefits": [
+    "Purification of all karmic obscurations",
+    "Wish-fulfillment for beneficial goals",
+    "Protection from obstacles to spiritual practice",
+    "Can be practiced without empowerment (empowerment-free path)",
+    "Spiritual accomplishment (siddhi) of purification, magnetizing, and pacifying",
+    "Complements the 88 Buddhas repentance practice as a purification pair"
+  ],
+  "frequency": 417,
+  "frequency_meaning": "Solfeggio 417 Hz — facilitating change and undoing situations; resonates with Cundi's power to dismantle karmic obstacles",
+  "color": "#FFD700",
+  "color_alt": "#FFFFFF",
+  "color_note": "WHITE or YELLOW (golden) — varies by tradition; white for purity, yellow/gold for the fire element and solar plexus correspondence",
+  "element": "fire",
+  "chakra": "solar_plexus",
+  "mudra": "Cundi Mudra (准提印) — fingers interlocked with both index fingers pointing upward, forming a pointed peak",
+  "iconography": {
+    "arms": 18,
+    "arms_meaning": "The 18 distinctive qualities of a Buddha (āveṇika-dharmāḥ)",
+    "eyes": 3,
+    "seat": "white lotus",
+    "body_color": "white or yellow-gold"
+  },
+  "practice_structure": {
+    "refuge_and_bodhicitta": "Generate refuge and bodhicitta motivation before beginning recitation",
+    "mantra_recitation": "Recite the complete dharani or the heart mantra 'Oṃ Cale Cule Cuṇḍe Svāhā' on a 108-bead mala",
+    "target_accumulation": "100,000 repetitions as traditional foundation; may be continued indefinitely",
+    "dedication": "Dedicate all merit for the awakening of all sentient beings"
+  },
+  "complementary_practices": [
+    "88 Buddhas Great Repentance (八十八佛大忏悔文) — pairs powerfully as a combined purification practice",
+    "Vajrasattva 100-Syllable Mantra — complementary karmic purification",
+    "Great Compassion Mantra (大悲咒) — complementary Guanyin/Avalokiteshvara practice"
+  ]
+}

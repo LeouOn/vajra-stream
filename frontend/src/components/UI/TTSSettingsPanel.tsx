@@ -14,8 +14,10 @@ import {
   Volume2, Zap, Cpu, Mic, Languages, Settings,
   RefreshCw, Check, ChevronDown,
 } from 'lucide-react';
-import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty, message } from 'antd';
+import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useUIStore } from '../../stores/uiStore';
+import PageHeader from './PageHeader';
 
 const { Text, Title } = Typography;
 
@@ -85,6 +87,7 @@ interface TTSSettingsPanelProps {
 type Backend = 'auto' | 'edge' | 'qwen';
 
 export default function TTSSettingsPanel({ onConfigChange, compact = false }: TTSSettingsPanelProps) {
+  const addToast = useUIStore((s) => s.addToast);
   const [config, setConfig] = useState<TtsConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -141,7 +144,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        message.success('TTS settings saved');
+        addToast({ type: 'success', title: 'TTS settings saved', duration: 3 });
         audioFeedback.playSuccess();
         const data: TtsConfig = await res.json();
         if (onConfigChange) onConfigChange(data);
@@ -211,15 +214,30 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
 
   // Full panel
   return (
-    <Card
-      size="small"
-      title={<Space><Volume2 className="w-4 h-4 text-cyan-400" /><Text strong>Text-to-Speech Settings</Text></Space>}
-      extra={
-        <Button size="small" icon={<RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />}
-          onClick={fetchConfig} loading={loading}>Refresh</Button>
-      }
-    >
-      <Space direction="vertical" className="w-full" size="middle">
+    <>
+      <div className="px-4 md:px-6 pt-4 md:pt-6">
+        <PageHeader
+          icon={<Volume2 className="w-7 h-7 text-cyan-400" />}
+          title="TTS Settings"
+          subtitle="Voice, backend, and language configuration for text-to-speech output."
+          actions={
+            <Button
+              size="small"
+              icon={<RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />}
+              onClick={fetchConfig}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+          }
+        />
+      </div>
+      <Card
+        size="small"
+        className="!mx-4 md:!mx-6 !mb-6"
+        title={<Space><Volume2 className="w-4 h-4 text-cyan-400" /><Text strong>Text-to-Speech Settings</Text></Space>}
+      >
+      <Space orientation="vertical" className="w-full" size="middle">
         {/* Backend Selection */}
         <div>
           <Text strong style={{ fontSize: 12 }}>TTS Backend</Text>
@@ -333,7 +351,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
                 <Space wrap size={[4, 4]} style={{ marginTop: 4 }}>
                   {qwenDesignPresets.map(p => (
                     <Tag key={p} style={{ fontSize: 9, cursor: 'pointer' }}
-                      onClick={() => message.info(`Voice design: ${p.replace(/_/g, ' ')}`)}>
+                      onClick={() => addToast({ type: 'info', title: `Voice design: ${p.replace(/_/g, ' ')}`, duration: 3 })}>
                       {p.replace(/_/g, ' ')}
                     </Tag>
                   ))}
@@ -385,5 +403,6 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
         </div>
       </Space>
     </Card>
+    </>
   );
 }

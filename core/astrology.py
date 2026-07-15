@@ -1736,6 +1736,18 @@ class AstrologicalCalculator:
                     if abs(distance - asp["angle"]) <= asp["orb"]:
                         exactness = 1.0 - (abs(distance - asp["angle"]) / asp["orb"])
                         orb = abs(distance - asp["angle"])
+                        # applying/separating: transit planet gaining on the
+                        # exact aspect angle vs the natal target.
+                        t_speed = t_pos.get("speed")
+                        n_speed = n_pos.get("speed")
+                        applying = None
+                        if isinstance(t_speed, (int, float)) and isinstance(n_speed, (int, float)):
+                            signed_delta = self._angular_delta_signed(t_lon, n_lon)
+                            d_sep_dt = t_speed - n_speed
+                            if signed_delta >= 0:
+                                applying = d_sep_dt < 0
+                            else:
+                                applying = d_sep_dt > 0
                         aspects.append(
                             {
                                 "transit_planet": t_name,
@@ -1744,6 +1756,7 @@ class AstrologicalCalculator:
                                 "angle": distance,
                                 "orb": round(orb, 2),
                                 "exactness": round(exactness, 2),
+                                "applying": applying,
                                 "description": f"Transit {t_name.title()} {asp['name']} Natal {n_name.title()} (Orb: {orb:.2f}°)",
                             }
                         )
@@ -3043,6 +3056,232 @@ class AstrologicalCalculator:
         }
 
         return positions
+
+    # =========================================================================
+    # EXPORT SCHEMA v2 ADDITIONS (additive, non-breaking)
+    # =========================================================================
+
+    # swe.MEAN_NODE is what ``self.PLANETS["north_node"]`` maps to.
+    NODE_TYPE = "mean"
+
+    @staticmethod
+    def _angular_delta_signed(a: float, b: float) -> float:
+        """Signed shortest angular delta from ``a`` to ``b`` in ``[-180, 180]``."""
+        return (b - a + 180.0) % 360.0 - 180.0
+
+    def get_house_cusps(
+        self, dt: datetime, location: tuple[float, float] | None
+    ) -> dict:
+        """Return explicit Placidus and Whole Sign house cusp longitudes.
+
+        Both lists contain 12 ecliptic longitudes in ``[0, 360)``:
+
+        * ``placidus`` — the 12 cusps returned by Swiss Ephemeris for the
+          Placidus house system (``b"P"``). Cusp 1 is the Ascendant, cusp 4
+          the Imum Coeli, cusp 7 the Descendant, cusp 10 the Midheaven.
+        * ``whole_sign`` — for Whole Sign houses every cusp lands exactly on
+          a sign boundary. Cusp 1 is the start longitude of the Ascendant's
+          sign; each subsequent cusp is +30° from the previous.
+
+        Args:
+            dt: Datetime for the chart.
+            location: ``(latitude, longitude)`` tuple, or ``None``. When
+                ``None``, both lists are returned empty (no houses can be
+                computed without a geographic location).
+
+        Returns:
+            dict: ``{"placidus": [12 floats], "whole_sign": [12 floats]}``.
+        """
+        if location is None:
+            return {"placidus": [], "whole_sign": []}
+
+        lat, lon = location
+        jd = self.get_julian_day(dt)
+        cusps, ascmc = swe.houses(jd, lat, lon, b"P")
+        placidus = [float(cusps[i]) for i in range(12)]
+
+        asc_lon = float(ascmc[0])
+        asc_sign_index = int(asc_lon / 30) % 12
+        whole_sign = [((asc_sign_index + i) % 12) * 30.0 for i in range(12)]
+        return {"placidus": placidus, "whole_sign": whole_sign}
+
+    def get_natal_aspects(
+        self, dt: datetime, location: tuple[float, float] | None = None
+    ) -> list[dict]:
+        """Internal natal-to-natal aspects with applying/separating flag.
+
+        ``applying`` is computed from the planets' geocentric angular speeds
+        (``speed`` field from :meth:`get_planetary_positions`): if the faster
+        body is closing the angular gap toward the exact aspect angle, the
+        aspect is applying; otherwise it is separating. For pairs where one
+        body has no speed (e.g. angles), ``applying`` is ``None``.
+
+        Args:
+            dt: Datetime for the chart.
+            location: Optional ``(latitude, longitude)`` tuple.
+
+        Returns:
+            list[dict]: Each entry has ``planet_a``, ``planet_b``,
+            ``aspect``, ``orb``, ``applying``.
+        """
+        positions = self.get_planetary_positions(dt, location)
+
+        aspect_types = [
+            {"name": "conjunction", "angle": 0, "orb": 8},
+            {"name": "sextile", "angle": 60, "orb": 6},
+            {"name": "square", "angle": 90, "orb": 8},
+            {"name": "trine", "angle": 120, "orb": 8},
+            {"name": "opposition", "angle": 180, "orb": 8},
+        ]
+
+        planet_names = [p for p in positions.keys() if p not in ("ascendant", "midheaven")]
+        aspects: list[dict] = []
+        for i in range(len(planet_names)):
+            for j in range(i + 1, len(planet_names)):
+                p1 = planet_names[i]
+                p2 = planet_names[j]
+                if p1 in ("uranus", "neptune", "pluto") and p2 in ("uranus", "neptune", "pluto"):
+                    continue
+
+                lon1 = positions[p1]["longitude"]
+                lon2 = positions[p2]["longitude"]
+                speed1 = positions[p1].get("speed")
+                speed2 = positions[p2].get("speed")
+
+                signed_delta = self._angular_delta_signed(lon1, lon2)
+                distance = abs(signed_delta)
+
+                for asp in aspect_types:
+                    orb = abs(distance - asp["angle"])
+                    if orb <= asp["orb"]:
+                        applying = None
+                        if isinstance(speed1, (int, float)) and isinstance(speed2, (int, float)):
+                            # d_sep_dt = rate of change of (lon2 - lon1).
+                            # Gap |signed_delta| shrinks when d_sep_dt has
+                            # the opposite sign to signed_delta.
+                            d_sep_dt = speed2 - speed1
+                            if signed_delta >= 0:
+                                applying = d_sep_dt < 0
+                            else:
+                                applying = d_sep_dt > 0
+                        aspects.append(
+                            {
+                                "planet_a": p1,
+                                "planet_b": p2,
+                                "aspect": asp["name"],
+                                "orb": round(orb, 2),
+                                "applying": applying,
+                            }
+                        )
+        return aspects
+
+    def get_bazi_detailed(self, dt: datetime) -> dict:
+        """Detailed BaZi (Four Pillars) decomposition with stems, branches,
+        elements, day master, and the Five Elements tally.
+
+        Complements :meth:`get_chinese_astrology` (which returns the
+        pillar strings in a single translated string for display) with a
+        machine-friendly, fully-decomposed shape. Falls back to ``None``
+        pillars when ``lunar_python`` is unavailable so callers can detect
+        the missing-dependency path without parsing display strings.
+
+        Args:
+            dt: Datetime for the chart (any timezone; converted to China
+                Standard Time internally to match the Chinese lunisolar
+                calendar).
+
+        Returns:
+            dict: ``{"pillars": [4 dicts], "day_master": dict,
+            "five_elements": {Wood, Fire, Earth, Metal, Water}}``.
+        """
+        stem_elements = {
+            "甲": "Wood", "乙": "Wood",
+            "丙": "Fire", "丁": "Fire",
+            "戊": "Earth", "己": "Earth",
+            "庚": "Metal", "辛": "Metal",
+            "壬": "Water", "癸": "Water",
+        }
+        stem_yin_yang = {
+            "甲": "Yang", "丙": "Yang", "戊": "Yang", "庚": "Yang", "壬": "Yang",
+            "乙": "Yin", "丁": "Yin", "己": "Yin", "辛": "Yin", "癸": "Yin",
+        }
+        branch_elements = {
+            "子": "Water", "午": "Fire",
+            "丑": "Earth", "未": "Earth", "辰": "Earth", "戌": "Earth",
+            "寅": "Wood", "卯": "Wood",
+            "巳": "Fire", "亥": "Water",
+            "申": "Metal", "酉": "Metal",
+        }
+        five_elements_count = {"Wood": 0, "Fire": 0, "Earth": 0, "Metal": 0, "Water": 0}
+
+        try:
+            from lunar_python import Solar
+        except ImportError:
+            logger.warning(
+                "lunar_python is not installed; get_bazi_detailed() returning "
+                "null pillars. Install with: pip install lunar-python"
+            )
+            return {
+                "pillars": None,
+                "day_master": None,
+                "five_elements": dict(five_elements_count),
+            }
+
+        dt_china = dt.astimezone(pytz.timezone("Asia/Shanghai"))
+        solar_c = Solar.fromYmdHms(
+            dt_china.year, dt_china.month, dt_china.day,
+            dt_china.hour, dt_china.minute, dt_china.second,
+        )
+        bazi = solar_c.getLunar().getEightChar()
+
+        raw = {
+            "year": (bazi.getYear(), bazi.getYearWuXing()),
+            "month": (bazi.getMonth(), bazi.getMonthWuXing()),
+            "day": (bazi.getDay(), bazi.getDayWuXing()),
+            "hour": (bazi.getTime(), bazi.getTimeWuXing()),
+        }
+
+        pillars = []
+        day_master = None
+        for pillar_name in ("year", "month", "day", "hour"):
+            pillar_str, wuxing_str = raw[pillar_name]
+            stem_char = pillar_str[0] if len(pillar_str) >= 1 else ""
+            branch_char = pillar_str[1] if len(pillar_str) >= 2 else ""
+            stem_el = stem_elements.get(stem_char, "Unknown")
+            branch_el = branch_elements.get(branch_char, "Unknown")
+            element_label = (
+                f"{stem_el}/{branch_el}"
+                if (stem_el != "Unknown" or branch_el != "Unknown")
+                else wuxing_str
+            )
+
+            if stem_el != "Unknown":
+                five_elements_count[stem_el] += 1
+            if branch_el != "Unknown":
+                five_elements_count[branch_el] += 1
+
+            pillars.append({
+                "pillar": pillar_name,
+                "stem": stem_char,
+                "branch": branch_char,
+                "stem_element": stem_el,
+                "branch_element": branch_el,
+                "element": element_label,
+                "raw": pillar_str,
+            })
+
+            if pillar_name == "day" and stem_char:
+                day_master = {
+                    "stem": stem_char,
+                    "element": stem_el,
+                    "yin_yang": stem_yin_yang.get(stem_char, "Unknown"),
+                }
+
+        return {
+            "pillars": pillars,
+            "day_master": day_master,
+            "five_elements": five_elements_count,
+        }
 
 
 def _wrap_lon(lon: float) -> float:

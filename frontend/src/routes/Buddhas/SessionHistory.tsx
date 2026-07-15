@@ -10,9 +10,10 @@
  * @component
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Button, Typography, List, Tag, Space, Empty, Popconfirm, message } from 'antd';
+import { Card, Button, Typography, List, Tag, Space, Empty, Popconfirm } from 'antd';
 import { History, Trash2, PlusCircle, Clock } from 'lucide-react';
 import type { RecitationStatus } from '../../../types';
+import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Title } = Typography;
 const STORAGE_KEY = 'vajra-buddha-sessions';
@@ -65,6 +66,7 @@ function formatTimestamp(ts: number): string {
 }
 
 export default function SessionHistory({ buddhaStatus }: SessionHistoryProps) {
+  const addToast = useUIStore((s) => s.addToast);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function SessionHistory({ buddhaStatus }: SessionHistoryProps) {
 
   const handleRecord = useCallback(() => {
     if (!buddhaStatus || !buddhaStatus.running) {
-      message.warning('No active recitation to record.');
+      addToast({ type: 'warning', title: 'No active recitation to record.', duration: 4 });
       return;
     }
     const entry: SessionEntry = {
@@ -88,16 +90,16 @@ export default function SessionHistory({ buddhaStatus }: SessionHistoryProps) {
     const next = [entry, ...readSessions()].slice(0, MAX_ENTRIES);
     if (writeSessions(next)) {
       setSessions(next);
-      message.success('Session recorded.');
+      addToast({ type: 'success', title: 'Session recorded.', duration: 3 });
     } else {
-      message.error('Could not save session — storage full?');
+      addToast({ type: 'error', title: 'Could not save session — storage full?', duration: 5 });
     }
   }, [buddhaStatus]);
 
   const handleClear = useCallback(() => {
     writeSessions([]);
     setSessions([]);
-    message.success('History cleared.');
+    addToast({ type: 'success', title: 'History cleared.', duration: 3 });
   }, []);
 
   return (
@@ -150,7 +152,7 @@ export default function SessionHistory({ buddhaStatus }: SessionHistoryProps) {
           dataSource={sessions.slice(0, 12)}
           renderItem={(s) => (
             <List.Item style={{ padding: '8px 0' }}>
-              <Space direction="vertical" size={2} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={2} style={{ width: '100%' }}>
                 <Space size={6} wrap>
                   <Tag color="emerald">×{s.totalRecited}</Tag>
                   <Tag color="gold">mala {s.malaCount}</Tag>

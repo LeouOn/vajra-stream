@@ -90,7 +90,7 @@ export default function DedicationText({ onRefresh }: DedicationTextProps) {
         />
       }
     >
-      <Space direction="vertical" size={6} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={6} style={{ width: '100%' }}>
         <Text type="secondary" italic style={{ fontSize: 11 }}>
           {dedication.sanskrit}
         </Text>

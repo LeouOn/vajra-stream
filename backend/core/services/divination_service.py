@@ -41,26 +41,40 @@ def _resolve_knowledge_path(filename: str) -> Path:
 
 TAROT_DECK_PATH = _resolve_knowledge_path("tarot_deck.json")
 
-# Spread layouts keyed by draw count. The 1-card and 3-card (Past/Present/Future)
-# and 10-card Celtic Cross are the canonical spreads surfaced through the API.
+# Spread layouts keyed by draw count. Each entry carries:
+#   - id:     1-based positional index (backward compat)
+#   - name:   human-readable slot label (Past / Present / Future / ...)
+#   - position: layout coordinate token used by the frontend renderer
+#               ("center", "left", "right", "cross", "below", "above",
+#                or "1".."10" for the Celtic Cross numbered stations)
+#   - label:  short descriptive subtitle (backward compat)
+# The 1-card Focus, 3-card Past/Present/Future, 5-card cross, and the
+# 10-card Celtic Cross are the canonical spreads surfaced through the API.
 SPREAD_POSITIONS: dict[int, list[dict[str, Any]]] = {
-    1: [{"id": 1, "name": "Focus", "label": "The central issue"}],
+    1: [{"id": 1, "name": "Focus", "position": "center", "label": "The central issue"}],
     3: [
-        {"id": 1, "name": "Past", "label": "What has been"},
-        {"id": 2, "name": "Present", "label": "Where you are now"},
-        {"id": 3, "name": "Future", "label": "What is coming"},
+        {"id": 1, "name": "Past", "position": "left", "label": "What has been"},
+        {"id": 2, "name": "Present", "position": "center", "label": "Where you are now"},
+        {"id": 3, "name": "Future", "position": "right", "label": "What is coming"},
+    ],
+    5: [
+        {"id": 1, "name": "Present", "position": "center", "label": "The heart of the matter"},
+        {"id": 2, "name": "Challenge", "position": "cross", "label": "What crosses you"},
+        {"id": 3, "name": "Past", "position": "below", "label": "Foundation beneath"},
+        {"id": 4, "name": "Future", "position": "above", "label": "What crowns you"},
+        {"id": 5, "name": "Advice", "position": "right", "label": "The way forward"},
     ],
     10: [
-        {"id": 1, "name": "Present", "label": "The heart of the matter"},
-        {"id": 2, "name": "Challenge", "label": "Crossing card"},
-        {"id": 3, "name": "Foundation", "label": "Subconscious root"},
-        {"id": 4, "name": "Recent Past", "label": "Passing influence"},
-        {"id": 5, "name": "Crown", "label": "Conscious goal"},
-        {"id": 6, "name": "Near Future", "label": "Coming into action"},
-        {"id": 7, "name": "Self", "label": "Your attitude"},
-        {"id": 8, "name": "Environment", "label": "External influences"},
-        {"id": 9, "name": "Hopes & Fears", "label": "Hidden desires"},
-        {"id": 10, "name": "Outcome", "label": "Final resolution"},
+        {"id": 1, "name": "Present", "position": "1", "label": "The heart of the matter"},
+        {"id": 2, "name": "Challenge", "position": "2", "label": "Crossing card"},
+        {"id": 3, "name": "Foundation", "position": "3", "label": "Subconscious root"},
+        {"id": 4, "name": "Recent Past", "position": "4", "label": "Passing influence"},
+        {"id": 5, "name": "Crown", "position": "5", "label": "Conscious goal"},
+        {"id": 6, "name": "Near Future", "position": "6", "label": "Coming into action"},
+        {"id": 7, "name": "Self", "position": "7", "label": "Your attitude"},
+        {"id": 8, "name": "Environment", "position": "8", "label": "External influences"},
+        {"id": 9, "name": "Hopes & Fears", "position": "9", "label": "Hidden desires"},
+        {"id": 10, "name": "Outcome", "position": "10", "label": "Final resolution"},
     ],
 }
 
@@ -185,6 +199,7 @@ class DivinationService:
 
     def __init__(self):
         self.deck = self._load_tarot_deck()
+        self.iching = self._load_iching()
 
     def _load_tarot_deck(self) -> list[dict[str, Any]]:
         """Load the 78-card Tarot deck from knowledge/tarot_deck.json (single source of truth).
@@ -200,6 +215,19 @@ class DivinationService:
             cards = data.get("cards", [])
             if cards:
                 return cards
+        except (OSError, json.JSONDecodeError):
+            pass
+        return []
+
+    def _load_iching(self) -> list[dict[str, Any]]:
+        """Load the 64 I Ching hexagrams from knowledge/iching.json (single source of truth)."""
+        try:
+            iching_path = _resolve_knowledge_path("iching.json")
+            with open(iching_path, encoding="utf-8") as f:
+                data = json.load(f)
+            hexagrams = data.get("hexagrams", [])
+            if hexagrams:
+                return hexagrams
         except (OSError, json.JSONDecodeError):
             pass
         return []
@@ -640,7 +668,7 @@ class DivinationService:
         if is_reversed:
             art = f'<g transform="rotate(180 120 190)">\n  {art}\n  </g>'
 
-        svg = f"""<svg viewBox="0 0 240 380" xmlns="http://www.w3.org/2000/svg" style="background:#0b132b; border-radius:16px;">
+        svg = f"""<svg viewBox="0 0 240 380" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style="background:#0b132b; border-radius:16px;">
   <defs>
     <filter id="card-glow" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="5" result="blur"/>
@@ -693,104 +721,66 @@ class DivinationService:
 
         changing_indices = [i + 1 for i, v in enumerate(lines) if v == 6 or v == 9]
 
-        primary_name, primary_desc = self._get_hexagram_details(primary_pattern)
-        relating_name, relating_desc = self._get_hexagram_details(relating_pattern)
+        primary_details = self._get_hexagram_details(primary_pattern)
+        relating_details = self._get_hexagram_details(relating_pattern)
+
+        # Resolve changing line details
+        changing_lines_details = []
+        for idx in changing_indices:
+            line_idx = idx - 1
+            line_val = lines[line_idx]
+            line_meaning = primary_details["lines"][line_idx] if primary_details.get("lines") and len(primary_details["lines"]) > line_idx else ""
+            changing_lines_details.append({
+                "line": idx,
+                "value": line_val,
+                "type": "Old Yin" if line_val == 6 else "Old Yang",
+                "meaning": line_meaning
+            })
 
         return {
             "cast_lines": lines,
-            "primary": {"pattern": primary_pattern, "name": primary_name, "meaning": primary_desc},
-            "relating": {"pattern": relating_pattern, "name": relating_name, "meaning": relating_desc},
+            "primary": primary_details,
+            "relating": relating_details,
             "changing_lines": changing_indices,
+            "changing_lines_details": changing_lines_details,
             "has_changes": len(changing_indices) > 0,
             "svg": self._render_hexagram_svg(primary_pattern, relating_pattern, lines),
         }
 
-    def _get_hexagram_details(self, pattern: list[int]) -> tuple[str, str]:
+    def _get_hexagram_details(self, pattern: list[int]) -> dict[str, Any]:
         # Compact mapping of binary values to standard hexagrams
         bin_str = "".join(str(b) for b in pattern)
-        # Hexagram names & meanings dictionary
-        HEXAGRAM_MAP = {
-            "111111": ("Ch'ien / The Creative", "Pure active energy, leadership, persistent action"),
-            "000000": ("K'un / The Receptive", "Pure yielding energy, nurturing, dedication, patience"),
-            "100010": (
-                "Chun / Difficulty at the Beginning",
-                "Sprouting seed, dynamic growth against initial obstacles",
-            ),
-            "010001": ("Meng / Youthful Folly", "Inexperience, requirement of a teacher, open-minded study"),
-            "111010": ("Hsü / Waiting", "Patience, collecting strength, letting things mature naturally"),
-            "010111": ("Sung / Conflict", "Disputes, need to seek arbitration, stop half-way"),
-            "010000": ("Shih / The Army", "Leadership, collective discipline, alignment towards a goal"),
-            "000010": ("Pi / Holding Together", "Union, alliance, mutual support and community strength"),
-            "111011": ("Hsiao Ch'u / Taming Power of Small", "Gentle restraint, small progress, accumulating wind"),
-            "110111": ("Lü / Treading", "Conduct, cautious stepping, moving gracefully amidst danger"),
-            "111000": ("T'ai / Peace", "Harmonious flow, heaven and earth meeting, alignment"),
-            "000111": ("P'i / Standstill", "Stagnation, retreat of noble influences, blockages"),
-            "101111": ("T'ung Jen / Fellowship", "Union with others in the open, shared vision"),
-            "111101": ("Ta Yu / Great Possession", "Abundant light, wealth, supreme clarity and rule of virtue"),
-            "000100": ("Ch'ien / Modesty", "Self-deprecation, keeping low, high values without pride"),
-            "001000": ("Yü / Enthusiasm", "Vibrant motivation, movement follows music, readiness"),
-            "100110": ("Sui / Following", "Adapting, yielding leadership to flow of time"),
-            "011001": ("Ku / Work on the Decayed", "Renovating what was broken, fixing parental errors"),
-            "110000": ("Lin / Approach", "Approaching spring, warm influence, growth opportunity"),
-            "000011": ("Kuan / Contemplation", "Looking down, meditation, viewing the whole field"),
-            "100101": ("Shih Ho / Biting Through", "Removing obstacles, energetic enforcement of law"),
-            "101001": ("Pi / Grace", "Aesthetic beauty, decoration, temporary outer form"),
-            "000001": ("Po / Splitting Apart", "Disintegration, collapse of rotten structures"),
-            "100000": ("Fu / Return", "The turning point, return of light, recovery of energy"),
-            "100111": ("Wu Wang / Innocence", "Natural behavior, acting without ulterior motives"),
-            "111001": ("Ta Ch'u / Great Taming Power", "Focus, storing wisdom, preparation for large work"),
-            "100001": ("I / Nourishment", "Providing food, monitoring what enters mouth and mind"),
-            "011110": (
-                "Ta Kuo / Preponderance of the Great",
-                "Heavy beam bends, crisis requiring extraordinary action",
-            ),
-            "010010": ("K'an / The Abyssal (Water)", "Double danger, maintaining trust, flowing through deep chasms"),
-            "101101": ("Li / The Clinging (Fire)", "Illumination, clarity, dependency on fuel, consciousness"),
-            "001110": ("Hsien / Influence", "Mutual attraction, courtship, receptive harmony"),
-            "011100": ("Heng / Duration", "Persistence, stable marriage of earth/wind forces"),
-            "001111": ("Tun / Retreat", "Strategic withdrawal, saving energy in times of decline"),
-            "111100": (
-                "Ta Chuang / Power of the Great",
-                "Steer holds horns, avoiding head-on clashes, inner discipline",
-            ),
-            "000101": ("Chin / Progress", "Sun rising over earth, dynamic advancement and honor"),
-            "101000": ("Ming I / Darkening of the Light", "Hiding light under a basket, survival during tyranny"),
-            "101011": ("Chia Jen / The Family", "Internal order, domestic discipline and alignment"),
-            "110101": ("K'uei / Opposition", "Different paths, finding alignment on minor matters"),
-            "001010": ("Chien / Obstruction", "Mountain before water, need to stop and regroup"),
-            "010100": ("Hsieh / Deliverance", "Release of tension, forgiveness, moving forward quickly"),
-            "110001": ("Sun / Decrease", "Reducing excess, concentrating on simplicity"),
-            "100011": ("I / Increase", "Expanding, helping the lower classes, time for undertaking"),
-            "111110": ("Kuai / Breakthrough", "Decisive resolution, clearing out remaining obstacles"),
-            "011111": ("Kou / Coming to Meet", "Sudden temptation, dynamic female influence, caution"),
-            "000110": ("Ts'ui / Gathering Together", "Mass convergence, alignment of leadership and sacrifices"),
-            "011000": ("Sheng / Pushing Upward", "Gradual vertical progress, steady effort and growth"),
-            "010110": ("K'un / Oppression", "Exhaustion, dry well, testing of resolve and speechlessness"),
-            "011010": ("Ching / The Well", "Inexhaustible source of life-force, maintaining the structure"),
-            "101110": ("Ko / Revolution", "Discarding old skins, seasonal change, timing is critical"),
-            "011101": ("Ting / The Cauldron", "Vessel of transformation, spiritual nourishment, alchemy"),
-            "100100": (
-                "Chen / The Arousing (Thunder)",
-                "Startling thunder, awakening, initial fear turning to laughter",
-            ),
-            "001001": (
-                "Kên / Keeping Still (Mountain)",
-                "Meditation, stopping action at the right time, spine alignment",
-            ),
-            "001011": ("Chien / Development", "Slow progress, wild geese flying in formation"),
-            "110100": ("Kuei Mei / The Marrying Maiden", "Impulsive action before correctness, lack of authority"),
-            "101100": ("Feng / Abundance", "Peak illumination, transient glory, preparing for decline"),
-            "001101": ("Lü / The Wanderer", "Moving through foreign lands, cautious behavior, temporary shelter"),
-            "011011": ("Sun / The Gentle (Wind)", "Penetrating influence, flexibility, persistent action"),
-            "110110": ("Tui / The Joyous (Lake)", "Joy, shared discourse, friendly persuasion, openness"),
-            "010011": ("Huan / Dispersion", "Dissolving blockages, crossing the great water"),
-            "110010": ("Chieh / Limitation", "Frugality, boundary definition, keeping moderation"),
-            "110011": ("Chung Fu / Inner Truth", "Pigs and fishes aligned, supreme sincerity, faith"),
-            "001100": ("Hsiao Kuo / Preponderance of the Small", "Keeping low, avoiding flight, attention to detail"),
-            "101010": ("Chi Chi / After Completion", "Boiling water on fire, perfect order fading to chaos"),
-            "010101": ("Wei Chi / Before Completion", "Fire above water, potential, the young fox wetting its tail"),
+        
+        # 1. Try finding in loaded JSON database
+        if hasattr(self, "iching") and self.iching:
+            for hexagram in self.iching:
+                if hexagram.get("pattern") == bin_str:
+                    full_name = f"{hexagram['name_pinyin']} / {hexagram['name_english']}"
+                    return {
+                        "pattern": bin_str,
+                        "name": full_name,
+                        "name_chinese": hexagram["name_chinese"],
+                        "name_pinyin": hexagram["name_pinyin"],
+                        "name_english": hexagram["name_english"],
+                        "meaning": hexagram["meaning"],
+                        "judgment": hexagram["judgment"],
+                        "images": hexagram["images"],
+                        "lines": hexagram["lines"]
+                    }
+
+        # 2. Defensive fallback (unreachable in practice: iching.json ships all 64
+        #        binary patterns, so the loop above always returns).
+        return {
+            "pattern": bin_str,
+            "name": "Unknown Hexagram",
+            "name_chinese": "",
+            "name_pinyin": "Unknown",
+            "name_english": "Unknown Hexagram",
+            "meaning": "Esoteric transformation",
+            "judgment": "Esoteric transformation",
+            "images": "",
+            "lines": [],
         }
-        return HEXAGRAM_MAP.get(bin_str, ("Unknown Hexagram", "Esoteric transformation"))
 
     def _render_hexagram_svg(self, primary: list[int], relating: list[int], raw_lines: list[int]) -> str:
         """Renders the primary and relating hexagrams side by side"""

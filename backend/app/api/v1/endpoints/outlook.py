@@ -6,6 +6,7 @@ sutra-style blessings, and astrological outlooks for individuals based
 on their birth chart, current transits, and divination results.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -726,47 +727,47 @@ class LoopStartRequest(BaseModel):
 
 @router.post("/loop/start", summary="Start background narrative loop")
 async def start_loop(req: LoopStartRequest):
-    success = container.outlook.start_broadcast_loop(
+    bg_config = BackgroundGenerationConfig(
         interval_minutes=req.interval_minutes,
+        loop_mode=req.loop_mode or "sequential_delay",
+        cycle_genres=req.cycle_genres or False,
+        cycle_intentions=False,
         lat=req.lat,
         lon=req.lon,
         languages=req.languages,
         genre=req.genre,
         custom_context=req.custom_context,
-        realm_id=req.realm_id,
-        population_ids=req.population_ids,
-        character_ids=req.character_ids,
-        excluded_forces=req.excluded_forces,
-        include_dialogue=req.include_dialogue,
-        loop_mode=req.loop_mode,
-        model=req.model,
         include_astrology=req.include_astrology,
         include_tarot=req.include_tarot,
         include_iching=req.include_iching,
         include_geomancy=req.include_geomancy,
-        cycle_genres=req.cycle_genres,
-        randomize_realm=req.randomize_realm,
-        randomize_characters=req.randomize_characters,
+        model=req.model,
     )
-    if not success:
-        raise HTTPException(status_code=400, detail="Loop already running or failed to start")
+    result = await start_background_generation(bg_config)
+    if result["status"] == "already_running":
+        raise HTTPException(status_code=400, detail="Loop already running")
     return {
         "status": "success",
-        "message": f"Broadcast loop started. Mode: {req.loop_mode}. Executing every {req.interval_minutes} minutes.",
+        "message": f"Background generation started. Mode: {req.loop_mode}. Every {req.interval_minutes} min.",
+        "stats": result.get("stats", {}),
     }
 
 
 @router.post("/loop/stop", summary="Stop background narrative loop")
 async def stop_loop():
-    success = container.outlook.stop_broadcast_loop()
-    if not success:
-        return {"status": "warning", "message": "Loop was not active"}
-    return {"status": "success", "message": "Broadcast loop stopped successfully"}
+    return await stop_background_generation()
 
 
 @router.get("/loop/status", summary="Get background narrative loop status")
 async def get_loop_status():
-    return container.outlook.get_loop_status()
+    status = await background_status()
+    return {
+        "active": status["active"],
+        "interval_minutes": status["config"].get("interval_minutes", 5),
+        "config": {"loop_mode": status["config"].get("loop_mode", "sequential_delay")},
+        "stats": status.get("stats", {}),
+        "last_generated": status.get("stats", {}).get("last_generated_at"),
+    }
 
 
 # ----------------- NARRATIVES IMPORT/EXPORT -----------------
@@ -898,3 +899,248 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
         return {"status": "success", "imported": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ----------------- IDLE REFLECTION ENGINE -----------------
+
+class IdleConfig(BaseModel):
+    interval_minutes: int = Field(default=60, ge=1, le=1440)
+    genres: list[str] | None = Field(default=None)
+    intentions: list[str] | None = Field(default=None)
+    enabled: bool = Field(default=True)
+
+
+class BackgroundGenerationConfig(BaseModel):
+    interval_minutes: int = Field(default=60, ge=1, le=1440)
+    loop_mode: str = Field(default="sequential_delay", description="sequential_delay or consecutive")
+    cycle_genres: bool = Field(default=True, description="Cycle through all genres round-robin")
+    cycle_intentions: bool = Field(default=True, description="Cycle through preset intentions")
+    genres: list[str] | None = Field(default=None, description="Specific genres; None = all 7")
+    intentions: list[str] | None = Field(default=None, description="Specific intentions; None = 8 defaults")
+    lat: float = Field(default=34.0522)
+    lon: float = Field(default=-118.2437)
+    languages: list[str] = Field(default=["English"])
+    genre: str = Field(default="healing", description="Used when cycle_genres=False")
+    custom_context: str | None = Field(default=None, description="Used when cycle_intentions=False")
+    include_astrology: bool = Field(default=True)
+    include_tarot: bool = Field(default=True)
+    include_iching: bool = Field(default=True)
+    include_geomancy: bool = Field(default=True)
+    model: str | None = Field(default=None)
+    enabled: bool = Field(default=True)
+
+
+DEFAULT_BG_INTENTIONS: list[str] = [
+    "May all beings find peace and happiness",
+    "May all beings be free from suffering",
+    "May all beings experience abundance and prosperity",
+    "May the world find healing and renewal",
+    "May all beings awaken to their true nature",
+    "May compassion guide all actions",
+    "May wisdom illuminate all minds",
+    "May all beings be liberated",
+]
+
+ALL_BG_GENRES: list[str] = [
+    "healing", "victory", "alchemist", "dharani",
+    "compassion", "wisdom", "protection",
+]
+
+_bg_task: asyncio.Task | None = None
+_bg_config: BackgroundGenerationConfig = BackgroundGenerationConfig()
+_bg_stats: dict[str, Any] = {
+    "total_generated": 0,
+    "total_saved": 0,
+    "total_errors": 0,
+    "last_generated_at": None,
+    "last_genre": None,
+    "started_at": None,
+}
+
+
+async def _background_generation_loop(config: BackgroundGenerationConfig) -> None:
+    genre_cycle = config.genres or ALL_BG_GENRES
+    intention_cycle = config.intentions or DEFAULT_BG_INTENTIONS
+    idx = 0
+
+    _bg_stats["started_at"] = datetime.now().isoformat()
+
+    while True:
+        try:
+            if config.loop_mode == "consecutive":
+                await asyncio.sleep(5.0)
+            else:
+                await asyncio.sleep(config.interval_minutes * 60)
+
+            current_genre = (
+                genre_cycle[idx % len(genre_cycle)]
+                if config.cycle_genres
+                else config.genre
+            )
+            current_intention = (
+                intention_cycle[idx % len(intention_cycle)]
+                if config.cycle_intentions
+                else (config.custom_context or intention_cycle[0])
+            )
+            idx += 1
+
+            logger.info(
+                "Background generation: genre=%s intention=%s...",
+                current_genre,
+                current_intention[:40],
+            )
+
+            result = container.outlook.generate_single(
+                lat=config.lat,
+                lon=config.lon,
+                languages=config.languages,
+                genre=current_genre,
+                custom_context=current_intention,
+                include_astrology=config.include_astrology,
+                include_tarot=config.include_tarot,
+                include_iching=config.include_iching,
+                include_geomancy=config.include_geomancy,
+                model=config.model,
+            )
+
+            _bg_stats["total_generated"] += 1
+            _bg_stats["last_generated_at"] = datetime.now().isoformat()
+            _bg_stats["last_genre"] = current_genre
+
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO outlook_narratives
+                    (type, genre, languages, lat, lon, date_generated,
+                     content, astrology_context, divination_context,
+                     divination_raw, entities_invoked)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "single",
+                        result.get("genre", current_genre),
+                        json.dumps(config.languages),
+                        config.lat,
+                        config.lon,
+                        datetime.now().isoformat(),
+                        result.get("narrative"),
+                        result.get("astrology_used"),
+                        result.get("divination_used"),
+                        json.dumps(result.get("divination_raw")),
+                        result.get("entities_used"),
+                    ),
+                )
+                conn.commit()
+                conn.close()
+                _bg_stats["total_saved"] += 1
+            except Exception as db_err:
+                logger.error("Background generation DB save failed: %s", db_err)
+
+            try:
+                from backend.websocket.connection_manager import stable_connection_manager_v2
+
+                await stable_connection_manager_v2.broadcast({
+                    "type": "BACKGROUND_GENERATION",
+                    "data": {
+                        "genre": current_genre,
+                        "intention": current_intention,
+                        "timestamp": datetime.now().isoformat(),
+                        "narrative_preview": (result.get("narrative") or "")[:200],
+                        "stats": dict(_bg_stats),
+                    },
+                })
+            except Exception as ws_err:
+                logger.debug("BG broadcast failed: %s", ws_err)
+
+            logger.info(
+                "Background generation complete: %s (total=%d, saved=%d)",
+                current_genre,
+                _bg_stats["total_generated"],
+                _bg_stats["total_saved"],
+            )
+
+        except asyncio.CancelledError:
+            logger.info("Background generation loop cancelled")
+            break
+        except Exception as e:
+            _bg_stats["total_errors"] += 1
+            logger.error("Background generation error: %s", e)
+            await asyncio.sleep(60)
+
+
+@router.post("/background/start", summary="Start unified background generation engine")
+async def start_background_generation(config: BackgroundGenerationConfig):
+    global _bg_task, _bg_config
+    if _bg_task is not None and not _bg_task.done():
+        return {"status": "already_running", "stats": dict(_bg_stats)}
+    _bg_config = config
+    _bg_task = asyncio.create_task(_background_generation_loop(config))
+    logger.info(
+        "Background generation started (interval=%dm mode=%s cycle_genres=%s)",
+        config.interval_minutes,
+        config.loop_mode,
+        config.cycle_genres,
+    )
+    return {"status": "started", "config": config.model_dump(), "stats": dict(_bg_stats)}
+
+
+@router.post("/background/stop", summary="Stop background generation engine")
+async def stop_background_generation():
+    global _bg_task
+    if _bg_task is None:
+        return {"status": "not_running", "stats": dict(_bg_stats)}
+    _bg_task.cancel()
+    try:
+        await _bg_task
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.warning("BG task raised during cancel: %s", e)
+    _bg_task = None
+    logger.info("Background generation stopped")
+    return {"status": "stopped", "stats": dict(_bg_stats)}
+
+
+@router.get("/background/status", summary="Get background generation status")
+async def background_status():
+    return {
+        "active": _bg_task is not None and not _bg_task.done(),
+        "config": _bg_config.model_dump(),
+        "stats": dict(_bg_stats),
+    }
+
+
+@router.post("/idle/start", summary="Start auto-generating reflections periodically")
+async def start_idle_reflections(config: IdleConfig):
+    bg_config = BackgroundGenerationConfig(
+        interval_minutes=config.interval_minutes,
+        genres=config.genres,
+        intentions=config.intentions,
+        enabled=config.enabled,
+        cycle_genres=True,
+        cycle_intentions=True,
+        loop_mode="sequential_delay",
+    )
+    return await start_background_generation(bg_config)
+
+
+@router.post("/idle/stop", summary="Stop auto-generating reflections")
+async def stop_idle_reflections():
+    return await stop_background_generation()
+
+
+@router.get("/idle/status", summary="Get idle reflection loop status")
+async def idle_status():
+    status = await background_status()
+    return {
+        "active": status["active"],
+        "config": {
+            "interval_minutes": status["config"].get("interval_minutes", 60),
+            "genres": status["config"].get("genres"),
+            "intentions": status["config"].get("intentions"),
+            "enabled": status["config"].get("enabled", True),
+        },
+        "stats": status.get("stats", {}),
+    }

@@ -6,6 +6,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { Sliders, Save, RotateCcw, Search, Star, Play, Square, Zap, ChevronDown, X, Bookmark } from 'lucide-react';
+import { Card, Tag, Button } from 'antd';
 import RateDial from './RateDial';
 import { useRateStore, RATE_PRESETS, type Rate, type SavedRate } from '../../stores/rateStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -17,8 +18,11 @@ import {
   HARMONIC_PRESETS,
   presetFrequencies,
   presetFrequencySummary,
+  snapToSolfeggio,
+  solfeggioName,
   type CrystalPreset,
 } from '../../lib/crystalPresets';
+import { rateToDharma } from '../../lib/rateDharma';
 
 const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
 
@@ -173,7 +177,74 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
           />
         ))}
       </div>
-      
+
+      {/* Dharma Resonance Panel — maps the dominant Solfeggio carrier
+          (highest Hz in the dial set) to a deity/chakra/mantra lookup
+          so the user sees the spiritual context of the current rate. */}
+      {(() => {
+        const dharma = rateToDharma(currentRate.values.slice(0, numDials));
+        return (
+          <Card
+            size="small"
+            style={{
+              marginTop: 8,
+              background: `linear-gradient(135deg, rgba(${dharma.colorRgb}, 0.15), rgba(${dharma.colorRgb}, 0.04))`,
+              borderColor: `rgba(${dharma.colorRgb}, 0.45)`,
+            }}
+            styles={{ body: { padding: 12 } }}
+          >
+            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {dharma.deity && (
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#f3f4f6' }}>
+                  {dharma.deity}
+                </div>
+              )}
+              {dharma.chakra && (
+                <div>
+                  <Tag color={dharma.color ?? 'purple'} style={{ margin: 0 }}>
+                    {dharma.chakra} chakra
+                  </Tag>
+                </div>
+              )}
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: '#9ca3af' }}>
+                {dharma.primaryHz} Hz · {dharma.solfeggioName}
+              </div>
+              {dharma.mantra && (
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontStyle: 'italic',
+                    color: `rgba(${dharma.colorRgb}, 0.95)`,
+                    fontFamily: 'serif',
+                    marginTop: 2,
+                  }}
+                >
+                  {dharma.mantra}
+                </div>
+              )}
+              {dharma.practice && (
+                <Button
+                  size="small"
+                  type="link"
+                  style={{ padding: 0, fontSize: 11 }}
+                  onClick={() => {
+                    audioFeedback.playClick();
+                    addToast({
+                      type: 'info',
+                      title: 'Practice',
+                      message: `${dharma.practice} — ${dharma.deity ?? dharma.primaryHz + ' Hz'}`,
+                      duration: 2500,
+                    });
+                  }}
+                >
+                  Practice: {dharma.practice}
+                </Button>
+              )}
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* Dial count controls */}
       <div className="flex justify-center gap-2">
         <button

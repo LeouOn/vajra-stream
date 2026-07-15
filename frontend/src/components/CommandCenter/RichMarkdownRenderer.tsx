@@ -13,11 +13,15 @@
  * @param {string} props.content - raw markdown text to render.
  */
 import React from 'react';
+import { stripThinking } from '../../utils/thinkStrip';
 
 export const RichMarkdownRenderer = ({ content }) => {
   if (!content) return null;
 
-  const lines = content.split('\n');
+  const { clean, reasoning } = stripThinking(content);
+  if (!clean && !reasoning) return null;
+
+  const lines = clean.split('\n');
   const elements = [];
   let currentList = null; // { type: 'ul' | 'ol', items: [] }
   let inCodeBlock = false;
@@ -187,5 +191,15 @@ export const RichMarkdownRenderer = ({ content }) => {
 
   flushList(lines.length);
 
-  return elements;
+  return (
+    <>
+      {elements}
+      {reasoning && (
+        <details className="text-xs opacity-60 mt-2">
+          <summary>💭 Reasoning</summary>
+          <div className="mt-1 whitespace-pre-wrap">{reasoning}</div>
+        </details>
+      )}
+    </>
+  );
 };

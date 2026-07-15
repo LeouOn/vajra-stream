@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
@@ -17,38 +17,45 @@ interface MopsData {
 }
 
 // Ant Design
-import { ConfigProvider, theme, Result, Spin, App as AntApp } from 'antd';
+import { ConfigProvider, theme, Result } from 'antd';
 
 import MainLayout from './components/Layout/MainLayout';
+import CommandCenter from './components/UI/CommandCenter';
+import AstrologyPanel from './components/UI/AstrologyPanel';
+import OutlookDashboard from './components/UI/OutlookDashboard';
+import GrimoirePanel from './components/UI/GrimoirePanel';
+import PracticePage from './routes/Practice';
+import OperationsPage from './routes/Operations';
+import SettingsPage from './routes/Settings';
+import PracticeSelector from './components/UI/PracticeSelector';
+import PracticeDetail from './components/UI/PracticeDetail';
 import ErrorBoundary from './components/UI/ErrorBoundary';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
 import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
 
-// Lazy-load route components so each route's code is split into a separate
-// chunk. This defers ~200KB of JS (Three.js, Recharts, AntD tables, etc.)
-// from the initial bundle until the user actually navigates to that route.
-const CommandCenter = lazy(() => import('./components/UI/CommandCenter'));
-const AstrologyPanel = lazy(() => import('./components/UI/AstrologyPanel'));
-const OutlookDashboard = lazy(() => import('./components/UI/OutlookDashboard'));
-const GrimoirePanel = lazy(() => import('./components/UI/GrimoirePanel'));
-const PracticePage = lazy(() => import('./routes/Practice'));
-const OperationsPage = lazy(() => import('./routes/Operations'));
-const SettingsPage = lazy(() => import('./routes/Settings'));
-
-/** Loading fallback shown while a lazy route chunk downloads. */
-function RouteLoadingFallback(): React.ReactElement {
-  return (
-    <div className="flex-1 h-full flex items-center justify-center bg-gray-900/50">
-      <Spin size="large" />
-    </div>
-  );
-}
-
 function AppContent(): React.ReactElement {
+  const [mopsData, setMopsData] = useState<MopsData | null>(null);
   const location = useLocation();
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
+
+  useEffect(() => {
+    const fetchMops = async (): Promise<void> => {
+      try {
+        const res = await fetch('/api/v1/mops/current');
+        if (res.ok) {
+          const data = await res.json();
+          setMopsData(data.mops as MopsData);
+        }
+      } catch {
+        // Ignore connectivity warnings
+      }
+    };
+    fetchMops();
+    const interval = setInterval(fetchMops, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const {
     isConnected,
@@ -57,17 +64,19 @@ function AppContent(): React.ReactElement {
     scalarStatus,
     buddhaStatus,
     sakaDawa,
-    mopsAverages,
+    practices: wsPractices
   } = useWebSocket();
 
-  const isPlaying = useAudioStore((s) => s.isPlaying);
-  const frequency = useAudioStore((s) => s.frequency);
-  const volume = useAudioStore((s) => s.volume);
-  const prayerBowlMode = useAudioStore((s) => s.prayerBowlMode);
-  const updateSettings = useAudioStore((s) => s.updateSettings);
-  const generateAudio = useAudioStore((s) => s.generateAudio);
-  const playAudio = useAudioStore((s) => s.playAudio);
-  const stopAudio = useAudioStore((s) => s.stopAudio);
+  const {
+    isPlaying,
+    frequency,
+    volume,
+    prayerBowlMode,
+    updateSettings,
+    generateAudio,
+    playAudio,
+    stopAudio,
+  } = useAudioStore();
 
   useEffect(() => {
     updateSettings({
@@ -79,8 +88,6 @@ function AppContent(): React.ReactElement {
     });
   }, [updateSettings]);
 
-  // Single tab-change audio cue (previously fired BOTH playTabChange AND
-  // playClick on every navigation — the playClick was a duplicate).
   const isFirstRender = useRef<boolean>(true);
   useEffect(() => {
     if (isFirstRender.current) {
@@ -90,18 +97,10 @@ function AppContent(): React.ReactElement {
     audioFeedback.playTabChange();
   }, [activeTab]);
 
-  // Memoize the audio action wrappers so MainLayout doesn't re-render on
-  // every store change. Previously these were inline arrow functions that
-  // created new function identity on every render, defeating any memoization.
-  const handleGenerateAudio = useCallback(async (): Promise<void> => {
-    await generateAudio();
-  }, [generateAudio]);
-  const handlePlayAudio = useCallback(async (): Promise<void> => {
-    await playAudio();
-  }, [playAudio]);
-  const handleStopAudio = useCallback((): void => {
-    void stopAudio();
-  }, [stopAudio]);
+  useEffect(() => {
+    if (isFirstRender.current) return;
+    audioFeedback.playClick();
+  }, [activeTab]);
 
   return (
     <MainLayout
@@ -110,19 +109,21 @@ function AppContent(): React.ReactElement {
       frequency={frequency}
       volume={volume}
       prayerBowlMode={prayerBowlMode}
-      generateAudio={handleGenerateAudio}
-      playAudio={handlePlayAudio}
-      stopAudio={handleStopAudio}
-      mopsData={mopsAverages as MopsData | null}
+      generateAudio={async (): Promise<void> => { await generateAudio(); }}
+      playAudio={async (): Promise<void> => { await playAudio(); }}
+      stopAudio={(): void => { void stopAudio(); }}
+      mopsData={mopsData}
     >
-      <Suspense fallback={<RouteLoadingFallback />}>
       <Routes>
         <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />
 
-        {/* ==================== MAIN GROUPED ROUTES (7) ==================== */}
+        {/* ==================== MAIN GROUPED ROUTES (7) ====================
+            Every renderable route is wrapped in <ErrorBoundary> so a single
+            render error in any view (or a lazy-loaded chunk failure) is
+            contained and shows a retry panel instead of crashing the app. */}
 
         <Route path="/command-center" element={
-          <ErrorBoundary fallbackTitle="Command Center failed to load">
+          <ErrorBoundary fallbackTitle="Command Center failed to render">
             <div className="flex-1 h-full overflow-hidden">
               <CommandCenter
                 isConnected={isConnected}
@@ -131,7 +132,6 @@ function AppContent(): React.ReactElement {
                 crystalStatus={crystalStatus}
                 scalarStatus={scalarStatus}
                 sessions={sessions}
-                buddhaStatus={buddhaStatus}
                 sakaDawa={sakaDawa}
               />
             </div>
@@ -140,13 +140,28 @@ function AppContent(): React.ReactElement {
 
         <Route path="/practice" element={<Navigate to="/practice/sanctuary" replace />} />
         <Route path="/practice/:tab" element={
-          <ErrorBoundary fallbackTitle="Practice failed to load">
+          <ErrorBoundary fallbackTitle="Practice view failed to render">
             <PracticePage />
           </ErrorBoundary>
         } />
 
+        <Route path="/practices" element={
+          <ErrorBoundary fallbackTitle="Practice Library failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <PracticeSelector />
+            </div>
+          </ErrorBoundary>
+        } />
+        <Route path="/practices/:id" element={
+          <ErrorBoundary fallbackTitle="Practice detail failed to render">
+            <div className="flex-1 h-full overflow-hidden">
+              <PracticeDetail wsPractices={wsPractices} />
+            </div>
+          </ErrorBoundary>
+        } />
+
         <Route path="/astrology" element={
-          <ErrorBoundary fallbackTitle="Cosmic Clock failed to load">
+          <ErrorBoundary fallbackTitle="Cosmic Clock failed to render">
             <div className="flex-1 h-full overflow-hidden">
               <AstrologyPanel />
             </div>
@@ -154,7 +169,7 @@ function AppContent(): React.ReactElement {
         } />
 
         <Route path="/outlook" element={
-          <ErrorBoundary fallbackTitle="Outlook failed to load">
+          <ErrorBoundary fallbackTitle="Outlook failed to render">
             <div className="flex-1 h-full overflow-hidden">
               <OutlookDashboard />
             </div>
@@ -162,18 +177,18 @@ function AppContent(): React.ReactElement {
         } />
 
         <Route path="/operations" element={
-          <ErrorBoundary fallbackTitle="Operations failed to load">
+          <ErrorBoundary fallbackTitle="Operations failed to render">
             <OperationsPage />
           </ErrorBoundary>
         } />
         <Route path="/operations/:tab" element={
-          <ErrorBoundary fallbackTitle="Operations failed to load">
+          <ErrorBoundary fallbackTitle="Operations failed to render">
             <OperationsPage />
           </ErrorBoundary>
         } />
 
         <Route path="/grimoire" element={
-          <ErrorBoundary fallbackTitle="Grimoire failed to load">
+          <ErrorBoundary fallbackTitle="Grimoire failed to render">
             <div className="flex-1 h-full overflow-hidden">
               <GrimoirePanel />
             </div>
@@ -181,17 +196,20 @@ function AppContent(): React.ReactElement {
         } />
 
         <Route path="/settings" element={
-          <ErrorBoundary fallbackTitle="Settings failed to load">
+          <ErrorBoundary fallbackTitle="Settings failed to render">
             <SettingsPage />
           </ErrorBoundary>
         } />
         <Route path="/settings/:tab" element={
-          <ErrorBoundary fallbackTitle="Settings failed to load">
+          <ErrorBoundary fallbackTitle="Settings failed to render">
             <SettingsPage />
           </ErrorBoundary>
         } />
 
         {/* ==================== LEGACY ROUTE REDIRECTS ==================== */}
+        {/* Old flat routes keep working via <Navigate> so bookmarks and
+            internal links don't break. See lib/routes.ts header comment
+            and docs/specs/2026-06-20-ui-rework-design.md. */}
         <Route path="/sanctuary" element={<Navigate to="/practice/sanctuary" replace />} />
         <Route path="/buddhas" element={<Navigate to="/practice/buddhas" replace />} />
         <Route path="/meditation" element={<Navigate to="/practice/meditation" replace />} />
@@ -217,7 +235,6 @@ function AppContent(): React.ReactElement {
           </div>
         } />
       </Routes>
-      </Suspense>
     </MainLayout>
   );
 }
@@ -228,15 +245,39 @@ function App(): React.ReactElement {
       theme={{
         ...antdTheme,
         algorithm: theme.darkAlgorithm,
+        token: {
+          ...antdTheme.token,
+          colorPrimary: COLORS.primary, // vajra-purple (--primary in globals.css)
+          colorInfo: COLORS.secondary, // vajra-cyan (--secondary in globals.css)
+        },
+        components: {
+          ...(antdTheme.components ?? {}),
+          Slider: {
+            handleColor: COLORS.primary,
+            trackBg: COLORS.primary,
+            trackHoverBg: COLORS.primary,
+          },
+          Switch: {
+            colorPrimary: COLORS.primary,
+            colorPrimaryHover: COLORS.primary,
+          },
+          Tabs: {
+            inkBarColor: COLORS.primary,
+            itemActiveColor: COLORS.primary,
+            itemHoverColor: COLORS.primary,
+            itemSelectedColor: COLORS.primary,
+          },
+          Progress: {
+            defaultColor: COLORS.primary,
+          },
+        },
       }}
     >
-      <AntApp>
-        <ErrorBoundary fallbackTitle="Application failed to render">
-          <BrowserRouter>
-            <AppContent />
-          </BrowserRouter>
-        </ErrorBoundary>
-      </AntApp>
+      <ErrorBoundary fallbackTitle="Application failed to render">
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </ErrorBoundary>
     </ConfigProvider>
   );
 }

@@ -8,6 +8,29 @@
 import React, { useState } from 'react';
 import { BookOpen, Sparkles, Compass, Moon, Sun, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
+import { stripThinking } from '../../utils/thinkStrip';
+
+interface SigilData {
+  kamea?: string;
+  reduced?: string;
+  svg?: string;
+  [key: string]: unknown;
+}
+
+interface DivinationRawPayload {
+  tarot?: { svg?: string; name?: string; orientation?: string; [k: string]: unknown };
+  iching?: { svg?: string; name?: string; [k: string]: unknown };
+  sigil?: SigilData;
+  [key: string]: unknown;
+}
+
+interface EpicStoryViewerProps {
+  narrativeParts?: Array<{ chapter: number; title: string; content: string }>;
+  astrologyContext?: string;
+  divinationContext?: string;
+  divinationRaw?: DivinationRawPayload | null;
+  entitiesInvoked?: string;
+}
 
 export default function EpicStoryViewer({
   narrativeParts = [],
@@ -15,34 +38,20 @@ export default function EpicStoryViewer({
   divinationContext = '',
   divinationRaw = null,
   entitiesInvoked = ''
-}) {
+}: EpicStoryViewerProps = {}) {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
 
-  // Defensive normalization — the OutlookDashboard.tsx:129 type union permits
-  // ``narrative_parts?: string[] | string`` because the backend's `/history`
-  // endpoint at outlook.py:234-238 falls back to the raw JSON string when
-  // ``json.loads(row["content"])`` fails. Without this guard, a string value
-  // crashes at line 96 below (``narrativeParts.map is not a function``) —
-  // same crash class as the AstrologyExtractionPanel replay-tab bug.
-  // If we get a string, wrap it as a single chapter so the user sees the
-  // raw text rather than a broken UI.
-  // Use ``any[]`` here because the backend's epic shape is ``{chapter, title,
-  // content}`` but the type union in the parent only declares ``string[] | string``;
-  // we don't want to tighten the parent type and break call sites.
-  const rawParts: unknown = narrativeParts;
-  const parts: any[] = Array.isArray(rawParts)
-    ? rawParts
-    : (typeof rawParts === 'string' && (rawParts as string).length > 0
-        ? [rawParts]
-        : []);
-
-  const allText = parts
-    .map(p => (typeof p === 'object' && p ? p.content : '') || '')
+  const allText = (narrativeParts || [])
+    .map(p => {
+      const raw = (typeof p === 'object' && p ? p.content : '') || '';
+      return stripThinking(raw).clean;
+    })
     .filter(Boolean)
     .join('\n\n');
-  const currentText = parts[currentChapterIndex]?.content || '';
+  const currentTextRaw = narrativeParts[currentChapterIndex]?.content || '';
+  const { clean: currentTextClean, reasoning: currentReasoning } = stripThinking(currentTextRaw);
 
-  if (parts.length === 0) {
+  if (!narrativeParts || narrativeParts.length === 0) {
     return (
       <div className="p-8 text-center text-gray-500 italic">
         No epic narrative chapters loaded.
@@ -50,7 +59,7 @@ export default function EpicStoryViewer({
     );
   }
 
-  const currentChapter = parts[currentChapterIndex];
+  const currentChapter = narrativeParts[currentChapterIndex];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full overflow-hidden">
@@ -77,7 +86,7 @@ export default function EpicStoryViewer({
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <NarrativeTTSPlayer
-                text={currentText}
+                text={currentTextClean}
                 role="outlook_epic"
                 label="Speak chapter"
                 showAdvanced={false}
@@ -89,13 +98,19 @@ export default function EpicStoryViewer({
                 showAdvanced
               />
               <div className="text-xs bg-purple-950/50 text-purple-300 px-3 py-1 rounded-full border border-purple-500/20 font-mono">
-                Stage {currentChapterIndex + 1} of {parts.length}
+                Stage {currentChapterIndex + 1} of {narrativeParts.length}
               </div>
             </div>
           </div>
 
           <div className="text-sm md:text-base text-gray-200 whitespace-pre-wrap leading-relaxed space-y-4 py-2 font-serif">
-            {currentChapter.content}
+            {currentTextClean}
+            {currentReasoning && (
+              <details className="text-xs opacity-60 mt-3 block">
+                <summary>💭 Reasoning</summary>
+                <div className="mt-1 whitespace-pre-wrap">{currentReasoning}</div>
+              </details>
+            )}
           </div>
         </div>
 
@@ -111,7 +126,7 @@ export default function EpicStoryViewer({
           </button>
 
           <div className="flex gap-1.5 overflow-x-auto max-w-xs py-1">
-            {parts.map((_, idx) => (
+            {narrativeParts.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setCurrentChapterIndex(idx)}
@@ -126,8 +141,8 @@ export default function EpicStoryViewer({
           </div>
 
           <button
-            onClick={() => setCurrentChapterIndex(prev => Math.min(parts.length - 1, prev + 1))}
-            disabled={currentChapterIndex === parts.length - 1}
+            onClick={() => setCurrentChapterIndex(prev => Math.min(narrativeParts.length - 1, prev + 1))}
+            disabled={currentChapterIndex === narrativeParts.length - 1}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-cyan-600 to-teal-600 text-white hover:from-cyan-700 hover:to-teal-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           >
             Next Stage
@@ -147,11 +162,17 @@ export default function EpicStoryViewer({
             </h4>
             
             <div className="grid grid-cols-2 gap-3">
-              {/* Tarot Draw — SVG suppressed, text-only */}
-              {divinationRaw.tarot && divinationRaw.tarot.name && (
+              {/* Tarot Draw */}
+              {divinationRaw.tarot && divinationRaw.tarot.svg && (
                 <div className="flex flex-col items-center bg-black/40 p-2.5 rounded-lg border border-white/5 text-center">
                   <span className="text-[9px] text-gray-500 font-mono block uppercase">TAROT RULER</span>
-                  <span className="text-[10px] font-bold text-white truncate max-w-full block mt-1.5">
+                  <div className="w-20 h-28 my-1.5 flex items-center justify-center relative overflow-hidden rounded">
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: divinationRaw.tarot.svg }} 
+                      className="divination-card-container w-full h-full flex justify-center" 
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-white truncate max-w-full block">
                     {divinationRaw.tarot.name}
                   </span>
                   <span className="text-[8px] text-purple-400 font-serif italic block truncate max-w-full">
@@ -160,11 +181,17 @@ export default function EpicStoryViewer({
                 </div>
               )}
 
-              {/* I Ching Draw — SVG suppressed, text-only */}
-              {divinationRaw.iching && divinationRaw.iching.name && (
+              {/* I Ching Draw */}
+              {divinationRaw.iching && divinationRaw.iching.svg && (
                 <div className="flex flex-col items-center bg-black/40 p-2.5 rounded-lg border border-white/5 text-center">
                   <span className="text-[9px] text-gray-500 font-mono block uppercase">HEXAGRAM</span>
-                  <span className="text-[10px] font-bold text-white truncate max-w-full block mt-1.5">
+                  <div className="w-20 h-28 my-1.5 flex items-center justify-center relative overflow-hidden rounded">
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: divinationRaw.iching.svg }} 
+                      className="divination-card-container w-full h-full flex justify-center" 
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-white truncate max-w-full block">
                     {divinationRaw.iching.name.split(' / ')[0]}
                   </span>
                   <span className="text-[8px] text-cyan-400 font-serif italic block truncate max-w-full">
@@ -179,6 +206,23 @@ export default function EpicStoryViewer({
                 "{divinationContext}"
               </p>
             )}
+          </div>
+        )}
+
+        {/* Sigil Kamea Trace */}
+        {divinationRaw?.sigil?.svg && (
+          <div className="bg-gray-950/40 p-4 rounded-xl border border-white/5 space-y-2">
+            <h4 className="text-xs font-bold font-mono text-vajra-cyan tracking-wider flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              KAMEA SIGIL
+            </h4>
+            <div
+              dangerouslySetInnerHTML={{ __html: divinationRaw.sigil.svg }}
+              className="svg-container w-full max-w-[220px] mx-auto"
+            />
+            <p className="text-[10px] text-gray-400 font-mono text-center">
+              {divinationRaw.sigil.reduced} · {divinationRaw.sigil.kamea} grid
+            </p>
           </div>
         )}
 

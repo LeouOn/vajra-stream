@@ -1,0 +1,68 @@
+{
+  "practice_id": "medicine_buddha",
+  "name": "Medicine Buddha Practice (Bhaiṣajyaguru Sādhana)",
+  "name_sanskrit": "Bhaiṣajyaguru Vaiḍūryaprabhārāja",
+  "name_chinese": "藥師佛 — Yàoshīfó",
+  "tradition": "Vajrayana / Mahayana",
+  "category": "healing",
+  "primary_purpose": "Healing of physical and mental illness; alleviation of suffering for self and all beings",
+  "mantras": [
+    {
+      "mantra_id": "medicine_buddha_long",
+      "use": "Primary recitation — long form",
+      "recommended_count": 108,
+      "traditional_purification_count": 10000
+    },
+    {
+      "mantra_id": "medicine_buddha",
+      "use": "Short Tibetan form (Tayata Om Bekandze...)",
+      "recommended_count": 108
+    }
+  ],
+  "visualizations": [
+    "Medicine Buddha appears in the space before you, seated on a lotus and moon disc",
+    "His body is transparent lapis-lazuli blue (#1B4F8B), radiating healing light in all directions",
+    "His right hand rests in the mudrā of supreme giving over his right knee, holding a myrobalan (arura) plant — the king of medicinal herbs",
+    "His left hand rests in his lap in meditation mudrā, holding a lapis bowl filled with healing nectar",
+    "Lapis-blue healing light streams from his heart and bowl into your crown, filling your body and dissolving all illness, blockages, and impurities into black smoke that leaves your body",
+    "Light radiates outward to all sentient beings — humans, animals, and beings in all realms — relieving their suffering completely"
+  ],
+  "benefits": [
+    "Healing of physical illnesses of body",
+    "Healing of mental illnesses — anxiety, depression, obsession",
+    "Relief from chronic pain and suffering",
+    "Protection from future illness",
+    "Purification of negative karma causing illness",
+    "Lengthening of lifespan",
+    "Connection to Medicine Buddha's 12 vows",
+    "Blessing of medicinal herbs, water, and substances"
+  ],
+  "frequency_hz": 285,
+  "frequency_purpose": "Solfeggio healing and tissue regeneration",
+  "color": "#1B4F8B",
+  "color_name": "Lapis Lazuli Blue",
+  "element": "Water",
+  "chakra": "third_eye",
+  "direction": "Eastern Pure Land of Lapis Vaiḍūrya (Pure Lapis Lazuli)",
+  "twelve_vows_summary": [
+    "May my body shine with lapis light",
+    "May beings be free from illness",
+    "May beings have their needs fulfilled",
+    "May beings who have gone astray find the right path",
+    "May beings keep pure discipline",
+    "May beings born with defects be healed",
+    "May beings be free from disease and poverty",
+    "May women who wish to renounce become men (per traditional vow)",
+    "May beings be free from Mara's snares",
+    "May those in prison or disaster be freed",
+    "May the hungry and thirsty be fed",
+    "May beings in need of clothing receive it"
+  ],
+  "best_times": [
+    "Daily at sunrise or dusk",
+    "Before administering or taking medicine",
+    "During illness",
+    "On Medicine Buddha's feast days (8th day of the lunar month in some traditions)"
+  ],
+  "dedication": "By this merit, may all beings be free from illness, suffering, and the causes of suffering. May they attain the state of Medicine Buddha, the King of Lapis Light."
+}

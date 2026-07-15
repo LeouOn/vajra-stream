@@ -133,7 +133,7 @@ export default function JourneyCard() {
   // Sync from WS (primary source of truth for journey status).
   useEffect(() => {
     const fromWs = journeyStatus as JourneyStatus | null;
-    if (fromWs === null) return; // No WS data yet — keep current/fallback.
+    if (!fromWs) return; // No WS data yet — keep current/fallback.
     setJourney(fromWs.active ? fromWs : null);
   }, [journeyStatus]);
 

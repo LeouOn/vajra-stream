@@ -13,8 +13,9 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Volume2, Square, Loader2, AlertTriangle, Settings2 } from 'lucide-react';
-import { Button, Slider, Switch, Space, Tooltip, Tag, message } from 'antd';
+import { Button, Slider, Switch, Space, Tooltip, Tag } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { useUIStore } from '../../stores/uiStore';
 
 interface NarrativeTTSPlayerProps {
   text?: string;
@@ -37,6 +38,7 @@ export default function NarrativeTTSPlayer({
 }: NarrativeTTSPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const addToast = useUIStore((s) => s.addToast);
   const [loading, setLoading] = useState<boolean>(false);
   const [playing, setPlaying] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export default function NarrativeTTSPlayer({
 
   const handleSpeak = useCallback(async (): Promise<void> => {
     if (!text) {
-      message.warning('No narrative to speak.');
+      addToast({ type: 'warning', title: 'No narrative to speak.', duration: 4 });
       return;
     }
     stopAndCleanup();
@@ -106,7 +108,7 @@ export default function NarrativeTTSPlayer({
       };
       await audio.play();
       setPlaying(true);
-      message.success(`Streaming via ${backend}`);
+      addToast({ type: 'success', title: `Streaming via ${backend}`, duration: 3 });
       audioFeedback.playSuccess();
     } catch (e) {
       setError(e instanceof Error ? (e.message || String(e)) : String(e));

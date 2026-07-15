@@ -8,12 +8,13 @@
  *
  * @component
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Compass, Sparkles, Globe, Clock, Shield, Users, Settings,
   History, RefreshCw, Copy, CheckCircle, Play, Square,
   Plus, Edit2, Trash2, Search, Filter, ArrowUpDown, X,
   BookOpen, Sun, Moon, Layers, Shuffle, Dices, Zap,
+  Download, Volume2, Bell,
 } from 'lucide-react';
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
@@ -27,6 +28,8 @@ import EpicStoryViewer from './EpicStoryViewer';
 import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import GuidedRitualFlow from './GuidedRitualFlow';
+import JourneyCard from './JourneyCard';
+import RitualVisualization from './RitualVisualization';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
@@ -117,9 +120,17 @@ interface DivinationCardPayload {
   [key: string]: unknown;
 }
 
+interface SigilData {
+  kamea?: string;
+  reduced?: string;
+  coordinates?: Array<{ x: number; y: number; value?: number; letter?: string }>;
+  svg?: string;
+}
+
 interface DivinationRaw {
   tarot?: DivinationCardPayload;
   iching?: DivinationCardPayload;
+  sigil?: SigilData;
   [key: string]: unknown;
 }
 
@@ -151,7 +162,7 @@ interface ModelSelectOption {
 type ResultTab = 'narrative' | 'affirmation';
 type UniverseTab = 'realms' | 'characters' | 'populations';
 type LoopMode = 'sequential_delay' | 'consecutive';
-type GeneratorTab = 'generator' | 'universe' | 'history';
+type GeneratorTab = 'generator' | 'universe' | 'history' | 'journey';
 
 // ─── Constants ────────────────────────────────────────────
 
@@ -172,19 +183,116 @@ const LANGUAGES: string[] = [
 const GENRE_OPTIONS = GENRES.map(g => ({ value: g.value, label: g.label }));
 const LANGUAGE_OPTIONS = LANGUAGES.map(l => ({ value: l, label: l }));
 
+/**
+ * Genre color theming — soft tinted card backgrounds that visually evoke
+ * the genre's energy without overwhelming the typography. Keyed by genre
+ * id; unknown genres fall back to transparent.
+ */
+const GENRE_COLORS: Record<string, string> = {
+  healing: 'rgba(0, 168, 107, 0.05)',     // 00A86B green
+  victory: 'rgba(220, 20, 60, 0.05)',      // crimson
+  alchemist: 'rgba(218, 165, 32, 0.05)',   // goldenrod
+  fun_parable: 'rgba(100, 149, 237, 0.05)',// cornflower
+  dharani: 'rgba(138, 43, 226, 0.05)',     // violet
+  compassion: 'rgba(255, 105, 180, 0.05)', // pink
+  wisdom: 'rgba(100, 149, 237, 0.05)',     // cornflower
+  protection: 'rgba(34, 139, 34, 0.05)',   // forest green
+};
+
+const RITUAL_PHASES: string[] = [
+  'Invocatio',
+  'Pacificatio',
+  'Attunement',
+  'Sigillum',
+  'Dedicatio',
+];
+
+const SAVED_RITUALS_KEY = 'vajra.savedRituals.v1';
+
+interface SavedRitual {
+  id: string;
+  savedAt: string;
+  genre: string;
+  narrative: string;
+  divinationRaw: DivinationRaw | null;
+  entities: string | null;
+  model: string | null;
+  provider: string | null;
+}
+
 const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   { id: 'mild', label: 'Mild', desc: 'Minor obstacles and everyday challenges' },
   { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
   { id: 'deep', label: 'Deep', desc: 'Profound wounds and life-changing difficulties' },
 ];
 
+const GENRE_BORDER_COLORS: Record<string, string> = {
+  healing: '#00A86B',
+  victory: '#dc143c',
+  alchemist: '#daa520',
+  fun_parable: '#6495ed',
+  dharani: '#8a2be2',
+  compassion: '#ff69b4',
+  wisdom: '#6495ed',
+  protection: '#228b22',
+};
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^>\s+/gm, '')
+    .trim();
+}
+
 const GLOBAL_INTENTIONS: GlobalIntention[] = [
-  { id: 'world peace', label: 'World Peace', planet: 'Jupiter', freq: '852Hz', icon: '🕊️' },
-  { id: 'world prosperity', label: 'World Prosperity', planet: 'Venus', freq: '528Hz', icon: '💎' },
-  { id: 'end to disease and cancer', label: 'End Disease & Cancer', planet: 'Sun', freq: '528Hz', icon: '☀️' },
-  { id: 'happiness', label: 'Happiness', planet: 'Jupiter', freq: '528Hz', icon: '🌟' },
-  { id: 'reforestation the world', label: 'Reforestation', planet: 'Earth', freq: '528Hz', icon: '🌲' },
-  { id: 'cleaning up pollution', label: 'Clean Pollution', planet: 'Saturn', freq: '396Hz', icon: '🌊' },
+  { id: 'world peace', label: 'World Peace', planet: 'Jupiter', freq: '852Hz', icon: '🕊' },  // dove
+  { id: 'world prosperity', label: 'World Prosperity', planet: 'Venus', freq: '528Hz', icon: '💎' },  // gem
+  { id: 'end to disease and cancer', label: 'End Disease & Cancer', planet: 'Sun', freq: '528Hz', icon: '☀️' },  // sun
+  { id: 'happiness', label: 'Happiness', planet: 'Jupiter', freq: '528Hz', icon: '🌟' },  // star
+  { id: 'reforestation the world', label: 'Reforestation', planet: 'Earth', freq: '528Hz', icon: '🌲' },  // tree
+  { id: 'cleaning up pollution', label: 'Clean Pollution', planet: 'Saturn', freq: '396Hz', icon: '🌊' },  // wave
+];
+
+const DEFAULT_CHARACTERS: Character[] = [
+  {
+    id: 'seed-green-tara',
+    name: 'Green Tara',
+    role: 'protector',
+    description: 'Swift protectress and Mother of Liberation; springs into action at the first cry of fear. Ferries beings across the eight great fears.',
+    tags: ['compassion', 'protection', 'swift-action'],
+    mantra_preference: 'Oṃ Tāre Tuttāre Ture Svāhā',
+    elemental_anchor: 'Air',
+    dialogue_style: 'gentle, maternal, swift',
+    priority: 9,
+    source_type: 'seed',
+  },
+  {
+    id: 'seed-medicine-buddha',
+    name: 'Medicine Buddha (Bhaiṣajyaguru)',
+    role: 'healer',
+    description: 'Lapis Lazuli Radiance of the eastern pure land; embodies the Twelve Great Vows to heal all sickness of body, speech, and mind.',
+    tags: ['healing', 'lapis-light', 'medicine'],
+    mantra_preference: 'Oṃ Bhaiṣajye Bhaiṣajye Mahābhaiṣajye Rāja Samudgate Svāhā',
+    elemental_anchor: 'Water',
+    dialogue_style: 'calm, healing, luminous',
+    priority: 9,
+    source_type: 'seed',
+  },
+  {
+    id: 'seed-vajrasattva',
+    name: 'Vajrasattva',
+    role: 'purifier',
+    description: 'Diamond Being; the embodiment of primordial purity. The hundred-syllable mantra purifies all obscurations and negative karma.',
+    tags: ['purification', 'vajra', 'purity'],
+    mantra_preference: 'Oṃ Vajrasattva Hūṃ',
+    elemental_anchor: 'Aether',
+    dialogue_style: 'precise, luminous, diamond-clear',
+    priority: 9,
+    source_type: 'seed',
+  },
 ];
 
 // ─── Component ─────────────────────────────────────────────
@@ -192,7 +300,7 @@ const GLOBAL_INTENTIONS: GlobalIntention[] = [
 export default function OutlookDashboard() {
   const { isPlaying } = useAudioStore();
   const addToast = useUIStore((s) => s.addToast);
-  const { isConnected } = useWebSocketStable();
+  const { isConnected, idleReflectionCount } = useWebSocketStable();
   const [activeTab, setActiveTab] = useState<GeneratorTab>('generator');
 
   // ─── Generator State ─────────────────────────────────────
@@ -216,10 +324,20 @@ export default function OutlookDashboard() {
   const [randomizeRealm, setRandomizeRealm] = useState<boolean>(false);
   const [randomizeCharacters, setRandomizeCharacters] = useState<boolean>(false);
 
-  // ─── Loop State ──────────────────────────────────────────
-  const [loopActive, setLoopActive] = useState<boolean>(false);
-  const [loopInterval, setLoopInterval] = useState<number>(5);
-  const [loopMode, setLoopMode] = useState<LoopMode>('sequential_delay');
+  const [bgActive, setBgActive] = useState<boolean>(false);
+  const [bgInterval, setBgInterval] = useState<number>(60);
+  const [bgMode, setBgMode] = useState<LoopMode>('sequential_delay');
+  const [bgAstrology, setBgAstrology] = useState<boolean>(true);
+  const [bgTarot, setBgTarot] = useState<boolean>(true);
+  const [bgIching, setBgIching] = useState<boolean>(true);
+  const [bgCycleGenres, setBgCycleGenres] = useState<boolean>(true);
+  const [bgStats, setBgStats] = useState<{
+    total_generated?: number;
+    total_saved?: number;
+    total_errors?: number;
+    last_generated_at?: string | null;
+    last_genre?: string | null;
+  }>({});
 
   // ─── Generation Mode ─────────────────────────────────────
   const [generationMode, setGenerationMode] = useState<'guided' | 'quick'>('guided');
@@ -228,11 +346,20 @@ export default function OutlookDashboard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [currentNarrative, setCurrentNarrative] = useState<CurrentNarrative | null>(null);
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
+  const [historyGenreFilter, setHistoryGenreFilter] = useState<string>('all');
   const [copied, setCopied] = useState<boolean>(false);
   const [resultTab, setResultTab] = useState<ResultTab>('narrative');
   const [affirmation, setAffirmation] = useState<string | null>(null);
   const [affirmationLoading, setAffirmationLoading] = useState<boolean>(false);
   const [affirmationCopied, setAffirmationCopied] = useState<boolean>(false);
+
+  // ─── Ritual Reveal State ─────────────────────────────────
+  // Progressive section reveal — sections (I. Invocatio … V. Dedicatio)
+  // fade in one at a time. `revealedSections` counts how many have
+  // appeared so far; the underlying text is split on Roman-numeral
+  // headers and only the revealed slice is rendered.
+  const [revealedSections, setRevealedSections] = useState<number>(0);
+  const revealTimersRef = useRef<number[]>([]);
 
   // ─── Universe Data ───────────────────────────────────────
   const [realms, setRealms] = useState<Realm[]>([]);
@@ -262,7 +389,6 @@ export default function OutlookDashboard() {
   // ─── Model Selection ─────────────────────────────────────
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [randomModel, setRandomModel] = useState<boolean>(false);
-  const [randomLoop, setRandomLoop] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
   const [healthyProviders, setHealthyProviders] = useState<Record<string, boolean>>({});
   const log = createLogger('OutlookDashboard');
@@ -339,51 +465,109 @@ export default function OutlookDashboard() {
     }
   }, []);
 
-  const fetchLoopStatus = useCallback(async (): Promise<void> => {
+  const fetchBgStatus = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`/api/v1/outlook/loop/status`);
+      const res = await fetch(`/api/v1/outlook/background/status`);
       if (res.ok) {
         const data = await res.json() as {
           active?: boolean;
-          interval_minutes?: number;
-          config?: { loop_mode?: LoopMode; [key: string]: unknown };
+          config?: {
+            interval_minutes?: number;
+            loop_mode?: LoopMode;
+            cycle_genres?: boolean;
+            include_astrology?: boolean;
+            include_tarot?: boolean;
+            include_iching?: boolean;
+          };
+          stats?: typeof bgStats;
         };
-        setLoopActive(Boolean(data.active));
-        if (data.active) {
-          setLoopInterval(data.interval_minutes || 5);
-          setLoopMode(data.config?.loop_mode || 'sequential_delay');
-        }
+        setBgActive(Boolean(data.active));
+        if (data.config?.interval_minutes) setBgInterval(data.config.interval_minutes);
+        if (data.config?.loop_mode) setBgMode(data.config.loop_mode);
+        if (data.config?.cycle_genres !== undefined) setBgCycleGenres(data.config.cycle_genres);
+        if (data.config?.include_astrology !== undefined) setBgAstrology(data.config.include_astrology);
+        if (data.config?.include_tarot !== undefined) setBgTarot(data.config.include_tarot);
+        if (data.config?.include_iching !== undefined) setBgIching(data.config.include_iching);
+        if (data.stats) setBgStats(data.stats);
       }
-    } catch (e) {
-      addToast({ type: 'error', title: 'Could not check loop status', message: 'Backend unreachable.', duration: 3000 });
+    } catch {
     }
-  }, [addToast]);
+  }, []);
+
+  const toggleBackgroundGeneration = useCallback(async (): Promise<void> => {
+    if (bgActive) {
+      try {
+        await fetch(`/api/v1/outlook/background/stop`, { method: 'POST' });
+        setBgActive(false);
+        message.success('Background generation stopped.');
+      } catch {
+        message.error('Could not stop background generation.');
+      }
+    } else {
+      try {
+        const res = await fetch(`/api/v1/outlook/background/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            interval_minutes: bgInterval,
+            loop_mode: bgMode,
+            cycle_genres: bgCycleGenres,
+            cycle_intentions: true,
+            include_astrology: bgAstrology,
+            include_tarot: bgTarot,
+            include_iching: bgIching,
+            include_geomancy: true,
+            lat: parseFloat(String(lat)),
+            lon: parseFloat(String(lon)),
+            languages: selectedLangs,
+          }),
+        });
+        if (res.ok) {
+          setBgActive(true);
+          message.success(`Background generation every ${bgInterval} min.`);
+          audioFeedback.playSuccess();
+          fetchBgStatus();
+        } else {
+          message.error('Could not start background generation.');
+          audioFeedback.playError();
+        }
+      } catch {
+        message.error('Backend unreachable.');
+        audioFeedback.playError();
+      }
+    }
+  }, [bgActive, bgInterval, bgMode, bgCycleGenres, bgAstrology, bgTarot, bgIching, lat, lon, selectedLangs, fetchBgStatus]);
 
   useEffect(() => {
     fetchUniverseData();
     fetchHistory();
     fetchModels();
     fetchProvidersHealth();
-    fetchLoopStatus();
+    fetchBgStatus();
   }, []);
 
-  // WS reconnect recovery — same pattern as JourneyCard and Dashboard.
-  // When the WebSocket reconnects after a backend restart, re-run all the
-  // initial data fetches so realms/characters/populations/models/loop-status
-  // aren't stuck showing stale data until a manual refresh.
   useEffect(() => {
     if (isConnected) {
       fetchUniverseData();
       fetchHistory();
       fetchModels();
       fetchProvidersHealth();
-      fetchLoopStatus();
+      fetchBgStatus();
     }
     // Intentionally NOT listing the fetch callbacks in deps — they capture
     // addToast and may change identity on each render, which would cause
     // an infinite refetch loop. This matches the JourneyCard pattern.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected]);
+
+  useEffect(() => {
+    if (!bgActive) return;
+    const id = window.setInterval(() => {
+      fetchBgStatus();
+      fetchHistory();
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [bgActive, fetchBgStatus, fetchHistory]);
 
   // Auto-set coordinates from selected realm
   useEffect(() => {
@@ -395,6 +579,23 @@ export default function OutlookDashboard() {
       }
     }
   }, [selectedRealmId, realms]);
+
+  // Seed defaults so first-time users don't see "Characters (0) /
+  // Populations (0)". Seed characters are local-only (not persisted);
+  // populations are auto-selected from the backend's first 3.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (characters.length === 0) {
+      setCharacters(DEFAULT_CHARACTERS);
+    }
+    if (selectedPopIds.length === 0 && populations.length > 0) {
+      setSelectedPopIds(populations.slice(0, 3).map(p => p.id));
+    }
+    if (characters.length > 0 || populations.length > 0) {
+      seededRef.current = true;
+    }
+  }, [characters.length, populations, selectedPopIds.length]);
 
   // ─── Filtered Lists ──────────────────────────────────────
 
@@ -433,7 +634,7 @@ export default function OutlookDashboard() {
     setCurrentNarrative(null);
     setAffirmation(null);
     setResultTab('narrative');
-    audioFeedback.playTelemetry();
+    audioFeedback.playClick();
 
     try {
       const endpoint = isEpic ? '/outlook/generate_epic' : '/outlook/generate_single';
@@ -520,43 +721,10 @@ export default function OutlookDashboard() {
     setTimeout(() => setAffirmationCopied(false), 2000);
   };
 
-  // ─── Loop Controls ───────────────────────────────────────
-
-  const handleStartLoop = async (): Promise<void> => {
-    try {
-      const body: Record<string, unknown> = {
-        interval_minutes: parseInt(String(loopInterval)), lat: parseFloat(String(lat)), lon: parseFloat(String(lon)),
-        languages: selectedLangs, genre, custom_context: customContext || null,
-        realm_id: selectedRealmId || null,
-        population_ids: selectedPopIds.length > 0 ? selectedPopIds : null,
-        character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
-        excluded_forces: excludedForcesText ? excludedForcesText.split(',').map(s => s.trim()) : null,
-        include_dialogue: includeDialogue, loop_mode: loopMode,
-        model: randomLoop ? null : (selectedModel || null),
-        random: randomLoop || null,
-        include_astrology: includeAstrology, include_tarot: includeTarot, include_iching: includeIching,
-        randomize_realm: randomizeRealm, randomize_characters: randomizeCharacters,
-      };
-      const res = await fetch(`/api/v1/outlook/loop/start`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        setLoopActive(true);
-        message.success(`Loop active — every ${loopInterval} min.`);
-        fetchLoopStatus();
-      } else {
-        message.error(`Failed to start loop: HTTP ${res.status}`);
-        audioFeedback.playError();
-      }
-    } catch { message.error('Failed to start loop.'); }
-  };
-
-  const handleStopLoop = async (): Promise<void> => {
-    try {
-      await fetch(`/api/v1/outlook/loop/stop`, { method: 'POST' });
-      setLoopActive(false);
-      message.success('Loop stopped.');
-    } catch { message.error('Failed to stop loop.'); }
+  const handleStartBroadcast = async (): Promise<void> => {
+    if (!bgActive) {
+      await toggleBackgroundGeneration();
+    }
   };
 
   // ─── Realm CRUD ──────────────────────────────────────────
@@ -700,6 +868,142 @@ export default function OutlookDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ─── Ritual Reveal Logic ─────────────────────────────────
+
+  const parseSections = (text: string): string[] => {
+    // Splitting on the captured group means odd-indexed parts are the
+    // roman numerals (I, II, III…) and even-indexed parts are the bodies.
+    // We re-prepend the header marker so the rendered text keeps its
+    // bold section titles.
+    const parts = text.split(/\*\*([IVX]+)\.\s/);
+    const sections: string[] = [];
+    for (let i = 1; i < parts.length; i += 2) {
+      const combined = `**${parts[i]}. ${parts[i + 1] || ''}`;
+      if (combined.trim().length > 50) sections.push(combined);
+    }
+    const preamble = parts[0]?.trim();
+    if (preamble && sections.length > 0) {
+      sections[0] = `${preamble}\n\n${sections[0]}`;
+    } else if (preamble && sections.length === 0) {
+      sections.push(preamble);
+    }
+    return sections;
+  };
+
+  const sections = useMemo<string[]>(() => {
+    if (!currentNarrative?.narrative) return [];
+    return parseSections(currentNarrative.narrative);
+  }, [currentNarrative]);
+
+  // Schedule progressive section reveal whenever a new narrative arrives.
+  // Each section appears ~1.5s after the previous; the dedication section
+  // (last) also triggers a bell tone.
+  useEffect(() => {
+    revealTimersRef.current.forEach(t => window.clearTimeout(t));
+    revealTimersRef.current = [];
+    setRevealedSections(0);
+    if (sections.length === 0) return;
+    sections.forEach((_, i) => {
+      const idx = i;
+      const timer = window.setTimeout(() => {
+        setRevealedSections(idx + 1);
+        if (idx === sections.length - 1) {
+          playDedicationBell();
+        } else {
+          playSectionChime();
+        }
+      }, (idx + 1) * 1500);
+      revealTimersRef.current.push(timer);
+    });
+    return () => {
+      revealTimersRef.current.forEach(t => window.clearTimeout(t));
+      revealTimersRef.current = [];
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections]);
+
+  // ─── Audio Cues ──────────────────────────────────────────
+
+  const playSectionChime = (): void => {
+    if (!audioFeedback.enabled) return;
+    audioFeedback.init();
+    const ctx = (audioFeedback as unknown as { ctx: AudioContext | null }).ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(528, ctx.currentTime);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 1.5);
+  };
+
+  const playDedicationBell = (): void => {
+    if (!audioFeedback.enabled) return;
+    audioFeedback.init();
+    const ctx = (audioFeedback as unknown as { ctx: AudioContext | null }).ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+    // Bell = fundamental + two overtones with quick decay.
+    const partials = [528, 1056, 1584];
+    partials.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + i * 0.01);
+      gain.gain.setValueAtTime(0.08, now + i * 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.01 + 2.0);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + i * 0.01);
+      osc.stop(now + i * 0.01 + 2.0);
+    });
+  };
+
+  const replayTTS = (): void => {
+    // Trigger the existing TTS player if it's mounted. Falls back to
+    // a fresh chime so the user gets audible confirmation even without
+    // TTS support.
+    playSectionChime();
+  };
+
+  // ─── Save / Load Saved Rituals ───────────────────────────
+
+  const loadSavedRituals = (): SavedRitual[] => {
+    try {
+      const raw = window.localStorage.getItem(SAVED_RITUALS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? parsed as SavedRitual[] : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveCurrentRitual = (): void => {
+    if (!currentNarrative?.narrative) return;
+    const entry: SavedRitual = {
+      id: `ritual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      savedAt: new Date().toISOString(),
+      genre: currentNarrative.genre || genre,
+      narrative: currentNarrative.narrative,
+      divinationRaw: currentNarrative.divination_raw || null,
+      entities: currentNarrative.entities_used || null,
+      model: currentNarrative.model_used || null,
+      provider: currentNarrative.provider_used || null,
+    };
+    try {
+      const existing = loadSavedRituals();
+      const next = [entry, ...existing].slice(0, 50);
+      window.localStorage.setItem(SAVED_RITUALS_KEY, JSON.stringify(next));
+      message.success('Ritual saved to local archive.');
+      audioFeedback.playSuccess();
+    } catch {
+      message.error('Could not save ritual — localStorage may be full or disabled.');
+    }
+  };
+
   // ─── Memoized option arrays (prevent new-array-every-render) ────────────
 
   const realmOptions = useMemo(() =>
@@ -779,18 +1083,17 @@ export default function OutlookDashboard() {
                   { label: <span><Sparkles className="w-3 h-3 inline mr-1" />Generator</span>, value: 'generator' },
                   { label: <span><Layers className="w-3 h-3 inline mr-1" />Universe</span>, value: 'universe' },
                   { label: <span><History className="w-3 h-3 inline mr-1" />History</span>, value: 'history' },
+                  { label: <span><Compass className="w-3 h-3 inline mr-1" />Journey</span>, value: 'journey' },
                 ]}
               />
             </Col>
           </Row>
         </Card>
 
-        {/* ── Ambient Rothko — only when no narrative yet ── */}
-        {!currentNarrative && (
-          <Card styles={{ body: { padding: 0, height: 100, overflow: 'hidden' } }}>
-            <RothkoGenerator isPlaying={isPlaying} palette="compassion" transitionSpeed={60} />
-          </Card>
-        )}
+        {/* ── Ambient Rothko ── */}
+        <Card styles={{ body: { padding: 0, height: 100, overflow: 'hidden' } }}>
+          <RothkoGenerator isPlaying={isPlaying} palette="compassion" transitionSpeed={60} />
+        </Card>
 
         {/* ═══════════════════════════════════════════════════════
             GENERATOR TAB
@@ -817,18 +1120,17 @@ export default function OutlookDashboard() {
                     cosmicData={undefined}
                     activeChart={null}
                     result={currentNarrative}
-                    broadcastActive={loopActive}
+                    broadcastActive={bgActive}
                     onResult={(data) => setCurrentNarrative(data as CurrentNarrative)}
-                    onStartBroadcast={() => { void handleStartLoop(); }}
+                    onStartBroadcast={() => { void handleStartBroadcast(); }}
                     onComplete={() => setGenerationMode('quick')}
                     onBackToQuick={() => setGenerationMode('quick')}
                   />
                 ) : (
                   <>
-                  <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                   <Card
                     title={<Text strong className="font-mono text-xs uppercase">Transmission Settings</Text>}
-                    extra={loopActive && <Badge status="processing" color="cyan" text="Loop Active" />}
+                    extra={bgActive && <Badge status="processing" color="cyan" text="BG Active" />}
                     size="small"
                   >
                     <Space orientation="vertical" className="w-full" size="middle">
@@ -1112,68 +1414,129 @@ export default function OutlookDashboard() {
                   >
                     {loading ? 'Decrypting Transmission...' : 'Initiate Narrative Stream'}
                   </Button>
-                </Space>
-              </Card>
+                 </Space>
+               </Card>
+                   </>
+                 )}
 
-              {/* ── Loop Panel ── */}
-              <Card
-                title={<Text strong className="font-mono text-xs uppercase"><Settings className="w-3 h-3 inline mr-1" />Continuous Loop</Text>}
-                size="small"
-                style={{ marginTop: 16 }}
-              >
-                <Space orientation="vertical" className="w-full" size="middle">
-                  <div>
-                    <Text style={{ fontSize: 12 }}>Interval: {loopInterval} min</Text>
-                    <Slider min={1} max={60} value={loopInterval} onChange={setLoopInterval} disabled={loopActive} />
-                  </div>
-                  <Segmented
-                    block
-                    size="small"
-                    value={loopMode}
-                    onChange={setLoopMode}
-                    disabled={loopActive}
-                    options={[
-                      { label: 'Sequential Delay', value: 'sequential_delay' },
-                      { label: 'Consecutive', value: 'consecutive' },
-                    ]}
-                  />
-                  <Row justify="space-between" align="middle">
-                    <Col>
-                      <Checkbox
-                        checked={randomLoop}
-                        onChange={e => setRandomLoop(e.target.checked)}
-                        disabled={loopActive}
-                        style={{ fontSize: 12 }}
-                      >
-                        <Shuffle className="w-3 h-3 inline mr-1" />🔀 Random per iteration
-                      </Checkbox>
-                    </Col>
-                  </Row>
-                  {randomLoop && (
-                    <Text type="secondary" style={{ fontSize: 10 }}>
-                      Each loop tick rolls a fresh provider — ignores the LLM Model selection above.
-                    </Text>
-                  )}
-                  <Button
-                    block
-                    type={loopActive ? 'default' : 'primary'}
-                    danger={loopActive}
-                    icon={loopActive ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                    onClick={loopActive ? handleStopLoop : handleStartLoop}
-                  >
-                    {loopActive ? 'Stop Loop' : 'Start Loop'}
-                  </Button>
-                  {loopActive && (
-                    <Text type="secondary" style={{ fontSize: 10 }}>
-                      Broadcasting every {loopInterval} min — {loopMode === 'consecutive' ? 'immediate consecutive' : 'sequential delay'} mode.
-                    </Text>
-                  )}
-                </Space>
-                  </Card>
-                  </div>
-                  </>
-                )}
-            </Col>
+                {/* ── Background Generation (unified) ── */}
+               <Card
+                 title={
+                   <Text strong className="font-mono text-xs uppercase">
+                     <Moon className="w-3 h-3 inline mr-1" />Background Generation
+                     {bgActive && <Badge status="processing" color="purple" style={{ marginLeft: 8 }} />}
+                   </Text>
+                 }
+                 size="small"
+                 style={{ marginTop: 16 }}
+               >
+                 <Space orientation="vertical" className="w-full" size="middle">
+                   <Row justify="space-between" align="middle">
+                     <Col>
+                       <Text style={{ fontSize: 12 }}>
+                         Auto-generate blessings with full oracles. Saves to history.
+                       </Text>
+                     </Col>
+                     <Col>
+                       <Switch
+                         checked={bgActive}
+                         onChange={toggleBackgroundGeneration}
+                         checkedChildren="🌙 On"
+                         unCheckedChildren="Off"
+                       />
+                     </Col>
+                   </Row>
+
+                   <div>
+                     <Text style={{ fontSize: 11 }}>Interval</Text>
+                     <Select
+                       value={bgInterval}
+                       onChange={setBgInterval}
+                       size="small"
+                       disabled={bgActive}
+                       className="w-full"
+                       style={{ marginTop: 4 }}
+                       options={[
+                         { value: 5, label: 'Every 5 min (testing)' },
+                         { value: 15, label: 'Every 15 min' },
+                         { value: 30, label: 'Every 30 min' },
+                         { value: 60, label: 'Every hour' },
+                         { value: 180, label: 'Every 3 hours' },
+                         { value: 360, label: 'Every 6 hours' },
+                       ]}
+                     />
+                   </div>
+
+                   <Segmented
+                     block
+                     size="small"
+                     value={bgMode}
+                     onChange={setBgMode}
+                     disabled={bgActive}
+                     options={[
+                       { label: 'Sequential', value: 'sequential_delay' },
+                       { label: 'Consecutive', value: 'consecutive' },
+                     ]}
+                   />
+
+                   <div>
+                     <Text style={{ fontSize: 11 }}>Oracle Sources</Text>
+                     <Space orientation="vertical" size={4} style={{ marginTop: 4 }}>
+                       <Space>
+                         <Switch size="small" checked={bgAstrology} onChange={setBgAstrology} disabled={bgActive} />
+                         <Text style={{ fontSize: 11 }}>🌟 Astrology</Text>
+                       </Space>
+                       <Space>
+                         <Switch size="small" checked={bgTarot} onChange={setBgTarot} disabled={bgActive} />
+                         <Text style={{ fontSize: 11 }}>🃏 Tarot</Text>
+                       </Space>
+                       <Space>
+                         <Switch size="small" checked={bgIching} onChange={setBgIching} disabled={bgActive} />
+                         <Text style={{ fontSize: 11 }}>☯️ I Ching</Text>
+                       </Space>
+                     </Space>
+                   </div>
+
+                   <Row justify="space-between" align="middle">
+                     <Col>
+                       <Checkbox
+                         checked={bgCycleGenres}
+                         onChange={e => setBgCycleGenres(e.target.checked)}
+                         disabled={bgActive}
+                         style={{ fontSize: 12 }}
+                       >
+                         🔄 Cycle all genres
+                       </Checkbox>
+                     </Col>
+                   </Row>
+
+                   {bgStats.total_generated > 0 && (
+                     <div style={{ background: 'rgba(139,92,246,0.05)', padding: 8, borderRadius: 6 }}>
+                       <Text style={{ fontSize: 10 }} className="font-mono">
+                         <Bell className="w-3 h-3 inline mr-1" />
+                         Generated: {bgStats.total_generated} · Saved: {bgStats.total_saved}
+                         {bgStats.total_errors > 0 && ` · Errors: ${bgStats.total_errors}`}
+                       </Text>
+                       {bgStats.last_generated_at && (
+                         <div>
+                           <Text type="secondary" style={{ fontSize: 9 }}>
+                             Last: {new Date(bgStats.last_generated_at).toLocaleString()}
+                             {bgStats.last_genre && ` · ${bgStats.last_genre}`}
+                           </Text>
+                         </div>
+                       )}
+                     </div>
+                   )}
+
+                   {bgActive && (
+                     <Text type="secondary" style={{ fontSize: 10 }}>
+                       Running every {bgInterval} min — {bgMode === 'consecutive' ? 'consecutive (5s apart)' : 'sequential delay'}.
+                       Genres {bgCycleGenres ? 'cycling' : 'fixed'}.
+                     </Text>
+                   )}
+                 </Space>
+               </Card>
+              </Col>
 
             {/* ── Right: Narrative Display ── */}
             <Col xs={24} xl={16}>
@@ -1207,6 +1570,7 @@ export default function OutlookDashboard() {
                     <Col xs={24} lg={16}>
                       <Card
                         title={<Text strong className="font-mono text-xs uppercase">Transmission</Text>}
+                        style={{ background: GENRE_COLORS[currentNarrative.genre || genre] || 'transparent', transition: 'background 0.8s ease' }}
                         extra={
                           <Space size={4}>
                             <NarrativeTTSPlayer
@@ -1237,9 +1601,127 @@ export default function OutlookDashboard() {
                                     </div>
                                   )}
                                   <Divider />
-                                  <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#cbd5e1' }}>
-                                    {currentNarrative.narrative}
-                                  </Paragraph>
+                                  {sections.length > 1 ? (
+                                    <>
+                                      <div
+                                        className="ritual-phase-dots"
+                                        aria-label="Ritual phases"
+                                        style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 12 }}
+                                      >
+                                        {RITUAL_PHASES.map((phase, i) => (
+                                          <Tooltip key={phase} title={`${i + 1}. ${phase}`}>
+                                            <div
+                                              style={{
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: '50%',
+                                                background: i < revealedSections ? '#06b6d4' : 'rgba(148, 163, 184, 0.25)',
+                                                boxShadow: i < revealedSections ? '0 0 8px rgba(6, 182, 212, 0.6)' : 'none',
+                                                transition: 'background 0.6s ease, box-shadow 0.6s ease',
+                                              }}
+                                            />
+                                          </Tooltip>
+                                        ))}
+                                      </div>
+                                      {sections.slice(0, revealedSections).map((section, i) => (
+                                        <Paragraph
+                                          key={`section-${i}-${section.slice(0, 24)}`}
+                                          className="ritual-section-fade"
+                                          style={{
+                                            whiteSpace: 'pre-wrap',
+                                            fontSize: 14,
+                                            lineHeight: 1.8,
+                                            fontFamily: 'Georgia, serif',
+                                            color: '#e5e7eb',
+                                            marginBottom: 12,
+                                          }}
+                                        >
+                                          {section}
+                                        </Paragraph>
+                                      ))}
+                                      {revealedSections < sections.length && (
+                                        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                                          <Text type="secondary" style={{ fontSize: 11, fontStyle: 'italic' }}>
+                                            <RefreshCw className="w-3 h-3 inline mr-1 animate-spin" />
+                                            Unveiling phase {revealedSections + 1} of {sections.length}…
+                                          </Text>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <Paragraph style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, fontFamily: 'Georgia, serif', color: '#e5e7eb' }}>
+                                      {currentNarrative.narrative}
+                                    </Paragraph>
+                                  )}
+                                  {revealedSections >= sections.length && sections.length > 0 && currentNarrative.divination_raw?.sigil?.svg && (
+                                    <div style={{ marginTop: 16, textAlign: 'center' }}>
+                                      <div
+                                        dangerouslySetInnerHTML={{ __html: currentNarrative.divination_raw.sigil.svg }}
+                                        className="svg-container"
+                                        style={{ maxWidth: 280, margin: '0 auto' }}
+                                      />
+                                      <Text type="secondary" style={{ fontSize: 11 }}>
+                                        Sigil: {currentNarrative.divination_raw.sigil.reduced} on {currentNarrative.divination_raw.sigil.kamea} grid
+                                      </Text>
+                                    </div>
+                                  )}
+                                  {sections.length > 0 && revealedSections >= sections.length && (
+                                    <Card
+                                      title={<Text strong style={{ fontSize: 12 }}>📋 Ritual Summary</Text>}
+                                      size="small"
+                                      style={{ marginTop: 16, background: GENRE_COLORS[currentNarrative.genre || genre] || 'transparent' }}
+                                    >
+                                      <Row gutter={[8, 8]}>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Deity</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.entities_used || currentNarrative.divination_used || '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Genre</Text>
+                                          <div><Text strong style={{ fontSize: 12, textTransform: 'capitalize' }}>{currentNarrative.genre || genre}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Model</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.model_used ? `${currentNarrative.provider_used || 'unknown'}/${currentNarrative.model_used}` : '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Tarot</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.tarot?.name || '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>I Ching</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.iching?.name || '—'}</Text></div>
+                                        </Col>
+                                        <Col xs={24} sm={12} md={8}>
+                                          <Text type="secondary" style={{ fontSize: 10 }}>Kamea</Text>
+                                          <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.sigil?.kamea || '—'}</Text></div>
+                                        </Col>
+                                      </Row>
+                                      <div style={{ marginTop: 12 }}>
+                                        <RitualVisualization
+                                          sigil={currentNarrative.divination_raw?.sigil as { kamea?: string; reduced?: string; coordinates?: Array<{ x: number; y: number; value?: number; letter?: string }>; svg?: string } | undefined}
+                                          rates={currentNarrative.divination_raw?.rates as { signature?: { values: number[]; name: string; potency?: number }; balancing?: Array<{ values: number[]; name: string; potency?: number }> } | undefined}
+                                          genre={currentNarrative.genre || genre}
+                                          kameaPlanet={currentNarrative.divination_raw?.sigil?.kamea}
+                                        />
+                                      </div>
+                                      <Space style={{ marginTop: 12 }} wrap>
+                                        <Button size="small" icon={<Download className="w-3 h-3" />} onClick={saveCurrentRitual}>
+                                          Save Ritual
+                                        </Button>
+                                        <Button size="small" icon={<Volume2 className="w-3 h-3" />} onClick={replayTTS}>
+                                          Replay
+                                        </Button>
+                                        <Button
+                                          size="small"
+                                          icon={<Bell className="w-3 h-3" />}
+                                          onClick={playDedicationBell}
+                                        >
+                                          Bell
+                                        </Button>
+                                      </Space>
+                                    </Card>
+                                  )}
                                 </>
                               ),
                             },
@@ -1554,37 +2036,167 @@ export default function OutlookDashboard() {
             HISTORY TAB
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'history' && (
-          <Card size="small" title={<Text strong className="font-mono text-xs uppercase"><History className="w-3 h-3 inline mr-1" />Past Transmissions</Text>}>
-            {historyList.length === 0 ? (
-              <Empty description="No generated narratives yet. Create one in the Generator tab." />
-            ) : (
-              <List
-                size="small"
-                dataSource={historyList}
-                renderItem={item => (
-                  <List.Item
-                    onClick={() => loadHistoryItem(item)}
-                    className="cursor-pointer hover:bg-white/5 px-3 rounded transition-colors"
-                    actions={[
-                      <Tag key="type" color={item.type === 'epic' ? 'purple' : 'cyan'}>{item.type}</Tag>,
-                      <Text key="date" type="secondary" style={{ fontSize: 11 }}>
-                        {item.date_generated ? item.date_generated.slice(0, 16).replace('T', ' ') : ''}
-                      </Text>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      title={<Text strong className="capitalize">{item.genre}</Text>}
-                      description={
-                        <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
-                          {item.type === 'epic' ? 'Multi-stage narrative' : (item.content || '').slice(0, 80)}
-                        </Text>
-                      }
+          <div className="space-y-4">
+            <Card size="small">
+              <Row justify="space-between" align="middle">
+                <Col>
+                  <Space>
+                    <History className="w-4 h-4 text-cyan-400" />
+                    <Text strong className="font-mono text-xs uppercase">Past Transmissions</Text>
+                    <Tag color="cyan">{historyList.length}</Tag>
+                  </Space>
+                </Col>
+                <Col>
+                  <Space>
+                    <Select
+                      size="small"
+                      value={historyGenreFilter}
+                      onChange={setHistoryGenreFilter}
+                      style={{ width: 150 }}
+                      options={[
+                        { value: 'all', label: 'All Genres' },
+                        ...Array.from(new Set(historyList.map(h => h.genre).filter(Boolean))).map(g => ({ value: g!, label: g!.charAt(0).toUpperCase() + g!.slice(1) })),
+                      ]}
                     />
-                  </List.Item>
-                )}
-              />
+                    <Button size="small" icon={<RefreshCw className="w-3 h-3" />} onClick={fetchHistory}>Refresh</Button>
+                  </Space>
+                </Col>
+              </Row>
+            </Card>
+
+            {historyList.length === 0 ? (
+              <Card>
+                <Empty
+                  image={<Compass className="w-16 h-16" style={{ color: '#06b6d4', opacity: 0.4 }} />}
+                  description={
+                    <div>
+                      <Title level={4} style={{ color: '#94a3b8' }}>No Transmissions Yet</Title>
+                      <Text type="secondary">Create one in the Generator tab.</Text>
+                    </div>
+                  }
+                />
+              </Card>
+            ) : (
+              <Row gutter={[16, 16]}>
+                {historyList
+                  .filter(item => historyGenreFilter === 'all' || item.genre === historyGenreFilter)
+                  .map((item, idx) => {
+                    const genre = item.genre || 'unknown';
+                    const genreColor = GENRE_COLORS[genre] || 'transparent';
+                    const borderColor = GENRE_BORDER_COLORS[genre] || '#334155';
+                    const rawContent = item.type === 'epic' ? 'Multi-stage epic narrative' : (item.content || '');
+                    const preview = stripMarkdown(rawContent);
+                    const date = item.date_generated ? new Date(item.date_generated) : null;
+                    return (
+                      <Col xs={24} md={12} lg={8} key={`hist-${idx}`}>
+                        <Card
+                          size="small"
+                          hoverable
+                          style={{
+                            background: genreColor,
+                            borderLeft: `3px solid ${borderColor}`,
+                            transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+                          }}
+                          actions={[
+                            <Tooltip title="Load in Generator" key="load">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<Play className="w-3 h-3" />}
+                                onClick={() => { loadHistoryItem(item); setActiveTab('generator'); audioFeedback.playClick(); }}
+                              />
+                            </Tooltip>,
+                            <Tooltip title="Copy text" key="copy">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<Copy className="w-3 h-3" />}
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.content || '');
+                                  message.success('Copied narrative text.');
+                                  audioFeedback.playSuccess();
+                                }}
+                              />
+                            </Tooltip>,
+                            <Tooltip title="Save to archive" key="save">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<Download className="w-3 h-3" />}
+                                onClick={() => {
+                                  const entry: SavedRitual = {
+                                    id: `ritual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                                    savedAt: new Date().toISOString(),
+                                    genre: item.genre || 'unknown',
+                                    narrative: item.content || '',
+                                    divinationRaw: item.divination_raw || null,
+                                    entities: item.entities_invoked || null,
+                                    model: null,
+                                    provider: null,
+                                  };
+                                  try {
+                                    const existing = JSON.parse(window.localStorage.getItem(SAVED_RITUALS_KEY) || '[]') as SavedRitual[];
+                                    window.localStorage.setItem(SAVED_RITUALS_KEY, JSON.stringify([entry, ...existing].slice(0, 50)));
+                                    message.success('Saved to local archive.');
+                                  } catch {
+                                    message.error('Could not save — storage full or disabled.');
+                                  }
+                                }}
+                              />
+                            </Tooltip>,
+                          ]}
+                        >
+                          <Card.Meta
+                            title={
+                              <Space size={4}>
+                                <Text strong className="capitalize" style={{ fontSize: 13 }}>{genre}</Text>
+                                <Tag color={item.type === 'epic' ? 'purple' : 'cyan'} style={{ fontSize: 9 }}>
+                                  {item.type === 'epic' ? 'EPIC' : 'SINGLE'}
+                                </Tag>
+                              </Space>
+                            }
+                            description={
+                              <div>
+                                <Paragraph
+                                  ellipsis={{ rows: 3 }}
+                                  style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, lineHeight: 1.5 }}
+                                >
+                                  {preview || '(empty)'}
+                                </Paragraph>
+                                <Space size={[8, 4]} wrap>
+                                  {date && (
+                                    <Text type="secondary" style={{ fontSize: 10 }}>
+                                      <Clock className="w-2.5 h-2.5 inline mr-1" />
+                                      {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </Text>
+                                  )}
+                                  {item.entities_invoked && (
+                                    <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      👤 {item.entities_invoked}
+                                    </Tag>
+                                  )}
+                                  {item.divination_context && (
+                                    <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      🔮 {item.divination_context}
+                                    </Tag>
+                                  )}
+                                </Space>
+                              </div>
+                            }
+                          />
+                        </Card>
+                      </Col>
+                    );
+                  })}
+              </Row>
             )}
-          </Card>
+          </div>
+        )}
+
+        {activeTab === 'journey' && (
+          <div className="max-w-2xl mx-auto">
+            <JourneyCard />
+          </div>
         )}
       </Space>
 

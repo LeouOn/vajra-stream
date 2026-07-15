@@ -51,10 +51,13 @@ interface CurrentNarrativeLike {
 // ─── Constants ────────────────────────────────────────────
 
 const GENRE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'healing', label: '🌿 Healing' },
+  { value: 'healing', label: '❤️ Healing' },
   { value: 'victory', label: '🛡️ Victory' },
   { value: 'alchemist', label: '⚗️ Alchemist' },
   { value: 'dharani', label: '📿 Dharani' },
+  { value: 'compassion', label: '🪷 Compassion (Avalokiteshvara)' },
+  { value: 'wisdom', label: '📖 Wisdom (Manjushri)' },
+  { value: 'protection', label: '🌿 Protection (Green Tara)' },
 ];
 
 const VOICE_PRESETS: ReadonlyArray<{ value: string; label: string }> = [
@@ -74,15 +77,13 @@ const INTENTION_PRESETS: ReadonlyArray<{
 }> = [
   { label: '🕊️ World Peace', value: 'World peace and the cessation of all conflict', genre: 'healing', keywords: 'peace conflict war' },
   { label: '💎 Prosperity', value: 'Abundance and prosperity for all beings', genre: 'alchemist', keywords: 'abundance prosperity wealth' },
-  { label: '☀️ Healing', value: 'Healing of all physical, mental, and spiritual illness', genre: 'healing', keywords: 'healing illness disease sickness' },
+  { label: '❤️ Healing', value: 'Healing of all physical, mental, and spiritual illness', genre: 'healing', keywords: 'healing illness disease sickness' },
   { label: '🌲 Reforestation', value: "Healing and restoration of the world's forests and ecosystems", genre: 'healing', keywords: 'forest tree reforestation ecosystem nature' },
-  { label: '🌊 Purification', value: 'Purification of all negativity and obscurations', genre: 'dharani', keywords: 'purify purification clean cleansing' },
-  { label: '✨ Liberation', value: 'Liberation of all sentient beings from samsara', genre: 'victory', keywords: 'liberation freedom awakening samsara' },
+  { label: '🔍 Purification', value: 'Purification of all negativity and obscurations', genre: 'dharani', keywords: 'purify purification clean cleansing' },
+  { label: '🌟 Liberation', value: 'Liberation of all sentient beings from samsara', genre: 'victory', keywords: 'liberation freedom awakening samsara' },
 ];
 
 const STEP_TITLES = ['Intention', 'Alignment', 'Generation', 'Recitation', 'Continuation'] as const;
-// Short labels for the Steps indicator — full Sanskrit names live in the Card titles.
-const STEP_SHORT = ['Intention', 'Align', 'Generate', 'Recite', 'Continue'] as const;
 type StepIndex = 0 | 1 | 2 | 3 | 4;
 
 interface CosmicData {
@@ -104,6 +105,24 @@ interface ActiveChart {
 interface OracleDraw {
   kind: 'tarot' | 'iching' | 'geomancy' | null;
   result: string;
+}
+
+/** Shape of `/api/v1/astrology/current` — see `backend/.../endpoints/astrology.py`. */
+interface AstrologyCurrentPayload {
+  planetary_hours?: { current_planetary_hour?: string; day_planet?: string };
+  planetary_positions?: Record<string, { longitude?: number; sign?: string; retrograde?: boolean }>;
+  moon_phase?: string | { phase_name?: string; illumination?: number };
+  indian?: { panchanga?: { tithi?: { name?: string }; nakshatra?: { name?: string }; yoga?: { name?: string } } };
+  chinese?: { zodiac_animal?: string };
+  [key: string]: unknown;
+}
+
+interface AstrologyContext {
+  planetaryHour?: string;
+  moonPhase?: string;
+  moonIllumination?: number;
+  planetaryPositions?: Array<{ name: string; sign?: string; retrograde?: boolean }>;
+  fetchedAt: number;
 }
 
 interface GuidedRitualFlowProps {
@@ -168,6 +187,11 @@ export default function GuidedRitualFlow({
   const [oracle, setOracle] = useState<OracleDraw>({ kind: null, result: '' });
   const [oracleLoading, setOracleLoading] = useState<boolean>(false);
 
+  // Live astrology (fetched in step 1, threaded into generation)
+  const [astroContext, setAstroContext] = useState<AstrologyContext | null>(null);
+  const [astroLoading, setAstroLoading] = useState<boolean>(false);
+  const [astroUnavailable, setAstroUnavailable] = useState<boolean>(false);
+
   // Step 2 — generation
   const [generating, setGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -204,7 +228,7 @@ export default function GuidedRitualFlow({
           ? '/divination/tarot/draw'
           : kind === 'iching'
           ? '/divination/iching/cast'
-          : '/divination/geomancy/cast';
+          : '/divination/geomancy/shield';
       const body = kind === 'tarot' ? JSON.stringify({ count: 1 }) : undefined;
       const res = await fetch(`/api/v1${endpoint}`, {
         method: 'POST',
@@ -231,6 +255,57 @@ export default function GuidedRitualFlow({
     }
   }, [log]);
 
+  // Live astrology fetch — populates step 1 (Sampatti) and is forwarded to the
+  // backend as `astrology_data` during step 2 generation. Gracefully degrades
+  // when the backend or its astrology deps (pyswisseph, lunar-python) are
+  // missing: a 404/500 flips `astroUnavailable` so the UI shows a clear hint
+  // instead of blocking the ritual on cosmic data the cosmos isn't offering.
+  const fetchAstroContext = useCallback(async (): Promise<void> => {
+    if (astroContext || astroLoading) return;
+    setAstroLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (activeChart?.latitude != null) params.set('latitude', String(activeChart.latitude));
+      if (activeChart?.longitude != null) params.set('longitude', String(activeChart.longitude));
+      const qs = params.toString();
+      const res = await fetch(`/api/v1/astrology/current${qs ? `?${qs}` : ''}`);
+      if (!res.ok) {
+        throw new Error(`Astrology fetch failed: HTTP ${res.status}`);
+      }
+      const payload = await res.json() as { astrology?: AstrologyCurrentPayload };
+      const astro = payload.astrology ?? {};
+      const planetaryHour = astro.planetary_hours?.current_planetary_hour;
+      const moonPhaseRaw = astro.moon_phase;
+      const moonPhase = typeof moonPhaseRaw === 'string'
+        ? moonPhaseRaw
+        : moonPhaseRaw?.phase_name;
+      const moonIllumination = typeof moonPhaseRaw === 'object' && moonPhaseRaw
+        ? moonPhaseRaw.illumination
+        : undefined;
+      const planetaryPositions = astro.planetary_positions
+        ? Object.entries(astro.planetary_positions).map(([name, pos]) => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1),
+            sign: pos?.sign,
+            retrograde: pos?.retrograde ?? false,
+          }))
+        : undefined;
+      setAstroContext({
+        planetaryHour,
+        moonPhase,
+        moonIllumination,
+        planetaryPositions,
+        fetchedAt: Date.now(),
+      });
+      setAstroUnavailable(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      log.warn('Astrology fetch failed; proceeding without cosmic context:', msg);
+      setAstroUnavailable(true);
+    } finally {
+      setAstroLoading(false);
+    }
+  }, [activeChart?.latitude, activeChart?.longitude, astroContext, astroLoading, log]);
+
   const triggerGeneration = useCallback(async (): Promise<void> => {
     if (generationTriggeredRef.current) return;
     generationTriggeredRef.current = true;
@@ -253,6 +328,9 @@ export default function GuidedRitualFlow({
       if (activeChart?.birth_time_iso) body.natal_date_iso = activeChart.birth_time_iso;
       if (activeChart?.latitude != null) body.natal_lat = activeChart.latitude;
       if (activeChart?.longitude != null) body.natal_lon = activeChart.longitude;
+      // Forward live astrology context from step 1 — backend uses this to
+      // weave moon phase / planetary positions / nakshatra into the narrative.
+      if (astroContext) body.astrology_data = astroContext;
 
       const res = await fetch('/api/v1/outlook/generate_single', {
         method: 'POST',
@@ -279,7 +357,7 @@ export default function GuidedRitualFlow({
     } finally {
       setGenerating(false);
     }
-  }, [activeChart, genre, intention, oracle.kind, onResult, log]);
+  }, [activeChart, genre, intention, oracle.kind, astroContext, onResult, log]);
 
   const retryGeneration = useCallback((): void => {
     setGenerationError(null);
@@ -298,6 +376,16 @@ export default function GuidedRitualFlow({
     }
     void triggerGeneration();
   }, [step, result, triggerGeneration]);
+
+  // Fetch live astrology when entering step 1 (Sampatti). The fetched payload
+  // populates the Cosmic Conditions card AND is forwarded as `astrology_data`
+  // in the step 2 generation request. Backend may return stub responses when
+  // pyswisseph/lunar-python are missing — that's fine, the UI still renders.
+  useEffect(() => {
+    if (step === 1) {
+      void fetchAstroContext();
+    }
+  }, [step, fetchAstroContext]);
 
   // Auto-suggest genre from intention keywords the first time intention
   // is populated by a preset click. Free-form typing keeps the user's choice.
@@ -324,9 +412,11 @@ export default function GuidedRitualFlow({
       <Card size="small" className="bg-gray-900/80 border-purple-500/20">
         <Steps
           size="small"
+          orientation="horizontal"
           current={step}
-          items={STEP_SHORT.map((title, idx) => ({ title }))}
-          className="[&_.ant-steps-item-title]:text-[10px] [&_.ant-steps-item-title]:font-mono [&_.ant-steps-item-title]:uppercase [&_.ant-steps-item-title]:tracking-wider"
+          items={STEP_TITLES.map((title, idx) => ({ title }))}
+          className="[&_.ant-steps-item-title]:text-[10px] [&_.ant-steps-item-title]:font-mono [&_.ant-steps-item-title]:uppercase [&_.ant-steps-item-title]:tracking-wider [&_.ant-steps-item-title]:text-slate-400 [&_.ant-steps-item-process_.ant-steps-item-title]:text-purple-300"
+          style={{ overflowX: 'auto', minWidth: 0 }}
         />
       </Card>
 
@@ -345,7 +435,7 @@ export default function GuidedRitualFlow({
           }
         >
           <Space orientation="vertical" size="middle" className="w-full">
-            <Text style={{ fontSize: 12 }} type="secondary">
+            <Text style={{ fontSize: 12, color: '#cbd5e1' }}>
               Choose an intention, or compose your own. The genre will follow the meaning.
             </Text>
 
@@ -359,7 +449,7 @@ export default function GuidedRitualFlow({
                       key={preset.label}
                       size="small"
                       ghost
-                      style={isActive ? PURPLE_GRADIENT_STYLE : { color: '#c4b5fd', borderColor: 'rgba(124,58,237,0.3)', background: 'rgba(124,58,237,0.1)' }}
+                      style={isActive ? PURPLE_GRADIENT_STYLE : undefined}
                       onClick={() => handleIntentionPreset(preset.value, preset.genre)}
                     >
                       {preset.label}
@@ -450,33 +540,59 @@ export default function GuidedRitualFlow({
                   </Text>
                 }
               >
-                {cosmicData ? (
+                {astroLoading && !astroContext ? (
+                  <div className="flex items-center gap-2 py-4">
+                    <Spin size="small" />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      <Sun className="w-3 h-3 inline mr-1" />
+                      Reading the heavens…
+                    </Text>
+                  </div>
+                ) : (astroContext || cosmicData) ? (
                   <Space orientation="vertical" size="small" className="w-full">
-                    {cosmicData.planetaryHour && (
+                    {(astroContext?.planetaryHour || cosmicData?.planetaryHour) && (
                       <div>
                         <Text type="secondary" style={{ fontSize: 10 }}>Planetary Hour</Text>
-                        <div><Tag color="purple">{cosmicData.planetaryHour}</Tag></div>
-                      </div>
-                    )}
-                    {cosmicData.moonPhase && (
-                      <div>
-                        <Text type="secondary" style={{ fontSize: 10 }}>Moon Phase</Text>
                         <div>
-                          <Tag color="cyan">
-                            {cosmicData.moonPhase}
-                            {typeof cosmicData.moonIllumination === 'number' &&
-                              ` · ${Math.round(cosmicData.moonIllumination * 100)}%`}
+                          <Tag color="purple">
+                            {astroContext?.planetaryHour ?? cosmicData?.planetaryHour}
                           </Tag>
                         </div>
                       </div>
                     )}
-                    {cosmicData.nakshatra && (
+                    {(astroContext?.moonPhase || cosmicData?.moonPhase) && (
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 10 }}>Moon Phase</Text>
+                        <div>
+                          <Tag color="cyan">
+                            {astroContext?.moonPhase ?? cosmicData?.moonPhase}
+                            {typeof (astroContext?.moonIllumination ?? cosmicData?.moonIllumination) === 'number' &&
+                              ` · ${Math.round(((astroContext?.moonIllumination ?? cosmicData?.moonIllumination) as number) * 100)}%`}
+                          </Tag>
+                        </div>
+                      </div>
+                    )}
+                    {astroContext?.planetaryPositions && astroContext.planetaryPositions.length > 0 && (
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 10 }}>Planetary Positions</Text>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {astroContext.planetaryPositions.map((p) => (
+                            <Tag key={p.name} color={p.retrograde ? 'volcano' : 'geekblue'}>
+                              {p.name}
+                              {p.sign ? ` · ${p.sign}` : ''}
+                              {p.retrograde ? ' ℞' : ''}
+                            </Tag>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {cosmicData?.nakshatra && (
                       <div>
                         <Text type="secondary" style={{ fontSize: 10 }}>Nakshatra</Text>
                         <div><Tag color="geekblue">{cosmicData.nakshatra}</Tag></div>
                       </div>
                     )}
-                    {cosmicData.dominantElement && (
+                    {cosmicData?.dominantElement && (
                       <div>
                         <Text type="secondary" style={{ fontSize: 10 }}>Dominant Element</Text>
                         <div>
@@ -492,19 +608,16 @@ export default function GuidedRitualFlow({
                         </div>
                       </div>
                     )}
-                    {cosmicData.dashaPeriod && (
+                    {cosmicData?.dashaPeriod && (
                       <div>
                         <Text type="secondary" style={{ fontSize: 10 }}>Dasha Period</Text>
                         <div><Tag>{cosmicData.dashaPeriod}</Tag></div>
                       </div>
                     )}
-                    {!cosmicData.planetaryHour &&
-                      !cosmicData.moonPhase &&
-                      !cosmicData.nakshatra &&
-                      !cosmicData.dominantElement && (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                    {astroUnavailable && (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
                         <Star className="w-3 h-3 inline mr-1" />
-                        Partial cosmic data received; the ritual will proceed without a full chart.
+                        Astrology service unavailable — proceeding without a cosmic chart.
                       </Text>
                     )}
                   </Space>
@@ -600,12 +713,14 @@ export default function GuidedRitualFlow({
               <Button
                 type="primary"
                 size="middle"
+                loading={astroLoading && !astroContext}
+                disabled={astroLoading && !astroContext}
                 onClick={() => {
                   audioFeedback.playTabChange();
                   setStep(2);
                 }}
                 icon={<ArrowRight className="w-4 h-4" />}
-                style={PURPLE_GRADIENT_STYLE}
+                style={!astroLoading || astroContext ? PURPLE_GRADIENT_STYLE : undefined}
               >
                 Continue →
               </Button>
@@ -644,7 +759,7 @@ export default function GuidedRitualFlow({
                 <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
                 <div>
                   <Text strong className="text-red-300">Generation failed</Text>
-                  <Paragraph className="!mb-0 text-sm" type="secondary">
+                  <Paragraph className="!mb-0 text-sm" style={{ color: '#fda4af' }}>
                     {generationError}
                   </Paragraph>
                 </div>
@@ -739,7 +854,7 @@ export default function GuidedRitualFlow({
                 <Paragraph
                   className="!mt-3 text-sm leading-relaxed"
                   style={{
-                    color: '#cbd5e1',
+                    color: '#e5e7eb',
                     maxHeight: 220,
                     overflowY: 'auto',
                     background: 'rgba(0,0,0,0.4)',

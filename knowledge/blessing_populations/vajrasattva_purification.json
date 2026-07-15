@@ -1,0 +1,87 @@
+{
+  "description": "Population of beings needing Vajrasattva's karmic purification and transformation of negativity",
+  "deity": "Vajrasattva",
+  "practice": "vajrasattva",
+  "frequency": [963, 396],
+  "targets": [
+    {
+      "name": "Those in the 49-Day Bardo Period",
+      "category": "deceased",
+      "description": "Beings who have died within the past 49 days and are in the intermediate state (bardo) before next rebirth",
+      "priority": 10,
+      "intention": "May Vajrasattva's hundred-syllable mantra purify the karma of the deceased, may they recognize the clear light, may they attain liberation or a favorable rebirth",
+      "additional_data": {
+        "mantra": "Om Vajrasattva Samaya Manu Palaya Vajrasattva Teno Patista Drido Me Bhava Suto Kayo Me Bhava Suvar Kayo Me Bhava Anu Rakto Me Bhava Sarva Siddhi Me Pra Yaccha Sarva Karma Su Cha Me Tsi Tam Shri Ya Ku Ru Hung Ha Ha Ha Ha Hoh Bhagavan Sarva Tathagata Vajra Ma Me Munca Vajra Bhava Maha Samaya Sattva Ah",
+        "short_mantra": "Om Vajrasattva Hung",
+        "practice_note": "100,000 mantra accumulations is a foundational ngondro purification practice"
+      }
+    },
+    {
+      "name": "Practitioners with Karmic Obstacles",
+      "category": "practitioner",
+      "description": "Spiritual practitioners of all traditions experiencing obstacles, dullness, or stagnation in their practice due to karmic obscurations",
+      "priority": 8,
+      "intention": "May all sincere practitioners find their obstacles purified, may the path open before them, may realization dawn effortlessly",
+      "additional_data": {
+        "obstacles": ["dullness", "restlessness", "doubt", "illness during practice", "external interference", "karmic patterns"]
+      }
+    },
+    {
+      "name": "Those in Correctional Facilities",
+      "category": "confined",
+      "description": "All beings incarcerated in prisons, detention centers, and correctional institutions worldwide",
+      "priority": 9,
+      "intention": "May all beings in correctional facilities find remorse, purification, and the causes for a wholesome new life, may they find inner freedom regardless of outer circumstance",
+      "additional_data": {
+        "estimated_count": "11+ million incarcerated worldwide",
+        "data_sources": ["World Prison Brief", "Institute for Crime & Justice Policy Research"]
+      }
+    },
+    {
+      "name": "Soldiers and Veterans Processing Trauma",
+      "category": "trauma",
+      "description": "Active military personnel and veterans carrying the karmic weight and trauma of warfare and conflict",
+      "priority": 9,
+      "intention": "May all soldiers and veterans find purification of trauma, may they be healed of PTSD, may they find peace of heart and reconciliation",
+      "additional_data": {
+        "estimated_count": "Tens of millions of active military and veterans globally",
+        "conditions": ["PTSD", "moral injury", "depression", "suicidability"],
+        "data_sources": ["US VA", "World Veterans Federation"]
+      }
+    },
+    {
+      "name": "Beings in the Lower Realms",
+      "category": "spirit_realms",
+      "description": "Per traditional Buddhist cosmology, beings suffering in the hell realms, hungry ghost (preta) realms, and animal realms - experiencing intense suffering with little means to purify their own karma",
+      "priority": 10,
+      "intention": "May Vajrasattva's blessing reach all beings in the lower realms, may their suffering cease, may their negative karma be purified, may they attain precious human rebirth",
+      "additional_data": {
+        "cosmology": "Six realms of samsara per traditional Buddhist teaching",
+        "realms": ["hell realms", "hungry ghost realm"],
+        "dedication_note": "Practitioners dedicate merit specifically for beings in lower realms who cannot practice for themselves"
+      }
+    },
+    {
+      "name": "Survivors of Abuse and Violence",
+      "category": "trauma",
+      "description": "Beings carrying the karmic wounds of abuse - physical, sexual, emotional, or psychological",
+      "priority": 9,
+      "intention": "May all survivors find purification of suffering without erasure of dignity, may they find safety, healing, and the restoration of their wholeness",
+      "additional_data": {
+        "estimated_count": "Over 1 billion experience abuse in childhood or adulthood globally",
+        "data_sources": ["WHO", "UNICEF"]
+      }
+    },
+    {
+      "name": "Those Consumed by Anger, Hatred, or Vengefulness",
+      "category": "mental_affliction",
+      "description": "Beings trapped in the afflictive emotions of anger, hatred, grudge-bearing, and desire for revenge",
+      "priority": 8,
+      "intention": "May the diamond wisdom of Vajrasattva cut through the chains of anger, may forgiveness and peace arise, may all hearts be liberated from hatred",
+      "additional_data": {
+        "klesha": "anger/hatred (one of the three root poisons)",
+        "antidote": "wisdom realizing emptiness"
+      }
+    }
+  ]
+}

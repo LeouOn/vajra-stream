@@ -18,11 +18,14 @@ Exports:
 """
 
 import json
+import logging
 import os
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Default pricing per MILLION tokens (USD)
@@ -30,8 +33,11 @@ from typing import Optional
 
 PROVIDER_PRICING: dict[str, dict[str, float]] = {
     "deepseek": {
-        "input_per_m": float(os.getenv("DEEPSEEK_INPUT_COST_PER_M", "0.14")),
-        "output_per_m": float(os.getenv("DEEPSEEK_OUTPUT_COST_PER_M", "0.28")),
+        "input_per_m": float(os.getenv("DEEPSEEK_INPUT_COST_PER_M", "0.098")),
+        "output_per_m": float(os.getenv("DEEPSEEK_OUTPUT_COST_PER_M", "0.196")),
+        # V4 Flash pricing on OpenRouter
+        "deepseek-v4-flash_input_per_m": 0.098,
+        "deepseek-v4-flash_output_per_m": 0.196,
     },
     "openai": {
         "input_per_m": float(os.getenv("OPENAI_INPUT_COST_PER_M", "2.50")),
@@ -64,7 +70,7 @@ class UsageRecord:
     Attributes:
         timestamp: ISO-8601 timestamp of the call.
         provider: Provider identifier (``"deepseek"``, ``"openai"``, etc.).
-        model: Model name (e.g. ``"deepseek-chat"``, ``"gpt-4o-mini"``).
+        model: Model name (e.g. ``"deepseek-v4-flash"``, ``"gpt-4o-mini"``).
         prompt_tokens: Estimated or reported input token count.
         completion_tokens: Estimated or reported output token count.
         total_tokens: Sum of prompt + completion tokens.
@@ -123,6 +129,24 @@ class LLMUsageTracker:
         # Session records (in-memory for frontend polling)
         self.session_records: list[UsageRecord] = []
 
+        # Daily cost tracking (resets at first record of a new calendar day).
+        # ``_daily_cost_date`` is "" until the first record sets it.
+        self._daily_cost_date: str = ""
+        self.daily_cost_usd: float = 0.0
+        self.daily_cost_cap: float = float(os.getenv("LLM_DAILY_COST_CAP", "10"))
+
+        # Over-cap flag — set when the daily cap or starting balance is breached.
+        # Read by ``get_summary`` so the frontend can surface a banner.
+        self.over_cap: bool = False
+
+        # WS broadcast throttling.  Every ``_broadcast_every`` records we
+        # invoke the registered callbacks with a fresh summary dict.
+        # Callbacks receive the summary dict and are expected to schedule
+        # their own async work (we are called from a sync context).
+        self._on_record_callbacks: list[Callable[[dict], None]] = []
+        self._broadcast_every: int = 10
+        self._broadcast_counter: int = 0
+
         self._enabled = os.getenv("LLM_USAGE_TRACKING", "true").lower() != "false"
 
         # Ensure log directory exists
@@ -157,11 +181,57 @@ class LLMUsageTracker:
         if not self._enabled:
             return
 
+        # Normalise total_tokens if the caller didn't set it.
+        if not record.total_tokens:
+            record.total_tokens = record.prompt_tokens + record.completion_tokens
+
+        # Compute cost if the caller didn't (best-effort — never block on failure).
+        if not record.cost_usd:
+            try:
+                record.cost_usd = self.estimate_cost(
+                    record.provider, record.model,
+                    record.prompt_tokens, record.completion_tokens,
+                )
+            except Exception:  # noqa: BLE001
+                record.cost_usd = 0.0
+
+        should_broadcast = False
         with self._lock:
+            # Roll over the daily cost bucket at the first record of a new day.
+            today = datetime.now().strftime("%Y-%m-%d")
+            if self._daily_cost_date != today:
+                self._daily_cost_date = today
+                self.daily_cost_usd = 0.0
+                self.over_cap = False
+
+            # Circuit-breaker check: if we're already over the starting
+            # balance or the daily cap, warn and skip accumulation. The
+            # JSONL audit log is still written so the overage is visible.
+            cap_breached = (
+                (self.starting_balance > 0 and self.total_cost_usd >= self.starting_balance)
+                or (
+                    self.daily_cost_cap > 0
+                    and self.daily_cost_usd >= self.daily_cost_cap
+                )
+            )
+            if cap_breached:
+                self.over_cap = True
+                logger.warning(
+                    "LLMUsageTracker: cost cap breached — "
+                    "total=$%.4f (cap=$%.4f starting_balance=$%.4f), "
+                    "daily=$%.4f (daily_cap=$%.4f). "
+                    "Skipping in-memory accumulation; JSONL audit log still written.",
+                    self.total_cost_usd, self.starting_balance, self.starting_balance,
+                    self.daily_cost_usd, self.daily_cost_cap,
+                )
+                self._append_log(record)
+                return
+
             self.total_calls += 1
             self.total_prompt_tokens += record.prompt_tokens
             self.total_completion_tokens += record.completion_tokens
             self.total_cost_usd += record.cost_usd
+            self.daily_cost_usd += record.cost_usd
 
             # Per-provider
             if record.provider not in self.provider_stats:
@@ -184,6 +254,45 @@ class LLMUsageTracker:
 
             # Persist to log file
             self._append_log(record)
+
+            # Throttled broadcast notification.
+            self._broadcast_counter += 1
+            if self._broadcast_every > 0 and (
+                self._broadcast_counter % self._broadcast_every == 0
+            ):
+                should_broadcast = True
+
+        if should_broadcast:
+            summary = None
+            try:
+                summary = self.get_summary()
+            except Exception:  # noqa: BLE001
+                summary = None
+            if summary is not None:
+                for cb in list(self._on_record_callbacks):
+                    try:
+                        cb(summary)
+                    except Exception:  # noqa: BLE001 — never let a callback kill record()
+                        logger.debug("LLMUsageTracker on_record callback raised", exc_info=True)
+
+    def add_on_record_callback(self, callback: Callable[[dict], None]) -> None:
+        """Register a summary broadcast callback (see ``record`` docstring)."""
+        with self._lock:
+            self._on_record_callbacks.append(callback)
+
+    def reset(self) -> None:
+        """Reset all in-memory counters (JSONL log file is preserved)."""
+        with self._lock:
+            self.total_calls = 0
+            self.total_prompt_tokens = 0
+            self.total_completion_tokens = 0
+            self.total_cost_usd = 0.0
+            self.provider_stats = {}
+            self.session_records = []
+            self._daily_cost_date = ""
+            self.daily_cost_usd = 0.0
+            self.over_cap = False
+            self._broadcast_counter = 0
 
     def _append_log(self, record: UsageRecord):
         """Append a single record to the JSONL log file."""
@@ -229,6 +338,13 @@ class LLMUsageTracker:
                 "total_tokens": self.total_prompt_tokens + self.total_completion_tokens,
                 "total_cost_usd": round(self.total_cost_usd, 6),
                 "remaining_balance": remaining,
+                "daily_cost_usd": round(self.daily_cost_usd, 6),
+                "daily_cost_cap": self.daily_cost_cap,
+                "daily_cost_date": self._daily_cost_date,
+                "over_cap": self.over_cap,
+                "starting_balance": self.starting_balance,
+                "calls_today": self.total_calls,
+                "cost_today": round(self.daily_cost_usd, 6),
                 "provider_stats": {
                     p: {
                         "calls": s["calls"],
@@ -251,6 +367,11 @@ class LLMUsageTracker:
                     for r in self.session_records[-50:]
                 ],
             }
+
+    @property
+    def recent_calls(self) -> list[UsageRecord]:
+        """Direct accessor alias for the in-memory record list."""
+        return self.session_records
 
     def estimate_tokens(self, text: str) -> int:
         """Rough token count estimator (4 chars ≈ 1 token for English).
@@ -319,11 +440,11 @@ if __name__ == "__main__":
     # Simulate a DeepSeek call
     record = UsageRecord(
         provider="deepseek",
-        model="deepseek-chat",
+        model="deepseek-v4-flash",
         prompt_tokens=500,
         completion_tokens=200,
         total_tokens=700,
-        cost_usd=tracker.estimate_cost("deepseek", "deepseek-chat", 500, 200),
+        cost_usd=tracker.estimate_cost("deepseek", "deepseek-v4-flash", 500, 200),
         latency_ms=420.0,
         endpoint="chat",
     )

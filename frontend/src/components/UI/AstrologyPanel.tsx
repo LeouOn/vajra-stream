@@ -6,18 +6,15 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import {
   Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload, Copy
 } from 'lucide-react';
-import { Card, Row, Col, Tag, Button, Space, Segmented, Switch, Tooltip, message, Select } from 'antd';
+import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
-import { useWebSocket } from '../../hooks/useWebSocket';
-import { createLogger } from '../../utils/logger';
-
-const log = createLogger('AstrologyPanel');
+import { useUIStore } from '../../stores/uiStore';
 import VedicPanchanga from './VedicPanchanga';
 import ChineseBaZi from './ChineseBaZi';
 
 // Always-visible sub-components — imported eagerly
-import SavedChartsDrawer, { type SavedChart } from './SavedChartsDrawer';
+import SavedChartsDrawer from './SavedChartsDrawer';
 import NatalCalculator from './NatalCalculator';
 import NatalChartWheel from './NatalChartWheel';
 import ErrorBoundary from './ErrorBoundary';
@@ -31,9 +28,6 @@ const LazySacredMandala = lazy(() => import('./LazySacredMandala'));
 
 // Extraction panel — lazy-loaded
 const LazyAstrologyExtractionPanel = lazy(() => import('./AstrologyExtractionPanel'));
-
-// Advanced techniques panel — lazy-loaded (10 hidden astrology endpoints)
-const LazyAdvancedAstrology = lazy(() => import('./AdvancedAstrologyPanel'));
 
 // Fallback skeleton for lazy components
 const LazyFallback = () => (
@@ -100,27 +94,29 @@ function MiniOrrery({ positions }) {
 }
 
 export default function AstrologyPanel() {
-  const isPlaying = useAudioStore((s) => s.isPlaying);
-  const frequency = useAudioStore((s) => s.frequency);
-  const { currentAstrology } = useWebSocket();
+  const { isPlaying, frequency } = useAudioStore();
+  const addToast = useUIStore((s) => s.addToast);
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
-  const liveData = currentAstrology;
+  const [liveData, setLiveData] = useState(null);
   const [customData, setCustomData] = useState(null);
   const [isLiveMode, setIsLiveMode] = useState(true);
   const [activeSystem, setActiveSystem] = useState('all'); // all, western, vedic, chinese
-  const [piiEnabled, setPiiEnabled] = useState(true); // PII toggle for exports (default: ON = keep personal info)
 
   // Database-backed state
-  const [charts, setCharts] = useState<SavedChart[]>([]);
-  const [activeChart, setActiveChart] = useState<SavedChart | null>(null);
-  const [transitChart, setTransitChart] = useState<SavedChart | null>(null);
-  const [subjectA, setSubjectA] = useState<SavedChart | null>(null);
-  const [subjectB, setSubjectB] = useState<SavedChart | null>(null);
-  const [editingChart, setEditingChart] = useState<SavedChart | null>(null);
+  const [charts, setCharts] = useState([]);
+  const [activeChart, setActiveChart] = useState(null);
+  const [transitChart, setTransitChart] = useState(null);
+  const [subjectA, setSubjectA] = useState(null);
+  const [subjectB, setSubjectB] = useState(null);
+  const [editingChart, setEditingChart] = useState(null);
   
   // Navigation tabs: 'wheel' (Consolidated Charts), 'transits' (Transit aspect comparison), 'synastry' (Synastry matching)
   const [activeTab, setActiveTab] = useState('wheel');
+
+  // Privacy toggle for LLM-export paths — defaults ON so personal info is
+  // stripped unless the user explicitly opts in to sharing it.
+  const [stripPii, setStripPii] = useState<boolean>(true);
 
   // Geolocation guard — stop retrying after user blocks permission
   const geoBlocked = useRef(false);
@@ -131,17 +127,10 @@ export default function AstrologyPanel() {
       const response = await fetch(`/api/v1/astrology/charts`);
       if (response.ok) {
         const data = await response.json();
-        // Deduplicate by chart id (last write wins) — prevents the same
-        // profile from appearing multiple times in the saved-charts list.
-        const seen = new Map();
-        for (const c of (Array.isArray(data) ? data : [])) {
-          if (c && c.id != null) seen.set(c.id, c);
-        }
-        setCharts(Array.from(seen.values()));
+        setCharts(data);
       }
     } catch (e) {
-      log.error("Error fetching saved charts:", e);
-      message.error('Could not load saved charts: ' + (e instanceof Error ? e.message : String(e)));
+      console.error("Error fetching saved charts:", e);
     }
   };
 
@@ -162,13 +151,11 @@ export default function AstrologyPanel() {
         
         const response = await fetch(`/api/v1/astrology/current?${params.toString()}`);
         if (response.ok) {
-          // Result populated by WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook).
-          // Fetch is retained for immediate data on first mount before WS push arrives.
-          await response.json();
+          const result = await response.json();
+          setLiveData(result.astrology);
         }
       } catch (e) {
-        log.error("Error in live astrology fetch:", e);
-        message.error('Could not load live astrology: ' + (e instanceof Error ? e.message : String(e)));
+        console.error("Error in live astrology fetch:", e);
       }
     };
 
@@ -189,13 +176,22 @@ export default function AstrologyPanel() {
     }
   };
 
-  // Fetch saved charts + initial live astrology on mount.
-  // Live updates now come from WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook)
-  // — the 20s HTTP polling interval has been removed; currentAstrology is the source of truth.
+  // Poll for live transits and fetch saved charts on mount
   useEffect(() => {
     fetchSavedCharts();
     fetchLiveAstrology();
-  }, []);
+    const interval = setInterval(() => {
+      if (isLiveMode) fetchLiveAstrology();
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [isLiveMode]);
+
+  useEffect(() => {
+    if (charts.length > 0 && !activeChart && !isLiveMode) {
+      setActiveChart(charts[0]);
+      setTransitChart(charts[0]);
+    }
+  }, [charts, activeChart, isLiveMode]);
 
   // Helper: extract error detail from a failed fetch response
   const _readError = async (response) => {
@@ -267,11 +263,11 @@ export default function AstrologyPanel() {
           });
           if (response.ok) {
             savedChart = await response.json();
-            message.success("Natal profile updated successfully");
+            addToast({ type: 'success', title: 'Natal profile updated successfully', duration: 3 });
             setEditingChart(null);
           } else {
             const err = await _readError(response);
-            message.error(`Update failed: ${err}`);
+            addToast({ type: 'error', title: `Update failed: ${err}`, duration: 5 });
             // Fall through to compute temporary chart anyway
           }
         } else {
@@ -283,10 +279,10 @@ export default function AstrologyPanel() {
           });
           if (response.ok) {
             savedChart = await response.json();
-            message.success("Natal profile saved successfully");
+            addToast({ type: 'success', title: 'Natal profile saved successfully', duration: 3 });
           } else {
             const err = await _readError(response);
-            message.warning(`Could not save: ${err}. Showing temporary chart instead.`);
+            addToast({ type: 'warning', title: `Could not save: ${err}. Showing temporary chart instead.`, duration: 4 });
             // Fall through to compute temporary chart
           }
         }
@@ -310,11 +306,12 @@ export default function AstrologyPanel() {
         setCustomData(astroData);
         setIsLiveMode(false);
         setActiveChart(null);
-        message.info("Temporary chart computed successfully");
+        addToast({ type: 'info', title: 'Temporary chart computed successfully', duration: 3 });
         audioFeedback.playSuccess();
       }
     } catch (err) {
-      message.error(err.message || "Error processing request");
+      console.error(err);
+      addToast({ type: 'error', title: err.message || 'Error processing request', duration: 5 });
       audioFeedback.playError();
     } finally {
       setLoading(false);
@@ -331,26 +328,13 @@ export default function AstrologyPanel() {
         setActiveChart(chart);
         setActiveTab('wheel'); // Toggle back to consolidated wheel view
       } catch (e) {
-        log.error("Error parsing cached chart data, falling back to recalculation", e);
-        message.error('Could not parse cached chart: ' + (e instanceof Error ? e.message : String(e)));
+        console.error("Error parsing cached chart data, falling back to recalculation", e);
         recalculateChart(chart.id);
       }
     } else {
       recalculateChart(chart.id);
     }
   };
-
-  // Auto-load the first saved chart's natal data when charts arrive, so the
-  // "Date & Time" header + ephemeris view populate immediately instead of
-  // staying stuck on "Loading…" / "Computing ephemeris…".
-  // Placed AFTER loadNatalChart/recalculateChart so TDZ isn't a concern.
-  useEffect(() => {
-    if (charts.length > 0 && !activeChart) {
-      const first = charts[0];
-      setTransitChart(first);
-      loadNatalChart(first);
-    }
-  }, [charts, activeChart, loadNatalChart]);
 
   const recalculateChart = async (id) => {
     setLoading(true);
@@ -365,13 +349,9 @@ export default function AstrologyPanel() {
         const matched = charts.find(c => c.id === id);
         if (matched) setActiveChart(matched);
         fetchSavedCharts();
-      } else {
-        message.error(`Recalculate failed: HTTP ${response.status}`);
-        audioFeedback.playError();
       }
     } catch (e) {
-      log.error(e);
-      message.error('Could not recalculate chart: ' + (e instanceof Error ? e.message : String(e)));
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -383,18 +363,14 @@ export default function AstrologyPanel() {
         method: 'DELETE'
       });
       if (response.ok) {
-        message.success("Profile deleted successfully");
+        addToast({ type: 'success', title: 'Profile deleted successfully', duration: 3 });
         if (activeChart?.id === id) {
           handleResetToLive();
         }
         fetchSavedCharts();
-      } else {
-        message.error(`Delete failed: HTTP ${response.status}`);
-        audioFeedback.playError();
       }
     } catch (e) {
-      log.error(e);
-      message.error('Could not delete chart: ' + (e instanceof Error ? e.message : String(e)));
+      console.error(e);
     }
   };
 
@@ -411,14 +387,10 @@ export default function AstrologyPanel() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        message.success("Backup downloaded successfully");
-      } else {
-        message.error(`Export failed: HTTP ${response.status}`);
-        audioFeedback.playError();
+        addToast({ type: 'success', title: 'Backup downloaded successfully', duration: 3 });
       }
     } catch (e) {
-      log.error(e);
-      message.error('Could not export charts: ' + (e instanceof Error ? e.message : String(e)));
+      console.error(e);
     }
   };
 
@@ -431,13 +403,14 @@ export default function AstrologyPanel() {
       });
       if (response.ok) {
         const result = await response.json();
-        message.success(`Successfully imported ${result.imported} profiles`);
+        addToast({ type: 'success', title: `Successfully imported ${result.imported} profiles`, duration: 3 });
         fetchSavedCharts();
       } else {
-        message.error("Failed to import profiles");
+        addToast({ type: 'error', title: 'Failed to import profiles', duration: 5 });
       }
     } catch (e) {
-      message.error("Import failed");
+      console.error(e);
+      addToast({ type: 'error', title: 'Import failed', duration: 5 });
     }
   };
 
@@ -445,22 +418,27 @@ export default function AstrologyPanel() {
     // Live mode: copy current day/location astrology (no saved chart needed)
     if (isLiveMode) {
       if (!liveData) {
-        message.error("Live data not yet loaded — wait for it to fetch");
+        addToast({ type: 'error', title: 'Live data not yet loaded — wait for it to fetch', duration: 5 });
         return;
       }
       try {
         const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
-        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: piiEnabled });
+        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: stripPii });
         await navigator.clipboard.writeText(markdown);
-        message.success("Current astrology copied for LLM");
+        addToast({
+          type: 'success',
+          title: stripPii ? 'Current astrology copied (PII stripped) for LLM' : 'Current astrology copied for LLM',
+          duration: 3,
+        });
       } catch (e) {
-        message.error("Live astrology copy failed: " + e.message);
+        console.error(e);
+        addToast({ type: 'error', title: 'Live astrology copy failed: ' + e.message, duration: 5 });
       }
       return;
     }
     // Natal mode: copy saved chart's natal data
     if (!activeChart?.id) {
-      message.error("Load a saved chart first to copy its natal data");
+      addToast({ type: 'error', title: 'Load a saved chart first to copy its natal data', duration: 5 });
       return;
     }
     try {
@@ -469,62 +447,25 @@ export default function AstrologyPanel() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ strip_pii: stripPii }),
         },
       );
-      if (response.status === 404) {
-        // Stale chart id (chart was deleted or never existed). Clear it
-        // and fall back to live mode so the user isn't stuck on a broken
-        // selection. This is the "can't copy today's charts" failure.
-        message.warning(
-          `Saved chart #${activeChart.id} is no longer available. ` +
-          `Switching to live mode for today's astrology.`
-        );
-        setActiveChart(null);
-        setIsLiveMode(true);
-        return;
-      }
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
       const result = await response.json();
       const data = result.data || result;
       const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
-      const markdown = formatNatalChartMarkdown(data, { pii: piiEnabled });
+      const markdown = formatNatalChartMarkdown(data, { pii: stripPii });
       await navigator.clipboard.writeText(markdown);
-      message.success("Natal chart copied for LLM");
+      addToast({
+        type: 'success',
+        title: stripPii ? 'Natal chart copied (PII stripped) for LLM' : 'Natal chart copied for LLM',
+        duration: 3,
+      });
     } catch (e) {
-      message.error("Natal chart copy failed: " + e.message);
-    }
-  };
-
-  // Dedicated "Copy Current Outlook" — always copies today's live astrology,
-  // regardless of whether the panel is currently showing live or natal data.
-  // This is the Cosmic Clock → "copy current outlook" shortcut: it always
-  // gives you the present moment, not a saved chart.
-  const handleCopyCurrentOutlook = async () => {
-    if (!liveData) {
-      message.warning(
-        'Current outlook not yet loaded — wait a few seconds for the next WS broadcast. ' +
-          'If this persists, check that the backend is running.'
-      );
-      // Best-effort: try an immediate fetch to populate live data.
-      try {
-        await fetchLiveAstrology();
-      } catch {
-        /* swallow — warning above already explains */
-      }
-      return;
-    }
-    try {
-      const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
-      const markdown = formatLiveAstrologyMarkdown(liveData, { pii: piiEnabled });
-      await navigator.clipboard.writeText(markdown);
-      message.success("Current outlook copied — today's live astrology is on your clipboard");
-    } catch (e) {
-      message.error(
-        'Copy current outlook failed: ' + (e instanceof Error ? e.message : String(e))
-      );
+      console.error(e);
+      addToast({ type: 'error', title: 'Natal chart copy failed: ' + e.message, duration: 5 });
     }
   };
 
@@ -545,13 +486,7 @@ export default function AstrologyPanel() {
       '木': 'Wood', '火': 'Fire', '土': 'Earth', '金': 'Metal', '水': 'Water'
     };
     
-    // Defensive: backend fallback (when core/astrology.py import fails) returns
-    // a payload WITHOUT a `chinese` key. Guard so we don't crash the panel.
-    const baziValues = activeData?.chinese?.bazi
-      ? Object.values(activeData.chinese.bazi)
-      : [];
-    baziValues.forEach((val) => {
-      if (typeof val !== 'string') return;
+    Object.values(activeData.chinese.bazi).forEach(val => {
       const match = val.match(/\(([^)]+)\)/);
       if (match && match[1]) {
         const elementsStr = match[1];
@@ -610,32 +545,6 @@ export default function AstrologyPanel() {
             >
               🔴 LIVE
             </Button>
-            <Tooltip title={piiEnabled ? 'PII: ON — exports include name, birth time, location. Toggle OFF for privacy-safe sharing.' : 'PII: OFF — exports redact personal info. Toggle ON to include full details.'}>
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: piiEnabled ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${piiEnabled ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
-                <Shield className="w-3 h-3" style={{ color: piiEnabled ? '#22c55e' : '#ef4444' }} />
-                <span className="text-[9px] font-mono font-bold" style={{ color: piiEnabled ? '#22c55e' : '#ef4444' }}>PII</span>
-                <Switch
-                  size="small"
-                  checked={piiEnabled}
-                  onChange={setPiiEnabled}
-                />
-              </div>
-            </Tooltip>
-            <Button
-              size="small"
-              icon={<Copy />}
-              onClick={handleCopyCurrentOutlook}
-              className="text-[10px]"
-              style={{
-                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                border: 'none',
-                color: '#fff',
-                fontWeight: 600,
-              }}
-              title="Copy today's live astrology — current planetary positions, Moon phase, aspects, Vedic + BaZi"
-            >
-              Copy Current Outlook
-            </Button>
             <Button
               size="small"
               icon={<Copy />}
@@ -649,6 +558,18 @@ export default function AstrologyPanel() {
             >
               Copy for LLM
             </Button>
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-mono text-slate-300 select-none"
+              title="When ON, personal info (name, birth time, exact location) is stripped before copying."
+            >
+              <span aria-hidden>🔒</span>
+              <Switch
+                size="small"
+                checked={stripPii}
+                onChange={(v) => { setStripPii(v); audioFeedback.playClick(); }}
+              />
+              <span>Strip personal data</span>
+            </span>
             <Button
               size="small"
               shape="circle"
@@ -688,8 +609,7 @@ export default function AstrologyPanel() {
                 { value: 'wheel', label: 'Celestial Positions' },
                 { value: 'transits', label: 'Transit-to-Natal' },
                 { value: 'synastry', label: 'Synastry (Compatibility)' },
-                { value: 'extraction', label: 'Extraction' },
-                { value: 'advanced', label: 'Advanced Techniques' }
+                { value: 'extraction', label: 'Extraction' }
               ]}
               value={activeTab}
               onChange={(val) => { audioFeedback.playTabChange(); setActiveTab(val); }}
@@ -721,27 +641,6 @@ export default function AstrologyPanel() {
                       </Col>
                       <Col>
                         <Space size={8} align="center">
-                          {!isLiveMode && charts.length > 0 && (
-                            <Select
-                              size="small"
-                              value={activeChart?.id}
-                              onChange={(id) => {
-                                const picked = charts.find((c) => c.id === id);
-                                if (picked) {
-                                  setActiveChart(picked);
-                                  loadNatalChart(picked);
-                                  audioFeedback.playClick();
-                                }
-                              }}
-                              options={charts.map((c) => ({
-                                value: c.id,
-                                label: `${c.name} (${c.city})`,
-                              }))}
-                              placeholder="Switch natal chart"
-                              style={{ minWidth: 200 }}
-                              classNames={{ popup: { root: 'bg-gray-950 border-gray-800 text-white' } }}
-                            />
-                          )}
                           <span className="text-[10px] text-gray-500 font-mono">COORD: GEOCENTRIC</span>
                         </Space>
                       </Col>
@@ -784,7 +683,7 @@ export default function AstrologyPanel() {
                           <span className="text-[9px] text-gray-500 font-mono block">MOON ILLUMINATION</span>
                           <span className="text-sm font-bold text-cyan-400 block mt-1">
                             {activeData?.moon_phase?.illumination != null
-                              ? activeData.moon_phase.illumination.toFixed(1) + '%'
+                              ? `${(activeData.moon_phase.illumination * 100).toFixed(1)}%`
                               : '—'}
                           </span>
                         </Card>
@@ -917,7 +816,7 @@ export default function AstrologyPanel() {
                     <Card
                       title={<span className="text-purple-400 font-mono text-xs tracking-wider uppercase">🌀 Sacred Mandala — Planetary Resonance Field</span>}
                       className="bg-gray-900/80 border-purple-500/20"
-                      styles={{ body: { padding: '0', height: '360px' } }}
+                      styles={{ body: { padding: '0', height: 'min(60vh, 480px)' } }}
                     >
                       <ErrorBoundary fallbackTitle="3D mandala failed to load">
                         <Suspense fallback={
@@ -948,14 +847,7 @@ export default function AstrologyPanel() {
             <div key="transits" className="animate-slide-up">
               <ErrorBoundary fallbackTitle="Transit comparison failed to load">
                 <Suspense fallback={<LazyFallback />}>
-                  <TransitComparison
-                    chart={transitChart || activeChart}
-                    charts={charts}
-                    onSelectChart={(c) => {
-                      setTransitChart(c);
-                      audioFeedback.playSuccess();
-                    }}
-                  />
+                  <TransitComparison chart={transitChart || activeChart} />
                 </Suspense>
               </ErrorBoundary>
             </div>
@@ -981,14 +873,6 @@ export default function AstrologyPanel() {
             <div key="extraction" className="animate-slide-up">
               <Suspense fallback={<LazyFallback />}>
                 <LazyAstrologyExtractionPanel />
-              </Suspense>
-            </div>
-          )}
-
-          {activeTab === 'advanced' && (
-            <div key="advanced" className="animate-slide-up">
-              <Suspense fallback={<LazyFallback />}>
-                <LazyAdvancedAstrology activeChart={activeChart} />
               </Suspense>
             </div>
           )}
@@ -1032,7 +916,12 @@ const WesternChartWheel = ({ positions, aspects }) => {
   };
 
   return (
-    <svg width="320" height="320" className="select-none font-mono">
+    <svg
+      viewBox="0 0 320 320"
+      width="100%"
+      style={{ maxWidth: 320 }}
+      className="select-none font-mono"
+    >
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
       <circle cx={cx} cy={cy} r={midR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
       <circle cx={cx} cy={cy} r={innerR} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />

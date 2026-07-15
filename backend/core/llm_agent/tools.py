@@ -992,18 +992,67 @@ def get_88_buddhas_liturgy() -> dict[str, Any]:
 
 
 def recite_buddha_name(buddha_name: str) -> dict[str, Any]:
-    """Recite a single Buddha name via TTS."""
+    """Recite a single Buddha name via the unified TTS provider.
+
+    Delegates to ToolDispatcher (modules/radionics_operator.py) which routes
+    through core.tts_provider.get_tts_provider().speak(...). Falls back to a
+    descriptive payload when no container is available (e.g. in unit tests).
+    """
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
 
     svc = get_eighty_eight_buddhas()
     b = svc.get_buddha_by_name(buddha_name)
     if not b:
         return {"error": f"Buddha not found: {buddha_name}"}
-    return {
-        "buddha": b.name_chinese,
-        "pinyin": b.name_pinyin,
-        "message": f"Recitation of {b.name_chinese} would play via TTS.",
-    }
+    try:
+        return _dispatch_via_container("recite_buddha_name", buddha_name=buddha_name)
+    except Exception as dispatch_err:
+        text = f"南無{b.name_chinese}" if not b.name_chinese.startswith("南無") else b.name_chinese
+        try:
+            from core.tts_provider import get_tts_provider
+
+            provider = get_tts_provider()
+            if provider:
+                import asyncio
+
+                try:
+                    running = asyncio.get_event_loop()
+                    if running.is_running():
+
+                        async def _speak() -> str | None:
+                            return await provider.speak(text=text, rate="-30%", role="buddhist_chant")
+
+                        asyncio.ensure_future(_speak())
+                        path = None
+                    else:
+                        path = asyncio.run(
+                            provider.speak(text=text, rate="-30%", role="buddhist_chant")
+                        )
+                except RuntimeError:
+                    path = asyncio.run(
+                        provider.speak(text=text, rate="-30%", role="buddhist_chant")
+                    )
+                return {
+                    "buddha": b.name_chinese,
+                    "pinyin": b.name_pinyin,
+                    "text": text,
+                    "audio_path": path,
+                    "message": f"Recited {b.name_chinese} ({b.name_pinyin}) via fallback TTS provider.",
+                }
+        except Exception as tts_err:
+            return {
+                "buddha": b.name_chinese,
+                "pinyin": b.name_pinyin,
+                "text": text,
+                "message": f"Could not play recitation of {b.name_chinese} (dispatch={dispatch_err}; tts={tts_err}).",
+                "error": str(tts_err),
+            }
+        return {
+            "buddha": b.name_chinese,
+            "pinyin": b.name_pinyin,
+            "text": text,
+            "message": f"TTS provider unavailable. Text: {text}",
+        }
 
 
 def start_buddha_recitation(

@@ -1,0 +1,72 @@
+{
+  "practice_id": "amitabha",
+  "name": "Amitabha Buddha Practice (Pure Land Nianfo / Nembutsu)",
+  "name_sanskrit": "Amitābha (Infinite Light) / Amitāyus (Infinite Life)",
+  "name_chinese": "阿彌陀佛 — Āmítuófó",
+  "name_japanese": "阿弥陀仏 (Amida Butsu)",
+  "tradition": "Pure Land (Mahayana / Vajrayana)",
+  "category": "peace_transition",
+  "primary_purpose": "Rebirth in Sukhāvatī (the Western Pure Land); peace of mind; transition support for the deceased",
+  "mantras": [
+    {
+      "mantra_id": "amitabha_nianfo_sanskrit",
+      "use": "Primary Sanskrit mantra — Om Ami Deva Hrīḥ",
+      "recommended_count": 108
+    },
+    {
+      "mantra_id": "amituofo_nianfo",
+      "use": "Chinese Nianfo — Namo Amituofo (南無阿彌陀佛)",
+      "recommended_count": 108,
+      "traditional_purification_count": 1000000
+    },
+    {
+      "mantra_id": "mituore",
+      "use": "Japanese Nembutsu — Namu Amida Butsu",
+      "recommended_count": 108
+    }
+  ],
+  "visualizations": [
+    "Amitabha Buddha appears in the Western Pure Land of Sukhāvatī, seated on a lotus throne",
+    "His body is radiant red (#DC143C), the color of the setting sun, glowing with infinite light",
+    "His hands rest in his lap in meditation mudrā, holding a monk's begging bowl filled with the nectar of immortality",
+    "He is surrounded by his two attendant bodhisattvas: Avalokiteśvara (right, holding a lotus) and Mahāsthāmaprāpta (left, holding a vase of light)",
+    "From his heart, beams of red and golden light radiate in all directions, touching all beings who have devotion",
+    "At the moment of reciting his name, visualize a lotus flower opening in Sukhāvatī with your name on it",
+    "For the dying or deceased: visualize Amitabha appearing before them, surrounded by the sangha of the Pure Land, inviting them to be reborn there",
+    "Red light from Amitabha's heart enters the crown of the practitioner/dying person, dissolving attachment and drawing the consciousness toward Sukhāvatī"
+  ],
+  "benefits": [
+    "Peace of mind in this life — freedom from anxiety and fear",
+    "Removal of obstacles at the time of death",
+    "Guarantee of rebirth in Sukhāvatī (the Pure Land) with continued practice",
+    "Support for the dying and deceased — smoothing the transition",
+    "Purification of desire and attachment (Amitabha transmutes desire into discriminating wisdom)",
+    "Connection to the Buddha of Infinite Light and Infinite Life",
+    "Direct path to liberation for lay practitioners (simple practice, profound result)",
+    "Accumulation of immeasurable merit"
+  ],
+  "frequency_hz": 174,
+  "frequency_purpose": "Lowest solfeggio frequency — safety, security, foundation, and physical ease",
+  "color": "#DC143C",
+  "color_name": "Amitabha Red (Crimson)",
+  "element": "Fire (transforming desire into wisdom)",
+  "chakra": "throat",
+  "direction": "Western Pure Land (Sukhāvatī)",
+  "pure_land_features": [
+    "Ground made of seven precious materials (gold, silver, lapis, crystal, agate, ruby, cornelian)",
+    "Eight lakes of water with eight excellent qualities",
+    "Lotus flowers of various colors blooming everywhere",
+    "Birds that sing the dharma",
+    "Trees made of jewels that rustle with dharma teachings",
+    "No realms of suffering — no hell beings, hungry ghosts, or animals",
+    "All conditions support rapid progress toward Buddhahood"
+  ],
+  "best_times": [
+    "Continuously throughout daily life (nianfo can be recited silently during any activity)",
+    "Especially powerful at the time of death — for 49 days after death",
+    "On Amitabha's feast days (e.g. 17th day of 11th lunar month, the day of his enlightenment)",
+    "During times of grief, fear, or anxiety",
+    "At dawn facing west"
+  ],
+  "dedication": "By reciting the name of Amitabha, may I and all beings be reborn in Sukhāvatī, the Pure Land of Bliss. May we swiftly attain Buddhahood for the benefit of all."
+}

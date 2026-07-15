@@ -9,7 +9,8 @@
  *
  * @component
  */
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { apiUrl } from '../../utils/api';
 
 // ---------------------------------------------------------------------------
 // Divination payload types
@@ -101,6 +102,7 @@ export interface ToolCall {
     changing_lines?: string[];
     figures?: Record<string, GeomancyFigure | undefined>;
     houses?: Record<number, GeomancyFigure>;
+    narrative?: string;
   } | null;
 }
 
@@ -110,6 +112,61 @@ interface RenderMessageWidgetsProps {
   /** Callback invoked with a zoom-modal payload. */
   onZoomItemClick?: (item: ZoomItem) => void;
 }
+
+const COORD_RE = /\(\s*(\d+)\s*,\s*(\d+)\s*\)/g;
+
+interface ExtractedSigilState {
+  svg: string;
+  kamea: string;
+}
+
+/**
+ * Detect ``(x, y)`` coordinate pairs in a narrative string and render the
+ * extracted kamea sigil SVG by calling ``/api/v1/sigils/extract_from_text``.
+ *
+ * Exported so CommandCenter chat messages can render sigils embedded in
+ * orchestrator-generated outlook narratives.
+ */
+export const NarrativeSigilExtractor = ({ narrative }: { narrative: string }) => {
+  const [sigil, setSigil] = useState<ExtractedSigilState | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!narrative || !COORD_RE.test(narrative)) return;
+    COORD_RE.lastIndex = 0;
+
+    const controller = new AbortController();
+    fetch(apiUrl('/sigils/extract_from_text'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ narrative }),
+      signal: controller.signal,
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (cancelled) return;
+        if (data && data.status === 'success' && data.svg) {
+          setSigil({ svg: data.svg, kamea: data.kamea || 'saturn' });
+        }
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; controller.abort(); };
+  }, [narrative]);
+
+  if (!sigil) return null;
+
+  return (
+    <div className="mt-2 bg-black/40 p-3 rounded-lg border border-cyan-500/20">
+      <div className="text-[10px] text-cyan-400 font-mono font-semibold uppercase mb-1">🔮 Extracted Sigil</div>
+      <div
+        dangerouslySetInnerHTML={{ __html: sigil.svg }}
+        className="w-full max-w-[180px] mx-auto"
+      />
+      <div className="text-[9px] text-gray-500 font-mono text-center mt-1">{sigil.kamea} grid</div>
+    </div>
+  );
+};
 
 export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessageWidgetsProps) => {
   if (!toolCalls || toolCalls.length === 0) return null;
@@ -264,6 +321,18 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
                   </div>
                 </div>
               </div>
+            </div>
+          );
+        }
+
+        // 5. Narrative Sigil Extraction — for outlook narratives generated
+        // via chat that embed (x,y) coordinate pairs in the Sigillum section.
+        if (tc.tool_name === 'generate_outlook' || tc.tool_name === 'generate_single_outlook' || tc.tool_name === 'generate_epic_outlook') {
+          const narrativeText = tc.result?.narrative;
+          if (!narrativeText) return null;
+          return (
+            <div key={idx}>
+              <NarrativeSigilExtractor narrative={narrativeText} />
             </div>
           );
         }

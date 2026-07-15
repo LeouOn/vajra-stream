@@ -1,0 +1,97 @@
+{
+  "description": "Population of beings needing Medicine Buddha's healing - physical, mental, and spiritual",
+  "deity": "Medicine Buddha (Bhaisajyaguru)",
+  "practice": "medicine_buddha",
+  "frequency": [285, 7.83],
+  "targets": [
+    {
+      "name": "Hospital Patients Worldwide",
+      "category": "physical_illness",
+      "description": "All beings currently hospitalized with physical illness, injury, or undergoing surgery",
+      "priority": 10,
+      "intention": "May Medicine Buddha's healing blue light fill all hospitals, may every patient be restored to complete health of body and mind",
+      "additional_data": {
+        "estimated_count": "Tens of millions hospitalized worldwide at any moment",
+        "mantra": "Om Bekandze Bekandze Maha Bekandze Radza Samudgate Soha",
+        "data_sources": ["WHO Global Health Observatory"]
+      }
+    },
+    {
+      "name": "Those with Chronic Illness",
+      "category": "physical_illness",
+      "description": "Beings living with chronic conditions - cancer, heart disease, diabetes, autoimmune disorders, long COVID, and others",
+      "priority": 9,
+      "intention": "May all beings with chronic illness find relief, healing, and the support they need to live fully",
+      "additional_data": {
+        "estimated_count": "Billions living with chronic disease globally",
+        "data_sources": ["WHO", "Global Burden of Disease Study"]
+      }
+    },
+    {
+      "name": "Those with Mental Health Challenges",
+      "category": "mental_health",
+      "description": "Beings suffering from depression, anxiety, PTSD, schizophrenia, bipolar disorder, and other mental health conditions",
+      "priority": 10,
+      "intention": "May all beings with mental suffering find peace of mind, effective care, and the warmth of connection",
+      "additional_data": {
+        "estimated_count": "970+ million living with mental disorder globally",
+        "data_sources": ["WHO Mental Health", "Global Burden of Disease"]
+      }
+    },
+    {
+      "name": "Those Suffering from Addiction",
+      "category": "mental_health",
+      "description": "Beings caught in addiction to substances or behaviors - seeking freedom but bound by craving",
+      "priority": 9,
+      "intention": "May all beings caught in addiction find freedom, may Medicine Buddha's lapis light dissolve the roots of craving, may they find lasting recovery",
+      "additional_data": {
+        "estimated_count": "400+ million with substance use disorders globally",
+        "data_sources": ["UNODC", "WHO"]
+      }
+    },
+    {
+      "name": "Healthcare Workers - Healing the Healers",
+      "category": "healers",
+      "description": "Doctors, nurses, paramedics, caregivers, and all healthcare workers bearing the weight of others' suffering",
+      "priority": 10,
+      "intention": "May all who care for the sick be replenished, may they be protected from burnout, may their compassionate service be sustained",
+      "additional_data": {
+        "estimated_count": "65+ million healthcare workers globally",
+        "data_sources": ["WHO Health Workforce"]
+      }
+    },
+    {
+      "name": "Chronic Pain Sufferers",
+      "category": "physical_illness",
+      "description": "Beings living with persistent chronic pain that limits life and diminishes wellbeing",
+      "priority": 9,
+      "intention": "May all beings in chronic pain find relief, may the healing light ease their suffering and restore ease",
+      "additional_data": {
+        "estimated_count": "1.5+ billion living with chronic pain worldwide",
+        "data_sources": ["IASP - International Association for the Study of Pain"]
+      }
+    },
+    {
+      "name": "Those Without Access to Healthcare",
+      "category": "physical_illness",
+      "description": "Beings in low-resource regions without access to basic medical care, medicines, or sanitation",
+      "priority": 10,
+      "intention": "May all beings have access to healing care, may healthcare equity prevail, may suffering from preventable disease end",
+      "additional_data": {
+        "estimated_count": "At least half the world lacks essential health services",
+        "data_sources": ["WHO Universal Health Coverage"]
+      }
+    },
+    {
+      "name": "Those in End-of-Life Care",
+      "category": "physical_illness",
+      "description": "Beings in hospice, palliative care, and the dying process, along with those caring for them",
+      "priority": 10,
+      "intention": "May all those approaching death be free from pain and fear, may they pass peacefully, may they be guided toward liberation",
+      "additional_data": {
+        "estimated_count": "60+ million people require palliative care annually",
+        "data_sources": ["WHO Palliative Care"]
+      }
+    }
+  ]
+}

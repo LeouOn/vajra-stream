@@ -16,13 +16,14 @@
  * @component
  * @route /practice/visualizers
  */
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
-import SacredGeometry from '../../components/3D/SacredGeometry';
-import SacredMandala from '../../components/3D/SacredMandala';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
+
+const SacredGeometry = lazy(() => import('../../components/3D/SacredGeometry'));
+const SacredMandala = lazy(() => import('../../components/3D/SacredMandala'));
 
 type Viz3DMode = 'sacred-geometry' | 'sacred-mandala';
 

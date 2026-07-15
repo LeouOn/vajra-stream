@@ -131,10 +131,14 @@ class SigilService:
 
         return coords
 
-    def generate_kamea_svg(self, intention: str, kamea_name: str = "saturn") -> str:
-        """Generates a glowing neon SVG sigil drawn on a planetary magic square"""
-        coords = self.text_to_coordinates(intention, kamea_name)
-        kamea = KAMEAS.get(kamea_name, KAMEAS["saturn"])
+    def render_svg_from_coords(self, coords: list[dict], kamea_name: str = "saturn") -> str:
+        """Render a kamea sigil SVG from pre-computed coordinates.
+
+        Accepts coordinate dicts produced by :meth:`text_to_coordinates`
+        (each carrying ``x``, ``y``, ``value``, ``letter``) and draws the
+        glowing neon path on the appropriate planetary magic square.
+        """
+        kamea = KAMEAS.get(kamea_name.lower(), KAMEAS["saturn"])
         size = kamea["size"]
 
         # Grid parameters
@@ -214,6 +218,15 @@ class SigilService:
   {end_bar}
 </svg>"""
         return svg
+
+    def generate_kamea_svg(self, intention: str, kamea_name: str = "saturn") -> str:
+        """Generates a glowing neon SVG sigil drawn on a planetary magic square.
+
+        This is a convenience wrapper that reduces the intention text to
+        coordinates and delegates to :meth:`render_svg_from_coords`.
+        """
+        coords = self.text_to_coordinates(intention, kamea_name)
+        return self.render_svg_from_coords(coords, kamea_name)
 
     async def generate_ai_image(self, intention: str) -> str | None:
         """Generates a high-quality AI sigil from intention. Falls back to None if unconfigured/fails."""

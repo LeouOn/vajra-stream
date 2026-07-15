@@ -1,0 +1,70 @@
+{
+  "practice_id": "88_buddhas",
+  "name": "The Great Repentance of the 88 Buddhas (Bāshíbā Fó)",
+  "name_sanskrit": "Aṣṭāśīti Buddha Vandanā — The Eighty-Eight Buddha Confession",
+  "name_chinese": "八十八佛大忏悔文 — Bāshíbā Fó Dà Chànhuǐ Wén",
+  "tradition": "Mahayana / Chinese Buddhist Liturgy",
+  "category": "purification_repentance",
+  "primary_purpose": "Purification of negative karma accumulated across countless lifetimes through heartfelt confession and recitation of the names of the 53 Past Buddhas and the 35 Confession Buddhas",
+  "mantras": [
+    {
+      "mantra_id": "namo_88_buddhas",
+      "use": "Recite the names of all 88 Buddhas in sequence — the standard liturgical recitation",
+      "recommended_count": 88,
+      "traditional_purification_count": 100000
+    }
+  ],
+  "mantra_short": "Námó Bāshíbā Fó (南無八十八佛)",
+  "mantra_sanskrit": "Namo Aṣṭāśīti Buddhānāṃ",
+  "external_recitation_system": {
+    "knowledge_file": "knowledge/eighty_eight_buddhas.json",
+    "description": "The complete name-by-name list of all 88 Buddhas (id, chinese, pinyin, sanskrit, translation, meaning, quality, element, chakra) is loaded from this file by the legacy BuddhaRecitationLoop system. The Wave-1 practice engine runs alongside that system; do NOT migrate or replace it.",
+    "frontend_route": "/practice/buddhas",
+    "legacy_route_alias": "/buddhas (redirects to /practice/buddhas)"
+  },
+  "visualizations": [
+    "Visualize the 88 Buddhas assembled in the sky before you: the 53 Past Buddhas in a vast radiating mandala above, the 35 Confession Buddhas in a circle below",
+    "Each Buddha radiates purifying golden light (#FBBF24) that dissolves negative karma accumulated across countless past lives",
+    "As you recite each Buddha's name, that Buddha appears at the crown of your head, emits light, and dissolves into you — purifying one specific class of karmic obscuration",
+    "Confession of body: 'I confess all negative karma of body created by killing, stealing, and sexual misconduct across countless lifetimes'",
+    "Confession of speech: 'I confess all negative karma of speech created by lying, divisive speech, harsh words, and idle chatter across countless lifetimes'",
+    "Confession of mind: 'I confess all negative karma of mind created by covetousness, ill will, and wrong views across countless lifetimes'",
+    "From the assembled 88 Buddhas, three streams of light — white (body), red (speech), blue (mind) — pour into your three gates, completely purifying all karmic obscurations and restoring the purity of your Buddha-nature"
+  ],
+  "benefits": [
+    "Purifies vast stores of negative karma accumulated across countless past lives",
+    "Opens the karmic pathway to awakening by clearing past obscurations",
+    "Establishes karmic connection with the 53 Past Buddhas of this fortunate aeon and the 35 Confession Buddhas",
+    "Cultivates the bodhisattva vow of sincere repentance (Kṣama)",
+    "Restores broken vows, precepts, and samaya commitments",
+    "Multiplies merit vastly — traditionally said to be the most powerful single practice for purifying the heaviest negative karma",
+    "Prepares the mind for higher Vajrayana practices by clearing the foundation",
+    "Cultivates humility and the honest recognition of one's own karma — the root of all virtue"
+  ],
+  "frequency_hz": 396,
+  "frequency_purpose": "Solfeggio frequency for liberating guilt and fear — supports the release of karmic patterns through sincere confession",
+  "color": "#FBBF24",
+  "color_name": "Confession Gold (Buddha Aureate)",
+  "element": "Fire (the purifying flame of wisdom that consumes karma without harming the practitioner)",
+  "chakra": "heart",
+  "structure_summary": {
+    "fifty_three_buddhas": "The 53 Buddhas of the remote past (普光佛 ... 法界藏身阿彌陀佛) — recited first, drawn from the larger Sukhāvatī lineage",
+    "thirty_five_buddhas": "The 35 Confession Buddhas (釋迦牟尼佛 ... 妙見菩薩) — invoked in the Bodhisattva Confession Sūtra; each purifies a specific class of misdeed",
+    "liturgical_components": [
+      "Refuge (三皈依)",
+      "Repentance verse (忏悔文)",
+      "Recitation of 88 names (八十八佛洪名)",
+      "Vow of bodhicitta (發菩提心)",
+      "Dedication of merit (回向)"
+    ]
+  },
+  "best_times": [
+    "Daily as part of morning or evening liturgy",
+    "Especially powerful during the 15-day period of Saka Dawa (commemorating the Buddha's birth, enlightenment, and parinirvāṇa)",
+    "Before receiving empowerments, vows, or teachings — to clear karmic obstacles",
+    "At monasteries and group retreats, traditionally recited in unison 108 times",
+    "When one has broken precepts or vows and wishes to restore them through confession",
+    "On behalf of the deceased — reciting the 88 Buddhas purifies their bardo state"
+  ],
+  "dedication": "By the merit of reciting the names of the 88 Buddhas, may all negative karma — of body, speech, and mind, accumulated across countless lifetimes — be completely purified. May I and all beings take refuge in the Three Jewels, restore our broken vows, and attain the state of perfect awakening for the benefit of all sentient beings. Námó Bāshíbā Fó. 南無八十八佛."
+}

@@ -26,6 +26,7 @@ Architecture:
 import asyncio
 import json
 import logging
+import time
 import uuid
 from datetime import datetime
 from typing import Any
@@ -36,11 +37,43 @@ from core.context_builder import (
     build_system_prompt,
     search_rates,
 )
+from core.llm.usage import LLMUsageTracker, UsageRecord
 from core.radionics_tools import RADIONICS_TOOLS, get_tools_for_provider
 from core.rate_to_audio import map_rate_to_carriers, CarrierFrequencySet
 from modules.interfaces import EventBus
 
 logger = logging.getLogger(__name__)
+
+
+def _record_operator_usage(
+    *,
+    provider: str,
+    model: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    latency_ms: float,
+    endpoint: str = "operator_chat",
+    success: bool = True,
+) -> None:
+    """Best-effort usage recording for direct operator chat calls.
+
+    The operator bypasses the provider class (it uses ``self.llm.client``
+    directly), so it must record explicitly.
+    """
+    try:
+        tracker = LLMUsageTracker.get()
+        tracker.record(UsageRecord(
+            provider=provider,
+            model=model,
+            prompt_tokens=prompt_tokens or 0,
+            completion_tokens=completion_tokens or 0,
+            total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+            latency_ms=latency_ms,
+            endpoint=endpoint,
+            success=success,
+        ))
+    except Exception:  # noqa: BLE001
+        logger.debug("LLMUsageTracker.record failed in operator", exc_info=True)
 
 
 # ============================================================================
@@ -1078,9 +1111,20 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         if self._blessing_loop_active:
             return {"status": "already_running", "message": "Blessing loop is already active"}
 
+        # Floor the interval to avoid hammering the LLM API. The default
+        # 15s is fine, but callers can request lower — we clamp to 30s so
+        # an accidental 1s / 5s doesn't burn the daily cost cap.
+        min_interval = 30.0
+        effective_interval = max(float(interval_seconds), min_interval)
+        if effective_interval != interval_seconds:
+            logger.info(
+                "Blessing loop interval raised from %.1fs to floor of %.1fs",
+                interval_seconds, min_interval,
+            )
+
         self._blessing_loop_active = True
         self._blessing_loop_intention = intention
-        self._blessing_loop_interval = interval_seconds
+        self._blessing_loop_interval = effective_interval
         self._blessing_stream: list[dict[str, Any]] = []
 
         # Generate first blessing immediately
@@ -1101,8 +1145,8 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         return {
             "status": "started",
             "intention": intention,
-            "interval_seconds": interval_seconds,
-            "message": f"Blessing loop started. Generating unique blessings for {intention} every {interval_seconds}s.",
+            "interval_seconds": effective_interval,
+            "message": f"Blessing loop started. Generating unique blessings for {intention} every {effective_interval}s.",
             "first_blessing": blessing,
         }
 
@@ -1274,22 +1318,36 @@ Write only the blessing text, no explanation."""
             character = generated["character"]
         sheet = CharacterSheet(
             name=character.get("name", ""),
+            chinese_name=character.get("chinese_name", ""),
+            chinese_name_pinyin=character.get("chinese_name_pinyin", ""),
+            chinese_name_meaning=character.get("chinese_name_meaning", ""),
             element={
                 "name": character.get("element", ""),
                 "quality": character.get("element_quality", ""),
                 "color": character.get("element_color", ""),
+                "chakra": character.get("element_chakra", ""),
+                "frequency": character.get("element_frequency", ""),
             },
             role={
                 "name": character.get("role", ""),
                 "icon": character.get("role_icon", ""),
                 "mantra": character.get("role_mantra", ""),
                 "virtue": character.get("role_virtue", ""),
+                "chinese": character.get("role_chinese", ""),
+                "chinese_pinyin": character.get("role_chinese_pinyin", ""),
+                "chinese_description": character.get("role_chinese_description", ""),
             },
             frequency=character.get("frequency", 528),
             origin=character.get("origin", ""),
             quest=character.get("quest", ""),
             sigil_seed=character.get("sigil_seed", ""),
+            grounding_sense=character.get("grounding_sense", ""),
+            channeling_state=character.get("channeling_state", ""),
+            anchoring_ritual=character.get("anchoring_ritual", ""),
             backstory=character.get("backstory", ""),
+            stats=character.get("stats", {}),
+            generated_at=character.get("generated_at", ""),
+            generator=character.get("generator", "rng"),
         )
         self._active_journey = CharacterJourney(self)
         return self._active_journey.begin(sheet)
@@ -1304,13 +1362,21 @@ Write only the blessing text, no explanation."""
     def get_journey_status(self) -> dict[str, Any]:
         if not hasattr(self, "_active_journey") or self._active_journey is None:
             return {"active": False}
+        journey = self._active_journey
+        character_data = None
+        if hasattr(journey, "_character") and journey._character:
+            if hasattr(journey._character, "to_dict"):
+                character_data = journey._character.to_dict()
+            elif isinstance(journey._character, dict):
+                character_data = journey._character
         return {
             "active": True,
-            "is_complete": self._active_journey.is_complete,
-            "current_stage": self._active_journey.current_stage.value if self._active_journey.current_stage else None,
-            "stage_index": self._active_journey._current_stage_index,
+            "is_complete": journey.is_complete,
+            "current_stage": journey.current_stage.value if journey.current_stage else None,
+            "stage_index": journey._current_stage_index,
             "stages_total": 6,
-            "stage_results": self._active_journey._stage_results,
+            "stage_results": journey._stage_results,
+            "character": character_data,
         }
 
     def harvest_journey(self) -> dict[str, Any]:
@@ -1329,22 +1395,36 @@ Write only the blessing text, no explanation."""
             character = generated["character"]
         sheet = CharacterSheet(
             name=character.get("name", ""),
+            chinese_name=character.get("chinese_name", ""),
+            chinese_name_pinyin=character.get("chinese_name_pinyin", ""),
+            chinese_name_meaning=character.get("chinese_name_meaning", ""),
             element={
                 "name": character.get("element", ""),
                 "quality": character.get("element_quality", ""),
                 "color": character.get("element_color", ""),
+                "chakra": character.get("element_chakra", ""),
+                "frequency": character.get("element_frequency", ""),
             },
             role={
                 "name": character.get("role", ""),
                 "icon": character.get("role_icon", ""),
                 "mantra": character.get("role_mantra", ""),
                 "virtue": character.get("role_virtue", ""),
+                "chinese": character.get("role_chinese", ""),
+                "chinese_pinyin": character.get("role_chinese_pinyin", ""),
+                "chinese_description": character.get("role_chinese_description", ""),
             },
             frequency=character.get("frequency", 528),
             origin=character.get("origin", ""),
             quest=character.get("quest", ""),
             sigil_seed=character.get("sigil_seed", ""),
+            grounding_sense=character.get("grounding_sense", ""),
+            channeling_state=character.get("channeling_state", ""),
+            anchoring_ritual=character.get("anchoring_ritual", ""),
             backstory=character.get("backstory", ""),
+            stats=character.get("stats", {}),
+            generated_at=character.get("generated_at", ""),
+            generator=character.get("generator", "rng"),
         )
         journey = CharacterJourney(self)
         return journey.run_full_journey(sheet, self)
@@ -1443,15 +1523,46 @@ Write only the blessing text, no explanation."""
         """Approve and execute an autonomous suggestion."""
         if 0 <= index < len(self._autonomous_suggestions):
             suggestion = self._autonomous_suggestions.pop(index)
-            suggestion["status"] = "approved"
+            action = suggestion.get("action")
             # Execute the suggestion if it has actionable data
-            if suggestion.get("action") == "broadcast_healing" and self._container:
+            if action == "broadcast_healing" and self._container:
+                suggestion["status"] = "executed"
                 self._container.radionics.broadcast_healing(
                     target_name=suggestion.get("target", "World Event"),
                     frequency_hz=suggestion.get("frequency", 528),
                     duration_minutes=suggestion.get("duration_minutes", 30),
                 )
-            return {"status": "executed", "suggestion": suggestion}
+            elif action == "character_journey":
+                if getattr(self, "_active_journey", None):
+                    if self._active_journey.is_complete:
+                        result = {
+                            "status": "approved",
+                            "message": "Character journey approved; current journey complete — harvest to continue.",
+                        }
+                    else:
+                        try:
+                            stage_result = self._active_journey.advance()
+                            suggestion["status"] = "executed"
+                            return {
+                                "status": "executed",
+                                "message": "Character journey approved and advanced one stage.",
+                                "suggestion": suggestion,
+                                "stage": stage_result,
+                            }
+                        except Exception as e:  # noqa: BLE001
+                            suggestion["status"] = "approved"
+                            logger.warning(f"approve_suggestion: advance() failed: {e}")
+                            result = {
+                                "status": "approved",
+                                "message": f"Character journey approved (advance failed: {e}).",
+                            }
+                else:
+                    suggestion["status"] = "approved"
+                    result = {"status": "approved", "message": "Journey suggestion acknowledged (no active journey)."}
+                return {**result, "suggestion": suggestion}
+            else:
+                suggestion["status"] = "approved"
+            return {"status": suggestion["status"], "suggestion": suggestion}
         return {"error": "Invalid suggestion index"}
 
     def dismiss_suggestion(self, index: int) -> dict[str, Any]:
@@ -1459,6 +1570,10 @@ Write only the blessing text, no explanation."""
         if 0 <= index < len(self._autonomous_suggestions):
             dismissed = self._autonomous_suggestions.pop(index)
             dismissed["status"] = "dismissed"
+            if dismissed.get("action") == "character_journey":
+                dismissed["journey_still_active"] = bool(
+                    getattr(self, "_active_journey", None) and not self._active_journey.is_complete
+                )
             return {"status": "dismissed", "suggestion": dismissed}
         return {"error": "Invalid suggestion index"}
 
@@ -1598,6 +1713,7 @@ Return JSON with:
             {"role": "user", "content": message},
         ]
 
+        turn_start = time.time()
         response = self.llm.client.chat.completions.create(
             model=model_override or self.llm.model_name,
             messages=messages,
@@ -1606,6 +1722,17 @@ Return JSON with:
             max_tokens=800,
             temperature=0.7,
         )
+        try:
+            _usage = getattr(response, "usage", None)
+            _record_operator_usage(
+                provider="openai",
+                model=model_override or self.llm.model_name,
+                prompt_tokens=getattr(_usage, "prompt_tokens", 0) or 0,
+                completion_tokens=getattr(_usage, "completion_tokens", 0) or 0,
+                latency_ms=(time.time() - turn_start) * 1000.0,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("usage record failed in _chat_openai", exc_info=True)
 
         choice = response.choices[0]
 
@@ -1647,6 +1774,7 @@ Return JSON with:
         user-selectable from the UI; supply ``model_override`` explicitly
         to override.
         """
+        turn_start = time.time()
         response = self.llm.client.messages.create(
             model=model_override or self.llm.model_name,
             system=system_prompt,
@@ -1655,6 +1783,17 @@ Return JSON with:
             max_tokens=800,
             temperature=0.7,
         )
+        try:
+            _usage = getattr(response, "usage", None)
+            _record_operator_usage(
+                provider="anthropic",
+                model=model_override or self.llm.model_name,
+                prompt_tokens=getattr(_usage, "input_tokens", 0) or 0,
+                completion_tokens=getattr(_usage, "output_tokens", 0) or 0,
+                latency_ms=(time.time() - turn_start) * 1000.0,
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("usage record failed in _chat_anthropic", exc_info=True)
 
         # Check for tool use blocks
         tool_results = []

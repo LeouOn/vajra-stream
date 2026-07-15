@@ -15,6 +15,7 @@ interface PlanetPosition {
   longitude: number;
   degree?: number;
   formatted?: string;
+  is_cuspal?: boolean;
   [key: string]: unknown;
 }
 
@@ -25,16 +26,24 @@ interface HouseInfo {
   [key: string]: unknown;
 }
 
+interface CuspSet {
+  placidus?: number[];
+  whole_sign?: number[];
+  [key: string]: unknown;
+}
+
 interface ChartWestern {
   dominant_element?: string;
   dominant_modality?: string;
   positions?: Record<string, PlanetPosition>;
   houses?: Record<string, HouseInfo>;
+  cusps?: CuspSet;
   [key: string]: unknown;
 }
 
 interface ChartData {
   western?: ChartWestern;
+  cusps?: CuspSet;
   [key: string]: unknown;
 }
 
@@ -138,6 +147,63 @@ interface AngleMarkProps {
   color: string;
 }
 
+function angularDeltaSigned(a: number, b: number): number {
+  return ((b - a + 180) % 360) - 180;
+}
+
+function distanceToNearestCusp(lon: number, cusps: number[]): number {
+  if (!Array.isArray(cusps) || cusps.length === 0) return Number.POSITIVE_INFINITY;
+  let nearest = Number.POSITIVE_INFINITY;
+  for (const c of cusps) {
+    if (typeof c !== 'number' || !Number.isFinite(c)) continue;
+    const d = Math.abs(angularDeltaSigned(c, lon));
+    if (d < nearest) nearest = d;
+  }
+  return nearest;
+}
+
+interface CuspLineProps {
+  index: number;
+  longitude: number;
+  ascLon: number;
+}
+
+function CuspLine({ index, longitude, ascLon }: CuspLineProps) {
+  const angle = toSvgAngle(longitude, ascLon);
+  const inner = polarToXY(CENTER, CENTER, PLANET_R - 6, angle) as PointXY;
+  const outer = polarToXY(CENTER, CENTER, ZODIAC_R_OUTER - 4, angle) as PointXY;
+  // Cardinal cusps (1, 4, 7, 10) emphasised slightly; intermediate cusps stay subtle
+  const isCardinal = index === 1 || index === 4 || index === 7 || index === 10;
+  const stroke = isCardinal ? '#cbd5e1' : '#94a3b8';
+  const strokeWidth = isCardinal ? 1 : 0.6;
+  const opacity = isCardinal ? 0.45 : 0.25;
+  const labelPos = polarToXY(CENTER, CENTER, ZODIAC_R_OUTER - 12, angle) as PointXY;
+  return (
+    <g>
+      <line
+        x1={inner.x} y1={inner.y}
+        x2={outer.x} y2={outer.y}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+        strokeDasharray={isCardinal ? undefined : '2 3'}
+      />
+      <text
+        x={labelPos.x}
+        y={labelPos.y}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={8}
+        fill="#94a3b8"
+        opacity={0.7}
+        style={{ pointerEvents: 'none', fontFamily: 'monospace' }}
+      >
+        {index}
+      </text>
+    </g>
+  );
+}
+
 function AngleMark({ name, longitude, ascLon, label, color }: AngleMarkProps) {
   const angle = toSvgAngle(longitude, ascLon);
   const inner = polarToXY(CENTER, CENTER, PLANET_R - 4, angle) as PointXY;
@@ -182,9 +248,26 @@ function PlanetMarker({ name, data, ascLon, index, color }: PlanetMarkerProps) {
   const pos = polarToXY(CENTER, CENTER, r, angle) as PointXY;
   const glyph = planetGlyph(name);
   const degText = `${Math.floor(data.degree || 0)}°`;
+  const cuspal = data.is_cuspal === true;
 
   return (
     <g style={{ pointerEvents: 'none' }}>
+      {cuspal && (
+        <circle
+          cx={pos.x}
+          cy={pos.y}
+          r={10}
+          fill="none"
+          stroke="#fde047"
+          strokeWidth={1.5}
+          opacity={0.9}
+          style={{
+            animation: 'vajra-cusp-pulse 2.4s ease-in-out infinite',
+            transformOrigin: `${pos.x}px ${pos.y}px`,
+            transformBox: 'fill-box',
+          }}
+        />
+      )}
       <circle cx={pos.x} cy={pos.y} r={7.5} fill="#0f172a" stroke={color} strokeWidth={1.5} />
       <text
         x={pos.x}
@@ -263,6 +346,20 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
   const houses = western?.houses;
   const ascLon = positions?.ascendant?.longitude;
 
+  // Cusps live at chart.cusps (schema-v2 export) or chart.western.cusps
+  // (older cache layout). Render only when at least one system is present.
+  const cuspPlacidus: number[] = useMemo(() => {
+    const fromWestern = western?.cusps?.placidus;
+    const fromRoot = chart?.cusps?.placidus;
+    const raw = Array.isArray(fromWestern) && fromWestern.length === 12
+      ? fromWestern
+      : Array.isArray(fromRoot) && fromRoot.length === 12
+        ? fromRoot
+        : null;
+    if (!raw) return [];
+    return raw.filter((c) => typeof c === 'number' && Number.isFinite(c));
+  }, [western?.cusps?.placidus, chart?.cusps?.placidus]);
+
   if (!western || !positions || ascLon == null) {
     return (
       <div className="bg-black/35 border border-white/5 rounded-xl p-6 text-center text-xs text-gray-500 italic font-mono">
@@ -274,6 +371,17 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
   const planetEntries = Object.entries(positions).filter(
     ([k]) => !['ascendant', 'midheaven', 'south_node'].includes(k) && k in PLANET_GLYPHS
   );
+
+  // When cusps are present, derive is_cuspal locally so the highlight works
+  // even if the cached chart predates schema-v2 enrichment.
+  const CUSPAL_THRESHOLD_DEG = 3.0;
+  const enrichedPlanets: [string, PlanetPosition][] = cuspPlacidus.length === 12
+    ? planetEntries.map(([name, info]) => {
+        const d = distanceToNearestCusp(info.longitude, cuspPlacidus);
+        const isCuspal = d <= CUSPAL_THRESHOLD_DEG || info.is_cuspal === true;
+        return [name, { ...info, is_cuspal: isCuspal }];
+      })
+    : planetEntries;
 
   return (
     <div className="bg-black/35 border border-white/5 rounded-xl p-4 space-y-3">
@@ -291,16 +399,25 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
         <svg
           viewBox="0 0 400 400"
           width="100%"
-          style={{ maxWidth: 420, maxHeight: 420, aspectRatio: '1/1' }}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ maxWidth: '100%', height: 'auto', aspectRatio: '1/1' }}
           role="img"
           aria-label={`Natal chart wheel for ${name || 'chart'}`}
         >
+          <style>{`@keyframes vajra-cusp-pulse {
+            0%, 100% { opacity: 0.35; transform: scale(0.9); transform-origin: center; }
+            50% { opacity: 1; transform: scale(1.25); transform-origin: center; }
+          }`}</style>
           <circle cx={CENTER} cy={CENTER} r={ZODIAC_R_OUTER} fill="#0f172a" stroke="#1e293b" strokeWidth={1} />
           <circle cx={CENTER} cy={CENTER} r={HOUSE_R_INNER} fill="none" stroke="#1e293b" strokeWidth={1} />
           <circle cx={CENTER} cy={CENTER} r={PLANET_R} fill="none" stroke="#1e293b" strokeWidth={0.5} strokeDasharray="2 2" />
 
           {SIGN_GLYPHS.map((_, i) => (
             <SignSegment key={i} signIndex={i} ascLon={ascLon} />
+          ))}
+
+          {cuspPlacidus.length === 12 && cuspPlacidus.map((lon, idx) => (
+            <CuspLine key={`placidus-${idx}`} index={idx + 1} longitude={lon} ascLon={ascLon} />
           ))}
 
           {houses && Object.entries(houses).map(([key, info]) => {
@@ -329,7 +446,7 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
             />
           )}
 
-          {planetEntries.map(([pname, info], idx) => {
+          {enrichedPlanets.map(([pname, info], idx) => {
             const ringOffset = (idx % 3);
             return (
               <PlanetMarker
@@ -338,7 +455,7 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
                 data={info}
                 ascLon={ascLon}
                 index={ringOffset}
-                total={planetEntries.length}
+                total={enrichedPlanets.length}
                 color={PLANET_COLORS[pname] || '#94a3b8'}
               />
             );

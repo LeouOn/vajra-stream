@@ -14,12 +14,6 @@
  * the CSS custom properties are defined.
  *
  * @component
- * @param {Object} props
- * @param {boolean} props.open             Drawer visibility.
- * @param {Function} props.onClose         Close handler.
- * @param {Array} props.sessions           List from GET /healing/sessions.
- * @param {number|string|null} props.currentSessionId  Highlights the active row.
- * @param {Function} props.onSelect        (sessionId) => void
  */
 import React from 'react';
 import { Drawer, Typography, Empty, Button } from 'antd';
@@ -41,9 +35,37 @@ const C = {
   serif:       'Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif',
 };
 
+/** A single phase key in the arc — plus 'completed' for sealed sessions. */
+export type SessionPhaseKey =
+  | 'arrival'
+  | 'seeing'
+  | 'meeting'
+  | 'release'
+  | 'dedication'
+  | 'completed';
+
+/** Shape returned by GET /healing/sessions (and the seed shape we synthesize locally). */
+export interface SessionListItem {
+  session_id?: string;
+  id?: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  phases_completed?: SessionPhaseKey[];
+  summary?: string | null;
+  [key: string]: unknown;
+}
+
 /** Order of the arc — used to label the furthest phase reached. */
-const PHASE_ORDER = ['arrival', 'seeing', 'meeting', 'release', 'dedication', 'completed'];
-const PHASE_LABEL = {
+const PHASE_ORDER: SessionPhaseKey[] = [
+  'arrival',
+  'seeing',
+  'meeting',
+  'release',
+  'dedication',
+  'completed',
+];
+
+const PHASE_LABEL: Record<SessionPhaseKey, string> = {
   arrival: 'Arrival',
   seeing: 'Seeing',
   meeting: 'Meeting',
@@ -52,17 +74,20 @@ const PHASE_LABEL = {
   completed: 'Sealed',
 };
 
-function phaseReachedLabel(phasesCompleted) {
+function phaseReachedLabel(
+  phasesCompleted: SessionPhaseKey[] | undefined,
+): string {
   if (!Array.isArray(phasesCompleted) || phasesCompleted.length === 0) return 'Arrival';
   let furthestIdx = 0;
   for (const p of phasesCompleted) {
     const idx = PHASE_ORDER.indexOf(p);
     if (idx > furthestIdx) furthestIdx = idx;
   }
-  return PHASE_LABEL[PHASE_ORDER[furthestIdx]] || 'Arrival';
+  const furthestKey = PHASE_ORDER[furthestIdx];
+  return PHASE_LABEL[furthestKey] || 'Arrival';
 }
 
-function formatStartedAt(iso) {
+function formatStartedAt(iso: string | null | undefined): string {
   if (!iso) return '';
   try {
     const d = new Date(iso);
@@ -79,15 +104,34 @@ function formatStartedAt(iso) {
   }
 }
 
-function snippet(summary) {
+function snippet(summary: string | null | undefined): string | null {
   if (!summary || typeof summary !== 'string') return null;
   const clean = summary.replace(/\s+/g, ' ').trim();
   if (!clean) return null;
   return clean.length > 120 ? `${clean.slice(0, 120)}…` : clean;
 }
 
-export default function SessionList({ open, onClose, sessions, currentSessionId, onSelect }) {
-  const rows = Array.isArray(sessions) ? sessions : [];
+interface SessionListProps {
+  /** Drawer visibility. */
+  open: boolean;
+  /** Close handler. */
+  onClose: () => void;
+  /** List from GET /healing/sessions. */
+  sessions: SessionListItem[];
+  /** Highlights the active row. */
+  currentSessionId: string | null;
+  /** Loads the chosen session into the sanctuary. */
+  onSelect: (sessionId: string) => void;
+}
+
+export default function SessionList({
+  open,
+  onClose,
+  sessions,
+  currentSessionId,
+  onSelect,
+}: SessionListProps) {
+  const rows: SessionListItem[] = Array.isArray(sessions) ? sessions : [];
 
   return (
     <Drawer
@@ -119,7 +163,7 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
           background: 'rgba(4,4,8,0.55)',
           backdropFilter: 'blur(2px)',
         },
-        content: {
+        section: {
           background: C.bg,
         },
       }}
@@ -143,6 +187,7 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
         <ul style={{ listStyle: 'none', margin: 0, padding: 0, background: C.bg }}>
           {rows.map((s) => {
             const id = s.session_id ?? s.id;
+            if (id == null) return null;
             const isCurrent = currentSessionId != null && String(id) === String(currentSessionId);
             const reached = phaseReachedLabel(s.phases_completed);
             const snip = snippet(s.summary);
@@ -150,7 +195,7 @@ export default function SessionList({ open, onClose, sessions, currentSessionId,
               <li key={id} style={{ borderBottom: `1px solid ${C.border}` }}>
                 <button
                   type="button"
-                  onClick={() => onSelect && onSelect(id)}
+                  onClick={() => onSelect(id)}
                   style={{
                     width: '100%',
                     textAlign: 'left',
