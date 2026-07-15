@@ -25,6 +25,7 @@ const SynastryViewer = lazy(() => import('./SynastryViewer'));
 
 // 3D mandala — lazy-loaded (Three.js ~600 kB isolated into separate chunk)
 const LazySacredMandala = lazy(() => import('./LazySacredMandala'));
+const AspectChart = lazy(() => import('../2D/AspectChart'));
 
 // Extraction panel — lazy-loaded
 const LazyAstrologyExtractionPanel = lazy(() => import('./AstrologyExtractionPanel'));
@@ -798,6 +799,14 @@ export default function AstrologyPanel() {
                           </div>
                         </Col>
                       </Row>
+
+                      {activeData?.planetary_positions && (
+                        <div style={{ marginTop: 20 }}>
+                          <Suspense fallback={<div className="text-center text-xs text-gray-500 py-8">Loading aspect chart…</div>}>
+                            <AspectChart positions={activeData.planetary_positions} size={400} />
+                          </Suspense>
+                        </div>
+                      )}
 
                       <NatalChartWheel
                         data={activeData}
