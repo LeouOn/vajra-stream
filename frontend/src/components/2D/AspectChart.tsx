@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { Input, Button, Collapse, Typography, Spin } from 'antd';
+
+const { Text, Paragraph } = Typography;
 
 interface PlanetPosition {
   longitude: number;
@@ -29,6 +32,20 @@ const PLANET_GLYPHS: Record<string, string> = {
   north_node: '☊', ascendant: 'Asc', midheaven: 'MC',
 };
 
+const PLANET_MEANINGS: Record<string, string> = {
+  sun: '☉ Sun — Core identity, vitality, ego, conscious purpose',
+  moon: '☽ Moon — Emotions, instincts, habits, inner self',
+  mercury: '☿ Mercury — Communication, intellect, learning, commerce',
+  venus: '♀ Venus — Love, beauty, values, relationships, art',
+  mars: '♂ Mars — Action, desire, energy, courage, conflict',
+  jupiter: '♃ Jupiter — Expansion, wisdom, luck, philosophy, growth',
+  saturn: '♄ Saturn — Structure, discipline, karma, limitation, mastery',
+  uranus: '♅ Uranus — Innovation, rebellion, sudden change, freedom',
+  neptune: '♆ Neptune — Dreams, illusion, spirituality, mysticism',
+  pluto: '♇ Pluto — Transformation, power, death/rebirth, the underworld',
+  north_node: '☊ North Node — Soul purpose, karmic direction, future path',
+};
+
 const PLANET_COLORS: Record<string, string> = {
   sun: '#fbbf24', moon: '#e0e7ff', mercury: '#22d3ee', venus: '#f472b6',
   mars: '#ef4444', jupiter: '#f59e0b', saturn: '#94a3b8', uranus: '#a78bfa',
@@ -46,6 +63,21 @@ const ASPECT_CONFIG: Record<AspectType, { angle: number; orb: number; color: str
 
 const ZODIAC_SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
 const ZODIAC_GLYPHS = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+
+const ZODIAC_MEANINGS = [
+  '♈ Aries — Fire, Cardinal. Pioneer, courage, initiation',
+  '♉ Taurus — Earth, Fixed. Stability, values, patience',
+  '♊ Gemini — Air, Mutable. Communication, duality, curiosity',
+  '♋ Cancer — Water, Cardinal. Emotion, nurturing, home',
+  '♌ Leo — Fire, Fixed. Creativity, pride, self-expression',
+  '♍ Virgo — Earth, Mutable. Service, analysis, precision',
+  '♎ Libra — Air, Cardinal. Balance, partnership, justice',
+  '♏ Scorpio — Water, Fixed. Transformation, intensity, depth',
+  '♐ Sagittarius — Fire, Mutable. Philosophy, travel, truth',
+  '♑ Capricorn — Earth, Cardinal. Ambition, structure, discipline',
+  '♒ Aquarius — Air, Fixed. Innovation, community, rebellion',
+  '♓ Pisces — Water, Mutable. Mysticism, compassion, dissolution',
+];
 
 function angularDistance(lon1: number, lon2: number): number {
   let diff = Math.abs(lon1 - lon2) % 360;
@@ -85,8 +117,52 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
   const [visibleAspects, setVisibleAspects] = useState<Set<AspectType>>(
     new Set(['conjunction', 'opposition', 'trine', 'square', 'sextile'])
   );
+  const [llmQuestion, setLlmQuestion] = useState('');
+  const [llmResponse, setLlmResponse] = useState('');
+  const [llmLoading, setLlmLoading] = useState(false);
 
   const aspects = useMemo(() => calculateAspects(positions), [positions]);
+
+  const askChartLLM = async () => {
+    const q = llmQuestion.trim() || 'Give me a comprehensive interpretation of this astrological chart. What are the key themes, strengths, and challenges?';
+    setLlmLoading(true);
+    setLlmResponse('');
+    try {
+      const planetList = Object.entries(positions)
+        .filter(([n]) => n !== 'ascendant' && n !== 'midheaven')
+        .map(([n, p]) => `${n}: ${p.sign || ''} ${p.degree?.toFixed(1) || ''}° House ${p.house || '?'}${p.retrograde ? ' ℞' : ''}`)
+        .join('\n');
+      const aspectList = aspects.map(a =>
+        `${a.planet1} ${a.type} ${a.planet2} (orb ${a.orb.toFixed(1)}°)`
+      ).join('\n');
+      const ascSign = positions.ascendant?.sign || 'Unknown';
+      const mcSign = positions.midheaven?.sign || 'Unknown';
+
+      const systemPrompt = `You are an expert astrologer. Interpret this natal chart data:\n\nAscendant: ${ascSign}\nMidheaven: ${mcSign}\n\nPlanetary Positions:\n${planetList}\n\nActive Aspects:\n${aspectList}\n\nProvide insightful, specific interpretations.`;
+
+      const res = await fetch('/api/v1/llm/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: q },
+          ],
+          max_tokens: 800,
+          temperature: 0.7,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLlmResponse(data.choices?.[0]?.message?.content || data.response || data.content || 'No response');
+      } else {
+        setLlmResponse('Could not reach the LLM. Please try again.');
+      }
+    } catch {
+      setLlmResponse('Network error — could not reach the LLM.');
+    }
+    setLlmLoading(false);
+  };
 
   const cx = size / 2;
   const cy = size / 2;
@@ -145,6 +221,7 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
 
           return (
             <g key={sign}>
+              <title>{ZODIAC_MEANINGS[i]}</title>
               <line x1={cx + Math.cos(startAngle) * innerR} y1={cy + Math.sin(startAngle) * innerR}
                     x2={x1} y2={y1} stroke="rgba(139, 92, 246, 0.06)" strokeWidth={0.5} />
               <line x1={x1} y1={y1} x2={cx + Math.cos(startAngle) * outerR} y2={cy + Math.sin(startAngle) * outerR}
@@ -200,6 +277,7 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
 
           return (
             <g key={name}>
+              <title>{PLANET_MEANINGS[name] || name}</title>
               <circle cx={p.x} cy={p.y} r={size * 0.025} fill={color} opacity={0.2} />
               <text x={p.x} y={p.y + size * 0.008} textAnchor="middle"
                     fontSize={size * 0.035} fill={color} fontWeight="bold">
@@ -263,6 +341,85 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
           );
         })}
       </div>
+
+      <Collapse
+        ghost
+        size="small"
+        className="!mt-3 w-full max-w-md"
+        items={[
+          {
+            key: 'llm',
+            label: <Text className="!text-xs !font-mono !text-cyan-400">🔮 Ask the Astrologer — Chart Interpretation</Text>,
+            children: (
+              <div className="space-y-2">
+                <Input.TextArea
+                  value={llmQuestion}
+                  onChange={(e) => setLlmQuestion(e.target.value)}
+                  placeholder="Ask about your chart... (e.g. 'What does my Sun square Mars mean?' or leave blank for a full reading)"
+                  autoSize={{ minRows: 1, maxRows: 3 }}
+                />
+                <Button
+                  type="primary"
+                  size="small"
+                  loading={llmLoading}
+                  onClick={askChartLLM}
+                  block
+                >
+                  {llmLoading ? 'Consulting the stars...' : 'Interpret My Chart'}
+                </Button>
+                {llmResponse && (
+                  <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed bg-black/40 p-3 rounded-lg border border-white/5 max-h-[400px] overflow-y-auto">
+                    {llmResponse}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'guide',
+            label: <Text className="!text-xs !font-mono !text-purple-400">📖 Symbol Reference Guide</Text>,
+            children: (
+              <div className="space-y-3">
+                <div>
+                  <Text className="!text-[10px] !font-mono !uppercase !text-gray-500 block mb-1">Planets</Text>
+                  <div className="grid grid-cols-2 gap-1">
+                    {Object.entries(PLANET_MEANINGS).map(([key, meaning]) => (
+                      <div key={key} className="text-[10px] text-gray-400 flex items-center gap-1">
+                        <span style={{ color: PLANET_COLORS[key] }} className="font-bold text-sm">{PLANET_GLYPHS[key]}</span>
+                        <span>{meaning.split('—')[1]?.trim()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Text className="!text-[10px] !font-mono !uppercase !text-gray-500 block mb-1">Zodiac Signs</Text>
+                  <div className="grid grid-cols-2 gap-1">
+                    {ZODIAC_MEANINGS.map((z, i) => (
+                      <div key={i} className="text-[10px] text-gray-400">
+                        {z}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Text className="!text-[10px] !font-mono !uppercase !text-gray-500 block mb-1">Aspects</Text>
+                  <div className="grid grid-cols-2 gap-1">
+                    {(Object.keys(ASPECT_CONFIG) as AspectType[]).map(type => {
+                      const c = ASPECT_CONFIG[type];
+                      return (
+                        <div key={type} className="text-[10px] text-gray-400 flex items-center gap-1">
+                          <span style={{ color: c.color }} className="font-bold">{c.symbol}</span>
+                          <span>{c.label} ({c.angle}°)</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
