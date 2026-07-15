@@ -95,8 +95,10 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
   const planetR = size * 0.33;
   const innerR = size * 0.14;
 
+  const ascLon = positions.ascendant?.longitude || 0;
+
   const getPlanetPos = (longitude: number, radius: number) => {
-    const angle = (longitude - 90) * (Math.PI / 180);
+    const angle = ((longitude - ascLon - 180) * Math.PI) / 180;
     return {
       x: cx + Math.cos(angle) * radius,
       y: cy + Math.sin(angle) * radius,
@@ -130,13 +132,13 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
         <circle cx={cx} cy={cy} r={innerR} fill="none" stroke="rgba(139, 92, 246, 0.1)" strokeWidth={1} />
 
         {ZODIAC_SIGNS.map((sign, i) => {
-          const startAngle = (i * 30 - 90) * (Math.PI / 180);
-          const endAngle = ((i + 1) * 30 - 90) * (Math.PI / 180);
+          const startAngle = ((i * 30 - ascLon - 180) * Math.PI) / 180;
+          const endAngle = (((i + 1) * 30 - ascLon - 180) * Math.PI) / 180;
           const x1 = cx + Math.cos(startAngle) * zodiacR;
           const y1 = cy + Math.sin(startAngle) * zodiacR;
           const x2 = cx + Math.cos(endAngle) * zodiacR;
           const y2 = cy + Math.sin(endAngle) * zodiacR;
-          const midAngle = ((i * 30 + 15) - 90) * (Math.PI / 180);
+          const midAngle = (((i * 30 + 15) - ascLon - 180) * Math.PI) / 180;
           const labelR = (zodiacR + outerR) / 2;
           const lx = cx + Math.cos(midAngle) * labelR;
           const ly = cy + Math.sin(midAngle) * labelR;
@@ -172,6 +174,24 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
             />
           );
         })}
+
+        {/* ASC / DSC / MC / IC axis lines */}
+        {(() => {
+          const ascP = getPlanetPos(ascLon, outerR);
+          const dscP = getPlanetPos(ascLon + 180, outerR);
+          const mcLon = positions.midheaven?.longitude || (ascLon + 270);
+          const mcP = getPlanetPos(mcLon, outerR);
+          const icP = getPlanetPos(mcLon + 180, outerR);
+          return (
+            <>
+              <line x1={ascP.x} y1={ascP.y} x2={dscP.x} y2={dscP.y} stroke="rgba(253,224,71,0.2)" strokeWidth={1} strokeDasharray="5,4" />
+              <line x1={mcP.x} y1={mcP.y} x2={icP.x} y2={icP.y} stroke="rgba(253,224,71,0.15)" strokeWidth={1} strokeDasharray="5,4" />
+              <text x={ascP.x - 16} y={ascP.y + 3} fontSize={size * 0.025} fill="rgba(253,224,71,0.6)" fontWeight="bold" fontFamily="monospace">ASC</text>
+              <text x={dscP.x + 4} y={dscP.y + 3} fontSize={size * 0.025} fill="rgba(253,224,71,0.4)" fontWeight="bold" fontFamily="monospace">DSC</text>
+              <text x={mcP.x - 7} y={mcP.y - 7} fontSize={size * 0.025} fill="rgba(253,224,71,0.4)" fontWeight="bold" fontFamily="monospace">MC</text>
+            </>
+          );
+        })()}
 
         {Object.entries(positions).map(([name, pos]) => {
           const p = getPlanetPos(pos.longitude, planetR);

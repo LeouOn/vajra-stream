@@ -807,11 +807,6 @@ export default function AstrologyPanel() {
                           </Suspense>
                         </div>
                       )}
-
-                      <NatalChartWheel
-                        data={activeData}
-                        name={isLiveMode ? 'Live' : (activeChart ? activeChart.name : 'Custom')}
-                      />
                     </Card>
                   )}
 
@@ -891,9 +886,42 @@ export default function AstrologyPanel() {
   );
 }
 
+const ASPECT_TYPES = [
+  { name: 'Conjunction', angle: 0, orb: 8, color: 'rgba(34,197,94,0.5)' },
+  { name: 'Opposition', angle: 180, orb: 8, color: 'rgba(249,115,22,0.5)', dash: '4,4' },
+  { name: 'Trine', angle: 120, orb: 8, color: 'rgba(59,130,246,0.5)' },
+  { name: 'Square', angle: 90, orb: 8, color: 'rgba(239,68,68,0.5)' },
+  { name: 'Sextile', angle: 60, orb: 6, color: 'rgba(168,85,247,0.5)', dash: '2,2' },
+];
+
+function calcAspects(positions) {
+  const names = Object.keys(positions).filter(n => n !== 'ascendant' && n !== 'midheaven');
+  const out = [];
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      let diff = Math.abs(positions[names[i]].longitude - positions[names[j]].longitude) % 360;
+      if (diff > 180) diff = 360 - diff;
+      for (const at of ASPECT_TYPES) {
+        const orb = Math.abs(diff - at.angle);
+        if (orb <= at.orb) {
+          out.push({ planet1: names[i], planet2: names[j], aspect: at.name, exactness: 1 - orb / at.orb, color: at.color, dash: at.dash || 'none' });
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
 // Western Astrology Wheel Drawing Helper
-const WesternChartWheel = ({ positions, aspects }) => {
+const WesternChartWheel = ({ positions, aspects: serverAspects }) => {
   if (!positions) return <div className="w-60 h-60 rounded-full border border-dashed border-gray-700 animate-pulse flex items-center justify-center text-xs text-gray-600">No positions calculated</div>;
+
+  const aspects = serverAspects?.length ? serverAspects.map(a => ({
+    planet1: a.planet1, planet2: a.planet2, aspect: a.aspect, exactness: a.exactness || 0.5,
+    color: ASPECT_TYPES.find(t => t.name === a.aspect)?.color || 'rgba(255,255,255,0.15)',
+    dash: ASPECT_TYPES.find(t => t.name === a.aspect)?.dash || 'none',
+  })).filter(a => a.planet1 && a.planet2) : calcAspects(positions);
 
   const cx = 160;
   const cy = 160;
@@ -959,29 +987,35 @@ const WesternChartWheel = ({ positions, aspects }) => {
       })}
 
       {/* Aspects lines */}
-      {aspects && aspects.map((asp, idx) => {
+      {aspects.map((asp, idx) => {
         const coord1 = planetCoords[asp.planet1];
         const coord2 = planetCoords[asp.planet2];
         if (!coord1 || !coord2) return null;
-        
-        let color = 'rgba(255,255,255,0.08)';
-        let strokeDash = 'none';
-        if (asp.aspect === 'Conjunction') color = 'rgba(34,197,94,0.45)';
-        else if (asp.aspect === 'Trine') color = 'rgba(59,130,246,0.45)';
-        else if (asp.aspect === 'Sextile') {
-          color = 'rgba(168,85,247,0.45)';
-          strokeDash = '2,2';
-        }
-        else if (asp.aspect === 'Square') color = 'rgba(239,68,68,0.45)';
-        else if (asp.aspect === 'Opposition') {
-          color = 'rgba(249,115,22,0.45)';
-          strokeDash = '4,4';
-        }
 
         return (
-          <line key={idx} x1={coord1.x} y1={coord1.y} x2={coord2.x} y2={coord2.y} stroke={color} strokeWidth={1 + (asp.exactness || 0) * 1.5} strokeDasharray={strokeDash} />
+          <line key={idx} x1={coord1.x} y1={coord1.y} x2={coord2.x} y2={coord2.y} stroke={asp.color} strokeWidth={1 + (asp.exactness || 0.5) * 1.5} strokeDasharray={asp.dash || 'none'} />
         );
       })}
+
+      {/* ASC / DSC / MC / IC lines */}
+      {(() => {
+        const ascP = getCoordinates(ascLon, r);
+        const dscLon = ascLon + 180;
+        const dscP = getCoordinates(dscLon, r);
+        const mcLon = positions.midheaven?.longitude || (ascLon + 270);
+        const mcP = getCoordinates(mcLon, r);
+        const icLon = mcLon + 180;
+        const icP = getCoordinates(icLon, r);
+        return (
+          <>
+            <line x1={ascP.x} y1={ascP.y} x2={dscP.x} y2={dscP.y} stroke="rgba(253,224,71,0.3)" strokeWidth="1" strokeDasharray="6,3" />
+            <line x1={mcP.x} y1={mcP.y} x2={icP.x} y2={icP.y} stroke="rgba(253,224,71,0.2)" strokeWidth="1" strokeDasharray="6,3" />
+            <text x={ascP.x - 14} y={ascP.y + 3} fontSize="9" fill="rgba(253,224,71,0.6)" fontWeight="bold">ASC</text>
+            <text x={dscP.x + 4} y={dscP.y + 3} fontSize="9" fill="rgba(253,224,71,0.4)" fontWeight="bold">DSC</text>
+            <text x={mcP.x - 6} y={mcP.y - 6} fontSize="9" fill="rgba(253,224,71,0.4)" fontWeight="bold">MC</text>
+          </>
+        );
+      })()}
 
       {/* Planet nodes */}
       {Object.entries(positions).map(([planet, info]) => {
