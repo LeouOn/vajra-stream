@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind directives live in index.css (imported first in main.tsx).
+   This file contains only custom component/utility styles that build
+   on top of Tailwind's layer system. */
 @layer base {
   :root {
     --background: 20 10 30;
