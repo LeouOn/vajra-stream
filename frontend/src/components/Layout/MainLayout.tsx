@@ -16,6 +16,8 @@ import { ToastContainer } from '../UI/Toast';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { COLORS } from '../../lib/colors';
 import { ROUTES, DEFAULT_ROUTE } from '../../lib/routes';
+import { useAudioActivity } from '../../stores/audioActivityStore';
+import AudioManager from '../UI/AudioManager';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
 // Ant Design
@@ -86,6 +88,18 @@ const MainLayoutComponent: React.FC<Props> = ({
     audioFeedback.playTick();
     navigate(`/${e.key}`);
   };
+
+  const registerAudio = useAudioActivity(s => s.register);
+  useEffect(() => {
+    if (isPlaying) {
+      return registerAudio({
+        id: 'prayer-bowl',
+        name: 'Prayer Bowl Synthesis',
+        icon: '🕉',
+        stop: () => { void stopAudio(); },
+      });
+    }
+  }, [isPlaying, registerAudio, stopAudio]);
 
   const menuItems = ROUTES.map(({ key, label, icon: Icon }) => ({
     key,
@@ -228,6 +242,7 @@ const MainLayoutComponent: React.FC<Props> = ({
           </Space>
           <span>Volume: <strong>{Math.round(volume * 100)}%</strong></span>
           <span>Mode: <strong style={{ color: COLORS.primary }}>{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</strong></span>
+          <AudioManager />
         </Space>
       </Footer>
     </Layout>
