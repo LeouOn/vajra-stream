@@ -9,6 +9,7 @@ Covers the public surface:
 - ``search_rates``
 - :class:`SessionContext`
 """
+
 from __future__ import annotations
 
 import pytest
@@ -24,7 +25,6 @@ from core.context_builder import (
     load_rate_database,
     search_rates,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke

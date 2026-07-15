@@ -25,8 +25,13 @@ def test_llm_config_defaults(monkeypatch):
     assert cfg.max_retries == 1
     assert cfg.retry_initial_backoff == 0.5
     assert cfg.provider_priority == [
-        "openrouter", "lm_studio", "deepseek",
-        "anthropic", "openai", "minimax", "local",
+        "openrouter",
+        "lm_studio",
+        "deepseek",
+        "anthropic",
+        "openai",
+        "minimax",
+        "local",
     ]
     assert cfg.openai_api_key is None
     assert cfg.anthropic_api_key is None

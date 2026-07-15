@@ -13,6 +13,7 @@ written to ``tmp_path`` only when explicitly testing ``save()`` /
 convenience functions. No PIL mocking — PIL is a hard runtime dependency
 of this module and is available in the dev environment.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,7 +29,6 @@ from core.meridian_visualization import (
     create_complete_chakra_diagram,
     create_complete_meridian_map,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test (and PIL availability gate)

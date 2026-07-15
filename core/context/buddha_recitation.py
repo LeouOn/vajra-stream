@@ -19,6 +19,7 @@ The module is stateless: each ``gather`` reads the live table, so it always
 reflects the latest practice session(s) regardless of when it was
 constructed.
 """
+
 from __future__ import annotations
 
 import logging

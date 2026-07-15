@@ -1,4 +1,4 @@
-"""
+﻿"""
 Smoke + behaviour tests for ``core.astrocartography``.
 
 The module wraps the Swiss Ephemeris (``swisseph``) C extension to provide:
@@ -23,24 +23,22 @@ The tests below cover stable, easily-verifiable contracts:
 ``swisseph`` is required at import time; tests will be skipped if it is not
 installed, since the module cannot run without it.
 """
+
 from __future__ import annotations
 
 import pytest
 
 swisseph = pytest.importorskip("swisseph")
 
-from core import astrocartography as ac
-from core.astrocartography import (
+from core.astrocartography import (  # noqa: E402
     ANGLES,
     PLANETS,
     AstrocartographyCalculator,
     CalendarConverter,
     HistoricalChartCalculator,
-    LocalSpaceCalculator,
     find_power_places,
     quick_astrocartography,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + constants
@@ -63,13 +61,13 @@ def test_module_imports_and_exports():
 
 
 # ---------------------------------------------------------------------------
-# 2. Calendar round-trip — Gregorian
+# 2. Calendar round-trip â€” Gregorian
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 def test_calendar_roundtrip_gregorian():
-    """Converting a date → JD → date returns the original components."""
+    """Converting a date â†’ JD â†’ date returns the original components."""
     jd = CalendarConverter.date_to_julian_day(2000, 1, 1, 12, 0, 0, "gregorian")
     info = CalendarConverter.julian_day_to_date(jd, "gregorian")
 
@@ -80,7 +78,7 @@ def test_calendar_roundtrip_gregorian():
 
 
 # ---------------------------------------------------------------------------
-# 3. Calendar — Julian adoption rule
+# 3. Calendar â€” Julian adoption rule
 # ---------------------------------------------------------------------------
 
 
@@ -99,7 +97,7 @@ def test_is_julian_date_post_gregorian_reform():
 
 
 # ---------------------------------------------------------------------------
-# 4. Planetary lines — happy path with a tiny subset
+# 4. Planetary lines â€” happy path with a tiny subset
 # ---------------------------------------------------------------------------
 
 
@@ -108,13 +106,11 @@ def test_calculate_planetary_lines_returns_four_angles_per_planet():
     """Each planet in the result has the four standard ACG angles.
 
     NOTE: The module normalises IC/DSC to ``[-180, 180]`` but leaves MC/ASC as
-    raw planetary longitudes (which can exceed 180°).  We therefore only assert
+    raw planetary longitudes (which can exceed 180Â°).  We therefore only assert
     the documented IC/DSC range and check MC/ASC are finite degrees.
     """
     calc = AstrocartographyCalculator()
-    result = calc.calculate_planetary_lines(
-        2025, 1, 1, 12, 0, 0, ["sun", "moon"], "gregorian"
-    )
+    result = calc.calculate_planetary_lines(2025, 1, 1, 12, 0, 0, ["sun", "moon"], "gregorian")
 
     assert "julian_day" in result
     assert "date" in result
@@ -130,6 +126,7 @@ def test_calculate_planetary_lines_returns_four_angles_per_planet():
             assert "meaning" in entry
             # Longitude is a finite degree value
             import math
+
             assert math.isfinite(entry["longitude"])
             # IC/DSC are documented as normalised to [-180, 180]
             if angle in ("IC", "DSC"):
@@ -137,7 +134,7 @@ def test_calculate_planetary_lines_returns_four_angles_per_planet():
 
 
 # ---------------------------------------------------------------------------
-# 5. Parans — return type contract
+# 5. Parans â€” return type contract
 # ---------------------------------------------------------------------------
 
 
@@ -156,12 +153,12 @@ def test_calculate_parans_returns_list():
         assert "angle2" in entry
         assert "longitude" in entry
         assert "orb" in entry
-        # Orb should be non-negative and within the documented 5° threshold
+        # Orb should be non-negative and within the documented 5Â° threshold
         assert 0.0 <= entry["orb"] <= 5.0
 
 
 # ---------------------------------------------------------------------------
-# 6. Historical chart — Julian calendar for ancient date
+# 6. Historical chart â€” Julian calendar for ancient date
 # ---------------------------------------------------------------------------
 
 
@@ -170,9 +167,7 @@ def test_historical_chart_returns_planets_houses_and_location():
     """``HistoricalChartCalculator.calculate_chart`` returns the documented
     payload (planets, houses, location, date) for a BCE/Julian-era date."""
     chart_calc = HistoricalChartCalculator()
-    chart = chart_calc.calculate_chart(
-        100, 3, 21, 12, 0, 0, 31.2, 29.9, "Alexandria", "julian"
-    )
+    chart = chart_calc.calculate_chart(100, 3, 21, 12, 0, 0, 31.2, 29.9, "Alexandria", "julian")
 
     assert chart["location"]["name"] == "Alexandria"
     assert chart["location"]["latitude"] == 31.2
@@ -184,8 +179,18 @@ def test_historical_chart_returns_planets_houses_and_location():
     sun = chart["planets"]["sun"]
     # Sign is one of the 12 zodiac names; degree is in [0, 30)
     assert sun["sign"] in {
-        "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
-        "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
+        "Aries",
+        "Taurus",
+        "Gemini",
+        "Cancer",
+        "Leo",
+        "Virgo",
+        "Libra",
+        "Scorpio",
+        "Sagittarius",
+        "Capricorn",
+        "Aquarius",
+        "Pisces",
     }
     assert 0.0 <= sun["degree"] < 30.0
 
@@ -222,3 +227,4 @@ def test_find_power_places_filters_by_focus():
 
     strengths = [e["strength"] for e in benefic]
     assert strengths == sorted(strengths, reverse=True)
+

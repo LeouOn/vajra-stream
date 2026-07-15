@@ -9,6 +9,7 @@ The ``traditional_tales`` library, ``archetypes``, ``themes``, and
 ``traditions`` are hardcoded in the module under test — there are no
 external dependencies.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -17,7 +18,6 @@ from core.dharma_tales import (
     DharmaTalesGenerator,
     create_dharma_tales_generator,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -33,18 +33,20 @@ def gen():
 @pytest.fixture
 def gen_with_mock_llm():
     """A generator with a stub LLM that records the prompts passed to it."""
+
     class _StubLLM:
         def __init__(self):
             self.calls = []
 
-        def generate(self, prompt, system_prompt=None, max_tokens=None,
-                     temperature=None):  # noqa: ANN001
-            self.calls.append({
-                "prompt": prompt,
-                "system_prompt": system_prompt,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            })
+        def generate(self, prompt, system_prompt=None, max_tokens=None, temperature=None):  # noqa: ANN001
+            self.calls.append(
+                {
+                    "prompt": prompt,
+                    "system_prompt": system_prompt,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                }
+            )
             return "An inspiring dharma tale."
 
     stub = _StubLLM()
@@ -68,9 +70,18 @@ def test_module_imports_and_libraries_loaded(gen):
     assert len(gen.archetypes) == 10
     assert len(gen.traditions) == 8
 
-    expected_themes = {"impermanence", "compassion", "emptiness",
-                       "interdependence", "right_action", "mindfulness",
-                       "wisdom", "equanimity", "letting_go", "true_self"}
+    expected_themes = {
+        "impermanence",
+        "compassion",
+        "emptiness",
+        "interdependence",
+        "right_action",
+        "mindfulness",
+        "wisdom",
+        "equanimity",
+        "letting_go",
+        "true_self",
+    }
     assert set(gen.themes) == expected_themes
 
     # NOTE: real bug in core.dharma_tales.py — the key is "the_ burning_house"
@@ -108,13 +119,11 @@ def test_generate_tale_template_path(gen):
     """With ``use_llm=False`` the template engine produces a non-empty tale."""
     # The SHORT template intentionally omits the explicit "-- From the {tradition}
     # tradition" label; only the LONG form appends it. We assert both forms work.
-    short_tale = gen.generate_tale(theme="compassion", tradition="Zen",
-                                    length="short", use_llm=False)
+    short_tale = gen.generate_tale(theme="compassion", tradition="Zen", length="short", use_llm=False)
     assert isinstance(short_tale, str)
     assert len(short_tale) > 0
 
-    long_tale = gen.generate_tale(theme="impermanence", tradition="Theravada",
-                                   length="long", use_llm=False)
+    long_tale = gen.generate_tale(theme="impermanence", tradition="Theravada", length="long", use_llm=False)
     assert isinstance(long_tale, str)
     assert "Theravada" in long_tale
     assert "impermanence" in long_tale.lower() or "arises" in long_tale.lower()
@@ -129,8 +138,7 @@ def test_generate_tale_template_path(gen):
 def test_generate_tale_uses_llm_when_available(gen_with_mock_llm):
     """With an LLM attached, the generator delegates generation to it."""
     g, stub = gen_with_mock_llm
-    result = g.generate_tale(theme="emptiness", tradition="Mahayana",
-                             length="medium", use_llm=True)
+    result = g.generate_tale(theme="emptiness", tradition="Mahayana", length="medium", use_llm=True)
     assert result == "An inspiring dharma tale."
     assert len(stub.calls) == 1
     call = stub.calls[0]
@@ -179,10 +187,9 @@ def test_list_helpers_return_independent_copies(gen):
 @pytest.mark.unit
 def test_generate_teaching_story_template_path(gen):
     """Without an LLM, ``generate_teaching_story`` uses the long template."""
-    text = gen.generate_teaching_story(archetype="The Curious Child",
-                                       challenge="wisdom",
-                                       tradition="Sufi",
-                                       use_llm=False)
+    text = gen.generate_teaching_story(
+        archetype="The Curious Child", challenge="wisdom", tradition="Sufi", use_llm=False
+    )
     assert isinstance(text, str)
     assert len(text) > 50
     assert "Sufi" in text

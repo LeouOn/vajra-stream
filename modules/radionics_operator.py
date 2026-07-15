@@ -39,7 +39,7 @@ from core.context_builder import (
 )
 from core.llm.usage import LLMUsageTracker, UsageRecord
 from core.radionics_tools import RADIONICS_TOOLS, get_tools_for_provider
-from core.rate_to_audio import map_rate_to_carriers, CarrierFrequencySet
+from core.rate_to_audio import map_rate_to_carriers
 from modules.interfaces import EventBus
 
 logger = logging.getLogger(__name__)
@@ -62,16 +62,18 @@ def _record_operator_usage(
     """
     try:
         tracker = LLMUsageTracker.get()
-        tracker.record(UsageRecord(
-            provider=provider,
-            model=model,
-            prompt_tokens=prompt_tokens or 0,
-            completion_tokens=completion_tokens or 0,
-            total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
-            latency_ms=latency_ms,
-            endpoint=endpoint,
-            success=success,
-        ))
+        tracker.record(
+            UsageRecord(
+                provider=provider,
+                model=model,
+                prompt_tokens=prompt_tokens or 0,
+                completion_tokens=completion_tokens or 0,
+                total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+                latency_ms=latency_ms,
+                endpoint=endpoint,
+                success=success,
+            )
+        )
     except Exception:  # noqa: BLE001
         logger.debug("LLMUsageTracker.record failed in operator", exc_info=True)
 
@@ -627,10 +629,13 @@ class ToolDispatcher:
                 return self._dispatch_operator("run_full_journey", {})
 
             elif tool_name == "prepare_crystal_broadcast":
-                return self._dispatch_operator("prepare_crystal_broadcast", {
-                    "intention": arguments.get("intention", ""),
-                    "duration_minutes": arguments.get("duration_minutes", 10),
-                })
+                return self._dispatch_operator(
+                    "prepare_crystal_broadcast",
+                    {
+                        "intention": arguments.get("intention", ""),
+                        "duration_minutes": arguments.get("duration_minutes", 10),
+                    },
+                )
 
             else:
                 return {"error": f"Unknown tool: {tool_name}"}
@@ -945,13 +950,16 @@ class RadionicsOperator:
         # Publish event so frontend can react
         if self.event_bus:
             from modules.interfaces import BroadcastStarted
-            self.event_bus.publish(BroadcastStarted(
-                timestamp=datetime.now(),
-                event_id=str(uuid.uuid4()),
-                session_id=analysis_result.get("session_id", ""),
-                hardware_level=2,
-                frequencies=carriers.frequencies,
-            ))
+
+            self.event_bus.publish(
+                BroadcastStarted(
+                    timestamp=datetime.now(),
+                    event_id=str(uuid.uuid4()),
+                    session_id=analysis_result.get("session_id", ""),
+                    hardware_level=2,
+                    frequencies=carriers.frequencies,
+                )
+            )
 
         self._session.record_event("crystal_broadcast_prepared", broadcast_config)
         return {
@@ -1119,7 +1127,8 @@ Be concise and practical. If RNG data shows a floating needle or high coherence,
         if effective_interval != interval_seconds:
             logger.info(
                 "Blessing loop interval raised from %.1fs to floor of %.1fs",
-                interval_seconds, min_interval,
+                interval_seconds,
+                min_interval,
             )
 
         self._blessing_loop_active = True

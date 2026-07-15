@@ -324,10 +324,7 @@ class EdgeTTSEngine(TTSEngine):
 
     def synthesize(self, text: str, output_file: str, **kwargs) -> str:
         """Synthesis is not implemented in the stub; raise a clear error."""
-        raise RuntimeError(
-            "edge-tts engine stub: synthesis not yet implemented "
-            "(see eval Issue 5.11)"
-        )
+        raise RuntimeError("edge-tts engine stub: synthesis not yet implemented (see eval Issue 5.11)")
 
 
 # ============================================================================

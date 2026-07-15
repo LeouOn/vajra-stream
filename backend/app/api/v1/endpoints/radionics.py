@@ -3,7 +3,6 @@ Radionics API Endpoints for Vajra.Stream
 Integrated scalar-radionics broadcasting system
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -19,7 +18,7 @@ from pydantic import BaseModel, Field
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from backend.core.orchestrator_bridge import orchestrator_bridge
-from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
+from core.integrated_scalar_radionics import IntegratedScalarRadionicsBroadcaster, IntentionType
 from core.schema import get_db_path
 
 # Setup logging
@@ -43,7 +42,10 @@ class BroadcastRequest(BaseModel):
     use_meridians: bool = Field(default=False, description="Activate meridian system")
     mantra: str | None = Field(None, description="Optional mantra for broadcast")
     breathing_pattern: bool = Field(default=True, description="Use sacred breathing cycles")
-    rate_values: list[int] | None = Field(None, description="Radionics dial values (0-100). When provided, mapped to Solfeggio carrier frequencies via rate_to_audio bridge.")
+    rate_values: list[int] | None = Field(
+        None,
+        description="Radionics dial values (0-100). When provided, mapped to Solfeggio carrier frequencies via rate_to_audio bridge.",
+    )
 
 
 class HealingProtocolRequest(BaseModel):
@@ -66,9 +68,16 @@ class RitualBroadcastRequest(BaseModel):
     )
     direct_freq: float | None = Field(default=None, description="Direct carrier frequency in Hz (skips rate mapping)")
     duration_minutes: int = Field(default=10, ge=1, le=180, description="Broadcast duration in minutes")
-    ritual_type: str = Field(default="universal", description="Ritual archetype (universal, earthquake, war, illness, death, displacement, dedication_of_endeavors)")
-    tradition: str = Field(default="vajrayana", description="Liturgical tradition (vajrayana, theravada, mahayana, zen)")
-    recite_with_tts: bool = Field(default=True, description="Speak the ritual via TTS (Sanskrit preprocessed for pronunciation)")
+    ritual_type: str = Field(
+        default="universal",
+        description="Ritual archetype (universal, earthquake, war, illness, death, displacement, dedication_of_endeavors)",
+    )
+    tradition: str = Field(
+        default="vajrayana", description="Liturgical tradition (vajrayana, theravada, mahayana, zen)"
+    )
+    recite_with_tts: bool = Field(
+        default=True, description="Speak the ritual via TTS (Sanskrit preprocessed for pronunciation)"
+    )
 
 
 # Response Models
@@ -113,9 +122,7 @@ class SutraRecitationRequest(BaseModel):
     rate_values: list[int] | None = Field(
         None, description="Radionics dial values (0-100) mapped to Solfeggio carriers"
     )
-    direct_freq: float | None = Field(
-        None, description="Direct carrier frequency in Hz (skips rate mapping)"
-    )
+    direct_freq: float | None = Field(None, description="Direct carrier frequency in Hz (skips rate mapping)")
     recite_with_tts: bool = Field(default=True, description="Generate TTS audio for the passage")
     repeat_count: int = Field(default=1, ge=1, le=108, description="Times to recite (1, 3, 7, 108)")
 
@@ -174,7 +181,7 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             "wisdom": IntentionType.WISDOM,
         }
 
-        intention_type = intention_map.get(request.intention.lower(), IntentionType.HEALING)
+        intention_map.get(request.intention.lower(), IntentionType.HEALING)
 
         # Auto-select frequency if not provided
         frequency_mapping = {
@@ -230,9 +237,18 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
 
         meridians_activated = (
             [
-                "lung", "large_intestine", "stomach", "spleen",
-                "heart", "small_intestine", "bladder", "kidney",
-                "pericardium", "triple_warmer", "gallbladder", "liver",
+                "lung",
+                "large_intestine",
+                "stomach",
+                "spleen",
+                "heart",
+                "small_intestine",
+                "bladder",
+                "kidney",
+                "pericardium",
+                "triple_warmer",
+                "gallbladder",
+                "liver",
             ]
             if request.use_meridians
             else []
@@ -411,6 +427,7 @@ async def ritual_broadcast(request: RitualBroadcastRequest):
         # Best-effort: pull the global LLM from the container for richer prayers/teachings
         try:
             from container import container as _container
+
             llm = _container.llm
         except Exception:
             llm = None
@@ -477,8 +494,10 @@ async def ritual_broadcast(request: RitualBroadcastRequest):
             # It splits into 6 sections, preprocesses Sanskrit via sanskrit_tts,
             # and speaks each section via the TTS provider. Runs async.
             tts_result = ritual_gen.recite_ritual(ritual)
-            logger.info(f"TTS recitation: {tts_result.get('status', 'unknown')} "
-                        f"({tts_result.get('sections_recited', 0)} sections)")
+            logger.info(
+                f"TTS recitation: {tts_result.get('status', 'unknown')} "
+                f"({tts_result.get('sections_recited', 0)} sections)"
+            )
         except Exception as exc:
             logger.warning(f"TTS recitation failed (ritual text still returned): {exc}")
             tts_result = {"status": "failed", "error": str(exc)}
@@ -531,7 +550,9 @@ async def list_dharanis():
                 "has_sanskrit": bool(e.get("text_sanskrit")),
                 "has_tibetan": bool(e.get("text_tibetan")),
                 "has_chinese": bool(e.get("text_chinese")),
-                "text_sanskrit_preview": (e.get("text_sanskrit", "")[:120] + "...") if len(e.get("text_sanskrit", "")) > 120 else e.get("text_sanskrit", ""),
+                "text_sanskrit_preview": (e.get("text_sanskrit", "")[:120] + "...")
+                if len(e.get("text_sanskrit", "")) > 120
+                else e.get("text_sanskrit", ""),
             }
             for e in entries
         ],
@@ -559,6 +580,7 @@ async def dharani_recitation(
     """
     import json as _json
     from pathlib import Path as _Path
+
     from core.sanskrit_tts import preprocess_for_tts
 
     logger.info(f"📿 Dharani recitation: {dharani_id}, repeat={repeat_count}, tts={recite_with_tts}")
@@ -655,7 +677,7 @@ async def dharani_recitation(
                         tts_result["error"] = str(exc)
 
                 try:
-                    loop = _asyncio.get_running_loop()
+                    _asyncio.get_running_loop()
                     _asyncio.ensure_future(_speak())
                 except RuntimeError:
                     import threading
@@ -990,7 +1012,7 @@ async def sutra_recitation(request: SutraRecitationRequest):
                         tts_result["error"] = str(exc)
 
                 try:
-                    loop = _asyncio.get_running_loop()
+                    _asyncio.get_running_loop()
                     _asyncio.ensure_future(_speak())
                 except RuntimeError:
                     # No running loop — run synchronously in a thread

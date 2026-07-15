@@ -13,6 +13,7 @@ Covers the public surface:
 Heavy deps (``urllib``, ``core.astrology``) are mocked so tests are fast
 and offline-safe.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -28,7 +29,6 @@ from core.internet_context import (
     format_context_for_llm,
     get_planetary_hour,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. WorldEvent dataclass + to_context_str

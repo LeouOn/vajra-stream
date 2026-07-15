@@ -15,12 +15,12 @@ Tests verify:
 - Hero journeys have 6 stages with substantial content
 - Sutra passages are selected from the patience/purification themes
 """
+
 from __future__ import annotations
 
 import pytest
 
 from core.ritual_generator import RitualGenerator
-
 
 # ---------------------------------------------------------------------------
 # 1. Detection — anger

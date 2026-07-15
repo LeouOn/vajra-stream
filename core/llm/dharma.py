@@ -21,6 +21,7 @@ Usage::
     dharma = AsyncDharmaLLM(registry)
     prayer = await dharma.generate_prayer("peace and healing for all beings")
 """
+
 from __future__ import annotations
 
 import logging
@@ -71,9 +72,7 @@ class AsyncDharmaLLM:
         """
         provider = await self.registry.pick_best()
         if provider is None:
-            raise RuntimeError(
-                "No healthy LLM provider available in the registry"
-            )
+            raise RuntimeError("No healthy LLM provider available in the registry")
         request = ChatRequest(
             messages=[ChatMessage(role="user", content=prompt)],
             system_prompt=self.dharma_system,
@@ -83,9 +82,7 @@ class AsyncDharmaLLM:
         response = await provider.generate(request)
         return response.content
 
-    async def generate_prayer(
-        self, intention: str, tradition: str = "universal"
-    ) -> str:
+    async def generate_prayer(self, intention: str, tradition: str = "universal") -> str:
         """Generate a prayer / aspiration based on an intention.
 
         Args:
@@ -108,9 +105,7 @@ The prayer should:
 Generate only the prayer text, no explanation."""
         return await self._generate(prompt, max_tokens=200, temperature=0.8)
 
-    async def generate_teaching(
-        self, topic: str, length: str = "short"
-    ) -> str:
+    async def generate_teaching(self, topic: str, length: str = "short") -> str:
         """Generate a dharma teaching on a topic.
 
         Args:

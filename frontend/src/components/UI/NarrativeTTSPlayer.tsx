@@ -16,6 +16,7 @@ import { Volume2, Square, Loader2, AlertTriangle, Settings2 } from 'lucide-react
 import { Button, Slider, Switch, Space, Tooltip, Tag } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useUIStore } from '../../stores/uiStore';
+import { useAudioActivity } from '../../stores/audioActivityStore';
 
 interface NarrativeTTSPlayerProps {
   text?: string;
@@ -38,6 +39,7 @@ export default function NarrativeTTSPlayer({
 }: NarrativeTTSPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const ttsUnregisterRef = useRef<(() => void) | null>(null);
   const addToast = useUIStore((s) => s.addToast);
   const [loading, setLoading] = useState<boolean>(false);
   const [playing, setPlaying] = useState<boolean>(false);
@@ -60,6 +62,8 @@ export default function NarrativeTTSPlayer({
       try { URL.revokeObjectURL(blobUrlRef.current); } catch { /* noop */ }
       blobUrlRef.current = null;
     }
+    ttsUnregisterRef.current?.();
+    ttsUnregisterRef.current = null;
     setPlaying(false);
   }, []);
 
@@ -97,6 +101,8 @@ export default function NarrativeTTSPlayer({
       audioRef.current = audio;
       audio.onended = () => {
         setPlaying(false);
+        ttsUnregisterRef.current?.();
+        ttsUnregisterRef.current = null;
         if (blobUrlRef.current) {
           URL.revokeObjectURL(blobUrlRef.current);
           blobUrlRef.current = null;
@@ -105,9 +111,17 @@ export default function NarrativeTTSPlayer({
       audio.onerror = () => {
         setError('Audio playback failed');
         setPlaying(false);
+        ttsUnregisterRef.current?.();
+        ttsUnregisterRef.current = null;
       };
       await audio.play();
       setPlaying(true);
+      ttsUnregisterRef.current = useAudioActivity.getState().register({
+        id: 'tts-narrative',
+        name: 'Narrative TTS Playback',
+        icon: '🔊',
+        stop: () => { try { audio.pause(); } catch { /* noop */ } },
+      });
       addToast({ type: 'success', title: `Streaming via ${backend}`, duration: 3 });
       audioFeedback.playSuccess();
     } catch (e) {

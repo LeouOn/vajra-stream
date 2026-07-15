@@ -81,8 +81,7 @@ class TestContainerAudioLLMToolIntegration:
         """
         svc = container.audio
         assert isinstance(svc, AudioService), (
-            f"container.audio must return modules.audio.AudioService, got "
-            f"{type(svc).__module__}.{type(svc).__name__}"
+            f"container.audio must return modules.audio.AudioService, got {type(svc).__module__}.{type(svc).__name__}"
         )
 
     def test_container_audio_is_cached_singleton_per_container(self, container: Container) -> None:
@@ -106,9 +105,7 @@ class TestContainerAudioLLMToolIntegration:
     # LLM tool integration (RadionicsOperator.generate_audio)
     # ------------------------------------------------------------------
 
-    def test_container_audio_supports_generate_tone_llm_tool_call(
-        self, container: Container
-    ) -> None:
+    def test_container_audio_supports_generate_tone_llm_tool_call(self, container: Container) -> None:
         """The LLM tool ``generate_audio`` in ``modules/radionics_operator.py:511``
         calls ``svc = self._container.audio`` then ``svc.generate_tone(...)``.
 
@@ -131,9 +128,7 @@ class TestContainerAudioLLMToolIntegration:
             "(frequency=, duration=)."
         )
 
-    def test_radionics_operator_generate_audio_tool_routes_to_container_audio(
-        self, container: Container
-    ) -> None:
+    def test_radionics_operator_generate_audio_tool_routes_to_container_audio(self, container: Container) -> None:
         """Smoke-test the actual LLM tool dispatcher path:
         ``RadionicsOperator.dispatcher.dispatch('generate_audio', {...})``
         MUST resolve ``self._container.audio`` (i.e. the AudioService
@@ -170,12 +165,10 @@ class TestContainerAudioLLMToolIntegration:
         # The dispatcher maps frequency_hz → frequency, duration_seconds → duration.
         kwargs = called["kwargs"]
         assert kwargs.get("frequency") == 136.1, (
-            f"LLM tool must map arguments['frequency_hz'] → generate_tone(frequency=...); "
-            f"got kwargs={kwargs!r}"
+            f"LLM tool must map arguments['frequency_hz'] → generate_tone(frequency=...); got kwargs={kwargs!r}"
         )
         assert kwargs.get("duration") == 5, (
-            f"LLM tool must map arguments['duration_seconds'] → generate_tone(duration=...); "
-            f"got kwargs={kwargs!r}"
+            f"LLM tool must map arguments['duration_seconds'] → generate_tone(duration=...); got kwargs={kwargs!r}"
         )
         assert isinstance(result, dict)
 
@@ -195,9 +188,7 @@ def test_modules_audio_is_distinct_concern_from_vajra_service() -> None:
     modules_audio = root / "modules" / "audio.py"
     vajra_service = root / "backend" / "core" / "services" / "vajra_service.py"
 
-    assert modules_audio.exists(), (
-        "modules/audio.py must be KEPT per ADR 001 §Decision 3 (LLM-tool path)."
-    )
+    assert modules_audio.exists(), "modules/audio.py must be KEPT per ADR 001 §Decision 3 (LLM-tool path)."
     assert vajra_service.exists(), (
         "backend/core/services/vajra_service.py must be KEPT per ADR 001 §Decision 1 "
         "(canonical user-facing audio path)."

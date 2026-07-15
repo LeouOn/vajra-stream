@@ -13,12 +13,12 @@ Tests focus on:
 - The invocation includes a "Dharani Recitation" section with Sanskrit text
 - _select_dharani returns None gracefully for unknown suffering types
 """
+
 from __future__ import annotations
 
 import pytest
 
 from core.ritual_generator import RitualGenerator, _load_dharanis_db
-
 
 # ---------------------------------------------------------------------------
 # 1. _load_dharanis_db — module-level loader

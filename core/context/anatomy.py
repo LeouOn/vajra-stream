@@ -1,5 +1,6 @@
 # core/context/anatomy.py
 """Anatomy context module — chakras and meridians."""
+
 from __future__ import annotations
 
 import logging
@@ -102,7 +103,7 @@ class AnatomyContextModule:
                 lines.append(f"    Crystals: {', '.join(crystals)}")
             affirmations = info.get("affirmations", [])
             if affirmations:
-                lines.append(f"    Affirmation: \"{affirmations[0]}\"")
+                lines.append(f'    Affirmation: "{affirmations[0]}"')
         lines.append("")
 
     @staticmethod

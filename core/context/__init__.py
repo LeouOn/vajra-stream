@@ -1,4 +1,5 @@
 """Composable async context modules for system-prompt assembly."""
+
 from __future__ import annotations
 
 from core.context.anatomy import AnatomyContextModule

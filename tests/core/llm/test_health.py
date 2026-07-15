@@ -44,9 +44,7 @@ async def test_heartbeat_runs_and_cancels():
     provider = StubProvider()
     registry.register(provider)
 
-    task = asyncio.create_task(
-        start_health_heartbeat(registry, interval_seconds=0.1)
-    )
+    task = asyncio.create_task(start_health_heartbeat(registry, interval_seconds=0.1))
     await asyncio.sleep(0.25)
     task.cancel()
     try:
@@ -64,9 +62,7 @@ async def test_heartbeat_handles_provider_failure():
     provider = StubProvider(fail=True)
     registry.register(provider)
 
-    task = asyncio.create_task(
-        start_health_heartbeat(registry, interval_seconds=0.1)
-    )
+    task = asyncio.create_task(start_health_heartbeat(registry, interval_seconds=0.1))
     await asyncio.sleep(0.25)
     task.cancel()
     try:

@@ -141,7 +141,10 @@ def _deterministic_geocoding(monkeypatch):
     else:
         gs_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "backend", "core", "services", "geocoding_service.py",
+            "backend",
+            "core",
+            "services",
+            "geocoding_service.py",
         )
         if not os.path.exists(gs_path):
             return
@@ -151,9 +154,8 @@ def _deterministic_geocoding(monkeypatch):
             spec.loader.exec_module(gs_mod)
         except Exception as exc:  # noqa: BLE001
             import logging
-            logging.getLogger(__name__).debug(
-                "Skipping geocoding patch: %s: %s", type(exc).__name__, exc
-            )
+
+            logging.getLogger(__name__).debug("Skipping geocoding patch: %s: %s", type(exc).__name__, exc)
             return
         # Register in sys.modules so the endpoint's function-level import
         # resolves to THIS module object (with the patched class).

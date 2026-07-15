@@ -1963,15 +1963,22 @@ class AstrologicalCalculator:
         # pairs already handled above) so that e.g. Transit Year vs Natal Day harms are
         # surfaced, not only Day-driven ones.
         harm_map = {
-            "Zi": "Wei", "Wei": "Zi",
-            "Chou": "Wu", "Wu": "Chou",
-            "Yin": "Si", "Si": "Yin",
-            "Mao": "Chen", "Chen": "Mao",
-            "Shen": "Hai", "Hai": "Shen",
-            "You": "Xu", "Xu": "You",
+            "Zi": "Wei",
+            "Wei": "Zi",
+            "Chou": "Wu",
+            "Wu": "Chou",
+            "Yin": "Si",
+            "Si": "Yin",
+            "Mao": "Chen",
+            "Chen": "Mao",
+            "Shen": "Hai",
+            "Hai": "Shen",
+            "You": "Xu",
+            "Xu": "You",
         }
         mutual_punishment_map = {  # 子卯 mutual punishment (无礼之刑)
-            "Zi": "Mao", "Mao": "Zi",
+            "Zi": "Mao",
+            "Mao": "Zi",
         }
         natal_pillars_labeled = [
             ("Year", n_y_b),
@@ -3016,7 +3023,9 @@ class AstrologicalCalculator:
 
         return results
 
-    def get_planet_house_map(self, dt: datetime, location: tuple[float, float] | None, house_system: str = "Placidus") -> dict:
+    def get_planet_house_map(
+        self, dt: datetime, location: tuple[float, float] | None, house_system: str = "Placidus"
+    ) -> dict:
         positions = self.get_planetary_positions(dt, location)
 
         if location is None:
@@ -3069,9 +3078,7 @@ class AstrologicalCalculator:
         """Signed shortest angular delta from ``a`` to ``b`` in ``[-180, 180]``."""
         return (b - a + 180.0) % 360.0 - 180.0
 
-    def get_house_cusps(
-        self, dt: datetime, location: tuple[float, float] | None
-    ) -> dict:
+    def get_house_cusps(self, dt: datetime, location: tuple[float, float] | None) -> dict:
         """Return explicit Placidus and Whole Sign house cusp longitudes.
 
         Both lists contain 12 ecliptic longitudes in ``[0, 360)``:
@@ -3105,9 +3112,7 @@ class AstrologicalCalculator:
         whole_sign = [((asc_sign_index + i) % 12) * 30.0 for i in range(12)]
         return {"placidus": placidus, "whole_sign": whole_sign}
 
-    def get_natal_aspects(
-        self, dt: datetime, location: tuple[float, float] | None = None
-    ) -> list[dict]:
+    def get_natal_aspects(self, dt: datetime, location: tuple[float, float] | None = None) -> list[dict]:
         """Internal natal-to-natal aspects with applying/separating flag.
 
         ``applying`` is computed from the planets' geocentric angular speeds
@@ -3195,22 +3200,42 @@ class AstrologicalCalculator:
             "five_elements": {Wood, Fire, Earth, Metal, Water}}``.
         """
         stem_elements = {
-            "甲": "Wood", "乙": "Wood",
-            "丙": "Fire", "丁": "Fire",
-            "戊": "Earth", "己": "Earth",
-            "庚": "Metal", "辛": "Metal",
-            "壬": "Water", "癸": "Water",
+            "甲": "Wood",
+            "乙": "Wood",
+            "丙": "Fire",
+            "丁": "Fire",
+            "戊": "Earth",
+            "己": "Earth",
+            "庚": "Metal",
+            "辛": "Metal",
+            "壬": "Water",
+            "癸": "Water",
         }
         stem_yin_yang = {
-            "甲": "Yang", "丙": "Yang", "戊": "Yang", "庚": "Yang", "壬": "Yang",
-            "乙": "Yin", "丁": "Yin", "己": "Yin", "辛": "Yin", "癸": "Yin",
+            "甲": "Yang",
+            "丙": "Yang",
+            "戊": "Yang",
+            "庚": "Yang",
+            "壬": "Yang",
+            "乙": "Yin",
+            "丁": "Yin",
+            "己": "Yin",
+            "辛": "Yin",
+            "癸": "Yin",
         }
         branch_elements = {
-            "子": "Water", "午": "Fire",
-            "丑": "Earth", "未": "Earth", "辰": "Earth", "戌": "Earth",
-            "寅": "Wood", "卯": "Wood",
-            "巳": "Fire", "亥": "Water",
-            "申": "Metal", "酉": "Metal",
+            "子": "Water",
+            "午": "Fire",
+            "丑": "Earth",
+            "未": "Earth",
+            "辰": "Earth",
+            "戌": "Earth",
+            "寅": "Wood",
+            "卯": "Wood",
+            "巳": "Fire",
+            "亥": "Water",
+            "申": "Metal",
+            "酉": "Metal",
         }
         five_elements_count = {"Wood": 0, "Fire": 0, "Earth": 0, "Metal": 0, "Water": 0}
 
@@ -3229,8 +3254,12 @@ class AstrologicalCalculator:
 
         dt_china = dt.astimezone(pytz.timezone("Asia/Shanghai"))
         solar_c = Solar.fromYmdHms(
-            dt_china.year, dt_china.month, dt_china.day,
-            dt_china.hour, dt_china.minute, dt_china.second,
+            dt_china.year,
+            dt_china.month,
+            dt_china.day,
+            dt_china.hour,
+            dt_china.minute,
+            dt_china.second,
         )
         bazi = solar_c.getLunar().getEightChar()
 
@@ -3249,26 +3278,24 @@ class AstrologicalCalculator:
             branch_char = pillar_str[1] if len(pillar_str) >= 2 else ""
             stem_el = stem_elements.get(stem_char, "Unknown")
             branch_el = branch_elements.get(branch_char, "Unknown")
-            element_label = (
-                f"{stem_el}/{branch_el}"
-                if (stem_el != "Unknown" or branch_el != "Unknown")
-                else wuxing_str
-            )
+            element_label = f"{stem_el}/{branch_el}" if (stem_el != "Unknown" or branch_el != "Unknown") else wuxing_str
 
             if stem_el != "Unknown":
                 five_elements_count[stem_el] += 1
             if branch_el != "Unknown":
                 five_elements_count[branch_el] += 1
 
-            pillars.append({
-                "pillar": pillar_name,
-                "stem": stem_char,
-                "branch": branch_char,
-                "stem_element": stem_el,
-                "branch_element": branch_el,
-                "element": element_label,
-                "raw": pillar_str,
-            })
+            pillars.append(
+                {
+                    "pillar": pillar_name,
+                    "stem": stem_char,
+                    "branch": branch_char,
+                    "stem_element": stem_el,
+                    "branch_element": branch_el,
+                    "element": element_label,
+                    "raw": pillar_str,
+                }
+            )
 
             if pillar_name == "day" and stem_char:
                 day_master = {
@@ -3308,6 +3335,7 @@ def _shortest_angular_delta(a: float, b: float) -> float:
     d = (b - a + 180.0) % 360.0 - 180.0
     return d
 
+
 AstrologyEngine = AstrologicalCalculator
 
 
@@ -3343,11 +3371,7 @@ def format_astrological_report(data: dict) -> str:
         # ``illumination`` is already 0–100 (see get_moon_phase line 1285:
         # ``illumination = (1 - math.cos(math.radians(phase_angle))) / 2 * 100``),
         # so just print as-is.
-        mp_pct = (
-            f" ({mp_illum:.1f}% illuminated)"
-            if isinstance(mp_illum, (int, float))
-            else ""
-        )
+        mp_pct = f" ({mp_illum:.1f}% illuminated)" if isinstance(mp_illum, (int, float)) else ""
         lines.append(f"Moon Phase: {mp_name}{mp_pct}")
         lines.append("")
 

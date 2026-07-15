@@ -100,9 +100,7 @@ async def lifespan(app: FastAPI):
 
             registry = build_default_registry()
             app.state.llm_registry = registry
-            logger.info(
-                f"LLM registry initialized: {[p.name for p in registry.providers]}"
-            )
+            logger.info(f"LLM registry initialized: {[p.name for p in registry.providers]}")
         except Exception as e:
             logger.error(f"Failed to initialize LLM registry: {e}")
             logger.error(traceback.format_exc())
@@ -133,19 +131,14 @@ async def lifespan(app: FastAPI):
                         on_update=publish_health,
                     )
                 )
-                logger.info(
-                    f"LLM health heartbeat started "
-                    f"(interval={config.health_check_interval_seconds}s)"
-                )
+                logger.info(f"LLM health heartbeat started (interval={config.health_check_interval_seconds}s)")
             except Exception as e:
                 logger.error(f"Failed to start health heartbeat: {e}")
                 logger.error(traceback.format_exc())
 
         # Start real-time streaming with stable manager v2
         try:
-            app.state.streaming_task = asyncio.create_task(
-                stable_connection_manager_v2.start_realtime_streaming()
-            )
+            app.state.streaming_task = asyncio.create_task(stable_connection_manager_v2.start_realtime_streaming())
             logger.info("Stable real-time streaming started")
         except Exception as e:
             logger.error(f"Failed to start streaming: {e}")
@@ -157,9 +150,7 @@ async def lifespan(app: FastAPI):
 
             logger.info("Starting Autonomous Radionics Operator daemon (background)...")
             container.operator.start_autonomous_mode(interval_seconds=300)
-            logger.info(
-                "Autonomous Radionics Operator daemon activated successfully on startup"
-            )
+            logger.info("Autonomous Radionics Operator daemon activated successfully on startup")
         except Exception as e:
             logger.error(f"Failed to start Autonomous Operator daemon: {e}")
 
@@ -196,9 +187,7 @@ async def lifespan(app: FastAPI):
                     logger.debug("LLM_USAGE_UPDATE broadcast failed", exc_info=True)
 
             LLMUsageTracker.get().add_on_record_callback(_broadcast_usage)
-            logger.info(
-                "LLM usage WS broadcast hook registered (throttled every 10 records)"
-            )
+            logger.info("LLM usage WS broadcast hook registered (throttled every 10 records)")
         except Exception as e:
             logger.error(f"Failed to register LLM usage WS broadcast: {e}")
 
@@ -211,9 +200,7 @@ async def lifespan(app: FastAPI):
             engine = get_practice_engine()
             # Touch list_practices() to force definition loading eagerly.
             engine_count = len(engine.list_practices())
-            logger.info(
-                f"Practice engine pre-warmed ({engine_count} definitions loaded)"
-            )
+            logger.info(f"Practice engine pre-warmed ({engine_count} definitions loaded)")
         except Exception as e:
             logger.error(f"Failed to pre-warm practice engine: {e}")
             logger.error(traceback.format_exc())
@@ -224,15 +211,17 @@ async def lifespan(app: FastAPI):
                 start_background_generation,
             )
 
-            await start_background_generation(BackgroundGenerationConfig(
-                interval_minutes=60,
-                cycle_genres=True,
-                cycle_intentions=True,
-                include_astrology=True,
-                include_tarot=True,
-                include_iching=True,
-                include_geomancy=True,
-            ))
+            await start_background_generation(
+                BackgroundGenerationConfig(
+                    interval_minutes=60,
+                    cycle_genres=True,
+                    cycle_intentions=True,
+                    include_astrology=True,
+                    include_tarot=True,
+                    include_iching=True,
+                    include_geomancy=True,
+                )
+            )
             logger.info("Background generation engine started (60min interval, full oracles)")
         except Exception as e:
             logger.warning(f"Could not start background generation: {e}")
@@ -433,7 +422,9 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 # Receive message with timeout
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
-                logger.debug(f"Received WebSocket message from {connection_id}: {data[:100]}...")  # Truncate long messages
+                logger.debug(
+                    f"Received WebSocket message from {connection_id}: {data[:100]}..."
+                )  # Truncate long messages
 
                 # Handle message using stable manager v2
                 await stable_connection_manager_v2.handle_message(connection_id, data)

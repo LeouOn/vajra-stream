@@ -29,6 +29,7 @@ Exit codes:
 Companion test: frontend/src/__tests__/hooks/ws-contract.test.ts runs the
 same comparison inside vitest; this script runs it in CI / pre-commit.
 """
+
 from __future__ import annotations
 
 import re
@@ -148,7 +149,7 @@ def main() -> int:
     frontend_cases = extract_frontend_cases()
 
     missing = sorted(backend_types - frontend_cases)  # backend emits, frontend silent
-    dead = sorted(frontend_cases - backend_types)     # frontend handles, backend never emits
+    dead = sorted(frontend_cases - backend_types)  # frontend handles, backend never emits
 
     sep = "=" * 72
     print(sep)

@@ -8,6 +8,7 @@ narrative path (no LLM available in tests).
 The module loads from ``knowledge/eighty_eight_buddhas.json`` which is
 shipped with the repository; we exercise the real loader.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -17,7 +18,6 @@ from core.eighty_eight_buddhas import (
     EightyEightBuddhas,
     get_eighty_eight_buddhas,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -45,8 +45,17 @@ def test_module_imports_and_exposes_public_api():
     assert callable(mod.get_eighty_eight_buddhas)
     # BuddhaEntry must be a dataclass with the expected fields
     fields = {f for f in BuddhaEntry.__dataclass_fields__}
-    for expected in ("index", "name_chinese", "name_pinyin", "name_sanskrit",
-                     "category", "meaning", "realm", "light", "epithet"):
+    for expected in (
+        "index",
+        "name_chinese",
+        "name_pinyin",
+        "name_sanskrit",
+        "category",
+        "meaning",
+        "realm",
+        "light",
+        "epithet",
+    ):
         assert expected in fields, f"BuddhaEntry missing field: {expected}"
 
 

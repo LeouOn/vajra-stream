@@ -9,6 +9,7 @@ Covers:
 * ``is_terminal()`` is False for every phase except COMPLETED.
 * ``append_message()`` records ``{role, content, timestamp}`` entries.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

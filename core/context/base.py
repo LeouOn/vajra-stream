@@ -1,5 +1,6 @@
 # core/context/base.py
 """ContextModule Protocol and SystemPromptBuilder."""
+
 from __future__ import annotations
 
 import asyncio
@@ -50,9 +51,7 @@ class SystemPromptBuilder:
         """Append *module* to the composition pipeline."""
         self._modules.append(module)
 
-    async def compose(
-        self, request: ContextRequest, base_prompt: str = ""
-    ) -> str:
+    async def compose(self, request: ContextRequest, base_prompt: str = "") -> str:
         """Gather all modules in parallel, render sequentially, skip failures.
 
         The optional ``base_prompt`` is prepended so callers don't need to
@@ -84,9 +83,7 @@ class SystemPromptBuilder:
     # -- internal helpers ---------------------------------------------------
 
     @staticmethod
-    async def _safe_gather(
-        module: ContextModule, request: ContextRequest
-    ) -> ContextData:
+    async def _safe_gather(module: ContextModule, request: ContextRequest) -> ContextData:
         """Call ``module.gather`` defensively, returning error ContextData on failure."""
         try:
             return await module.gather(request)

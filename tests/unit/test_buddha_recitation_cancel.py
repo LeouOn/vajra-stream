@@ -29,9 +29,7 @@ async def test_start_stores_background_task_handle():
     try:
         await loop.start(intention="test", interval_seconds=0.01)
         # The handle MUST be stored; the bug was discarding it.
-        assert loop._task is not None, (
-            "start() must store the background task handle on self._task"
-        )
+        assert loop._task is not None, "start() must store the background task handle on self._task"
         assert isinstance(loop._task, asyncio.Task)
         assert not loop._task.done()
     finally:
@@ -67,9 +65,7 @@ async def test_stop_cancels_background_task_within_two_seconds():
     await asyncio.wait_for(loop.stop(), timeout=2.0)
 
     # The task MUST be done within 2s of stop().
-    assert task.done(), (
-        "background recitation task must be done within 2s of stop()"
-    )
+    assert task.done(), "background recitation task must be done within 2s of stop()"
 
 
 async def test_stop_is_idempotent_and_safe_when_not_started():
@@ -99,6 +95,4 @@ async def test_stop_broadcasts_stopped_event_once():
     await loop.start(intention="test", interval_seconds=0.01)
     await asyncio.wait_for(loop.stop(), timeout=2.0)
 
-    assert "BUDDHA_RECITATION_STOPPED" in broadcast_calls, (
-        "stop() must still broadcast BUDDHA_RECITATION_STOPPED"
-    )
+    assert "BUDDHA_RECITATION_STOPPED" in broadcast_calls, "stop() must still broadcast BUDDHA_RECITATION_STOPPED"

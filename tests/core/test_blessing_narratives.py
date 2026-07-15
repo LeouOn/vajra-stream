@@ -12,6 +12,7 @@ Covers the public API:
 Heavy LLM I/O is **not** exercised — those code paths are guarded by
 ``use_llm=False`` and the optional ``LLMIntegration`` import.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,7 +31,6 @@ from core.blessing_narratives import (
     StoryExporter,
     StoryGenerator,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test

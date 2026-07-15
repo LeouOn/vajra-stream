@@ -328,7 +328,18 @@ class DivinationService:
         7: [(95, 135), (145, 135), (120, 165), (95, 205), (145, 205), (95, 245), (145, 245)],
         8: [(95, 135), (145, 135), (120, 162), (95, 200), (145, 200), (120, 218), (95, 245), (145, 245)],
         9: [(95, 135), (145, 135), (95, 175), (145, 175), (120, 190), (95, 205), (145, 205), (95, 245), (145, 245)],
-        10: [(95, 130), (145, 130), (120, 155), (95, 180), (145, 180), (95, 200), (145, 200), (120, 225), (95, 250), (145, 250)],
+        10: [
+            (95, 130),
+            (145, 130),
+            (120, 155),
+            (95, 180),
+            (145, 180),
+            (95, 200),
+            (145, 200),
+            (120, 225),
+            (95, 250),
+            (145, 250),
+        ],
     }
 
     @classmethod
@@ -573,12 +584,17 @@ class DivinationService:
             for i in range(16):
                 ang = -90 + i * 22.5
                 import math
+
                 r = 30 if i % 2 == 0 else 13
-                star_pts.append(f"{120 + r * math.cos(math.radians(ang)):.1f},{190 + r * math.sin(math.radians(ang)):.1f}")
+                star_pts.append(
+                    f"{120 + r * math.cos(math.radians(ang)):.1f},{190 + r * math.sin(math.radians(ang)):.1f}"
+                )
             small_pts = []
             for i in range(8):
                 ang = -90 + i * 45
-                small_pts.append(f"{120 + 50 * math.cos(math.radians(ang)):.1f},{190 + 50 * math.sin(math.radians(ang)):.1f}")
+                small_pts.append(
+                    f"{120 + 50 * math.cos(math.radians(ang)):.1f},{190 + 50 * math.sin(math.radians(ang)):.1f}"
+                )
             return (
                 f'<polygon points="{" ".join(small_pts)}" fill="none" stroke="{c}" stroke-width="1" opacity="0.4"/>'  # outer ring of small stars
                 f'<polygon points="{" ".join(star_pts)}" fill="none" stroke="{c}" stroke-width="1.8" filter="url(#card-glow)"/>'  # central 8-point star
@@ -619,11 +635,14 @@ class DivinationService:
             )
         if number == 21:  # The World: dancer in wreath + 4 corner creatures
             import math
+
             wreath_pts = []
             for i in range(40):
                 ang = i * 9
                 r = 42 if i % 2 == 0 else 40
-                wreath_pts.append(f"{120 + r * math.cos(math.radians(ang)):.1f},{190 + r * math.sin(math.radians(ang)):.1f}")
+                wreath_pts.append(
+                    f"{120 + r * math.cos(math.radians(ang)):.1f},{190 + r * math.sin(math.radians(ang)):.1f}"
+                )
             return (
                 f'<ellipse cx="120" cy="190" rx="44" ry="58" fill="none" stroke="{c}" stroke-width="1.6" filter="url(#card-glow)"/>'  # wreath
                 f'<circle cx="120" cy="185" r="8" fill="none" stroke="{c}" stroke-width="1.5"/>'  # dancer head
@@ -685,7 +704,7 @@ class DivinationService:
   {f'<text x="25" y="35" fill="{color}" font-size="12" font-family="monospace">{hebrew}</text>' if hebrew else ""}
   {f'<text x="215" y="35" fill="{color}" font-size="12" font-family="monospace" text-anchor="end">{ruler}</text>' if ruler else ""}
 
-  <!-- Central Artwork{' (rotated 180 — reversed)' if is_reversed else ''} -->
+  <!-- Central Artwork{" (rotated 180 — reversed)" if is_reversed else ""} -->
   {art}
 
   <!-- Title -->
@@ -729,13 +748,19 @@ class DivinationService:
         for idx in changing_indices:
             line_idx = idx - 1
             line_val = lines[line_idx]
-            line_meaning = primary_details["lines"][line_idx] if primary_details.get("lines") and len(primary_details["lines"]) > line_idx else ""
-            changing_lines_details.append({
-                "line": idx,
-                "value": line_val,
-                "type": "Old Yin" if line_val == 6 else "Old Yang",
-                "meaning": line_meaning
-            })
+            line_meaning = (
+                primary_details["lines"][line_idx]
+                if primary_details.get("lines") and len(primary_details["lines"]) > line_idx
+                else ""
+            )
+            changing_lines_details.append(
+                {
+                    "line": idx,
+                    "value": line_val,
+                    "type": "Old Yin" if line_val == 6 else "Old Yang",
+                    "meaning": line_meaning,
+                }
+            )
 
         return {
             "cast_lines": lines,
@@ -750,7 +775,7 @@ class DivinationService:
     def _get_hexagram_details(self, pattern: list[int]) -> dict[str, Any]:
         # Compact mapping of binary values to standard hexagrams
         bin_str = "".join(str(b) for b in pattern)
-        
+
         # 1. Try finding in loaded JSON database
         if hasattr(self, "iching") and self.iching:
             for hexagram in self.iching:
@@ -765,7 +790,7 @@ class DivinationService:
                         "meaning": hexagram["meaning"],
                         "judgment": hexagram["judgment"],
                         "images": hexagram["images"],
-                        "lines": hexagram["lines"]
+                        "lines": hexagram["lines"],
                     }
 
         # 2. Defensive fallback (unreachable in practice: iching.json ships all 64

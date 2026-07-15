@@ -16,23 +16,23 @@ The resulting :class:`CarrierFrequencySet` feeds directly into
 ``EnhancedAudioGenerator.generate_prayer_bowl_tone()`` for each frequency,
 then ``layer_frequencies()`` to combine.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-
 
 # ─── Solfeggio scale (Hz) ──────────────────────────────────────────────────
 # These are the 7 primary Solfeggio frequencies used throughout Vajra.Stream.
 # Dial values snap to the nearest one, creating musically/spiritually aligned
 # carrier tones from arbitrary radionics rate signatures.
 SOLFEGGIO_FREQUENCIES: list[float] = [
-    396.0,   # Ut — Liberating guilt and fear
-    417.0,   # Re — Undoing situations, facilitating change
-    528.0,   # Mi — DNA repair, transformation, love
-    639.0,   # La — Connecting relationships
-    741.0,   # Sol — Awakening intuition
-    852.0,   # Si — Returning to spiritual order
-    963.0,   # Divine consciousness
+    396.0,  # Ut — Liberating guilt and fear
+    417.0,  # Re — Undoing situations, facilitating change
+    528.0,  # Mi — DNA repair, transformation, love
+    639.0,  # La — Connecting relationships
+    741.0,  # Sol — Awakening intuition
+    852.0,  # Si — Returning to spiritual order
+    963.0,  # Divine consciousness
 ]
 
 # Always-present base layer (Earth resonance)
@@ -155,9 +155,7 @@ def map_rate_to_carriers(
     frequencies = [SCHUMANN_BASE_HZ] + unique_freqs
 
     # Build human-readable names
-    names = ["Schumann Base"] + [
-        _SOLFEGGIO_NAMES.get(f, f"{f:.1f} Hz") for f in unique_freqs
-    ]
+    names = ["Schumann Base"] + [_SOLFEGGIO_NAMES.get(f, f"{f:.1f} Hz") for f in unique_freqs]
 
     # Derive amplitude and richness from potency
     amplitude = _potency_to_amplitude(potency)

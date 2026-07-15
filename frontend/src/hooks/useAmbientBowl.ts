@@ -18,6 +18,7 @@
  * lookup returns undefined and start() silently no-ops).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAudioActivity } from '../stores/audioActivityStore';
 
 interface AmbientNodes {
   osc: OscillatorNode;
@@ -36,6 +37,7 @@ const DETUNE_CENTS = 3;
 
 export function useAmbientBowl(): UseAmbientBowl {
   const ref = useRef<AmbientNodes | null>(null);
+  const unregisterRef = useRef<(() => void) | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const stop = useCallback((): void => {
@@ -48,6 +50,10 @@ export function useAmbientBowl(): UseAmbientBowl {
     }
     void nodes.ctx.close().catch(() => undefined);
     ref.current = null;
+    if (unregisterRef.current) {
+      unregisterRef.current();
+      unregisterRef.current = null;
+    }
     setIsPlaying(false);
   }, []);
 
@@ -68,6 +74,12 @@ export function useAmbientBowl(): UseAmbientBowl {
       osc.start();
       ref.current = { osc, gain, ctx };
       setIsPlaying(true);
+      unregisterRef.current = useAudioActivity.getState().register({
+        id: 'ambient-bowl',
+        name: `Ambient Bowl Drone (${freq} Hz)`,
+        icon: '🥣',
+        stop: () => stop(),
+      });
     } catch {
       ref.current = null;
       setIsPlaying(false);

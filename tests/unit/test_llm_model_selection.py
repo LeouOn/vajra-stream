@@ -16,6 +16,7 @@ model-level fallback chain`` commit:
 * :meth:`core.llm.registry.ProviderRegistry.pick_best` returns the
   highest-priority *healthy* provider.
 """
+
 from __future__ import annotations
 
 from typing import Any

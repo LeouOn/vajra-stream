@@ -71,9 +71,7 @@ async def upload_document(
         if ext == ".json":
             chunk_count = _index_json_upload(idx, text, source, category, metadata)
         else:
-            chunk_count = idx.add_document(
-                text, source=source, category=category, metadata=metadata
-            )
+            chunk_count = idx.add_document(text, source=source, category=category, metadata=metadata)
     except Exception as exc:
         logger.exception("knowledge upload indexing failed")
         raise HTTPException(status_code=500, detail=f"Indexing failed: {exc}") from exc
@@ -87,9 +85,7 @@ async def upload_document(
     }
 
 
-def _index_json_upload(
-    idx, text: str, source: str, category: str, metadata: dict[str, Any]
-) -> int:
+def _index_json_upload(idx, text: str, source: str, category: str, metadata: dict[str, Any]) -> int:
     """Index a JSON upload.
 
     If the payload is a list of objects or a dict of objects, each entry

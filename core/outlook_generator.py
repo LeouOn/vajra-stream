@@ -218,7 +218,16 @@ class OutlookGenerator:
         self.divination = divination_service
         self.sacred_entities = self._load_sacred_entities()
 
-        self.genres = ["healing", "victory", "fun_parable", "alchemist", "dharani", "compassion", "wisdom", "protection"]
+        self.genres = [
+            "healing",
+            "victory",
+            "fun_parable",
+            "alchemist",
+            "dharani",
+            "compassion",
+            "wisdom",
+            "protection",
+        ]
         self.supported_languages = ["English", "Sanskrit", "Tibetan", "Chinese", "Latin", "Greek", "Hebrew"]
 
         self.sigil = sigil_service
@@ -229,7 +238,9 @@ class OutlookGenerator:
             self.radionics_analyzer = None
             self.signature_calc = None
 
-    def _calculate_radionics_and_sigils(self, genre: str, intention: str, dominant_element: str | None = None) -> tuple[str, dict]:
+    def _calculate_radionics_and_sigils(
+        self, genre: str, intention: str, dominant_element: str | None = None
+    ) -> tuple[str, dict]:
         parts = []
         raw = {}
 
@@ -330,7 +341,10 @@ class OutlookGenerator:
         return {}
 
     def _gather_astrology_context(
-        self, lat: float, lon: float, date: datetime = None,
+        self,
+        lat: float,
+        lon: float,
+        date: datetime = None,
         natal_dt: datetime | None = None,
         natal_location: tuple[float, float] | None = None,
     ) -> str:
@@ -410,13 +424,12 @@ class OutlookGenerator:
             # your natal Moon" instead of generic "Saturn is in Aries".
             if natal_dt and natal_location:
                 try:
-                    transit_aspects = self.astro_engine.get_transits_to_natal(
-                        natal_dt, natal_location, target_date
-                    )
+                    transit_aspects = self.astro_engine.get_transits_to_natal(natal_dt, natal_location, target_date)
                     if transit_aspects:
                         # Filter to harmonious + challenging (skip cusp-only)
                         notable = [
-                            a for a in transit_aspects
+                            a
+                            for a in transit_aspects
                             if a.get("aspect") in ("Conjunction", "Trine", "Sextile", "Square", "Opposition")
                         ][:7]
                         if notable:
@@ -488,17 +501,19 @@ class OutlookGenerator:
 
             # --- Vimshottari Dasha (current planetary period) ---
             try:
-                if hasattr(self.astro_engine, 'calculate_vimshottari_dasha'):
+                if hasattr(self.astro_engine, "calculate_vimshottari_dasha"):
                     dasha_periods = self.astro_engine.calculate_vimshottari_dasha(target_date, (lat, lon))
                     if dasha_periods:
                         current = dasha_periods[0]
-                        lines.append(f"Vimshottari Dasha: {current.get('ruler', '?')} period (started {current.get('start', '?')[:10] if current.get('start') else '?'})")
+                        lines.append(
+                            f"Vimshottari Dasha: {current.get('ruler', '?')} period (started {current.get('start', '?')[:10] if current.get('start') else '?'})"
+                        )
             except Exception:
                 pass
 
             # --- Gochara (Vedic transit houses) ---
             try:
-                if hasattr(self.astro_engine, 'get_vedic_gochara'):
+                if hasattr(self.astro_engine, "get_vedic_gochara"):
                     gochara = self.astro_engine.get_vedic_gochara(target_date, (lat, lon), target_date)
                     if gochara:
                         gochara_lines = []
@@ -790,7 +805,9 @@ Generated Ritual:
                 dom_elem = _western.get("dominant_element") or None
             except Exception:
                 dom_elem = None
-        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention, dominant_element=dom_elem)
+        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(
+            genre, intention, dominant_element=dom_elem
+        )
         divination_raw.update(radionics_raw)
 
         entity_context = self._select_sacred_entities()
@@ -1031,7 +1048,9 @@ CRITICAL: When reciting mantras and dharanis, include the FULL text — never ab
                 dom_elem = _western.get("dominant_element") or None
             except Exception:
                 dom_elem = None
-        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(genre, intention, dominant_element=dom_elem)
+        radionics_context, radionics_raw = self._calculate_radionics_and_sigils(
+            genre, intention, dominant_element=dom_elem
+        )
         divination_raw.update(radionics_raw)
 
         entity_context = self._select_sacred_entities()
@@ -1194,7 +1213,9 @@ Keep the same tone and style. Languages: {lang_str}."""
                 chap_mid = self.llm.generate(prompt_mid, max_tokens=4000, temperature=0.7, model=epic_model)
                 if chap_mid and "No LLM" in chap_mid:
                     break
-                self._debug_log_response(self._debug_log_prompt(prompt_mid, f"{genre}_epic_ch{stage_num}", lat, lon), chap_mid)
+                self._debug_log_response(
+                    self._debug_log_prompt(prompt_mid, f"{genre}_epic_ch{stage_num}", lat, lon), chap_mid
+                )
             except Exception as e:
                 chap_mid = f"Error generating Chapter {stage_num}: {e}"
                 break

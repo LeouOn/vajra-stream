@@ -10,6 +10,7 @@ Covers:
 * The module holds a reference to the state, so mutations between calls
   are reflected in subsequent ``gather()`` results.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

@@ -23,7 +23,10 @@ except ImportError:  # pragma: no cover — exercised only in environments with 
     _here = os.path.dirname(os.path.abspath(__file__))
     _mod_path = os.path.join(
         os.path.dirname(os.path.dirname(_here)),
-        "backend", "core", "services", "divination_service.py",
+        "backend",
+        "core",
+        "services",
+        "divination_service.py",
     )
     _spec = importlib.util.spec_from_file_location("_test_divination_service", _mod_path)
     _mod = importlib.util.module_from_spec(_spec)
@@ -134,13 +137,9 @@ def test_reversed_cards_use_reversed_meaning():
     for card in drawn:
         source = deck_by_id[card["id"]]
         if card["reversed"]:
-            assert card["meaning"] == source["reversed"], (
-                f"{card['name']} reversed should use reversed meaning"
-            )
+            assert card["meaning"] == source["reversed"], f"{card['name']} reversed should use reversed meaning"
         else:
-            assert card["meaning"] == source["upright"], (
-                f"{card['name']} upright should use upright meaning"
-            )
+            assert card["meaning"] == source["upright"], f"{card['name']} upright should use upright meaning"
         # The reversed boolean stays a real boolean (backward compat).
         assert isinstance(card["reversed"], bool)
         # The reversed meaning text is preserved under an unambiguous key.
@@ -203,9 +202,7 @@ def test_seed_reproducibility():
     second = divination_service.draw_tarot(10, seed=seed)
 
     assert [c["id"] for c in first] == [c["id"] for c in second], "card order differs"
-    assert [c["reversed"] for c in first] == [c["reversed"] for c in second], (
-        "orientations differ"
-    )
+    assert [c["reversed"] for c in first] == [c["reversed"] for c in second], "orientations differ"
     # And the meanings match because orientations match.
     assert [c["meaning"] for c in first] == [c["meaning"] for c in second]
 
@@ -222,9 +219,7 @@ def test_svg_is_unique_per_card():
     """Each of the 78 cards renders a distinct SVG (no generic shared artwork)."""
     svgs = []
     for card in divination_service.deck:
-        rendered = divination_service._render_tarot_card_svg(
-            {**card, "orientation": "upright"}
-        )
+        rendered = divination_service._render_tarot_card_svg({**card, "orientation": "upright"})
         svgs.append(rendered)
     assert len(set(svgs)) == 78, "SVG artwork is not unique per card"
 
@@ -233,9 +228,7 @@ def test_svg_reversed_rotation():
     """A reversed card rotates its central artwork 180° around the card centre."""
     card = divination_service.deck[0]
     upright = divination_service._render_tarot_card_svg({**card, "orientation": "upright"})
-    reversed_svg = divination_service._render_tarot_card_svg(
-        {**card, "orientation": "reversed"}
-    )
+    reversed_svg = divination_service._render_tarot_card_svg({**card, "orientation": "reversed"})
     assert "rotate(180 120 190)" in reversed_svg
     assert "rotate(180 120 190)" not in upright
     # Title text stays upright (readable) in both.
@@ -249,9 +242,7 @@ def test_svg_major_cards_have_unique_glyphs():
     # The old generic artwork was a dashed circle + triangle; ensure none of the
     # new major glyphs include both of those exact primitives together.
     for number, card in deck_by_number.items():
-        svg = divination_service._render_tarot_card_svg(
-            {**card, "orientation": "upright"}
-        )
+        svg = divination_service._render_tarot_card_svg({**card, "orientation": "upright"})
         has_old_circle = 'stroke-dasharray="4,4"' in svg
         has_old_triangle = "120,115 155,190 85,190" in svg
         assert not (has_old_circle and has_old_triangle), (
@@ -282,7 +273,7 @@ def test_iching_rich_database():
     """Test that I Ching database correctly loads rich attributes from iching.json."""
     assert hasattr(divination_service, "iching")
     assert len(divination_service.iching) == 64
-    
+
     # Check a specific hexagram details
     details = divination_service._get_hexagram_details([1, 1, 1, 1, 1, 1])  # Qián
     assert details["name_chinese"] == "乾"
@@ -297,7 +288,7 @@ def test_iching_changing_line_resolution():
     """Test that changing lines correctly resolve to specific line descriptions in the result."""
     result = divination_service.cast_i_ching()
     assert "changing_lines_details" in result
-    
+
     # If there are changing lines, verify their structure
     if result["has_changes"]:
         for item in result["changing_lines_details"]:
@@ -306,4 +297,3 @@ def test_iching_changing_line_resolution():
             assert item["value"] in [6, 9]
             assert "meaning" in item
             assert len(item["meaning"]) > 0
-

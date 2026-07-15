@@ -36,8 +36,8 @@ class LLMService:
 
     def __init__(self, event_bus: EventBus = None):
         self.event_bus = event_bus
-        self._llm: Any = None       # LegacyLLMIntegration for generate()
-        self._dharma: Any = None    # LegacyDharmaLLM for prayer/teaching/meditation
+        self._llm: Any = None  # LegacyLLMIntegration for generate()
+        self._dharma: Any = None  # LegacyDharmaLLM for prayer/teaching/meditation
 
     # ------------------------------------------------------------------
     # Lazy adapter construction
@@ -169,10 +169,7 @@ class LLMService:
                 "script — include pauses — so it can actually be read "
                 "aloud within that duration."
             )
-            prompt = (
-                f"Write a guided meditation script for the practice: "
-                f"{meditation_type}."
-            )
+            prompt = f"Write a guided meditation script for the practice: {meditation_type}."
             script = llm.generate(
                 prompt,
                 system_prompt=system_prompt,
@@ -209,9 +206,7 @@ class LLMService:
         except Exception as e:
             return {"error": str(e)}
 
-    def generate_affirmations(
-        self, intention: str, count: int = 7
-    ) -> dict[str, Any]:
+    def generate_affirmations(self, intention: str, count: int = 7) -> dict[str, Any]:
         """Generate ``count`` positive affirmations for ``intention``."""
         llm = self.llm
         if llm is None:
@@ -219,8 +214,7 @@ class LLMService:
 
         try:
             prompt = (
-                f"Generate {count} positive affirmations for the "
-                f"intention: {intention}. Format as a numbered list."
+                f"Generate {count} positive affirmations for the intention: {intention}. Format as a numbered list."
             )
             raw = llm.generate(prompt, temperature=0.8)
             affirmations = _parse_numbered_list(raw)

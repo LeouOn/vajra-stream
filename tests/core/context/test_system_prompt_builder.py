@@ -1,5 +1,6 @@
 # tests/core/context/test_base.py
 """Tests for ContextModule Protocol and SystemPromptBuilder."""
+
 from __future__ import annotations
 
 from core.context.base import SystemPromptBuilder
@@ -40,13 +41,11 @@ class FakeModule:
         return f"[{self.name}: {data.data['text']}]"
 
 
-
 async def test_compose_no_modules_returns_empty_string():
     """A builder with no registered modules composes an empty prompt."""
     builder = SystemPromptBuilder()
     result = await builder.compose(ContextRequest())
     assert result == ""
-
 
 
 async def test_compose_single_module_returns_rendered_section():
@@ -56,7 +55,6 @@ async def test_compose_single_module_returns_rendered_section():
     builder.register(mod)
     result = await builder.compose(ContextRequest())
     assert "[solo: solo-section]" in result
-
 
 
 async def test_compose_only_runs_requested_modules():
@@ -72,7 +70,6 @@ async def test_compose_only_runs_requested_modules():
 
     assert "astrology" in result
     assert "anatomy" not in result
-
 
 
 async def test_compose_continues_past_module_error():

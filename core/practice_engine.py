@@ -102,7 +102,7 @@ class PracticeDefinition:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_json(cls, data: dict[str, Any]) -> "PracticeDefinition":
+    def from_json(cls, data: dict[str, Any]) -> PracticeDefinition:
         """Build a ``PracticeDefinition`` from a raw JSON dict.
 
         Tolerates the heterogeneous schemas produced by Wave 1 — every
@@ -195,9 +195,7 @@ class PracticeSession:
             "started_at": self.started_at,
             "last_recited_at": self.last_recited_at,
             "elapsed_seconds": round(elapsed, 1),
-            "progress_pct": round(
-                (self.total_recited / self.target_count) * 100, 1
-            ) if self.target_count else 0.0,
+            "progress_pct": round((self.total_recited / self.target_count) * 100, 1) if self.target_count else 0.0,
         }
 
 
@@ -536,11 +534,7 @@ class PracticeEngine:
                     )
 
                 # Speak the mantra via TTS; best-effort — failures must not break the loop.
-                if (
-                    tts_provider is not None
-                    and mantra_text
-                    and session.total_recited % tts_speak_every_n == 0
-                ):
+                if tts_provider is not None and mantra_text and session.total_recited % tts_speak_every_n == 0:
                     try:
                         await tts_provider.speak(
                             text=mantra_text,

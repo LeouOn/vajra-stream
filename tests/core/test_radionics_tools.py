@@ -14,6 +14,7 @@ The module is pure data + one tiny helper. Tests focus on:
 - ``get_tools_for_provider`` returns the same list for the supported providers
   and raises ``ValueError`` for unknown ones.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -23,7 +24,6 @@ from core.radionics_tools import (
     TOOL_HANDLERS,
     get_tools_for_provider,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test
@@ -68,9 +68,7 @@ def test_radionics_tools_are_well_formed_openai_function_schemas():
     for i, tool in enumerate(RADIONICS_TOOLS):
         # Outer envelope
         assert isinstance(tool, dict), f"Tool #{i} is not a dict: {tool!r}"
-        assert tool.get("type") == "function", (
-            f"Tool #{i} missing type='function': {tool.get('type')!r}"
-        )
+        assert tool.get("type") == "function", f"Tool #{i} missing type='function': {tool.get('type')!r}"
 
         func = tool.get("function")
         assert isinstance(func, dict), f"Tool #{i} missing 'function' block: {tool!r}"
@@ -78,37 +76,24 @@ def test_radionics_tools_are_well_formed_openai_function_schemas():
         # Required string fields
         name = func.get("name")
         assert isinstance(name, str) and name, f"Tool #{i} has empty/missing name"
-        assert name.isidentifier() or "_" in name, (
-            f"Tool #{i} name '{name}' should be a valid identifier"
-        )
+        assert name.isidentifier() or "_" in name, f"Tool #{i} name '{name}' should be a valid identifier"
 
         description = func.get("description")
-        assert isinstance(description, str) and description, (
-            f"Tool #{i} ('{name}') has empty/missing description"
-        )
+        assert isinstance(description, str) and description, f"Tool #{i} ('{name}') has empty/missing description"
 
         # parameters block
         params = func.get("parameters")
         assert isinstance(params, dict), f"Tool #{i} ('{name}') has no parameters dict"
-        assert params.get("type") == "object", (
-            f"Tool #{i} ('{name}') parameters.type is not 'object'"
-        )
-        assert "properties" in params, (
-            f"Tool #{i} ('{name}') parameters has no 'properties' key"
-        )
-        assert isinstance(params["properties"], dict), (
-            f"Tool #{i} ('{name}') parameters.properties is not a dict"
-        )
+        assert params.get("type") == "object", f"Tool #{i} ('{name}') parameters.type is not 'object'"
+        assert "properties" in params, f"Tool #{i} ('{name}') parameters has no 'properties' key"
+        assert isinstance(params["properties"], dict), f"Tool #{i} ('{name}') parameters.properties is not a dict"
 
         # required must be a list (may be empty)
         required = params.get("required", [])
-        assert isinstance(required, list), (
-            f"Tool #{i} ('{name}') parameters.required is not a list"
-        )
+        assert isinstance(required, list), f"Tool #{i} ('{name}') parameters.required is not a list"
         for r in required:
             assert isinstance(r, str) and r in params["properties"], (
-                f"Tool #{i} ('{name}') declares required='{r}' "
-                f"but '{r}' is not in properties"
+                f"Tool #{i} ('{name}') declares required='{r}' but '{r}' is not in properties"
             )
 
 
@@ -135,21 +120,15 @@ def test_radionics_tool_names_match_tool_handlers():
 
     missing_handlers = tool_names - handler_names
     assert not missing_handlers, (
-        f"Tools declared but not in TOOL_HANDLERS (dispatch will fail): "
-        f"{sorted(missing_handlers)}"
+        f"Tools declared but not in TOOL_HANDLERS (dispatch will fail): {sorted(missing_handlers)}"
     )
 
     orphan_handlers = handler_names - tool_names
-    assert not orphan_handlers, (
-        f"TOOL_HANDLERS entries with no matching tool (dead code): "
-        f"{sorted(orphan_handlers)}"
-    )
+    assert not orphan_handlers, f"TOOL_HANDLERS entries with no matching tool (dead code): {sorted(orphan_handlers)}"
 
     # And handlers point at a non-empty dotted path
     for name, path in TOOL_HANDLERS.items():
-        assert isinstance(path, str) and "." in path, (
-            f"Handler for '{name}' should be a dotted path, got: {path!r}"
-        )
+        assert isinstance(path, str) and "." in path, f"Handler for '{name}' should be a dotted path, got: {path!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -166,8 +145,7 @@ def test_get_tools_for_provider_returns_full_list_for_known_providers():
         result = get_tools_for_provider(provider)
         assert isinstance(result, list)
         assert len(result) == len(RADIONICS_TOOLS), (
-            f"Provider '{provider}' returned {len(result)} tools, "
-            f"expected {len(RADIONICS_TOOLS)}"
+            f"Provider '{provider}' returned {len(result)} tools, expected {len(RADIONICS_TOOLS)}"
         )
 
     # And the openai result shares every name with the registry

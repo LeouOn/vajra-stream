@@ -6,14 +6,12 @@ Covers the public surface:
 - :class:`SessionLog` dataclass + ``to_dict``
 - :class:`HealingSession` — constructor + ``run`` + ``get_available_integrations``
 """
-from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from __future__ import annotations
 
 import pytest
 
 from core.healing_session import HealingSession, SessionLog, SessionPhase
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke
@@ -37,7 +35,7 @@ def test_module_imports_public_api():
 @pytest.mark.unit
 def test_session_phase_has_opening_main_closing():
     """SessionPhase has at least opening / main / closing values."""
-    values = {p.value for p in SessionPhase}
+    {p.value for p in SessionPhase}
     # At least 3 phases
     assert len(list(SessionPhase)) >= 3
 

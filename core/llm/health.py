@@ -1,5 +1,6 @@
 # core/llm/health.py
 """Health-check heartbeat task."""
+
 from __future__ import annotations
 
 import asyncio
@@ -36,9 +37,7 @@ async def start_health_heartbeat(
             try:
                 statuses = await registry.health_check_all()
                 healthy_count = sum(1 for s in statuses if s.healthy)
-                logger.debug(
-                    f"Health check: {healthy_count}/{len(statuses)} providers healthy"
-                )
+                logger.debug(f"Health check: {healthy_count}/{len(statuses)} providers healthy")
                 if on_update is not None:
                     try:
                         await on_update(statuses)

@@ -10,12 +10,12 @@ Covers the public surface:
 
 The module depends only on ``math`` and ``time`` — no mocking needed.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from core.visual_renderer_simple import SimpleVisualRenderer
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke

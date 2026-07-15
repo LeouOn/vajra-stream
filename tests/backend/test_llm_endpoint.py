@@ -33,8 +33,7 @@ def test_providers_available_returns_catalog(client):
     assert "providers" in data
     catalog = data["providers"]
     # Every supported provider must be listed.
-    expected = {"openai", "anthropic", "openrouter", "deepseek", "z_ai",
-                "minimax", "lm_studio", "local_gguf"}
+    expected = {"openai", "anthropic", "openrouter", "deepseek", "z_ai", "minimax", "lm_studio", "local_gguf"}
     assert expected.issubset(set(catalog.keys()))
     # Each entry has the shape the UI needs.
     for name, entry in catalog.items():
@@ -64,10 +63,13 @@ def test_providers_discover_returns_shape(client):
 def test_providers_test_lm_studio_without_server(client):
     """POST /providers/test with lm_studio config should return unreachable if
     no LM Studio server is running (which is the case in CI / dev)."""
-    response = client.post("/api/v1/llm/providers/test", json={
-        "provider": "lm_studio",
-        "base_url": "http://localhost:1234/v1",
-    })
+    response = client.post(
+        "/api/v1/llm/providers/test",
+        json={
+            "provider": "lm_studio",
+            "base_url": "http://localhost:1234/v1",
+        },
+    )
     assert response.status_code == 200
     data = response.json()
     # We don't assert reachable since the dev box may or may not have LM Studio.
@@ -78,9 +80,12 @@ def test_providers_test_lm_studio_without_server(client):
 
 def test_providers_test_unknown_provider_returns_error(client):
     """POST /providers/test with an unsupported provider name should 400."""
-    response = client.post("/api/v1/llm/providers/test", json={
-        "provider": "fictional_provider_xyz",
-    })
+    response = client.post(
+        "/api/v1/llm/providers/test",
+        json={
+            "provider": "fictional_provider_xyz",
+        },
+    )
     assert response.status_code == 400
     data = response.json()
     assert "detail" in data
@@ -92,10 +97,13 @@ def test_providers_register_missing_api_key_for_openai(client):
     """POST /providers/register for OpenAI without an API key should 400."""
     # First unregister if already present, to ensure a clean state.
     client.post("/api/v1/llm/providers/unregister", json={"provider": "openai"})
-    response = client.post("/api/v1/llm/providers/register", json={
-        "provider": "openai",
-        # No api_key
-    })
+    response = client.post(
+        "/api/v1/llm/providers/register",
+        json={
+            "provider": "openai",
+            # No api_key
+        },
+    )
     assert response.status_code == 400
     data = response.json()
     assert "detail" in data
@@ -108,11 +116,14 @@ def test_providers_register_unregister_round_trip(client):
     client.post("/api/v1/llm/providers/unregister", json={"provider": "lm_studio"})
 
     # Register.
-    reg = client.post("/api/v1/llm/providers/register", json={
-        "provider": "lm_studio",
-        "base_url": "http://localhost:1234/v1",
-        "priority": 80,
-    })
+    reg = client.post(
+        "/api/v1/llm/providers/register",
+        json={
+            "provider": "lm_studio",
+            "base_url": "http://localhost:1234/v1",
+            "priority": 80,
+        },
+    )
     assert reg.status_code == 200
     reg_data = reg.json()
     assert reg_data["registered"] == "lm_studio"
@@ -124,9 +135,12 @@ def test_providers_register_unregister_round_trip(client):
     assert "lm_studio" in names, f"lm_studio missing from {names}"
 
     # Re-registering the same name should 409.
-    dup = client.post("/api/v1/llm/providers/register", json={
-        "provider": "lm_studio",
-    })
+    dup = client.post(
+        "/api/v1/llm/providers/register",
+        json={
+            "provider": "lm_studio",
+        },
+    )
     assert dup.status_code == 409
 
     # Unregister.
@@ -142,20 +156,26 @@ def test_providers_register_unregister_round_trip(client):
 
 def test_providers_unregister_missing_returns_404(client):
     """POST /providers/unregister for a provider that isn't registered should 404."""
-    response = client.post("/api/v1/llm/providers/unregister", json={
-        "provider": "fictional_provider_xyz",
-    })
+    response = client.post(
+        "/api/v1/llm/providers/unregister",
+        json={
+            "provider": "fictional_provider_xyz",
+        },
+    )
     assert response.status_code == 404
 
 
 def test_providers_register_lm_studio_with_priority(client):
     """Register lm_studio with a custom priority — should accept and round-trip."""
     client.post("/api/v1/llm/providers/unregister", json={"provider": "lm_studio"})
-    response = client.post("/api/v1/llm/providers/register", json={
-        "provider": "lm_studio",
-        "base_url": "http://localhost:1234/v1",
-        "priority": 75,
-    })
+    response = client.post(
+        "/api/v1/llm/providers/register",
+        json={
+            "provider": "lm_studio",
+            "base_url": "http://localhost:1234/v1",
+            "priority": 75,
+        },
+    )
     # Either 200 (success) or 503 (registry not initialized in CI).
     assert response.status_code in (200, 503)
     if response.status_code == 200:

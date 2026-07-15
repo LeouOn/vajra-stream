@@ -21,9 +21,10 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -189,8 +190,10 @@ class LLMUsageTracker:
         if not record.cost_usd:
             try:
                 record.cost_usd = self.estimate_cost(
-                    record.provider, record.model,
-                    record.prompt_tokens, record.completion_tokens,
+                    record.provider,
+                    record.model,
+                    record.prompt_tokens,
+                    record.completion_tokens,
                 )
             except Exception:  # noqa: BLE001
                 record.cost_usd = 0.0
@@ -207,12 +210,8 @@ class LLMUsageTracker:
             # Circuit-breaker check: if we're already over the starting
             # balance or the daily cap, warn and skip accumulation. The
             # JSONL audit log is still written so the overage is visible.
-            cap_breached = (
-                (self.starting_balance > 0 and self.total_cost_usd >= self.starting_balance)
-                or (
-                    self.daily_cost_cap > 0
-                    and self.daily_cost_usd >= self.daily_cost_cap
-                )
+            cap_breached = (self.starting_balance > 0 and self.total_cost_usd >= self.starting_balance) or (
+                self.daily_cost_cap > 0 and self.daily_cost_usd >= self.daily_cost_cap
             )
             if cap_breached:
                 self.over_cap = True
@@ -221,8 +220,11 @@ class LLMUsageTracker:
                     "total=$%.4f (cap=$%.4f starting_balance=$%.4f), "
                     "daily=$%.4f (daily_cap=$%.4f). "
                     "Skipping in-memory accumulation; JSONL audit log still written.",
-                    self.total_cost_usd, self.starting_balance, self.starting_balance,
-                    self.daily_cost_usd, self.daily_cost_cap,
+                    self.total_cost_usd,
+                    self.starting_balance,
+                    self.starting_balance,
+                    self.daily_cost_usd,
+                    self.daily_cost_cap,
                 )
                 self._append_log(record)
                 return
@@ -257,9 +259,7 @@ class LLMUsageTracker:
 
             # Throttled broadcast notification.
             self._broadcast_counter += 1
-            if self._broadcast_every > 0 and (
-                self._broadcast_counter % self._broadcast_every == 0
-            ):
+            if self._broadcast_every > 0 and (self._broadcast_counter % self._broadcast_every == 0):
                 should_broadcast = True
 
         if should_broadcast:

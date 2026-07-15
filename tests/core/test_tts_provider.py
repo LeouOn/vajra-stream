@@ -14,6 +14,7 @@ Covers:
 * :meth:`TTSProvider.speak_batch` (async, mocked edge_tts)
 * :func:`get_tts_provider` — singleton behaviour
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -32,7 +33,6 @@ from core.tts_provider import (
     list_project_overrides,
     set_project_speaker,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + module-level constants
@@ -296,9 +296,7 @@ async def test_ttsprovider_speak_batch_edge_calls_per_text(tmp_path, monkeypatch
 @pytest.mark.asyncio
 async def test_ttsprovider_speak_explicit_voice_bypasses_role(monkeypatch):
     """An explicit ``voice=`` argument bypasses the role-based speaker map."""
-    p = TTSProvider(
-        config=TTSConfig(backend=TTSBackend.EDGE, role="compassionate")
-    )
+    p = TTSProvider(config=TTSConfig(backend=TTSBackend.EDGE, role="compassionate"))
 
     fake_communicate = MagicMock()
     fake_communicate.save = AsyncMock(return_value=None)

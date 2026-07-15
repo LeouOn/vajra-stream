@@ -8,6 +8,7 @@ Covers:
 * :func:`build_system_prompt` injects astrology context when provided.
 * :func:`build_system_prompt` injects somatic findings when provided.
 """
+
 from __future__ import annotations
 
 import pytest

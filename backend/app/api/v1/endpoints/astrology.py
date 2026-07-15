@@ -645,7 +645,6 @@ async def create_saved_chart(chart: SavedChartCreate):
         import pytz
         from dateutil import parser
 
-
         calc = AstrologicalCalculator()
         dt = parser.parse(chart.birth_time_iso)
         if dt.tzinfo is None:
@@ -726,7 +725,6 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
         # Pre-calculate and cache chart data
         import pytz
         from dateutil import parser
-
 
         calc = AstrologicalCalculator()
         dt = parser.parse(chart.birth_time_iso)
@@ -827,7 +825,6 @@ async def recalculate_chart(chart_id: int):
         import pytz
         from dateutil import parser
 
-
         calc = AstrologicalCalculator()
         dt = parser.parse(chart["birth_time_iso"])
         if dt.tzinfo is None:
@@ -876,7 +873,6 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
 
         import pytz
         from dateutil import parser
-
 
         calc = AstrologicalCalculator()
 
@@ -1001,17 +997,19 @@ def _enrich_planets_v2(positions: dict, cusps: dict) -> list[dict]:
         if nearest is None:
             nearest = 360.0
 
-        enriched.append({
-            "body": body,
-            "longitude": round(float(lon), 4),
-            "sign": info.get("sign"),
-            "degree_in_sign": round(float(info.get("degree", 0.0)), 4),
-            "retrograde": bool(info.get("retrograde", False)),
-            "house_placidus": info.get("house_placidus"),
-            "house_whole_sign": info.get("house_whole_sign"),
-            "distance_to_nearest_cusp_deg": round(nearest, 4),
-            "is_cuspal": nearest <= CUSPAL_THRESHOLD_DEG,
-        })
+        enriched.append(
+            {
+                "body": body,
+                "longitude": round(float(lon), 4),
+                "sign": info.get("sign"),
+                "degree_in_sign": round(float(info.get("degree", 0.0)), 4),
+                "retrograde": bool(info.get("retrograde", False)),
+                "house_placidus": info.get("house_placidus"),
+                "house_whole_sign": info.get("house_whole_sign"),
+                "distance_to_nearest_cusp_deg": round(nearest, 4),
+                "is_cuspal": nearest <= CUSPAL_THRESHOLD_DEG,
+            }
+        )
     return enriched
 
 
@@ -1068,7 +1066,6 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
         import pytz
         from dateutil import parser
 
-
         calc = AstrologicalCalculator()
 
         birth_dt = parser.parse(chart["birth_time_iso"])
@@ -1112,12 +1109,10 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
             return isinstance(natal_target, str) and natal_target.startswith("house_")
 
         top_harmonious = [
-            a for a in sorted_aspects
-            if a.get("aspect") in HARMONIOUS_ASPECTS and not _is_cusp_aspect(a)
+            a for a in sorted_aspects if a.get("aspect") in HARMONIOUS_ASPECTS and not _is_cusp_aspect(a)
         ][:10]
         top_challenging = [
-            a for a in sorted_aspects
-            if a.get("aspect") in CHALLENGING_ASPECTS and not _is_cusp_aspect(a)
+            a for a in sorted_aspects if a.get("aspect") in CHALLENGING_ASPECTS and not _is_cusp_aspect(a)
         ][:10]
         top_cusp_transits = [a for a in sorted_aspects if _is_cusp_aspect(a)][:10]
 
@@ -1182,7 +1177,6 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
 
         import pytz
         from dateutil import parser
-
 
         calc = AstrologicalCalculator()
 
@@ -1272,7 +1266,6 @@ async def get_chart_vedic_dasha(chart_id: int):
 
         import pytz
         from dateutil import parser
-
 
         calc = AstrologicalCalculator()
         birth_dt = parser.parse(chart["birth_time_iso"])
@@ -1551,7 +1544,6 @@ class AstrocartographyRequest(BaseModel):
 async def post_lots(req: LotsRequest):
     """Hellenistic lots (Fortune, Spirit, Eros, Necessity, Courage, Victory, Nemesis)."""
     try:
-
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
         lots = calc.get_hellenistic_lots(dt, (req.lat, req.lon), sect=req.sect)
@@ -1567,7 +1559,6 @@ async def post_lots(req: LotsRequest):
 async def post_midpoints(req: OrbRequest):
     """Midpoint of every pair of 10 planets (45 midpoints)."""
     try:
-
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
         midpoints = calc.get_midpoints(dt, (req.lat, req.lon), orb=req.orb)
@@ -1583,7 +1574,6 @@ async def post_midpoints(req: OrbRequest):
 async def post_antiscia(req: DateLocationRequest):
     """Antiscion + contrantiscion for each of the 10 planets."""
     try:
-
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
         antiscia = calc.get_antiscia(dt, (req.lat, req.lon))
@@ -1599,7 +1589,6 @@ async def post_antiscia(req: DateLocationRequest):
 async def post_fixed_stars(req: OrbRequest):
     """Royal stars + Spica/Algol/Sirius with precession-adjusted longitudes."""
     try:
-
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
         stars = calc.get_fixed_stars(dt, (req.lat, req.lon), orb=req.orb)
@@ -1615,7 +1604,6 @@ async def post_fixed_stars(req: OrbRequest):
 async def post_secondary_progressions(req: SecondaryProgressionsRequest):
     """Day-for-year secondary progressions with progressed Moon phase."""
     try:
-
         natal_dt = _parse_dt(req.natal_date_iso)
         target_dt = _parse_dt(req.target_date_iso)
         calc = AstrologicalCalculator()
@@ -1632,7 +1620,6 @@ async def post_secondary_progressions(req: SecondaryProgressionsRequest):
 async def post_solar_return(req: SolarReturnRequest):
     """Solar return chart for the given year at natal or relocated location."""
     try:
-
         natal_dt = _parse_dt(req.natal_date_iso)
         return_loc = None
         if req.return_lat is not None and req.return_lon is not None:
@@ -1656,7 +1643,6 @@ async def post_solar_return(req: SolarReturnRequest):
 async def post_profection(req: ProfectionRequest):
     """Annual profection: profected Asc sign + lord for the target year."""
     try:
-
         natal_dt = _parse_dt(req.natal_date_iso)
         calc = AstrologicalCalculator()
         result = calc.get_profection(natal_dt, target_year=req.target_year)
@@ -1672,7 +1658,6 @@ async def post_profection(req: ProfectionRequest):
 async def post_solar_arc(req: SolarArcRequest):
     """Solar arc directions: every natal body shifted by progressed Sun - natal Sun."""
     try:
-
         natal_dt = _parse_dt(req.natal_date_iso)
         target_dt = _parse_dt(req.target_date_iso)
         calc = AstrologicalCalculator()
@@ -1689,7 +1674,6 @@ async def post_solar_arc(req: SolarArcRequest):
 async def post_year_ahead(req: YearAheadRequest):
     """Year-ahead transit timeline: lunations, ingresses, transits-to-natal."""
     try:
-
         natal_dt = _parse_dt(req.natal_date_iso)
         start_dt = _parse_dt(req.start_date_iso) if req.start_date_iso else None
         end_dt = _parse_dt(req.end_date_iso) if req.end_date_iso else None
@@ -1713,7 +1697,6 @@ async def post_year_ahead(req: YearAheadRequest):
 async def post_astrocartography(req: AstrocartographyRequest):
     """Astrocartography lines: AC/DC/MC/IC per planet (coarse, step_degrees sampling)."""
     try:
-
         dt = _parse_dt(req.date_iso)
         calc = AstrologicalCalculator()
         result = calc.get_astrocartography_lines(dt, step_degrees=req.step_degrees)

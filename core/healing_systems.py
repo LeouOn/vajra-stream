@@ -394,7 +394,7 @@ class MeridianSystem:
             (19, 21): "pericardium",
             (21, 23): "triple_warmer",
             (23, 24): "gallbladder",  # 23:00–midnight
-            (0, 1): "gallbladder",    # midnight–01:00 (split for wraparound)
+            (0, 1): "gallbladder",  # midnight–01:00 (split for wraparound)
             (1, 3): "liver",
         }
 

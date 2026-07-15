@@ -280,10 +280,13 @@ class KnowledgeIndex:
                 desc = group_val.get("description", "")
                 figures = group_val.get("key_figures", [])
                 themes = group_val.get("themes", [])
-                figures_str = ", ".join(
-                    f if isinstance(f, str) else f"{f.get('name', '')} ({f.get('role', '')})"
-                    for f in figures
-                ) if figures else ""
+                figures_str = (
+                    ", ".join(
+                        f if isinstance(f, str) else f"{f.get('name', '')} ({f.get('role', '')})" for f in figures
+                    )
+                    if figures
+                    else ""
+                )
                 themes_str = ", ".join(str(t) for t in themes) if themes else ""
                 text = f"Sacred text [{group_name}]: {desc}"
                 if figures_str:
@@ -352,12 +355,14 @@ class KnowledgeIndex:
         )
         chunks.append(KnowledgeChunk(text, source, category, {"practice_id": data.get("practice_id"), "name": name}))
         if vis_str:
-            chunks.append(KnowledgeChunk(
-                f"Practice visualization [{name}]: {vis_str}",
-                source,
-                category,
-                {"practice_id": data.get("practice_id"), "name": name, "section": "visualization"},
-            ))
+            chunks.append(
+                KnowledgeChunk(
+                    f"Practice visualization [{name}]: {vis_str}",
+                    source,
+                    category,
+                    {"practice_id": data.get("practice_id"), "name": name, "section": "visualization"},
+                )
+            )
         return chunks
 
     def _chunk_markdown(self, text: str, source: str, category: str) -> list[KnowledgeChunk]:

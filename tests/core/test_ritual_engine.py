@@ -14,26 +14,23 @@ Covers the public API:
 Network/TTS/WS/container/auspicious-timing calls are out of scope for
 this file (they have their own test coverage in ``tests/unit/``).
 """
+
 from __future__ import annotations
 
 import sqlite3
-import sys
 from dataclasses import dataclass, field
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
 from core.ritual_engine import (
     EngineState,
-    PracticeSelector,
     RitualExecutionEngine,
     RitualPhase,
     RitualRecord,
     RitualScheduler,
     get_ritual_engine,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures

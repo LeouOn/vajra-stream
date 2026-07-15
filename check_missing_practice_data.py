@@ -1,4 +1,5 @@
 """Check what knowledge is MISSING from practice definitions."""
+
 import json
 import os
 
@@ -10,8 +11,17 @@ def main():
         with open(os.path.join(practices_dir, f), encoding="utf-8") as fh:
             d = json.load(fh)
         missing = []
-        for key in ["mantra_sanskrit", "mantra_transliteration", "mantra_english",
-                    "mantra_count", "id", "name", "frequency", "color", "benefits"]:
+        for key in [
+            "mantra_sanskrit",
+            "mantra_transliteration",
+            "mantra_english",
+            "mantra_count",
+            "id",
+            "name",
+            "frequency",
+            "color",
+            "benefits",
+        ]:
             if key not in d or d[key] in (None, "", "?"):
                 missing.append(key)
         print(f"{f.replace('.json', '')}:")

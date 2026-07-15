@@ -16,6 +16,7 @@ Covers:
 * No healthy provider -> RuntimeError with a clear message.
 * Empty message list -> ValueError.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -172,9 +173,7 @@ async def test_respond_drops_system_role_from_history():
 
 async def test_phase_hint_arrival_to_seeing_via_keyword():
     """ARRIVAL response mentioning 'shall we see what the stars' -> hint 'seeing'."""
-    dialogue, _ = _build_dialogue(
-        "I hear the raw charge of this. When you're ready, shall we see what the stars say?"
-    )
+    dialogue, _ = _build_dialogue("I hear the raw charge of this. When you're ready, shall we see what the stars say?")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "I lost everything."}],
         phase=DialoguePhase.ARRIVAL,
@@ -184,9 +183,7 @@ async def test_phase_hint_arrival_to_seeing_via_keyword():
 
 async def test_phase_hint_seeing_to_meeting_via_keyword():
     """SEEING response with 'sit with this' -> hint 'meeting'."""
-    dialogue, _ = _build_dialogue(
-        "Saturn is transiting your 2nd house. Now let's sit with this together."
-    )
+    dialogue, _ = _build_dialogue("Saturn is transiting your 2nd house. Now let's sit with this together.")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "why did this happen?"}],
         phase=DialoguePhase.SEEING,
@@ -196,9 +193,7 @@ async def test_phase_hint_seeing_to_meeting_via_keyword():
 
 async def test_phase_hint_meeting_to_release_via_keyword():
     """MEETING response with 'offer a practice' -> hint 'release'."""
-    dialogue, _ = _build_dialogue(
-        "Something has shifted. I can offer a practice to help release this."
-    )
+    dialogue, _ = _build_dialogue("Something has shifted. I can offer a practice to help release this.")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "it moved."}],
         phase=DialoguePhase.MEETING,
@@ -208,9 +203,7 @@ async def test_phase_hint_meeting_to_release_via_keyword():
 
 async def test_phase_hint_release_to_dedication_via_keyword():
     """RELEASE response with 'dedicate' -> hint 'dedication'."""
-    dialogue, _ = _build_dialogue(
-        "Well done with the tonglen. Now let's dedicate the merit of this practice."
-    )
+    dialogue, _ = _build_dialogue("Well done with the tonglen. Now let's dedicate the merit of this practice.")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "I did the practice."}],
         phase=DialoguePhase.RELEASE,
@@ -220,9 +213,7 @@ async def test_phase_hint_release_to_dedication_via_keyword():
 
 async def test_phase_hint_dedication_to_completed_via_keyword():
     """DEDICATION response with 'session is complete' -> hint 'completed'."""
-    dialogue, _ = _build_dialogue(
-        "The merit is offered. This session is complete. Be well."
-    )
+    dialogue, _ = _build_dialogue("The merit is offered. This session is complete. Be well.")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "thank you."}],
         phase=DialoguePhase.DEDICATION,
@@ -232,9 +223,7 @@ async def test_phase_hint_dedication_to_completed_via_keyword():
 
 async def test_phase_hint_none_when_no_transition_cue():
     """A plain empathic response with no transition cue yields phase_hint None."""
-    dialogue, _ = _build_dialogue(
-        "I hear the weight of this. Stay with the breath. You are not alone."
-    )
+    dialogue, _ = _build_dialogue("I hear the weight of this. Stay with the breath. You are not alone.")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "it's heavy."}],
         phase=DialoguePhase.ARRIVAL,
@@ -248,9 +237,7 @@ async def test_phase_hint_keyword_only_matches_current_phase():
     'dedicate' is a RELEASE -> DEDICATION cue. In ARRIVAL it should NOT match,
     because the keyword table is keyed to the current phase.
     """
-    dialogue, _ = _build_dialogue(
-        "I hear you. (Someday we may dedicate merit, but not yet.)"
-    )
+    dialogue, _ = _build_dialogue("I hear you. (Someday we may dedicate merit, but not yet.)")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "hi"}],
         phase=DialoguePhase.ARRIVAL,
@@ -267,10 +254,7 @@ async def test_phase_hint_json_block_overrides_keywords():
     """A JSON phase_transition block wins over keyword cues."""
     # The text also contains 'dedicate' (a RELEASE cue), but we're in MEETING
     # and the JSON block explicitly suggests 'release'.
-    dialogue, _ = _build_dialogue(
-        "Stay with the breath. "
-        '{"phase_transition": "suggested", "next_phase": "release"}'
-    )
+    dialogue, _ = _build_dialogue('Stay with the breath. {"phase_transition": "suggested", "next_phase": "release"}')
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "ok"}],
         phase=DialoguePhase.MEETING,
@@ -284,9 +268,7 @@ async def test_phase_hint_json_block_extracts_next_phase_value():
     The regex requires the literal 'phase_transition' marker to be present in
     the block; the actual next-phase value is read from the 'next_phase' key.
     """
-    dialogue, _ = _build_dialogue(
-        'Present with you. {"phase_transition": "suggested", "next_phase": "meeting"}'
-    )
+    dialogue, _ = _build_dialogue('Present with you. {"phase_transition": "suggested", "next_phase": "meeting"}')
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "hi"}],
         phase=DialoguePhase.ARRIVAL,
@@ -298,9 +280,7 @@ async def test_phase_hint_json_block_extracts_next_phase_value():
 
 async def test_phase_hint_json_block_unknown_phase_returns_none():
     """A JSON block with an unknown next_phase value falls back to keyword scan."""
-    dialogue, _ = _build_dialogue(
-        '{"next_phase": "not-a-phase"}'
-    )
+    dialogue, _ = _build_dialogue('{"next_phase": "not-a-phase"}')
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "hi"}],
         phase=DialoguePhase.ARRIVAL,
@@ -315,9 +295,7 @@ async def test_phase_hint_json_block_unknown_phase_returns_none():
 
 async def test_insights_update_extracts_emotions_and_body_locations():
     """Emotion + body keywords in the response populate insights_update."""
-    dialogue, _ = _build_dialogue(
-        "I feel the grief and fear in your chest and throat. The terror is real."
-    )
+    dialogue, _ = _build_dialogue("I feel the grief and fear in your chest and throat. The terror is real.")
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "it's heavy."}],
         phase=DialoguePhase.ARRIVAL,
@@ -335,8 +313,7 @@ async def test_insights_update_extracts_emotions_and_body_locations():
 async def test_insights_update_adds_themes_in_seeing_phase():
     """In SEEING/MEETING phases, cosmic_timing/grief/survival_fear themes tag on."""
     dialogue, _ = _build_dialogue(
-        "Saturn is transiting your 2nd house — this is a fear and survival moment. "
-        "The grief of the loss is here."
+        "Saturn is transiting your 2nd house — this is a fear and survival moment. The grief of the loss is here."
     )
     result = await dialogue.respond(
         messages=[{"role": "user", "content": "why"}],

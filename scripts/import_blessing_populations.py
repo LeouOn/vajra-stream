@@ -124,7 +124,9 @@ def main():
 
         # Actually clear the blessing_targets table
         import sqlite3 as _sqlite3
+
         from core.schema import get_db_path as _get_db_path
+
         try:
             _conn = _sqlite3.connect(_get_db_path())
             _conn.execute("DELETE FROM blessing_targets")

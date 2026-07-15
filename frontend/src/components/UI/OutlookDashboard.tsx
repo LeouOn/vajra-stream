@@ -30,6 +30,8 @@ import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import GuidedRitualFlow from './GuidedRitualFlow';
 import JourneyCard from './JourneyCard';
 import RitualVisualization from './RitualVisualization';
+import SadhanaVisualization from './SadhanaVisualization';
+import { getDeityFromEntityText } from '../../lib/deityVisualizations';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 
@@ -1697,6 +1699,16 @@ export default function OutlookDashboard() {
                                           <div><Text strong style={{ fontSize: 12 }}>{currentNarrative.divination_raw?.sigil?.kamea || '—'}</Text></div>
                                         </Col>
                                       </Row>
+                                      {getDeityFromEntityText(currentNarrative.entities_used as string) && (
+                                        <div style={{ marginTop: 12 }} className="flex justify-center">
+                                          <SadhanaVisualization
+                                            deity={getDeityFromEntityText(currentNarrative.entities_used as string)!}
+                                            size={200}
+                                            showLabels
+                                            practicePhase="reciting"
+                                          />
+                                        </div>
+                                      )}
                                       <div style={{ marginTop: 12 }}>
                                         <RitualVisualization
                                           sigil={currentNarrative.divination_raw?.sigil as { kamea?: string; reduced?: string; coordinates?: Array<{ x: number; y: number; value?: number; letter?: string }>; svg?: string } | undefined}

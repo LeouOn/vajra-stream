@@ -11,8 +11,8 @@ from backend.app.api.v1.endpoints import dharma_tales as dharma_tales_endpoint
 from backend.app.api.v1.endpoints import divination as divination_endpoint
 from backend.app.api.v1.endpoints import extraction as extraction_endpoint
 from backend.app.api.v1.endpoints import healing_dialogue as healing_dialogue_endpoint
-from backend.app.api.v1.endpoints import llm as llm_endpoint
 from backend.app.api.v1.endpoints import knowledge as knowledge_endpoint
+from backend.app.api.v1.endpoints import llm as llm_endpoint
 from backend.app.api.v1.endpoints import locations as locations_endpoint
 from backend.app.api.v1.endpoints import mops as mops_endpoint
 from backend.app.api.v1.endpoints import operator as operator_endpoint

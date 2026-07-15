@@ -16,6 +16,7 @@ their own coverage in ``tests/e2e/`` and ``tests/integration/``. The
 generator uses ``secrets`` as its entropy fallback, which is fine for
 tests (we only assert structural contracts, not specific outcomes).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,8 +26,6 @@ import pytest
 from core.character_generator import (
     ANCHORING_RITUALS,
     CHANNELING_STATES,
-    CharacterGenerator,
-    CharacterSheet,
     CHINESE_NAME_PREFIXES,
     CHINESE_NAME_SUFFIXES,
     ELEMENTS,
@@ -34,8 +33,9 @@ from core.character_generator import (
     ORIGINS,
     QUESTS,
     ROLES,
+    CharacterGenerator,
+    CharacterSheet,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -114,9 +114,7 @@ def test_chinese_name_tables_and_other_archetypes_have_entries():
     contain non-empty content."""
     assert len(CHINESE_NAME_PREFIXES) > 0
     assert len(CHINESE_NAME_SUFFIXES) > 0
-    _all_required_keys_present(
-        CHINESE_NAME_PREFIXES, {"char", "pinyin", "meaning", "element"}
-    )
+    _all_required_keys_present(CHINESE_NAME_PREFIXES, {"char", "pinyin", "meaning", "element"})
     _all_required_keys_present(CHINESE_NAME_SUFFIXES, {"char", "pinyin", "meaning"})
 
     for table in (ORIGINS, QUESTS, GROUNDING_SENSES, CHANNELING_STATES, ANCHORING_RITUALS):

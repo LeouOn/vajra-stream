@@ -1,13 +1,13 @@
 """Tests for core.rate_to_audio — the radionics rate to prayer bowl bridge."""
 
 from core.rate_to_audio import (
-    CarrierFrequencySet,
-    SOLFEGGIO_FREQUENCIES,
     SCHUMANN_BASE_HZ,
-    map_rate_to_carriers,
-    _snap_to_solfeggio,
+    SOLFEGGIO_FREQUENCIES,
+    CarrierFrequencySet,
     _potency_to_amplitude,
     _potency_to_overtone_richness,
+    _snap_to_solfeggio,
+    map_rate_to_carriers,
 )
 
 

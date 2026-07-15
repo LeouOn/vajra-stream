@@ -17,6 +17,7 @@ with two semantic tiers:
 
 Both tiers are opt-in to avoid surprising callers with stale data.
 """
+
 import asyncio
 import hashlib
 from typing import Any

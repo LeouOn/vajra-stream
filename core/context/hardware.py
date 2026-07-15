@@ -1,5 +1,6 @@
 # core/context/hardware.py
 """Hardware / session context module."""
+
 from __future__ import annotations
 
 import logging
@@ -46,14 +47,14 @@ class HardwareContextModule:
                 config = s.get("config")
                 name = None
                 if config is not None:
-                    name = getattr(config, "name", None) or (
-                        config.get("name") if isinstance(config, dict) else None
-                    )
-                session_list.append({
-                    "name": name or s.get("name", "unnamed"),
-                    "type": s.get("type", "session"),
-                    "status": s.get("status", "unknown"),
-                })
+                    name = getattr(config, "name", None) or (config.get("name") if isinstance(config, dict) else None)
+                session_list.append(
+                    {
+                        "name": name or s.get("name", "unnamed"),
+                        "type": s.get("type", "session"),
+                        "status": s.get("status", "unknown"),
+                    }
+                )
 
             return ContextData(
                 module_name=self.name,

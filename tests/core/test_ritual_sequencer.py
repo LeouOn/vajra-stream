@@ -8,6 +8,7 @@ Heavy dependencies (astrology, auspicious timing, event bus, outlook
 generator) are mocked or guarded via ``try/except`` inside the module
 under test; tests do not require any of them.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -18,7 +19,6 @@ from core.ritual_sequencer import (
     RitualSequencer,
     RitualState,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -53,11 +53,9 @@ def sequencer_with_callbacks():
 @pytest.mark.unit
 def test_module_imports_and_phase_enum():
     """The module imports and exposes the phase enum, state, and sequencer."""
-    import core.ritual_sequencer as mod
 
     # Enum members
-    expected = {"IDLE", "PREPARATION", "INVOCATION", "BROADCAST",
-                "DEDICATION", "COMPLETED", "ABORTED"}
+    expected = {"IDLE", "PREPARATION", "INVOCATION", "BROADCAST", "DEDICATION", "COMPLETED", "ABORTED"}
     actual = {p.name for p in RitualPhase}
     assert actual == expected
 
@@ -190,6 +188,7 @@ def test_tick_and_advance_noop_after_completion(sequencer):
 @pytest.mark.unit
 def test_inject_operator_and_on_phase_registration(sequencer):
     """``inject_operator`` stores the operator; ``on_phase`` appends callbacks."""
+
     class _Op:
         pass
 

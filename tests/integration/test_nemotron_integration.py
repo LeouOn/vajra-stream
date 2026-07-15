@@ -13,6 +13,7 @@ chat completion request and asserts:
 The test is intentionally minimal — one round-trip, one assertion per
 contract — so it remains fast and flake-resistant.
 """
+
 from __future__ import annotations
 
 import os
@@ -57,9 +58,7 @@ async def test_nemotron_free_model_responds():
     # requested (OpenRouter echoes the canonical id even when given a
     # vendor alias).
     echoed_model = getattr(response, "model", "") or ""
-    assert "nemotron" in echoed_model.lower(), (
-        f"expected 'nemotron' in echoed model id, got {echoed_model!r}"
-    )
+    assert "nemotron" in echoed_model.lower(), f"expected 'nemotron' in echoed model id, got {echoed_model!r}"
 
     # Free-tier Nemotron must report zero cost on the OpenRouter side.
     # The OpenAI SDK does not expose pricing directly, but the ``usage``

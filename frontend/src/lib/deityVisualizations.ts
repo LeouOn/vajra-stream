@@ -366,3 +366,33 @@ export function getDhyaniBuddhaByDirection(direction: MandalaDirection): DhyaniB
 export function getDeityVisualization(id: string): DeityVisualization | undefined {
   return DEITY_VISUALIZATIONS[id];
 }
+
+const ENTITY_NAME_MAP: Record<string, string> = {
+  'chenrezig': 'avalokiteshvara',
+  'avalokiteshvara': 'avalokiteshvara',
+  'green tara': 'green_tara',
+  'white tara': 'white_tara',
+  'medicine buddha': 'medicine_buddha',
+  'bhaisajyaguru': 'medicine_buddha',
+  'bhaiṣajyaguru': 'medicine_buddha',
+  'vajrasattva': 'vajrasattva',
+  'vajrasattva (vajrasattva — diamond being)': 'vajrasattva',
+  'cundi': 'zhunti',
+  'cuṇḍī': 'zhunti',
+  'amitabha': 'amitabha',
+  'amitābha': 'amitabha',
+  'manjushri': 'heart_sutra',
+  'prajñāpāramitā': 'heart_sutra',
+  'maitreya': '88_buddhas',
+};
+
+export function getDeityFromEntityText(entityText: string | undefined | null): DeityVisualization | undefined {
+  if (!entityText) return undefined;
+  const lower = entityText.toLowerCase();
+  for (const [key, id] of Object.entries(ENTITY_NAME_MAP)) {
+    if (lower.includes(key)) {
+      return DEITY_VISUALIZATIONS[id];
+    }
+  }
+  return undefined;
+}

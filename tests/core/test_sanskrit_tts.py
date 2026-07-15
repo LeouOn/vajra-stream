@@ -14,17 +14,17 @@ Tests focus on:
 - Preset database returns hand-tuned phonetics for the 10 common mantras
 - Edge cases: empty, English-only, numbers pass through unchanged
 """
+
 from __future__ import annotations
 
 import pytest
 
 from core.sanskrit_tts import (
-    iast_to_tts,
-    preprocess_for_tts,
     get_mantra_tts_preset,
+    iast_to_tts,
     mantra_to_tts,
+    preprocess_for_tts,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. iast_to_tts — seed syllables

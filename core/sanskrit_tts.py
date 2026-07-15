@@ -222,11 +222,11 @@ _VOWELS_DIPHTHONGS: dict[str, str] = {
 # by presence of other IAST diacritics in the same word).
 
 _NASALS_AND_ASPIRATES: dict[str, str] = {
-    "ṃ": "m",   # anusvara (simplified; special compounds handle seed syllables)
-    "ḥ": "h",   # visarga  (simplified echo; special compounds handle endings)
+    "ṃ": "m",  # anusvara (simplified; special compounds handle seed syllables)
+    "ḥ": "h",  # visarga  (simplified echo; special compounds handle endings)
     "ṅ": "ng",
     "ñ": "ny",
-    "ṇ": "n",   # retroflex n → dental (TTS can't distinguish)
+    "ṇ": "n",  # retroflex n → dental (TTS can't distinguish)
     "ś": "sh",
     "ṣ": "sh",
 }
@@ -278,16 +278,52 @@ def _build_regex() -> tuple[re.Pattern[str], dict[str, str]]:
 # a complete transliteration table — the common_mantras database already
 # stores IAST. This is a safety net for stray Devanagari characters.
 _DEVANAGARI_TO_IAST: dict[str, str] = {
-    "अ": "a", "आ": "ā", "इ": "i", "ई": "ī", "उ": "u", "ऊ": "ū",
-    "ए": "e", "ऐ": "ai", "ओ": "o", "औ": "au",
-    "क": "k", "ख": "kh", "ग": "g", "घ": "gh", "ङ": "ṅ",
-    "च": "c", "छ": "ch", "ज": "j", "झ": "jh", "ञ": "ñ",
-    "ट": "ṭ", "ठ": "ṭh", "ड": "ḍ", "ढ": "ḍh", "ण": "ṇ",
-    "त": "t", "थ": "th", "द": "d", "ध": "dh", "न": "n",
-    "प": "p", "फ": "ph", "ब": "b", "भ": "bh", "म": "m",
-    "य": "y", "र": "r", "ल": "l", "व": "v", "श": "ś",
-    "ष": "ṣ", "स": "s", "ह": "h",
-    "ं": "ṃ", "ः": "ḥ", "ॐ": "Oṃ",
+    "अ": "a",
+    "आ": "ā",
+    "इ": "i",
+    "ई": "ī",
+    "उ": "u",
+    "ऊ": "ū",
+    "ए": "e",
+    "ऐ": "ai",
+    "ओ": "o",
+    "औ": "au",
+    "क": "k",
+    "ख": "kh",
+    "ग": "g",
+    "घ": "gh",
+    "ङ": "ṅ",
+    "च": "c",
+    "छ": "ch",
+    "ज": "j",
+    "झ": "jh",
+    "ञ": "ñ",
+    "ट": "ṭ",
+    "ठ": "ṭh",
+    "ड": "ḍ",
+    "ढ": "ḍh",
+    "ण": "ṇ",
+    "त": "t",
+    "थ": "th",
+    "द": "d",
+    "ध": "dh",
+    "न": "n",
+    "प": "p",
+    "फ": "ph",
+    "ब": "b",
+    "भ": "bh",
+    "म": "m",
+    "य": "y",
+    "र": "r",
+    "ल": "l",
+    "व": "v",
+    "श": "ś",
+    "ष": "ṣ",
+    "स": "s",
+    "ह": "h",
+    "ं": "ṃ",
+    "ः": "ḥ",
+    "ॐ": "Oṃ",
 }
 
 

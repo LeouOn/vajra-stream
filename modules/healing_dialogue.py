@@ -165,11 +165,7 @@ class HealingDialogueService:
         payload.pop("session_id", None)
 
         phases_completed = self._phases_visited(state)
-        recommended = (
-            json.dumps(state.recommended_practice)
-            if state.recommended_practice is not None
-            else None
-        )
+        recommended = json.dumps(state.recommended_practice) if state.recommended_practice is not None else None
         ended_at = state.completed_at.isoformat() if state.completed_at else None
 
         with self._connect() as conn:
@@ -276,9 +272,7 @@ class HealingDialogueService:
                         birth_dt = pytz.timezone(tz).localize(birth_dt)
                     transit_dt = datetime.now(timezone.utc)
                     calc = AstrologicalCalculator()
-                    data["transits"] = calc.get_transits_to_natal(
-                        birth_dt, (lat, lon), transit_dt
-                    )
+                    data["transits"] = calc.get_transits_to_natal(birth_dt, (lat, lon), transit_dt)
                 except Exception as exc:  # noqa: BLE001 — best-effort enrichment
                     logger.debug(
                         "healing dialogue: transit calc failed for chart_id=%s: %s",
@@ -462,9 +456,7 @@ class HealingDialogueService:
             "phase": state.current_phase.value,
             "chart_id": state.chart_id,
             "started_at": state.started_at.isoformat() if state.started_at else None,
-            "completed_at": (
-                state.completed_at.isoformat() if state.completed_at else ended_at
-            ),
+            "completed_at": (state.completed_at.isoformat() if state.completed_at else ended_at),
             "message_history": state.message_history,
             "accumulated_insights": state.accumulated_insights,
             "astrology_context": state.astrology_context,
@@ -531,9 +523,7 @@ class HealingDialogueService:
             summary_text = "Session transcript was empty; no summary generated."
             key_insights: dict[str, Any] = {}
         else:
-            summary_text, key_insights = await self._generate_summary(
-                transcript_lines, state
-            )
+            summary_text, key_insights = await self._generate_summary(transcript_lines, state)
 
         # Merge any LLM-extracted insights back into accumulated_insights.
         if key_insights:
@@ -610,9 +600,7 @@ class HealingDialogueService:
     # Internal helpers — phase transition logic
     # ------------------------------------------------------------------
     @staticmethod
-    def _resolve_phase_hint(
-        state: DialogueState, phase_hint: str | None
-    ) -> str | None:
+    def _resolve_phase_hint(state: DialogueState, phase_hint: str | None) -> str | None:
         """Validate a phase hint against the current state.
 
         Returns the next-phase value when ``phase_hint`` is a valid forward
@@ -710,9 +698,7 @@ class HealingDialogueService:
             lines.append(f"{role}:\n{content}")
         return "\n\n".join(lines)
 
-    async def _generate_summary(
-        self, transcript: str, state: DialogueState
-    ) -> tuple[str, dict]:
+    async def _generate_summary(self, transcript: str, state: DialogueState) -> tuple[str, dict]:
         """Ask the LLM to summarize the transcript.
 
         Falls back to a deterministic short summary when no provider is
@@ -744,8 +730,7 @@ class HealingDialogueService:
                     )
                 ],
                 system_prompt=(
-                    "You distill healing dialogue sessions for the outlook "
-                    "feedback loop. Be precise and compassionate."
+                    "You distill healing dialogue sessions for the outlook feedback loop. Be precise and compassionate."
                 ),
                 max_tokens=500,
                 temperature=0.4,
@@ -785,9 +770,7 @@ class HealingDialogueService:
             if isinstance(payload, dict):
                 summary = str(payload.get("summary") or "").strip()
                 key_insights_raw = payload.get("key_insights")
-                key_insights = (
-                    key_insights_raw if isinstance(key_insights_raw, dict) else {}
-                )
+                key_insights = key_insights_raw if isinstance(key_insights_raw, dict) else {}
                 if summary:
                     return summary, key_insights
         # Fall through: use raw content as summary, no structured insights.
@@ -803,8 +786,7 @@ class HealingDialogueService:
                 last_user = str(msg.get("content", ""))[:200]
                 break
         summary = (
-            f"Healing dialogue session reached the {state.current_phase.value} phase. "
-            f"Final user turn: \"{last_user}\""
+            f'Healing dialogue session reached the {state.current_phase.value} phase. Final user turn: "{last_user}"'
         )
         key_insights = dict(state.accumulated_insights or {})
         return summary, key_insights

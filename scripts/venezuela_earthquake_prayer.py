@@ -16,14 +16,13 @@ May all beings be free from suffering. [prayer hands]
 """
 
 import sys
-import os
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 # Add project root
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.compassionate_blessings import BlessingDatabase, BlessingTarget, BlessingCategory
+from core.compassionate_blessings import BlessingCategory, BlessingDatabase, BlessingTarget
 from core.rate_to_audio import map_rate_to_carriers
 
 
@@ -34,33 +33,32 @@ def main():
     print("=" * 70)
     print()
 
-    #  1. Create Blessing Targets 
+    #  1. Create Blessing Targets
     print(">> Step 1: Creating blessing targets...")
     db = BlessingDatabase()
 
     living = BlessingTarget(
-        identifier='venezuela_earthquake_living',
-        name='Venezuela Earthquake - Living Victims',
+        identifier="venezuela_earthquake_living",
+        name="Venezuela Earthquake - Living Victims",
         category=BlessingCategory.SUFFERING_UNKNOWN,
-        description='All living beings affected by the earthquake in Venezuela: '
-                    'the injured, the displaced, the grieving families, '
-                    'the rescuers, the medical workers, the volunteers',
+        description="All living beings affected by the earthquake in Venezuela: "
+        "the injured, the displaced, the grieving families, "
+        "the rescuers, the medical workers, the volunteers",
         priority=10,
-        intention='Healing, shelter, safety, and liberation from suffering '
-                   'for all affected by the Venezuela earthquake',
+        intention="Healing, shelter, safety, and liberation from suffering "
+        "for all affected by the Venezuela earthquake",
     )
     db.add_target(living)
 
     deceased = BlessingTarget(
-        identifier='venezuela_earthquake_deceased',
-        name='Venezuela Earthquake - Deceased Souls',
+        identifier="venezuela_earthquake_deceased",
+        name="Venezuela Earthquake - Deceased Souls",
         category=BlessingCategory.DECEASED,
-        description='All beings who have transitioned due to the earthquake '
-                    'in Venezuela: may they find peace, clear guidance, '
-                    'and swift liberation through the bardo',
+        description="All beings who have transitioned due to the earthquake "
+        "in Venezuela: may they find peace, clear guidance, "
+        "and swift liberation through the bardo",
         priority=10,
-        intention='Liberation and peaceful transition for all souls who '
-                   'passed in the Venezuela earthquake',
+        intention="Liberation and peaceful transition for all souls who passed in the Venezuela earthquake",
     )
     db.add_target(deceased)
 
@@ -68,7 +66,7 @@ def main():
     print(f"  [OK] Created: {deceased.name}")
     print()
 
-    #  2. Record Blessing Session 
+    #  2. Record Blessing Session
     print(" Step 2: Recording blessing session...")
     session_id = db.record_session(
         mantra_type="Om Mani Padme Hum",
@@ -77,15 +75,15 @@ def main():
         targets_blessed=2,
         allocation_method="Disaster Relief - Equal Distribution",
         notes="Venezuela earthquake prayer protocol - 108 mantras dedicated to "
-              "all victims, living and deceased. Combined with crystal bowl "
-              "Solfeggio broadcast at 6 carrier frequencies.",
+        "all victims, living and deceased. Combined with crystal bowl "
+        "Solfeggio broadcast at 6 carrier frequencies.",
     )
     print(f"  [OK] Session ID: {session_id}")
     print()
 
     # Dedicate to each target
     for target in db.get_all_targets():
-        if 'venezuela' in target.identifier:
+        if "venezuela" in target.identifier:
             db.record_dedication(
                 target_identifier=target.identifier,
                 session_id=session_id,
@@ -96,7 +94,7 @@ def main():
             print(f"  [OK] Dedicated 54 mantras to: {target.name}")
     print()
 
-    #  3. Generate Crystal Bowl Frequencies 
+    #  3. Generate Crystal Bowl Frequencies
     print(" Step 3: Generating crystal bowl carrier frequencies...")
     # Combined disaster relief set: Liberation + Healing + Connection + Protection + Peace
     rate_values = [7, 35, 50, 64, 78]
@@ -108,17 +106,18 @@ def main():
     print()
     print("  Prayer bowl carrier frequencies:")
     for i, (freq, name) in enumerate(zip(carriers.frequencies, carriers.solfeggio_names)):
-        print(f"    [{i+1}] {freq:>7.2f} Hz  {name}")
+        print(f"    [{i + 1}] {freq:>7.2f} Hz  {name}")
     print()
 
-    #  4. Crystal Bowl Broadcast 
+    #  4. Crystal Bowl Broadcast
     print("! Step 4: Starting crystal bowl broadcast...")
     try:
         from modules.crystal import CrystalService
+
         crystal = CrystalService()
         result = crystal.broadcast_intention(
             intention="Venezuela Earthquake: Liberation, Healing, and Peace "
-                      "for all beings affected. Om Mani Padme Hum. [prayer hands]",
+            "for all beings affected. Om Mani Padme Hum. [prayer hands]",
             frequencies=carriers.frequencies,
             duration=600,  # 10 minutes
             hardware_level=2,
@@ -126,20 +125,20 @@ def main():
             amplitude=carriers.amplitude,
         )
         print(f"  Crystal broadcast status: {result.get('status', 'unknown')}")
-        if result.get('error'):
+        if result.get("error"):
             print(f"  Note: {result['error']}")
     except Exception as e:
         print(f"  [!]  Crystal broadcast could not start: {e}")
-        print(f"     (Audio hardware may not be available in this environment)")
+        print("     (Audio hardware may not be available in this environment)")
     print()
 
-    #  5. Healing Narrative 
+    #  5. Healing Narrative
     print(">> Step 5: Generating healing prayer narrative...")
     prayer = f"""
-    
+
     PRAYER FOR VENEZUELA  Earthquake Relief Dedication
-    {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
-    
+    {datetime.now().strftime("%B %d, %Y at %I:%M %p")}
+
 
     To all beings affected by the earthquake in Venezuela:
 
@@ -184,17 +183,17 @@ def main():
     May all beings know peace.
 
     Gate gate pragate prasagate bodhi svh. [prayer hands]
-    
+
     """
     print(prayer)
 
-    #  6. Summary 
+    #  6. Summary
     print(">> PROTOCOL SUMMARY")
     print("" * 50)
-    print(f"  Blessing targets created: 2")
-    print(f"  Mantras dedicated: 108 (54 living + 54 deceased)")
+    print("  Blessing targets created: 2")
+    print("  Mantras dedicated: 108 (54 living + 54 deceased)")
     print(f"  Crystal frequencies: {len(carriers.frequencies)} carriers")
-    print(f"  Broadcast duration: 10 minutes")
+    print("  Broadcast duration: 10 minutes")
     print(f"  Session ID: {session_id}")
     print()
     print("  Protocol complete. May all beings benefit. [prayer hands]")

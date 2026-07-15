@@ -10,9 +10,9 @@ Covers the public API:
 - :class:`BlessingDatabase` — touched lightly with a temp file + a mocked
   ``init_db`` so the test never touches the global database.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from unittest.mock import patch
 
@@ -28,7 +28,6 @@ from core.compassionate_blessings import (
     MantraType,
     create_target,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test
@@ -232,10 +231,7 @@ def test_blessing_target_from_dict_handles_missing_optional_fields():
 
 
 def _targets_with_priorities(priorities: list[int]) -> list[BlessingTarget]:
-    return [
-        BlessingTarget(identifier=f"T{i}", name=f"Target {i}", priority=p)
-        for i, p in enumerate(priorities)
-    ]
+    return [BlessingTarget(identifier=f"T{i}", name=f"Target {i}", priority=p) for i, p in enumerate(priorities)]
 
 
 @pytest.mark.unit
@@ -403,28 +399,29 @@ def test_blessing_database_add_and_get_target_round_trip():
     from datetime import datetime as _dt
 
     script_row = (
-        "DB-1",                # identifier
-        "DB Being",            # name
-        "suffering_unknown",   # category
-        "for tests",           # description
-        "CASE-1",              # case_number
+        "DB-1",  # identifier
+        "DB Being",  # name
+        "suffering_unknown",  # category
+        "for tests",  # description
+        "CASE-1",  # case_number
         _dt(2024, 1, 1, 12, 0, 0).isoformat(),  # relevant_date
-        _dt(2024, 1, 2, 9, 0, 0).isoformat(),   # discovery_date
-        _dt(2024, 1, 3, 8, 0, 0).isoformat(),   # last_updated
-        None,                  # coordinates_json
-        "/tmp/photo.jpg",      # photograph_path
+        _dt(2024, 1, 2, 9, 0, 0).isoformat(),  # discovery_date
+        _dt(2024, 1, 3, 8, 0, 0).isoformat(),  # last_updated
+        None,  # coordinates_json
+        "/tmp/photo.jpg",  # photograph_path
         '{"source": "test"}',  # additional_data_json
-        10,                    # mantras_dedicated
-        5,                     # prayer_wheel_rotations
-        '[]',                  # dedication_sessions_json
-        "Test intention",      # intention
-        4,                     # priority
+        10,  # mantras_dedicated
+        5,  # prayer_wheel_rotations
+        "[]",  # dedication_sessions_json
+        "Test intention",  # intention
+        4,  # priority
     )
 
     fake_conn = _FakeConnection(rows=[script_row])
 
-    with patch("core.schema.init_db") as mock_init, patch(
-        "core.compassionate_blessings.sqlite3.connect", return_value=fake_conn
+    with (
+        patch("core.schema.init_db") as mock_init,
+        patch("core.compassionate_blessings.sqlite3.connect", return_value=fake_conn),
     ):
         db = BlessingDatabase(db_path="ignored.db")
         mock_init.assert_called_once()  # schema bootstrap is invoked
@@ -454,9 +451,7 @@ def test_blessing_database_get_target_returns_none_for_missing_id():
     """get_target returns None (not raises) for an unknown identifier."""
     fake_conn = _FakeConnection(rows=[])  # fetchone() => None
 
-    with patch("core.schema.init_db"), patch(
-        "core.compassionate_blessings.sqlite3.connect", return_value=fake_conn
-    ):
+    with patch("core.schema.init_db"), patch("core.compassionate_blessings.sqlite3.connect", return_value=fake_conn):
         db = BlessingDatabase(db_path="ignored.db")
         assert db.get_target("DOES-NOT-EXIST") is None
     # Connection is closed after the call

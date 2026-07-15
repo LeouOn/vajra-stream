@@ -18,15 +18,14 @@ Heavy dependencies (elevenlabs, azure-cognitiveservices-speech, google.cloud,
 openai, TTS, pyttsx3, pygame, edge-tts) are mocked so the tests never
 require real cloud credentials or audio hardware.
 """
+
 from __future__ import annotations
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from core import enhanced_tts as etts
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + provider class surface
@@ -110,13 +109,15 @@ def test_enhanced_tts_engine_initialises_all_providers(monkeypatch, capsys):
 
     fake_provider_classes = [make_fake_provider_class(n) for n in expected_names]
 
-    with patch.object(etts, "OpenAITTS", fake_provider_classes[0]), \
-         patch.object(etts, "ElevenLabsTTS", fake_provider_classes[1]), \
-         patch.object(etts, "AzureTTS", fake_provider_classes[2]), \
-         patch.object(etts, "GoogleCloudTTS", fake_provider_classes[3]), \
-         patch.object(etts, "CoquiTTS", fake_provider_classes[4]), \
-         patch.object(etts, "PiperTTS", fake_provider_classes[5]), \
-         patch.object(etts, "Pyttsx3TTS", fake_provider_classes[6]):
+    with (
+        patch.object(etts, "OpenAITTS", fake_provider_classes[0]),
+        patch.object(etts, "ElevenLabsTTS", fake_provider_classes[1]),
+        patch.object(etts, "AzureTTS", fake_provider_classes[2]),
+        patch.object(etts, "GoogleCloudTTS", fake_provider_classes[3]),
+        patch.object(etts, "CoquiTTS", fake_provider_classes[4]),
+        patch.object(etts, "PiperTTS", fake_provider_classes[5]),
+        patch.object(etts, "Pyttsx3TTS", fake_provider_classes[6]),
+    ):
         with pytest.raises(RuntimeError, match="No TTS provider available"):
             etts.EnhancedTTSEngine(prefer_local=False)
 
@@ -244,6 +245,7 @@ def test_set_provider_returns_false_for_unknown_or_unavailable(monkeypatch):
 @pytest.mark.unit
 def test_list_available_providers_returns_expected_dict_shape(monkeypatch):
     """``list_available_providers`` returns one dict per provider with the right keys."""
+
     def stub(name: str, avail: bool, err: str | None = None):
         cls = type(
             f"Fake_{name.replace(' ', '')}",

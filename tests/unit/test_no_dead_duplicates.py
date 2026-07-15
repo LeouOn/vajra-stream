@@ -130,6 +130,5 @@ if __name__ == "__main__":
         print(f"  [{status}] {relpath}  — {label}")
         if full.exists():
             failures += 1
-    print(f"\n{'PASS' if failures == 0 else 'FAIL'}: {len(DEAD_FILES) - failures}/"
-          f"{len(DEAD_FILES)} dead files removed")
+    print(f"\n{'PASS' if failures == 0 else 'FAIL'}: {len(DEAD_FILES) - failures}/{len(DEAD_FILES)} dead files removed")
     raise SystemExit(1 if failures else 0)

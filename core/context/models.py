@@ -1,5 +1,6 @@
 # core/context/models.py
 """Pydantic models for the context module layer."""
+
 from __future__ import annotations
 
 from typing import Any

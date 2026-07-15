@@ -22,10 +22,10 @@ No IO, no networking, no real audio. All randomness is checked for shape
 (range / count / type) and determinism where the algorithm is
 deterministic.
 """
+
 from __future__ import annotations
 
 import json
-import random
 from datetime import datetime
 
 import pytest
@@ -39,7 +39,6 @@ from core.radionics_engine import (
     SignatureCalculator,
     quick_analysis,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test

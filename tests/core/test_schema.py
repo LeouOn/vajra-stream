@@ -12,6 +12,7 @@ Covers:
   filters out the internal ``_schema_version`` bookkeeping table
 * Connection row factory — returned connection exposes ``sqlite3.Row`` rows
 """
+
 from __future__ import annotations
 
 import os
@@ -21,7 +22,6 @@ from pathlib import Path
 import pytest
 
 from core import schema
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + module-level constants
@@ -81,12 +81,7 @@ def test_apply_schema_creates_all_tables_idempotently(tmp_path: Path):
     conn = sqlite3.connect(str(db))
     try:
         schema.apply_schema(conn)
-        tables = {
-            row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
         # All the well-known tables are present
         for required in (
             "extraction_runs",
@@ -104,12 +99,7 @@ def test_apply_schema_creates_all_tables_idempotently(tmp_path: Path):
 
         # Calling again is a no-op (does not raise)
         schema.apply_schema(conn)
-        tables_after = {
-            row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
+        tables_after = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
         assert tables == tables_after
     finally:
         conn.close()
@@ -127,22 +117,12 @@ def test_init_db_creates_db_records_version_and_is_idempotent(tmp_path: Path):
     conn1 = schema.init_db(db_file)
     try:
         # Tables are present
-        tables = {
-            row[0]
-            for row in conn1.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
+        tables = {row[0] for row in conn1.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
         assert "extraction_runs" in tables
         assert "buddha_recitation_sessions" in tables
 
         # Version recorded exactly once for SCHEMA_VERSION
-        versions = [
-            row[0]
-            for row in conn1.execute(
-                "SELECT version FROM _schema_version ORDER BY id"
-            ).fetchall()
-        ]
+        versions = [row[0] for row in conn1.execute("SELECT version FROM _schema_version ORDER BY id").fetchall()]
         assert versions == [schema.SCHEMA_VERSION]
     finally:
         conn1.close()
@@ -150,15 +130,8 @@ def test_init_db_creates_db_records_version_and_is_idempotent(tmp_path: Path):
     # A second call should NOT add another _schema_version row
     conn2 = schema.init_db(db_file)
     try:
-        versions = [
-            row[0]
-            for row in conn2.execute(
-                "SELECT version FROM _schema_version ORDER BY id"
-            ).fetchall()
-        ]
-        assert versions == [schema.SCHEMA_VERSION], (
-            "init_db must not duplicate the _schema_version row on re-run"
-        )
+        versions = [row[0] for row in conn2.execute("SELECT version FROM _schema_version ORDER BY id").fetchall()]
+        assert versions == [schema.SCHEMA_VERSION], "init_db must not duplicate the _schema_version row on re-run"
     finally:
         conn2.close()
 
@@ -199,9 +172,7 @@ def test_init_db_returns_connection_with_row_factory(tmp_path: Path):
     try:
         assert conn.row_factory is sqlite3.Row
         # sqlite3.Row supports column access by name
-        row = conn.execute(
-            "SELECT version FROM _schema_version ORDER BY id DESC LIMIT 1"
-        ).fetchone()
+        row = conn.execute("SELECT version FROM _schema_version ORDER BY id DESC LIMIT 1").fetchone()
         assert row is not None
         assert row["version"] == schema.SCHEMA_VERSION
     finally:

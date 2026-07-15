@@ -165,8 +165,13 @@ class LLMConfig(BaseSettings):
     max_retries: int = 1
     retry_initial_backoff: float = 0.5
     provider_priority: list[str] = [
-        "openrouter", "lm_studio", "deepseek",
-        "anthropic", "openai", "minimax", "local",
+        "openrouter",
+        "lm_studio",
+        "deepseek",
+        "anthropic",
+        "openai",
+        "minimax",
+        "local",
     ]
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None

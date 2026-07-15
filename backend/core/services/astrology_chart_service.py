@@ -35,6 +35,7 @@ class AstrologyChartService:
     def _create_subject(self, name: str, dt_str: str, city_name: str):
         """Helper to create Kerykeion subject from ISO string and city using the v5 factory API."""
         from kerykeion import AstrologicalSubjectFactory
+
         # Parse datetime
         if dt_str.endswith("Z"):
             dt_str = dt_str[:-1] + "+00:00"
@@ -141,6 +142,7 @@ class AstrologyChartService:
     ) -> dict[str, Any]:
         """Compare natal chart with current transits using the v5 AspectsFactory."""
         from kerykeion import AspectsFactory, AstrologicalSubjectFactory
+
         try:
             natal_subject = self._create_subject(name, birth_time_iso, birth_city)
 
@@ -197,6 +199,7 @@ class AstrologyChartService:
     ) -> dict[str, Any]:
         """Compare two natal charts for compatibility using the v5 AspectsFactory."""
         from kerykeion import AspectsFactory
+
         try:
             subject_a = self._create_subject(name_a, time_a, city_a)
             subject_b = self._create_subject(name_b, time_b, city_b)

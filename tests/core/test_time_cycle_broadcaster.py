@@ -18,6 +18,7 @@ Covers the public surface of :class:`TimeCycleBroadcaster`:
 The real radionics broadcast is replaced with a no-op (no ``time.sleep``)
 and astrocartography / visualization are stubbed out via monkeypatch.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -28,7 +29,6 @@ import pytest
 
 from core import time_cycle_broadcaster as tcb
 from core.time_cycle_broadcaster import TimeCycleBroadcaster
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -82,9 +82,7 @@ def broadcaster(events_file, monkeypatch):
 
     fake_astro = MagicMock(name="AstrocartographyCalculator")
     fake_chart = MagicMock(name="HistoricalChartCalculator")
-    fake_chart.calculate_chart = MagicMock(
-        return_value={"location_name": "Test Place"}
-    )
+    fake_chart.calculate_chart = MagicMock(return_value={"location_name": "Test Place"})
 
     monkeypatch.setattr(tcb, "BlessingDatabase", lambda: fake_db)
     monkeypatch.setattr(tcb, "AstrocartographyCalculator", lambda: fake_astro)
@@ -227,9 +225,7 @@ def test_broadcast_to_date_records_session_and_dedication(broadcaster, monkeypat
     and dedicates mantras for every target."""
     # Disable the real radionics sleep + the visualization (we want a fast test)
     monkeypatch.setattr(tcb.time, "sleep", lambda s: None)
-    broadcaster._create_daily_visualization = MagicMock(
-        return_value="/tmp/viz.png"
-    )
+    broadcaster._create_daily_visualization = MagicMock(return_value="/tmp/viz.png")
 
     event = SAMPLE_EVENTS["archetypal_healing_cycles"][0]
     result = broadcaster.broadcast_to_date(
@@ -340,9 +336,7 @@ def test_run_sample_cycle_limits_to_num_days(broadcaster, monkeypatch):
 
     broadcaster.broadcast_to_date = spy_broadcast
 
-    results = broadcaster.run_sample_cycle(
-        event_id="test-event", num_days=2, create_visualizations=False
-    )
+    results = broadcaster.run_sample_cycle(event_id="test-event", num_days=2, create_visualizations=False)
 
     # num_days=2 over a 3-day range → 2 results
     assert len(results) == 2

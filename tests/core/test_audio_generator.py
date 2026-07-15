@@ -9,6 +9,7 @@ only requires ``sounddevice`` for actual playback.  Tests use small
 ``sample_rate``/``duration`` values to keep them fast, and mock ``sounddevice``
 so the ``play`` method can be exercised without a real audio device.
 """
+
 from __future__ import annotations
 
 import sys
@@ -23,7 +24,6 @@ from core.audio_generator import (
     INTENTION_TO_FREQUENCY,
     ScalarWaveGenerator,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -204,8 +204,7 @@ def test_play_calls_sounddevice_play_and_wait(gen_fast):
     mock_sd = MagicMock(name="sounddevice")
 
     with patch.dict(sys.modules, {"sounddevice": mock_sd}):
-        with patch.object(ag, "_SOUNDDEVICE_AVAILABLE", True), \
-             patch.object(ag, "sd", mock_sd):
+        with patch.object(ag, "_SOUNDDEVICE_AVAILABLE", True), patch.object(ag, "sd", mock_sd):
             wave = np.zeros(8, dtype=np.float64)
             gen_fast.play(wave, loop=False, blocking=True)
 
@@ -219,8 +218,7 @@ def test_play_non_blocking_skips_wait(gen_fast):
     mock_sd = MagicMock(name="sounddevice")
 
     with patch.dict(sys.modules, {"sounddevice": mock_sd}):
-        with patch.object(ag, "_SOUNDDEVICE_AVAILABLE", True), \
-             patch.object(ag, "sd", mock_sd):
+        with patch.object(ag, "_SOUNDDEVICE_AVAILABLE", True), patch.object(ag, "sd", mock_sd):
             wave = np.zeros(8, dtype=np.float64)
             gen_fast.play(wave, blocking=False)
 

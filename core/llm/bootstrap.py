@@ -17,6 +17,7 @@ env var is set. Providers that may fail to construct (e.g. missing
 optional deps, unreachable endpoints) are wrapped in ``try/except`` so
 that a single misconfigured provider never blocks the rest of the chain.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,11 +76,7 @@ def build_default_registry() -> ProviderRegistry:
 
     # Z.AI coding plan — Anthropic-protocol endpoint; accepts ZAI_API_KEY,
     # Z_AI_API_KEY (legacy), or ANTHROPIC_AUTH_TOKEN.
-    if (
-        os.getenv("ZAI_API_KEY")
-        or os.getenv("Z_AI_API_KEY")
-        or os.getenv("ANTHROPIC_AUTH_TOKEN")
-    ):
+    if os.getenv("ZAI_API_KEY") or os.getenv("Z_AI_API_KEY") or os.getenv("ANTHROPIC_AUTH_TOKEN"):
         try:
             registry.register(ZAIProvider(priority=65))
         except Exception as e:  # pragma: no cover - defensive
