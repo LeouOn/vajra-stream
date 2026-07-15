@@ -16,8 +16,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
-from core.rate_to_audio import CarrierFrequencySet, map_rate_to_carriers
-from core.radionics_engine import SignatureCalculator
+from core.rate_to_audio import map_rate_to_carriers
 from modules.interfaces import EventBus, RadionicsBroadcaster
 from modules.radionics_enhancer import RadionicsEnhancer
 
@@ -74,6 +73,7 @@ class RadionicsService(RadionicsBroadcaster):
             base_rate = self.enhancer.attune_rate(auto_intention)
             # Derive 5 correlated dial values from the base rate + intention hash
             import hashlib
+
             intention_hash = hashlib.sha256(auto_intention.encode()).digest()
             auto_values = [
                 int(base_rate),

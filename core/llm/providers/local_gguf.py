@@ -5,6 +5,7 @@
 installed by default. To keep this module importable without it, the
 ``llama_cpp`` import is deferred until ``_load_model()`` is first called.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -56,9 +57,7 @@ class LocalGGUFProvider:
         if not models:
             return "unknown"
         # Prefer chat/instruct-tuned models.
-        preferred = [
-            m for m in models if "instruct" in m.lower() or "chat" in m.lower()
-        ]
+        preferred = [m for m in models if "instruct" in m.lower() or "chat" in m.lower()]
         chosen = preferred[0] if preferred else models[0]
         return os.path.basename(chosen)
 
@@ -115,15 +114,11 @@ class LocalGGUFProvider:
         """Load (or reload) the model in an executor if needed."""
         model_path = self._resolve_model_path()
         if model_path is None:
-            raise RuntimeError(
-                f"No GGUF models found in {self.models_dir}"
-            )
+            raise RuntimeError(f"No GGUF models found in {self.models_dir}")
         if self._loaded_model is not None and self._loaded_path == model_path:
             return
         loop = asyncio.get_running_loop()
-        self._loaded_model = await loop.run_in_executor(
-            None, self._load_model_sync, model_path
-        )
+        self._loaded_model = await loop.run_in_executor(None, self._load_model_sync, model_path)
         self._loaded_path = model_path
 
     def _call_model_sync(self, prompt: str, max_tokens: int) -> str:
@@ -166,9 +161,7 @@ class LocalGGUFProvider:
         await self._ensure_model()
         prompt = self._build_prompt(request)
         loop = asyncio.get_running_loop()
-        content = await loop.run_in_executor(
-            None, self._call_model_sync, prompt, request.max_tokens
-        )
+        content = await loop.run_in_executor(None, self._call_model_sync, prompt, request.max_tokens)
         return ChatResponse(
             content=content,
             provider=self.name,

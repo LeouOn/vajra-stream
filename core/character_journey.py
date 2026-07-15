@@ -333,9 +333,7 @@ class CharacterJourney:
             self._character.frequency = nearest
 
         # Record the frequency AFTER the shift so the UI can show the transition.
-        result["frequency_after"] = (
-            self._character.frequency if hasattr(self._character, "frequency") else None
-        )
+        result["frequency_after"] = self._character.frequency if hasattr(self._character, "frequency") else None
 
         self._current_stage_index += 1
 

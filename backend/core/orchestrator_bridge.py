@@ -87,9 +87,7 @@ class OrchestratorBridge:
                 # Reset the shutdown event in case the bridge is reused
                 # across multiple sessions within a single process.
                 self._shutdown_event.clear()
-                self._crystal_thread = threading.Thread(
-                    target=run_broadcast, daemon=True
-                )
+                self._crystal_thread = threading.Thread(target=run_broadcast, daemon=True)
                 self._crystal_thread.start()
         except Exception as e:
             logger.error(f"Error handling SessionStarted: {e}")

@@ -15,6 +15,7 @@ file debug logging, random sacred-entity selection) is mocked so the tests
 remain fast and deterministic.  No real database / network / audio device is
 touched.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -22,7 +23,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from core.outlook_generator import OutlookGenerator
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -39,9 +39,7 @@ def gen():
 def mock_llm():
     """Mock object mimicking the LLMIntegration interface."""
     llm = MagicMock(name="MockLLMIntegration")
-    llm.generate.return_value = (
-        "SCORE: 8\nFEEDBACK: Lovely resonant blessing, vivid imagery."
-    )
+    llm.generate.return_value = "SCORE: 8\nFEEDBACK: Lovely resonant blessing, vivid imagery."
     return llm
 
 
@@ -87,9 +85,11 @@ def test_generate_single_outlook_falls_back_when_no_llm(gen):
     still produces a well-formed response dict."""
     # Force the astrology / divination lookups to deterministic stubs so we
     # never depend on real chart data.
-    with patch.object(gen, "_gather_astrology_context", return_value="AstroCtx"), \
-         patch.object(gen, "_gather_divination_data", return_value=("DivCtx", {"tarot": {"name": "The Fool"}})), \
-         patch.object(gen, "_select_sacred_entities", return_value="EntityCtx"):
+    with (
+        patch.object(gen, "_gather_astrology_context", return_value="AstroCtx"),
+        patch.object(gen, "_gather_divination_data", return_value=("DivCtx", {"tarot": {"name": "The Fool"}})),
+        patch.object(gen, "_select_sacred_entities", return_value="EntityCtx"),
+    ):
         result = gen.generate_single_outlook(
             lat=40.7128,
             lon=-74.0060,
@@ -125,9 +125,11 @@ def test_generate_single_outlook_calls_llm_when_provided(mock_llm):
 
     mock_llm.generate.return_value = "I. Invocatio — A bright star rises over the city."
 
-    with patch.object(g, "_gather_astrology_context", return_value="AstroCtx"), \
-         patch.object(g, "_gather_divination_data", return_value=("DivCtx", {})), \
-         patch.object(g, "_select_sacred_entities", return_value="EntityCtx"):
+    with (
+        patch.object(g, "_gather_astrology_context", return_value="AstroCtx"),
+        patch.object(g, "_gather_divination_data", return_value=("DivCtx", {})),
+        patch.object(g, "_select_sacred_entities", return_value="EntityCtx"),
+    ):
         result = g.generate_single_outlook(
             lat=0.0,
             lon=0.0,
@@ -179,9 +181,7 @@ def test_generate_epic_outlook_errors_when_no_llm(gen):
 def test_evaluate_ritual_parses_llm_response():
     """evaluate_ritual extracts SCORE and FEEDBACK from a well-formed reply."""
     llm = MagicMock(name="MockLLM")
-    llm.generate.return_value = (
-        "SCORE: 9\nFEEDBACK: Strong symbolic resonance."
-    )
+    llm.generate.return_value = "SCORE: 9\nFEEDBACK: Strong symbolic resonance."
     g = OutlookGenerator(llm_integration=llm)
 
     parsed = g.evaluate_ritual("prompt", "outlook")

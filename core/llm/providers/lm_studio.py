@@ -1,5 +1,6 @@
 # core/llm/providers/lm_studio.py
 """LM Studio local provider (no API key required)."""
+
 import os
 
 from core.llm.base import OpenAICompatibleProvider

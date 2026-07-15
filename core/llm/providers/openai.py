@@ -1,5 +1,6 @@
 # core/llm/providers/openai.py
 """OpenAI provider (official API)."""
+
 import os
 
 from core.llm.base import OpenAICompatibleProvider

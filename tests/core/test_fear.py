@@ -16,12 +16,12 @@ Tests verify:
 - Hero journey has all 6 stages with substantial content
 - Invocation includes the Green Tara dharani recitation
 """
+
 from __future__ import annotations
 
 import pytest
 
 from core.ritual_generator import RitualGenerator
-
 
 # ---------------------------------------------------------------------------
 # 1. Detection
@@ -120,9 +120,7 @@ def test_fear_prayer_has_content():
     prayer = gen._fallback_prayer("I am afraid", ["myself"])
     assert len(prayer) > 200
     lower = prayer.lower()
-    assert any(w in lower for w in [
-        "fear", "afraid", "tara", "trembl", "anxiety", "present", "alarma"
-    ])
+    assert any(w in lower for w in ["fear", "afraid", "tara", "trembl", "anxiety", "present", "alarma"])
 
 
 # ---------------------------------------------------------------------------
@@ -137,9 +135,7 @@ def test_fear_teaching_has_content():
     teaching = gen.generate_dharma_teaching("I am afraid of the future")
     assert len(teaching) > 200
     # Should reference present moment / fear / sutra passage
-    assert any(w in teaching.lower() for w in [
-        "fear", "present", "afraid", "future", "imagined", "**from"
-    ])
+    assert any(w in teaching.lower() for w in ["fear", "present", "afraid", "future", "imagined", "**from"])
 
 
 # ---------------------------------------------------------------------------
@@ -151,9 +147,7 @@ def test_fear_teaching_has_content():
 def test_fear_hero_journey_has_six_stages():
     """The fear hero journey has all 6 numbered stages."""
     gen = RitualGenerator()
-    journey = gen.generate_hero_journey(
-        "I am afraid and seek fearlessness", ["all beings"]
-    )
+    journey = gen.generate_hero_journey("I am afraid and seek fearlessness", ["all beings"])
     assert len(journey) > 500
     for num in ["1.", "2.", "3.", "4.", "5.", "6."]:
         assert num in journey

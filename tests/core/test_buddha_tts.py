@@ -14,6 +14,7 @@ test environment — so ``BuddhaTTSReciter.available`` is ``False`` in CI.
 We assert that contract directly. The test that requires TTS success
 forces ``_available=True`` and patches ``edge_tts`` in ``sys.modules``.
 """
+
 from __future__ import annotations
 
 import sys
@@ -27,7 +28,6 @@ from core.buddha_tts import (
     PREFERRED_VOICE,
     BuddhaTTSReciter,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + module-level constants

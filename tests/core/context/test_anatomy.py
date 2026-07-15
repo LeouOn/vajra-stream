@@ -1,5 +1,6 @@
 # tests/core/context/test_anatomy.py
 """Tests for AnatomyContextModule."""
+
 from __future__ import annotations
 
 from core.context.anatomy import AnatomyContextModule

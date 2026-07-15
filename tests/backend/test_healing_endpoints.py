@@ -17,6 +17,7 @@ Covers:
 * ``POST /api/v1/healing/sessions/{id}/messages`` — sends a message (LLM mocked).
 * ``GET  /api/v1/healing/sessions/{missing}`` — returns 404.
 """
+
 from __future__ import annotations
 
 import sqlite3

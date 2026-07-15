@@ -1,5 +1,6 @@
 # core/llm/providers/minimax.py
 """MiniMax provider (MiniMax M3 default — user's preferred fallback)."""
+
 import os
 
 from core.llm.base import OpenAICompatibleProvider

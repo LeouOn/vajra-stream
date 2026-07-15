@@ -19,17 +19,18 @@ the engines via mocks and by going through paths that the engines'
 ``is_available()`` flag controls.  No real audio device or network
 access is required.
 """
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from core import tts_integration as ti
 from core.tts_integration import (
+    EdgeTTSEngine,
     GTTSEngine,
     Pyttsx3Engine,
-    EdgeTTSEngine,
     SpeakingRate,
     TTSConfig,
     TTSEngine,
@@ -40,7 +41,6 @@ from core.tts_integration import (
     narrate_mantra,
     quick_narrate,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + module-level constants / availability flags
@@ -105,6 +105,7 @@ def test_voice_and_ttsconfig_defaults():
 @pytest.mark.unit
 def test_preprocess_text_strips_markdown():
     """``TTSEngine.preprocess_text`` removes headers, bold, italic."""
+
     # Use a tiny concrete subclass so we can call the helper.
     class _Stub(TTSEngine):
         def synthesize(self, text, output_file, **kwargs):  # pragma: no cover
@@ -193,9 +194,7 @@ def test_ttsnarrator_selects_engine_or_falls_back_to_stub(capsys):
     voices = narrator.list_voices()
     assert isinstance(voices, list)
     # The engine is one of the three concrete classes
-    assert isinstance(
-        narrator.engine, (Pyttsx3Engine, GTTSEngine, EdgeTTSEngine)
-    )
+    assert isinstance(narrator.engine, (Pyttsx3Engine, GTTSEngine, EdgeTTSEngine))
 
 
 @pytest.mark.unit

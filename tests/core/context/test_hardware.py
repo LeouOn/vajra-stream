@@ -1,5 +1,6 @@
 # tests/core/context/test_hardware.py
 """Tests for HardwareContextModule."""
+
 from __future__ import annotations
 
 from core.context.hardware import HardwareContextModule

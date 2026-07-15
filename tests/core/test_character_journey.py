@@ -7,6 +7,7 @@ RitualSequencer and an optional LLM operator. These tests cover the
 public lifecycle (begin / advance / harvest / is_complete) using a fake
 character and a real RitualSequencer with no external LLM/DB dependencies.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -95,9 +96,7 @@ def test_journey_starts_incomplete_at_first_stage(journey: CharacterJourney):
 
 
 @pytest.mark.unit
-def test_begin_resets_state_and_returns_first_stage(
-    journey: CharacterJourney, character: FakeCharacter
-):
+def test_begin_resets_state_and_returns_first_stage(journey: CharacterJourney, character: FakeCharacter):
     """begin() stores the character, resets stage index, and returns a status dict."""
     result = journey.begin(character)
 
@@ -113,9 +112,7 @@ def test_begin_resets_state_and_returns_first_stage(
 
 
 @pytest.mark.unit
-def test_advance_records_one_stage_with_blessings(
-    journey: CharacterJourney, character: FakeCharacter
-):
+def test_advance_records_one_stage_with_blessings(journey: CharacterJourney, character: FakeCharacter):
     """advance() runs one stage (all 4 ritual phases) and appends a stage_result."""
     journey.begin(character)
 
@@ -144,9 +141,7 @@ def test_advance_records_one_stage_with_blessings(
 
 @pytest.mark.unit
 @pytest.mark.slow
-def test_run_full_journey_completes_all_six_stages(
-    journey: CharacterJourney, character: FakeCharacter
-):
+def test_run_full_journey_completes_all_six_stages(journey: CharacterJourney, character: FakeCharacter):
     """run_full_journey advances through all 6 stages and produces a complete harvest."""
     final = journey.run_full_journey(character)
 
@@ -168,9 +163,7 @@ def test_run_full_journey_completes_all_six_stages(
 
 
 @pytest.mark.unit
-def test_advance_after_completion_returns_complete_status(
-    journey: CharacterJourney, character: FakeCharacter
-):
+def test_advance_after_completion_returns_complete_status(journey: CharacterJourney, character: FakeCharacter):
     """Calling advance() on a finished journey is a no-op that reports completion."""
     journey.run_full_journey(character)
     assert journey.is_complete is True

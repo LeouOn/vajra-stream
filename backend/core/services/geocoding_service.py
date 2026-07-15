@@ -22,9 +22,11 @@ class GeocodingService:
         """Lazily create the geopy Nominatim geolocator and TimezoneFinder."""
         if self._geolocator is None:
             from geopy.geocoders import Nominatim
+
             self._geolocator = Nominatim(user_agent="vajra_stream_astrology")
         if self._tf is None:
             from timezonefinder import TimezoneFinder
+
             self._tf = TimezoneFinder()
 
     def get_coordinates_and_timezone(self, location_name: str) -> dict:

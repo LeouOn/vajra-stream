@@ -14,6 +14,7 @@ Each ritual contains:
 
 Works with or without an LLM — rich fallback templates when unavailable.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,7 +24,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -47,16 +47,16 @@ _SUFFERING_TO_SUTRA_TAGS: dict[str, list[str]] = {
 # Used by _select_dharani() to include a protective/purifying dharani
 # recitation in the ritual invocation section.
 _SUFFERING_TO_DHARANI: dict[str, str] = {
-    "earthquake": "great_compassion_dharani",        # Avalokiteshvara — compassion for victims
-    "war": "great_compassion_dharani",                # Compassion for all sides
-    "illness": "medicine_buddha_dharani",             # Bhaiṣajyaguru — healing
-    "death": "ushnisha_vijaya_dharani",               # Namgyalma — liberation of deceased
-    "displacement": "amitabha_pure_land_dharani",     # Amitabha — refuge/rebirth
-    "dedication_of_endeavors": "cundi_dharani",       # Cundi — wish-fulfilling/abundance
-    "universal": "great_compassion_dharani",          # Universal compassion
-    "anger": "vajrasattva_hundred_syllable",          # Vajrasattva — purifies anger
-    "purification": "vajrasattva_hundred_syllable",   # Vajrasattva — the purification dharani
-    "fear": "green_tara_dharani",                      # Green Tara — remover of fear
+    "earthquake": "great_compassion_dharani",  # Avalokiteshvara — compassion for victims
+    "war": "great_compassion_dharani",  # Compassion for all sides
+    "illness": "medicine_buddha_dharani",  # Bhaiṣajyaguru — healing
+    "death": "ushnisha_vijaya_dharani",  # Namgyalma — liberation of deceased
+    "displacement": "amitabha_pure_land_dharani",  # Amitabha — refuge/rebirth
+    "dedication_of_endeavors": "cundi_dharani",  # Cundi — wish-fulfilling/abundance
+    "universal": "great_compassion_dharani",  # Universal compassion
+    "anger": "vajrasattva_hundred_syllable",  # Vajrasattva — purifies anger
+    "purification": "vajrasattva_hundred_syllable",  # Vajrasattva — the purification dharani
+    "fear": "green_tara_dharani",  # Green Tara — remover of fear
 }
 
 
@@ -157,10 +157,10 @@ class RitualText:
         """Render as a complete markdown document."""
         lines = [
             f"# Sacred Ritual: {self.intention}",
-            f"",
+            "",
             f"*Generated {self.timestamp}*",
             f"*Tradition: {self.tradition.title()}*",
-            f"",
+            "",
             "---",
             "",
             "## I. Invocation",
@@ -437,13 +437,78 @@ class RitualGenerator:
             return "death"
         if any(w in lower for w in ["refugee", "displaced", "homeless", "evacuee"]):
             return "displacement"
-        if any(w in lower for w in ["anger", "angry", "rage", "furious", "resentment", "grudge", "forgiveness", "enemy", "hostility", "hatred", "wrath", "bitter", "annoyed", "frustrated"]):
+        if any(
+            w in lower
+            for w in [
+                "anger",
+                "angry",
+                "rage",
+                "furious",
+                "resentment",
+                "grudge",
+                "forgiveness",
+                "enemy",
+                "hostility",
+                "hatred",
+                "wrath",
+                "bitter",
+                "annoyed",
+                "frustrated",
+            ]
+        ):
             return "anger"
-        if any(w in lower for w in ["purification", "purify", "confession", "confess", "karma", "negative karma", "cleansing", "atone", "regret", "guilt", "mistake i", "wrong i"]):
+        if any(
+            w in lower
+            for w in [
+                "purification",
+                "purify",
+                "confession",
+                "confess",
+                "karma",
+                "negative karma",
+                "cleansing",
+                "atone",
+                "regret",
+                "guilt",
+                "mistake i",
+                "wrong i",
+            ]
+        ):
             return "purification"
-        if any(w in lower for w in ["fear", "afraid", "anxious", "anxiety", "panic", "worry", "worried", "terror", "dread", "scared", "frightened", "phobia"]):
+        if any(
+            w in lower
+            for w in [
+                "fear",
+                "afraid",
+                "anxious",
+                "anxiety",
+                "panic",
+                "worry",
+                "worried",
+                "terror",
+                "dread",
+                "scared",
+                "frightened",
+                "phobia",
+            ]
+        ):
             return "fear"
-        if any(w in lower for w in ["dedication", "endeavor", "endeavour", "resources", "money", "loss", "investment", "wealth", "offering", "all that i", "everything i"]):
+        if any(
+            w in lower
+            for w in [
+                "dedication",
+                "endeavor",
+                "endeavour",
+                "resources",
+                "money",
+                "loss",
+                "investment",
+                "wealth",
+                "offering",
+                "all that i",
+                "everything i",
+            ]
+        ):
             return "dedication_of_endeavors"
         return "universal"
 
@@ -466,34 +531,38 @@ class RitualGenerator:
                 lines.append(f"  - **{d}**")
             lines.append("")
 
-        lines.extend([
-            f"May your wisdom-light illuminate all beings affected by: {intention}",
-            "",
-            f"May your compassion flow without boundary, without exception, without condition.",
-            f"May your mantra — *{deities['mantra']}* — resonate through every realm.",
-            "",
-            "We request your presence, your blessing, your power.",
-            "Accept this offering of practice.",
-            "",
-            "*OM AH HUM* (3x)",
-        ])
+        lines.extend(
+            [
+                f"May your wisdom-light illuminate all beings affected by: {intention}",
+                "",
+                "May your compassion flow without boundary, without exception, without condition.",
+                f"May your mantra — *{deities['mantra']}* — resonate through every realm.",
+                "",
+                "We request your presence, your blessing, your power.",
+                "Accept this offering of practice.",
+                "",
+                "*OM AH HUM* (3x)",
+            ]
+        )
 
         # Append the deity's dharani for extended protection/purification.
         # The dharani is a longer recitation that amplifies the invocation.
         dharani = self._select_dharani(suffering_type)
         if dharani:
-            lines.extend([
-                "",
-                "---",
-                "",
-                "**Dharani Recitation**",
-                "",
-                dharani,
-                "",
-                "*Recite with single-pointed concentration. Each syllable purifies, "
-                "protects, and liberates. May the resonance of this dharani reach "
-                "all beings in all realms.*",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "---",
+                    "",
+                    "**Dharani Recitation**",
+                    "",
+                    dharani,
+                    "",
+                    "*Recite with single-pointed concentration. Each syllable purifies, "
+                    "protects, and liberates. May the resonance of this dharani reach "
+                    "all beings in all realms.*",
+                ]
+            )
 
         return "\n".join(lines)
 
@@ -519,7 +588,12 @@ class RitualGenerator:
                         f"for healing, protection, peace, and liberation. Use simple, beautiful language. "
                         f"Do not use headers or titles. End with 'Om Mani Padme Hum.'"
                     )
-                    result = llm.generate(prompt=prompt, system_prompt="You are a compassionate Buddhist practitioner writing prayers.", max_tokens=500, temperature=0.8)
+                    result = llm.generate(
+                        prompt=prompt,
+                        system_prompt="You are a compassionate Buddhist practitioner writing prayers.",
+                        max_tokens=500,
+                        temperature=0.8,
+                    )
                     if result and len(result.strip()) > 100:
                         return result.strip()
             except Exception as e:
@@ -532,7 +606,7 @@ class RitualGenerator:
         """Rich fallback prayer when LLM is unavailable."""
         suffering_type = self.detect_suffering_type(intention)
         prayers = {
-            "earthquake": f"""To all beings affected by the earthquake:
+            "earthquake": """To all beings affected by the earthquake:
 
 To those trapped and waiting — may rescue come swiftly. May the hands that dig through rubble be guided by compassion. May every breath you take draw you closer to safety.
 
@@ -545,8 +619,7 @@ To those who have passed — may you not be afraid. The light you see is the wis
 To the earth herself — may you find equilibrium. May your trembling cease. May stability return to the land that has sheltered so many.
 
 *Om Mani Padme Hum.*""",
-
-            "universal": f"""To all beings across all realms who are suffering in this moment:
+            "universal": """To all beings across all realms who are suffering in this moment:
 
 To those in pain — may your suffering be known, may it be held, may it transform.
 
@@ -561,8 +634,7 @@ To those who are dying — may the clear light appear. May you recognize it as y
 To those who have died — may you find swift passage. May the bardo be brief. May liberation be immediate.
 
 *Om Mani Padme Hum.*""",
-
-            "dedication_of_endeavors": f"""To all beings across all realms who have invested, spent, lost, and given:
+            "dedication_of_endeavors": """To all beings across all realms who have invested, spent, lost, and given:
 
 To whatever resources I have gathered and spent —
 whether in concentrated effort or scattered moments,
@@ -584,8 +656,7 @@ I offer it all — without exception, without regret, without condition.
 May it bring lasting happiness for all beings throughout space and time.
 
 *Om Dzambhala Dzalim Dzale Svaha.*""",
-
-            "anger": f"""To all beings who burn with the fire of anger:
+            "anger": """To all beings who burn with the fire of anger:
 
 To the one who is furious — may you see that this anger is not your enemy. It is a wave in the ocean of your mind. It arose from conditions, and it will pass. You do not need to act on it. You do not need to suppress it. Just watch it. Let it burn itself out in the space of awareness.
 
@@ -596,8 +667,7 @@ To the space between you — may forgiveness flower there. Not because what happ
 To Vajrasattva — Diamond Being — may your purity cut through this anger like a diamond through glass. May the hundred-syllable mantra wash clean the karma of hostility. May what was rigid become fluid. May what was hot become cool. May what was weaponized become medicine.
 
 *Om Vajrasattva Hum.*""",
-
-            "purification": f"""To all beings who carry the weight of past actions:
+            "purification": """To all beings who carry the weight of past actions:
 
 To the one who has done wrong — may you know that acknowledgment is the first step of purification. You are not your past. You are not your mistakes. The dharma does not ask you to forget — it asks you to transform.
 
@@ -610,8 +680,7 @@ To the path ahead — may you walk it with the lightness of one who has been cle
 May all beings — every one of whom has been both harmed and harmer across countless lives — find the purification that leads to awakening.
 
 *Om Vajrasattva Hum.*""",
-
-            "fear": f"""To all beings who tremble with fear:
+            "fear": """To all beings who tremble with fear:
 
 To the one who is afraid — may you know that fear is not weakness. It is the mind trying to protect you from a future that hasn't arrived. It is a shadow on the wall, cast by the lamp of your own imagination. The shadow cannot harm you. But grasping at it — that is what wears you down.
 
@@ -643,7 +712,9 @@ To all beings who live in chronic fear — may they discover what the Heart Sutr
                         f"finding meaning, compassion, or liberation in the face of: {intention}. "
                         f"Make it specific, evocative, and rooted in dharma. No titles or headers."
                     )
-                    result = llm.generate(prompt=prompt, system_prompt="You are a wise dharma teacher.", max_tokens=400, temperature=0.7)
+                    result = llm.generate(
+                        prompt=prompt, system_prompt="You are a wise dharma teacher.", max_tokens=400, temperature=0.7
+                    )
                     if result and len(result.strip()) > 100:
                         return self._with_sutra(result.strip(), suffering_type)
             except Exception as e:
@@ -664,7 +735,6 @@ The Master placed his hand on the ground and said: "Here."
 "Compassion," said the Master. "Compassion is the one thing that grows stronger when everything else falls apart. When the buildings crumble, compassion builds. When the earth splits, compassion bridges. When all seems lost, compassion finds a way. This is why Chenrezig has a thousand hands — not to hold the world still, but to reach into every crack and crevice where suffering hides, and pull it into the light."
 
 The monk bowed. And in that moment, the trembling stopped — not the earth's trembling, but the trembling in his own heart.""",
-
             "universal": """The Buddha said: "Monks, suppose a man were to throw a yoke with a single hole into the great ocean. And suppose a blind turtle who surfaces only once every hundred years were to rise at the very spot where the yoke floated. That probability — the turtle putting its neck through the hole — is how rare it is to obtain a precious human rebirth."
 
 "Having obtained this rare rebirth, what should one do?" a monk asked.
@@ -676,7 +746,6 @@ The monk bowed. And in that moment, the trembling stopped — not the earth's tr
 "Compassion is the seed. Wisdom is the water. Together they grow the bodhi tree under which all beings can rest. Do not wait for perfect understanding before you begin. Begin now, with whatever you have. The universe will meet you halfway."
 
 And the monks went forth, each one carrying compassion like a lamp into the darkness.""",
-
             "dedication_of_endeavors": """A great merchant named Sadaprudita once traded across seven kingdoms. He amassed vast wealth — gold, silks, jewels beyond counting. He thought his wealth would bring him happiness, and for a time it did.
 
 One day, a great storm sank all his ships. Bandits raided his caravans. A fire consumed his warehouses. In a single week, he lost everything — thousands upon thousands of pieces of gold, a lifetime of accumulated effort.
@@ -704,7 +773,6 @@ The merchant was silent.
 The merchant bowed. And from that day forward, whatever he earned — a little or a lot — he offered it all. Not because he was forced to, but because he understood that offering is the only use of wealth that cannot be taken away by storm or bandit or fire.
 
 This is the perfection of generosity: not giving because you have plenty, but giving because you understand that having and losing are the same dream.""",
-
             "anger": """A monk came to his teacher, trembling with rage. "Someone has wronged me terribly," he said. "I cannot forgive them. The anger is eating me alive."
 
 The teacher said nothing. He went to the kitchen and returned with two pieces of coal — glowing red-hot from the fire. He placed one in his own hand, and offered the other to the monk.
@@ -728,7 +796,6 @@ The monk was silent.
 "The Buddha said: 'Hatred does not cease by hatred, but by love alone.' You do not need to love what they did. You need to love yourself enough to let go of the coal."
 
 The monk bowed. And slowly, day by day, he opened his hand.""",
-
             "purification": """A student asked the Master: "I have committed many wrong actions in my past. Can they ever be purified, or am I condemned to carry them forever?"
 
 The Master took the student to a river that flowed near the temple. The water was muddy, churned up by recent rains.
@@ -756,7 +823,6 @@ They waited. Gradually, the mud sank to the bottom. The water became clear again
 "The mud settles because it was never part of the water. Your karma settles because it was never part of you. It is a pattern, not a nature. Patterns change. Natures do not. Your nature is already awake."
 
 The student looked at the now-clear water and wept — not from guilt, but from relief.""",
-
             "fear": """A woman came to the monastery, trembling. "I am afraid all the time," she said. "Afraid of the future, afraid of losing what I have, afraid of death. The fear follows me everywhere."
 
 The teacher listened, then asked: "Where is the fear right now? In this moment, sitting here, drinking tea — where is it?"
@@ -800,9 +866,13 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
             lines.append("**Current Astrological Correspondences:**")
             lines.append("")
             if sun:
-                lines.append(f"- **Sun:** {sun.get('sign', '?')} {sun.get('degree', 0):.1f} degrees — the conscious light illuminating this moment")
+                lines.append(
+                    f"- **Sun:** {sun.get('sign', '?')} {sun.get('degree', 0):.1f} degrees — the conscious light illuminating this moment"
+                )
             if moon:
-                lines.append(f"- **Moon:** {moon.get('sign', '?')} {moon.get('degree', 0):.1f} degrees — the emotional quality flowing through this practice")
+                lines.append(
+                    f"- **Moon:** {moon.get('sign', '?')} {moon.get('degree', 0):.1f} degrees — the emotional quality flowing through this practice"
+                )
             if asc:
                 lines.append(f"- **Ascendant:** {asc.get('sign', '?')} — the lens through which compassion manifests")
             lines.append("")
@@ -819,7 +889,9 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
                     lines.append(f"- **Nakshatra:** {nakshatra.get('name', '?')} — the stellar mansion presiding")
                 lines.append("")
         else:
-            lines.append("**Astrology:** *(data unavailable — practice timed by universal compassion, not planetary alignment)*")
+            lines.append(
+                "**Astrology:** *(data unavailable — practice timed by universal compassion, not planetary alignment)*"
+            )
             lines.append("")
 
         # Tarot — draw from the full 78-card deck in knowledge/tarot_deck.json
@@ -942,7 +1014,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
         suffering_type = self.detect_suffering_type(intention)
 
         journeys = {
-            "earthquake": f"""**The Six Stages of the Journey Through Earthquake:**
+            "earthquake": """**The Six Stages of the Journey Through Earthquake:**
 
 **1. The Awakening** — The earth speaks. What was solid shifts. In an instant, the illusion of stability is revealed. This is not cruelty — it is the dharma teaching impermanence through the very ground beneath our feet.
 
@@ -955,8 +1027,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
 **5. The Golden Age** — The community that emerges from disaster is not the same one that existed before. Something has been forged. Bonds have been tested and proven. The golden age is not a return to the past — it is a new beginning built on the foundation of what was lost.
 
 **6. The Infinite Return** — The story does not end. The compassion generated in this moment ripples outward through all time. Every mantra recited, every frequency broadcast, every prayer spoken — these do not dissipate. They return, again and again, in forms we cannot predict. The circle closes and opens simultaneously.""",
-
-            "universal": f"""**The Six Stages of the Journey Through Universal Suffering:**
+            "universal": """**The Six Stages of the Journey Through Universal Suffering:**
 
 **1. The Awakening** — Suffering is not a mistake. It is the friction that awakens consciousness. Without it, we would sleep forever in the dream of separation. The first noble truth is not pessimism — it is diagnosis.
 
@@ -969,8 +1040,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
 **5. The Golden Age** — The golden age is not a future utopia. It is the present moment seen clearly. When compassion flows without exception, every moment becomes golden. Every encounter becomes a meeting of buddhas.
 
 **6. The Infinite Return** — The bodhisattva vow has no end because it has no beginning. "However innumerable beings are, I vow to save them all." This is not hyperbole. It is the recognition that compassion is the nature of mind itself. It will continue as long as there is suffering — which is to say, it will continue forever. And that is not a tragedy. It is the beauty of the path.""",
-
-            "dedication_of_endeavors": f"""**The Six Stages of the Journey Through Loss and Offering:**
+            "dedication_of_endeavors": """**The Six Stages of the Journey Through Loss and Offering:**
 
 **1. The Loss** — Something you gathered slips through your fingers. Money, time, effort, hope — concentrated or scattered, it doesn't matter. The form it took is gone. This is not failure. This is the first lesson in the dana-paramita, the perfection of generosity: that which can be lost was never truly held.
 
@@ -983,8 +1053,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
 **5. The Abundance** — Not the abundance of bank accounts or portfolios, but the abundance of a heart that has nothing left to protect because it has already offered everything. This is true wealth — the wealth of Dzambhala, the Yellow Wealth Buddha, whose abundance is not measured in dollars but in the capacity to give without grasping.
 
 **6. The Return** — "Whether it comes back to me or not." This is the key phrase. The bodhisattva does not practice generosity to get something back. But the paradox is: when you truly stop grasping, abundance flows naturally — not because you demand it, but because the mind that doesn't cling is itself the greatest treasure. The return is not the money. The return is the awakened heart.""",
-
-            "anger": f"""**The Six Stages of the Journey Through Anger:**
+            "anger": """**The Six Stages of the Journey Through Anger:**
 
 **1. The Fire** — Anger arises like a flame. It feels powerful, righteous, justified. The mind says: "This is correct. I SHOULD be angry." And maybe it is correct — maybe the anger is pointing to a real injustice. But the question is not whether anger is justified. The question is whether you want to carry the hot coal any longer.
 
@@ -997,8 +1066,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
 **5. The Release** — Forgiveness arrives not as a decision but as a natural unfolding. One day you notice the anger is lighter. Another day it is gone. You did not defeat it. You simply stopped feeding it, and it starved. The person who wronged you is still who they are — but you are no longer defined by what they did.
 
 **6. The Transformation** — The anger that burned you becomes the fuel for compassion. You understand suffering so deeply — your own and others' — that anger toward anyone feels like anger toward yourself. This is not weakness. This is the strength of one who has walked through fire and emerged luminous. The bodhisattva knows: every anger transformed is a being liberated.""",
-
-            "purification": f"""**The Six Stages of the Journey Through Purification:**
+            "purification": """**The Six Stages of the Journey Through Purification:**
 
 **1. The Mirror** — You see yourself clearly. Not the self you present to others, but the self that has acted from ignorance, greed, and anger. The mirror is painful. But the mirror is also the first kindness — because without seeing, there is no transforming.
 
@@ -1011,8 +1079,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
 **5. The Clear Water** — The mud has settled. The water is clear. You realize it was always clear — the mud was just a visitor. This is the discovery of buddha-nature: the diamond beneath the dirt, the sky behind the clouds. You have not become someone new. You have simply reconnected with what you always were.
 
 **6. The Vow** — "Having been purified, I now purify all beings." The merit of purification is dedicated outward. Every mantra recited, every confession made, every moment of clear seeing — these become the medicine for all beings who also carry the weight of karma. The purified one becomes a source of purity for others. The clear water flows outward and nourishes the world.""",
-
-            "fear": f"""**The Six Stages of the Journey Through Fear:**
+            "fear": """**The Six Stages of the Journey Through Fear:**
 
 **1. The Alarm** — Fear arises as a wake-up call. The body sounds the alarm — heart racing, breath shallow, muscles tense. The mind, interpreting these signals, tells a story about what is coming, what might happen, what could be lost. The story is always about the future. The story is always terrifying. And the story is almost never accurate.
 
@@ -1028,7 +1095,9 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
         }
         return journeys.get(suffering_type, journeys["universal"])
 
-    def generate_dedication(self, targets: list[str], mantras: int, frequencies: list[float], solfeggio_names: list[str]) -> str:
+    def generate_dedication(
+        self, targets: list[str], mantras: int, frequencies: list[float], solfeggio_names: list[str]
+    ) -> str:
         """Generate dedication of merit verses."""
         lines = [
             "*Dedication of Merit*",
@@ -1042,29 +1111,33 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
         ]
         for t in targets:
             lines.append(f"  * {t}")
-        lines.extend([
-            "",
-            "May no being be excluded.",
-            "May no boundary limit this dedication.",
-            "May no condition diminish its power.",
-            "",
-            f"**{mantras} mantras** of Om Mani Padme Hum have been offered.",
-            f"**{len(frequencies)} Solfeggio carrier frequencies** have resonated:",
-        ])
+        lines.extend(
+            [
+                "",
+                "May no being be excluded.",
+                "May no boundary limit this dedication.",
+                "May no condition diminish its power.",
+                "",
+                f"**{mantras} mantras** of Om Mani Padme Hum have been offered.",
+                f"**{len(frequencies)} Solfeggio carrier frequencies** have resonated:",
+            ]
+        )
         for freq, name in zip(frequencies, solfeggio_names):
             lines.append(f"  * {freq:.2f} Hz — {name}")
-        lines.extend([
-            "",
-            "By this merit, may all beings attain complete enlightenment.",
-            "May the earth find peace.",
-            "May the waters be calm.",
-            "May the air be pure.",
-            "May all beings be happy.",
-            "May all beings be free.",
-            "",
-            "*Gate gate paragate parasamgate bodhi svaha.*",
-            "*Om Mani Padme Hum.*",
-        ])
+        lines.extend(
+            [
+                "",
+                "By this merit, may all beings attain complete enlightenment.",
+                "May the earth find peace.",
+                "May the waters be calm.",
+                "May the air be pure.",
+                "May all beings be happy.",
+                "May all beings be free.",
+                "",
+                "*Gate gate paragate parasamgate bodhi svaha.*",
+                "*Om Mani Padme Hum.*",
+            ]
+        )
         return "\n".join(lines)
 
     def generate_full_ritual(
@@ -1142,6 +1215,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
         if provider is None:
             try:
                 from core.tts_provider import get_tts_provider
+
                 provider = get_tts_provider()
             except Exception:
                 pass
@@ -1200,7 +1274,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
 
         # Check if we're in an async context
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # We're in an async context — schedule the task
             asyncio.ensure_future(_recite())
             result["status"] = "queued"

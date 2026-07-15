@@ -14,10 +14,9 @@ The heavy subsystems (``HybridScalarWaveGenerator``, ``BlessingDatabase``,
 broadcaster falls back to its "universal field" code path. No audio
 device, no DB file, no LLM call ever runs.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -27,7 +26,6 @@ from core.integrated_scalar_radionics import (
     IntegratedScalarRadionicsBroadcaster,
     IntentionType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fixtures
@@ -186,7 +184,7 @@ def test_broadcast_to_targets_runs_with_no_subsystems(
         target_count=3,
         duration_seconds=0.0,  # skip the scalar loop entirely
         scalar_intensity=0.5,
-        frequency_hz=None,      # exercise the auto-select branch
+        frequency_hz=None,  # exercise the auto-select branch
         mantra="Om Ah Hum",
     )
 

@@ -603,9 +603,12 @@ class TestAstrologyTransitFixes:
         #   - Three-Harmony (三合, full or partial): set-based across all 8 branches
         #   - Punishment (three-way Yin-Si-Shen, Chou-Xu-Wei): set-based
         accepted_types = {
-            "Clash", "Harmony",
-            "Harm", "Punishment",
-            "Three-Harmony", "Three-Harmony (Partial)",
+            "Clash",
+            "Harmony",
+            "Harm",
+            "Punishment",
+            "Three-Harmony",
+            "Three-Harmony (Partial)",
         }
         for ix in interactions:
             assert "type" in ix
@@ -651,17 +654,10 @@ class TestAstrologyTransitFixes:
         interactions = result["interactions"]
 
         trine_types = {ix["type"] for ix in interactions if "Three-Harmony" in ix["type"]}
-        assert trine_types, (
-            f"expected at least one Three-Harmony interaction; got {interactions}"
-        )
+        assert trine_types, f"expected at least one Three-Harmony interaction; got {interactions}"
         # Wood trine {Hai, Mao, Wei} should be partial (Mao + Wei present, no Hai)
-        wood = [
-            ix for ix in interactions
-            if "Wood" in ix.get("description", "") and "Three-Harmony" in ix["type"]
-        ]
-        assert wood, (
-            f"expected partial Wood trine (Mao + Wei); interactions={interactions}"
-        )
+        wood = [ix for ix in interactions if "Wood" in ix.get("description", "") and "Three-Harmony" in ix["type"]]
+        assert wood, f"expected partial Wood trine (Mao + Wei); interactions={interactions}"
 
     def test_bazi_detects_harm_pairs(self, calculator, monkeypatch):
         """The expanded BaZi engine must surface 相害 (Harm) pair interactions
@@ -700,9 +696,7 @@ class TestAstrologyTransitFixes:
         interactions = result["interactions"]
 
         harms = [ix for ix in interactions if ix["type"] == "Harm"]
-        assert harms, (
-            f"expected at least one Harm (Zi-Wei); got {interactions}"
-        )
+        assert harms, f"expected at least one Harm (Zi-Wei); got {interactions}"
         # The Zi↔Wei harm must mention both branch names
         assert any("Zi" in ix["description"] and "Wei" in ix["description"] for ix in harms), (
             f"Zi-Wei harm not found; harms={harms}"

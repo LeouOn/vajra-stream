@@ -1,5 +1,6 @@
 # core/llm/base.py
 """Base LLM provider abstractions."""
+
 from __future__ import annotations
 
 import asyncio
@@ -169,6 +170,7 @@ class _ThinkingFilter:
         joined = "\n".join(p for p in self.reasoning_parts if p).strip()
         return joined or None
 
+
 # Module-level singleton cache shared by all OpenAI-compatible providers.
 # Lazy-instantiated so test isolation isn't disturbed. Providers opt in
 # to caching via the constructor flag; the cache itself is only consulted
@@ -254,10 +256,7 @@ class OpenAICompatibleProvider:
     async def list_models(self) -> list[ModelInfo]:
         try:
             models = await self._client.models.list()
-            return [
-                ModelInfo(id=m.id, provider=self.name, supports_streaming=True)
-                for m in models.data
-            ]
+            return [ModelInfo(id=m.id, provider=self.name, supports_streaming=True) for m in models.data]
         except Exception as e:
             logger.warning(f"list_models failed for {self.name}: {e}")
             return []
@@ -278,8 +277,11 @@ class OpenAICompatibleProvider:
         if cache is not None and request.temperature <= 0.1:
             try:
                 cached = await cache.get_static(
-                    system_for_cache, prompt_for_cache, model,
-                    request.max_tokens, request.temperature,
+                    system_for_cache,
+                    prompt_for_cache,
+                    model,
+                    request.max_tokens,
+                    request.temperature,
                 )
                 if cached is not None:
                     return cached
@@ -289,9 +291,7 @@ class OpenAICompatibleProvider:
         start_time = time.time()
         candidate_models = [model]
         if not request.model and self.fallback_models:
-            candidate_models = [self.default_model] + [
-                m for m in self.fallback_models if m != self.default_model
-            ]
+            candidate_models = [self.default_model] + [m for m in self.fallback_models if m != self.default_model]
 
         last_error: Exception | None = None
         for attempt_model in candidate_models:
@@ -327,13 +327,17 @@ class OpenAICompatibleProvider:
                     prompt_tokens=chat_response.input_tokens,
                     completion_tokens=chat_response.output_tokens,
                     latency_ms=latency_ms,
-            )
+                )
 
                 if cache is not None and request.temperature <= 0.1:
                     try:
                         await cache.set_static(
-                            system_for_cache, prompt_for_cache, attempt_model,
-                            request.max_tokens, request.temperature, chat_response,
+                            system_for_cache,
+                            prompt_for_cache,
+                            attempt_model,
+                            request.max_tokens,
+                            request.temperature,
+                            chat_response,
                         )
                     except Exception:  # noqa: BLE001
                         logger.debug("response cache set failed", exc_info=True)
@@ -362,16 +366,18 @@ class OpenAICompatibleProvider:
         """Best-effort usage recording — never propagates exceptions."""
         try:
             tracker = LLMUsageTracker.get()
-            tracker.record(UsageRecord(
-                provider=self.name,
-                model=model,
-                prompt_tokens=prompt_tokens or 0,
-                completion_tokens=completion_tokens or 0,
-                total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
-                latency_ms=latency_ms,
-                endpoint=endpoint,
-                success=success,
-            ))
+            tracker.record(
+                UsageRecord(
+                    provider=self.name,
+                    model=model,
+                    prompt_tokens=prompt_tokens or 0,
+                    completion_tokens=completion_tokens or 0,
+                    total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+                    latency_ms=latency_ms,
+                    endpoint=endpoint,
+                    success=success,
+                )
+            )
         except Exception:  # noqa: BLE001
             logger.debug("LLMUsageTracker.record failed", exc_info=True)
 

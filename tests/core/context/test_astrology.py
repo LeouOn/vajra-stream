@@ -1,5 +1,6 @@
 # tests/core/context/test_astrology.py
 """Tests for AstrologyContextModule."""
+
 from __future__ import annotations
 
 from core.context.astrology import AstrologyContextModule
@@ -12,7 +13,6 @@ async def test_astrology_not_requested_returns_empty():
     result = await mod.gather(ContextRequest())
     assert result.data == {}
     assert result.error is None
-
 
 
 async def test_astrology_uses_precomputed_data():

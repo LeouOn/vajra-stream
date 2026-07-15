@@ -13,6 +13,7 @@ Covers the public API:
 Rendering uses small canvases (e.g. 64×64) to keep tests fast. Files are
 written to ``tmp_path`` only when explicitly testing ``save()``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,7 +36,6 @@ from core.energetic_visualization import (
     create_flower_of_life,
     create_seven_chakras_composition,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test

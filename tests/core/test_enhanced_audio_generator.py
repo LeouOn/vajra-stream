@@ -14,6 +14,7 @@ required at import time. We use a tiny ``sample_rate`` (e.g. 1024) to keep
 the array math fast; the chakra test uses a longer duration at the same
 sample rate because we only assert shape.
 """
+
 from __future__ import annotations
 
 import sys
@@ -26,7 +27,6 @@ from core.enhanced_audio_generator import (
     EnhancedAudioGenerator,
     PrayerBowlGenerator,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + alias

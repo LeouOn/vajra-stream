@@ -35,9 +35,7 @@ import pytest
 # ``backend.websocket.connection_manager`` so the bridge module
 # body — which imports ``UnifiedOrchestrator`` at class-definition time —
 # does not pull in the rest of the application graph.
-_REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..")
-)
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # Inject stubs before importing the bridge.
 if "scripts.unified_orchestrator" not in sys.modules:
@@ -49,12 +47,8 @@ if "backend.websocket.connection_manager" not in sys.modules:
     _stub_ws.stable_connection_manager_v2 = object()
     sys.modules["backend.websocket.connection_manager"] = _stub_ws
 
-_BRIDGE_PATH = os.path.join(
-    _REPO_ROOT, "backend", "core", "orchestrator_bridge.py"
-)
-_spec = importlib.util.spec_from_file_location(
-    "backend.core.orchestrator_bridge", _BRIDGE_PATH
-)
+_BRIDGE_PATH = os.path.join(_REPO_ROOT, "backend", "core", "orchestrator_bridge.py")
+_spec = importlib.util.spec_from_file_location("backend.core.orchestrator_bridge", _BRIDGE_PATH)
 assert _spec is not None and _spec.loader is not None
 ob_module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ob_module)
@@ -146,16 +140,12 @@ def test_shutdown_joins_crystal_thread_within_2s(fresh_bridge):
     # Wait until the broadcast actually starts running in the background
     # thread, otherwise shutdown could race ahead and the test would not
     # exercise the cancellation path at all.
-    assert crystal.broadcast_started.wait(timeout=2.0), (
-        "Crystal broadcast never started — thread spawn broken"
-    )
+    assert crystal.broadcast_started.wait(timeout=2.0), "Crystal broadcast never started — thread spawn broken"
 
     # Sanity: the implementation must expose a reference to the thread it
     # spawned, otherwise it cannot join it.
     thread = getattr(bridge, "_crystal_thread", None)
-    assert thread is not None, (
-        "OrchestratorBridge did not track the spawned crystal thread"
-    )
+    assert thread is not None, "OrchestratorBridge did not track the spawned crystal thread"
     assert thread.is_alive(), "Test harness: broadcast thread should still be running"
 
     # The shutdown must (a) exist and (b) join within 2 s. The fake crystal
@@ -165,12 +155,8 @@ def test_shutdown_joins_crystal_thread_within_2s(fresh_bridge):
     bridge.shutdown()
     elapsed = time.monotonic() - start
 
-    assert not thread.is_alive(), (
-        f"Crystal broadcast thread still alive after shutdown ({elapsed:.2f}s)"
-    )
-    assert elapsed < 2.0, (
-        f"shutdown() took {elapsed:.2f}s to join the thread — must be < 2s"
-    )
+    assert not thread.is_alive(), f"Crystal broadcast thread still alive after shutdown ({elapsed:.2f}s)"
+    assert elapsed < 2.0, f"shutdown() took {elapsed:.2f}s to join the thread — must be < 2s"
 
 
 def test_shutdown_idempotent(fresh_bridge):

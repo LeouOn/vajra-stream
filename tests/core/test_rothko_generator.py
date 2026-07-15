@@ -8,13 +8,13 @@ saving path against a temporary directory.
 PIL/Pillow is a hard dependency of the module under test; tests use a
 small image size to keep them fast.
 """
+
 from __future__ import annotations
 
 import pytest
 from PIL import Image
 
 from core.rothko_generator import RothkoGenerator
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -48,8 +48,7 @@ def test_module_imports_and_palettes_loaded():
     assert hasattr(mod, "RothkoGenerator")
     g = RothkoGenerator()
     # All 8 spiritual palettes must be present
-    expected = {"compassion", "wisdom", "peace", "awakening", "emptiness",
-                "earth", "transcendence", "rainbow_body"}
+    expected = {"compassion", "wisdom", "peace", "awakening", "emptiness", "earth", "transcendence", "rainbow_body"}
     assert set(g.PALETTES.keys()) == expected
     # Each palette must have at least 3 colors
     for name, palette in g.PALETTES.items():
@@ -154,14 +153,13 @@ def test_generate_for_mood_keyword_mapping(gen):
 @pytest.mark.unit
 def test_generate_meditation_sequence_writes_files(gen, tmp_meditation_dir):
     """``generate_meditation_sequence`` saves the requested number of PNGs."""
-    paths = gen.generate_meditation_sequence(
-        theme="awakening", count=3, output_dir=str(tmp_meditation_dir)
-    )
+    paths = gen.generate_meditation_sequence(theme="awakening", count=3, output_dir=str(tmp_meditation_dir))
 
     assert len(paths) == 3
     for p in paths:
         # Returned paths must exist and be valid PNG files
         import os
+
         assert os.path.exists(p), f"Missing output: {p}"
         with Image.open(p) as im:
             assert im.format == "PNG"

@@ -20,13 +20,14 @@ Covers:
 * Phase hint from the LLM advances the phase within ``process_message``.
 * ``get_session()`` raises KeyError on a missing id.
 """
+
 from __future__ import annotations
 
 import sqlite3
 
 import pytest
-
 from conftest import FakeEmptyRegistry, StubDialogue
+
 from core.schema import apply_schema
 from modules.healing_dialogue import HealingDialogueService
 

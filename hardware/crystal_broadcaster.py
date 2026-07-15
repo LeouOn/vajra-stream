@@ -9,6 +9,7 @@ import numpy as np
 
 try:
     import sounddevice as sd
+
     SOUNDDEVICE_AVAILABLE = True
 except (ImportError, OSError) as e:
     print(f"Warning: sounddevice not available in crystal_broadcaster: {e}")
@@ -44,23 +45,23 @@ class Level2CrystalBroadcaster:
         Optimized for crystal grid resonance
         Default: prayer bowl style, set pure_sine=True for original
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("VAJRA.STREAM - Crystal Grid Blessing")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Intention: {intention}")
-        print(f"Duration: {duration/60:.1f} minutes")
+        print(f"Duration: {duration / 60:.1f} minutes")
         print(f"Audio Mode: {'Pure Sine Waves' if self.pure_sine else 'Prayer Bowl Synthesis'}")
         print(f"Time: {datetime.now().strftime('%I:%M %p')}")
         print("\nPlace your written intention in the center well now.")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # 5 frequencies - each chosen for specific purpose
         frequencies = {
-            'schumann': 7.83,      # Earth resonance
-            'om': 136.1,           # Year of Earth frequency
-            'love': 528,           # DNA healing/love
-            'connection': 639,     # Relationships/connection
-            'awakening': 741       # Intuition/awakening
+            "schumann": 7.83,  # Earth resonance
+            "om": 136.1,  # Year of Earth frequency
+            "love": 528,  # DNA healing/love
+            "connection": 639,  # Relationships/connection
+            "awakening": 741,  # Intuition/awakening
         }
 
         print("Broadcasting frequencies:")
@@ -105,7 +106,7 @@ class Level2CrystalBroadcaster:
             sd.stop()
             print("\n\nBroadcast completed.")
             print("Dedication: May all beings benefit from this practice.")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
     def generate_custom_frequencies(self, frequencies, intention="custom", duration=300, amplitude=0.3):
         """
@@ -121,16 +122,16 @@ class Level2CrystalBroadcaster:
             duration: Duration in seconds.
             amplitude: Peak amplitude (0.15-0.50), from rate potency.
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("VAJRA.STREAM - Custom Crystal Broadcast")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Intention: {intention}")
-        print(f"Duration: {duration/60:.1f} minutes")
+        print(f"Duration: {duration / 60:.1f} minutes")
         print(f"Audio Mode: {'Pure Sine Waves' if self.pure_sine else 'Prayer Bowl Synthesis'}")
         print(f"Amplitude: {amplitude:.2f}")
         print(f"\nBroadcasting {len(frequencies)} frequencies:")
         for i, freq in enumerate(frequencies):
-            print(f"  [{i+1}] {freq:.2f} Hz")
+            print(f"  [{i + 1}] {freq:.2f} Hz")
 
         # Generate time array
         t = np.linspace(0, duration, int(self.sample_rate * duration))
@@ -154,7 +155,7 @@ class Level2CrystalBroadcaster:
         stereo_wave = np.column_stack([wave, wave])
 
         # Play
-        print(f"\nBroadcasting now... (Ctrl+C to stop)\n")
+        print("\nBroadcasting now... (Ctrl+C to stop)\n")
 
         try:
             sd.play(stereo_wave, samplerate=self.sample_rate)
@@ -163,27 +164,27 @@ class Level2CrystalBroadcaster:
             sd.stop()
             print("\n\nBroadcast completed.")
             print("Dedication: May all beings benefit from this practice.")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
-    def generate_chakra_healing(self, chakra='heart', duration=300):
+    def generate_chakra_healing(self, chakra="heart", duration=300):
         """
         Focused healing for specific chakra with prayer bowl synthesis
         """
         chakra_frequencies = {
-            'root': 396,
-            'sacral': 417,
-            'solar_plexus': 528,
-            'heart': 639,
-            'throat': 741,
-            'third_eye': 852,
-            'crown': 963
+            "root": 396,
+            "sacral": 417,
+            "solar_plexus": 528,
+            "heart": 639,
+            "throat": 741,
+            "third_eye": 852,
+            "crown": 963,
         }
 
         base_freq = chakra_frequencies.get(chakra, 528)
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"CHAKRA HEALING - {chakra.upper()}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Primary Frequency: {base_freq} Hz")
         print(f"Supporting: {7.83} Hz (Schumann)")
         print(f"Audio Mode: {'Pure Sine Waves' if self.pure_sine else 'Prayer Bowl Synthesis'}")
@@ -214,14 +215,14 @@ class Level2CrystalBroadcaster:
         Run blessing continuously (background mode)
         Loops indefinitely until stopped
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("CONTINUOUS BLESSING MODE")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Intention: {intention}")
         print(f"Audio Mode: {'Pure Sine Waves' if self.pure_sine else 'Prayer Bowl Synthesis'}")
         print("Mode: Infinite loop")
         print("Press Ctrl+C to stop")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Generate 5 minute segment
         segment_duration = 300
@@ -251,22 +252,22 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
         Optimized waveform for bass shaker with prayer bowl synthesis
         Lower frequencies emphasized for better tactile response
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("VAJRA.STREAM - Amplified Crystal Broadcasting")
         print("Hardware: Amplifier + Bass Shaker + Crystal Grid")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Intention: {intention}")
         print(f"Audio Mode: {'Pure Sine Waves' if self.pure_sine else 'Prayer Bowl Synthesis'}")
         print("\n⚠️  Ensure amplifier volume is at safe level (25-40%)")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         # Lower frequencies work better with bass shaker
         frequencies = {
-            'schumann': 7.83,
-            'theta': 6.0,         # Deep meditation
-            'om': 136.1,
-            'love': 528,
-            'earth_day': 194.18   # Earth's daily rotation
+            "schumann": 7.83,
+            "theta": 6.0,  # Deep meditation
+            "om": 136.1,
+            "love": 528,
+            "earth_day": 194.18,  # Earth's daily rotation
         }
 
         print("Broadcasting frequencies:")
@@ -331,15 +332,15 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
         """
         Test bass shaker function with prayer bowl frequency sweep
         """
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("BASS SHAKER TEST")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print("You should feel vibrations in the platform")
         if self.pure_sine:
             print("Frequency sweep: 5 Hz → 200 Hz over 30 seconds (sine waves)")
         else:
             print("Prayer bowl sweep: 5 Hz → 200 Hz over 30 seconds")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
         duration = 30
         start_freq = 5
@@ -356,10 +357,10 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
             # Prayer bowl frequency sweep
             wave = np.zeros_like(t)
             # Create multiple prayer bowl tones sweeping through frequency range
-            for i in range(0, len(t), len(t)//10):  # 10 frequency steps
+            for i in range(0, len(t), len(t) // 10):  # 10 frequency steps
                 step_duration = duration / 10
                 step_start = i
-                step_end = min(i + len(t)//10, len(t))
+                step_end = min(i + len(t) // 10, len(t))
                 if step_end > step_start:
                     freq = start_freq + (end_freq - start_freq) * (i / len(t))
                     step_wave = self.enhanced_gen.generate_prayer_bowl_tone(freq, step_duration, pure_sine=False)
@@ -379,7 +380,7 @@ class Level3AmplifiedBroadcaster(Level2CrystalBroadcaster):
 if __name__ == "__main__":
     # Determine hardware level
     print("\nVajra.Stream Crystal Broadcaster")
-    print("="*60)
+    print("=" * 60)
     print("\nSelect hardware level:")
     print("  2 - Passive crystal grid (speakers only)")
     print("  3 - Amplified (bass shaker + crystals)")
@@ -400,7 +401,7 @@ if __name__ == "__main__":
     except (ValueError, KeyboardInterrupt):
         audio_mode = 1
 
-    pure_sine = (audio_mode == 2)
+    pure_sine = audio_mode == 2
 
     if level == 3:
         broadcaster = Level3AmplifiedBroadcaster(pure_sine=pure_sine)
@@ -408,7 +409,7 @@ if __name__ == "__main__":
         print("\nWould you like to test the bass shaker first? (y/n)")
         test = input().lower()
 
-        if test == 'y':
+        if test == "y":
             broadcaster.test_bass_shaker()
     else:
         broadcaster = Level2CrystalBroadcaster(pure_sine=pure_sine)

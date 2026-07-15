@@ -6,6 +6,7 @@ instead of real lunar data from core.auspicious_timing.check_saka_dawa().
 
 Task 4 (GREEN): After wiring the endpoint, this same test passes.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -79,9 +80,7 @@ def test_saka_dawa_endpoint_returns_lunar_fields_not_hardcoded_months(client):
 
     assert "multiplier" in body, f"Missing 'multiplier' in {list(body.keys())}"
     # Day 15 = Duchen → multiplier should be 100000
-    assert body["multiplier"] in (10000, 100000), (
-        f"multiplier should be 10000 or 100000, got {body['multiplier']}"
-    )
+    assert body["multiplier"] in (10000, 100000), f"multiplier should be 10000 or 100000, got {body['multiplier']}"
 
     assert "lunar_month" in body, f"Missing 'lunar_month' in {list(body.keys())}"
     assert isinstance(body["lunar_month"], int), f"lunar_month should be int, got {type(body['lunar_month'])}"

@@ -11,6 +11,7 @@ cross-directory tests (e.g. ``tests/backend/``) must add this directory to
 ``sys.path`` before importing, see ``test_healing_endpoints.py`` for the
 one-line shim.
 """
+
 from __future__ import annotations
 
 from typing import Any

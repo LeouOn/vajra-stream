@@ -13,6 +13,7 @@ The phase enum intentionally re-uses the name ``DialoguePhase`` (and not
 See ``docs/specs/2026-06-17-healing-dialogue-design.md`` section 3 for the
 phase semantics and section 5 for the data model.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -187,8 +188,7 @@ class DialogueState:
             session_id=d["session_id"],
             chart_id=d.get("chart_id"),
             current_phase=current_phase,
-            phase_started_at=_dt_from_iso(d.get("phase_started_at"))
-            or _now_utc(),
+            phase_started_at=_dt_from_iso(d.get("phase_started_at")) or _now_utc(),
             message_history=list(d.get("message_history") or []),
             accumulated_insights=dict(d.get("accumulated_insights") or {}),
             astrology_context=d.get("astrology_context"),

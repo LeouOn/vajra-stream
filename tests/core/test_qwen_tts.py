@@ -12,6 +12,7 @@ Heavy ML deps (``qwen_tts``, ``torch``, GPU) are NOT required; tests
 assert graceful degradation (``available=False`` → ``speak()`` returns
 ``None``) which is the contract for CPU-only / package-missing systems.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -25,7 +26,6 @@ from core.qwen_tts import (
     QwenTTSEngine,
     get_qwen_tts,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke
@@ -86,15 +86,11 @@ def test_ritual_speakers_and_voice_design_presets_have_expected_shapes():
     """``RITUAL_SPEAKERS`` maps role→speaker; ``VOICE_DESIGN_PRESETS`` is a dict of presets."""
     # Every ritual role points at a speaker that actually exists in QWEN_SPEAKERS
     for role, speaker in RITUAL_SPEAKERS.items():
-        assert speaker in QWEN_SPEAKERS, (
-            f"Ritual role {role!r} → unknown speaker {speaker!r}"
-        )
+        assert speaker in QWEN_SPEAKERS, f"Ritual role {role!r} → unknown speaker {speaker!r}"
 
     # Every voice-design preset has instruct + language
     for name, preset in VOICE_DESIGN_PRESETS.items():
-        assert "instruct" in preset and preset["instruct"], (
-            f"Preset {name!r} missing 'instruct'"
-        )
+        assert "instruct" in preset and preset["instruct"], f"Preset {name!r} missing 'instruct'"
         assert "language" in preset, f"Preset {name!r} missing 'language'"
 
 

@@ -37,9 +37,7 @@ _DEFAULT_EDGE_VOICE = "zh-CN-YunxiNeural"
 # Fixed liturgy texts (not user-configurable).
 _DEDICATION_TEXT = "愿以此功德 普及于一切 我等与众生 皆共成佛道"
 _FULL_MALA_DEDICATION_SUFFIX = "。回向法界一切众生，同证无上正等正觉。"
-_FINAL_DEDICATION_TEXT = (
-    "功德圆满。愿以此念诵88佛之功德，回向法界一切众生，离苦得乐，早证菩提。"
-)
+_FINAL_DEDICATION_TEXT = "功德圆满。愿以此念诵88佛之功德，回向法界一切众生，离苦得乐，早证菩提。"
 
 # TTS rate presets (Edge percent-string format; ignored by Qwen).
 _RATE_NAME = "-30%"
@@ -125,14 +123,8 @@ class BuddhaRecitationLoop:
     def _load_buddhas(self) -> None:
         """Load the full 88-Buddha list (53 past + 35 confession) for recitation."""
         seq = self._buddha_service.get_confession_sequence()
-        past = [
-            self._build_buddha_entry(b, "past")
-            for b in seq.get("fifty_three_past_buddhas", [])
-        ]
-        confession = [
-            self._build_buddha_entry(b, "confession")
-            for b in seq.get("thirty_five_confession_buddhas", [])
-        ]
+        past = [self._build_buddha_entry(b, "past") for b in seq.get("fifty_three_past_buddhas", [])]
+        confession = [self._build_buddha_entry(b, "confession") for b in seq.get("thirty_five_confession_buddhas", [])]
         self._buddhas = past + confession
 
     def on_name_recited(self, callback: Callable[..., Any]) -> None:
@@ -206,9 +198,7 @@ class BuddhaRecitationLoop:
             self._init_provider_tts(voice=voice, role=role, project_id=project_id)
 
         # Run the loop as a background task so start() returns immediately.
-        self._task = asyncio.create_task(
-            self._run_loop(interval_seconds, dedication_interval, mala_cycles)
-        )
+        self._task = asyncio.create_task(self._run_loop(interval_seconds, dedication_interval, mala_cycles))
         return self.state
 
     def _init_provider_tts(
@@ -233,9 +223,7 @@ class BuddhaRecitationLoop:
             self.state.backend = provider.active_backend.value
 
             # Resolve the actual speaker the loop will report.
-            edge_voice, qwen_speaker = provider._resolve_voice(
-                self._effective_voice(voice), role
-            )
+            edge_voice, qwen_speaker = provider._resolve_voice(self._effective_voice(voice), role)
             if provider.active_backend.value == "qwen":
                 self.state.speaker = qwen_speaker or "Uncle_Fu"
             else:
@@ -326,9 +314,7 @@ class BuddhaRecitationLoop:
                         sd.play(data, samplerate)
                         sd.wait()
                     except Exception as e:
-                        logger.warning(
-                            "TTS playback failed (file synthesized at %s): %s", path, e
-                        )
+                        logger.warning("TTS playback failed (file synthesized at %s): %s", path, e)
                     return True
             except Exception as e:
                 logger.debug("TTSProvider speak failed, trying legacy reciter: %s", e)
@@ -426,9 +412,7 @@ class BuddhaRecitationLoop:
                 # Recite the name via TTS.
                 name = buddha.get("name_chinese", "")
                 if name:
-                    await self._speak_text(
-                        self._format_buddha_name(name), rate=_RATE_NAME
-                    )
+                    await self._speak_text(self._format_buddha_name(name), rate=_RATE_NAME)
 
                 self._fire_callbacks(self._on_name, buddha, self.state)
 

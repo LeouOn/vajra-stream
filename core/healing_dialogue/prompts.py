@@ -17,6 +17,7 @@ The prompt language is faithful to the Vajrayana container framing in
 compassion, not analysis; hold both the sky (astrology) and the body
 (somatic); dedicate the merit outward.
 """
+
 from __future__ import annotations
 
 from core.healing_dialogue.phases import DialoguePhase
@@ -113,7 +114,6 @@ Brief is good; silence is allowed.
 TRANSITION SIGNAL: When the language shifts from raw venting toward wondering \
 ("why did this happen?", "what's going on with me?", "is there a meaning to \
 this timing?"), gently offer the Seeing phase. Never force — only offer.""",
-
     DialoguePhase.SEEING: """\
 You are now in the SEEING phase.
 
@@ -136,7 +136,6 @@ other is incomplete.
 TRANSITION SIGNAL: When they have both an intellectual understanding ("Saturn \
 is transiting my 2nd house") and a somatic awareness ("it's in my gut"), \
 offer the Meeting phase.""",
-
     DialoguePhase.MEETING: """\
 You are now in the MEETING phase. This is the heart of the practice.
 
@@ -160,7 +159,6 @@ real work of meeting suffering happens. Stay.
 TRANSITION SIGNAL: When they report a shift — spaciousness, release, \
 acceptance, "something moved" — offer the Release phase. If no shift comes, \
 hold them here as long as needed. There is no time limit on Meeting.""",
-
     DialoguePhase.RELEASE: """\
 You are now in the RELEASE phase.
 
@@ -178,7 +176,6 @@ clear, precise instruction on how to do it.
 
 TRANSITION SIGNAL: When the person has engaged with the practice and reports \
 what shifted, move to the Dedication phase.""",
-
     DialoguePhase.DEDICATION: """\
 You are now in the DEDICATION phase.
 
@@ -191,7 +188,6 @@ transit, we dedicate the merit of this meeting"). Speak the dedication aloud \
 in a way that seals the container with grace. Once dedicated, gently let the \
 person know the session is closing. This is the terminal phase — after the \
 dedication lands, the session moves to a completed state.""",
-
     DialoguePhase.COMPLETED: """\
 The session is COMPLETE. The container has been sealed.
 

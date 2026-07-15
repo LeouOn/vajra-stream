@@ -8,6 +8,7 @@ endpoint, which is pay-as-you-go and returns 429 for coding-plan keys).
 Both ``ZAI_API_KEY`` and ``ANTHROPIC_AUTH_TOKEN`` work on this endpoint.
 Models are served as ``glm-4.6``, ``glm-4.5``, ``glm-4.5-air``, etc.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,11 +56,7 @@ class ZAIProvider(BaseLLMProvider):
         # ANTHROPIC_AUTH_TOKEN (the Anthropic-SDK alias that also works on
         # this endpoint per probe results).
         key = (
-            api_key
-            or os.getenv("ZAI_API_KEY")
-            or os.getenv("Z_AI_API_KEY")
-            or os.getenv("ANTHROPIC_AUTH_TOKEN")
-            or ""
+            api_key or os.getenv("ZAI_API_KEY") or os.getenv("Z_AI_API_KEY") or os.getenv("ANTHROPIC_AUTH_TOKEN") or ""
         )
         if not key:
             raise ValueError(
@@ -117,14 +114,8 @@ class ZAIProvider(BaseLLMProvider):
 
     async def generate(self, request: ChatRequest) -> ChatResponse:
         """Generate via the Anthropic Messages API."""
-        messages = [
-            {"role": m.role, "content": m.content}
-            for m in request.messages
-            if m.role != "system"
-        ]
-        system = request.system_prompt or next(
-            (m.content for m in request.messages if m.role == "system"), None
-        )
+        messages = [{"role": m.role, "content": m.content} for m in request.messages if m.role != "system"]
+        system = request.system_prompt or next((m.content for m in request.messages if m.role == "system"), None)
         model = request.model or self.default_model
         kwargs: dict = {
             "model": model,
@@ -154,14 +145,8 @@ class ZAIProvider(BaseLLMProvider):
 
     async def stream(self, request: ChatRequest) -> AsyncIterator[ChatChunk]:
         """Stream via the Anthropic Messages API."""
-        messages = [
-            {"role": m.role, "content": m.content}
-            for m in request.messages
-            if m.role != "system"
-        ]
-        system = request.system_prompt or next(
-            (m.content for m in request.messages if m.role == "system"), None
-        )
+        messages = [{"role": m.role, "content": m.content} for m in request.messages if m.role != "system"]
+        system = request.system_prompt or next((m.content for m in request.messages if m.role == "system"), None)
         model = request.model or self.default_model
         kwargs: dict = {
             "model": model,

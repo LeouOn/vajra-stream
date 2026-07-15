@@ -9,6 +9,7 @@ Covers the public API:
 This module is pure data/lookup logic — no I/O, no DB, no LLM. All tests
 exercise the in-memory behavior contract.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -19,7 +20,6 @@ from core.healing_systems import (
     MeridianSystem,
     TibetanChannelSystem,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test
@@ -125,23 +125,21 @@ def test_meridian_get_meridian_for_time_covers_chinese_medicine_clock():
 
     # Canonical mapping from Chinese Medicine Clock
     cases = {
-        4: "lung",          # 3-5 AM
+        4: "lung",  # 3-5 AM
         6: "large_intestine",  # 5-7 AM
-        8: "stomach",       # 7-9 AM
-        10: "spleen",       # 9-11 AM
-        12: "heart",        # 11-13
+        8: "stomach",  # 7-9 AM
+        10: "spleen",  # 9-11 AM
+        12: "heart",  # 11-13
         14: "small_intestine",  # 13-15
-        16: "bladder",      # 15-17
-        18: "kidney",       # 17-19
+        16: "bladder",  # 15-17
+        18: "kidney",  # 17-19
         20: "pericardium",  # 19-21
         22: "triple_warmer",  # 21-23
-        0: "gallbladder",   # 23-1
-        2: "liver",         # 1-3
+        0: "gallbladder",  # 23-1
+        2: "liver",  # 1-3
     }
     for hour, expected_meridian in cases.items():
-        assert sys.get_meridian_for_time(hour) == expected_meridian, (
-            f"Hour {hour} should map to {expected_meridian}"
-        )
+        assert sys.get_meridian_for_time(hour) == expected_meridian, f"Hour {hour} should map to {expected_meridian}"
 
 
 @pytest.mark.unit

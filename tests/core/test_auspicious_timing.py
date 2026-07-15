@@ -10,6 +10,7 @@ Covers the public API:
 Heavy dependencies (real astrology engine, real datetime, ``lunar_python``)
 are mocked so tests are deterministic and have no I/O.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -25,7 +26,6 @@ from core.auspicious_timing import (
     check_auspicious_window,
     get_all_windows,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test
@@ -160,9 +160,7 @@ def test_check_healing_with_favorable_hour_yields_quality_good_or_excellent():
     assert window.quality in {"excellent", "good", "challenging", "transmutative"}
     assert window.recommended_approach in {"direct", "transmute_first", "non_linear", "time_shift"}
     # planetary_hour must be one of the seven classical planets
-    assert window.planetary_hour in {
-        "Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"
-    }
+    assert window.planetary_hour in {"Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"}
 
 
 @pytest.mark.unit
@@ -200,9 +198,7 @@ def test_get_current_conditions_returns_expected_keys():
     for key in ("planetary_hour", "tithi", "nakshatra", "nakshatra_quality", "moon_phase"):
         assert key in conditions, f"Missing key {key!r} in current conditions"
     # planetary_hour must be one of the seven classical planets
-    assert conditions["planetary_hour"] in {
-        "Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"
-    }
+    assert conditions["planetary_hour"] in {"Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"}
 
 
 @pytest.mark.unit

@@ -1,5 +1,6 @@
 # core/llm/providers/anthropic.py
 """Anthropic Claude provider (native SDK, not OpenAI-compatible)."""
+
 from __future__ import annotations
 
 import logging
@@ -38,16 +39,10 @@ class AnthropicProvider:
     ) -> None:
         # Accept either ANTHROPIC_API_KEY (Anthropic's documented name) or
         # ANTHROPIC_AUTH_TOKEN (Anthropic SDK / proxy convention).
-        key = (
-            api_key
-            or os.getenv("ANTHROPIC_API_KEY")
-            or os.getenv("ANTHROPIC_AUTH_TOKEN")
-            or ""
-        )
+        key = api_key or os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_AUTH_TOKEN") or ""
         if not key:
             raise ValueError(
-                "Anthropic provider requires ANTHROPIC_API_KEY or "
-                "ANTHROPIC_AUTH_TOKEN env var (or api_key argument)"
+                "Anthropic provider requires ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN env var (or api_key argument)"
             )
         self.name = "anthropic"
         self.priority = priority
@@ -67,9 +62,7 @@ class AnthropicProvider:
         # Anthropic does not expose a models listing API.
         return []
 
-    def _build_messages(
-        self, request: ChatRequest
-    ) -> tuple[list[dict], str | None]:
+    def _build_messages(self, request: ChatRequest) -> tuple[list[dict], str | None]:
         """Split request into (messages, system_prompt) for Anthropic API.
 
         Anthropic requires the system prompt to be a top-level parameter,
@@ -133,16 +126,18 @@ class AnthropicProvider:
         """Best-effort usage recording — never propagates exceptions."""
         try:
             tracker = LLMUsageTracker.get()
-            tracker.record(UsageRecord(
-                provider=self.name,
-                model=model,
-                prompt_tokens=prompt_tokens or 0,
-                completion_tokens=completion_tokens or 0,
-                total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
-                latency_ms=latency_ms,
-                endpoint=endpoint,
-                success=success,
-            ))
+            tracker.record(
+                UsageRecord(
+                    provider=self.name,
+                    model=model,
+                    prompt_tokens=prompt_tokens or 0,
+                    completion_tokens=completion_tokens or 0,
+                    total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+                    latency_ms=latency_ms,
+                    endpoint=endpoint,
+                    success=success,
+                )
+            )
         except Exception:  # noqa: BLE001
             logger.debug("LLMUsageTracker.record failed", exc_info=True)
 

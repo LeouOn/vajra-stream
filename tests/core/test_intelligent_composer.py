@@ -24,18 +24,18 @@ Covers the public API:
 No audio hardware is touched; numpy arrays are verified for shape and
 range only.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
 from core.intelligent_composer import (
-    AudioOrchestrator,
     HARMONIC_BLESSING_SETS,
+    AudioOrchestrator,
     HarmonicRelationship,
     IntelligentComposer,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test
@@ -156,7 +156,7 @@ def test_select_harmonic_frequencies_filters_dissonant_neighbours():
     # 220 and 330 form a perfect fifth (consonant).
     # 220 * sqrt(2) ≈ 311.13 — ratio to 220 is ~1.4142, far from any
     # consonant reference; consonance score should be <= 0.5.
-    dissonant_neighbour = 220.0 * (2 ** 0.5)
+    dissonant_neighbour = 220.0 * (2**0.5)
     selected = composer.select_harmonic_frequencies(
         [220.0, 330.0, dissonant_neighbour],
         min_consonance=0.6,

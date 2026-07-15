@@ -8,6 +8,7 @@ Covers the public surface:
 - ``continuous_spin`` — returns a summary dict
 - ``mantra_accumulation`` — accumulates count over time
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -15,7 +16,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from core.prayer_wheel import PrayerWheel
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke
@@ -103,5 +103,7 @@ def test_mantra_accumulation_completes_without_error():
     """mantra_accumulation completes without raising."""
     wheel = PrayerWheel()
     # Prints to console + optionally plays audio; just verify no exception
-    result = wheel.mantra_accumulation(mantra="Om Mani Padme Hum", count=10, with_audio=False, with_voice=False, duration_per=1)
+    result = wheel.mantra_accumulation(
+        mantra="Om Mani Padme Hum", count=10, with_audio=False, with_voice=False, duration_per=1
+    )
     assert result is None or isinstance(result, dict)

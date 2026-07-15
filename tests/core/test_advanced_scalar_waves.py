@@ -17,12 +17,12 @@ Covers:
 * :class:`HybridScalarWaveGenerator` — ``generate_hybrid_stream`` returns a
   list of floats of the requested length
 """
+
 from __future__ import annotations
 
 import pytest
 
 from core import advanced_scalar_waves as asw
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + public surface

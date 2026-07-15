@@ -1025,13 +1025,9 @@ def recite_buddha_name(buddha_name: str) -> dict[str, Any]:
                         asyncio.ensure_future(_speak())
                         path = None
                     else:
-                        path = asyncio.run(
-                            provider.speak(text=text, rate="-30%", role="buddhist_chant")
-                        )
+                        path = asyncio.run(provider.speak(text=text, rate="-30%", role="buddhist_chant"))
                 except RuntimeError:
-                    path = asyncio.run(
-                        provider.speak(text=text, rate="-30%", role="buddhist_chant")
-                    )
+                    path = asyncio.run(provider.speak(text=text, rate="-30%", role="buddhist_chant"))
                 return {
                     "buddha": b.name_chinese,
                     "pinyin": b.name_pinyin,

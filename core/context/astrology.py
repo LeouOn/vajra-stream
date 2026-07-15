@@ -1,5 +1,6 @@
 # core/context/astrology.py
 """Astrology context module — Western / Vedic / Chinese sections."""
+
 from __future__ import annotations
 
 import logging

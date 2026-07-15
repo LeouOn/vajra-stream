@@ -14,12 +14,12 @@ Tests focus on:
 - The _with_sutra helper appends when a match exists and is a no-op when it doesn't
 - generate_dharma_teaching includes a "**From ... Sutra" header in its output
 """
+
 from __future__ import annotations
 
 import pytest
 
 from core.ritual_generator import RitualGenerator, _load_sutra_db
-
 
 # ---------------------------------------------------------------------------
 # 1. _load_sutra_db — module-level loader

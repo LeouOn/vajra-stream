@@ -13,6 +13,7 @@ Covers the public surface:
 The module imports ``core.healing_systems`` at the top, which has no
 external dependencies — no mocking is required.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -22,7 +23,6 @@ from core.protocol_selector import (
     ConditionProtocol,
     ProtocolSelector,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + HAS_HEALING sanity

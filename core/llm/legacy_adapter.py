@@ -40,6 +40,7 @@ KNOWN LIMITATIONS
   also supported. Unrecognised prefixes fall back to the registry's
   best provider.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -101,9 +102,7 @@ def _get_bg_loop() -> asyncio.AbstractEventLoop:
             asyncio.set_event_loop(loop)
             loop.run_forever()
 
-        t = threading.Thread(
-            target=_runner, name="llm-legacy-adapter-bg-loop", daemon=True
-        )
+        t = threading.Thread(target=_runner, name="llm-legacy-adapter-bg-loop", daemon=True)
         t.start()
         _bg_loop = loop
         _bg_thread = t
@@ -331,9 +330,7 @@ class LegacyLLMIntegration:
         providers = self._registry.providers  # sorted by priority desc
         return providers[0] if providers else None
 
-    def _apply_primary_attributes(
-        self, provider: Any, force: bool = False
-    ) -> None:
+    def _apply_primary_attributes(self, provider: Any, force: bool = False) -> None:
         """Populate ``model_type``/``model_name``/``provider_key`` from a provider.
 
         Args:
@@ -530,9 +527,7 @@ class LegacyLLMIntegration:
             response: ChatResponse = await provider.generate(request)
         except Exception as e:
             success = False
-            logger.warning(
-                "generate via %s failed: %s", getattr(provider, "name", "?"), e
-            )
+            logger.warning("generate via %s failed: %s", getattr(provider, "name", "?"), e)
             return f"{getattr(provider, 'name', 'unknown')} generation failed: {e}"
 
         latency_ms = (time.time() - start) * 1000.0
@@ -564,9 +559,7 @@ class LegacyLLMIntegration:
             provider_name = getattr(provider, "name", "unknown")
             prompt_tokens = getattr(response, "input_tokens", 0) or 0
             completion_tokens = getattr(response, "output_tokens", 0) or 0
-            cost = self._tracker.estimate_cost(
-                provider_name, response.model, prompt_tokens, completion_tokens
-            )
+            cost = self._tracker.estimate_cost(provider_name, response.model, prompt_tokens, completion_tokens)
             self._tracker.record(
                 UsageRecord(
                     provider=provider_name,
@@ -664,6 +657,7 @@ class LegacyLLMIntegration:
 # LegacyDharmaLLM
 # ===========================================================================
 
+
 # Imported here (not at module top) to avoid an import cycle:
 # dharma.py imports only registry/models, but keeping it lazy is safer.
 def _load_async_dharma():
@@ -710,8 +704,7 @@ class LegacyDharmaLLM:
             registry = llm.registry
         else:
             raise TypeError(
-                "LegacyDharmaLLM requires a LegacyLLMIntegration or "
-                f"ProviderRegistry, got {type(llm).__name__}"
+                f"LegacyDharmaLLM requires a LegacyLLMIntegration or ProviderRegistry, got {type(llm).__name__}"
             )
 
         self._async_dharma = AsyncDharmaLLM(registry)

@@ -37,14 +37,13 @@ from core.context import (
     HardwareContextModule,
     SystemPromptBuilder,
 )
+from core.llm.base import strip_thinking
 from core.llm.defaults import (
     DEFAULT_MODELS_BY_USE_CASE,
     KNOWN_FEATURED_MODEL_IDS,
     NEMOTRON_FREE_MODEL_ID,
 )
 from core.llm.retry import retry_with_backoff
-
-from core.llm.base import strip_thinking
 from core.llm.usage import LLMUsageTracker, UsageRecord
 
 # Setup logging
@@ -325,20 +324,26 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         return {"astrology": astro_data, "planetary_hour": hour_data, "timestamp": time.time()}
     elif name == "get_random_buddha":
         from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
         svc = get_eighty_eight_buddhas()
         category = args.get("category")
         b = svc.random_buddha(category=category)
         narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
         return {
             "buddha": {
-                "name_chinese": b.name_chinese, "name_pinyin": b.name_pinyin,
-                "name_sanskrit": b.name_sanskrit, "category": b.category,
-                "meaning": b.meaning, "realm": b.realm, "light": b.light,
+                "name_chinese": b.name_chinese,
+                "name_pinyin": b.name_pinyin,
+                "name_sanskrit": b.name_sanskrit,
+                "category": b.category,
+                "meaning": b.meaning,
+                "realm": b.realm,
+                "light": b.light,
             },
             "narrative": narrative.get("narrative", ""),
         }
     elif name == "generate_buddha_narrative":
         from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
         svc = get_eighty_eight_buddhas()
         return svc.generate_buddha_narrative(
             buddha_name=args.get("buddha_name", ""),
@@ -346,20 +351,26 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         )
     elif name == "get_88_buddhas_liturgy":
         from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
         svc = get_eighty_eight_buddhas()
         return svc.get_confession_sequence()
     elif name == "recite_buddha_name":
         from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+
         svc = get_eighty_eight_buddhas()
         b = svc.get_buddha_by_name(args.get("buddha_name", ""))
         if not b:
             return {"error": f"Buddha not found: {args.get('buddha_name')}"}
-        return {"buddha": b.name_chinese, "pinyin": b.name_pinyin,
-                "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS."}
+        return {
+            "buddha": b.name_chinese,
+            "pinyin": b.name_pinyin,
+            "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS.",
+        }
     elif name == "start_buddha_recitation":
         import asyncio
 
         from core.buddha_recitation_loop import get_recitation_loop
+
         loop = get_recitation_loop()
         if loop.state.running:
             return {"status": "already_running"}
@@ -369,7 +380,9 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         try:
             running_loop = asyncio.get_event_loop()
             if running_loop.is_running():
-                running_loop.create_task(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
+                running_loop.create_task(
+                    loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles)
+                )
             else:
                 asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
         except RuntimeError:
@@ -377,16 +390,19 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         return loop.get_status()
     elif name == "stop_buddha_recitation":
         from core.buddha_recitation_loop import get_recitation_loop
+
         loop = get_recitation_loop()
         await loop.stop()
         return loop.get_status()
     elif name == "get_buddha_recitation_status":
         from core.buddha_recitation_loop import get_recitation_loop
+
         return get_recitation_loop().get_status()
     elif name == "check_saka_dawa":
         from datetime import datetime as dt
 
         from core.models.practice import Practice
+
         practices = Practice.get_default_practices()
         saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
         if not saka_dawa:
@@ -394,23 +410,36 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         now = dt.now()
         in_window = now.month in (5, 6)
         return {
-            "in_saka_dawa_window": in_window, "current_month": now.month,
-            "practice": {"id": saka_dawa.id, "name": saka_dawa.name, "genre": saka_dawa.genre,
-                         "merit_multiplier": saka_dawa.merit_multiplier,
-                         "blessing_prompt": saka_dawa.base_prompt_template},
+            "in_saka_dawa_window": in_window,
+            "current_month": now.month,
+            "practice": {
+                "id": saka_dawa.id,
+                "name": saka_dawa.name,
+                "genre": saka_dawa.genre,
+                "merit_multiplier": saka_dawa.merit_multiplier,
+                "blessing_prompt": saka_dawa.base_prompt_template,
+            },
             "message": "Saka Dawa is ACTIVE — 100,000x merit!" if in_window else "Not in Saka Dawa window.",
         }
     elif name == "check_auspicious_timing":
         from core.auspicious_timing import check_auspicious_window
+
         return check_auspicious_window(args.get("genre", "healing")).to_dict()
     elif name == "generate_character":
         from core.character_generator import CharacterGenerator
+
         gen = CharacterGenerator()
         sheet = gen.generate(use_llm=False)
         return sheet.to_dict()
-    elif name == "start_character_journey" or name == "advance_journey" or name == "get_journey_status" or name == "run_full_journey":
+    elif (
+        name == "start_character_journey"
+        or name == "advance_journey"
+        or name == "get_journey_status"
+        or name == "run_full_journey"
+    ):
         from container import container
         from modules.radionics_operator import ToolDispatcher
+
         disp = ToolDispatcher(container)
         return disp.dispatch(name, args)
     else:
@@ -952,9 +981,7 @@ def _build_rag_context_block(request: ChatRequest) -> str:
     return "\n".join(lines)
 
 
-async def _select_provider_via_registry(
-    http_request: Request, requested_provider: str
-) -> str | None:
+async def _select_provider_via_registry(http_request: Request, requested_provider: str) -> str | None:
     """Consult :meth:`ProviderRegistry.pick_best` to resolve ``"auto"``.
 
     Returns the chosen provider name (e.g. ``"openrouter"``, ``"lm_studio"``), or
@@ -1027,16 +1054,18 @@ def _record_llm_usage(
     """
     try:
         tracker = LLMUsageTracker.get()
-        tracker.record(UsageRecord(
-            provider=provider,
-            model=model,
-            prompt_tokens=prompt_tokens or 0,
-            completion_tokens=completion_tokens or 0,
-            total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
-            latency_ms=latency_ms,
-            endpoint=endpoint,
-            success=success,
-        ))
+        tracker.record(
+            UsageRecord(
+                provider=provider,
+                model=model,
+                prompt_tokens=prompt_tokens or 0,
+                completion_tokens=completion_tokens or 0,
+                total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+                latency_ms=latency_ms,
+                endpoint=endpoint,
+                success=success,
+            )
+        )
     except Exception:  # noqa: BLE001 — tracker must never block an LLM call
         logger.debug("LLMUsageTracker.record failed", exc_info=True)
 
@@ -1099,9 +1128,7 @@ async def _run_openai_compatible_tool_loop(
                 args = {}
             try:
                 result = await execute_tool_locally(name, args)
-                tool_logs.append(
-                    ToolCallLog(tool_name=name, arguments=args, status="success", result=result)
-                )
+                tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
                 messages.append(
                     {
                         "role": "tool",
@@ -1122,9 +1149,7 @@ async def _run_openai_compatible_tool_loop(
                     )
                 except Exception as log_ex:  # noqa: BLE001
                     logger.error(f"Failed to log tool failure to DB: {log_ex}")
-                tool_logs.append(
-                    ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex))
-                )
+                tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
                 messages.append(
                     {
                         "role": "tool",
@@ -1199,9 +1224,7 @@ async def _run_anthropic_tool_loop(
             args = tool_use.input
             try:
                 result = await execute_tool_locally(name, args)
-                tool_logs.append(
-                    ToolCallLog(tool_name=name, arguments=args, status="success", result=result)
-                )
+                tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
                 tool_results_content.append(
                     {
                         "type": "tool_result",
@@ -1221,9 +1244,7 @@ async def _run_anthropic_tool_loop(
                     )
                 except Exception as log_ex:  # noqa: BLE001
                     logger.error(f"Failed to log tool failure to DB: {log_ex}")
-                tool_logs.append(
-                    ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex))
-                )
+                tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
                 tool_results_content.append(
                     {
                         "type": "tool_result",
@@ -1276,15 +1297,15 @@ async def _chat_via_registry(
         return await chosen.generate(chat_request)
 
     try:
-        response = await retry_with_backoff(
-            _do_generate, max_retries=1, initial_backoff=0.5
-        )
+        response = await retry_with_backoff(_do_generate, max_retries=1, initial_backoff=0.5)
     except Exception as e:
         # Failover to next healthy provider
         chain = await registry.failover_chain()
         logger.info(
             "Provider %s failed (%s), trying failover chain of %d",
-            provider_name, e, len(chain),
+            provider_name,
+            e,
+            len(chain),
         )
         for next_provider in chain:
             if next_provider.name == provider_name:
@@ -1294,9 +1315,7 @@ async def _chat_via_registry(
                 logger.info("Failover succeeded via %s", next_provider.name)
                 break
             except Exception as e2:
-                logger.warning(
-                    "Failover to %s failed: %s", next_provider.name, e2
-                )
+                logger.warning("Failover to %s failed: %s", next_provider.name, e2)
                 continue
         else:
             raise HTTPException(
@@ -1391,9 +1410,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
     # not initialized (e.g. older deployments) or no provider matched.
     registry = getattr(http_request.app.state, "llm_registry", None)
     if registry is not None and len(registry) > 0 and provider in registry:
-        return await _chat_via_registry(
-            http_request, request, provider, system_prompt_holder=None
-        )
+        return await _chat_via_registry(http_request, request, provider, system_prompt_holder=None)
 
     # Retrieve key from request or env (used by the API-backed branches below).
     api_key = (
@@ -1407,8 +1424,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
     tool_schemas = get_tool_schemas()
     openai_tools = _build_openai_tools(tool_schemas)
     claude_tools = [
-        {"name": s["name"], "description": s["description"], "input_schema": s["parameters"]}
-        for s in tool_schemas
+        {"name": s["name"], "description": s["description"], "input_schema": s["parameters"]} for s in tool_schemas
     ]
 
     # 3) Build system prompt + composable context modules.
@@ -1456,10 +1472,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
     #    and delegates the tool-calling loop to one of the two unified helpers.
     try:
         # ---- OpenAI ----
-        if api_key and (
-            provider == "openai"
-            or (provider == "auto" and os.getenv("OPENAI_API_KEY"))
-        ):
+        if api_key and (provider == "openai" or (provider == "auto" and os.getenv("OPENAI_API_KEY"))):
             import openai
 
             client = openai.OpenAI(api_key=api_key)
@@ -1479,11 +1492,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
         # ---- OpenRouter ----
         if os.getenv("OPENROUTER_API_KEY") and (
             provider == "openrouter"
-            or (
-                provider == "auto"
-                and not os.getenv("OPENAI_API_KEY")
-                and not os.getenv("DEEPSEEK_API_KEY")
-            )
+            or (provider == "auto" and not os.getenv("OPENAI_API_KEY") and not os.getenv("DEEPSEEK_API_KEY"))
         ):
             import openai as openai_lib
 
@@ -1495,9 +1504,11 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
             openai_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
             from core.llm.providers.openrouter import OpenRouterProvider
 
-            model_name = request.model or _provider_default_model(
-                OpenRouterProvider
-            ) or os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
+            model_name = (
+                request.model
+                or _provider_default_model(OpenRouterProvider)
+                or os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
+            )
             response_text = await _run_openai_compatible_tool_loop(
                 client=client,
                 model_name=model_name,
@@ -1509,11 +1520,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
             return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
         # ---- LM Studio / Local GGUF ----
-        if (
-            provider == "local"
-            or provider == "lm_studio"
-            or (provider == "auto" and not api_key)
-        ):
+        if provider == "local" or provider == "lm_studio" or (provider == "auto" and not api_key):
             import openai as openai_lib
 
             base_url = os.getenv("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234")
@@ -1562,8 +1569,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                     logger.error(f"LM Studio request timed out: {loop_err}")
                     fallback_res = await run_rule_based_fallback(query)
                     fallback_res.response = (
-                        "*(LM Studio Request Timed Out - Switched to Local Interpreter)*\n\n"
-                        + fallback_res.response
+                        "*(LM Studio Request Timed Out - Switched to Local Interpreter)*\n\n" + fallback_res.response
                     )
                     return wrap_res(fallback_res)
                 raise
@@ -1572,11 +1578,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
         # ---- DeepSeek ----
         if api_key and (
             provider == "deepseek"
-            or (
-                provider == "auto"
-                and os.getenv("DEEPSEEK_API_KEY")
-                and not os.getenv("OPENAI_API_KEY")
-            )
+            or (provider == "auto" and os.getenv("DEEPSEEK_API_KEY") and not os.getenv("OPENAI_API_KEY"))
         ):
             import openai as openai_lib
 
@@ -1628,10 +1630,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
             return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
         # ---- Anthropic ----
-        if api_key and (
-            provider == "anthropic"
-            or (provider == "auto" and os.getenv("ANTHROPIC_API_KEY"))
-        ):
+        if api_key and (provider == "anthropic" or (provider == "auto" and os.getenv("ANTHROPIC_API_KEY"))):
             import anthropic
 
             client = anthropic.Anthropic(api_key=api_key)
@@ -1653,20 +1652,12 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
         err_str = str(e).lower()
         if "timeout" in err_str or "timed out" in err_str:
             prefix = f"*({provider} Request Timed Out - Switched to Local Interpreter)*"
-        elif (
-            "connection" in err_str
-            or "refused" in err_str
-            or "name resolution" in err_str
-        ):
+        elif "connection" in err_str or "refused" in err_str or "name resolution" in err_str:
             prefix = f"*({provider} Not Reachable - Switched to Local Interpreter)*"
         elif "jinja" in err_str or "no user query" in err_str or "prompt template" in err_str:
-            prefix = (
-                f"*({provider} Prompt Template Error - Check model prompt template settings)*"
-            )
+            prefix = f"*({provider} Prompt Template Error - Check model prompt template settings)*"
         else:
-            prefix = (
-                f"*({provider} Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*"
-            )
+            prefix = f"*({provider} Call Failed: {str(e)[:100]} - Switched to Local Interpreter)*"
         fallback_res.response = f"{prefix}\n\n" + fallback_res.response
         return wrap_res(fallback_res)
 
@@ -2053,7 +2044,7 @@ async def list_available_models() -> dict:
                 # Keep stale cache if we have one; otherwise seed with the
                 # built-in featured set so the UI is never empty.
                 if not cached.get("models"):
-                    featured_set = set(KNOWN_FEATURED_MODEL_IDS)
+                    set(KNOWN_FEATURED_MODEL_IDS)
                     cached["models"] = [
                         {
                             "id": mid,
@@ -2078,18 +2069,21 @@ async def list_available_models() -> dict:
     # Defensive: ensure Nemotron is always present even if OpenRouter
     # transiently drops it from the catalogue.
     if not any(m.get("id") == NEMOTRON_FREE_MODEL_ID for m in or_models):
-        or_models.insert(0, {
-            "id": NEMOTRON_FREE_MODEL_ID,
-            "name": "Nemotron 3 Ultra 550B (Free)",
-            "provider": "nvidia",
-            "context_length": 1_000_000,
-            "input_per_m": 0.0,
-            "output_per_m": 0.0,
-            "is_free": True,
-            "featured": True,
-            "description": "550B MoE, 1M context, $0 input / $0 output. Built-in default.",
-            "source": "builtin",
-        })
+        or_models.insert(
+            0,
+            {
+                "id": NEMOTRON_FREE_MODEL_ID,
+                "name": "Nemotron 3 Ultra 550B (Free)",
+                "provider": "nvidia",
+                "context_length": 1_000_000,
+                "input_per_m": 0.0,
+                "output_per_m": 0.0,
+                "is_free": True,
+                "featured": True,
+                "description": "550B MoE, 1M context, $0 input / $0 output. Built-in default.",
+                "source": "builtin",
+            },
+        )
 
     # Validate rows against the Pydantic model for a stable contract.
     validated: list[dict] = []
@@ -2237,9 +2231,7 @@ async def test_model(model_id: str) -> ModelTestResponse:
                     body = await resp.json()
                     if resp.status >= 400:
                         err_msg = (
-                            body.get("error", {}).get("message")
-                            if isinstance(body, dict)
-                            else f"HTTP {resp.status}"
+                            body.get("error", {}).get("message") if isinstance(body, dict) else f"HTTP {resp.status}"
                         ) or f"HTTP {resp.status}"
                         return ModelTestResponse(
                             success=False,
@@ -2255,9 +2247,7 @@ async def test_model(model_id: str) -> ModelTestResponse:
                     prompt_toks = int(usage.get("prompt_tokens") or 0)
                     completion_toks = int(usage.get("completion_tokens") or 0)
                     total_toks = prompt_toks + completion_toks
-                    cost = LLMUsageTracker.get().estimate_cost(
-                        "openrouter", model_id, prompt_toks, completion_toks
-                    )
+                    cost = LLMUsageTracker.get().estimate_cost("openrouter", model_id, prompt_toks, completion_toks)
                     # Record the probe so the usage dashboard reflects it.
                     _record_llm_usage(
                         provider="openrouter",

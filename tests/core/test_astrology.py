@@ -5,6 +5,7 @@ Covers smoke import + behavior of the public API on the AstrologicalCalculator
 class. Heavy numerical work is delegated to the Swiss Ephemeris (swisseph),
 which is treated as a real dependency since it's installed in the dev env.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -108,9 +109,7 @@ def test_get_julian_day_handles_naive_and_aware(calculator: AstrologicalCalculat
 
 
 @pytest.mark.unit
-def test_get_planetary_positions_returns_all_main_planets(
-    calculator: AstrologicalCalculator, fixed_dt: datetime
-):
+def test_get_planetary_positions_returns_all_main_planets(calculator: AstrologicalCalculator, fixed_dt: datetime):
     """get_planetary_positions returns longitude, sign, degree, formatted for each planet."""
     positions = calculator.get_planetary_positions(fixed_dt)
 
@@ -129,9 +128,7 @@ def test_get_planetary_positions_returns_all_main_planets(
 
 
 @pytest.mark.unit
-def test_get_planetary_positions_sun_at_j2000_is_in_capricorn(
-    calculator: AstrologicalCalculator, fixed_dt: datetime
-):
+def test_get_planetary_positions_sun_at_j2000_is_in_capricorn(calculator: AstrologicalCalculator, fixed_dt: datetime):
     """At J2000.0 (2000-01-01 12:00 UTC) the Sun sits at ~280.46° tropical
     longitude, which falls in Capricorn (sign index 9, 270°–300°). This anchors
     the calculation to a known astronomical reference point.
@@ -151,9 +148,7 @@ def test_get_planetary_positions_sun_at_j2000_is_in_capricorn(
 
 
 @pytest.mark.unit
-def test_get_moon_phase_returns_expected_shape(
-    calculator: AstrologicalCalculator, fixed_dt: datetime
-):
+def test_get_moon_phase_returns_expected_shape(calculator: AstrologicalCalculator, fixed_dt: datetime):
     """get_moon_phase returns dict with phase_name, illumination, phase_angle, is_*_moon."""
     phase = calculator.get_moon_phase(fixed_dt)
 
@@ -226,9 +221,9 @@ def test_format_astrological_report_full_energetics_payload():
         "moon_phase": {"phase_name": "Waning Gibbous", "illumination": 69.9},
         "lunar_mansion": {"name": "Purva Bhadrapada"},
         "planetary_positions": {
-            "sun":   {"sign": "Cancer", "degree": 13.86, "retrograde": False},
+            "sun": {"sign": "Cancer", "degree": 13.86, "retrograde": False},
             "mercury": {"sign": "Cancer", "degree": 24.86, "retrograde": True},
-            "moon":  {"sign": "Pisces", "degree": 20.41, "retrograde": False},
+            "moon": {"sign": "Pisces", "degree": 20.41, "retrograde": False},
         },
         "auspicious_times": {"sunrise": "06:12", "sunset": "20:30"},
         "planetary_hours": {"current_planetary_hour": "Moon", "day_planet": "Moon"},
@@ -256,9 +251,9 @@ def test_format_astrological_report_skips_non_dict_planet_positions():
     AstrologyExtractionPanel's ``runs.some is not a function`` audit."""
     data = {
         "planetary_positions": {
-            "sun":   {"sign": "Cancer", "degree": 13.86},
-            "moon":  None,                      # transient failure shape
-            "mercury": "not-an-object",          # transient failure shape
+            "sun": {"sign": "Cancer", "degree": 13.86},
+            "moon": None,  # transient failure shape
+            "mercury": "not-an-object",  # transient failure shape
             "venus": {"sign": "Leo", "degree": 25.71},
         },
     }

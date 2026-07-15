@@ -6,8 +6,9 @@ intention and produce a complete crystal bowl broadcast configuration
 core.rate_to_audio bridge.
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from core.rate_to_audio import SOLFEGGIO_FREQUENCIES
 from modules.radionics_operator import RadionicsOperator
@@ -57,9 +58,15 @@ class TestPrepareCrystalBroadcast:
 
         config = result["broadcast_config"]
         required = [
-            "intention", "duration_minutes", "rate_values", "potency",
-            "frequencies", "solfeggio_names", "amplitude",
-            "overtone_richness", "prayer_bowl",
+            "intention",
+            "duration_minutes",
+            "rate_values",
+            "potency",
+            "frequencies",
+            "solfeggio_names",
+            "amplitude",
+            "overtone_richness",
+            "prayer_bowl",
         ]
         for field in required:
             assert field in config, f"Missing required field: {field}"
@@ -89,7 +96,8 @@ class TestPrepareCrystalBroadcast:
     def test_amplitude_in_valid_range(self, operator):
         """Amplitude should be between min and max from the bridge."""
         result = operator.prepare_crystal_broadcast(
-            intention="Amplitude test", duration_minutes=5,
+            intention="Amplitude test",
+            duration_minutes=5,
         )
         assert 0.15 <= result["carriers"].amplitude <= 0.50
 
@@ -98,7 +106,8 @@ class TestPrepareCrystalBroadcast:
         on the analysis path — fallback uses 3 dials, database may use
         more)."""
         result = operator.prepare_crystal_broadcast(
-            intention="Test rate format", duration_minutes=5,
+            intention="Test rate format",
+            duration_minutes=5,
         )
         assert isinstance(result["rate"], list)
         assert 2 <= len(result["rate"]) <= 5

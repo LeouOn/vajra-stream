@@ -26,7 +26,7 @@ from backend.core.services.location_manager import LocationSourceType, LocationT
 logger = logging.getLogger(__name__)
 
 # Assume container handles our DI
-from container import container
+from container import container  # noqa: E402
 
 router = APIRouter()
 
@@ -321,8 +321,8 @@ async def get_status():
 # or English-accented Chinese. Per-chunk language detection lets each
 # chunk pick a native-sounding voice.
 LANGUAGE_VOICE_MAP: dict[str, str] = {
-    "zh": "zh-CN-YunxiNeural",     # Male, warm — traditional sutra feel
-    "en": "en-US-AriaNeural",      # Female, warm and engaging
+    "zh": "zh-CN-YunxiNeural",  # Male, warm — traditional sutra feel
+    "en": "en-US-AriaNeural",  # Female, warm and engaging
 }
 
 
@@ -343,9 +343,9 @@ def _detect_dominant_language(text: str) -> str:
         1
         for c in non_ws
         if (
-            "\u4e00" <= c <= "\u9fff"      # CJK Unified Ideographs (Chinese)
-            or "\u3040" <= c <= "\u30ff"   # Hiragana + Katakana (Japanese)
-            or "\uac00" <= c <= "\ud7af"   # Hangul Syllables (Korean)
+            "\u4e00" <= c <= "\u9fff"  # CJK Unified Ideographs (Chinese)
+            or "\u3040" <= c <= "\u30ff"  # Hiragana + Katakana (Japanese)
+            or "\uac00" <= c <= "\ud7af"  # Hangul Syllables (Korean)
         )
     )
     if cjk_count / len(non_ws) > 0.30:
@@ -903,6 +903,7 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
 
 # ----------------- IDLE REFLECTION ENGINE -----------------
 
+
 class IdleConfig(BaseModel):
     interval_minutes: int = Field(default=60, ge=1, le=1440)
     genres: list[str] | None = Field(default=None)
@@ -942,8 +943,13 @@ DEFAULT_BG_INTENTIONS: list[str] = [
 ]
 
 ALL_BG_GENRES: list[str] = [
-    "healing", "victory", "alchemist", "dharani",
-    "compassion", "wisdom", "protection",
+    "healing",
+    "victory",
+    "alchemist",
+    "dharani",
+    "compassion",
+    "wisdom",
+    "protection",
 ]
 
 _bg_task: asyncio.Task | None = None
@@ -972,11 +978,7 @@ async def _background_generation_loop(config: BackgroundGenerationConfig) -> Non
             else:
                 await asyncio.sleep(config.interval_minutes * 60)
 
-            current_genre = (
-                genre_cycle[idx % len(genre_cycle)]
-                if config.cycle_genres
-                else config.genre
-            )
+            current_genre = genre_cycle[idx % len(genre_cycle)] if config.cycle_genres else config.genre
             current_intention = (
                 intention_cycle[idx % len(intention_cycle)]
                 if config.cycle_intentions
@@ -1041,16 +1043,18 @@ async def _background_generation_loop(config: BackgroundGenerationConfig) -> Non
             try:
                 from backend.websocket.connection_manager import stable_connection_manager_v2
 
-                await stable_connection_manager_v2.broadcast({
-                    "type": "BACKGROUND_GENERATION",
-                    "data": {
-                        "genre": current_genre,
-                        "intention": current_intention,
-                        "timestamp": datetime.now().isoformat(),
-                        "narrative_preview": (result.get("narrative") or "")[:200],
-                        "stats": dict(_bg_stats),
-                    },
-                })
+                await stable_connection_manager_v2.broadcast(
+                    {
+                        "type": "BACKGROUND_GENERATION",
+                        "data": {
+                            "genre": current_genre,
+                            "intention": current_intention,
+                            "timestamp": datetime.now().isoformat(),
+                            "narrative_preview": (result.get("narrative") or "")[:200],
+                            "stats": dict(_bg_stats),
+                        },
+                    }
+                )
             except Exception as ws_err:
                 logger.debug("BG broadcast failed: %s", ws_err)
 

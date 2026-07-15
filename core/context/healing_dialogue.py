@@ -16,6 +16,7 @@ and :class:`~core.context.anatomy.AnatomyContextModule`:
 The module is constructed per-session with the current :class:`DialogueState`
 reference, so subsequent ``gather`` calls see the latest state mutations.
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,11 +53,7 @@ class HealingPhaseContextModule:
             data: dict = {
                 "session_id": state.session_id,
                 "current_phase": state.current_phase.value,
-                "phase_started_at": (
-                    state.phase_started_at.isoformat()
-                    if state.phase_started_at
-                    else None
-                ),
+                "phase_started_at": (state.phase_started_at.isoformat() if state.phase_started_at else None),
                 "chart_id": state.chart_id,
                 "accumulated_insights": dict(state.accumulated_insights),
             }

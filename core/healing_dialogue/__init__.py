@@ -13,6 +13,7 @@ The multi-turn LLM service (:class:`~core.llm.healing.AsyncHealingDialogue`)
 and the context module (:class:`~core.context.healing_dialogue.HealingPhaseContextModule`)
 live in their respective packages and import from here.
 """
+
 from __future__ import annotations
 
 from core.healing_dialogue.phases import DialoguePhase, DialogueState

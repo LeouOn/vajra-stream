@@ -1,10 +1,10 @@
 """End-to-end test of the Vajra Stream practice system.
 Runs without any LLM API call (just exercises the knowledge base, TTS, and practice engine scaffolding).
 """
+
 import asyncio
 import json
 import os
-import sys
 
 
 def test_knowledge_base():
@@ -31,6 +31,7 @@ async def test_tts_provider():
     print("\n=== TTS Provider ===")
     try:
         from core.tts_provider import get_tts_provider
+
         provider = get_tts_provider()
         print(f"  Type: {type(provider).__name__}")
         if provider and hasattr(provider, "speak"):
@@ -49,6 +50,7 @@ def test_practice_engine():
     print("\n=== Practice Engine ===")
     try:
         from core.practice_engine import PracticeEngine
+
         engine = PracticeEngine.get_instance()
         if hasattr(engine, "list_practices"):
             practices = engine.list_practices()
@@ -67,6 +69,7 @@ async def test_knowledge_search():
     print("\n=== Knowledge Search (RAG) ===")
     try:
         from core.knowledge_index import get_knowledge_index
+
         idx = get_knowledge_index()
         for query in ["compassion", "Tara", "medicine Buddha", "Mantra"]:
             try:
@@ -86,6 +89,7 @@ def test_dharma_lookup():
     print("\n=== Dharma Lookup ===")
     try:
         from core.knowledge_index import get_knowledge_index
+
         idx = get_knowledge_index()
         entities = idx._chunks if hasattr(idx, "_chunks") else []
         sources = sorted({c.get("source", "?") for c in entities})

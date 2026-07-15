@@ -48,7 +48,7 @@ def create_database(db_path: str = "vajra_stream.db", *, force: bool = False):
     if repo_root not in sys.path:
         sys.path.insert(0, repo_root)
 
-    from core.schema import init_db, list_tables, get_db_path
+    from core.schema import get_db_path, init_db, list_tables
 
     conn = init_db()
     try:
@@ -69,4 +69,3 @@ if __name__ == "__main__":
     parser.add_argument("--yes", "-y", action="store_true", help="Overwrite existing DB without prompting")
     args = parser.parse_args()
     create_database(args.db, force=args.yes)
-

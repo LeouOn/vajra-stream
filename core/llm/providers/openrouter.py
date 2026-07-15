@@ -1,5 +1,6 @@
 # core/llm/providers/openrouter.py
 """OpenRouter provider (aggregator for many models)."""
+
 import os
 
 from core.llm.base import OpenAICompatibleProvider

@@ -7,13 +7,14 @@ dharma teaching, divination correspondences (astrology + tarot + I Ching),
 hero journey narrative, and dedication of merit. Then triggers the crystal
 bowl broadcast with Solfeggio carrier frequencies.
 """
+
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.compassionate_blessings import BlessingDatabase, BlessingTarget, BlessingCategory
+from core.compassionate_blessings import BlessingDatabase
 from core.rate_to_audio import map_rate_to_carriers
 from core.ritual_generator import RitualGenerator
 
@@ -26,6 +27,7 @@ def main():
     llm = None
     try:
         from container import Container
+
         container = Container()
         llm = container.llm
     except Exception:
@@ -34,8 +36,10 @@ def main():
     # Get current astrology data
     astrology_data = None
     try:
-        from backend.core.services.vajra_service import vajra_service
         import asyncio
+
+        from backend.core.services.vajra_service import vajra_service
+
         loop = asyncio.new_event_loop()
         astrology_data = loop.run_until_complete(vajra_service._get_astrology_data())
         loop.close()
@@ -68,7 +72,7 @@ def main():
         western = astrology_data.get("western", {}).get("positions", {})
         sun = western.get("sun", {})
         moon = western.get("moon", {})
-        print(f"  Astrology: Sun in {sun.get('sign','?')}, Moon in {moon.get('sign','?')}")
+        print(f"  Astrology: Sun in {sun.get('sign', '?')}, Moon in {moon.get('sign', '?')}")
     else:
         print("  Astrology: unavailable")
     print()
@@ -100,6 +104,7 @@ def main():
     print("Starting crystal bowl broadcast (3 minutes)...")
     try:
         from modules.crystal import CrystalService
+
         crystal = CrystalService()
         result = crystal.broadcast_intention(
             intention=intention,

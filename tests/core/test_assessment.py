@@ -9,6 +9,7 @@ Covers the public API:
 The module is pure in-memory logic plus a lazy import of ``core.healing_systems``;
 all tests exercise behavior against the real ``MeridianSystem`` (no mocks).
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -22,7 +23,6 @@ from core.assessment import (
     SymptomTracker,
     get_current_meridian,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke
@@ -84,15 +84,17 @@ def test_chakra_assessment_list_chakras_returns_sorted_sanskrit_names():
 
     names = assess.list_chakras()
 
-    assert names == sorted([
-        "muladhara",
-        "svadhisthana",
-        "manipura",
-        "anahata",
-        "vishuddha",
-        "ajna",
-        "sahasrara",
-    ])
+    assert names == sorted(
+        [
+            "muladhara",
+            "svadhisthana",
+            "manipura",
+            "anahata",
+            "vishuddha",
+            "ajna",
+            "sahasrara",
+        ]
+    )
     assert len(names) == 7
     # Questions must be retrievable for each listed chakra
     for n in names:
@@ -151,11 +153,13 @@ def test_dosha_assessment_evaluate_rejects_wrong_length_list():
         assess.evaluate({"vata": [1, 2, 3]})
 
     with pytest.raises(ValueError, match="Expected 10 answers for kapha"):
-        assess.evaluate({
-            "vata": [3] * 10,
-            "pitta": [3] * 10,
-            "kapha": [3] * 11,
-        })
+        assess.evaluate(
+            {
+                "vata": [3] * 10,
+                "pitta": [3] * 10,
+                "kapha": [3] * 11,
+            }
+        )
 
 
 @pytest.mark.unit
@@ -163,11 +167,13 @@ def test_dosha_assessment_evaluate_zero_totals_returns_unknown_dominant():
     """When every total is 0, the function returns 'unknown' with 0% across the board."""
     assess = DoshaAssessment()
 
-    result = assess.evaluate({
-        "vata": [0] * 10,
-        "pitta": [0] * 10,
-        "kapha": [0] * 10,
-    })
+    result = assess.evaluate(
+        {
+            "vata": [0] * 10,
+            "pitta": [0] * 10,
+            "kapha": [0] * 10,
+        }
+    )
 
     assert result["dominant"] == "unknown"
     assert result["vata_pct"] == 0.0

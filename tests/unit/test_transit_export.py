@@ -10,8 +10,17 @@ swisseph = pytest.importorskip("swisseph")
 from core.astrology import AstrologicalCalculator  # noqa: E402  (guarded by importorskip)
 
 EXPECTED_PLANETS = [
-    "sun", "moon", "mercury", "venus", "mars",
-    "jupiter", "saturn", "uranus", "neptune", "pluto", "north_node",
+    "sun",
+    "moon",
+    "mercury",
+    "venus",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune",
+    "pluto",
+    "north_node",
 ]
 
 
@@ -137,10 +146,17 @@ class TestTransitExportEndpoint:
 
             data = body["data"]
             expected_fields = [
-                "name", "birth_time_iso", "transit_time",
-                "natal_houses", "transit_houses",
-                "top_harmonious", "top_challenging", "top_cusp_transits",
-                "gochara", "bazi_clashes", "house_systems",
+                "name",
+                "birth_time_iso",
+                "transit_time",
+                "natal_houses",
+                "transit_houses",
+                "top_harmonious",
+                "top_challenging",
+                "top_cusp_transits",
+                "gochara",
+                "bazi_clashes",
+                "house_systems",
             ]
             for field in expected_fields:
                 assert field in data, f"missing field {field}"
@@ -204,19 +220,15 @@ class TestTransitExportEndpoint:
             for bucket_name in ("top_harmonious", "top_challenging"):
                 for asp in data[bucket_name]:
                     natal_target = asp.get("natal_planet", "")
-                    assert not (
-                        isinstance(natal_target, str) and natal_target.startswith("house_")
-                    ), (
-                        f"{bucket_name} should not contain cusp aspects; "
-                        f"found {natal_target!r}"
+                    assert not (isinstance(natal_target, str) and natal_target.startswith("house_")), (
+                        f"{bucket_name} should not contain cusp aspects; found {natal_target!r}"
                     )
 
             # Every entry in top_cusp_transits MUST be a cusp aspect.
             for asp in data["top_cusp_transits"]:
                 natal_target = asp.get("natal_planet", "")
                 assert isinstance(natal_target, str) and natal_target.startswith("house_"), (
-                    f"top_cusp_transits should only contain cusp aspects; "
-                    f"found {natal_target!r}"
+                    f"top_cusp_transits should only contain cusp aspects; found {natal_target!r}"
                 )
 
             assert len(data["top_cusp_transits"]) <= 10

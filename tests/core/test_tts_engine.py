@@ -13,13 +13,13 @@ Covers the public surface:
 tests mock it via ``sys.modules`` + ``patch.dict`` before the module
 imports are exercised.
 """
+
 from __future__ import annotations
 
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Module-level fixture: stub out pyttsx3 so ``import core.tts_engine`` works
@@ -41,6 +41,7 @@ def _install_pyttsx3_stub():
     # in-place so this test sees the fake too. (A fresh import would
     # otherwise pick up the real pyttsx3 still cached in sys.modules.)
     import core.tts_engine as tts_mod
+
     tts_mod.pyttsx3 = fake_pyttsx3
     tts_mod.TTSEngine.__init__ = _patched_init
 
@@ -55,6 +56,7 @@ def _patched_init(self, rate: int = 150, volume: float = 0.9, voice_index: int =
     fixture ran. We avoid re-initialising the real audio driver.
     """
     import core.tts_engine as tts_mod
+
     self.engine = tts_mod.pyttsx3.init()
     self.engine.setProperty("rate", rate)
     self.engine.setProperty("volume", volume)

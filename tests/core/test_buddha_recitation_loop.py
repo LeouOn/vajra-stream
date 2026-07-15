@@ -13,6 +13,7 @@ The loop is constructed with ``tts_reciter=False`` to skip TTS provider
 initialisation in tests; ``sounddevice`` / ``soundfile`` / WebSocket
 infrastructure are not invoked in any of the assertions below.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -22,7 +23,6 @@ from core.buddha_recitation_loop import (
     RecitationState,
     get_recitation_loop,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke + state dataclass

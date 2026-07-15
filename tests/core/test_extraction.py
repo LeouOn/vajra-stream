@@ -13,11 +13,11 @@ Covers the public API:
 Heavy ephemeris calls in ``astronomical`` mode are mocked to keep tests fast
 and deterministic; the four core modes are exercised end-to-end.
 """
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from unittest.mock import patch
 
 import pytest
 
@@ -35,7 +35,6 @@ from core.extraction import (
     generate_time_grid,
     generate_time_grid_from_string,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. Import smoke test
@@ -287,7 +286,7 @@ def test_generate_time_grid_from_string_every_weekday():
     grid = generate_time_grid_from_string(
         "every Monday 06:00",
         start=_utc(2024, 1, 1),  # Monday
-        end=_utc(2024, 1, 22),   # 3 Mondays later inclusive
+        end=_utc(2024, 1, 22),  # 3 Mondays later inclusive
     )
     assert len(grid) >= 3
     for d in grid:

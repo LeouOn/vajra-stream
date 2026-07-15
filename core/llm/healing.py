@@ -28,6 +28,7 @@ Usage::
     )
     print(result["content"])
 """
+
 from __future__ import annotations
 
 import json
@@ -105,12 +106,32 @@ _HINT_BLOCK_RE = re.compile(
 
 # Keywords that signal extraction of new insights from the response.
 _EMOTION_KEYWORDS = (
-    "grief", "fear", "anger", "sadness", "shame", "terror",
-    "numbness", "rage", "longing", "grief", "despair", "helplessness",
+    "grief",
+    "fear",
+    "anger",
+    "sadness",
+    "shame",
+    "terror",
+    "numbness",
+    "rage",
+    "longing",
+    "grief",
+    "despair",
+    "helplessness",
 )
 _BODY_KEYWORDS = (
-    "chest", "throat", "gut", "belly", "root", "solar plexus",
-    "heart", "shoulders", "jaw", "stomach", "pelvis", "head",
+    "chest",
+    "throat",
+    "gut",
+    "belly",
+    "root",
+    "solar plexus",
+    "heart",
+    "shoulders",
+    "jaw",
+    "stomach",
+    "pelvis",
+    "head",
 )
 
 
@@ -194,9 +215,7 @@ class AsyncHealingDialogue:
 
         provider = await self.registry.pick_best()
         if provider is None:
-            raise RuntimeError(
-                "No healthy LLM provider available in the registry"
-            )
+            raise RuntimeError("No healthy LLM provider available in the registry")
 
         request = ChatRequest(
             messages=chat_messages,
@@ -207,7 +226,9 @@ class AsyncHealingDialogue:
 
         logger.debug(
             "healing dialogue turn: session phase=%s provider=%s msgs=%d",
-            phase.value, provider.name, len(chat_messages),
+            phase.value,
+            provider.name,
+            len(chat_messages),
         )
         response = await provider.generate(request)
         content = response.content or ""

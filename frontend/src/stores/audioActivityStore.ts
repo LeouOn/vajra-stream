@@ -49,6 +49,9 @@ export const useAudioActivity = create<AudioActivityState>((set, get) => ({
     sources.forEach(s => {
       try { s.stop(); } catch { /* best effort */ }
     });
+    document.querySelectorAll('audio').forEach(a => {
+      try { a.pause(); a.currentTime = 0; } catch { /* best effort */ }
+    });
     set({ sources: [] });
   },
 

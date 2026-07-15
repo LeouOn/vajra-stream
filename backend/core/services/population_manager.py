@@ -190,7 +190,11 @@ class PopulationManager:
                         intentions=intentions or ["love", "healing", "peace"],
                         priority=target.get("priority", 5),
                         is_urgent=target.get("priority", 5) >= 9,
-                        notes=target.get("additional_data", "") if isinstance(target.get("additional_data"), str) else json.dumps(target.get("additional_data", {})) if target.get("additional_data") else "",
+                        notes=target.get("additional_data", "")
+                        if isinstance(target.get("additional_data"), str)
+                        else json.dumps(target.get("additional_data", {}))
+                        if target.get("additional_data")
+                        else "",
                         tags=target.get("category", "").split() if target.get("category") else [],
                     )
             self._save()

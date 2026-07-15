@@ -12,6 +12,7 @@ The default ``knowledge_dir`` points at the real ``knowledge/`` tree in
 the project — these tests use the real JSON files to exercise the indexing
 pipeline end-to-end (no I/O mocking required).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,7 +26,6 @@ from core.knowledge_index import (
     get_knowledge_index,
     search_knowledge,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

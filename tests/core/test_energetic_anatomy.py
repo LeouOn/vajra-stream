@@ -6,6 +6,7 @@ Covers the EnergeticAnatomyDatabase public API, the dataclass contracts
 (Chakra, Meridian), and the convenience functions. No IO: tests use the
 in-memory default database.
 """
+
 from __future__ import annotations
 
 import json
