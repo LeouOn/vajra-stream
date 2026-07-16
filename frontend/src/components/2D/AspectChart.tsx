@@ -79,6 +79,34 @@ const ZODIAC_MEANINGS = [
   '♓ Pisces — Water, Mutable. Mysticism, compassion, dissolution',
 ];
 
+const SIGN_ELEMENT: Record<string, string> = {
+  Aries: 'Fire', Leo: 'Fire', Sagittarius: 'Fire',
+  Taurus: 'Earth', Virgo: 'Earth', Capricorn: 'Earth',
+  Gemini: 'Air', Libra: 'Air', Aquarius: 'Air',
+  Cancer: 'Water', Scorpio: 'Water', Pisces: 'Water',
+};
+const SIGN_MODALITY: Record<string, string> = {
+  Aries: 'Cardinal', Cancer: 'Cardinal', Libra: 'Cardinal', Capricorn: 'Cardinal',
+  Taurus: 'Fixed', Leo: 'Fixed', Scorpio: 'Fixed', Aquarius: 'Fixed',
+  Gemini: 'Mutable', Virgo: 'Mutable', Sagittarius: 'Mutable', Pisces: 'Mutable',
+};
+const ASPECT_INTERPRETATION: Record<AspectType, string> = {
+  conjunction: 'Fusion, blending of energies, intensification',
+  opposition: 'Tension, polarity, awareness through contrast',
+  trine: 'Harmonious flow, natural talent, ease',
+  square: 'Dynamic friction, growth through challenge',
+  sextile: 'Opportunity, creative potential, gentle cooperation',
+};
+const PLANET_DIGNITY: Record<string, Record<string, string>> = {
+  sun:     { Leo: 'domicile', Aries: 'exaltation', Libra: 'detriment', Aquarius: 'fall' },
+  moon:    { Cancer: 'domicile', Taurus: 'exaltation', Scorpio: 'detriment', Capricorn: 'fall' },
+  mercury: { Gemini: 'domicile', Virgo: 'domicile', Sagittarius: 'detriment', Pisces: 'detriment' },
+  venus:   { Taurus: 'domicile', Libra: 'domicile', Aries: 'detriment', Scorpio: 'detriment' },
+  mars:    { Aries: 'domicile', Scorpio: 'domicile', Libra: 'detriment', Taurus: 'fall' },
+  jupiter: { Sagittarius: 'domicile', Pisces: 'domicile', Gemini: 'detriment', Virgo: 'fall' },
+  saturn:  { Capricorn: 'domicile', Aquarius: 'domicile', Cancer: 'detriment', Leo: 'fall' },
+};
+
 function angularDistance(lon1: number, lon2: number): number {
   let diff = Math.abs(lon1 - lon2) % 360;
   if (diff > 180) diff = 360 - diff;
@@ -124,21 +152,91 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
   const aspects = useMemo(() => calculateAspects(positions), [positions]);
 
   const askChartLLM = async () => {
-    const q = llmQuestion.trim() || 'Give me a comprehensive interpretation of this astrological chart. What are the key themes, strengths, and challenges?';
+    const q = llmQuestion.trim() || 'Give me a comprehensive interpretation of this astrological chart. Cover the core identity, emotional nature, communication style, love and drive, growth areas, karmic patterns, and current challenges.';
     setLlmLoading(true);
     setLlmResponse('');
     try {
-      const planetList = Object.entries(positions)
-        .filter(([n]) => n !== 'ascendant' && n !== 'midheaven')
-        .map(([n, p]) => `${n}: ${p.sign || ''} ${p.degree?.toFixed(1) || ''}° House ${p.house || '?'}${p.retrograde ? ' ℞' : ''}`)
-        .join('\n');
-      const aspectList = aspects.map(a =>
-        `${a.planet1} ${a.type} ${a.planet2} (orb ${a.orb.toFixed(1)}°)`
-      ).join('\n');
-      const ascSign = positions.ascendant?.sign || 'Unknown';
-      const mcSign = positions.midheaven?.sign || 'Unknown';
+      const planetNames = Object.keys(positions).filter(n => n !== 'ascendant' && n !== 'midheaven');
 
-      const systemPrompt = `You are an expert astrologer. Interpret this natal chart data:\n\nAscendant: ${ascSign}\nMidheaven: ${mcSign}\n\nPlanetary Positions:\n${planetList}\n\nActive Aspects:\n${aspectList}\n\nProvide insightful, specific interpretations.`;
+      const elementCount: Record<string, number> = { Fire: 0, Earth: 0, Air: 0, Water: 0 };
+      const modalityCount: Record<string, number> = { Cardinal: 0, Fixed: 0, Mutable: 0 };
+      const planetsByHouse: Record<number, Array<string>> = {};
+      const dignityList: string[] = [];
+
+      const planetLines = planetNames.map(n => {
+        const p = positions[n];
+        const sign = p.sign || '?';
+        const deg = p.degree?.toFixed(1) || '?';
+        const house = p.house || '?';
+        const ret = p.retrograde ? ' ℞ (retrograde)' : '';
+        const glyph = PLANET_GLYPHS[n] || n[0].toUpperCase();
+        if (SIGN_ELEMENT[sign]) elementCount[SIGN_ELEMENT[sign]]++;
+        if (SIGN_MODALITY[sign]) modalityCount[SIGN_MODALITY[sign]]++;
+        if (!planetsByHouse[house]) planetsByHouse[house] = [];
+        planetsByHouse[house].push(`${glyph} ${n} in ${sign} ${deg}°`);
+        if (PLANET_DIGNITY[n]?.[sign]) dignityList.push(`${n} ${PLANET_DIGNITY[n][sign]} in ${sign}`);
+        return `${glyph} ${n}: ${sign} ${deg}° (House ${house})${ret}`;
+      });
+
+      const ascLon = positions.ascendant?.longitude || 0;
+      const ascSign = positions.ascendant?.sign || 'Unknown';
+      const ascDeg = positions.ascendant?.degree?.toFixed(1) || '?';
+      const mcSign = positions.midheaven?.sign || 'Unknown';
+      const mcDeg = positions.midheaven?.degree?.toFixed(1) || '?';
+
+      const houseLines = Object.keys(planetsByHouse)
+        .sort((a, b) => Number(a) - Number(b))
+        .map(h => `  House ${h}: ${planetsByHouse[Number(h)].join(', ')}`)
+        .join('\n');
+
+      const aspectLines = aspects
+        .sort((a, b) => a.orb - b.orb)
+        .slice(0, 12)
+        .map(a => {
+          const interp = ASPECT_INTERPRETATION[a.type] || '';
+          return `${a.planet1} ${a.type} ${a.planet2} — orb ${a.orb.toFixed(1)}° (${interp})`;
+        })
+        .join('\n');
+
+      const elementLine = Object.entries(elementCount).map(([e, c]) => `${e}: ${c}`).join(' | ');
+      const modalityLine = Object.entries(modalityCount).map(([m, c]) => `${m}: ${c}`).join(' | ');
+
+      const systemPrompt = `You are an expert astrologer with deep knowledge of natal chart interpretation. Use the following natal chart data to answer the user's question with specificity and insight.
+
+# NATAL CHART
+
+## Angles
+- Ascendant (Rising Sign): ${ascSign} ${ascDeg}° — how others see this person, physical body, first impressions
+- Midheaven (MC): ${mcSign} ${mcDeg}° — career, public image, direction in life
+
+## Planetary Positions (by sign and house)
+${planetLines.join('\n')}
+
+## Planets by House
+${houseLines || '  (no house data)'}
+
+## Element Balance: ${elementLine}
+## Modality Balance: ${modalityLine}
+
+## Essential Dignities (highlighted)
+${dignityList.length ? dignityList.join('\n') : '  (no strong dignities)'}
+
+## Major Aspects (sorted by tightness)
+${aspectLines || '  (no major aspects within orb)'}
+
+# INTERPRETATION FRAMEWORK
+
+When answering:
+1. Reference SPECIFIC positions and aspects from the chart above. Never give generic descriptions.
+2. Connect multiple chart factors to show themes (e.g., "Your Sun in ${planetNames.find(n => positions[n].sign) ? 'see positions' : 'see chart'} plus Moon trine Saturn suggests...").
+3. Cover the layered personality: Sun (core identity), Moon (emotions), Ascendant (persona), Mercury (mind), Venus (love), Mars (drive), then outer planets (Saturn, Jupiter, Uranus, Neptune, Pluto) for generational/karmic patterns.
+4. For aspect interpretations, name the dynamic (conjunction = fusion, square = tension/growth, trine = flow, opposition = polarization, sextile = opportunity).
+5. Honor retrograde planets — they turn energy inward, delay, or revisit themes.
+6. Use warm, specific language. Avoid jargon dumps. Give the querent something they can feel.
+
+If the user asked a specific question (not a full reading), focus deeply on that question using the chart data — don't produce a generic reading.
+
+Keep your response between 400–800 words unless the question demands more depth.`;
 
       const res = await fetch('/api/v1/llm/chat', {
         method: 'POST',
@@ -148,18 +246,25 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
             { role: 'system', content: systemPrompt },
             { role: 'user', content: q },
           ],
-          max_tokens: 800,
+          max_tokens: 1500,
           temperature: 0.7,
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        setLlmResponse(data.choices?.[0]?.message?.content || data.response || data.content || 'No response');
+        const text = data.choices?.[0]?.message?.content
+          || data.response
+          || data.content
+          || data.message
+          || data.text;
+        setLlmResponse(text || 'The astrologer returned no text. Please try rephrasing your question.');
       } else {
-        setLlmResponse('Could not reach the LLM. Please try again.');
+        const errBody = await res.text().catch(() => '');
+        setLlmResponse(`Could not reach the LLM (HTTP ${res.status}).${errBody ? ' ' + errBody.slice(0, 200) : ''}`);
       }
-    } catch {
-      setLlmResponse('Network error — could not reach the LLM.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLlmResponse(`Network error: ${msg}`);
     }
     setLlmLoading(false);
   };
