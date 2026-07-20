@@ -261,7 +261,7 @@ Keep your response between 400–800 words unless the question demands more dept
           || data.text;
         const finalText = text || 'The astrologer returned no text. Please try rephrasing your question.';
         setLlmResponse(finalText);
-        setLlmHistory(prev => [...prev, { role: 'user', content: q }, { role: 'assistant', content: finalText }]);
+        setLlmHistory(prev => [...prev, { role: 'user', content: q }, { role: 'assistant', content: finalText }].slice(-20));
         setLlmQuestion('');
       } else {
         const errBody = await res.text().catch(() => '');

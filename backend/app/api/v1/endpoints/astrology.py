@@ -285,13 +285,26 @@ async def get_zodiac_positions():
 
 
 @router.get("/transits")
-async def get_current_transits():
-    """Get current planetary transits (real calculations in orb)"""
+async def get_current_transits(at: str | None = None):
+    """Get current planetary transits (real calculations in orb).
+
+    Optional ``at`` query param accepts an ISO datetime to calculate
+    transits for a specific moment instead of ``now``.
+    """
     try:
-        logger.info("🌍 Planetary transits request")
+        from dateutil import parser as _dt_parser
+
+        calc_dt = None
+        if at:
+            try:
+                calc_dt = _dt_parser.parse(at)
+            except Exception:
+                logger.warning("Could not parse 'at' parameter: %s", at)
+
+        logger.info("🌍 Planetary transits request (at=%s)", calc_dt or "now")
         from backend.core.services.vajra_service import vajra_service
 
-        astrology_data = await vajra_service._get_astrology_data()
+        astrology_data = await vajra_service._get_astrology_data(dt=calc_dt)
         western = astrology_data.get("western", {})
         aspects = western.get("aspects", [])
 
