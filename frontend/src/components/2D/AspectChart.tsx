@@ -245,6 +245,7 @@ Keep your response between 400–800 words unless the question demands more dept
         body: JSON.stringify({
           messages: [
             { role: 'system', content: systemPrompt },
+            ...llmHistory,
             { role: 'user', content: q },
           ],
           max_tokens: 1500,
@@ -258,7 +259,10 @@ Keep your response between 400–800 words unless the question demands more dept
           || data.content
           || data.message
           || data.text;
-        setLlmResponse(text || 'The astrologer returned no text. Please try rephrasing your question.');
+        const finalText = text || 'The astrologer returned no text. Please try rephrasing your question.';
+        setLlmResponse(finalText);
+        setLlmHistory(prev => [...prev, { role: 'user', content: q }, { role: 'assistant', content: finalText }]);
+        setLlmQuestion('');
       } else {
         const errBody = await res.text().catch(() => '');
         setLlmResponse(`Could not reach the LLM (HTTP ${res.status}).${errBody ? ' ' + errBody.slice(0, 200) : ''}`);
@@ -461,22 +465,49 @@ Keep your response between 400–800 words unless the question demands more dept
                 <Input.TextArea
                   value={llmQuestion}
                   onChange={(e) => setLlmQuestion(e.target.value)}
-                  placeholder="Ask about your chart... (e.g. 'What does my Sun square Mars mean?' or leave blank for a full reading)"
+                  placeholder="Ask a follow-up question... (e.g. 'What does my Venus square Mars mean for love?')"
                   autoSize={{ minRows: 1, maxRows: 3 }}
+                  onPressEnter={(e) => { if (!e.shiftKey) { e.preventDefault(); if (!llmLoading) askChartLLM(); } }}
                 />
-                <Button
-                  type="primary"
-                  size="small"
-                  loading={llmLoading}
-                  onClick={askChartLLM}
-                  block
-                >
-                  {llmLoading ? 'Consulting the stars...' : 'Interpret My Chart'}
-                </Button>
-                {llmResponse && (
-                  <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed bg-black/40 p-3 rounded-lg border border-white/5 max-h-[400px] overflow-y-auto">
-                    {llmResponse}
+                <div className="flex gap-2">
+                  <Button
+                    type="primary"
+                    size="small"
+                    loading={llmLoading}
+                    onClick={askChartLLM}
+                    className="flex-1"
+                  >
+                    {llmLoading ? 'Consulting...' : llmHistory.length > 0 ? 'Ask' : 'Interpret My Chart'}
+                  </Button>
+                  {llmHistory.length > 0 && (
+                    <Button
+                      size="small"
+                      onClick={() => { setLlmHistory([]); setLlmResponse(''); setLlmQuestion(''); }}
+                    >
+                      New Reading
+                    </Button>
+                  )}
+                </div>
+                {llmHistory.length > 0 && (
+                  <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                    {llmHistory.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`text-xs leading-relaxed p-3 rounded-lg border ${
+                          msg.role === 'user'
+                            ? 'bg-purple-950/20 border-purple-500/15 text-purple-200'
+                            : 'bg-black/40 border-white/5 text-gray-300'
+                        }`}
+                      >
+                        {msg.role === 'user' && <span className="text-[9px] font-mono text-purple-400/60 block mb-1">YOU</span>}
+                        {msg.role === 'assistant' && <span className="text-[9px] font-mono text-cyan-400/60 block mb-1">ASTROLOGER</span>}
+                        <span className="whitespace-pre-wrap">{msg.content}</span>
+                      </div>
+                    ))}
                   </div>
+                )}
+                {llmLoading && (
+                  <div className="text-xs text-gray-500 text-center py-2 animate-pulse">Consulting the stars...</div>
                 )}
               </div>
             ),
