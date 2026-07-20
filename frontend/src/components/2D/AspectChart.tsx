@@ -148,6 +148,7 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
   const [llmQuestion, setLlmQuestion] = useState('');
   const [llmResponse, setLlmResponse] = useState('');
   const [llmLoading, setLlmLoading] = useState(false);
+  const [llmHistory, setLlmHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
   const aspects = useMemo(() => calculateAspects(positions), [positions]);
 
