@@ -986,7 +986,7 @@ def _enrich_planets_v2(positions: dict, cusps: dict) -> list[dict]:
         if isinstance(body, str) and body.startswith("house_"):
             continue
         lon = info.get("longitude")
-        if not isinstance(lon, (int, float)):
+        if not isinstance(lon, int | float):
             continue
 
         nearest = None

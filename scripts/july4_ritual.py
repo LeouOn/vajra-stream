@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 July 4th Ritual â€Ea dedication for the nation and all beings in it.
 

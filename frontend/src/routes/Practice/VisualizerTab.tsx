@@ -67,7 +67,7 @@ export default function VisualizerTab(): React.ReactElement {
 
       {mode === 'sacred-geometry' ? (
         <Suspense fallback={<Loading label="Loading Sacred Geometry..." tone="text-purple-400" />}>
-          <Canvas key="sacred-geometry" camera={{ position: [0, 0, 20], fov: 60 }} className="w-full h-full">
+          <Canvas key="sacred-geometry" camera={{ position: [0, 0, 8], fov: 60 }} className="w-full h-full">
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} intensity={1} />
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
@@ -85,7 +85,7 @@ export default function VisualizerTab(): React.ReactElement {
         </Suspense>
       ) : (
         <Suspense fallback={<Loading label="Loading Sacred Mandala..." tone="text-amber-400" />}>
-          <Canvas key="sacred-mandala" camera={{ position: [0, 0, 15], fov: 60 }} className="w-full h-full">
+          <Canvas key="sacred-mandala" camera={{ position: [0, 0, 8], fov: 60 }} className="w-full h-full">
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} intensity={1} />
             <Stars radius={120} depth={50} count={4000} factor={3} saturation={0.1} fade speed={0.8} />

@@ -1741,7 +1741,7 @@ class AstrologicalCalculator:
                         t_speed = t_pos.get("speed")
                         n_speed = n_pos.get("speed")
                         applying = None
-                        if isinstance(t_speed, (int, float)) and isinstance(n_speed, (int, float)):
+                        if isinstance(t_speed, int | float) and isinstance(n_speed, int | float):
                             signed_delta = self._angular_delta_signed(t_lon, n_lon)
                             d_sep_dt = t_speed - n_speed
                             if signed_delta >= 0:
@@ -2164,11 +2164,11 @@ class AstrologicalCalculator:
         # the method-level ``orb`` parameter remains a conjunction-specific
         # override (backward compatibility with v1 callers).
         aspect_types: list[dict] = [
-            {"name": "Conjunction", "angle": 0,   "orb": 2.0},
-            {"name": "Sextile",     "angle": 60,  "orb": 2.0},
-            {"name": "Square",      "angle": 90,  "orb": 2.0},
-            {"name": "Trine",       "angle": 120, "orb": 2.0},
-            {"name": "Opposition",  "angle": 180, "orb": 2.0},
+            {"name": "Conjunction", "angle": 0, "orb": 2.0},
+            {"name": "Sextile", "angle": 60, "orb": 2.0},
+            {"name": "Square", "angle": 90, "orb": 2.0},
+            {"name": "Trine", "angle": 120, "orb": 2.0},
+            {"name": "Opposition", "angle": 180, "orb": 2.0},
         ]
 
         def _to_utc(dt: datetime) -> datetime:
@@ -2290,8 +2290,7 @@ class AstrologicalCalculator:
                 natal_pairs = [
                     (n_name, n_pos)
                     for n_name, n_pos in natal_positions.items()
-                    if n_name != planet_name
-                    and not (planet_name == "north_node" and n_name == "north_node")
+                    if n_name != planet_name and not (planet_name == "north_node" and n_name == "north_node")
                 ]
                 if not natal_pairs:
                     continue
@@ -3160,7 +3159,7 @@ class AstrologicalCalculator:
                     orb = abs(distance - asp["angle"])
                     if orb <= asp["orb"]:
                         applying = None
-                        if isinstance(speed1, (int, float)) and isinstance(speed2, (int, float)):
+                        if isinstance(speed1, int | float) and isinstance(speed2, int | float):
                             # d_sep_dt = rate of change of (lon2 - lon1).
                             # Gap |signed_delta| shrinks when d_sep_dt has
                             # the opposite sign to signed_delta.
@@ -3371,7 +3370,7 @@ def format_astrological_report(data: dict) -> str:
         # ``illumination`` is already 0–100 (see get_moon_phase line 1285:
         # ``illumination = (1 - math.cos(math.radians(phase_angle))) / 2 * 100``),
         # so just print as-is.
-        mp_pct = f" ({mp_illum:.1f}% illuminated)" if isinstance(mp_illum, (int, float)) else ""
+        mp_pct = f" ({mp_illum:.1f}% illuminated)" if isinstance(mp_illum, int | float) else ""
         lines.append(f"Moon Phase: {mp_name}{mp_pct}")
         lines.append("")
 
@@ -3391,7 +3390,7 @@ def format_astrological_report(data: dict) -> str:
                 continue
             sign = info.get("sign") or "—"
             degree = info.get("degree")
-            deg_str = f"{degree:.2f}°" if isinstance(degree, (int, float)) else "—"
+            deg_str = f"{degree:.2f}°" if isinstance(degree, int | float) else "—"
             retro = " (R)" if info.get("retrograde") else ""
             lines.append(f"  {planet.title()}: {sign} {deg_str}{retro}")
         lines.append("")

@@ -194,7 +194,7 @@ def test_ttsnarrator_selects_engine_or_falls_back_to_stub(capsys):
     voices = narrator.list_voices()
     assert isinstance(voices, list)
     # The engine is one of the three concrete classes
-    assert isinstance(narrator.engine, (Pyttsx3Engine, GTTSEngine, EdgeTTSEngine))
+    assert isinstance(narrator.engine, Pyttsx3Engine | GTTSEngine | EdgeTTSEngine)
 
 
 @pytest.mark.unit

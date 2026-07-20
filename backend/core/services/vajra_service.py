@@ -626,7 +626,7 @@ class VajraStreamService:
                 for k, v in s.items():
                     if k in ("audio_data", "visual_data", "astrology_data"):
                         clean[k] = "[binary data]" if v else None
-                    elif isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                    elif isinstance(v, str | int | float | bool | list | dict | type(None)):
                         clean[k] = v
                     else:
                         try:

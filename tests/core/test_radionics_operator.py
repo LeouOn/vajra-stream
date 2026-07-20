@@ -112,7 +112,7 @@ class TestPrepareCrystalBroadcast:
         assert isinstance(result["rate"], list)
         assert 2 <= len(result["rate"]) <= 5
         for v in result["rate"]:
-            assert isinstance(v, (int, float))
+            assert isinstance(v, int | float)
             assert 0 <= v <= 100
 
     def test_event_published_to_event_bus(self):

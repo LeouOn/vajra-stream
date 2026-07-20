@@ -66,6 +66,16 @@ interface TtsConfig {
     languages?: string[];
     [key: string]: unknown;
   };
+  kokoro?: {
+    available?: boolean;
+    voices?: Array<{ id: string; description?: string; language?: string; gender?: string }>;
+    [key: string]: unknown;
+  };
+  sherpa?: {
+    available?: boolean;
+    voices?: Array<{ id: string; description?: string; language?: string }>;
+    [key: string]: unknown;
+  };
   gpu?: GpuInfo;
   current_config?: {
     backend?: string;
@@ -74,6 +84,7 @@ interface TtsConfig {
     qwen_model?: string;
     qwen_speaker?: string;
     qwen_language?: string;
+    kokoro_voice?: string;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -84,7 +95,7 @@ interface TTSSettingsPanelProps {
   compact?: boolean;
 }
 
-type Backend = 'auto' | 'edge' | 'qwen';
+type Backend = 'auto' | 'edge' | 'qwen' | 'kokoro' | 'sherpa';
 
 export default function TTSSettingsPanel({ onConfigChange, compact = false }: TTSSettingsPanelProps) {
   const addToast = useUIStore((s) => s.addToast);
@@ -99,6 +110,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
   const [qwenModel, setQwenModel] = useState('Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice');
   const [qwenSpeaker, setQwenSpeaker] = useState('Uncle_Fu');
   const [qwenLanguage, setQwenLanguage] = useState('Chinese');
+  const [kokoroVoice, setKokoroVoice] = useState('af_heart');
 
   useEffect(() => {
     fetchConfig();
@@ -118,6 +130,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
         setQwenModel(cc.qwen_model || 'Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice');
         setQwenSpeaker(cc.qwen_speaker || 'Uncle_Fu');
         setQwenLanguage(cc.qwen_language || 'Chinese');
+        setKokoroVoice(cc.kokoro_voice || 'af_heart');
       } else {
         message.error('Failed to load TTS config');
       }
@@ -137,6 +150,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
       if (!updates.qwen_model) body.qwen_model = qwenModel;
       if (!updates.qwen_speaker) body.qwen_speaker = qwenSpeaker;
       if (!updates.qwen_language) body.qwen_language = qwenLanguage;
+  if (!updates.kokoro_voice) body.kokoro_voice = kokoroVoice;
 
       const res = await fetch(`/api/v1/tts/config`, {
         method: 'POST',
@@ -163,7 +177,10 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
   if (!config) return <Empty description="TTS unavailable" />;
 
   const qwenAvail = config.qwen?.available;
+  const kokoroAvail = config.kokoro?.available;
+  const sherpaAvail = config.sherpa?.available;
   const edgeVoices = config.edge?.voices || [];
+  const kokoroVoices = config.kokoro?.voices || [];
   const qwenSpeakers = config.qwen?.speakers || [];
   const qwenRitual = config.qwen?.ritual_speakers || {};
   const qwenDesignPresets = config.qwen?.voice_design_presets || [];
@@ -185,8 +202,10 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
           onChange={(v) => { const b = v as Backend; setBackend(b); saveConfig({ backend: b }); }}
           style={{ width: 100 }}
           options={[
-            { value: 'auto', label: '🤖 Auto' },
+            { value: 'auto', label: '🌐 Auto (Multilingual)' },
             { value: 'edge', label: '⚡ Edge' },
+            { value: 'kokoro', label: '🎤 Kokoro', disabled: !kokoroAvail },
+            { value: 'sherpa', label: '🇨🇳 Sherpa', disabled: !sherpaAvail },
             { value: 'qwen', label: qwenAvail ? '🧠 Qwen' : '🧠 Qwen (N/A)', disabled: !qwenAvail },
           ]}
         />
@@ -247,9 +266,11 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
             className="w-full"
             style={{ marginTop: 4 }}
             options={[
-              { value: 'auto', label: '🤖 Auto-detect (GPU → Qwen, CPU → Edge)' },
-              { value: 'edge', label: '⚡ Edge TTS — Fast, no GPU, Chinese-optimized' },
-              { value: 'qwen', label: '🧠 Qwen3-TTS — Neural, voice design/clone, 10 languages', disabled: !qwenAvail },
+              { value: 'auto', label: '🌐 Auto (Sherpa for Chinese, Kokoro for English, IAST for Sanskrit)' },
+              { value: 'kokoro', label: '🎤 Kokoro 82M — Local CPU, 54 voices, natural English', disabled: !kokoroAvail },
+              { value: 'sherpa', label: '🇨🇳 Sherpa MeloTTS — Local CPU, native Chinese G2P', disabled: !sherpaAvail },
+              { value: 'edge', label: '⚡ Edge TTS — Cloud, fast, always available' },
+              { value: 'qwen', label: '🧠 Qwen3-TTS — Neural, voice design/clone (GPU)', disabled: !qwenAvail },
             ]}
           />
           {!qwenAvail && (
@@ -274,7 +295,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
                 label: `${v.id} — ${v.description} (${v.gender}, ${v.style})`,
               }))}
             />
-            <div>
+            <div className="px-3">
               <Text style={{ fontSize: 11 }}>Speech Rate: {edgeRate} ({rateOptions[edgeRate] || edgeRate})</Text>
               <Slider
                 min={0} max={5} step={1}
@@ -289,6 +310,22 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
                 }}
               />
             </div>
+          </>
+        )}
+
+        {/* Kokoro Voice Settings */}
+        {(backend === 'kokoro' || (backend === 'auto' && kokoroAvail)) && kokoroVoices.length > 0 && (
+          <>
+            <Text strong style={{ fontSize: 12, color: '#22c55e' }}>🎤 Kokoro Voice</Text>
+            <Select
+              value={kokoroVoice}
+              onChange={(v) => { const val = String(v); setKokoroVoice(val); saveConfig({ kokoro_voice: val }); }}
+              className="w-full"
+              options={kokoroVoices.map(v => ({
+                value: v.id,
+                label: `${v.id} — ${v.description || ''} (${v.language || ''}, ${v.gender || ''})`,
+              }))}
+            />
           </>
         )}
 

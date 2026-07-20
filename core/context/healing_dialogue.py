@@ -117,7 +117,7 @@ def _render_inline(value) -> str:
     items); everything else is ``str(value)``. Defensive truncation keeps
     large chart dicts from blowing up the system prompt.
     """
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         items = [str(v) for v in value[:8]]
         rendered = ", ".join(items)
         if len(value) > 8:

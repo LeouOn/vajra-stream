@@ -861,14 +861,14 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
 
             # Normalize content to text
             content_val = ""
-            if isinstance(n.content, (dict, list)):
+            if isinstance(n.content, dict | list):
                 content_val = json.dumps(n.content)
             elif isinstance(n.content, str):
                 content_val = n.content
 
             # Normalize divination_raw
             div_raw_val = ""
-            if isinstance(n.divination_raw, (dict, list)):
+            if isinstance(n.divination_raw, dict | list):
                 div_raw_val = json.dumps(n.divination_raw)
             elif isinstance(n.divination_raw, str):
                 div_raw_val = n.divination_raw

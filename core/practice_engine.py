@@ -133,7 +133,7 @@ class PracticeDefinition:
             visualizations=list(data.get("visualizations", []) or []),
             benefits=list(data.get("benefits", []) or []),
             dedication=str(data.get("dedication", "")),
-            frequency_hz=data.get("frequency_hz") if isinstance(data.get("frequency_hz"), (int, float)) else None,
+            frequency_hz=data.get("frequency_hz") if isinstance(data.get("frequency_hz"), int | float) else None,
             color=data.get("color") if isinstance(data.get("color"), str) else None,
             color_name=data.get("color_name") if isinstance(data.get("color_name"), str) else None,
             element=str(data.get("element", "")),
