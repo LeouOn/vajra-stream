@@ -578,7 +578,7 @@ def _has_content(value: Any) -> bool:
         return False
     if isinstance(value, dict):
         return any(_has_content(v) for v in value.values())
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         return any(_has_content(v) for v in value)
     if isinstance(value, str):
         return bool(value.strip())
@@ -627,12 +627,12 @@ def _format_scalar(v: Any) -> str:
         if v == int(v) and abs(v) < 1e15:
             return f"{int(v)}.00"
         return f"{v:.4f}".rstrip("0").rstrip(".")
-    if isinstance(v, (int, str)):
+    if isinstance(v, int | str):
         return str(v)
     if isinstance(v, dict):
         inner = ", ".join(f"{k}={_format_scalar(val)}" for k, val in v.items())
         return "{" + inner + "}"
-    if isinstance(v, (list, tuple)):
+    if isinstance(v, list | tuple):
         inner = ", ".join(_format_scalar(x) for x in v)
         return "[" + inner + "]"
     return str(v)

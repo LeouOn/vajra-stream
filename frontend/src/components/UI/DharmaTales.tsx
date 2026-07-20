@@ -9,7 +9,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BookOpen, Sparkles, RefreshCw, Volume2, VolumeX, Save, ChevronDown, Trash2, Copy, Maximize2, Minimize2 } from 'lucide-react';
-import { message } from 'antd';
+import { message, Select } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 import { createLogger } from '../../utils/logger';
 
@@ -220,29 +220,29 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
       {/* Theme Selection */}
       <div>
         <label className="block text-xs text-purple-300/80 mb-1 font-medium">Theme</label>
-        <select
+        <Select
           value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          className="w-full bg-black/45 text-white rounded-lg px-3 py-2 text-sm border border-purple-500/20 focus:border-purple-500/60 focus:outline-none transition-all duration-300"
-        >
-          {(availableThemes.length > 0 ? availableThemes : THEMES).map(t => (
-            <option key={t} value={t} className="bg-gray-950">{t.replace(/_/g, ' ')}</option>
-          ))}
-        </select>
+          onChange={(v) => setTheme(v)}
+          className="w-full"
+          options={(availableThemes.length > 0 ? availableThemes : THEMES).map(t => ({
+            value: t,
+            label: t.replace(/_/g, ' '),
+          }))}
+        />
       </div>
-      
+
       {/* Tradition Selection */}
       <div>
         <label className="block text-xs text-purple-300/80 mb-1 font-medium">Tradition</label>
-        <select
+        <Select
           value={tradition}
-          onChange={(e) => setTradition(e.target.value)}
-          className="w-full bg-black/45 text-white rounded-lg px-3 py-2 text-sm border border-purple-500/20 focus:border-purple-500/60 focus:outline-none transition-all duration-300"
-        >
-          {(availableTraditions.length > 0 ? availableTraditions : TRADITIONS).map(t => (
-            <option key={t} value={t} className="bg-gray-950">{t}</option>
-          ))}
-        </select>
+          onChange={(v) => setTradition(v)}
+          className="w-full"
+          options={(availableTraditions.length > 0 ? availableTraditions : TRADITIONS).map(t => ({
+            value: t,
+            label: t,
+          }))}
+        />
       </div>
       
       {/* Length Selection */}

@@ -48,9 +48,9 @@ function SystemMonitorsCardInner({
 
         {/* Aura Field Coherence VU Meter */}
         <div className="bg-white/5 p-3 rounded-lg border border-white/5">
-          <div className="flex justify-between items-center text-xs text-gray-400 font-medium mb-1.5">
+          <div className="flex justify-between items-center gap-3 text-xs text-gray-400 font-medium mb-1.5">
             <span>Aura Field Coherence</span>
-            <span className="text-purple-400 font-mono font-bold animate-pulse">{auraCoherence}%</span>
+            <span className="text-purple-400 font-mono font-bold animate-pulse whitespace-nowrap">{auraCoherence}%</span>
           </div>
           <div className="flex gap-0.5 h-2.5 bg-black/60 rounded p-0.5 overflow-hidden border border-white/5">
             {Array.from({ length: 20 }).map((_, idx) => {

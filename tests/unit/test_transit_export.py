@@ -220,16 +220,16 @@ class TestTransitExportEndpoint:
             for bucket_name in ("top_harmonious", "top_challenging"):
                 for asp in data[bucket_name]:
                     natal_target = asp.get("natal_planet", "")
-                    assert not (isinstance(natal_target, str) and natal_target.startswith("house_")), (
-                        f"{bucket_name} should not contain cusp aspects; found {natal_target!r}"
-                    )
+                    assert not (
+                        isinstance(natal_target, str) and natal_target.startswith("house_")
+                    ), f"{bucket_name} should not contain cusp aspects; found {natal_target!r}"
 
             # Every entry in top_cusp_transits MUST be a cusp aspect.
             for asp in data["top_cusp_transits"]:
                 natal_target = asp.get("natal_planet", "")
-                assert isinstance(natal_target, str) and natal_target.startswith("house_"), (
-                    f"top_cusp_transits should only contain cusp aspects; found {natal_target!r}"
-                )
+                assert isinstance(natal_target, str) and natal_target.startswith(
+                    "house_"
+                ), f"top_cusp_transits should only contain cusp aspects; found {natal_target!r}"
 
             assert len(data["top_cusp_transits"]) <= 10
         finally:

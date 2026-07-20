@@ -62,9 +62,9 @@ def test_qwen_speakers_catalog_has_nine_speakers_with_required_fields():
     required_fields = {"description", "native", "gender", "age"}
     for name, info in QWEN_SPEAKERS.items():
         assert isinstance(name, str) and name, f"Bad speaker name: {name!r}"
-        assert required_fields.issubset(info.keys()), (
-            f"Speaker {name!r} missing fields: {required_fields - info.keys()}"
-        )
+        assert required_fields.issubset(
+            info.keys()
+        ), f"Speaker {name!r} missing fields: {required_fields - info.keys()}"
         assert info["gender"] in {"male", "female"}
         assert info["age"] in {"young", "adult", "senior"}
 

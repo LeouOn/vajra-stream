@@ -1,4 +1,4 @@
-﻿"""
+"""
 Smoke + behaviour tests for ``core.astrocartography``.
 
 The module wraps the Swiss Ephemeris (``swisseph``) C extension to provide:
@@ -227,4 +227,3 @@ def test_find_power_places_filters_by_focus():
 
     strengths = [e["strength"] for e in benefic]
     assert strengths == sorted(strengths, reverse=True)
-

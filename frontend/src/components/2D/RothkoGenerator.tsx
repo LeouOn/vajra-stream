@@ -33,8 +33,9 @@ interface Palette {
 const PALETTES: Record<PaletteName, Palette> = {
   compassion: {
     name: 'Compassion',
-    colors: ['#e8a0bf', '#c75b7a', '#f2d0d9', '#ba274a', '#f9e4e8'],
-    bg: '#1a0a0f',
+    // Regression: previous palette read as brown under blur (S4 test).
+    colors: ['#ffb3c6', '#ff7eb6', '#ffd1dc', '#ff5c8a', '#ff9eb5'],
+    bg: '#4d1f30',
     description: 'Pinks, soft reds, warm whites — the heart of loving-kindness',
   },
   wisdom: {

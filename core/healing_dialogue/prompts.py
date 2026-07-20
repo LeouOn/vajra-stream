@@ -266,7 +266,7 @@ def _render_value(value) -> str:
     everything else is ``str(value)``. Truncated defensively so a giant chart
     dict never blows up the system prompt.
     """
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         items = [str(v) for v in value[:8]]
         rendered = ", ".join(items)
         if len(value) > 8:

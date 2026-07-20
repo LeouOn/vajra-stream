@@ -80,9 +80,9 @@ class TestContainerAudioLLMToolIntegration:
         ``container.py`` @ L122–129).
         """
         svc = container.audio
-        assert isinstance(svc, AudioService), (
-            f"container.audio must return modules.audio.AudioService, got {type(svc).__module__}.{type(svc).__name__}"
-        )
+        assert isinstance(
+            svc, AudioService
+        ), f"container.audio must return modules.audio.AudioService, got {type(svc).__module__}.{type(svc).__name__}"
 
     def test_container_audio_is_cached_singleton_per_container(self, container: Container) -> None:
         """The lazy property MUST cache on the container (same instance each access)."""
@@ -164,12 +164,12 @@ class TestContainerAudioLLMToolIntegration:
         )
         # The dispatcher maps frequency_hz → frequency, duration_seconds → duration.
         kwargs = called["kwargs"]
-        assert kwargs.get("frequency") == 136.1, (
-            f"LLM tool must map arguments['frequency_hz'] → generate_tone(frequency=...); got kwargs={kwargs!r}"
-        )
-        assert kwargs.get("duration") == 5, (
-            f"LLM tool must map arguments['duration_seconds'] → generate_tone(duration=...); got kwargs={kwargs!r}"
-        )
+        assert (
+            kwargs.get("frequency") == 136.1
+        ), f"LLM tool must map arguments['frequency_hz'] → generate_tone(frequency=...); got kwargs={kwargs!r}"
+        assert (
+            kwargs.get("duration") == 5
+        ), f"LLM tool must map arguments['duration_seconds'] → generate_tone(duration=...); got kwargs={kwargs!r}"
         assert isinstance(result, dict)
 
 

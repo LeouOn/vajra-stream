@@ -140,7 +140,7 @@ def test_ttsconfig_defaults_and_to_dict():
     assert d["qwen_language"] == "Chinese"
     # to_dict output contains only JSON-safe types
     for value in d.values():
-        assert isinstance(value, (str, type(None)))
+        assert isinstance(value, str | type(None))
 
 
 @pytest.mark.unit

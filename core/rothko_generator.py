@@ -131,7 +131,7 @@ class RothkoGenerator:
         Adjust color luminosity while preserving hue
         factor > 1 makes it lighter, < 1 makes it darker
         """
-        r, g, b = [x / 255.0 for x in color]
+        r, g, b = (x / 255.0 for x in color)
         h, l, s = colorsys.rgb_to_hls(r, g, b)
 
         # Adjust lightness

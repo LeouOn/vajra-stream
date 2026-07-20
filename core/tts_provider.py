@@ -37,7 +37,9 @@ logger = logging.getLogger(__name__)
 class TTSBackend(str, Enum):
     EDGE = "edge"
     QWEN = "qwen"
-    AUTO = "auto"  # Qwen if GPU available, else Edge
+    KOKORO = "kokoro"
+    SHERPA = "sherpa"
+    AUTO = "auto"
 
 
 # Ritual-purpose → Qwen speaker ID (auto-mapped when caller specifies a "role")
@@ -60,6 +62,15 @@ RITUAL_ROLE_SPEAKERS: dict[str, dict[str, str]] = {
         "english_blessing": "en-US-AriaNeural",
         "outlook_narrative": "zh-CN-YunxiNeural",
         "outlook_epic": "zh-CN-YunxiNeural",
+    },
+    "kokoro": {
+        "buddhist_chant": "zm_yunxi",
+        "compassionate": "af_heart",
+        "meditation_guide": "af_bella",
+        "dharma_teaching": "am_michael",
+        "english_blessing": "am_adam",
+        "outlook_narrative": "af_heart",
+        "outlook_epic": "am_michael",
     },
 }
 
@@ -118,6 +129,7 @@ class TTSConfig:
     qwen_model: str = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
     qwen_speaker: str = "Uncle_Fu"
     qwen_language: str = "Chinese"
+    kokoro_voice: str = "af_heart"
     # Ritual role for auto-speaker resolution (set per-call; None = use config defaults)
     role: str | None = None
     project_id: str | None = None
@@ -132,6 +144,7 @@ class TTSConfig:
             "qwen_model": self.qwen_model,
             "qwen_speaker": self.qwen_speaker,
             "qwen_language": self.qwen_language,
+            "kokoro_voice": self.kokoro_voice,
             "role": self.role,
             "project_id": self.project_id,
         }
@@ -187,6 +200,9 @@ class TTSProvider:
     def __init__(self, config: TTSConfig | None = None):
         self.config = config or TTSConfig()
         self._qwen_engine = None
+        self._kokoro_engine = None
+        self._sherpa_engine = None
+        self._multilingual = None
 
     # ─── Properties ─────────────────────────────────────────
 
@@ -196,10 +212,18 @@ class TTSProvider:
         if self.config.backend != TTSBackend.AUTO:
             return self.config.backend
 
-        # Auto: prefer Qwen if GPU available
+        # Auto: prefer Qwen (GPU) > Kokoro (local CPU) > Edge (cloud)
         qwen = self._get_qwen()
         if qwen and qwen.available:
             return TTSBackend.QWEN
+        kokoro = self._get_kokoro()
+        sherpa = self._get_sherpa()
+        if kokoro and kokoro.available and sherpa and sherpa.available:
+            return TTSBackend.AUTO  # multilingual router handles both
+        if kokoro and kokoro.available:
+            return TTSBackend.KOKORO
+        if sherpa and sherpa.available:
+            return TTSBackend.SHERPA
         return TTSBackend.EDGE
 
     @property
@@ -240,20 +264,62 @@ class TTSProvider:
         except Exception:
             pass
 
+        kokoro_available = False
+        try:
+            kokoro = self._get_kokoro()
+            if kokoro:
+                kokoro_available = kokoro.available
+        except Exception:
+            pass
+
+        sherpa_available = False
+        try:
+            sherpa = self._get_sherpa()
+            if sherpa:
+                sherpa_available = sherpa.available
+        except Exception:
+            pass
+
+        from core.kokoro_tts import KOKORO_VOICES
         from core.qwen_tts import QWEN_SPEAKERS, RITUAL_SPEAKERS, VOICE_DESIGN_PRESETS
 
         return {
             "backends": {
-                "edge": {"available": True, "description": "Microsoft Edge TTS — fast, no GPU, always available"},
+                "edge": {
+                    "available": True,
+                    "description": "Microsoft Edge TTS — fast, no GPU, always available (cloud)",
+                },
                 "qwen": {
                     "available": qwen_available,
                     "description": "Qwen3-TTS neural — GPU-accelerated, voice design/clone, 10 languages",
+                },
+                "kokoro": {
+                    "available": kokoro_available,
+                    "description": "Kokoro 82M — local CPU, 54 voices, MIT+Apache-2.0",
+                },
+                "sherpa": {
+                    "available": sherpa_available,
+                    "description": "Sherpa MeloTTS — local CPU, native Chinese G2P, Apache-2.0",
+                },
+                "auto": {
+                    "available": kokoro_available or sherpa_available,
+                    "description": "Multilingual router — Sherpa for Chinese, Kokoro for English, IAST preprocessing for Sanskrit",
                 },
             },
             "active_backend": self.active_backend.value,
             "gpu": gpu_info,
             "edge": {
                 "voices": [{"id": name, **info} for name, info in self.EDGE_VOICES.items()],
+            },
+            "kokoro": {
+                "available": kokoro_available,
+                "voices": [{"id": name, **info} for name, info in KOKORO_VOICES.items()],
+            },
+            "sherpa": {
+                "available": sherpa_available,
+                "voices": [
+                    {"id": "zh_en_default", "description": "MeloTTS Chinese+English", "language": "Chinese+English"}
+                ],
             },
             "qwen": {
                 "available": qwen_available,
@@ -304,6 +370,42 @@ class TTSProvider:
                 self._qwen_engine = False  # Sentinel
         return self._qwen_engine if self._qwen_engine is not False else None
 
+    def _get_kokoro(self):
+        """Lazy-load Kokoro local TTS engine."""
+        if self._kokoro_engine is None:
+            try:
+                from core.kokoro_tts import DEFAULT_MODEL_PATH, DEFAULT_VOICES_PATH, KokoroTTSEngine
+
+                self._kokoro_engine = KokoroTTSEngine(
+                    model_path=DEFAULT_MODEL_PATH,
+                    voices_path=DEFAULT_VOICES_PATH,
+                )
+            except ImportError:
+                self._kokoro_engine = False
+        return self._kokoro_engine if self._kokoro_engine is not False else None
+
+    def _get_sherpa(self):
+        """Lazy-load Sherpa local TTS engine."""
+        if self._sherpa_engine is None:
+            try:
+                from core.sherpa_tts import DEFAULT_MODEL_DIR, SherpaTTSEngine
+
+                self._sherpa_engine = SherpaTTSEngine(model_dir=DEFAULT_MODEL_DIR)
+            except ImportError:
+                self._sherpa_engine = False
+        return self._sherpa_engine if self._sherpa_engine is not False else None
+
+    def _get_multilingual(self):
+        """Lazy-load multilingual router."""
+        if self._multilingual is None:
+            try:
+                from core.multilingual_tts import MultilingualTTS
+
+                self._multilingual = MultilingualTTS()
+            except ImportError:
+                self._multilingual = False
+        return self._multilingual if self._multilingual is not False else None
+
     def set_backend(self, backend: str):
         """Switch active backend."""
         self.config.backend = TTSBackend(backend)
@@ -353,6 +455,12 @@ class TTSProvider:
 
         if backend == TTSBackend.QWEN:
             return await self._speak_qwen(text, qwen_s, language, output_file)
+        elif backend == TTSBackend.KOKORO:
+            return await self._speak_kokoro(text, voice, output_file)
+        elif backend == TTSBackend.SHERPA:
+            return await self._speak_sherpa(text, output_file)
+        elif backend == TTSBackend.AUTO:
+            return await self._speak_multilingual(text, output_file)
         else:
             return await self._speak_edge(text, edge_v, rate, output_file)
 
@@ -425,6 +533,36 @@ class TTSProvider:
                         wf.writeframes(data)
                     return wav_buf.getvalue(), "audio/wav", "qwen"
 
+        if backend == TTSBackend.KOKORO:
+            engine = self._get_kokoro()
+            if not engine or not engine.available:
+                return None
+            voice_id = voice or self.config.kokoro_voice
+            result = engine.speak(text, voice=voice_id)
+            if result is None:
+                return None
+            wav_bytes, _sr = result
+            return wav_bytes, "audio/wav", "kokoro"
+
+        if backend == TTSBackend.SHERPA:
+            engine = self._get_sherpa()
+            if not engine or not engine.available:
+                return None
+            result = engine.speak(text, speed=0.9)
+            if result is None:
+                return None
+            wav_bytes, _sr = result
+            return wav_bytes, "audio/wav", "sherpa"
+
+        if backend == TTSBackend.AUTO:
+            ml = self._get_multilingual()
+            if ml and ml.available:
+                result = ml.speak(text)
+                if result is None:
+                    return None
+                wav_bytes, _sr = result
+                return wav_bytes, "audio/wav", "multilingual"
+
         # Edge TTS — stream into memory
         try:
             import edge_tts
@@ -467,6 +605,79 @@ class TTSProvider:
                 if path:
                     paths.append(path)
             return paths
+
+    async def _speak_kokoro(
+        self,
+        text: str,
+        voice: str | None = None,
+        output_file: str | None = None,
+    ) -> str | None:
+        """Kokoro local TTS backend — writes WAV file."""
+        engine = self._get_kokoro()
+        if not engine or not engine.available:
+            logger.warning("Kokoro not available, falling back to Edge")
+            return await self._speak_edge(text, voice or self.config.edge_voice, None, output_file)
+        voice_id = voice or self.config.kokoro_voice
+        result = engine.speak(text, voice=voice_id)
+        if result is None:
+            return None
+        wav_bytes, _sr = result
+        if output_file:
+            path = output_file
+        else:
+            fd, path = tempfile.mkstemp(suffix=".wav", dir=self.config.output_dir or None)
+            os.close(fd)
+        with open(path, "wb") as f:
+            f.write(wav_bytes)
+        return path
+
+    async def _speak_sherpa(
+        self,
+        text: str,
+        output_file: str | None = None,
+    ) -> str | None:
+        """Sherpa local TTS backend — writes WAV file."""
+        engine = self._get_sherpa()
+        if not engine or not engine.available:
+            logger.warning("Sherpa not available, falling back to Edge")
+            return await self._speak_edge(text, self.config.edge_voice, None, output_file)
+        result = engine.speak(text, speed=0.9)
+        if result is None:
+            return None
+        wav_bytes, _sr = result
+        if output_file:
+            path = output_file
+        else:
+            fd, path = tempfile.mkstemp(suffix=".wav", dir=self.config.output_dir or None)
+            os.close(fd)
+        with open(path, "wb") as f:
+            f.write(wav_bytes)
+        return path
+
+    async def _speak_multilingual(
+        self,
+        text: str,
+        output_file: str | None = None,
+    ) -> str | None:
+        """Multilingual router — sherpa for Chinese, kokoro for English."""
+        ml = self._get_multilingual()
+        if not ml or not ml.available:
+            engine = self._get_kokoro() or self._get_sherpa()
+            if engine:
+                return await self._speak_kokoro(text, output_file=output_file)
+            return await self._speak_edge(text, self.config.edge_voice, None, output_file)
+        result = ml.speak(text)
+        if result is None:
+            return None
+        wav_bytes, _sr = result
+        if output_file:
+            path = output_file
+        else:
+            fd, path = tempfile.mkstemp(suffix=".wav", dir=self.config.output_dir or None)
+            os.close(fd)
+        with open(path, "wb") as f:
+            f.write(wav_bytes)
+        return path
 
     async def _speak_edge(
         self,

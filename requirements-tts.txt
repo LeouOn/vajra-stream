@@ -1,0 +1,12 @@
+# TTS engine dependencies — install with: .venv\Scripts\pip install -r requirements-tts.txt
+# These are NOT in requirements.txt because they're optional TTS engines.
+# All run on CPU; no GPU required. Python 3.13 recommended.
+
+kokoro-onnx>=0.5.0
+sherpa-onnx>=1.13.4
+edge-tts>=7.2.8
+ChatTTS>=0.2.5
+soundfile>=0.12.0
+
+# ChatTTS requires torch (CPU build):
+torch>=2.0.0

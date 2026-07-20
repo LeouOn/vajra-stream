@@ -488,12 +488,12 @@ class TestAstrologyTransitFixes:
             # Pre-fix: harmony_count=0 and tension_count=0 (bug)
             # Post-fix: counts > 0
             assert aspects, "no aspects returned (unexpected)"
-            assert scoring.get("harmony_count", 0) > 0, (
-                f"harmony_count must be > 0 with {len(aspects)} aspects, got {scoring}"
-            )
-            assert scoring.get("tension_count", 0) > 0, (
-                f"tension_count must be > 0 with {len(aspects)} aspects, got {scoring}"
-            )
+            assert (
+                scoring.get("harmony_count", 0) > 0
+            ), f"harmony_count must be > 0 with {len(aspects)} aspects, got {scoring}"
+            assert (
+                scoring.get("tension_count", 0) > 0
+            ), f"tension_count must be > 0 with {len(aspects)} aspects, got {scoring}"
             # Score should not be the default 50 anymore
             assert scoring["compatibility_score"] != 50 or (
                 scoring["harmony_count"] == scoring["tension_count"] == 0
@@ -502,15 +502,15 @@ class TestAstrologyTransitFixes:
             harmonies = sum(1 for a in aspects if a.get("aspect", "").lower() in ("trine", "sextile", "conjunction"))
             tensions = sum(1 for a in aspects if a.get("aspect", "").lower() in ("square", "opposition"))
             expected_score = max(0, min(100, 50 + harmonies * 5 - tensions * 5))
-            assert scoring["harmony_count"] == harmonies, (
-                f"harmony_count={scoring['harmony_count']} but expected {harmonies}"
-            )
-            assert scoring["tension_count"] == tensions, (
-                f"tension_count={scoring['tension_count']} but expected {tensions}"
-            )
-            assert scoring["compatibility_score"] == expected_score, (
-                f"score={scoring['compatibility_score']} but expected {expected_score}"
-            )
+            assert (
+                scoring["harmony_count"] == harmonies
+            ), f"harmony_count={scoring['harmony_count']} but expected {harmonies}"
+            assert (
+                scoring["tension_count"] == tensions
+            ), f"tension_count={scoring['tension_count']} but expected {tensions}"
+            assert (
+                scoring["compatibility_score"] == expected_score
+            ), f"score={scoring['compatibility_score']} but expected {expected_score}"
         finally:
             client.delete(f"/api/v1/astrology/charts/{ca['id']}")
             client.delete(f"/api/v1/astrology/charts/{cb['id']}")
@@ -530,9 +530,9 @@ class TestAstrologyTransitFixes:
         # Must include all 12 house cusps
         for i in range(1, 13):
             key = f"house_{i}"
-            assert key in natal_targets, (
-                f"missing house cusp {key!r} in transit aspects; targets: {sorted(natal_targets)}"
-            )
+            assert (
+                key in natal_targets
+            ), f"missing house cusp {key!r} in transit aspects; targets: {sorted(natal_targets)}"
         # And still include ascendant + midheaven
         assert "ascendant" in natal_targets
         assert "midheaven" in natal_targets
@@ -582,18 +582,18 @@ class TestAstrologyTransitFixes:
 
         assert "interactions" in result
         interactions = result["interactions"]
-        assert len(interactions) >= 2, (
-            f"expected >=2 interactions (Day-Day + Year-Year), got {len(interactions)}: {interactions}"
-        )
+        assert (
+            len(interactions) >= 2
+        ), f"expected >=2 interactions (Day-Day + Year-Year), got {len(interactions)}: {interactions}"
 
         pillar_labels = {i.get("pillar") for i in interactions}
         # With all 4 pillars checked, must find both:
-        assert "Day-Day" in pillar_labels or any("Day" in (p or "") for p in pillar_labels), (
-            f"missing Day-Day clash; got pillars {pillar_labels}"
-        )
-        assert "Year-Year" in pillar_labels or any("Year" in (p or "") for p in pillar_labels), (
-            f"missing Year-Year clash; got pillars {pillar_labels}"
-        )
+        assert "Day-Day" in pillar_labels or any(
+            "Day" in (p or "") for p in pillar_labels
+        ), f"missing Day-Day clash; got pillars {pillar_labels}"
+        assert "Year-Year" in pillar_labels or any(
+            "Year" in (p or "") for p in pillar_labels
+        ), f"missing Year-Year clash; got pillars {pillar_labels}"
 
         # Each interaction must have description + type
         # Accept the full type set produced by compare_bazi_transits:
@@ -613,9 +613,9 @@ class TestAstrologyTransitFixes:
         for ix in interactions:
             assert "type" in ix
             assert "description" in ix
-            assert ix["type"] in accepted_types, (
-                f"unexpected interaction type {ix['type']!r}; pillar={ix.get('pillar')!r}"
-            )
+            assert (
+                ix["type"] in accepted_types
+            ), f"unexpected interaction type {ix['type']!r}; pillar={ix.get('pillar')!r}"
 
     def test_bazi_detects_three_harmony_partial(self, calculator, monkeypatch):
         """The expanded BaZi engine must surface partial Three-Harmony trines
@@ -698,9 +698,9 @@ class TestAstrologyTransitFixes:
         harms = [ix for ix in interactions if ix["type"] == "Harm"]
         assert harms, f"expected at least one Harm (Zi-Wei); got {interactions}"
         # The Zi↔Wei harm must mention both branch names
-        assert any("Zi" in ix["description"] and "Wei" in ix["description"] for ix in harms), (
-            f"Zi-Wei harm not found; harms={harms}"
-        )
+        assert any(
+            "Zi" in ix["description"] and "Wei" in ix["description"] for ix in harms
+        ), f"Zi-Wei harm not found; harms={harms}"
 
     def test_comprehensive_includes_chiron_and_houses(self, calculator):
         """get_comprehensive_astrology must include Chiron in positions and 12 houses.

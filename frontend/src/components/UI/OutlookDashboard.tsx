@@ -412,8 +412,16 @@ export default function OutlookDashboard() {
       // or ``{data: [...]}``) would silently store the envelope object in state
       // and crash every downstream ``.map()`` / ``.filter()`` call with
       // "object is not iterable". Accept either shape; fall back to ``[]``.
-      const unwrap = <T,>(v: unknown): T[] =>
-        Array.isArray(v) ? v as T[] : Array.isArray((v as any)?.items) ? (v as any).items : Array.isArray((v as any)?.data) ? (v as any).data : [];
+      const isItemsEnvelope = <T,>(v: unknown): v is { items: T[] } =>
+        typeof v === 'object' && v !== null && Array.isArray((v as { items?: unknown }).items);
+      const isDataEnvelope = <T,>(v: unknown): v is { data: T[] } =>
+        typeof v === 'object' && v !== null && Array.isArray((v as { data?: unknown }).data);
+      const unwrap = <T,>(v: unknown): T[] => {
+        if (Array.isArray(v)) return v as T[];
+        if (isItemsEnvelope<T>(v)) return v.items;
+        if (isDataEnvelope<T>(v)) return v.data;
+        return [];
+      };
       if (realmsRes.ok) setRealms(unwrap<Realm>(await realmsRes.json()));
       if (charsRes.ok) setCharacters(unwrap<Character>(await charsRes.json()));
       if (popsRes.ok) setPopulations(unwrap<Population>(await popsRes.json()));

@@ -309,7 +309,7 @@ def test_harmonic_blessing_sets_contains_documented_keys():
         assert isinstance(freqs, list)
         assert len(freqs) >= 2
         for f in freqs:
-            assert isinstance(f, (int, float))
+            assert isinstance(f, int | float)
             assert f > 0
 
 

@@ -248,7 +248,7 @@ def test_gv_meter_measure_multiple_returns_stats():
     # Stats are floats
     for k in ("mean", "median", "std", "min", "max"):
         assert k in stats, f"missing key: {k}"
-        assert isinstance(stats[k], (int, float)), f"{k} is not numeric"
+        assert isinstance(stats[k], int | float), f"{k} is not numeric"
     # min <= mean/median <= max
     assert stats["min"] <= stats["mean"] <= stats["max"]
     assert stats["min"] <= stats["median"] <= stats["max"]
@@ -389,7 +389,7 @@ def test_quick_analysis_returns_expected_dict_shape(capsys):
     ):
         assert key in result, f"missing key: {key}"
     assert result["subject"] == "Healing for Earth"
-    assert isinstance(result["baseline_gv"], (int, float))
+    assert isinstance(result["baseline_gv"], int | float)
     # verbose=True writes to stdout
     captured = capsys.readouterr().out
     assert "Healing for Earth" in captured

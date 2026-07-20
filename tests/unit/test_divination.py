@@ -155,9 +155,9 @@ def test_reversed_and_upright_meanings_differ():
         assert upright.strip(), f"{card['id']} has empty upright meaning"
         assert reversed_text.strip(), f"{card['id']} has empty reversed meaning"
         # Normalised comparison so trivial whitespace differences don't mask real gaps.
-        assert upright.strip() != reversed_text.strip(), (
-            f"{card['id']} ({card['name']}) has identical upright/reversed meanings"
-        )
+        assert (
+            upright.strip() != reversed_text.strip()
+        ), f"{card['id']} ({card['name']}) has identical upright/reversed meanings"
 
 
 def test_spread_positions_for_1_3_and_10_cards():
@@ -245,9 +245,9 @@ def test_svg_major_cards_have_unique_glyphs():
         svg = divination_service._render_tarot_card_svg({**card, "orientation": "upright"})
         has_old_circle = 'stroke-dasharray="4,4"' in svg
         has_old_triangle = "120,115 155,190 85,190" in svg
-        assert not (has_old_circle and has_old_triangle), (
-            f"major card {number} ({card['name']}) still uses the generic artwork"
-        )
+        assert not (
+            has_old_circle and has_old_triangle
+        ), f"major card {number} ({card['name']}) still uses the generic artwork"
 
 
 def test_backward_compat_card_fields():

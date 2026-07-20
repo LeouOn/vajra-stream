@@ -76,9 +76,9 @@ def test_canonical_docs_have_no_ghost_paths(doc_rel: str, ghost: str) -> None:
     doc_path = REPO_ROOT / doc_rel
     assert doc_path.exists(), f"canonical doc itself is missing: {doc_rel}"
     text = doc_path.read_text(encoding="utf-8")
-    assert ghost not in text, (
-        f"ghost-path reference {ghost!r} still present in {doc_rel} (Evaluation Issue 5.8, remediation-18)"
-    )
+    assert (
+        ghost not in text
+    ), f"ghost-path reference {ghost!r} still present in {doc_rel} (Evaluation Issue 5.8, remediation-18)"
 
 
 def test_all_canonical_docs_exist() -> None:
@@ -90,9 +90,9 @@ def test_all_canonical_docs_exist() -> None:
 def test_docs_archive_directory_exists() -> None:
     """docs/_archive/ must exist as the deliberate one-time archive location."""
     archive_dir = REPO_ROOT / "docs" / "_archive"
-    assert archive_dir.is_dir(), (
-        "docs/_archive/ must exist as deliberate one-time archive (remediation-18, Oracle Phase-1 finding)"
-    )
+    assert (
+        archive_dir.is_dir()
+    ), "docs/_archive/ must exist as deliberate one-time archive (remediation-18, Oracle Phase-1 finding)"
 
 
 def test_archived_docs_carry_deprecation_banner() -> None:
