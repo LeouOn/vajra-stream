@@ -8,6 +8,8 @@ import React, { useState, useEffect } from 'react';
 import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, HelpCircle, ArrowRight, Clock } from 'lucide-react';
 import { message } from 'antd';
 import DharmaTales from './DharmaTales';
+import EsotericTutor from './EsotericTutor';
+import { Collapse, Typography } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { createLogger } from '../../utils/logger';
 
@@ -299,6 +301,19 @@ const GrimoirePanel: React.FC = () => {
           <DharmaTales />
         </div>
 
+      </div>
+
+      <div className="bg-gray-900/60 backdrop-blur-md rounded-xl border border-white/10 p-5 shadow-2xl">
+        <Collapse
+          ghost
+          size="small"
+          defaultActiveKey={['tutor']}
+          items={[{
+            key: 'tutor',
+            label: <span className="text-sm font-bold text-cyan-400 flex items-center gap-2">🎓 Esoteric Tutor — Learn Astrology, Tarot & I Ching</span>,
+            children: <EsotericTutor />,
+          }]}
+        />
       </div>
 
     </div>
