@@ -1145,6 +1145,7 @@ async def _run_openai_compatible_tool_loop(
     max_turns: int = 5,
     provider_label: str = "provider",
     create_kwargs: dict | None = None,
+    debug_raw: list | None = None,
 ) -> str:
     """Run the chat-completions tool-calling loop for any OpenAI-compatible client.
 
@@ -1180,6 +1181,20 @@ async def _run_openai_compatible_tool_loop(
 
         msg = response.choices[0].message
         messages.append(msg)
+
+        if debug_raw is not None:
+            debug_raw.append(
+                {
+                    "turn": turn,
+                    "content_preview": (msg.content or "")[:300],
+                    "has_native_tool_calls": bool(getattr(msg, "tool_calls", None)),
+                    "native_tool_names": [tc.function.name for tc in (getattr(msg, "tool_calls", None) or [])],
+                    "finish_reason": str(getattr(response.choices[0], "finish_reason", "")),
+                }
+            )
+            text_tc = _parse_text_tool_calls(msg.content or "")
+            if text_tc:
+                debug_raw[-1]["text_parsed_tool_calls"] = [t["name"] for t in text_tc]
 
         if not msg.tool_calls:
             text_tool_calls = _parse_text_tool_calls(msg.content or "")
@@ -1535,13 +1550,23 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
 
     # Prepare debug payload (only populated when explicitly requested).
     debug_payload = None
+    _debug_raw_responses: list = []
     if request.debug_mode:
         debug_payload = {
-            "system_prompt": system_prompt,
-            "messages_sent": [{"role": m.role, "content": m.content} for m in request.messages],
-            "tools_available": [s["name"] for s in tool_schemas],
+            "system_prompt": system_prompt[:500] + ("..." if len(system_prompt) > 500 else ""),
+            "system_prompt_length": len(system_prompt),
+            "messages_sent": [{"role": m.role, "content": m.content[:200]} for m in request.messages],
+            "tools_count": len(tool_schemas),
+            "tools_available": [s["name"] for s in tool_schemas[:20]],
             "provider_selected": provider,
-            "model_selected": request.model or "default",
+            "model_requested": request.model or "default",
+            "env_keys": {
+                "OPENAI": bool(os.getenv("OPENAI_API_KEY")),
+                "DEEPSEEK": bool(os.getenv("DEEPSEEK_API_KEY")),
+                "OPENROUTER": bool(os.getenv("OPENROUTER_API_KEY")),
+                "ANTHROPIC": bool(os.getenv("ANTHROPIC_API_KEY")),
+            },
+            "raw_llm_responses": _debug_raw_responses,
             "timestamp": time.time(),
         }
 
@@ -1587,6 +1612,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                 tools=openai_tools,
                 tool_logs=tool_logs,
                 provider_label="OpenAI",
+                debug_raw=_debug_raw_responses,
             )
             return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
@@ -1617,6 +1643,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                 tools=openai_tools,
                 tool_logs=tool_logs,
                 provider_label="OpenRouter",
+                debug_raw=_debug_raw_responses,
             )
             return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
@@ -1662,6 +1689,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                     tools=openai_tools,
                     tool_logs=tool_logs,
                     provider_label="LM Studio",
+                    debug_raw=_debug_raw_responses,
                     create_kwargs={"timeout": timeout},
                 )
             except Exception as loop_err:
@@ -1697,6 +1725,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                 tools=openai_tools,
                 tool_logs=tool_logs,
                 provider_label="DeepSeek",
+                debug_raw=_debug_raw_responses,
             )
             return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
@@ -1727,6 +1756,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                 tools=openai_tools,
                 tool_logs=tool_logs,
                 provider_label="minimax",
+                debug_raw=_debug_raw_responses,
             )
             return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
@@ -1770,6 +1800,7 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
                     tools=openai_tools,
                     tool_logs=tool_logs,
                     provider_label="OpenRouter",
+                    debug_raw=_debug_raw_responses,
                 )
                 return wrap_res(ChatResponse(response=or_response, tool_calls=tool_logs))
             except Exception as or_ex:
