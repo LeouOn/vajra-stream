@@ -187,6 +187,7 @@ export default function CommandCenter({
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
   const [toolLogs, setToolLogs] = useState([
     {
       timestamp: new Date().toLocaleTimeString(),
@@ -617,6 +618,7 @@ export default function CommandCenter({
       : msgs;
 
     const start = Date.now();
+    abortRef.current = new AbortController();
     const chatResponse = await fetch(apiUrl('/llm/chat'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -630,6 +632,7 @@ export default function CommandCenter({
         include_hardware: hardware,
         debug_mode: debug,
       }),
+      signal: abortRef.current.signal,
     });
     const latencyMs = Date.now() - start;
     if (!chatResponse.ok) {
@@ -705,6 +708,9 @@ export default function CommandCenter({
       };
       setMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error('Chat error:', error);
       addToolLog('system', `Error: ${errMsg}`, 'error');
@@ -720,7 +726,17 @@ export default function CommandCenter({
       ]);
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
+  }
+
+  function handleCancelGeneration() {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setIsLoading(false);
+    addToolLog('system', 'Generation cancelled by user.', 'error');
   }
 
   async function handleRegenerate(index: number, newModel: string | null = null) {
@@ -1046,15 +1062,26 @@ export default function CommandCenter({
               className="bg-gray-900 border-purple-500/30 text-white placeholder:text-purple-300/40"
               style={{ flex: 1 }}
             />
-            <Button
-              type="primary"
-              htmlType="submit"
-              disabled={isLoading || !input.trim()}
-              icon={<Send style={{ width: 16, height: 16 }} />}
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', border: 'none', display: 'flex', alignItems: 'center' }}
-            >
-              Send
-            </Button>
+            {isLoading ? (
+              <Button
+                danger
+                icon={<Square style={{ width: 16, height: 16 }} />}
+                onClick={handleCancelGeneration}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                Stop
+              </Button>
+            ) : (
+              <Button
+                type="primary"
+                htmlType="submit"
+                disabled={!input.trim()}
+                icon={<Send style={{ width: 16, height: 16 }} />}
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', border: 'none', display: 'flex', alignItems: 'center' }}
+              >
+                Send
+              </Button>
+            )}
           </Space.Compact>
         </form>
 
