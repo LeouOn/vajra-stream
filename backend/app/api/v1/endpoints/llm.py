@@ -1442,6 +1442,28 @@ async def _chat_via_registry(
     # Convert the new core.llm.models.ChatResponse to the local ChatResponse
     # (which the endpoint advertises as response_model).
     clean_content, _ = strip_thinking(response.content)
+
+    tool_logs: list[ToolCallLog] = []
+    text_tool_calls = _parse_text_tool_calls(clean_content)
+    if text_tool_calls:
+        logger.info(f"Registry path: parsed {len(text_tool_calls)} tool call(s) from text output")
+        for tc_text in text_tool_calls:
+            name = _resolve_tool_name(tc_text["name"])
+            args = tc_text["arguments"]
+            try:
+                result = await execute_tool_locally(name, args)
+                tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
+            except Exception as ex:
+                logger.error(f"Error executing text-parsed tool {name}: {ex}")
+                tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
+
+        if tool_logs:
+            success_msgs = [t for t in tool_logs if t.status == "success"]
+            if success_msgs:
+                clean_content = (
+                    f"Tool executed: {success_msgs[0].tool_name}\n\nResults: {json.dumps(success_msgs[0].result)[:500]}"
+                )
+
     debug_info: dict | None = None
     if request.debug_mode:
         debug_info = {
@@ -1450,6 +1472,8 @@ async def _chat_via_registry(
             "input_tokens": response.input_tokens,
             "output_tokens": response.output_tokens,
             "finish_reason": response.finish_reason,
+            "text_parsed_tool_calls": [t["name"] for t in text_tool_calls],
+            "tools_executed": len(tool_logs),
         }
         if getattr(response, "reasoning_content", None):
             debug_info["reasoning_content"] = response.reasoning_content
@@ -1457,10 +1481,7 @@ async def _chat_via_registry(
             debug_info["reasoning_tokens"] = response.reasoning_tokens
     return ChatResponse(
         response=clean_content,
-        tool_calls=[
-            ToolCallLog(name=tc.get("name", ""), args=tc.get("arguments", {}), result="")
-            for tc in (response.tool_calls or [])
-        ],
+        tool_calls=tool_logs,
         debug_info=debug_info,
     )
 
