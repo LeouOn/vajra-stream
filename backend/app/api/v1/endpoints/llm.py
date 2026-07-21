@@ -120,10 +120,72 @@ def format_messages_for_llm(request_messages: list[ChatMessage], default_system_
     return full_system_prompt, chat_messages
 
 
+TOOL_NAME_ALIASES: dict[str, str] = {
+    "list_targets": "list_populations",
+    "show_targets": "list_populations",
+    "show_populations": "list_populations",
+    "get_targets": "list_populations",
+    "list_population": "list_populations",
+    "start_blessing": "start_automation",
+    "stop_blessing": "stop_automation",
+    "begin_session": "start_automation",
+    "get_session": "get_automation_status",
+    "session_status": "get_automation_status",
+    "list_session": "get_automation_stats",
+}
+
+
+def _resolve_tool_name(name: str) -> str:
+    return TOOL_NAME_ALIASES.get(name, name)
+
+
+def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
+    """Extract tool calls from LLM text output when native tool_calls is empty.
+
+    Scans all top-level {...} blocks via brace-depth counting and tries to
+    parse each as a tool call. Handles nested braces in arguments values.
+    """
+    results: list[dict[str, Any]] = []
+    i = 0
+    while i < len(content):
+        if content[i] != "{":
+            i += 1
+            continue
+        depth = 0
+        start = i
+        while i < len(content):
+            if content[i] == "{":
+                depth += 1
+            elif content[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        if depth != 0:
+            break
+        candidate = content[start : i + 1]
+        i += 1
+        if len(candidate) < 15:
+            continue
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        name = parsed.get("tool") or parsed.get("name") or parsed.get("function") or ""
+        args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("args") or {}
+        if name and isinstance(name, str):
+            results.append({"name": name.strip(), "arguments": args if isinstance(args, dict) else {}})
+    return results
+
+
 async def execute_tool_locally(name: str, args: dict) -> Any:
     """Helper to execute a tool function from the tool registry"""
     if name not in TOOL_REGISTRY:
-        raise ValueError(f"Tool {name} not found in registry")
+        resolved = _resolve_tool_name(name)
+        if resolved in TOOL_REGISTRY:
+            name = resolved
+        else:
+            raise ValueError(f"Tool {name} not found in registry")
 
     tool_func = TOOL_REGISTRY[name]
     logger.info(f"🔧 Executing tool {name} with args: {args}")
@@ -918,8 +980,11 @@ async def _build_system_prompt_with_context(request: ChatRequest) -> str:
         "You are the Vajra.Stream AI Operator, a wise assistant designed to control a "
         "radionics board, crystal broadcasters, scalar wave generators, and blessing slideshows. "
         "Your goal is to run operations based on the user's intent. "
-        "You can execute actions using tools. If the user asks to start a session, list targets, "
+        "You can execute actions using tools. If the user asks to start a session, list populations, "
         "calibrate the RNG, stop automation, or tune settings, look up the appropriate tool and call it. "
+        "Available tools include: list_populations, start_automation, stop_automation, get_automation_status, "
+        "create_rng_session, get_rng_reading, forge_sigil, cast_tarot_spread, cast_i_ching, "
+        "play_chakra_healing_audio, generate_single_outlook, and many more. "
         "Do not explain the tools, just call them. Once you receive the tool results, explain the outcome "
         "with deep compassion and wisdom, invoking the digital dharma theme."
     )
@@ -1117,6 +1182,42 @@ async def _run_openai_compatible_tool_loop(
         messages.append(msg)
 
         if not msg.tool_calls:
+            text_tool_calls = _parse_text_tool_calls(msg.content or "")
+            if text_tool_calls:
+                logger.info(f"{provider_label}: parsed {len(text_tool_calls)} tool call(s) from text output")
+                for tc_text in text_tool_calls:
+                    name = _resolve_tool_name(tc_text["name"])
+                    args = tc_text["arguments"]
+                    try:
+                        result = await execute_tool_locally(name, args)
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": f"[Tool result for {name}]: {json.dumps(result)[:2000]}",
+                            }
+                        )
+                    except Exception as ex:
+                        logger.error(f"Error executing text-parsed tool {name}: {ex}")
+                        tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": f"[Tool error for {name}]: {ex}",
+                            }
+                        )
+
+                response = client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    tools=tools if tools else None,
+                    tool_choice="auto" if tools else None,
+                    temperature=0.7,
+                    **extra_kwargs,
+                )
+                final_msg = response.choices[0].message
+                return final_msg.content or ""
+
             return msg.content or ""
 
         for tc in msg.tool_calls:
@@ -1647,7 +1748,34 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
             return wrap_res(ChatResponse(response=response_text, tool_calls=tool_logs))
 
     except Exception as e:
-        logger.error(f"{provider} execution failed: {e}. Falling back to rule-based parser.")
+        logger.error(f"{provider} execution failed: {e}. Trying fallback providers...")
+        err_str = str(e).lower()
+
+        if os.getenv("OPENROUTER_API_KEY") and provider != "openrouter":
+            try:
+                import openai as openai_lib
+
+                or_client = openai_lib.OpenAI(
+                    api_key=os.getenv("OPENROUTER_API_KEY"),
+                    base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+                    timeout=float(os.getenv("OPENROUTER_TIMEOUT", "120")),
+                )
+                or_model = request.model or os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
+                or_messages = [{"role": "system", "content": full_system_prompt}] + chat_messages
+                logger.info(f"Falling back to OpenRouter with model {or_model}...")
+                or_response = await _run_openai_compatible_tool_loop(
+                    client=or_client,
+                    model_name=or_model,
+                    messages=or_messages,
+                    tools=openai_tools,
+                    tool_logs=tool_logs,
+                    provider_label="OpenRouter",
+                )
+                return wrap_res(ChatResponse(response=or_response, tool_calls=tool_logs))
+            except Exception as or_ex:
+                logger.error(f"OpenRouter fallback also failed: {or_ex}")
+
+        logger.info("All providers failed. Falling back to rule-based parser.")
         fallback_res = await run_rule_based_fallback(query)
         err_str = str(e).lower()
         if "timeout" in err_str or "timed out" in err_str:

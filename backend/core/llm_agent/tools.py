@@ -1482,6 +1482,7 @@ TOOL_REGISTRY = {
     "stop_slideshow": stop_slideshow,
     "create_population": create_population,
     "list_populations": list_populations,
+    "list_targets": list_populations,
     "get_population_statistics": get_population_statistics,
     "update_population": update_population,
     "start_automation": start_automation,
