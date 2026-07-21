@@ -1665,6 +1665,74 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
     return wrap_res(await run_rule_based_fallback(query))
 
 
+@router.post("/teach", response_model=ChatResponse)
+async def teach_interaction(request: ChatRequest, http_request: Request):
+    """Clean LLM endpoint for educational use — no operator prompt, no tools.
+
+    Unlike ``/chat``, this endpoint passes the caller's system message
+    directly to the LLM without prepending the operator base prompt or
+    exposing operator tool schemas. Used by the Esoteric Tutor.
+    """
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="Message list cannot be empty")
+
+    system_parts = [m.content for m in request.messages if m.role == "system"]
+    system_prompt = "\n\n".join(system_parts) if system_parts else "You are a helpful teacher."
+    chat_msgs = [m for m in request.messages if m.role != "system"]
+    if not chat_msgs:
+        raise HTTPException(status_code=400, detail="No user/assistant messages found")
+
+    registry = getattr(http_request.app.state, "llm_registry", None)
+    if not registry:
+        raise HTTPException(status_code=503, detail="LLM registry not initialized")
+
+    provider_name = await _select_provider_via_registry(http_request, request.provider or "auto")
+    if not provider_name:
+        provider_name = registry.providers[0].name if registry.providers else None
+    if not provider_name:
+        raise HTTPException(status_code=503, detail="No LLM providers available")
+
+    chosen = None
+    for p in registry.providers:
+        if p.name == provider_name:
+            chosen = p
+            break
+    if chosen is None:
+        raise HTTPException(status_code=503, detail=f"Provider '{provider_name}' not selectable")
+
+    from core.llm.models import ChatRequest as CoreChatRequest
+
+    core_request = CoreChatRequest(
+        messages=[{"role": m.role, "content": m.content} for m in chat_msgs],
+        system_prompt=system_prompt,
+        max_tokens=request.max_tokens or 1200,
+        temperature=request.temperature or 0.7,
+        model=request.model,
+        stream=False,
+        tools=[],
+    )
+
+    try:
+        response = await retry_with_backoff(lambda: chosen.generate(core_request), max_retries=1, initial_backoff=0.5)
+    except Exception as e:
+        chain = await registry.failover_chain()
+        for next_provider in chain:
+            if next_provider.name == provider_name:
+                continue
+            try:
+                response = await next_provider.generate(core_request)
+                logger.info("Teach failover succeeded via %s", next_provider.name)
+                break
+            except Exception as e2:
+                logger.warning("Teach failover to %s failed: %s", next_provider.name, e2)
+                continue
+        else:
+            raise HTTPException(status_code=503, detail=f"All providers failed. Primary: {e}")
+
+    clean_content, _ = strip_thinking(response.content)
+    return ChatResponse(response=clean_content, tool_calls=[])
+
+
 @router.get("/usage/summary")
 async def get_usage_summary() -> dict:
     """Return the cumulative LLM usage summary.

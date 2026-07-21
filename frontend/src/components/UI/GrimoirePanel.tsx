@@ -6,10 +6,9 @@
  */
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, HelpCircle, ArrowRight, Clock } from 'lucide-react';
-import { message } from 'antd';
+import { message, Collapse, Typography } from 'antd';
 import DharmaTales from './DharmaTales';
 import EsotericTutor from './EsotericTutor';
-import { Collapse, Typography } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { createLogger } from '../../utils/logger';
 

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Input, Button, Collapse, Typography, Spin, Tag } from 'antd';
-import { GraduationCap, Send, RefreshCw, BookOpen } from 'lucide-react';
+import { GraduationCap, Send, RefreshCw } from 'lucide-react';
 
 const { Text, Paragraph } = Typography;
 
@@ -132,7 +132,7 @@ export default function EsotericTutor() {
     const newHistory = [...messages, { role: 'user' as const, content: userText }];
 
     try {
-      const res = await fetch('/api/v1/llm/chat', {
+      const res = await fetch('/api/v1/llm/teach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
