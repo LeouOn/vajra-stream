@@ -1190,18 +1190,21 @@ async def _run_openai_compatible_tool_loop(
         messages.append(msg)
 
         if debug_raw is not None:
-            debug_raw.append(
-                {
-                    "turn": turn,
-                    "content_preview": (msg.content or "")[:300],
-                    "has_native_tool_calls": bool(getattr(msg, "tool_calls", None)),
-                    "native_tool_names": [tc.function.name for tc in (getattr(msg, "tool_calls", None) or [])],
-                    "finish_reason": str(getattr(response.choices[0], "finish_reason", "")),
-                }
-            )
-            text_tc = _parse_text_tool_calls(msg.content or "")
-            if text_tc:
-                debug_raw[-1]["text_parsed_tool_calls"] = [t["name"] for t in text_tc]
+            try:
+                debug_raw.append(
+                    {
+                        "turn": turn,
+                        "content_preview": (msg.content or "")[:300],
+                        "has_native_tool_calls": bool(getattr(msg, "tool_calls", None)),
+                        "native_tool_names": [tc.function.name for tc in (getattr(msg, "tool_calls", None) or [])],
+                        "finish_reason": str(getattr(response.choices[0], "finish_reason", "")),
+                    }
+                )
+                text_tc = _parse_text_tool_calls(msg.content or "")
+                if text_tc:
+                    debug_raw[-1]["text_parsed_tool_calls"] = [t["name"] for t in text_tc]
+            except Exception:  # noqa: BLE001
+                logger.warning("Failed to capture debug trace for turn", exc_info=True)
 
         if not msg.tool_calls:
             text_tool_calls = _parse_text_tool_calls(msg.content or "")

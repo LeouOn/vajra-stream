@@ -1454,10 +1454,6 @@ Write only the blessing text, no explanation."""
 
         self._session.record_event("autonomous_started", {"interval": interval_seconds})
 
-        # Run first cycle immediately
-        suggestion = self._autonomous_cycle()
-
-        # Start the background daemon loop
         try:
             loop = asyncio.get_running_loop()
             self._autonomous_task = loop.create_task(self._run_autonomous_loop())
@@ -1471,7 +1467,6 @@ Write only the blessing text, no explanation."""
             "status": "started",
             "interval_seconds": interval_seconds,
             "message": "Autonomous radionics operator activated. I will monitor world events and propose actions.",
-            "first_suggestion": suggestion,
         }
 
     async def _run_autonomous_loop(self):
