@@ -92,9 +92,9 @@ def test_profection_house_offset():
     for i, year in enumerate(range(2000, 2013)):
         p = calc.get_profection(n, year, natal_location=(51.5, -0.13))
         expected_house = (i % 12) + 1
-        assert (
-            p["house_ruled"] == expected_house
-        ), f"year {year} expected house {expected_house}, got {p['house_ruled']}"
+        assert p["house_ruled"] == expected_house, (
+            f"year {year} expected house {expected_house}, got {p['house_ruled']}"
+        )
 
 
 def test_solar_return_location_override():

@@ -48,7 +48,7 @@ def test_outlook_generate_single_with_lm_studio_default():
     data = response.json()
 
     narrative = data.get("narrative", "")
-    assert (
-        "No LLM initialized" not in narrative
-    ), "Should not return 'No LLM initialized' when LM studio is running and auto-detected"
+    assert "No LLM initialized" not in narrative, (
+        "Should not return 'No LLM initialized' when LM studio is running and auto-detected"
+    )
     assert len(narrative) > 50, f"Narrative too short: {narrative}"

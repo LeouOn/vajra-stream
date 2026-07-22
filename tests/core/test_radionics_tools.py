@@ -92,9 +92,9 @@ def test_radionics_tools_are_well_formed_openai_function_schemas():
         required = params.get("required", [])
         assert isinstance(required, list), f"Tool #{i} ('{name}') parameters.required is not a list"
         for r in required:
-            assert (
-                isinstance(r, str) and r in params["properties"]
-            ), f"Tool #{i} ('{name}') declares required='{r}' but '{r}' is not in properties"
+            assert isinstance(r, str) and r in params["properties"], (
+                f"Tool #{i} ('{name}') declares required='{r}' but '{r}' is not in properties"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -119,9 +119,9 @@ def test_radionics_tool_names_match_tool_handlers():
     handler_names = set(TOOL_HANDLERS.keys())
 
     missing_handlers = tool_names - handler_names
-    assert (
-        not missing_handlers
-    ), f"Tools declared but not in TOOL_HANDLERS (dispatch will fail): {sorted(missing_handlers)}"
+    assert not missing_handlers, (
+        f"Tools declared but not in TOOL_HANDLERS (dispatch will fail): {sorted(missing_handlers)}"
+    )
 
     orphan_handlers = handler_names - tool_names
     assert not orphan_handlers, f"TOOL_HANDLERS entries with no matching tool (dead code): {sorted(orphan_handlers)}"
@@ -144,9 +144,9 @@ def test_get_tools_for_provider_returns_full_list_for_known_providers():
     for provider in ("openai", "local", "anthropic"):
         result = get_tools_for_provider(provider)
         assert isinstance(result, list)
-        assert len(result) == len(
-            RADIONICS_TOOLS
-        ), f"Provider '{provider}' returned {len(result)} tools, expected {len(RADIONICS_TOOLS)}"
+        assert len(result) == len(RADIONICS_TOOLS), (
+            f"Provider '{provider}' returned {len(result)} tools, expected {len(RADIONICS_TOOLS)}"
+        )
 
     # And the openai result shares every name with the registry
     openai_names = {t["function"]["name"] for t in get_tools_for_provider("openai")}

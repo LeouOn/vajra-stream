@@ -1,31 +1,39 @@
-import sys, os, json
+import os
+import sys
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.getcwd())
 
-from fastapi.testclient import TestClient
-from backend.app.main import app
+from fastapi.testclient import TestClient  # noqa: E402
+
+from backend.app.main import app  # noqa: E402
+
 client = TestClient(app)
 
 print("=== Test: POST /api/v1/llm/chat with 'list populations' ===")
-r = client.post("/api/v1/llm/chat", json={
-    "messages": [{"role": "user", "content": "list populations"}],
-    "provider": "auto",
-})
+r = client.post(
+    "/api/v1/llm/chat",
+    json={
+        "messages": [{"role": "user", "content": "list populations"}],
+        "provider": "auto",
+    },
+)
 data = r.json()
 resp_text = data.get("response", "")
 print(f"Status: {r.status_code}")
-print(f"Response (first 300 chars):")
+print("Response (first 300 chars):")
 print(resp_text[:300])
 print(f"\nTool calls count: {len(data.get('tool_calls', []))}")
 for tc in data.get("tool_calls", []):
     print(f"  {tc.get('tool_name')} -> {tc.get('status')}")
 dbg = data.get("debug_info", {})
-print(f"\nDebug info:")
+print("\nDebug info:")
 print(f"  provider: {dbg.get('provider') or dbg.get('provider_selected')}")
 print(f"  model: {dbg.get('model')}")
 
 print("\n=== Test: Parse the actual response for tool calls ===")
-from backend.app.api.v1.endpoints.llm import _parse_text_tool_calls
+from backend.app.api.v1.endpoints.llm import _parse_text_tool_calls  # noqa: E402
+
 parsed = _parse_text_tool_calls(resp_text)
 print(f"Parsed tool calls: {parsed}")
 
@@ -38,15 +46,18 @@ for key in ["OPENAI_API_KEY", "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY", "ANTHROP
         print(f"  {key}: NOT SET")
 
 print("\n=== Test: model='nvidia/nemotron-nemotron-3-ultra-550b-a55b:free' ===")
-r2 = client.post("/api/v1/llm/chat", json={
-    "messages": [{"role": "user", "content": "list populations"}],
-    "provider": "auto",
-    "model": "nvidia/nemotron-nemotron-3-ultra-550b-a55b:free",
-})
+r2 = client.post(
+    "/api/v1/llm/chat",
+    json={
+        "messages": [{"role": "user", "content": "list populations"}],
+        "provider": "auto",
+        "model": "nvidia/nemotron-nemotron-3-ultra-550b-a55b:free",
+    },
+)
 data2 = r2.json()
 resp2 = data2.get("response", "")
 print(f"Status: {r2.status_code}")
-print(f"Response (first 300 chars):")
+print("Response (first 300 chars):")
 print(resp2[:300])
 print(f"\nTool calls count: {len(data2.get('tool_calls', []))}")
 for tc in data2.get("tool_calls", []):

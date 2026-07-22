@@ -33,6 +33,6 @@ def test_build_wheel_succeeds() -> None:
         text=True,
         check=False,
     )
-    assert (
-        result.returncode == 0
-    ), f"python -m build --wheel failed.\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}\n"
+    assert result.returncode == 0, (
+        f"python -m build --wheel failed.\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}\n"
+    )

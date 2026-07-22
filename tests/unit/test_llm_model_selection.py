@@ -63,9 +63,9 @@ def test_defaults_pin_nemotron_for_unbounded_loops(use_case: str):
     """The two unbounded/24x7 use cases must default to the free model so
     the loop never incurs cost."""
     entry = DEFAULT_MODELS_BY_USE_CASE[use_case]
-    assert (
-        entry["model_id"] == NEMOTRON_FREE_MODEL_ID
-    ), f"{use_case} should default to Nemotron free, got {entry['model_id']}"
+    assert entry["model_id"] == NEMOTRON_FREE_MODEL_ID, (
+        f"{use_case} should default to Nemotron free, got {entry['model_id']}"
+    )
     assert entry["provider"] == "openrouter"
 
 

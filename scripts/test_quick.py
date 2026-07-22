@@ -1,16 +1,23 @@
-import sys, os
+import os
+import sys
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.getcwd())
 
-from fastapi.testclient import TestClient
-from backend.app.main import app
+from fastapi.testclient import TestClient  # noqa: E402
+
+from backend.app.main import app  # noqa: E402
+
 client = TestClient(app)
 
 print("=== Test: auto provider, default model ===")
-r = client.post("/api/v1/llm/chat", json={
-    "messages": [{"role": "user", "content": "list populations"}],
-    "provider": "auto",
-})
+r = client.post(
+    "/api/v1/llm/chat",
+    json={
+        "messages": [{"role": "user", "content": "list populations"}],
+        "provider": "auto",
+    },
+)
 data = r.json()
 resp = data.get("response", "")
 tcs = data.get("tool_calls", [])
