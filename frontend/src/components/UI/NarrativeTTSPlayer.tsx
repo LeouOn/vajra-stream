@@ -26,6 +26,7 @@ interface NarrativeTTSPlayerProps {
   label?: string;
   size?: 'small' | 'middle' | 'large';
   showAdvanced?: boolean;
+  onSpeakRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export default function NarrativeTTSPlayer({
@@ -36,10 +37,12 @@ export default function NarrativeTTSPlayer({
   label = 'Speak blessing',
   size = 'small',
   showAdvanced = true,
+  onSpeakRef,
 }: NarrativeTTSPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
   const ttsUnregisterRef = useRef<(() => void) | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const addToast = useUIStore((s) => s.addToast);
   const [loading, setLoading] = useState<boolean>(false);
   const [playing, setPlaying] = useState<boolean>(false);
@@ -73,6 +76,8 @@ export default function NarrativeTTSPlayer({
       return;
     }
     stopAndCleanup();
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
     setLoading(true);
     setError(null);
     audioFeedback.playTelemetry();
@@ -86,6 +91,7 @@ export default function NarrativeTTSPlayer({
           role,
           project_id: projectId || null,
         }),
+        signal: abortRef.current.signal,
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({ detail: 'TTS failed' })) as { detail?: string };
@@ -116,21 +122,31 @@ export default function NarrativeTTSPlayer({
       };
       await audio.play();
       setPlaying(true);
+      const activityId = `tts-${role}-${text?.slice(0, 16) || 'narrative'}`;
       ttsUnregisterRef.current = useAudioActivity.getState().register({
-        id: 'tts-narrative',
-        name: 'Narrative TTS Playback',
+        id: activityId,
+        name: role === 'outlook_epic' ? 'Narrative TTS (Epic)' : 'Narrative TTS Playback',
         icon: '🔊',
         stop: () => { try { audio.pause(); } catch { /* noop */ } },
       });
       addToast({ type: 'success', title: `Streaming via ${backend}`, duration: 3 });
       audioFeedback.playSuccess();
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        setError(null);
+        return;
+      }
       setError(e instanceof Error ? (e.message || String(e)) : String(e));
       audioFeedback.playError();
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
   }, [text, voice, role, projectId, volume, stopAndCleanup]);
+
+  useEffect(() => {
+    if (onSpeakRef) onSpeakRef.current = () => { handleSpeak(); };
+  }, [handleSpeak, onSpeakRef]);
 
   // Stop + cleanup on unmount — now safely AFTER ``stopAndCleanup`` is declared.
   useEffect(() => {
@@ -147,7 +163,10 @@ export default function NarrativeTTSPlayer({
   }, [text, autoSpeak, handleSpeak]);
 
   const handleStop = (): void => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     stopAndCleanup();
+    setLoading(false);
     audioFeedback.playClick();
   };
 
@@ -155,14 +174,13 @@ export default function NarrativeTTSPlayer({
 
   return (
     <Space size={6} wrap className="narrative-tts-player">
-      {!playing ? (
-        <Tooltip title={error ? error : label}>
+      {!isActive ? (
+        <Tooltip title={error || label}>
           <Button
             size={size}
             type="primary"
-            icon={loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Volume2 className="w-3.5 h-3.5" />}
+            icon={<Volume2 className="w-3.5 h-3.5" />}
             onClick={handleSpeak}
-            loading={loading}
             disabled={!text}
           >
             {label}
@@ -172,10 +190,11 @@ export default function NarrativeTTSPlayer({
         <Button
           size={size}
           danger
-          icon={<Square className="w-3.5 h-3.5" />}
+          icon={loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5" />}
           onClick={handleStop}
+          title="Stop TTS"
         >
-          Stop
+          {loading ? 'Stop' : 'Stop'}
         </Button>
       )}
 
