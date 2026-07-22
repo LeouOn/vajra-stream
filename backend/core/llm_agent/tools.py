@@ -432,6 +432,38 @@ def get_population_statistics() -> dict[str, Any]:
     return client._get("/api/v1/populations/statistics/overall")
 
 
+def get_system_status() -> dict[str, Any]:
+    """
+    Get a complete system status snapshot — populations, automation, RNG, world context.
+    Use this when the user asks for 'statistics', 'status', 'system overview', or 'dashboard'.
+
+    Returns all data in a single call so the LLM doesn't need multiple follow-up turns.
+    """
+    client = get_client()
+    result: dict[str, Any] = {}
+
+    for name, path in [
+        ("population_stats", "/api/v1/populations/statistics/overall"),
+        ("automation_status", "/api/v1/automation/status"),
+        ("rng_attunement", "/api/v1/rng/attunement"),
+        ("ritual_status", "/api/v1/ritual/status"),
+        ("practice_status", "/api/v1/practices/active"),
+    ]:
+        try:
+            result[name] = client._get(path)
+        except Exception:
+            result[name] = {"error": "unavailable"}
+
+    pop_count = result.get("population_stats", {}).get("total_populations", len(result.get("population_stats", {})))
+    result["summary"] = {
+        "populations": pop_count,
+        "automation": "active" if result.get("automation_status", {}).get("active") else "idle",
+        "rng": "online" if result.get("rng_attunement", {}).get("active") else "offline",
+        "rituals": result.get("ritual_status", {}).get("active_count", 0),
+    }
+    return result
+
+
 def update_population(population_id: str, **updates) -> dict[str, Any]:
     """
     Update a population's settings.
@@ -1484,6 +1516,8 @@ TOOL_REGISTRY = {
     "list_populations": list_populations,
     "list_targets": list_populations,
     "get_population_statistics": get_population_statistics,
+    "get_system_status": get_system_status,
+    "get_statistics": get_system_status,
     "update_population": update_population,
     "start_automation": start_automation,
     "get_automation_status": get_automation_status,
@@ -1835,6 +1869,11 @@ def get_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "get_population_statistics",
             "description": "Get overall statistics across all populations including totals and categories",
+            "parameters": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "get_system_status",
+            "description": "Complete system snapshot — populations, automation, RNG, rituals, practices. Use when user asks for 'statistics', 'status', 'dashboard', or 'system overview'. Returns everything in one call.",
             "parameters": {"type": "object", "properties": {}},
         },
         {

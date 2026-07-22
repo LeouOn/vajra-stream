@@ -132,6 +132,12 @@ TOOL_NAME_ALIASES: dict[str, str] = {
     "get_session": "get_automation_status",
     "session_status": "get_automation_status",
     "list_session": "get_automation_stats",
+    "get_statistics": "get_system_status",
+    "broadcast_crystal": "broadcast_healing",
+    "set_scalar_frequency": "set_audio_frequency",
+    "set_rng_bias": "create_rng_session",
+    "calibrate_rng": "create_rng_session",
+    "set_crystal_intent": "broadcast_healing",
 }
 
 
@@ -1164,6 +1170,7 @@ async def _run_openai_compatible_tool_loop(
             tools=tools if tools else None,
             tool_choice="auto" if tools else None,
             temperature=0.7,
+            max_tokens=extra_kwargs.get("max_tokens", 4096),
             **extra_kwargs,
         )
         try:
@@ -1466,6 +1473,7 @@ async def _chat_via_registry(
                 f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
                 for r in raw_tool_results
             )
+            has_comprehensive = any(r.get("tool") in ("get_system_status", "get_statistics") for r in raw_tool_results)
             try:
                 followup_request = request.model_copy(
                     update={
@@ -1477,6 +1485,7 @@ async def _chat_via_registry(
                                 "content": f"Tool execution results:\n\n{results_summary}\n\nPlease provide a natural, compassionate summary of these results for the user.",
                             },
                         ],
+                        "tools": [] if has_comprehensive else request.tools,
                     }
                 )
                 followup_response = await chosen.generate(followup_request)
