@@ -1,19 +1,26 @@
-import sys, os
+import os
+import sys
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.getcwd())
 
-from fastapi.testclient import TestClient
-from backend.app.main import app
+from fastapi.testclient import TestClient  # noqa: E402
+
+from backend.app.main import app  # noqa: E402
+
 client = TestClient(app)
 
-r = client.post("/api/v1/llm/chat", json={
-    "messages": [{"role": "user", "content": "get statistics"}],
-    "provider": "auto",
-    "debug_mode": True,
-})
+r = client.post(
+    "/api/v1/llm/chat",
+    json={
+        "messages": [{"role": "user", "content": "get statistics"}],
+        "provider": "auto",
+        "debug_mode": True,
+    },
+)
 data = r.json()
 
-print(f"=== Tool loop analysis ===")
+print("=== Tool loop analysis ===")
 for tc in data.get("tool_calls", []):
     print(f"  {tc.get('tool_name')}({tc.get('arguments')}) -> {tc.get('status')}")
 
@@ -31,7 +38,7 @@ for rr in raw_responses:
         print(f"    TEXT-parsed tool calls: {text_parsed}")
     print(f"    Preview: {preview}")
 
-print(f"\n=== Raw tool results count ===")
+print("\n=== Raw tool results count ===")
 raw = dbg.get("raw_tool_results", [])
 print(f"  Total tools executed: {len(raw)}")
 for r2 in raw:
