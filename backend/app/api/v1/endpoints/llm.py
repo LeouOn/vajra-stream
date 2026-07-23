@@ -132,6 +132,12 @@ TOOL_NAME_ALIASES: dict[str, str] = {
     "get_session": "get_automation_status",
     "session_status": "get_automation_status",
     "list_session": "get_automation_stats",
+    "get_statistics": "get_system_status",
+    "broadcast_crystal": "broadcast_healing",
+    "set_scalar_frequency": "set_audio_frequency",
+    "set_rng_bias": "create_rng_session",
+    "calibrate_rng": "create_rng_session",
+    "set_crystal_intent": "broadcast_healing",
 }
 
 
@@ -1164,6 +1170,7 @@ async def _run_openai_compatible_tool_loop(
             tools=tools if tools else None,
             tool_choice="auto" if tools else None,
             temperature=0.7,
+            max_tokens=extra_kwargs.get("max_tokens", 4096),
             **extra_kwargs,
         )
         try:
@@ -1183,18 +1190,21 @@ async def _run_openai_compatible_tool_loop(
         messages.append(msg)
 
         if debug_raw is not None:
-            debug_raw.append(
-                {
-                    "turn": turn,
-                    "content_preview": (msg.content or "")[:300],
-                    "has_native_tool_calls": bool(getattr(msg, "tool_calls", None)),
-                    "native_tool_names": [tc.function.name for tc in (getattr(msg, "tool_calls", None) or [])],
-                    "finish_reason": str(getattr(response.choices[0], "finish_reason", "")),
-                }
-            )
-            text_tc = _parse_text_tool_calls(msg.content or "")
-            if text_tc:
-                debug_raw[-1]["text_parsed_tool_calls"] = [t["name"] for t in text_tc]
+            try:
+                debug_raw.append(
+                    {
+                        "turn": turn,
+                        "content_preview": (msg.content or "")[:300],
+                        "has_native_tool_calls": bool(getattr(msg, "tool_calls", None)),
+                        "native_tool_names": [tc.function.name for tc in (getattr(msg, "tool_calls", None) or [])],
+                        "finish_reason": str(getattr(response.choices[0], "finish_reason", "")),
+                    }
+                )
+                text_tc = _parse_text_tool_calls(msg.content or "")
+                if text_tc:
+                    debug_raw[-1]["text_parsed_tool_calls"] = [t["name"] for t in text_tc]
+            except Exception:  # noqa: BLE001
+                logger.warning("Failed to capture debug trace for turn", exc_info=True)
 
         if not msg.tool_calls:
             text_tool_calls = _parse_text_tool_calls(msg.content or "")
@@ -1445,6 +1455,7 @@ async def _chat_via_registry(
 
     tool_logs: list[ToolCallLog] = []
     text_tool_calls = _parse_text_tool_calls(clean_content)
+    raw_tool_results: list[dict] = []
     if text_tool_calls:
         logger.info(f"Registry path: parsed {len(text_tool_calls)} tool call(s) from text output")
         for tc_text in text_tool_calls:
@@ -1453,16 +1464,39 @@ async def _chat_via_registry(
             try:
                 result = await execute_tool_locally(name, args)
                 tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
+                raw_tool_results.append({"tool": name, "status": "success", "result": result})
             except Exception as ex:
                 logger.error(f"Error executing text-parsed tool {name}: {ex}")
                 tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
+                raw_tool_results.append({"tool": name, "status": "error", "error": str(ex)})
 
         if tool_logs:
-            success_msgs = [t for t in tool_logs if t.status == "success"]
-            if success_msgs:
-                clean_content = (
-                    f"Tool executed: {success_msgs[0].tool_name}\n\nResults: {json.dumps(success_msgs[0].result)[:500]}"
+            results_summary = "\n".join(
+                f"[Tool: {r['tool']}] {'OK' if r['status'] == 'success' else 'ERROR: ' + r.get('error', '')}\n"
+                f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
+                for r in raw_tool_results
+            )
+            has_comprehensive = any(r.get("tool") in ("get_system_status", "get_statistics") for r in raw_tool_results)
+            try:
+                followup_request = request.model_copy(
+                    update={
+                        "messages": request.messages
+                        + [
+                            {"role": "assistant", "content": clean_content},
+                            {
+                                "role": "user",
+                                "content": f"Tool execution results:\n\n{results_summary}\n\nPlease provide a natural, compassionate summary of these results for the user.",
+                            },
+                        ],
+                        "tools": [] if has_comprehensive else request.tools,
+                    }
                 )
+                followup_response = await chosen.generate(followup_request)
+                clean_content, _ = strip_thinking(followup_response.content)
+                logger.info("Registry path: follow-up LLM call succeeded with tool results")
+            except Exception as followup_ex:
+                logger.warning(f"Follow-up LLM call failed: {followup_ex}. Returning raw results.")
+                clean_content = results_summary[:2000]
 
     debug_info: dict | None = None
     if request.debug_mode:
@@ -1474,6 +1508,7 @@ async def _chat_via_registry(
             "finish_reason": response.finish_reason,
             "text_parsed_tool_calls": [t["name"] for t in text_tool_calls],
             "tools_executed": len(tool_logs),
+            "raw_tool_results": raw_tool_results[:3],
         }
         if getattr(response, "reasoning_content", None):
             debug_info["reasoning_content"] = response.reasoning_content

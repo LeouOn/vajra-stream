@@ -971,11 +971,14 @@ export default function OutlookDashboard() {
     });
   };
 
+  const narrativeSpeakRef = useRef<(() => void) | null>(null);
+
   const replayTTS = (): void => {
-    // Trigger the existing TTS player if it's mounted. Falls back to
-    // a fresh chime so the user gets audible confirmation even without
-    // TTS support.
-    playSectionChime();
+    if (narrativeSpeakRef.current) {
+      narrativeSpeakRef.current();
+    } else {
+      playSectionChime();
+    }
   };
 
   // ─── Save / Load Saved Rituals ───────────────────────────
@@ -1586,6 +1589,7 @@ export default function OutlookDashboard() {
                             <NarrativeTTSPlayer
                               text={currentNarrative.narrative}
                               role="outlook_narrative"
+                              onSpeakRef={narrativeSpeakRef}
                             />
                             <Button size="small" icon={copied ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                               onClick={copyNarrative}>{copied ? 'Copied' : 'Copy'}</Button>
