@@ -98,8 +98,12 @@ NEMOTRON_FREE_MODEL_ID = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 KNOWN_FEATURED_MODEL_IDS: list[str] = [
     NEMOTRON_FREE_MODEL_ID,
+    "inclusionai/ling-3.0-flash:free",
+    "poolside/laguna-s-2.1:free",
+    "poolside/laguna-xs-2.1:free",
     "deepseek/deepseek-v4-flash",
     "deepseek/deepseek-chat",
+    "minimax/minimax-m3",
     "anthropic/claude-3.5-haiku",
     "openai/gpt-4o-mini",
 ]

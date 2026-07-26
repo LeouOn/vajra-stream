@@ -27,8 +27,12 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     #: :mod:`core.llm.defaults`.
     KNOWN_FEATURED_MODELS: tuple[str, ...] = (
         NEMOTRON_FREE_MODEL_ID,
+        "inclusionai/ling-3.0-flash:free",
+        "poolside/laguna-s-2.1:free",
+        "poolside/laguna-xs-2.1:free",
         "deepseek/deepseek-v4-flash",
         "deepseek/deepseek-chat",
+        "minimax/minimax-m3",
         "anthropic/claude-3.5-haiku",
         "openai/gpt-4o-mini",
     )
@@ -49,8 +53,11 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             priority=priority,
             fallback_models=[
                 NEMOTRON_FREE_MODEL_ID,
+                "inclusionai/ling-3.0-flash:free",
+                "poolside/laguna-s-2.1:free",
                 "deepseek/deepseek-v4-flash",
                 "deepseek/deepseek-chat",
+                "minimax/minimax-m3",
                 "openai/gpt-4o-mini",
             ],
         )
