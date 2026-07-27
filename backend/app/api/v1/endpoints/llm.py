@@ -148,12 +148,33 @@ def _resolve_tool_name(name: str) -> str:
 def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
     """Extract tool calls from LLM text output when native tool_calls is empty.
 
-    Scans all top-level {...} blocks via brace-depth counting and tries to
-    parse each as a tool call. Handles nested braces in arguments values.
+    Handles three common text-mode formats:
+    1. JSON blocks: {"tool": "name", "arguments": {...}}
+    2. XML tags: <tool_call>name</tool_call> or <tool_call>{"name":...}</tool_call>
+    3. Code blocks: ```json\n{"tool":...}\n```
     """
+    import re as _re
+
     results: list[dict[str, Any]] = []
+
+    for m in _re.finditer(r"<tool_call>(.*?)</tool_call>", content, _re.DOTALL):
+        inner = m.group(1).strip()
+        if inner.startswith("{"):
+            try:
+                parsed = json.loads(inner)
+                name = parsed.get("tool") or parsed.get("name") or parsed.get("function") or ""
+                args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("args") or {}
+                if name:
+                    results.append({"name": name.strip(), "arguments": args if isinstance(args, dict) else {}})
+            except json.JSONDecodeError:
+                pass
+        elif inner:
+            results.append({"name": inner.strip(), "arguments": {}})
+
+    scan_content = _re.sub(r"<tool_call>.*?</tool_call>", " ", content, flags=_re.DOTALL)
+
     i = 0
-    while i < len(content):
+    while i < len(scan_content):
         if content[i] != "{":
             i += 1
             continue

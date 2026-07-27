@@ -55,6 +55,26 @@ class TestParseTextToolCalls:
         assert len(result) == 1
         assert result[0]["arguments"] == {}
 
+    def test_xml_tag_bare_name(self):
+        content = "Sure! Let me do that.\n<tool_call>generate_single_outlook</tool_call>"
+        result = self._parse(content)
+        assert len(result) == 1
+        assert result[0]["name"] == "generate_single_outlook"
+        assert result[0]["arguments"] == {}
+
+    def test_xml_tag_with_json(self):
+        content = '<tool_call>{"name": "forge_sigil", "arguments": {"intention": "peace"}}</tool_call>'
+        result = self._parse(content)
+        assert len(result) == 1
+        assert result[0]["name"] == "forge_sigil"
+        assert result[0]["arguments"] == {"intention": "peace"}
+
+    def test_xml_tag_multiline(self):
+        content = "<tool_call>\nstart_automation\n</tool_call>"
+        result = self._parse(content)
+        assert len(result) == 1
+        assert result[0]["name"] == "start_automation"
+
 
 class TestToolNameAliases:
     def test_list_targets_resolves_to_list_populations(self):
@@ -77,8 +97,7 @@ class TestToolNameAliases:
 class TestExecuteToolAliasResolution:
     @pytest.mark.asyncio
     async def test_resolve_list_targets_to_list_populations(self):
-        from backend.app.api.v1.endpoints.llm import _resolve_tool_name, execute_tool_locally
-        from unittest.mock import AsyncMock
+        from backend.app.api.v1.endpoints.llm import _resolve_tool_name
 
         resolved = _resolve_tool_name("list_targets")
         assert resolved == "list_populations"
