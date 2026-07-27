@@ -443,6 +443,15 @@ export default function CommandCenter({
     const stripPrefix = (m: string, prefix: string) =>
       m.startsWith(`${prefix}:`) ? m.slice(prefix.length + 1) : m;
 
+    const RECOMMENDED_IDS = new Set([
+      'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'inclusionai/ling-3.0-flash:free',
+      'poolside/laguna-s-2.1:free',
+      'poolside/laguna-xs-2.1:free',
+      'deepseek/deepseek-v4-flash',
+      'minimax/minimax-m3',
+    ]);
+
     const groups: DefaultOptionType[] = [{
       label: '⚡ Auto',
       title: 'Auto-select',
@@ -450,6 +459,29 @@ export default function CommandCenter({
         { value: 'auto', label: '⚡ Auto (registry pick_best)' },
       ],
     }];
+
+    const recommendedModels = availableModelList.filter(m => RECOMMENDED_IDS.has(m.id));
+    const otherApiModels = availableModelList.filter(m => !RECOMMENDED_IDS.has(m.id));
+
+    if (recommendedModels.length > 0) {
+      groups.push({
+        label: '⭐ Recommended (Free + Fast)',
+        title: 'Recommended',
+        options: recommendedModels.map(m => ({
+          value: m.id,
+          label: (
+            <span className="flex items-center gap-1.5">
+              <span className="truncate">{m.name}</span>
+              {m.is_free
+                ? <Tag color="green" style={{ fontSize: '8px', lineHeight: '14px', margin: 0, padding: '0 4px' }}>FREE</Tag>
+                : <span className="text-gray-500 text-[9px] ml-auto font-mono">
+                    ${m.input_per_m.toFixed(2)}/${m.output_per_m.toFixed(2)}
+                  </span>}
+            </span>
+          ),
+        })),
+      });
+    }
 
     if (availableModels.lm_studio && availableModels.lm_studio.length > 0) {
       groups.push({
@@ -473,15 +505,15 @@ export default function CommandCenter({
       });
     }
 
-    const apiByProvider = new Map<string, AvailableModelMeta[]>();
-    for (const m of availableModelList) {
-      const arr = apiByProvider.get(m.provider) || [];
+    const otherByProvider = new Map<string, AvailableModelMeta[]>();
+    for (const m of otherApiModels) {
+      const arr = otherByProvider.get(m.provider) || [];
       arr.push(m);
-      apiByProvider.set(m.provider, arr);
+      otherByProvider.set(m.provider, arr);
     }
-    const sortedProviders = Array.from(apiByProvider.keys()).sort();
+    const sortedProviders = Array.from(otherByProvider.keys()).sort();
     for (const provider of sortedProviders) {
-      const models = apiByProvider.get(provider)!;
+      const models = otherByProvider.get(provider)!;
       groups.push({
         label: provider.charAt(0).toUpperCase() + provider.slice(1),
         title: provider,
