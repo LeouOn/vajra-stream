@@ -59,39 +59,28 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'CRYSTAL_BROADCAST_STARTED',
   'RADIONICS_RATE_BROADCAST',
   'SCALAR_WAVE_ACTIVE',
-  'error', // lowercase — distinct from uppercase ERROR
-  // --- backend_only (backend emits, frontend must handle) ---
-  'ERROR', // uppercase — added in Wave 1 Task 10
+  'error',
+  'ERROR',
   'SESSION_STARTED',
   'settings_updated',
   'system_error',
-  // --- restored after remediation Task 24 regression (core/ emitters) ---
-  // 88-Buddhas recitation lifecycle (core/buddha_recitation_loop.py).
   'BUDDHA_RECITATION_STARTED',
   'BUDDHA_NAME_RECITED',
   'BUDDHA_RECITATION_STOPPED',
-  // Ritual engine lifecycle + planetary-hour shift (core/ritual_engine.py).
   'RITUAL_ENGINE_STATUS',
   'RITUAL_PHASE',
   'RITUAL_COMPLETED',
   'PLANETARY_HOUR_SHIFT',
-  // Character journey lifecycle (core/character_journey.py).
   'JOURNEY_STAGE_STARTED',
   'JOURNEY_STAGE_COMPLETED',
   'JOURNEY_COMPLETED',
-  // DomainEvent forwarders from orchestrator_bridge._forward_event_to_websocket.
-  // Class names become WS message `type` strings; payload wrapped in {type, timestamp, data:{...}}.
-  'SessionCreated',
-  'SessionStarted',
-  'SessionStopped',
-  // Slow-data broadcasts from main.py _slow_data_broadcast_loop (10s interval).
-  // Replace frontend HTTP polling with WebSocket push.
-  'CURRENT_ASTROLOGY',
-  'MOPS_AVERAGES',
-  'JOURNEY_STATUS',
-  // Idle reflection engine (backend/app/api/v1/endpoints/outlook.py) —
-  // broadcasts a blessing preview each time the hourly auto-generation loop fires.
+  'LLM_USAGE_UPDATE',
+  'PRACTICE_STARTED',
+  'PRACTICE_RECITED',
+  'PRACTICE_COMPLETED',
+  'PRACTICE_STOPPED',
   'IDLE_REFLECTION',
+  'BACKGROUND_GENERATION',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');

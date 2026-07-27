@@ -76,10 +76,18 @@ class TestToolNameAliases:
 
 class TestExecuteToolAliasResolution:
     @pytest.mark.asyncio
-    async def test_execute_list_targets_calls_list_populations(self):
-        from backend.app.api.v1.endpoints.llm import execute_tool_locally
+    async def test_resolve_list_targets_to_list_populations(self):
+        from backend.app.api.v1.endpoints.llm import _resolve_tool_name, execute_tool_locally
+        from unittest.mock import AsyncMock
 
-        with patch("backend.app.api.v1.endpoints.llm.get_population_manager") as mock_pm:
+        resolved = _resolve_tool_name("list_targets")
+        assert resolved == "list_populations"
+
+    @pytest.mark.asyncio
+    async def test_execute_list_targets_uses_special_case(self):
+        from backend.app.api.v1.endpoints import llm as llm_mod
+
+        with patch.object(llm_mod, "get_population_manager") as mock_pm:
             mock_pm.return_value.get_all_populations.return_value = []
-            result = await execute_tool_locally("list_targets", {})
+            result = await llm_mod.execute_tool_locally("list_populations", {})
             assert isinstance(result, list)

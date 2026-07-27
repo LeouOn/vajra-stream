@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
-import { useAmbientBowl } from '../hooks/useAmbientBowl';
+import { useAmbientBowl } from '../../hooks/useAmbientBowl';
 
 interface MockOscillator {
   type: string;

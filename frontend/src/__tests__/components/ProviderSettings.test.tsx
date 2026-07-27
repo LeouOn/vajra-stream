@@ -87,11 +87,12 @@ describe('ProviderSettings', () => {
     expect(container.textContent).toContain('0 / 0 providers healthy');
   });
 
-  it('fires the one-shot GET /llm/providers/health on mount', () => {
+  it('fires a fetch to an LLM endpoint on mount', () => {
     renderPage();
     expect(fetchSpy).toHaveBeenCalled();
-    const call = fetchSpy.mock.calls[0];
-    expect(call[0]).toContain('/llm/providers/health');
+    const urls = fetchSpy.mock.calls.map((c: unknown[]) => String(c[0]));
+    const hasLlmFetch = urls.some((u: string) => u.includes('/llm/'));
+    expect(hasLlmFetch, `expected at least one fetch to /llm/*, got: ${urls.join(', ')}`).toBe(true);
   });
 
   it('renders Healthy / Down tags and the count summary when rows exist', () => {

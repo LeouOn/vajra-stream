@@ -11,6 +11,7 @@ export default defineConfig({
     include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
     environmentMatchGlobs: [
       ['src/__tests__/components/**', 'happy-dom'],
+      ['src/__tests__/hooks/useAmbientBowl.test.tsx', 'happy-dom'],
     ],
   },
   resolve: {
