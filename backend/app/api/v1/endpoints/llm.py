@@ -168,6 +168,23 @@ def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
                     results.append({"name": name.strip(), "arguments": args if isinstance(args, dict) else {}})
             except json.JSONDecodeError:
                 pass
+        elif "<arg_key>" in inner or "<arg>" in inner:
+            name = inner.split("<")[0].strip()
+            args: dict[str, Any] = {}
+            for pair in _re.finditer(
+                r"<arg_key>(.*?)</arg_key>\s*<arg_value>(.*?)</arg_value>",
+                inner,
+                _re.DOTALL,
+            ):
+                args[pair.group(1).strip()] = pair.group(2).strip()
+            for pair in _re.finditer(
+                r'<arg\s+name=["\'](.*?)["\']>(.*?)</arg>',
+                inner,
+                _re.DOTALL,
+            ):
+                args[pair.group(1).strip()] = pair.group(2).strip()
+            if name:
+                results.append({"name": name, "arguments": args})
         elif inner:
             results.append({"name": inner.strip(), "arguments": {}})
 
