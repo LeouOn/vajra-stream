@@ -140,9 +140,38 @@ TOOL_NAME_ALIASES: dict[str, str] = {
     "set_crystal_intent": "broadcast_healing",
 }
 
+ARG_ALIASES: dict[str, str] = {
+    "intent": "custom_context",
+    "intention": "custom_context",
+    "focus": "custom_context",
+    "context": "custom_context",
+    "aspiration": "custom_context",
+    "topic": "custom_context",
+    "subject": "custom_context",
+    "target": "population_ids",
+    "targets": "population_ids",
+    "duration": "duration_minutes",
+    "minutes": "duration_minutes",
+    "time": "duration_minutes",
+    "voice": "edge_voice",
+    "speed": "rate",
+    "freq": "frequency",
+    "hz": "frequency",
+}
+
 
 def _resolve_tool_name(name: str) -> str:
     return TOOL_NAME_ALIASES.get(name, name)
+
+
+def _normalize_args(args: dict) -> dict:
+    """Map LLM-emitted argument names to actual function parameter names."""
+    import inspect
+
+    normalized = {}
+    for key, value in args.items():
+        normalized[ARG_ALIASES.get(key, key)] = value
+    return normalized
 
 
 def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
@@ -232,6 +261,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
             raise ValueError(f"Tool {name} not found in registry")
 
     tool_func = TOOL_REGISTRY[name]
+    args = _normalize_args(args)
     logger.info(f"🔧 Executing tool {name} with args: {args}")
 
     # Special case: avoid self-HTTP calls by accessing services directly
