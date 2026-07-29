@@ -1474,6 +1474,7 @@ async def _chat_via_registry(
     request: ChatRequest,
     provider_name: str,
     system_prompt_holder: list[str] | None = None,
+    tool_schemas: list[dict] | None = None,
 ) -> ChatResponse:
     """Registry-first chat path. Uses the registered provider for the request.
 
@@ -1502,7 +1503,15 @@ async def _chat_via_registry(
             detail=f"Provider '{provider_name}' is registered but not selectable",
         )
 
-    chat_request = request.model_copy(update={"system_prompt": system_prompt})
+    from core.llm.models import ToolDefinition
+
+    tool_defs = [ToolDefinition(**s) for s in (tool_schemas or [])]
+    chat_request = request.model_copy(
+        update={
+            "system_prompt": system_prompt,
+            "tools": tool_defs,
+        }
+    )
 
     async def _do_generate():
         return await chosen.generate(chat_request)
@@ -1543,13 +1552,19 @@ async def _chat_via_registry(
     conversation_messages = list(request.messages)
 
     for turn in range(4):
+        native_tcs = response.tool_calls if hasattr(response, "tool_calls") else []
         text_tool_calls = _parse_text_tool_calls(clean_content)
-        if not text_tool_calls:
+        all_tool_calls = []
+        for tc in native_tcs:
+            all_tool_calls.append({"name": tc.get("name", ""), "arguments": tc.get("arguments", {})})
+        all_tool_calls.extend(text_tool_calls)
+
+        if not all_tool_calls:
             break
 
-        logger.info(f"Registry turn {turn}: parsed {len(text_tool_calls)} tool call(s)")
+        logger.info(f"Registry turn {turn}: {len(native_tcs)} native + {len(text_tool_calls)} text-parsed tool calls")
         turn_results: list[dict] = []
-        for tc_text in text_tool_calls:
+        for tc_text in all_tool_calls:
             name = _resolve_tool_name(tc_text["name"])
             args = tc_text["arguments"]
             try:
@@ -1679,8 +1694,17 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
     # legacy branches remain as a fallback for cases where the registry is
     # not initialized (e.g. older deployments) or no provider matched.
     registry = getattr(http_request.app.state, "llm_registry", None)
+
+    tool_schemas = get_tool_schemas()
+    openai_tools = _build_openai_tools(tool_schemas)
+    claude_tools = [
+        {"name": s["name"], "description": s["description"], "input_schema": s["parameters"]} for s in tool_schemas
+    ]
+
     if registry is not None and len(registry) > 0 and provider in registry:
-        return await _chat_via_registry(http_request, request, provider, system_prompt_holder=None)
+        return await _chat_via_registry(
+            http_request, request, provider, system_prompt_holder=None, tool_schemas=tool_schemas
+        )
 
     # Retrieve key from request or env (used by the API-backed branches below).
     api_key = (
@@ -1691,11 +1715,6 @@ async def chat_interaction(request: ChatRequest, http_request: Request):
         or os.getenv("DEEPSEEK_API_KEY")
         or os.getenv("MINIMAX_API_KEY")
     )
-    tool_schemas = get_tool_schemas()
-    openai_tools = _build_openai_tools(tool_schemas)
-    claude_tools = [
-        {"name": s["name"], "description": s["description"], "input_schema": s["parameters"]} for s in tool_schemas
-    ]
 
     # 3) Build system prompt + composable context modules.
     system_prompt = await _build_system_prompt_with_context(request)

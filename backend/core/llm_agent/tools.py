@@ -1444,6 +1444,51 @@ def generate_prayer(intention: str, tradition: str = "universal") -> dict[str, A
     return _dispatch_via_container("generate_prayer", intention=intention, tradition=tradition)
 
 
+def speak_text(text: str, voice: str | None = None, role: str = "dharma_teaching") -> dict[str, Any]:
+    """
+    Speak text through the TTS engine (Kokoro/Sherpa/Edge multilingual router).
+
+    Use this AFTER generating a blessing, prayer, or teaching to give it voice.
+    Generates audio and returns a path that can be played back.
+
+    Args:
+        text: The text to speak (will be spoken as-is)
+        voice: Optional voice override
+        role: Ritual role for voice selection
+
+    Returns:
+        Dict with status, audio_path, and text_length
+    """
+    import os
+    import tempfile
+
+    client = get_client()
+    try:
+        response = requests.post(
+            f"{client.base_url}/api/v1/tts/stream",
+            json={"text": text[:5000], "voice": voice, "role": role},
+            timeout=120,
+        )
+        if response.ok:
+            audio_dir = os.path.join(tempfile.gettempdir(), "vajra_tts")
+            os.makedirs(audio_dir, exist_ok=True)
+            filename = f"tts_{int(time.time())}.{'mp3' if 'mpeg' in response.headers.get('content-type', '') else 'wav'}"
+            filepath = os.path.join(audio_dir, filename)
+            with open(filepath, "wb") as f:
+                f.write(response.content)
+            backend = response.headers.get("X-TTS-Backend", "unknown")
+            return {
+                "status": "success",
+                "audio_path": filepath,
+                "backend_used": backend,
+                "text_length": len(text),
+                "size_bytes": len(response.content),
+            }
+        return {"status": "error", "error": f"TTS returned HTTP {response.status_code}"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 def generate_teaching(topic: str, length: str = "short") -> dict[str, Any]:
     return _dispatch_via_container("generate_teaching", topic=topic, length=length)
 
@@ -1579,6 +1624,7 @@ TOOL_REGISTRY = {
     "generate_blessing": generate_blessing,
     "get_blessing_traditions": get_blessing_traditions,
     "generate_prayer": generate_prayer,
+    "speak_text": speak_text,
     "generate_teaching": generate_teaching,
     "generate_meditation_script": generate_meditation_script,
     "web_search": web_search,

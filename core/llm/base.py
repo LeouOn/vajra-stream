@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -311,6 +312,23 @@ class OpenAICompatibleProvider:
                     reasoning = inline_reasoning
                 elif reasoning and inline_reasoning:
                     reasoning = f"{reasoning}\n{inline_reasoning}"
+
+                native_tool_calls = []
+                raw_tc = getattr(choice.message, "tool_calls", None)
+                if raw_tc:
+                    for tc in raw_tc:
+                        try:
+                            args = json.loads(tc.function.arguments)
+                        except Exception:
+                            args = {}
+                        native_tool_calls.append(
+                            {
+                                "id": tc.id,
+                                "name": tc.function.name,
+                                "arguments": args,
+                            }
+                        )
+
                 chat_response = ChatResponse(
                     content=content,
                     provider=self.name,
@@ -319,6 +337,7 @@ class OpenAICompatibleProvider:
                     output_tokens=response.usage.completion_tokens if response.usage else 0,
                     finish_reason=choice.finish_reason or "stop",
                     reasoning_content=reasoning,
+                    tool_calls=native_tool_calls,
                 )
                 latency_ms = int((time.time() - start_time) * 1000)
 
