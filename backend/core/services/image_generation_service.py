@@ -54,6 +54,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_per_hour": 10,
     "cache_ttl_seconds": 3600,
     "max_prompt_tokens": 1000,
+    "prompt_style_prefix": "",
+    "prompt_negative": "",
 }
 
 MODEL_COST_USD: dict[str, float] = {
@@ -449,8 +451,11 @@ class ImageGenerationService:
         if not cfg["enabled"]:
             raise RuntimeError("Image generation is disabled; enable it in settings.")
 
+        style_prefix = str(cfg.get("prompt_style_prefix", "")).strip()
+        full_prompt = f"{style_prefix}. {prompt}" if style_prefix else prompt
+
         # Validate prompt
-        validation = self.validate_prompt(prompt)
+        validation = self.validate_prompt(full_prompt)
         if not validation["ok"]:
             raise ValueError(validation["error"] + " " + validation["suggestion"])
 
@@ -480,7 +485,7 @@ class ImageGenerationService:
             raise RuntimeError(f"max_per_hour={cfg['max_per_hour']} reached; try again later")
 
         # Cache lookup
-        cache_key = self._cache_key(prompt, provider_name, model_name, n, size, quality, kwargs)
+        cache_key = self._cache_key(full_prompt, provider_name, model_name, n, size, quality, kwargs)
         cached = self._cache.get(cache_key)
         if cached and cached[0] > now:
             result = dict(cached[1].__dict__)
@@ -494,7 +499,7 @@ class ImageGenerationService:
         for attempt in range(2):
             try:
                 result = await provider_obj.generate(
-                    prompt=prompt,
+                    prompt=full_prompt,
                     model=model_name,
                     size=size,
                     quality=quality,

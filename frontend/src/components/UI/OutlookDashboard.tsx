@@ -898,7 +898,7 @@ export default function OutlookDashboard() {
             : String(currentNarrative.narrative_parts || ''));
       const excerpt = narrativeText.slice(0, 600);
       const genre = currentNarrative.genre || 'spiritual';
-      const prompt = `Sacred illustration for a "${genre}" transmission. Visual depiction evoking the imagery, palette, and mood of this narrative excerpt. Symbolic, mystical, painterly, with luminous details: ${excerpt}`;
+      const prompt = `Illustration for a "${genre}" blessing transmission: ${excerpt}`;
       const res = await fetch('/api/v1/images/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

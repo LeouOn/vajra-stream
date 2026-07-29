@@ -182,6 +182,8 @@ class ConfigUpdateRequest(BaseModel):
     max_per_hour: int | None = Field(default=None, ge=1, le=1000)
     cache_ttl_seconds: int | None = Field(default=None, ge=0, le=86400)
     max_prompt_tokens: int | None = Field(default=None, ge=100, le=4000)
+    prompt_style_prefix: str | None = Field(default=None, max_length=500)
+    prompt_negative: str | None = Field(default=None, max_length=500)
     openrouter_api_key: str | None = None
     minimax_api_key: str | None = None
 

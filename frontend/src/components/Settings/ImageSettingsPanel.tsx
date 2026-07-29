@@ -52,6 +52,8 @@ interface ImageConfig {
   max_per_hour: number;
   cache_ttl_seconds: number;
   max_prompt_tokens: number;
+  prompt_style_prefix: string;
+  prompt_negative: string;
   openrouter_api_key: string;
   minimax_api_key: string;
 }
@@ -85,9 +87,38 @@ const EMPTY_CONFIG: ImageConfig = {
   max_per_hour: 10,
   cache_ttl_seconds: 3600,
   max_prompt_tokens: 1000,
+  prompt_style_prefix: '',
+  prompt_negative: '',
   openrouter_api_key: '',
   minimax_api_key: '',
 };
+
+const STYLE_PRESETS: Array<{ label: string; prefix: string }> = [
+  {
+    label: 'Tibetan Thangka',
+    prefix: 'Tibetan thangka painting style, gold leaf accents, intricate brushwork, dark mystical background, sacred geometry overlays, ethereal luminous lighting',
+  },
+  {
+    label: 'Sacred Mandala',
+    prefix: 'Symmetrical sacred mandala, radial composition, jewel-tone palette, gold and cyan accents, dark velvet background, glowing center',
+  },
+  {
+    label: 'Renaissance Religious',
+    prefix: 'Renaissance oil painting, chiaroscuro lighting, rich warm palette, classical composition, devotional iconography, masterful brushwork',
+  },
+  {
+    label: 'Cosmic / Astral',
+    prefix: 'Cosmic astral art, nebula colors, star fields, sacred geometry, glowing energy filaments, deep space darkness, iridescent details',
+  },
+  {
+    label: 'Watercolor / Ethereal',
+    prefix: 'Delicate watercolor, soft washes, pastel palette, ethereal transparency, dreamlike atmosphere, white space',
+  },
+  {
+    label: 'Clear (no prefix)',
+    prefix: '',
+  },
+];
 
 export default function ImageSettingsPanel() {
   const [config, setConfig] = useState<ImageConfig>(EMPTY_CONFIG);
@@ -355,6 +386,107 @@ export default function ImageSettingsPanel() {
               />
             </Col>
           </Row>
+        </Space>
+      </Card>
+
+      {/* Prompt Style Template */}
+      <Card
+        size="small"
+        loading={loading}
+        title={
+          <Space size={6}>
+            <Sparkles size={14} className="text-purple-400" />
+            <Text strong className="font-mono text-xs uppercase">Prompt Style Template</Text>
+          </Space>
+        }
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
+            This prefix is automatically prepended to every image prompt — both
+            from the LLM chat tool and the Illustrate button. Use it to enforce a
+            consistent visual aesthetic across all generated images.
+          </Paragraph>
+
+          <div>
+            <Text strong style={{ fontSize: 12 }}>Quick Presets</Text>
+            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {STYLE_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => saveField('prompt_style_prefix', preset.prefix)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    border: config.prompt_style_prefix === preset.prefix
+                      ? '1px solid #a855f7'
+                      : '1px solid rgba(255,255,255,0.1)',
+                    background: config.prompt_style_prefix === preset.prefix
+                      ? 'rgba(168,85,247,0.15)'
+                      : 'rgba(255,255,255,0.03)',
+                    color: '#e2e8f0',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Text strong>Style Prefix</Text>
+            <Text type="secondary" style={{ marginLeft: 8, fontSize: 11 }}>
+              Appended before your prompt. Max 500 chars.
+            </Text>
+            <Input.TextArea
+              rows={3}
+              placeholder="e.g. Tibetan thangka painting style, gold leaf accents, dark mystical background, sacred geometry, ethereal lighting"
+              value={config.prompt_style_prefix}
+              onChange={(e) => setConfig((c) => ({ ...c, prompt_style_prefix: e.target.value }))}
+              style={{ marginTop: 4 }}
+              maxLength={500}
+              showCount
+            />
+            <Button
+              type="primary"
+              size="small"
+              icon={<Save size={13} />}
+              style={{ marginTop: 6 }}
+              loading={saving}
+              onClick={() => saveField('prompt_style_prefix', config.prompt_style_prefix)}
+            >
+              Save Style
+            </Button>
+          </div>
+
+          <Divider style={{ margin: '4px 0' }} />
+
+          <div>
+            <Text strong>Negative Prompt</Text>
+            <Text type="secondary" style={{ marginLeft: 8, fontSize: 11 }}>
+              Things to exclude (not all models support this yet).
+            </Text>
+            <Input.TextArea
+              rows={2}
+              placeholder="e.g. no text, no watermark, no blurry, no distorted faces"
+              value={config.prompt_negative}
+              onChange={(e) => setConfig((c) => ({ ...c, prompt_negative: e.target.value }))}
+              style={{ marginTop: 4 }}
+              maxLength={500}
+              showCount
+            />
+            <Button
+              size="small"
+              icon={<Save size={13} />}
+              style={{ marginTop: 6 }}
+              loading={saving}
+              onClick={() => saveField('prompt_negative', config.prompt_negative)}
+            >
+              Save Negative
+            </Button>
+          </div>
         </Space>
       </Card>
 
