@@ -1312,6 +1312,120 @@ def run_full_journey() -> dict[str, Any]:
 
 
 # ============================================================================
+# IMAGE GENERATION (modular service — see backend/core/services/image_generation_service.py)
+# ============================================================================
+
+
+def generate_image(
+    prompt: str,
+    provider: str | None = None,
+    model: str | None = None,
+    size: str = "1024x1024",
+    quality: str = "standard",
+    aspect_ratio: str | None = None,
+    subject_reference: str | None = None,
+) -> dict[str, Any]:
+    """
+    Generate an image from a text prompt via OpenRouter or MiniMax.
+
+    Cost-controlled (default daily cap $0.50), cached (1 hour), and rate-limited
+    (max 10/hour). Returns a base64 data URL the chat UI can render inline.
+
+    Use this when:
+    - The user asks for a sacred illustration, mandala, deity portrait, or visual
+    - You want to depict a generated blessing narrative
+    - The user invokes "draw", "paint", "show me", or "create an image of"
+
+    Args:
+        prompt: Image description (max 1000 tokens; 30-60 words is ideal).
+        provider: "openrouter" (default) or "minimax". None uses config default.
+        model: Model slug. None uses config default
+            (e.g. "google/gemini-3.1-flash-lite-image", "image-01").
+        size: OpenRouter size: "1024x1024" (default), "1792x1024", "1024x1792".
+        quality: OpenRouter "standard" or "hd". Ignored by MiniMax.
+        aspect_ratio: MiniMax-only override (e.g. "1:1", "16:9", "4:3").
+        subject_reference: MiniMax-only image URL for image-to-image consistency.
+
+    Returns:
+        {
+            "image_data_url": "data:image/png;base64,...",
+            "model": "google/gemini-3.1-flash-lite-image",
+            "cost_usd": 0.008,
+            "provider_used": "openrouter",
+            "cached": false,
+            "revised_prompt": "...",
+            "prompt_tokens": 42
+        }
+
+    Raises:
+        RuntimeError: If image generation is disabled, daily cap reached,
+            rate-limited, or the provider call fails.
+        ValueError: If prompt exceeds the configured token budget.
+    """
+    from backend.app.api.v1.endpoints.image_generation import get_service
+    from backend.core.services.image_generation_service import ImageGenerationService
+
+    service: ImageGenerationService = get_service()
+
+    import asyncio
+
+    try:
+        asyncio.get_running_loop()
+        in_loop = True
+    except RuntimeError:
+        in_loop = False
+
+    async def _call() -> dict[str, Any]:
+        return await service.generate(
+            prompt=prompt,
+            provider=provider,
+            model=model,
+            size=size,
+            quality=quality,
+            n=1,
+            aspect_ratio=aspect_ratio,
+            subject_reference=subject_reference,
+        )
+
+    if in_loop:
+        return _AGENT_DISPATCH(
+            prompt=prompt,
+            provider=provider,
+            model=model,
+            size=size,
+            quality=quality,
+            aspect_ratio=aspect_ratio,
+            subject_reference=subject_reference,
+        )
+
+    return asyncio.run(_call())
+
+
+async def _AGENT_DISPATCH(
+    prompt: str,
+    provider: str | None = None,
+    model: str | None = None,
+    size: str = "1024x1024",
+    quality: str = "standard",
+    aspect_ratio: str | None = None,
+    subject_reference: str | None = None,
+) -> dict[str, Any]:
+    from backend.app.api.v1.endpoints.image_generation import get_service
+
+    service = get_service()
+    return await service.generate(
+        prompt=prompt,
+        provider=provider,
+        model=model,
+        size=size,
+        quality=quality,
+        n=1,
+        aspect_ratio=aspect_ratio,
+        subject_reference=subject_reference,
+    )
+
+
+# ============================================================================
 # RADIONICS / BROADCASTING / ASTROLOGY / AUDIO STUBS
 # (delegate to ToolDispatcher for unified dispatch)
 # ============================================================================
@@ -1639,6 +1753,7 @@ TOOL_REGISTRY = {
     "trigger_ritual": trigger_ritual,
     "list_practices": list_practices,
     "get_ritual_schedule": get_ritual_schedule,
+    "generate_image": _AGENT_DISPATCH,
 }
 
 
@@ -2238,6 +2353,60 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                     "context": {"type": "string", "description": "Why you wanted to do it"},
                 },
                 "required": ["agent_id", "intention", "missing_tools", "context"],
+            },
+        },
+        {
+            "name": "generate_image",
+            "description": (
+                "Generate an image from a text prompt via OpenRouter (cheap) or "
+                "MiniMax (supports subject_reference for image-to-image consistency). "
+                "Returns a base64 data URL. Use this when the user asks for a sacred "
+                "illustration, mandala, deity portrait, landscape, or visual depiction "
+                "of a blessing narrative. Cost-controlled (default daily cap $0.50)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": (
+                            "Image description. 30-60 words is ideal; max 1000 tokens. "
+                            "Be specific about subject, style, lighting, and mood."
+                        ),
+                    },
+                    "provider": {
+                        "type": "string",
+                        "enum": ["openrouter", "minimax"],
+                        "description": "Provider; omit to use configured default",
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": (
+                            "Model slug, e.g. 'google/gemini-3.1-flash-lite-image' "
+                            "(cheap), 'black-forest-labs/flux.2-klein-4b' (premium), "
+                            "or 'image-01' (MiniMax with subject_reference support)."
+                        ),
+                    },
+                    "size": {
+                        "type": "string",
+                        "enum": ["1024x1024", "1792x1024", "1024x1792"],
+                        "description": "OpenRouter size; ignored by MiniMax (use aspect_ratio)",
+                    },
+                    "quality": {
+                        "type": "string",
+                        "enum": ["standard", "hd"],
+                        "description": "OpenRouter quality; ignored by MiniMax",
+                    },
+                    "aspect_ratio": {
+                        "type": "string",
+                        "description": "MiniMax only: '1:1', '16:9', '4:3', '3:4', etc.",
+                    },
+                    "subject_reference": {
+                        "type": "string",
+                        "description": "MiniMax only: URL of reference image for character consistency",
+                    },
+                },
+                "required": ["prompt"],
             },
         },
     ]

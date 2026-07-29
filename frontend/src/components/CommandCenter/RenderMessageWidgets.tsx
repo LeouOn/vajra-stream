@@ -74,11 +74,18 @@ export interface SigilResult {
  * optional sub-object (`card` / `cast` / `chart`) carries the detail data.
  */
 export interface ZoomItem {
-  type: 'sigil' | 'sigil_ai' | 'tarot' | 'iching' | 'geomancy';
+  type: 'sigil' | 'sigil_ai' | 'tarot' | 'iching' | 'geomancy' | 'image';
   title: string;
   svg?: string;
   intention?: string;
   ai_image?: string;
+  image_data_url?: string;
+  prompt?: string;
+  model?: string;
+  cost_usd?: number;
+  provider_used?: string;
+  cached?: boolean;
+  revised_prompt?: string;
   card?: TarotCard;
   cast?: IChingCast;
   chart?: GeomancyChart;
@@ -95,6 +102,13 @@ export interface ToolCall {
     intention?: string;
     svg?: string;
     ai_image?: string;
+    image_data_url?: string;
+    model?: string;
+    cost_usd?: number;
+    provider_used?: string;
+    cached?: boolean;
+    revised_prompt?: string;
+    prompt_tokens?: number;
     cards?: TarotCard[];
     primary?: IChingHexagram;
     relating?: IChingHexagram;
@@ -325,7 +339,68 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
           );
         }
 
-        // 5. Narrative Sigil Extraction — for outlook narratives generated
+        // 5. Image Generation Widget — generate_image tool result
+        if (tc.tool_name === 'generate_image') {
+          const img = tc.result;
+          if (!img?.image_data_url) return null;
+          return (
+            <div key={idx} className="bg-black/60 p-4 rounded-xl border border-pink-500/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-pink-400 text-xs font-semibold uppercase font-mono">
+                  <span>🎨 IMAGE GENERATED</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {img.cached && (
+                    <span className="px-1.5 py-0.5 bg-gray-800 text-gray-300 border border-white/5 rounded text-[9px] font-mono">
+                      CACHED
+                    </span>
+                  )}
+                  {img.provider_used && (
+                    <span className="px-1.5 py-0.5 bg-purple-950 text-purple-300 border border-purple-500/20 rounded text-[9px] font-mono uppercase">
+                      {img.provider_used}
+                    </span>
+                  )}
+                  {img.model && (
+                    <span className="px-1.5 py-0.5 bg-cyan-950 text-cyan-300 border border-cyan-500/20 rounded text-[9px] font-mono">
+                      {img.model}
+                    </span>
+                  )}
+                  {typeof img.cost_usd === 'number' && (
+                    <span className="px-1.5 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-500/20 rounded text-[9px] font-mono">
+                      ${img.cost_usd.toFixed(4)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div
+                onClick={() => onZoomItemClick && onZoomItemClick({
+                  type: 'image',
+                  title: img.revised_prompt || 'Generated Image',
+                  image_data_url: img.image_data_url,
+                  model: img.model,
+                  cost_usd: img.cost_usd,
+                  provider_used: img.provider_used,
+                  cached: img.cached,
+                  revised_prompt: img.revised_prompt,
+                })}
+                className="cursor-zoom-in rounded-lg overflow-hidden border border-white/5 hover:border-pink-400/60 hover:scale-[1.01] transition-all duration-300"
+              >
+                <img
+                  src={img.image_data_url}
+                  alt={img.revised_prompt || 'Generated image'}
+                  className="w-full max-h-[400px] object-contain bg-gray-950"
+                />
+              </div>
+              {img.revised_prompt && (
+                <div className="text-[11px] text-gray-400 italic border-l-2 border-pink-500/40 pl-2">
+                  "{img.revised_prompt}"
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // 6. Narrative Sigil Extraction — for outlook narratives generated
         // via chat that embed (x,y) coordinate pairs in the Sigillum section.
         if (tc.tool_name === 'generate_outlook' || tc.tool_name === 'generate_single_outlook' || tc.tool_name === 'generate_epic_outlook') {
           const narrativeText = tc.result?.narrative;

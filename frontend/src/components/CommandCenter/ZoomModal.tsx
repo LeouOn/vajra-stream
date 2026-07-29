@@ -46,6 +46,9 @@ export default function ZoomModal({ activeZoomItem, onClose }) {
             {activeZoomItem.type === 'geomancy' && activeZoomItem.svg && (
               <div dangerouslySetInnerHTML={{ __html: activeZoomItem.svg }} className="w-full max-w-[360px] h-full flex items-center justify-center shadow-lg" />
             )}
+            {activeZoomItem.type === 'image' && activeZoomItem.image_data_url && (
+              <img src={activeZoomItem.image_data_url} alt={activeZoomItem.title} className="w-full max-w-[480px] object-contain rounded-xl shadow-lg border border-pink-500/20" />
+            )}
           </div>
 
           {/* Right: Info details */}
@@ -172,6 +175,42 @@ export default function ZoomModal({ activeZoomItem, onClose }) {
                     })}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Image generation details */}
+            {activeZoomItem.type === 'image' && (
+              <div className="space-y-3 text-sm text-gray-300">
+                <div className="flex flex-wrap gap-2">
+                  {activeZoomItem.provider_used && (
+                    <span className="px-2 py-0.5 bg-purple-950 text-purple-300 border border-purple-500/20 rounded-md text-[10px] font-mono uppercase">
+                      {activeZoomItem.provider_used}
+                    </span>
+                  )}
+                  {activeZoomItem.model && (
+                    <span className="px-2 py-0.5 bg-cyan-950 text-cyan-300 border border-cyan-500/20 rounded-md text-[10px] font-mono">
+                      {activeZoomItem.model}
+                    </span>
+                  )}
+                  {activeZoomItem.cached && (
+                    <span className="px-2 py-0.5 bg-gray-800 text-gray-200 border border-white/5 rounded-md text-[10px] font-mono">
+                      CACHED
+                    </span>
+                  )}
+                  {typeof activeZoomItem.cost_usd === 'number' && (
+                    <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-500/20 rounded-md text-[10px] font-mono">
+                      ${activeZoomItem.cost_usd.toFixed(4)}
+                    </span>
+                  )}
+                </div>
+                {activeZoomItem.revised_prompt && (
+                  <div className="border-t border-white/10 pt-3">
+                    <h4 className="text-xs font-bold text-white font-mono uppercase mb-2">Revised Prompt</h4>
+                    <p className="italic text-pink-200 bg-pink-950/10 p-3 rounded-lg border border-pink-500/10">
+                      "{activeZoomItem.revised_prompt}"
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

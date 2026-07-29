@@ -566,6 +566,18 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         gen = CharacterGenerator()
         sheet = gen.generate(use_llm=False)
         return sheet.to_dict()
+    elif name == "generate_image":
+        from backend.core.llm_agent.tools import _AGENT_DISPATCH
+
+        return await _AGENT_DISPATCH(
+            prompt=args.get("prompt", ""),
+            provider=args.get("provider"),
+            model=args.get("model"),
+            size=args.get("size", "1024x1024"),
+            quality=args.get("quality", "standard"),
+            aspect_ratio=args.get("aspect_ratio"),
+            subject_reference=args.get("subject_reference"),
+        )
     elif (
         name == "start_character_journey"
         or name == "advance_journey"

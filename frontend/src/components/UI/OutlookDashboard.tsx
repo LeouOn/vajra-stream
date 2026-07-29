@@ -14,7 +14,7 @@ import {
   History, RefreshCw, Copy, CheckCircle, Play, Square,
   Plus, Edit2, Trash2, Search, Filter, ArrowUpDown, X,
   BookOpen, Sun, Moon, Layers, Shuffle, Dices, Zap,
-  Download, Volume2, Bell,
+  Download, Volume2, Bell, Image as ImageIcon,
 } from 'lucide-react';
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
@@ -354,6 +354,15 @@ export default function OutlookDashboard() {
   const [affirmation, setAffirmation] = useState<string | null>(null);
   const [affirmationLoading, setAffirmationLoading] = useState<boolean>(false);
   const [affirmationCopied, setAffirmationCopied] = useState<boolean>(false);
+  const [illustrationLoading, setIllustrationLoading] = useState<boolean>(false);
+  const [illustration, setIllustration] = useState<{
+    image_data_url: string;
+    model?: string;
+    cost_usd?: number;
+    provider_used?: string;
+    revised_prompt?: string | null;
+    cached?: boolean;
+  } | null>(null);
 
   // ─── Ritual Reveal State ─────────────────────────────────
   // Progressive section reveal — sections (I. Invocatio … V. Dedicatio)
@@ -876,6 +885,40 @@ export default function OutlookDashboard() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const generateIllustration = async (): Promise<void> => {
+    if (!currentNarrative) return;
+    setIllustrationLoading(true);
+    audioFeedback.playTelemetry();
+    try {
+      const narrativeText = currentNarrative.narrative
+        || (Array.isArray(currentNarrative.narrative_parts)
+            ? currentNarrative.narrative_parts.join(' ')
+            : String(currentNarrative.narrative_parts || ''));
+      const excerpt = narrativeText.slice(0, 600);
+      const genre = currentNarrative.genre || 'spiritual';
+      const prompt = `Sacred illustration for a "${genre}" transmission. Visual depiction evoking the imagery, palette, and mood of this narrative excerpt. Symbolic, mystical, painterly, with luminous details: ${excerpt}`;
+      const res = await fetch('/api/v1/images/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, n: 1 }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIllustration(data);
+        message.success('Illustration generated.');
+      } else {
+        const err = await res.json().catch(() => ({})) as { detail?: string };
+        message.error(err.detail || 'Image generation failed (is it enabled in Settings?).');
+        audioFeedback.playError();
+      }
+    } catch {
+      message.error('Network error — could not reach backend.');
+      audioFeedback.playError();
+    } finally {
+      setIllustrationLoading(false);
+    }
   };
 
   // ─── Ritual Reveal Logic ─────────────────────────────────
@@ -1591,6 +1634,16 @@ export default function OutlookDashboard() {
                               role="outlook_narrative"
                               onSpeakRef={narrativeSpeakRef}
                             />
+                            <Tooltip title="Generate a sacred illustration from the narrative excerpt">
+                              <Button
+                                size="small"
+                                loading={illustrationLoading}
+                                icon={<ImageIcon className="w-3 h-3" />}
+                                onClick={generateIllustration}
+                              >
+                                Illustrate
+                              </Button>
+                            </Tooltip>
                             <Button size="small" icon={copied ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                               onClick={copyNarrative}>{copied ? 'Copied' : 'Copy'}</Button>
                           </Space>
@@ -1803,6 +1856,48 @@ export default function OutlookDashboard() {
                           ]}
                         />
                       </Card>
+                      {illustration && (
+                        <Card
+                          size="small"
+                          style={{ marginTop: 12 }}
+                          title={
+                            <Space size={6}>
+                              <ImageIcon size={13} className="text-pink-400" />
+                              <Text strong className="font-mono text-xs uppercase">Sacred Illustration</Text>
+                            </Space>
+                          }
+                          extra={
+                            <Space size={4}>
+                              {illustration.cached && (
+                                <Tag color="default" style={{ fontSize: 9 }}>CACHED</Tag>
+                              )}
+                              {illustration.provider_used && (
+                                <Tag color="purple" style={{ fontSize: 9 }}>{illustration.provider_used}</Tag>
+                              )}
+                              {illustration.model && (
+                                <Tag color="blue" style={{ fontSize: 9 }}>{illustration.model}</Tag>
+                              )}
+                              {typeof illustration.cost_usd === 'number' && (
+                                <Tag color="green" style={{ fontSize: 9 }}>${illustration.cost_usd.toFixed(4)}</Tag>
+                              )}
+                            </Space>
+                          }
+                        >
+                          <img
+                            src={illustration.image_data_url}
+                            alt={illustration.revised_prompt || 'Generated illustration'}
+                            style={{ width: '100%', borderRadius: 8 }}
+                          />
+                          {illustration.revised_prompt && (
+                            <Paragraph
+                              type="secondary"
+                              style={{ marginTop: 8, marginBottom: 0, fontSize: 11, fontStyle: 'italic' }}
+                            >
+                              "{illustration.revised_prompt}"
+                            </Paragraph>
+                          )}
+                        </Card>
+                      )}
                     </Col>
                     <Col xs={24} lg={8}>
                       <Space orientation="vertical" className="w-full" size="middle">

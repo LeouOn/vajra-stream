@@ -22,11 +22,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Tag, Typography, Space, Empty, Tooltip, Tabs } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
-  Activity, Server, AlertTriangle, CheckCircle2, Cpu, Boxes,
+  Activity, Server, AlertTriangle, CheckCircle2, Cpu, Boxes, Image as ImageIcon,
 } from 'lucide-react';
 import { useWebSocketStable, type LLMUsageUpdate } from '../../hooks/useWebSocketStable';
 import UsageDashboard from './UsageDashboard';
 import ModelManager from './ModelManager';
+import ImageSettingsPanel from './ImageSettingsPanel';
 const { Title, Text, Paragraph } = Typography;
 
 /**
@@ -298,6 +299,16 @@ export default function ProviderSettings() {
                 </span>
               ),
               children: <ModelManager />,
+            },
+            {
+              key: 'images',
+              label: (
+                <span>
+                  <ImageIcon size={13} className="inline mr-1" />
+                  Image Generation
+                </span>
+              ),
+              children: <ImageSettingsPanel />,
             },
           ]}
         />
