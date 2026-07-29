@@ -166,7 +166,6 @@ def _resolve_tool_name(name: str) -> str:
 
 def _normalize_args(args: dict) -> dict:
     """Map LLM-emitted argument names to actual function parameter names."""
-    import inspect
 
     normalized = {}
     for key, value in args.items():
@@ -1054,12 +1053,16 @@ async def _build_system_prompt_with_context(request: ChatRequest) -> str:
         "You are the Vajra.Stream AI Operator, a wise assistant designed to control a "
         "radionics board, crystal broadcasters, scalar wave generators, and blessing slideshows. "
         "Your goal is to run operations based on the user's intent. "
-        "You can execute actions using tools. If the user asks to start a session, list populations, "
-        "calibrate the RNG, stop automation, or tune settings, look up the appropriate tool and call it. "
-        "Available tools include: list_populations, start_automation, stop_automation, get_automation_status, "
+        "You can execute actions using tools. When the user asks for something that requires a tool, "
+        "CALL THE TOOL IMMEDIATELY — do not narrate what you plan to do. "
+        "For example, if you think 'I should list populations', immediately emit the tool call "
+        "rather than saying 'Let me survey the populations first.' "
+        "Available tools include: list_populations, start_automation, stop_automation, get_system_status, "
         "create_rng_session, get_rng_reading, forge_sigil, cast_tarot_spread, cast_i_ching, "
-        "play_chakra_healing_audio, generate_single_outlook, and many more. "
-        "Do not explain the tools, just call them. Once you receive the tool results, explain the outcome "
+        "play_chakra_healing_audio, generate_single_outlook, get_automation_status, and many more. "
+        "You can call multiple tools in sequence — after each tool returns results, you may call "
+        "another tool to continue the workflow, or write your final response to the user. "
+        "Once you receive the tool results, explain the outcome "
         "with deep compassion and wisdom, invoking the digital dharma theme."
     )
     context_request = ContextRequest(
@@ -1522,49 +1525,62 @@ async def _chat_via_registry(
     clean_content, _ = strip_thinking(response.content)
 
     tool_logs: list[ToolCallLog] = []
-    text_tool_calls = _parse_text_tool_calls(clean_content)
     raw_tool_results: list[dict] = []
-    if text_tool_calls:
-        logger.info(f"Registry path: parsed {len(text_tool_calls)} tool call(s) from text output")
+    conversation_messages = list(request.messages)
+
+    for turn in range(4):
+        text_tool_calls = _parse_text_tool_calls(clean_content)
+        if not text_tool_calls:
+            break
+
+        logger.info(f"Registry turn {turn}: parsed {len(text_tool_calls)} tool call(s)")
+        turn_results: list[dict] = []
         for tc_text in text_tool_calls:
             name = _resolve_tool_name(tc_text["name"])
             args = tc_text["arguments"]
             try:
                 result = await execute_tool_locally(name, args)
                 tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
+                turn_results.append({"tool": name, "status": "success", "result": result})
                 raw_tool_results.append({"tool": name, "status": "success", "result": result})
             except Exception as ex:
                 logger.error(f"Error executing text-parsed tool {name}: {ex}")
                 tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="error", error=str(ex)))
+                turn_results.append({"tool": name, "status": "error", "error": str(ex)})
                 raw_tool_results.append({"tool": name, "status": "error", "error": str(ex)})
 
-        if tool_logs:
-            results_summary = "\n".join(
-                f"[Tool: {r['tool']}] {'OK' if r['status'] == 'success' else 'ERROR: ' + r.get('error', '')}\n"
-                f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
-                for r in raw_tool_results
+        if not turn_results:
+            break
+
+        conversation_messages = conversation_messages + [
+            {"role": "assistant", "content": clean_content},
+        ]
+        results_text = "\n".join(
+            f"[Tool: {r['tool']}] {'OK' if r['status'] == 'success' else 'ERROR: ' + r.get('error', '')}\n"
+            f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
+            for r in turn_results
+        )
+        conversation_messages.append(
+            {
+                "role": "user",
+                "content": f"[System: Tool results received]\n{results_text}\n\nContinue. You may call more tools or write your response to the user.",
+            }
+        )
+
+        is_last_turn = turn >= 2 or any(r.get("tool") in ("get_system_status", "get_statistics") for r in turn_results)
+        try:
+            followup_request = request.model_copy(
+                update={
+                    "messages": conversation_messages,
+                    "tools": [] if is_last_turn else request.tools,
+                }
             )
-            has_comprehensive = any(r.get("tool") in ("get_system_status", "get_statistics") for r in raw_tool_results)
-            try:
-                followup_request = request.model_copy(
-                    update={
-                        "messages": request.messages
-                        + [
-                            {"role": "assistant", "content": clean_content},
-                            {
-                                "role": "user",
-                                "content": f"Tool execution results:\n\n{results_summary}\n\nPlease provide a natural, compassionate summary of these results for the user.",
-                            },
-                        ],
-                        "tools": [] if has_comprehensive else request.tools,
-                    }
-                )
-                followup_response = await chosen.generate(followup_request)
-                clean_content, _ = strip_thinking(followup_response.content)
-                logger.info("Registry path: follow-up LLM call succeeded with tool results")
-            except Exception as followup_ex:
-                logger.warning(f"Follow-up LLM call failed: {followup_ex}. Returning raw results.")
-                clean_content = results_summary[:2000]
+            followup_response = await chosen.generate(followup_request)
+            clean_content, _ = strip_thinking(followup_response.content)
+            logger.info(f"Registry turn {turn}: follow-up LLM call succeeded")
+        except Exception as followup_ex:
+            logger.warning(f"Follow-up LLM call failed: {followup_ex}. Returning raw results.")
+            break
 
     debug_info: dict | None = None
     if request.debug_mode:
