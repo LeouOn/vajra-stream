@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -184,6 +185,7 @@ class ConfigUpdateRequest(BaseModel):
     max_prompt_tokens: int | None = Field(default=None, ge=100, le=4000)
     prompt_style_prefix: str | None = Field(default=None, max_length=500)
     prompt_negative: str | None = Field(default=None, max_length=500)
+    image_output_dir: str | None = Field(default=None, max_length=255)
     openrouter_api_key: str | None = None
     minimax_api_key: str | None = None
 
@@ -270,3 +272,28 @@ async def validate_prompt(payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(prompt, str):
         raise HTTPException(status_code=400, detail="prompt must be a string")
     return get_service().validate_prompt(prompt)
+
+
+@router.get("/saved")
+async def list_saved_images() -> dict[str, Any]:
+    """List previously saved images from the output directory (QA / audit)."""
+
+    service: ImageGenerationService = get_service()
+    out_dir = Path(service.config.get("image_output_dir", "generated/images"))
+    if not out_dir.exists():
+        return {"images": [], "output_dir": str(out_dir)}
+
+    files = sorted(out_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
+    images = []
+    for f in files[:50]:
+        if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
+            stat = f.stat()
+            images.append(
+                {
+                    "filename": f.name,
+                    "path": str(f),
+                    "size_bytes": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                }
+            )
+    return {"images": images, "output_dir": str(out_dir)}

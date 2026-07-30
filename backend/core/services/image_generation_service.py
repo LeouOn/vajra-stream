@@ -35,6 +35,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -56,6 +57,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_prompt_tokens": 1000,
     "prompt_style_prefix": "",
     "prompt_negative": "",
+    "image_output_dir": "generated/images",
 }
 
 MODEL_COST_USD: dict[str, float] = {
@@ -531,6 +533,8 @@ class ImageGenerationService:
         self._hourly_calls.append(now)
         self._cache[cache_key] = (now + cfg["cache_ttl_seconds"], result)
 
+        saved_path = self._save_image(result.image_data_url, full_prompt)
+
         return {
             "image_data_url": result.image_data_url,
             "model": result.model,
@@ -539,9 +543,45 @@ class ImageGenerationService:
             "cached": False,
             "revised_prompt": result.revised_prompt,
             "prompt_tokens": validation["estimated_tokens"],
+            "image_file_path": saved_path,
         }
 
     # ── Internals ──────────────────────────────────────────────────────
+
+    def _save_image(self, data_url: str, prompt: str) -> str | None:
+        """Save a base64 data URL to the configured output directory.
+
+        Returns the saved file path, or None if the image is a URL
+        (not a data URL) or saving fails.
+        """
+        if not data_url.startswith("data:"):
+            return None
+
+        try:
+            header, b64_data = data_url.split(";base64,", 1)
+            img_bytes = base64.b64decode(b64_data)
+        except Exception as exc:
+            logger.warning("Could not decode image data URL for saving: %s", exc)
+            return None
+
+        content_type = "image/png"
+        if ":" in header:
+            content_type = header.split(":", 1)[1]
+        ext = "png" if "png" in content_type else "jpg"
+
+        out_dir = Path(self._config["image_output_dir"])
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = int(time.time())
+            prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:8]
+            filename = f"img_{timestamp}_{prompt_hash}.{ext}"
+            filepath = out_dir / filename
+            filepath.write_bytes(img_bytes)
+            logger.info("Saved image to %s", filepath)
+            return str(filepath)
+        except OSError as exc:
+            logger.warning("Could not save image to %s: %s", out_dir, exc)
+            return None
 
     @staticmethod
     def _cache_key(
