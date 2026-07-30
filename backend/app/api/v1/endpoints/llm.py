@@ -1685,10 +1685,10 @@ async def chat_compat(request: ChatRequest, http_request: Request):
 @router.post("/chat/async")
 async def chat_async(request: ChatRequest, http_request: Request, connection_id: str | None = None):
     """Asynchronous chat — returns immediately with a job_id, pushes progress via WebSocket."""
-    from backend.app.api.v1.chat_job_manager import create_job, start_background
+    from backend.app.api.v1.chat_job_manager import create_job
 
     job_id = create_job(connection_id=connection_id)
-    start_background(_run_chat_async(job_id, request, http_request, connection_id))
+    asyncio.create_task(_run_chat_async(job_id, request, http_request, connection_id))
     return {"status": "accepted", "job_id": job_id}
 
 
