@@ -33,12 +33,38 @@ _service: ImageGenerationService | None = None
 
 
 def get_service() -> ImageGenerationService:
-    """Lazy-init the service singleton. Pulls persisted config from DB."""
+    """Lazy-init the service singleton. Pulls persisted config from DB.
+
+    Falls back to project-level settings / env vars for API keys not
+    explicitly stored in the image-generation config table. This avoids
+    requiring the user to enter the same OpenRouter key twice (once for
+    LLM, once for image generation).
+    """
     global _service
     if _service is None:
         _service = ImageGenerationService()
         _load_config_from_db(_service)
+        _inject_fallback_keys(_service)
     return _service
+
+
+def _inject_fallback_keys(service: ImageGenerationService) -> None:
+    """Fill empty API key slots from project settings or env vars."""
+    fallbacks: dict[str, str] = {}
+    if not service.config.get("openrouter_api_key"):
+        key = os.environ.get("OPENROUTER_API_KEY", "")
+        if not key:
+            from backend.app.config import settings
+
+            key = getattr(settings, "OPENROUTER_API_KEY", "")
+        if key:
+            fallbacks["openrouter_api_key"] = key
+    if not service.config.get("minimax_api_key"):
+        key = os.environ.get("MINIMAX_API_KEY", "")
+        if key:
+            fallbacks["minimax_api_key"] = key
+    if fallbacks:
+        service.update_config(fallbacks)
 
 
 # ── DB helpers ─────────────────────────────────────────────────────────
@@ -172,6 +198,7 @@ class GenerateResponse(BaseModel):
     cached: bool
     revised_prompt: str | None = None
     prompt_tokens: int = 0
+    image_file_path: str | None = None
 
 
 class ConfigUpdateRequest(BaseModel):

@@ -61,8 +61,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 MODEL_COST_USD: dict[str, float] = {
-    # OpenRouter models
-    "google/gemini-3.1-flash-lite-image": 0.008,
+    # OpenRouter models — verified against live API 2026-07-29
+    "google/gemini-3.1-flash-lite-image": 0.034,
     "black-forest-labs/flux.2-klein-4b": 0.014,
     "krea/krea-2-large": 0.06,
     "microsoft/mai-image-2.5-pro": 0.10,
@@ -149,9 +149,8 @@ class OpenRouterProvider(ImageProvider):
             "model": model,
             "prompt": prompt,
             "n": n,
-            "size": size,
-            "quality": quality,
-            "provider": {"order": "balanced", "allow_fallbacks": True},
+            "resolution": self._size_to_resolution(size),
+            "aspect_ratio": self._size_to_aspect(size),
         }
 
         try:
@@ -193,6 +192,25 @@ class OpenRouterProvider(ImageProvider):
             revised_prompt=first.get("revised_prompt"),
             raw=data,
         )
+
+    @staticmethod
+    def _size_to_resolution(size: str) -> str:
+        if "2048" in size or "4K" in size.upper():
+            return "4K"
+        if "1792" in size or "2K" in size.upper():
+            return "2K"
+        return "1K"
+
+    @staticmethod
+    def _size_to_aspect(size: str) -> str:
+        parts = size.split("x")
+        if len(parts) == 2:
+            w, h = int(parts[0]), int(parts[1])
+            if w > h:
+                return "16:9"
+            if h > w:
+                return "9:16"
+        return "1:1"
 
     @staticmethod
     async def _extract_data_url(first: dict[str, Any]) -> str | None:
