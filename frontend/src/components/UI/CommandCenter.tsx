@@ -22,7 +22,7 @@ import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
 
-import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
+import { useWebSocketStable as useWebSocket, getActiveConnectionId } from '../../hooks/useWebSocketStable';
 import SakaDawaBanner from './SakaDawaBanner';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
 import { RichMarkdownRenderer } from '../CommandCenter/RichMarkdownRenderer';
@@ -651,7 +651,8 @@ export default function CommandCenter({
 
     const start = Date.now();
     abortRef.current = new AbortController();
-    const chatResponse = await fetch(apiUrl('/llm/chat'), {
+    const connectionId = getActiveConnectionId();
+    const chatResponse = await fetch(apiUrl('/llm/chat/async'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -663,15 +664,50 @@ export default function CommandCenter({
         include_anatomy: anatomy,
         include_hardware: hardware,
         debug_mode: debug,
+        connection_id: connectionId || undefined,
       }),
       signal: abortRef.current.signal,
     });
-    const latencyMs = Date.now() - start;
     if (!chatResponse.ok) {
       throw new Error(`Chat API error: ${chatResponse.status} ${chatResponse.statusText}`);
     }
     const json = await chatResponse.json();
-    return { ...json, latencyMs };
+    const jobId: string = json.job_id;
+
+    return await waitForChatJob(jobId);
+  }
+
+  function waitForChatJob(jobId: string): Promise<{
+    response: string;
+    tool_calls?: ToolCall[];
+    debug_info?: DebugInfo;
+    latencyMs: number;
+  }> {
+    const { subscribe } = require('../../hooks/chatProgress');
+    const start = Date.now();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        unsub();
+        reject(new Error('Chat job timed out after 180s'));
+      }, 180000);
+      const unsub = subscribe((jid, evt) => {
+        if (jid !== jobId) return;
+        if (evt.type === 'chat_complete') {
+          clearTimeout(timer);
+          unsub();
+          resolve({
+            response: evt.response ?? '',
+            tool_calls: evt.tool_calls,
+            debug_info: undefined,
+            latencyMs: Date.now() - start,
+          });
+        } else if (evt.type === 'chat_error') {
+          clearTimeout(timer);
+          unsub();
+          reject(new Error(evt.error || 'Chat job failed'));
+        }
+      });
+    });
   }
 
   async function handleSendMessage(textToSend?: string) {

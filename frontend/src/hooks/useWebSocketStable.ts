@@ -101,6 +101,7 @@ let _url: string = WS_URL;
 let _mountCount = 0;
 let _manualDisconnect = false;
 let _reconnectAttempts = 0;
+let _activeConnectionId: string | null = null;
 
 let _heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let _reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -332,7 +333,10 @@ function _connect(url: string = _url): void {
             break;
           case 'connection_status':
             _updateSnapshot({ connectionStatus: data.status as WSConnectionState });
-            if (data.connection_id) console.log('Connection ID:', data.connection_id);
+            if (data.connection_id) {
+  console.log('Connection ID:', data.connection_id);
+  _activeConnectionId = data.connection_id;
+}
             break;
           case 'heartbeat':
             if (data.active_connections !== undefined) {
@@ -408,6 +412,14 @@ function _connect(url: string = _url): void {
             });
             break;
           }
+          case 'chat_started':
+          case 'chat_tool_start':
+          case 'chat_tool_complete':
+          case 'chat_tool_error':
+          case 'chat_complete':
+          case 'chat_error':
+            import('./chatProgress').then((m) => m.update(data.job_id, data));
+            break;
           // Backend: core/practice_engine.py:_broadcast_ws — multi-practice
           // recitation lifecycle (Tara / Zhunti / Medicine Buddha / etc.).
           // PRACTICE_RECITED carries the same shape as PRACTICE_STARTED's
@@ -712,3 +724,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     clearError,
   };
 };
+
+export function getActiveConnectionId(): string | null {
+  return _activeConnectionId;
+}

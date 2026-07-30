@@ -1311,7 +1311,7 @@ async def _run_openai_compatible_tool_loop(
                     name = _resolve_tool_name(tc_text["name"])
                     args = tc_text["arguments"]
                     try:
-                        result = await execute_tool_locally(name, args)
+                result = await _execute(name, args)
                         tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
                         messages.append(
                             {
@@ -1487,6 +1487,7 @@ async def _chat_via_registry(
     provider_name: str,
     system_prompt_holder: list[str] | None = None,
     tool_schemas: list[dict] | None = None,
+    tool_executor: Any = None,
 ) -> ChatResponse:
     """Registry-first chat path. Uses the registered provider for the request.
 
@@ -1496,7 +1497,13 @@ async def _chat_via_registry(
 
     ``system_prompt_holder`` is unused here (kept for signature symmetry with the
     fallback path); system prompt is built inside this function.
+
+    ``tool_executor`` overrides the default ``execute_tool_locally`` dispatch —
+    used by the async chat path to inject progress tracking without monkey-patching.
     """
+    from backend.app.api.v1.endpoints import llm as llm_module
+
+    _execute = tool_executor or llm_module.execute_tool_locally
     from core.llm.retry import retry_with_backoff
 
     registry = http_request.app.state.llm_registry
@@ -1669,18 +1676,20 @@ def _provider_default_model(provider_class) -> str | None:
     return None
 
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat_interaction(request: ChatRequest, http_request: Request):
-    """
-    Chat with the AI Command Center to run magical computer operations.
+@router.post("/chat/sync", response_model=ChatResponse)
+async def chat_sync(request: ChatRequest, http_request: Request):
+    """Synchronous chat — blocks until the full tool loop completes. Legacy behavior."""
+    return await _chat_via_registry(http_request, request, _resolve_provider_name(request, http_request), tool_schemas=get_tool_schemas())
 
-    Routes through the new :class:`ProviderRegistry` +
-    :class:`SystemPromptBuilder` pipeline with health-aware failover, then falls
-    back to a rule-based local interpreter when no provider is reachable.  The
-    six previously copy-pasted tool-calling loops are unified into
-    :func:`_run_openai_compatible_tool_loop` (5 OpenAI-compatible providers) and
-    :func:`_run_anthropic_tool_loop` (Anthropic block format).
-    """
+
+@router.post("/chat/async")
+async def chat_async(request: ChatRequest, http_request: Request, connection_id: str | None = None):
+    """Asynchronous chat — returns immediately with a job_id, pushes progress via WebSocket."""
+    from backend.app.api.v1.chat_job_manager import create_job, start_background
+
+    job_id = create_job(connection_id=connection_id)
+    start_background(_run_chat_async(job_id, request, http_request, connection_id))
+    return {"status": "accepted", "job_id": job_id}
     if not request.messages:
         raise HTTPException(status_code=400, detail="Message list cannot be empty")
 
@@ -2709,3 +2718,77 @@ def _now_iso() -> str:
     from datetime import datetime, timezone
 
     return datetime.now(timezone.utc).isoformat()
+
+
+# ── Async chat support ──────────────────────────────────────────────
+
+
+async def _run_chat_async(
+    job_id: str,
+    request: ChatRequest,
+    http_request: Request,
+    connection_id: str | None,
+) -> None:
+    """Background task: run the tool loop and push progress via WebSocket."""
+    from backend.app.api.v1.chat_job_manager import (
+        add_event,
+        update_job,
+    )
+    from backend.websocket.connection_manager import stable_connection_manager_v2
+
+    async def _push(event_type: str, data: dict) -> None:
+        if not connection_id:
+            return
+        await stable_connection_manager_v2.send_personal_message(
+            {"type": event_type, "job_id": job_id, **data},
+            connection_id,
+        )
+
+    async def _tracking_execute(name: str, args: dict):
+        await _push("chat_tool_start", {"tool": name, "args": args})
+        add_event(job_id, {"type": "tool_start", "tool": name, "args": args})
+        try:
+            result = await execute_tool_locally(name, args)
+            await _push("chat_tool_complete", {"tool": name, "result": _safe_serialize(result)})
+            add_event(job_id, {"type": "tool_complete", "tool": name, "result": _safe_serialize(result)})
+            return result
+        except Exception as ex:
+            await _push("chat_tool_error", {"tool": name, "error": str(ex)})
+            add_event(job_id, {"type": "tool_error", "tool": name, "error": str(ex)})
+            raise
+
+    try:
+        update_job(job_id, status="running")
+        await _push("chat_started", {"message": "Processing your request..."})
+
+        response = await _chat_via_registry(
+            http_request, request, _resolve_provider_name(request, http_request), tool_schemas=get_tool_schemas(), tool_executor=_tracking_execute
+        )
+        update_job(job_id, status="completed", response=response.response, tool_calls=[t.model_dump() for t in response.tool_calls])
+        await _push("chat_complete", {"response": response.response, "tool_calls": [t.model_dump() for t in response.tool_calls]})
+
+    except Exception as ex:
+        logger.exception("Async chat job %s failed", job_id)
+        update_job(job_id, status="error", error=str(ex))
+        await _push("chat_error", {"error": str(ex)})
+
+
+def _safe_serialize(obj: Any) -> Any:
+    """Serialize tool result for JSON transport."""
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    if isinstance(obj, dict):
+        return {k: _safe_serialize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_safe_serialize(v) for v in obj]
+    return str(obj)
+
+
+def _resolve_provider_name(request: ChatRequest, http_request: Request) -> str:
+    provider = request.provider or "auto"
+    if provider == "auto" and request.model:
+        if request.model.startswith("lm_studio:"):
+            return "lm_studio"
+        if request.model.startswith("local:"):
+            return "local"
+    return provider
