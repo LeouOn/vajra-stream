@@ -1558,9 +1558,10 @@ async def _chat_via_registry(
                 logger.warning("Failover to %s failed: %s", next_provider.name, e2)
                 continue
         else:
+            logger.exception("All providers failed for chat request. Primary error: %s", e)
             raise HTTPException(
                 status_code=503,
-                detail=f"All providers failed. Primary: {e}",
+                detail=f"All providers failed. Primary=[{type(e).__name__}] {e}",
             )
 
     # Convert the new core.llm.models.ChatResponse to the local ChatResponse
@@ -1680,8 +1681,13 @@ def _provider_default_model(provider_class) -> str | None:
 @router.post("/chat", response_model=ChatResponse)
 async def chat_compat(request: ChatRequest, http_request: Request):
     """Legacy synchronous chat endpoint — kept for backward compatibility."""
+    provider_name = _resolve_provider_name(request, http_request)
+    if provider_name == "auto":
+        registry_choice = await _select_provider_via_registry(http_request, "auto")
+        if registry_choice:
+            provider_name = registry_choice
     return await _chat_via_registry(
-        http_request, request, _resolve_provider_name(request, http_request), tool_schemas=get_tool_schemas()
+        http_request, request, provider_name, tool_schemas=get_tool_schemas()
     )
 
 

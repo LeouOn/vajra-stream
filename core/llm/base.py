@@ -302,7 +302,9 @@ class OpenAICompatibleProvider:
                     messages=messages,
                     max_tokens=request.max_tokens,
                     temperature=request.temperature,
-                    tools=[t.model_dump() for t in request.tools] if request.tools else None,
+                    tools=[{"type": "function", "function": t.model_dump()} for t in request.tools]
+                    if request.tools
+                    else None,
                 )
                 choice = response.choices[0]
                 raw_content = choice.message.content or ""
