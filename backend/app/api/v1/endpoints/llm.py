@@ -2449,10 +2449,16 @@ async def _run_chat_async(
         update_job(job_id, status="running")
         await _push("chat_started", {"message": "Processing your request..."})
 
+        provider_name = _resolve_provider_name(request, http_request)
+        if provider_name == "auto":
+            registry_choice = await _select_provider_via_registry(http_request, "auto")
+            if registry_choice:
+                provider_name = registry_choice
+
         response = await _chat_via_registry(
             http_request,
             request,
-            _resolve_provider_name(request, http_request),
+            provider_name,
             tool_schemas=get_tool_schemas(),
             tool_executor=_tracking_execute,
         )
