@@ -1413,6 +1413,21 @@ async def _AGENT_DISPATCH(
     from backend.app.api.v1.endpoints.image_generation import get_service
 
     service = get_service()
+    cfg = service.config
+
+    model_lock = cfg.get("model_lock", True)
+    if model_lock:
+        return await service.generate(
+            prompt=prompt,
+            provider=None,
+            model=None,
+            size=size,
+            quality=quality,
+            n=1,
+            aspect_ratio=None,
+            subject_reference=subject_reference,
+        )
+
     return await service.generate(
         prompt=prompt,
         provider=provider,
@@ -1586,7 +1601,9 @@ def speak_text(text: str, voice: str | None = None, role: str = "dharma_teaching
         if response.ok:
             audio_dir = os.path.join(tempfile.gettempdir(), "vajra_tts")
             os.makedirs(audio_dir, exist_ok=True)
-            filename = f"tts_{int(time.time())}.{'mp3' if 'mpeg' in response.headers.get('content-type', '') else 'wav'}"
+            filename = (
+                f"tts_{int(time.time())}.{'mp3' if 'mpeg' in response.headers.get('content-type', '') else 'wav'}"
+            )
             filepath = os.path.join(audio_dir, filename)
             with open(filepath, "wb") as f:
                 f.write(response.content)
@@ -2358,11 +2375,11 @@ def get_tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "generate_image",
             "description": (
-                "Generate an image from a text prompt via OpenRouter (cheap) or "
-                "MiniMax (supports subject_reference for image-to-image consistency). "
-                "Returns a base64 data URL. Use this when the user asks for a sacred "
-                "illustration, mandala, deity portrait, landscape, or visual depiction "
-                "of a blessing narrative. Cost-controlled (default daily cap $0.50)."
+                "Generate an image from a text prompt. The model and provider are "
+                "configured in Settings — the LLM should NOT choose them. When "
+                "model_lock is enabled (default), the configured default is always "
+                "used. When disabled (discretionary mode), the LLM may suggest a "
+                "model for the task, but the user's Settings still take precedence."
             ),
             "parameters": {
                 "type": "object",
@@ -2374,32 +2391,9 @@ def get_tool_schemas() -> list[dict[str, Any]]:
                             "Be specific about subject, style, lighting, and mood."
                         ),
                     },
-                    "provider": {
-                        "type": "string",
-                        "enum": ["openrouter", "minimax"],
-                        "description": "Provider; omit to use configured default",
-                    },
-                    "model": {
-                        "type": "string",
-                        "description": (
-                            "Model slug, e.g. 'google/gemini-3.1-flash-lite-image' "
-                            "(cheap), 'black-forest-labs/flux.2-klein-4b' (premium), "
-                            "or 'image-01' (MiniMax with subject_reference support)."
-                        ),
-                    },
-                    "size": {
-                        "type": "string",
-                        "enum": ["1024x1024", "1792x1024", "1024x1792"],
-                        "description": "OpenRouter size; ignored by MiniMax (use aspect_ratio)",
-                    },
-                    "quality": {
-                        "type": "string",
-                        "enum": ["standard", "hd"],
-                        "description": "OpenRouter quality; ignored by MiniMax",
-                    },
                     "aspect_ratio": {
                         "type": "string",
-                        "description": "MiniMax only: '1:1', '16:9', '4:3', '3:4', etc.",
+                        "description": "Override the configured default aspect ratio (e.g. '1:1', '16:9', '9:16'). Only set if the user explicitly asks for a specific shape.",
                     },
                     "subject_reference": {
                         "type": "string",

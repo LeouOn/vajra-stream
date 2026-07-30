@@ -58,6 +58,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "prompt_style_prefix": "",
     "prompt_negative": "",
     "image_output_dir": "generated/images",
+    "model_lock": True,
+    "default_aspect_ratio": "1:1",
 }
 
 MODEL_COST_USD: dict[str, float] = {
@@ -145,12 +147,13 @@ class OpenRouterProvider(ImageProvider):
         n: int,
         **kwargs: Any,
     ) -> ProviderResult:
+        aspect_ratio = kwargs.get("aspect_ratio") or self._size_to_aspect(size)
         body: dict[str, Any] = {
             "model": model,
             "prompt": prompt,
             "n": n,
             "resolution": self._size_to_resolution(size),
-            "aspect_ratio": self._size_to_aspect(size),
+            "aspect_ratio": aspect_ratio,
         }
 
         try:
@@ -485,6 +488,9 @@ class ImageGenerationService:
         effective_n = 1
         if n > 1:
             logger.warning("n=%d requested but batch return is not implemented; generating 1 image.", n)
+
+        if "aspect_ratio" not in kwargs:
+            kwargs["aspect_ratio"] = cfg.get("default_aspect_ratio", "1:1")
 
         # Cost guard
         provider_name = provider or cfg["default_provider"]

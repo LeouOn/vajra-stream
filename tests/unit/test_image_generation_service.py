@@ -213,7 +213,7 @@ async def test_generate_daily_cost_cap_enforced():
         {
             "enabled": True,
             "openrouter_api_key": "sk-or-test",
-            "daily_cost_cap_usd": 0.01,
+            "daily_cost_cap_usd": 0.05,
             "default_model": "google/gemini-3.1-flash-lite-image",
         }
     )

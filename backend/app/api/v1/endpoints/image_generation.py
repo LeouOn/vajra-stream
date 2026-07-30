@@ -213,6 +213,8 @@ class ConfigUpdateRequest(BaseModel):
     prompt_style_prefix: str | None = Field(default=None, max_length=500)
     prompt_negative: str | None = Field(default=None, max_length=500)
     image_output_dir: str | None = Field(default=None, max_length=255)
+    model_lock: bool | None = None
+    default_aspect_ratio: str | None = Field(default=None, max_length=10)
     openrouter_api_key: str | None = None
     minimax_api_key: str | None = None
 

@@ -54,6 +54,8 @@ interface ImageConfig {
   max_prompt_tokens: number;
   prompt_style_prefix: string;
   prompt_negative: string;
+  model_lock: boolean;
+  default_aspect_ratio: string;
   openrouter_api_key: string;
   minimax_api_key: string;
 }
@@ -89,6 +91,8 @@ const EMPTY_CONFIG: ImageConfig = {
   max_prompt_tokens: 1000,
   prompt_style_prefix: '',
   prompt_negative: '',
+  model_lock: true,
+  default_aspect_ratio: '1:1',
   openrouter_api_key: '',
   minimax_api_key: '',
 };
@@ -341,6 +345,39 @@ export default function ImageSettingsPanel() {
                   label: `${m.label} ($${m.cost_usd.toFixed(3)}/img)`,
                 }))}
                 showSearch
+              />
+            </Col>
+            <Col xs={12} sm={6}>
+              <Text strong>Model Selection</Text>
+              <div style={{ marginTop: 4 }}>
+                <Switch
+                  checked={config.model_lock}
+                  onChange={(checked) => saveField('model_lock', checked)}
+                  size="small"
+                />
+                <Text type="secondary" style={{ marginLeft: 8, fontSize: 11 }}>
+                  {config.model_lock ? 'Locked to Settings' : 'LLM chooses'}
+                </Text>
+              </div>
+              <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                {config.model_lock
+                  ? 'LLM must use your configured model'
+                  : 'LLM picks the best model for the task'}
+              </Text>
+            </Col>
+            <Col xs={12} sm={6}>
+              <Text strong>Aspect Ratio</Text>
+              <Select
+                value={config.default_aspect_ratio}
+                style={{ width: '100%', marginTop: 4 }}
+                onChange={(v) => saveField('default_aspect_ratio', v)}
+                options={[
+                  { value: '1:1', label: '1:1 (Square)' },
+                  { value: '16:9', label: '16:9 (Landscape)' },
+                  { value: '9:16', label: '9:16 (Portrait)' },
+                  { value: '4:3', label: '4:3 (Classic)' },
+                  { value: '3:4', label: '3:4 (Classic Portrait)' },
+                ]}
               />
             </Col>
             <Col xs={12} sm={6}>
