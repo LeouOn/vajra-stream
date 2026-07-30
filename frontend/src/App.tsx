@@ -53,7 +53,7 @@ function AppContent(): React.ReactElement {
       }
     };
     fetchMops();
-    const interval = setInterval(fetchMops, 2000);
+    const interval = setInterval(fetchMops, 15000);
     return () => clearInterval(interval);
   }, []);
 
