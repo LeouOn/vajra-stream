@@ -76,6 +76,7 @@ class ChatRequest(BaseModel):
     use_rag: bool | None = False
     astrology_data: dict | None = None
     debug_mode: bool | None = False
+    connection_id: str | None = None
 
 
 class ToolCallLog(BaseModel):
@@ -1311,7 +1312,7 @@ async def _run_openai_compatible_tool_loop(
                     name = _resolve_tool_name(tc_text["name"])
                     args = tc_text["arguments"]
                     try:
-                        result = await _execute(name, args)
+                        result = await execute_tool_locally(name, args)
                         tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
                         messages.append(
                             {
@@ -1679,21 +1680,24 @@ def _provider_default_model(provider_class) -> str | None:
 @router.post("/chat", response_model=ChatResponse)
 async def chat_compat(request: ChatRequest, http_request: Request):
     """Legacy synchronous chat endpoint — kept for backward compatibility."""
-    return await _chat_via_registry(http_request, request, _resolve_provider_name(request, http_request), tool_schemas=get_tool_schemas())
+    return await _chat_via_registry(
+        http_request, request, _resolve_provider_name(request, http_request), tool_schemas=get_tool_schemas()
+    )
 
 
 @router.post("/chat/async")
-async def chat_async(request: ChatRequest, http_request: Request, connection_id: str | None = None):
+async def chat_async(request: ChatRequest, http_request: Request):
     """Asynchronous chat — returns immediately with a job_id, pushes progress via WebSocket."""
     from backend.app.api.v1.chat_job_manager import create_job
 
-    job_id = create_job(connection_id=connection_id)
-    asyncio.create_task(_run_chat_async(job_id, request, http_request, connection_id))
+    job_id = create_job(connection_id=request.connection_id)
+    asyncio.create_task(_run_chat_async(job_id, request, http_request, request.connection_id))
     return {"status": "accepted", "job_id": job_id}
 
 
 # Backward-compatible name for autonomous_agent.py
 chat_interaction = chat_compat
+
 
 @router.post("/teach", response_model=ChatResponse)
 async def teach_interaction(request: ChatRequest, http_request: Request):
@@ -2439,10 +2443,22 @@ async def _run_chat_async(
         await _push("chat_started", {"message": "Processing your request..."})
 
         response = await _chat_via_registry(
-            http_request, request, _resolve_provider_name(request, http_request), tool_schemas=get_tool_schemas(), tool_executor=_tracking_execute
+            http_request,
+            request,
+            _resolve_provider_name(request, http_request),
+            tool_schemas=get_tool_schemas(),
+            tool_executor=_tracking_execute,
         )
-        update_job(job_id, status="completed", response=response.response, tool_calls=[t.model_dump() for t in response.tool_calls])
-        await _push("chat_complete", {"response": response.response, "tool_calls": [t.model_dump() for t in response.tool_calls]})
+        update_job(
+            job_id,
+            status="completed",
+            response=response.response,
+            tool_calls=[t.model_dump() for t in response.tool_calls],
+        )
+        await _push(
+            "chat_complete",
+            {"response": response.response, "tool_calls": [t.model_dump() for t in response.tool_calls]},
+        )
 
     except Exception as ex:
         logger.exception("Async chat job %s failed", job_id)
