@@ -23,6 +23,7 @@ import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
 
 import { useWebSocketStable as useWebSocket, getActiveConnectionId } from '../../hooks/useWebSocketStable';
+import { subscribe } from '../../hooks/chatProgress';
 import SakaDawaBanner from './SakaDawaBanner';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
 import { RichMarkdownRenderer } from '../CommandCenter/RichMarkdownRenderer';
@@ -683,7 +684,6 @@ export default function CommandCenter({
     debug_info?: DebugInfo;
     latencyMs: number;
   }> {
-    const { subscribe } = require('../../hooks/chatProgress');
     const start = Date.now();
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
