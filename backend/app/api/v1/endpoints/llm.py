@@ -1525,7 +1525,8 @@ async def _chat_via_registry(
 
     from core.llm.models import ToolDefinition
 
-    tool_defs = [ToolDefinition(**s) for s in (tool_schemas or [])]
+    limited_schemas = (tool_schemas or [])[:50]
+    tool_defs = [ToolDefinition(**s) for s in limited_schemas]
     chat_request = request.model_copy(
         update={
             "system_prompt": system_prompt,
