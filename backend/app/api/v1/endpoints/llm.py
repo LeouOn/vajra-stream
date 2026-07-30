@@ -289,8 +289,30 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
             "total_mantras_repeated": stats.get("total_mantras_repeated", 0),
         }
     elif name == "create_population":
+        from backend.core.services.population_manager import PopulationCategory, SourceType
+
         pm = get_population_manager()
-        pop = pm.create_population(**args)
+        cat_str = args.get("category", "custom")
+        src_str = args.get("source_type", "manual")
+        try:
+            category = PopulationCategory(cat_str) if isinstance(cat_str, str) else cat_str
+        except ValueError:
+            category = PopulationCategory.CUSTOM
+        try:
+            source_type = SourceType(src_str) if isinstance(src_str, str) else src_str
+        except ValueError:
+            source_type = SourceType.MANUAL
+        pop = pm.create_population(
+            name=args.get("name", "Untitled Population"),
+            description=args.get("description", ""),
+            category=category,
+            source_type=source_type,
+            directory_path=args.get("directory_path"),
+            mantra_preference=args.get("mantra_preference", "chenrezig"),
+            intentions=args.get("intentions", ["love", "healing", "peace"]),
+            priority=args.get("priority", 5),
+            is_urgent=args.get("is_urgent", False),
+        )
         return pop.to_dict() if pop else None
     elif name == "update_population":
         pm = get_population_manager()
@@ -596,7 +618,11 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
 
         if inspect.iscoroutinefunction(tool_func):
             return await tool_func(**args)
-        return tool_func(**args)
+        # Run sync tool in a thread pool to avoid blocking the event loop
+        # (sync tools often make HTTP requests back to this server, which
+        # would deadlock if run on the event loop thread)
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: tool_func(**args))
 
 
 async def run_rule_based_fallback(query: str) -> ChatResponse:
