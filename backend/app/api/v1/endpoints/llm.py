@@ -1551,7 +1551,6 @@ def _prioritize_tool_schemas(schemas: list[dict], max_count: int) -> list[dict]:
         "get_automation_status",
         "play_chakra_healing_audio",
     ]
-    core_set = set(core_order)
     by_name = {s.get("name"): s for s in schemas}
     prioritized = [by_name[n] for n in core_order if n in by_name]
     return prioritized[:max_count]
@@ -1678,6 +1677,89 @@ async def _chat_via_registry(
         if not turn_results:
             break
 
+        # Programmatic auto-chain: if the user asked for an outlook/blessing/
+        # narrative and generate_single_outlook hasn't been executed yet, run it
+        # DETERMINISTICALLY on the backend. The model frequently loops on
+        # inspection tools (list_populations, get_*) or create_population and
+        # never reaches the outlook tool even when it's available and hinted.
+        user_query = next(
+            (str(m.content).lower() for m in reversed(request.messages) if m.role == "user"),
+            "",
+        )
+        if (
+            re.search(r"\b(outlook|blessing|narrative|prayer|sutra|bless|healing story)\b", user_query)
+            and not any(r.get("tool") == "generate_single_outlook" for r in turn_results)
+            and not any(r.get("tool") == "generate_single_outlook" for r in raw_tool_results)
+        ):
+            created_pops = [
+                r
+                for r in turn_results
+                if r.get("tool") == "create_population"
+                and r.get("status") == "success"
+                and isinstance(r.get("result"), dict)
+            ]
+            pop_name = created_pops[0]["result"].get("name", "") if created_pops else ""
+            custom_context = f"An outlook blessing for {pop_name or 'all beings in need'}. The user said: {user_query}"
+            try:
+                outlook_result = await execute_tool_locally(
+                    "generate_single_outlook",
+                    {"genre": "healing", "custom_context": custom_context[:500]},
+                )
+                tool_logs.append(
+                    ToolCallLog(
+                        tool_name="generate_single_outlook",
+                        arguments={"genre": "healing", "custom_context": custom_context[:500]},
+                        status="success",
+                        result=outlook_result,
+                    )
+                )
+                turn_results.append({"tool": "generate_single_outlook", "status": "success", "result": outlook_result})
+                raw_tool_results.append(
+                    {"tool": "generate_single_outlook", "status": "success", "result": outlook_result}
+                )
+                logger.info("Auto-chained generate_single_outlook (query-driven)")
+            except Exception as auto_ex:
+                logger.warning("Auto-chain generate_single_outlook failed: %s", auto_ex)
+                tool_logs.append(
+                    ToolCallLog(tool_name="generate_single_outlook", arguments={}, status="error", error=str(auto_ex))
+                )
+                turn_results.append({"tool": "generate_single_outlook", "status": "error", "error": str(auto_ex)})
+
+        outlook_done = any(
+            r.get("tool") == "generate_single_outlook" and r.get("status") == "success" for r in turn_results
+        )
+        if outlook_done:
+            conversation_messages = conversation_messages + [
+                ChatMessage(role="assistant", content=clean_content),
+            ]
+            results_text = "\n".join(
+                f"[Tool: {r['tool']}] {'OK' if r['status'] == 'success' else 'ERROR: ' + r.get('error', '')}\n"
+                f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
+                for r in turn_results
+            )
+            conversation_messages.append(
+                ChatMessage(
+                    role="user",
+                    content=(
+                        f"[System: Tool results received]\n{results_text}\n\n"
+                        "The outlook has been generated. Write a brief, warm summary "
+                        "of the blessing to the user — do not call any more tools."
+                    ),
+                )
+            )
+            followup_request = request.model_copy(
+                update={
+                    "messages": conversation_messages,
+                    "tools": [],
+                }
+            )
+            try:
+                followup_response = await chosen.generate(followup_request)
+                clean_content, _ = strip_thinking(followup_response.content)
+            except Exception as followup_ex:
+                logger.warning(f"Outlook summary LLM call failed: {followup_ex}")
+            break
+
         conversation_messages = conversation_messages + [
             ChatMessage(role="assistant", content=clean_content),
         ]
@@ -1696,8 +1778,11 @@ async def _chat_via_registry(
         )
         if re.search(r"\b(outlook|blessing|narrative|prayer|sutra|bless|healing story)\b", user_query):
             created_pops = [
-                r for r in turn_results
-                if r.get("tool") == "create_population" and r.get("status") == "success" and isinstance(r.get("result"), dict)
+                r
+                for r in turn_results
+                if r.get("tool") == "create_population"
+                and r.get("status") == "success"
+                and isinstance(r.get("result"), dict)
             ]
             if created_pops:
                 pop_name = created_pops[0]["result"].get("name", "the population")
@@ -1791,9 +1876,7 @@ async def chat_compat(request: ChatRequest, http_request: Request):
         registry_choice = await _select_provider_via_registry(http_request, "auto")
         if registry_choice:
             provider_name = registry_choice
-    return await _chat_via_registry(
-        http_request, request, provider_name, tool_schemas=get_tool_schemas()
-    )
+    return await _chat_via_registry(http_request, request, provider_name, tool_schemas=get_tool_schemas())
 
 
 @router.post("/chat/async")
