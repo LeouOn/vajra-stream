@@ -2121,7 +2121,7 @@ def get_tool_schemas() -> list[dict[str, Any]]:
         },
         {
             "name": "generate_single_outlook",
-            "description": "Generate a single-pass sutra-style blessing and narrative outlook weaving astrology, divination, and realms.",
+            "description": "Generate a single-pass sutra-style blessing and narrative outlook weaving astrology, divination, and realms. USE THIS TOOL when the user asks for: an outlook, a blessing, a sutra, a prayer, a healing story, a narrative blessing, or a generated prayer/affirmation for a group of people. The custom_context should reflect the user's stated intention. Do not call create_population repeatedly; if a population is needed, create it ONCE then call this tool.",
             "parameters": {
                 "type": "object",
                 "properties": {

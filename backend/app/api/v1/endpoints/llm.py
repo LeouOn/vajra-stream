@@ -221,22 +221,22 @@ def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
 
     i = 0
     while i < len(scan_content):
-        if content[i] != "{":
+        if scan_content[i] != "{":
             i += 1
             continue
         depth = 0
         start = i
-        while i < len(content):
-            if content[i] == "{":
+        while i < len(scan_content):
+            if scan_content[i] == "{":
                 depth += 1
-            elif content[i] == "}":
+            elif scan_content[i] == "}":
                 depth -= 1
                 if depth == 0:
                     break
             i += 1
         if depth != 0:
             break
-        candidate = content[start : i + 1]
+        candidate = scan_content[start : i + 1]
         i += 1
         if len(candidate) < 15:
             continue
@@ -614,6 +614,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         return disp.dispatch(name, args)
     else:
         # Fallback: call the tool function directly (detect if async or sync)
+        import asyncio as _asyncio
         import inspect
 
         if inspect.iscoroutinefunction(tool_func):
@@ -621,7 +622,7 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         # Run sync tool in a thread pool to avoid blocking the event loop
         # (sync tools often make HTTP requests back to this server, which
         # would deadlock if run on the event loop thread)
-        loop = asyncio.get_event_loop()
+        loop = _asyncio.get_running_loop()
         return await loop.run_in_executor(None, lambda: tool_func(**args))
 
 
@@ -1508,6 +1509,54 @@ async def _run_anthropic_tool_loop(
     return "*(Anthropic reached maximum reasoning turns without finishing.)*"
 
 
+def _prioritize_tool_schemas(schemas: list[dict], max_count: int) -> list[dict]:
+    """Return a lean, deduplicated core toolset for the LLM chat.
+
+    The registry exposes ~90 tools, many redundant (aliases, niche engines,
+    radionics-specific, overlapping status/search/audio). Sending all of them
+    blows the OpenRouter request size and — worse — a naive positional slice
+    cuts off the actually-important tools (generate_single_outlook,
+    generate_prayer, generate_image). This curated allowlist keeps the
+    compound/high-value tools and drops the redundancy. Radionics-specific
+    tools are intentionally excluded for now and can be re-added as a
+    dedicated set later.
+    """
+
+    core_order = [
+        "generate_single_outlook",
+        "generate_prayer",
+        "generate_image",
+        "generate_epic_outlook",
+        "generate_blessing",
+        "generate_teaching",
+        "forge_sigil",
+        "speak_text",
+        "cast_tarot_spread",
+        "cast_i_ching",
+        "cast_geomancy",
+        "search_grimoire_correspondences",
+        "search_knowledge",
+        "web_search",
+        "check_auspicious_timing",
+        "check_saka_dawa",
+        "get_planetary_hours_and_transits",
+        "get_random_buddha",
+        "create_population",
+        "list_populations",
+        "update_population",
+        "get_population_statistics",
+        "get_system_status",
+        "start_automation",
+        "stop_automation",
+        "get_automation_status",
+        "play_chakra_healing_audio",
+    ]
+    core_set = set(core_order)
+    by_name = {s.get("name"): s for s in schemas}
+    prioritized = [by_name[n] for n in core_order if n in by_name]
+    return prioritized[:max_count]
+
+
 async def _chat_via_registry(
     http_request: Request,
     request: ChatRequest,
@@ -1551,7 +1600,7 @@ async def _chat_via_registry(
 
     from core.llm.models import ToolDefinition
 
-    limited_schemas = (tool_schemas or [])[:50]
+    limited_schemas = _prioritize_tool_schemas(tool_schemas or [], 50)
     tool_defs = [ToolDefinition(**s) for s in limited_schemas]
     chat_request = request.model_copy(
         update={
@@ -1630,26 +1679,55 @@ async def _chat_via_registry(
             break
 
         conversation_messages = conversation_messages + [
-            {"role": "assistant", "content": clean_content},
+            ChatMessage(role="assistant", content=clean_content),
         ]
         results_text = "\n".join(
             f"[Tool: {r['tool']}] {'OK' if r['status'] == 'success' else 'ERROR: ' + r.get('error', '')}\n"
             f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
             for r in turn_results
         )
+
+        # Auto-chain: if a population was just created and the user's query asks
+        # for an outlook/blessing/narrative/prayer, give the LLM an explicit next step.
+        chain_hint = ""
+        user_query = next(
+            (str(m.content).lower() for m in reversed(request.messages) if m.role == "user"),
+            "",
+        )
+        if re.search(r"\b(outlook|blessing|narrative|prayer|sutra|bless|healing story)\b", user_query):
+            created_pops = [
+                r for r in turn_results
+                if r.get("tool") == "create_population" and r.get("status") == "success" and isinstance(r.get("result"), dict)
+            ]
+            if created_pops:
+                pop_name = created_pops[0]["result"].get("name", "the population")
+                chain_hint = (
+                    f"\n\nThe population '{pop_name}' ALREADY EXISTS now — do NOT call "
+                    "create_population again. Your next and ONLY action is to call "
+                    "generate_single_outlook with genre='healing' and a custom_context that "
+                    "reflects the user's intention. This is the tool that actually fulfills the "
+                    "user's request for an outlook/blessing."
+                )
+
         conversation_messages.append(
-            {
-                "role": "user",
-                "content": f"[System: Tool results received]\n{results_text}\n\nContinue. You may call more tools or write your response to the user.",
-            }
+            ChatMessage(
+                role="user",
+                content=(
+                    f"[System: Tool results received]\n{results_text}\n\n"
+                    "If the user's original request is not yet fully fulfilled, "
+                    "call the next tool NOW. Only write your final response to the user "
+                    "after all required actions have been completed."
+                    f"{chain_hint}"
+                ),
+            )
         )
 
-        is_last_turn = turn >= 2 or any(r.get("tool") in ("get_system_status", "get_statistics") for r in turn_results)
+        is_last_turn = turn >= 3
         try:
             followup_request = request.model_copy(
                 update={
                     "messages": conversation_messages,
-                    "tools": [] if is_last_turn else request.tools,
+                    "tools": [] if is_last_turn else tool_defs,
                 }
             )
             followup_response = await chosen.generate(followup_request)
