@@ -1646,6 +1646,7 @@ async def _chat_via_registry(
     tool_logs: list[ToolCallLog] = []
     raw_tool_results: list[dict] = []
     conversation_messages = list(request.messages)
+    prev_tool_signature: str | None = None
 
     for turn in range(4):
         native_tcs = response.tool_calls if hasattr(response, "tool_calls") else []
@@ -1657,6 +1658,12 @@ async def _chat_via_registry(
 
         if not all_tool_calls:
             break
+
+        signature = json.dumps(all_tool_calls, sort_keys=True, default=str)
+        if signature == prev_tool_signature:
+            logger.info("Tool-call loop detected (same call repeated); ending tool loop")
+            break
+        prev_tool_signature = signature
 
         logger.info(f"Registry turn {turn}: {len(native_tcs)} native + {len(text_tool_calls)} text-parsed tool calls")
         turn_results: list[dict] = []
