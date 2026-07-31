@@ -203,7 +203,7 @@ export default function CommandCenter({
   const [includeHardware, setIncludeHardware] = useState(true);
   const [availableModels, setAvailableModels] = useState<{ local: string[]; api: string[]; lm_studio: string[] }>({ local: [], api: [], lm_studio: [] });
   const [selectedModel, setSelectedModel] = useState('auto');
-  const [debugMode, setDebugMode] = useState(false);
+  const [debugMode, setDebugMode] = useState(true);
   const [debugPayload, setDebugPayload] = useState<DebugInfo | Record<string, unknown> | null>(null);
   const [activeLogTab, setActiveLogTab] = useState('tools');
 

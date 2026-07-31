@@ -144,6 +144,11 @@ async def lifespan(app: FastAPI):
             logger.error(f"Failed to start streaming: {e}")
             logger.error(traceback.format_exc())
 
+        # Record the main event loop so worker-thread publishers (radionics
+        # singing-bowl broadcasts, etc.) can schedule WebSocket sends via
+        # run_coroutine_threadsafe.
+        stable_connection_manager_v2.set_main_loop(asyncio.get_running_loop())
+
         # Start Autonomous Operator Daemon
         try:
             from container import container

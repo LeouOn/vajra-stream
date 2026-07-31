@@ -1284,3 +1284,25 @@ async def get_broadcast_status(session_id: str):
     except Exception as e:
         logger.error(f"❌ Status check error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/audio-mute")
+async def get_audio_mute():
+    """Get whether prayer-bowl audio broadcasts are muted."""
+    from modules.radionics import audio_broadcasts_muted
+
+    return {"muted": audio_broadcasts_muted()}
+
+
+@router.post("/audio-mute")
+async def set_audio_mute(request: dict):
+    """Set whether prayer-bowl audio broadcasts are muted.
+
+    When muted, healing broadcasts still run the scalar engine and notify
+    the UI, but the crystal service does not play the singing-bowl audio.
+    """
+    from modules.radionics import set_audio_broadcasts_muted
+
+    muted = bool(request.get("muted", False))
+    set_audio_broadcasts_muted(muted)
+    return {"muted": muted, "status": "ok"}

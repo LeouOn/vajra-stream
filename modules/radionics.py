@@ -9,16 +9,35 @@ Integrates with:
 """
 
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import logging
+
 from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
 from core.rate_to_audio import map_rate_to_carriers
 from modules.interfaces import EventBus, RadionicsBroadcaster
 from modules.radionics_enhancer import RadionicsEnhancer
+
+logger = logging.getLogger(__name__)
+
+# Global mute for prayer-bowl / singing-bowl audio broadcasts. When True,
+# broadcast_healing skips the crystal audio playback but still runs the
+# scalar broadcaster and returns a marker so callers/UI know.
+_AUDIO_MUTED: bool = False
+
+
+def set_audio_broadcasts_muted(muted: bool) -> None:
+    global _AUDIO_MUTED
+    _AUDIO_MUTED = bool(muted)
+
+
+def audio_broadcasts_muted() -> bool:
+    return _AUDIO_MUTED
 
 
 class RadionicsService(RadionicsBroadcaster):
@@ -98,9 +117,23 @@ class RadionicsService(RadionicsBroadcaster):
             use_chakras=True,
         )
 
+        # Notify the UI FIRST so users aren't surprised by the singing bowls
+        # (and a muted broadcast still shows a toast). Fires before any
+        # blocking audio/scalar work so the toast is immediate.
+        self._broadcast_ws(
+            "HEALING_BROADCAST_STARTED",
+            {
+                "target": target_name,
+                "frequency_hz": freq_list[1] if len(freq_list) > 1 else frequency_hz,
+                "frequencies": freq_list,
+                "duration_minutes": duration_minutes,
+                "audio_muted": bool(_AUDIO_MUTED),
+            },
+        )
+
         # Invoke crystal service for prayer bowl audio (if available)
         crystal_result = None
-        if self.crystal_service:
+        if self.crystal_service and not _AUDIO_MUTED:
             try:
                 crystal_result = self.crystal_service.broadcast_intention(
                     intention=f"Healing: {target_name}",
@@ -129,9 +162,40 @@ class RadionicsService(RadionicsBroadcaster):
             "solfeggio_names": carriers.solfeggio_names if carriers else [],
             "duration_minutes": duration_minutes,
             "status": "active",
+            "audio_muted": bool(_AUDIO_MUTED),
             "crystal_output": crystal_result,
             "scalar_output": scalar_result,
         }
+
+    def _broadcast_ws(self, event_type: str, data: dict[str, Any]) -> None:
+        """Best-effort WebSocket broadcast to all clients.
+
+        Safe to call from worker threads: uses the connection manager's
+        recorded main loop via run_coroutine_threadsafe. Silently no-ops if
+        the manager is unavailable or the loop isn't running.
+        """
+        try:
+            from backend.websocket.connection_manager import (
+                stable_connection_manager_v2,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.debug("WS connection manager unavailable: %s", e)
+            return
+
+        payload = {
+            "type": event_type,
+            "data": data,
+            "timestamp": time.time(),
+        }
+        try:
+            import asyncio
+
+            loop = stable_connection_manager_v2.main_loop or asyncio.get_event_loop()
+            if not loop.is_running():
+                return
+            asyncio.run_coroutine_threadsafe(stable_connection_manager_v2.broadcast(payload), loop)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("WS broadcast failed for %s: %s", event_type, e)
 
     def broadcast_liberation(
         self,

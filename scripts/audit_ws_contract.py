@@ -40,7 +40,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Active backend WS emit sources (per wave0-task3-ws-whitelist.json).
 ACTIVE_BACKEND_SOURCES = [
-    "backend/websocket/connection_manager_stable_v2.py",
+    "backend/websocket/connection_manager.py",
     "backend/core/services/vajra_service.py",
     "backend/app/main.py",
 ]
@@ -73,6 +73,22 @@ CANONICAL_SUPPLEMENT_TYPES: set[str] = {
     "JOURNEY_STAGE_COMPLETED",
     "JOURNEY_COMPLETED",
     "IDLE_REFLECTION",
+    # Async chat progress (llm.py → send_personal_message indirection)
+    "chat_started",
+    "chat_tool_start",
+    "chat_tool_complete",
+    "chat_tool_error",
+    "chat_complete",
+    "chat_error",
+    # Singing-bowl broadcast notice (modules/radionics.py → _broadcast_ws)
+    "HEALING_BROADCAST_STARTED",
+    # Practice engine lifecycle (core/practice_engine.py → _broadcast_ws)
+    "PRACTICE_STARTED",
+    "PRACTICE_RECITED",
+    "PRACTICE_COMPLETED",
+    "PRACTICE_STOPPED",
+    # Outlook background loop (backend/app/api/v1/endpoints/outlook.py)
+    "BACKGROUND_GENERATION",
 }
 
 FRONTEND_HOOK = "frontend/src/hooks/useWebSocketStable.ts"

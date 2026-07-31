@@ -20,7 +20,7 @@ import {
   message,
   Divider,
 } from 'antd';
-import { Activity, RefreshCw, Radio, Sparkles, Power } from 'lucide-react';
+import { Activity, RefreshCw, Radio, Sparkles, Power, VolumeX } from 'lucide-react';
 import { apiUrl } from '../../utils/api';
 
 const { Title, Text, Paragraph } = Typography;
@@ -39,17 +39,23 @@ interface OutlookLoopStatus {
 export default function BackgroundServicesPanel() {
   const [autonomous, setAutonomous] = useState<AutonomousStatus | null>(null);
   const [outlookLoop, setOutlookLoop] = useState<OutlookLoopStatus | null>(null);
+  const [audioMuted, setAudioMuted] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [autoRes, outlookRes] = await Promise.all([
+      const [autoRes, outlookRes, muteRes] = await Promise.all([
         fetch(apiUrl('/operator/autonomous/status')),
         fetch(apiUrl('/outlook/loop/status')),
+        fetch(apiUrl('/radionics/audio-mute')),
       ]);
       if (autoRes.ok) setAutonomous(await autoRes.json());
       if (outlookRes.ok) setOutlookLoop(await outlookRes.json());
+      if (muteRes.ok) {
+        const muteData = await muteRes.json();
+        setAudioMuted(!!muteData.muted);
+      }
     } catch (err) {
       console.warn('BackgroundServicesPanel: fetch failed', err);
     } finally {
@@ -62,6 +68,24 @@ export default function BackgroundServicesPanel() {
     const interval = setInterval(fetchAll, 10000);
     return () => clearInterval(interval);
   }, [fetchAll]);
+
+  const toggleAudioMute = async (muted: boolean) => {
+    try {
+      const res = await fetch(apiUrl('/radionics/audio-mute'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ muted }),
+      });
+      if (!res.ok) {
+        message.error('Could not toggle audio mute');
+        return;
+      }
+      setAudioMuted(muted);
+      message.success(muted ? 'Singing bowl audio muted' : 'Singing bowl audio unmuted');
+    } catch (err) {
+      message.error(String(err));
+    }
+  };
 
   const toggleAutonomous = async (on: boolean) => {
     try {
@@ -125,6 +149,36 @@ export default function BackgroundServicesPanel() {
           </Paragraph>
         }
       />
+
+      {/* Audio Mute — movie-night switch */}
+      <Card
+        size="small"
+        loading={loading}
+        title={
+          <Space size={6}>
+            <VolumeX size={14} className="text-red-400" />
+            <Text strong className="font-mono text-xs uppercase">Singing Bowl Audio</Text>
+          </Space>
+        }
+        extra={
+          <Space size={4}>
+            <Tag color={audioMuted ? 'red' : 'green'}>
+              {audioMuted ? 'MUTED' : 'PLAYING'}
+            </Tag>
+            <Switch
+              checked={!audioMuted}
+              onChange={(on) => toggleAudioMute(!on)}
+              size="small"
+            />
+          </Space>
+        }
+      >
+        <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
+          When muted, healing broadcasts still run their scalar-wave work and you'll
+          still see a toast, but the singing-bowl audio is silenced. Great for movie
+          nights — no need to mute Python.
+        </Paragraph>
+      </Card>
 
       {/* Autonomous Operator */}
       <Card

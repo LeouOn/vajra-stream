@@ -34,7 +34,17 @@ class StableConnectionManagerV2:
         self.heartbeat_interval = 30  # Send heartbeat every 30 seconds
         self.connection_timeout = 60  # Consider connection dead after 60 seconds
         self._connection_id_counter = 0
+        self.main_loop: asyncio.AbstractEventLoop | None = None
         logger.info("Stable WebSocket Connection Manager V2 initialized")
+
+    def set_main_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
+        """Record the server's main event loop.
+
+        Lets worker-thread publishers (e.g. radionics broadcasts) schedule
+        WebSocket sends via run_coroutine_threadsafe even though they run
+        off the event loop.
+        """
+        self.main_loop = loop
 
     def _generate_connection_id(self) -> str:
         """Generate unique connection ID"""

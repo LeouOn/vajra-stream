@@ -386,6 +386,25 @@ function _connect(url: string = _url): void {
           case 'JOURNEY_COMPLETED':
             console.log('Journey completed:', data.data);
             break;
+          // Backend: modules/radionics.py — healing broadcast (singing bowls).
+          // Toast so users aren't surprised by the prayer-bowl audio, and so a
+          // muted broadcast still shows what was suppressed.
+          case 'HEALING_BROADCAST_STARTED': {
+            const b = (data as { data?: Record<string, unknown> }).data ?? {};
+            const freq = b.frequency_hz ?? b.frequencies?.[1] ?? '?';
+            const target = b.target ?? 'the field';
+            const muted = !!b.audio_muted;
+            import('antd').then(({ notification }) => {
+              notification.open({
+                key: 'healing-broadcast',
+                message: muted ? '🔕 Singing bowl broadcast (muted)' : '🕉 Singing bowl broadcast',
+                description: `${target} · ${freq} Hz${muted ? ' — audio muted, scalar broadcast only' : ''}`,
+                placement: 'bottomRight',
+                duration: muted ? 3 : 6,
+              });
+            });
+            break;
+          }
           case 'SAKA_DAWA_CHECK':
             _updateSnapshot({ sakaDawa: data.data as SakaDawaResult });
             break;

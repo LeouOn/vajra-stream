@@ -81,6 +81,13 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'PRACTICE_STOPPED',
   'IDLE_REFLECTION',
   'BACKGROUND_GENERATION',
+  'HEALING_BROADCAST_STARTED',
+  'chat_started',
+  'chat_tool_start',
+  'chat_tool_complete',
+  'chat_tool_error',
+  'chat_complete',
+  'chat_error',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');
