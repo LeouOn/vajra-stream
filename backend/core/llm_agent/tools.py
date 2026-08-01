@@ -1803,6 +1803,15 @@ ESSENTIAL_TOOL_NAMES: set[str] = {
     "generate_teaching",
     "generate_audio",
     "play_chakra_healing_audio",
+    # Critical tools the "28 essentials" trim omitted — these are core to
+    # the chat experience (image generation, prayers, TTS, timing, updates)
+    "generate_image",
+    "generate_prayer",
+    "speak_text",
+    "check_auspicious_timing",
+    "update_population",
+    "get_random_buddha",
+    "check_saka_dawa",
 }
 
 

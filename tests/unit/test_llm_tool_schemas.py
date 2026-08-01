@@ -1,11 +1,16 @@
-"""Tests for the 3 new tool schemas added to backend/core/llm_agent/tools.py:
-get_current_slide, stop_slideshow, update_population."""
+"""Tests for essential tool schemas in backend/core/llm_agent/tools.py:
+generate_image, generate_prayer, update_population.
+
+Note: get_current_slide / stop_slideshow were removed from the LLM tool
+exposure by the "reduce tools to 28 essentials" trim (they remain in the
+TOOL_REGISTRY for direct dispatch but are no longer exposed to the LLM).
+"""
 
 import pytest
 
 from backend.core.llm_agent.tools import get_tool_schemas
 
-NEW_TOOL_NAMES = ["get_current_slide", "stop_slideshow", "update_population"]
+NEW_TOOL_NAMES = ["generate_image", "generate_prayer", "update_population"]
 
 
 @pytest.fixture
@@ -23,18 +28,18 @@ def test_all_three_new_tools_are_registered(new_schemas):
     assert set(new_schemas.keys()) == set(NEW_TOOL_NAMES), f"expected {NEW_TOOL_NAMES}, got {list(new_schemas.keys())}"
 
 
-def test_get_current_slide_requires_session_id(new_schemas):
-    schema = new_schemas["get_current_slide"]
-    assert "session_id" in schema["parameters"]["required"]
-    assert "session_id" in schema["parameters"]["properties"]
-    assert schema["parameters"]["properties"]["session_id"]["type"] == "string"
+def test_generate_image_has_prompt_required(new_schemas):
+    schema = new_schemas["generate_image"]
+    assert "prompt" in schema["parameters"]["required"]
+    assert "prompt" in schema["parameters"]["properties"]
+    assert schema["parameters"]["properties"]["prompt"]["type"] == "string"
 
 
-def test_stop_slideshow_requires_session_id(new_schemas):
-    schema = new_schemas["stop_slideshow"]
-    assert "session_id" in schema["parameters"]["required"]
-    assert "session_id" in schema["parameters"]["properties"]
-    assert schema["parameters"]["properties"]["session_id"]["type"] == "string"
+def test_generate_prayer_has_intention_parameter(new_schemas):
+    schema = new_schemas["generate_prayer"]
+    props = schema["parameters"]["properties"]
+    assert "intention" in props
+    assert props["intention"]["type"] == "string"
 
 
 def test_update_population_accepts_priority_and_flags(new_schemas):
