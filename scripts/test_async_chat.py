@@ -6,20 +6,21 @@ Simulates the frontend flow:
 3. Listen for WebSocket events (chat_started, chat_tool_start, chat_complete)
 4. Report what happened
 """
+
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import sys
-import io
 
 # Fix Windows console encoding
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-import time
+import time  # noqa: E402
 
-import httpx
-import websockets
+import httpx  # noqa: E402
+import websockets  # noqa: E402
 
 BASE = "http://localhost:8008"
 WS_URL = "ws://127.0.0.1:8008/ws"

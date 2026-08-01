@@ -3,6 +3,7 @@
 Run from project root:
     python scripts/smoke_image_generation.py
 """
+
 from __future__ import annotations
 
 import os
