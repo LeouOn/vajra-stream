@@ -8,6 +8,8 @@ Each function is designed to be called by an LLM agent and returns structured da
 that can be used in the agent's responses.
 """
 
+import os
+import time
 from typing import Any
 
 import requests
@@ -17,7 +19,6 @@ class APIClient:
     """Client for making requests to Vajra Stream API"""
 
     def __init__(self, base_url: str | None = None):
-        import os
 
         if base_url is None:
             port = os.environ.get("PORT", "8008")
@@ -1459,7 +1460,6 @@ def speak_text(text: str, voice: str | None = None, role: str = "dharma_teaching
     Returns:
         Dict with status, audio_path, and text_length
     """
-    import os
     import tempfile
 
     client = get_client()
@@ -1472,7 +1472,9 @@ def speak_text(text: str, voice: str | None = None, role: str = "dharma_teaching
         if response.ok:
             audio_dir = os.path.join(tempfile.gettempdir(), "vajra_tts")
             os.makedirs(audio_dir, exist_ok=True)
-            filename = f"tts_{int(time.time())}.{'mp3' if 'mpeg' in response.headers.get('content-type', '') else 'wav'}"
+            filename = (
+                f"tts_{int(time.time())}.{'mp3' if 'mpeg' in response.headers.get('content-type', '') else 'wav'}"
+            )
             filepath = os.path.join(audio_dir, filename)
             with open(filepath, "wb") as f:
                 f.write(response.content)
@@ -1642,7 +1644,39 @@ TOOL_REGISTRY = {
 }
 
 
-def get_tool_schemas() -> list[dict[str, Any]]:
+ESSENTIAL_TOOL_NAMES: set[str] = {
+    "get_system_status",
+    "list_populations",
+    "create_population",
+    "get_population_statistics",
+    "start_automation",
+    "stop_automation",
+    "get_automation_status",
+    "cast_tarot_spread",
+    "cast_i_ching",
+    "cast_geomancy",
+    "forge_sigil",
+    "search_grimoire_correspondences",
+    "get_planetary_hours_and_transits",
+    "search_knowledge",
+    "web_search",
+    "web_fetch",
+    "generate_single_outlook",
+    "generate_epic_outlook",
+    "list_narrative_locations",
+    "list_narrative_characters",
+    "generate_character",
+    "start_character_journey",
+    "advance_journey",
+    "get_journey_status",
+    "generate_blessing",
+    "generate_teaching",
+    "generate_audio",
+    "play_chakra_healing_audio",
+}
+
+
+def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
     """
     Get JSON schemas for all available tools.
 
@@ -2242,9 +2276,21 @@ def get_tool_schemas() -> list[dict[str, Any]]:
         },
     ]
 
-    # Merge: return RADIONICS_TOOLS (45 schemas) + agent-specific schemas
-    # This gives the LLM visibility into ALL 80+ tools
-    return _radionics_schemas + _agent_schemas
+    all_schemas = _radionics_schemas + _agent_schemas
+
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for s in all_schemas:
+        name = s.get("name", "")
+        if name in seen:
+            continue
+        seen.add(name)
+        deduped.append(s)
+
+    if essential_only:
+        deduped = [s for s in deduped if s.get("name", "") in ESSENTIAL_TOOL_NAMES]
+
+    return deduped
 
 
 # Example usage for LLM agents
