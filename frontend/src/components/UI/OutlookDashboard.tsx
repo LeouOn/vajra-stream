@@ -137,6 +137,7 @@ interface DivinationRaw {
 }
 
 interface CurrentNarrative {
+  id?: string | number;
   type?: string;
   genre?: string;
   narrative?: string;
@@ -363,6 +364,17 @@ export default function OutlookDashboard() {
     revised_prompt?: string | null;
     cached?: boolean;
   } | null>(null);
+
+  const [videoGenLoading, setVideoGenLoading] = useState<boolean>(false);
+  const [videoGenState, setVideoGenState] = useState<{
+    task_id?: string;
+    status?: string;
+    video_url?: string;
+    local_path?: string;
+    video_prompt?: string;
+    error?: string;
+  } | null>(null);
+  const [videoPollRef, setVideoPollRef] = useState<ReturnType<typeof setInterval> | null>(null);
 
   // ─── Ritual Reveal State ─────────────────────────────────
   // Progressive section reveal — sections (I. Invocatio … V. Dedicatio)
@@ -921,7 +933,69 @@ export default function OutlookDashboard() {
     }
   };
 
-  // ─── Ritual Reveal Logic ─────────────────────────────────
+  const generateVideoFromNarrative = async (): Promise<void> => {
+    if (!currentNarrative) return;
+    setVideoGenLoading(true);
+    setVideoGenState(null);
+    audioFeedback.playTelemetry();
+    try {
+      const narrativeText = currentNarrative.narrative
+        || (Array.isArray(currentNarrative.narrative_parts)
+            ? currentNarrative.narrative_parts.join(' ')
+            : String(currentNarrative.narrative_parts || ''));
+      const payload: Record<string, unknown> = {
+        narrative: narrativeText.slice(0, 3000),
+        genre: currentNarrative.genre || 'healing',
+        entities: currentNarrative.entities_used || '',
+        divination: currentNarrative.divination_used || '',
+      };
+      if (currentNarrative.id != null) payload.narrative_id = currentNarrative.id;
+
+      const res = await fetch('/api/v1/videos/from-narrative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVideoGenState(data);
+        message.success('Video task submitted. Polling for completion...');
+        const interval = window.setInterval(async () => {
+          try {
+            const sres = await fetch('/api/v1/videos/status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ task_id: data.task_id, model: data.model || 'MiniMax-H3' }),
+            });
+            if (sres.ok) {
+              const sdata = await sres.json();
+              setVideoGenState(sdata);
+              if (sdata.status === 'succeeded' || sdata.status === 'done' || sdata.status === 'failed') {
+                if (videoPollRef.current) {
+                  window.clearInterval(videoPollRef.current);
+                  setVideoPollRef(null);
+                }
+                if (sdata.status === 'failed') message.error(sdata.error || 'Video generation failed');
+                else message.success('Video generated!');
+              }
+            }
+          } catch {
+            // eslint-disable-next-line no-empty
+          }
+        }, 5000);
+        setVideoPollRef(interval);
+      } else {
+        const err = await res.json().catch(() => ({})) as { detail?: string };
+        message.error(err.detail || 'Video generation failed (is it enabled in Settings?).');
+        audioFeedback.playError();
+      }
+    } catch {
+      message.error('Network error — could not reach backend.');
+      audioFeedback.playError();
+    } finally {
+      setVideoGenLoading(false);
+    }
+  };   
 
   const parseSections = (text: string): string[] => {
     // Splitting on the captured group means odd-indexed parts are the
@@ -1796,7 +1870,59 @@ export default function OutlookDashboard() {
                                         >
                                           Bell
                                         </Button>
+                                        <Button
+                                          size="small"
+                                          loading={videoGenLoading}
+                                          icon={<Volume2 className="w-3 h-3" />}
+                                          onClick={generateVideoFromNarrative}
+                                        >
+                                          {videoGenLoading ? 'Composing...' : 'Generate Manifestation Video'}
+                                        </Button>
                                       </Space>
+                                      {videoGenState && (
+                                        <div style={{ marginTop: 12 }}>
+                                          {videoGenState.video_prompt && (
+                                            <div style={{ marginBottom: 8 }}>
+                                              <Text type="secondary" style={{ fontSize: 10 }}>Video prompt:</Text>
+                                              <div className="text-[11px] text-purple-300/80 italic whitespace-pre-wrap mt-1">{videoGenState.video_prompt}</div>
+                                            </div>
+                                          )}
+                                          {videoGenState.status && !videoGenState.video_url && (
+                                            <div className="flex items-center gap-2">
+                                              <Spin size="small" />
+                                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                                {videoGenState.status === 'submitted' || videoGenState.status === 'processing' || videoGenState.status === 'pending'
+                                                  ? 'Generating video... this can take 1-3 minutes.'
+                                                  : `Task status: ${videoGenState.status}`}
+                                              </Text>
+                                            </div>
+                                          )}
+                                          {(videoGenState.video_url || videoGenState.local_path) && (
+                                            <div>
+                                              <video
+                                                controls
+                                                src={videoGenState.video_url || videoGenState.local_path}
+                                                style={{ width: '100%', maxWidth: 320, borderRadius: 8, marginTop: 8 }}
+                                              />
+                                              {videoGenState.video_url && (
+                                                <Button
+                                                  size="small"
+                                                  type="link"
+                                                  href={videoGenState.video_url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  style={{ paddingLeft: 0, marginTop: 4 }}
+                                                >
+                                                  Download video
+                                                </Button>
+                                              )}
+                                            </div>
+                                          )}
+                                          {videoGenState.error && (
+                                            <Text type="danger" style={{ fontSize: 11 }}>{videoGenState.error}</Text>
+                                          )}
+                                        </div>
+                                      )}
                                     </Card>
                                   )}
                                 </>
