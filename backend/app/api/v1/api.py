@@ -31,6 +31,7 @@ from backend.app.api.v1.endpoints import sessions as sessions_endpoint
 from backend.app.api.v1.endpoints import sigils as sigils_endpoint
 from backend.app.api.v1.endpoints import time_cycles as time_cycles_endpoint
 from backend.app.api.v1.endpoints import tts as tts_endpoint
+from backend.app.api.v1.endpoints import video_generation as video_generation_endpoint
 from backend.app.api.v1.endpoints import visualization as visualization_endpoint
 
 api_router = APIRouter()
@@ -68,5 +69,6 @@ api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["out
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])
 api_router.include_router(image_generation_endpoint.router, tags=["image-generation"])
+api_router.include_router(video_generation_endpoint.router, tags=["video-generation"])
 api_router.include_router(ritual_engine_endpoint.router, prefix="/ritual", tags=["ritual-engine"])
 api_router.include_router(practices_endpoint.router, tags=["practices"])
