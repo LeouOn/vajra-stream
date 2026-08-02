@@ -72,6 +72,34 @@ MODEL_COST_USD: dict[str, float] = {
     "image-01": 0.02,
 }
 
+MODEL_CAPABILITIES: dict[str, dict[str, Any]] = {
+    "google/gemini-3.1-flash-lite-image": {
+        "aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        "resolutions": ["1K"],
+        "max_n": 1,
+    },
+    "black-forest-labs/flux.2-klein-4b": {
+        "aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        "resolutions": ["1K", "2K"],
+        "max_n": 1,
+    },
+    "krea/krea-2-large": {
+        "aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        "resolutions": ["1K", "2K"],
+        "max_n": 1,
+    },
+    "microsoft/mai-image-2.5-pro": {
+        "aspect_ratios": ["1:1", "16:9", "9:16"],
+        "resolutions": ["1K", "2K"],
+        "max_n": 1,
+    },
+    "image-01": {
+        "aspect_ratios": ["1:1", "16:9", "9:16", "4:3", "3:4"],
+        "resolutions": ["1K"],
+        "max_n": 1,
+    },
+}
+
 
 # ── Provider Interface ────────────────────────────────────────────────
 
@@ -492,9 +520,22 @@ class ImageGenerationService:
         if "aspect_ratio" not in kwargs:
             kwargs["aspect_ratio"] = cfg.get("default_aspect_ratio", "1:1")
 
-        # Cost guard
         provider_name = provider or cfg["default_provider"]
         model_name = model or cfg["default_model"]
+
+        requested_ratio = kwargs["aspect_ratio"]
+        caps = MODEL_CAPABILITIES.get(model_name, {})
+        supported_ratios = caps.get("aspect_ratios", ["1:1"])
+        if requested_ratio not in supported_ratios:
+            logger.warning(
+                "Model %s doesn't support aspect_ratio %s (supported: %s); falling back to 1:1",
+                model_name,
+                requested_ratio,
+                supported_ratios,
+            )
+            kwargs["aspect_ratio"] = "1:1"
+
+        # Cost guard
         estimated_cost = MODEL_COST_USD.get(model_name, 0.05) * effective_n
 
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")

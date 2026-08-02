@@ -68,9 +68,17 @@ interface CostStats {
   cache_entries: number;
 }
 
+interface ModelInfo {
+  id: string;
+  cost_usd: number;
+  label: string;
+  aspect_ratios?: string[];
+  resolutions?: string[];
+}
+
 interface ModelsByProvider {
-  openrouter: Array<{ id: string; cost_usd: number; label: string }>;
-  minimax: Array<{ id: string; cost_usd: number; label: string }>;
+  openrouter: ModelInfo[];
+  minimax: ModelInfo[];
 }
 
 interface ValidationResponse {
@@ -377,7 +385,11 @@ export default function ImageSettingsPanel() {
                   { value: '9:16', label: '9:16 (Portrait)' },
                   { value: '4:3', label: '4:3 (Classic)' },
                   { value: '3:4', label: '3:4 (Classic Portrait)' },
-                ]}
+                ].filter(opt => {
+                  const selected = providerModels.find(m => m.id === config.default_model);
+                  if (!selected?.aspect_ratios) return true;
+                  return selected.aspect_ratios.includes(opt.value);
+                })}
               />
             </Col>
             <Col xs={12} sm={6}>

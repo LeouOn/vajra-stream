@@ -280,16 +280,28 @@ async def update_config(request: ConfigUpdateRequest) -> dict[str, Any]:
 
 @router.get("/models")
 async def list_models() -> dict[str, list[dict[str, Any]]]:
-    """List supported models per provider with cost estimates."""
+    """List supported models per provider with cost estimates and capabilities."""
+    from backend.core.services.image_generation_service import MODEL_CAPABILITIES
+
+    def _model_entry(model_id: str, cost: float, label: str) -> dict[str, Any]:
+        caps = MODEL_CAPABILITIES.get(model_id, {})
+        return {
+            "id": model_id,
+            "cost_usd": cost,
+            "label": label,
+            "aspect_ratios": caps.get("aspect_ratios", ["1:1"]),
+            "resolutions": caps.get("resolutions", ["1K"]),
+        }
+
     return {
         "openrouter": [
-            {"id": "google/gemini-3.1-flash-lite-image", "cost_usd": 0.008, "label": "Gemini 3.1 Flash Lite (cheap)"},
-            {"id": "black-forest-labs/flux.2-klein-4b", "cost_usd": 0.014, "label": "FLUX.2 Klein 4B (premium)"},
-            {"id": "krea/krea-2-large", "cost_usd": 0.06, "label": "Krea 2 Large (artistic)"},
-            {"id": "microsoft/mai-image-2.5-pro", "cost_usd": 0.10, "label": "MAI Image 2.5 Pro (top)"},
+            _model_entry("google/gemini-3.1-flash-lite-image", 0.008, "Gemini 3.1 Flash Lite (cheap)"),
+            _model_entry("black-forest-labs/flux.2-klein-4b", 0.014, "FLUX.2 Klein 4B (premium)"),
+            _model_entry("krea/krea-2-large", 0.06, "Krea 2 Large (artistic)"),
+            _model_entry("microsoft/mai-image-2.5-pro", 0.10, "MAI Image 2.5 Pro (top)"),
         ],
         "minimax": [
-            {"id": "image-01", "cost_usd": 0.02, "label": "MiniMax image-01 (subject reference)"},
+            _model_entry("image-01", 0.02, "MiniMax image-01 (subject reference)"),
         ],
     }
 
