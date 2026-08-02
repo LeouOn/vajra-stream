@@ -191,6 +191,7 @@ export default function GuidedRitualFlow({
   const [astroContext, setAstroContext] = useState<AstrologyContext | null>(null);
   const [astroLoading, setAstroLoading] = useState<boolean>(false);
   const [astroUnavailable, setAstroUnavailable] = useState<boolean>(false);
+  const astroFetchedRef = useRef<boolean>(false);
 
   // Step 2 — generation
   const [generating, setGenerating] = useState<boolean>(false);
@@ -261,7 +262,8 @@ export default function GuidedRitualFlow({
   // missing: a 404/500 flips `astroUnavailable` so the UI shows a clear hint
   // instead of blocking the ritual on cosmic data the cosmos isn't offering.
   const fetchAstroContext = useCallback(async (): Promise<void> => {
-    if (astroContext || astroLoading) return;
+    if (astroFetchedRef.current || astroLoading) return;
+    astroFetchedRef.current = true;
     setAstroLoading(true);
     try {
       const params = new URLSearchParams();
@@ -304,7 +306,7 @@ export default function GuidedRitualFlow({
     } finally {
       setAstroLoading(false);
     }
-  }, [activeChart?.latitude, activeChart?.longitude, astroContext, astroLoading, log]);
+  }, [activeChart?.latitude, activeChart?.longitude, log]);
 
   const triggerGeneration = useCallback(async (): Promise<void> => {
     if (generationTriggeredRef.current) return;

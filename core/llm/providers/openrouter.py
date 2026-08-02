@@ -48,7 +48,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             api_key=api_key or os.getenv("OPENROUTER_API_KEY", ""),
             base_url=base_url or os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
             default_model=default_model,
-            timeout_seconds=120,
+            timeout_seconds=60,
             priority=priority,
             fallback_models=[
                 NEMOTRON_FREE_MODEL_ID,

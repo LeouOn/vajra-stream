@@ -1647,8 +1647,13 @@ async def _chat_via_registry(
     raw_tool_results: list[dict] = []
     conversation_messages = list(request.messages)
     prev_tool_signature: str | None = None
+    loop_start = time.time()
+    max_loop_seconds = 45
 
-    for turn in range(4):
+    for turn in range(2):
+        if time.time() - loop_start > max_loop_seconds:
+            logger.info("Tool loop timed out after %.1fs — returning partial results", time.time() - loop_start)
+            break
         native_tcs = response.tool_calls if hasattr(response, "tool_calls") else []
         text_tool_calls = _parse_text_tool_calls(clean_content)
         all_tool_calls = []
