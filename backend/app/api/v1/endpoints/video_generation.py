@@ -86,9 +86,7 @@ def _db_path() -> str:
             return candidate
         cursor = os.path.dirname(cursor)
     # Fall back to the conventional mirrored path
-    return os.path.join(
-        os.path.abspath(os.path.join(os.path.dirname(here), "..", "..", "..", "vajra_stream.db"))
-    )
+    return os.path.join(os.path.abspath(os.path.join(os.path.dirname(here), "..", "..", "..", "vajra_stream.db")))
 
 
 def _connect_db() -> sqlite3.Connection:
@@ -203,6 +201,170 @@ class ConfigUpdateRequest(BaseModel):
 
 
 # ── Routes ─────────────────────────────────────────────────────────────
+
+
+GENRE_VIDEO_PRINCIPLES: dict[str, str] = {
+    "healing": "Soft greens, lapis blue water light, gentle slow camera. Lotus imagery. Warm golden particles rising. Healing energy radiating outward in concentric rings. [Push in] slowly, then [Static shot] on a luminous center.",
+    "victory": "Bold dynamic camera, golden-red light breaking through clouds. A figure standing triumphant on a summit. Crackling energy shields forming. [Pan right] across a battlefield dissolved into flowers, then [Tracking shot] of a banner unfurling.",
+    "alchemist": "Cinematic close-ups of molten metal transforming in a crucible. Steam rising with flecks of gold. Color grading shifting from leaden grey to radiant gold. [Pedestal up] to reveal the Philosopher's Stone glowing.",
+    "dharani": "Sacred syllables materializing as luminous Sanskrit characters floating in dark space, rotating slowly. Mantric energy spiraling into a mandala pattern. [Static shot] on the mandala as it pulses with each syllable, then [Zoom out] to reveal the whole field.",
+    "compassion": "Soft pink and rose-gold light, rose petals falling in slow motion. A heart-center opening like a lotus bloom. Compassion radiating as warm waves. [Push in] very slowly toward the heart of the light.",
+    "wisdom": "Library of infinite scrolls dissolving into stars. An eye opening in the center of a book. Blue-white clarity light cutting through fog. [Pan left] across the scrolls, then [Tilt up] to a starfield of knowledge.",
+    "protection": "Vajra (thunderbolt) geometry forming a crystalline shield around a central figure. Lightning fractals of protective energy. Deep blue and electric cyan. [Static shot] on the shield pulsing, then [Zoom out] to show the full protective dome.",
+    "fun_parable": "Whimsical, colorful, storybook illustration style. A trickster figure dancing through a landscape that shifts seasons with each step. [Tracking shot] following the figure, playful and light.",
+}
+
+LOOPABLE_PRINCIPLES = (
+    "LOOPABILITY: Design the motion so the ending frame visually echoes the beginning frame — "
+    "a circular camera path, a returning particle, a breath cycle. The video should feel "
+    "seamless when looped. Avoid hard cuts or final-frame compositions that break the cycle."
+)
+
+SACRED_AESTHETIC = (
+    "SACRED AESTHETIC: Cinematic lighting with volumetric god-rays. Particles of light that "
+    "behave like prayer energy. Color palette grounded in the genre's planetary frequency. "
+    "Depth of field that draws the eye to a luminous focal point. Ethereal, otherworldly, "
+    "meditative — never harsh or chaotic."
+)
+
+
+@router.post("/from-narrative")
+async def generate_from_narrative(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Transform an outlook narrative into a video generation prompt, then submit to MiniMax.
+
+    Accepts either:
+    - {"narrative_id": 123} — fetches from outlook history DB
+    - {"narrative": "text...", "genre": "healing", "entities": "...", "divination": "..."} — inline
+
+    The LLM transforms the narrative into a structured video prompt incorporating:
+    - Genre-specific camera movements and visual themes
+    - Loopability principles (seamless loop design)
+    - Sacred aesthetic guidelines
+    - MiniMax camera command syntax ([Push in], [Pan left], etc.)
+    """
+    service = get_service()
+    if not service.config.get("enabled", False):
+        raise HTTPException(status_code=400, detail="Video generation is disabled in config")
+
+    narrative_text = ""
+    genre = "healing"
+    entities = ""
+    divination = ""
+
+    if "narrative_id" in payload:
+        from backend.app.api.v1.endpoints.outlook import get_db_connection
+
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT content, genre, entities_invoked, divination_context FROM outlook_narratives WHERE id = ?",
+                (payload["narrative_id"],),
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                raise HTTPException(status_code=404, detail="Narrative not found")
+            narrative_text = row["content"] or ""
+            genre = row["genre"] or "healing"
+            entities = row["entities_invoked"] or ""
+            divination = row["divination_context"] or ""
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"DB error: {e}")
+    else:
+        narrative_text = payload.get("narrative", "")
+        genre = payload.get("genre", "healing")
+        entities = payload.get("entities", "")
+        divination = payload.get("divination", "")
+
+    if not narrative_text or len(narrative_text.strip()) < 50:
+        raise HTTPException(status_code=400, detail="Narrative too short for video prompt extraction (need 50+ chars)")
+
+    genre_visual = GENRE_VIDEO_PRINCIPLES.get(genre, GENRE_VIDEO_PRINCIPLES["healing"])
+
+    system_prompt = f"""You are a master film director and cinematographer specializing in sacred, contemplative video art. Your task is to transform a spiritual blessing narrative into a single, powerful video generation prompt.
+
+## VISUAL DIRECTION FOR THIS GENUE
+{genre_visual}
+
+## {LOOPABLE_PRINCIPLES}
+
+## {SACRED_AESTHETIC}
+
+## RULES
+1. Output ONLY the video prompt — no preamble, no explanation, no headers.
+2. Keep it under 1500 characters (MiniMax limit is 2000, we leave room).
+3. Use MiniMax camera commands in [brackets]: [Push in], [Pan left], [Static shot], [Zoom out], [Tracking shot], [Pedestal up], [Tilt down], [Pull out], [Truck right], etc.
+4. Describe ONE continuous shot that loops seamlessly.
+5. Include: setting/scene, lighting, color palette, camera movement, motion/animation of elements, and mood.
+6. Ground the imagery in the narrative's actual content — don't invent unrelated scenes.
+7. The prompt should be vivid enough that someone who hasn't read the narrative can picture the scene.
+
+## NARRATIVE TO TRANSFORM
+{narrative_text[:3000]}
+
+## ADDITIONAL CONTEXT
+- Entities invoked: {entities[:200] if entities else "N/A"}
+- Divination/oracle: {divination[:200] if divination else "N/A"}
+"""
+
+    from core.llm.base import strip_thinking
+    from core.llm.registry import get_registry
+
+    registry = get_registry()
+    if not registry or len(registry) == 0:
+        raise HTTPException(status_code=503, detail="No LLM providers available for prompt transformation")
+
+    provider = await registry.pick_best()
+    if not provider:
+        raise HTTPException(status_code=503, detail="No healthy LLM provider available")
+
+    from core.llm.models import ChatRequest
+
+    chat_req = ChatRequest(
+        messages=[{"role": "user", "content": "Transform the narrative above into a video generation prompt."}],
+        system_prompt=system_prompt,
+        max_tokens=800,
+        temperature=0.8,
+        model=None,
+        stream=False,
+        tools=[],
+    )
+
+    try:
+        response = await provider.generate(chat_req)
+        video_prompt, _ = strip_thinking(response.content)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM prompt transformation failed: {e}")
+
+    video_prompt = video_prompt.strip()
+    if not video_prompt or len(video_prompt) < 20:
+        raise HTTPException(status_code=500, detail="LLM produced an empty video prompt")
+
+    model = payload.get("model", service.config.get("default_model", "MiniMax-H3"))
+    duration = payload.get("duration", service.config.get("default_duration", 5))
+
+    try:
+        result = await service.submit_task(
+            prompt=video_prompt,
+            model=model,
+            duration=duration,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    return {
+        "status": "success",
+        "video_prompt": video_prompt[:500],
+        "narrative_genre": genre,
+        **result,
+    }
 
 
 @router.post("/generate")
