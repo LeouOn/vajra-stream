@@ -569,7 +569,11 @@ export default function GuidedRitualFlow({
                           <Tag color="cyan">
                             {astroContext?.moonPhase ?? cosmicData?.moonPhase}
                             {typeof (astroContext?.moonIllumination ?? cosmicData?.moonIllumination) === 'number' &&
-                              ` · ${Math.round(((astroContext?.moonIllumination ?? cosmicData?.moonIllumination) as number) * 100)}%`}
+                              (() => {
+                                const raw = (astroContext?.moonIllumination ?? cosmicData?.moonIllumination) as number;
+                                const pct = raw <= 1 ? raw * 100 : raw;
+                                return ` · ${Math.round(pct)}%`;
+                              })()}
                           </Tag>
                         </div>
                       </div>

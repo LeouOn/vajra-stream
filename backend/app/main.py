@@ -451,21 +451,6 @@ async def websocket_endpoint(websocket: WebSocket):
             stable_connection_manager_v2.disconnect(connection_id)
 
 
-# Visualization Gallery
-@app.get("/visualizations", response_class=HTMLResponse)
-@app.get("/gallery", response_class=HTMLResponse)
-async def visualization_gallery():
-    """
-    Sacred Visualization Gallery - Beautiful web interface for all visualizations
-    """
-    template_path = template_dir / "visualization.html"
-    if template_path.exists():
-        with open(template_path, encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    else:
-        return HTMLResponse(content="<h1>Visualization template not found</h1>", status_code=404)
-
-
 # Static file serving for frontend (optional)
 @app.get("/frontend", response_class=HTMLResponse)
 async def get_frontend():
@@ -506,16 +491,12 @@ async def get_frontend():
                 <span class="method">GET</span> <span class="path">/docs</span> - API Documentation
             </div>
             <div class="endpoint">
-                <span class="method">GET</span> <span class="path"><a href="/visualizations">/visualizations</a></span> - 🎨 Sacred Visualization Gallery
-            </div>
-            <div class="endpoint">
                 <span class="method">WS</span> <span class="path">/ws</span> - WebSocket Connection (Stable)
             </div>
 
             <h2>📚 Resources</h2>
             <p>Visit <a href="/docs" style="color: #2196F3;">/docs</a> for interactive API documentation.</p>
             <p>Visit <a href="/redoc" style="color: #2196F3;">/redoc</a> for ReDoc documentation.</p>
-            <p>Visit <a href="/visualizations" style="color: #FFD700;">🎨 Visualization Gallery</a> for sacred art and healing visualizations.</p>
             <p>Visit <a href="/ws-stats" style="color: #4CAF50;">WebSocket Stats</a> for real-time connection information.</p>
         </div>
     </body>
@@ -530,7 +511,6 @@ if __name__ == "__main__":
     logger.info("WebSocket endpoint: ws://localhost:8008/ws")
     logger.info("API Documentation: http://localhost:8008/docs")
     logger.info("WebSocket Statistics: http://localhost:8008/ws-stats")
-    logger.info("Visualization Gallery: http://localhost:8008/visualizations")
     logger.info("React/Vite frontend (if used): http://localhost:3009")
 
     uvicorn.run(app, host="0.0.0.0", port=8008, reload=True, log_level="info")

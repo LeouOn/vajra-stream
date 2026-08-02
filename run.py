@@ -119,7 +119,6 @@ def install_dependencies():
 def start_backend(port=BACKEND_PORT, host="0.0.0.0"):
     print(f"Starting backend server at {host}:{port}...")
     print(f"  API Docs:      http://localhost:{port}/docs")
-    print(f"  Visualizations: http://localhost:{port}/visualizations")
     print(f"  WebSocket:     ws://localhost:{port}/ws")
     print()
     import uvicorn
@@ -194,7 +193,6 @@ def start_full_system(backend_port=BACKEND_PORT):
         print("=" * 60)
         print(f"  Backend API:       http://localhost:{backend_port}")
         print(f"  API Docs:          http://localhost:{backend_port}/docs")
-        print(f"  Visualizations:    http://localhost:{backend_port}/visualizations")
         if len(processes) > 1:
             print(f"  Frontend:          http://localhost:{FRONTEND_PORT}")
         print("=" * 60)
