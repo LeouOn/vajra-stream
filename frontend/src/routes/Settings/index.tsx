@@ -24,8 +24,9 @@ import { Tabs } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import ProviderSettings from '../../components/Settings/ProviderSettings';
 import TTSSettingsPanel from '../../components/UI/TTSSettingsPanel';
+import VideoSettingsPanel from '../../components/Settings/VideoSettingsPanel';
 
-const TAB_KEYS = ['providers', 'tts'] as const;
+const TAB_KEYS = ['providers', 'tts', 'video'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const DEFAULT_TAB: TabKey = 'providers';
@@ -61,6 +62,15 @@ export default function SettingsPage(): React.ReactElement {
       children: (
         <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-6">
           <TTSSettingsPanel />
+        </div>
+      ),
+    },
+    {
+      key: 'video',
+      label: 'Video',
+      children: (
+        <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-6">
+          <VideoSettingsPanel />
         </div>
       ),
     },
