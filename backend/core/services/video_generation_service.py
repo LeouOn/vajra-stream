@@ -52,11 +52,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONFIG: dict[str, Any] = {
     "enabled": False,
     "minimax_api_key": "",
-    "default_model": "MiniMax-H3",
+    "default_model": "T2V-01",
     "daily_cost_cap_usd": 2.0,
     "max_per_hour": 2,
     "default_duration": 5,
-    "default_resolution": "2K",
+    "default_resolution": "720P",
     "default_ratio": "16:9",
     "max_prompt_chars": 2000,
     "prompt_style_prefix": "",

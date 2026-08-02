@@ -21,7 +21,7 @@ import os
 import sqlite3
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from backend.core.services.video_generation_service import (
@@ -231,6 +231,7 @@ SACRED_AESTHETIC = (
 @router.post("/from-narrative")
 async def generate_from_narrative(
     payload: dict[str, Any],
+    http_request: Request,
 ) -> dict[str, Any]:
     """Transform an outlook narrative into a video generation prompt, then submit to MiniMax.
 
@@ -313,9 +314,8 @@ async def generate_from_narrative(
 """
 
     from core.llm.base import strip_thinking
-    from core.llm.registry import get_registry
 
-    registry = get_registry()
+    registry = getattr(http_request.app.state, "llm_registry", None)
     if not registry or len(registry) == 0:
         raise HTTPException(status_code=503, detail="No LLM providers available for prompt transformation")
 
