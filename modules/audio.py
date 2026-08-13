@@ -86,8 +86,36 @@ class AudioService:
                 self._enhanced_tts = None
         return self._enhanced_tts
 
-    def generate_tone(self, frequency: float = 432.0, duration: float = 10.0, volume: float = 0.5) -> dict[str, Any]:
-        """Generate a pure tone at specified frequency"""
+    def generate_tone(
+        self,
+        frequency: float = 432.0,
+        duration: float = 10.0,
+        volume: float = 0.5,
+        mode: str = "sine",
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Generate a tone for the LLM-tool path.
+
+        ``mode`` is accepted because ``RadionicsOperator.generate_audio``
+        always passes ``mode='prayer_bowl'``. Extra kwargs are ignored so
+        a future tool-schema field cannot TypeError this method.
+        """
+        use_bowl = mode in {"prayer_bowl", "bowl", "singing_bowl"}
+        if use_bowl and self.enhanced_audio is not None:
+            try:
+                audio_data = self.enhanced_audio.generate_prayer_bowl_tone(
+                    frequency, int(max(1, duration)), pure_sine=False
+                )
+                return {
+                    "status": "success",
+                    "frequency": frequency,
+                    "duration": duration,
+                    "mode": "prayer_bowl",
+                    "audio_data": audio_data,
+                }
+            except Exception as e:
+                return {"error": str(e)}
+
         if self.audio_generator is None:
             return {
                 "error": "Audio generator not available - numpy/scipy not installed.\n"
@@ -97,7 +125,13 @@ class AudioService:
 
         try:
             audio_data = self.audio_generator.generate_tone(frequency=frequency, duration=duration, volume=volume)
-            return {"status": "success", "frequency": frequency, "duration": duration, "audio_data": audio_data}
+            return {
+                "status": "success",
+                "frequency": frequency,
+                "duration": duration,
+                "mode": "sine",
+                "audio_data": audio_data,
+            }
         except Exception as e:
             return {"error": str(e)}
 

@@ -8,7 +8,8 @@ TOOL_REGISTRY for direct dispatch but are no longer exposed to the LLM).
 
 import pytest
 
-from backend.core.llm_agent.tools import get_tool_schemas
+from backend.app.api.v1.endpoints.llm import _prioritize_tool_schemas
+from backend.core.llm_agent.tools import ESSENTIAL_TOOL_ORDER, get_tool_schemas
 
 NEW_TOOL_NAMES = ["generate_image", "generate_prayer", "update_population"]
 
@@ -60,6 +61,21 @@ def test_each_new_tool_has_a_meaningful_description(new_schemas):
     for name, schema in new_schemas.items():
         desc = schema.get("description", "")
         assert len(desc) > 20, f"{name}: description too short: {desc!r}"
+
+
+def test_speak_text_has_a_schema():
+    by_name = {s["name"]: s for s in get_tool_schemas()}
+    assert "speak_text" in by_name
+    assert "text" in by_name["speak_text"]["parameters"]["required"]
+
+
+def test_prioritize_matches_essential_order():
+    schemas = get_tool_schemas()
+    prioritized = _prioritize_tool_schemas(schemas, 50)
+    names = [s["name"] for s in prioritized]
+    expected = [n for n in ESSENTIAL_TOOL_ORDER if n in {s["name"] for s in schemas}]
+    assert names == expected
+    assert "speak_text" in names
 
 
 def test_new_tool_names_are_unique_among_themselves(new_schemas):

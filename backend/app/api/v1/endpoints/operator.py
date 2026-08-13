@@ -3,6 +3,8 @@ Radionics Operator API Endpoints
 Exposes the LLM-powered radionics operator to the frontend.
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -687,35 +689,27 @@ async def stop_recitation():
 
 
 @router.get("/saka-dawa", summary="Check Saka Dawa holy month status")
-async def check_saka_dawa():
-    """Check if we are currently in the Saka Dawa holy month (4th Tibetan lunar month).
+async def check_saka_dawa(at: str | None = None):
+    """Check if a date falls in Saka Dawa (4th Tibetan month after Losar).
 
-    Uses the real lunar calendar via ``core.auspicious_timing.check_saka_dawa()``
-    (lunar_python), not hardcoded Gregorian months.
+    Uses ``core.auspicious_timing.check_saka_dawa()``, which is anchored to
+    published Phugpa/CTA Losar dates rather than Chinese lunar month 4 or
+    hardcoded Gregorian May–June.
+
+    Query ``at`` as an ISO date or datetime (e.g. ``2025-06-11``) to inspect
+    a specific civil date. Defaults to today.
     """
     from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
-    from core.practices.practice import Practice
+
+    target = None
+    if at:
+        try:
+            # Date-only strings ("2025-06-11") fail on Python 3.10 fromisoformat.
+            target = datetime.fromisoformat(at) if "T" in at or " " in at else datetime.strptime(at, "%Y-%m-%d")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid 'at' date: {at}") from exc
 
     try:
-        lunar_status = _check_saka_dawa()
-        practices = Practice.get_default_practices()
-        saka_practice = next(
-            (p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()),
-            None,
-        )
-
-        response: dict = {**lunar_status}
-        if saka_practice:
-            response["practice"] = {
-                "id": saka_practice.id,
-                "name": saka_practice.name,
-                "tradition": getattr(saka_practice, "tradition", ""),
-                "description": getattr(saka_practice, "description", ""),
-                "genre": saka_practice.genre,
-                "merit_multiplier": saka_practice.merit_multiplier,
-                "blessing_prompt": saka_practice.base_prompt_template,
-                "preferred_hours": saka_practice.preferred_planetary_hours,
-            }
-        return response
+        return _check_saka_dawa(target)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

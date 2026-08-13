@@ -14,6 +14,8 @@ import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
+import { apiUrl } from '../../utils/api';
+import { useCrystalStore } from '../../stores/crystalStore';
 
 interface Dimensions {
   d1: number;
@@ -58,6 +60,7 @@ interface Props {}
 const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
   const { isPlaying, frequency, updateSettings } = useAudioStore();
+  const broadcastCrystal = useCrystalStore((s) => s.broadcastCrystal);
 
   // Radionics rates D1 - D5
   const [dimensions, setDimensions] = useState<Dimensions>({
@@ -79,6 +82,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [latestSigil, setLatestSigil] = useState<Sigil | null>(null);
   const [sigilIntention, setSigilIntention] = useState<string>('');
   const [isForging, setIsForging] = useState<boolean>(false);
+  const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
   
   // Track populations/targets
   const [populations, setPopulations] = useState<Population[]>([]);
@@ -98,7 +102,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     if (!sigilIntention.trim() || isForging) return;
     setIsForging(true);
     try {
-      const res = await fetch(`/api/v1/sigils/forge`, {
+      const res = await fetch(apiUrl('/sigils/forge'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention: sigilIntention.trim(), kamea: 'saturn' })
@@ -118,14 +122,58 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
 
   const fetchPopulations = async () => {
     try {
-      const res = await fetch(`/api/v1/populations`);
+      const res = await fetch(apiUrl('/populations'));
       if (res.ok) {
-        const data = await res.json();
-        setPopulations(data);
+        const data: unknown = await res.json();
+        const list = Array.isArray(data)
+          ? data
+          : (data && typeof data === 'object' && Array.isArray((data as { items?: unknown }).items)
+            ? (data as { items: Population[] }).items
+            : []);
+        setPopulations(list as Population[]);
       }
     } catch (e) {
       console.error("Failed to fetch populations:", e);
     }
+  };
+
+  const currentRateValues = (): number[] => [
+    Math.round(dimensions.d1),
+    Math.round(dimensions.d2),
+    Math.round(dimensions.d3),
+    Math.round(dimensions.d4),
+    Math.round(dimensions.d5),
+  ];
+
+  const startRateBroadcast = async () => {
+    if (isBroadcasting) return;
+    setIsBroadcasting(true);
+    const targets = populations
+      .filter((p) => p.is_active)
+      .map((p) => String(p.name || p.id));
+    const result = await broadcastCrystal(
+      5 * 60,
+      2,
+      sigilIntention.trim() || 'healing',
+      targets.length ? targets : ['all beings'],
+      currentRateValues(),
+    );
+    if (result) {
+      audioFeedback.playSuccess();
+    } else {
+      audioFeedback.playError();
+      setIsBroadcasting(false);
+    }
+  };
+
+  const stopRateBroadcast = async () => {
+    try {
+      await fetch(apiUrl('/radionics/stop'), { method: 'POST' });
+    } catch {
+      /* local stop still applies */
+    }
+    setIsBroadcasting(false);
+    audioFeedback.playTick();
   };
 
   // Adjust Radionics sliders
@@ -548,17 +596,35 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             </div>
             
             <button
+              type="button"
+              onClick={() => { void startRateBroadcast(); }}
+              disabled={isBroadcasting}
+              className="w-full px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-2 select-none"
+            >
+              <Play className="w-3.5 h-3.5 text-yellow-300" />
+              {isBroadcasting ? 'Broadcasting dials…' : 'Broadcast D1–D5 rates'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { void stopRateBroadcast(); }}
+              disabled={!isBroadcasting}
+              className="w-full px-4 py-2 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-200 rounded-lg text-xs font-bold flex items-center justify-center gap-2"
+            >
+              <Square className="w-3.5 h-3.5" /> Stop broadcast
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 if (latestSigil) {
-                  // Broadcast the sigil intention
-                  fetch(`/api/v1/sigils/broadcast`, {
+                  fetch(apiUrl('/sigils/broadcast'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       intention: latestSigil.intention,
                       sigil_id: latestSigil.id,
                       frequency_hz: frequency,
-                      duration_minutes: 5
+                      duration_minutes: 5,
+                      rate_values: currentRateValues(),
                     })
                   }).then(res => {
                     if (res.ok) {
@@ -566,7 +632,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
                     } else {
                       audioFeedback.playError();
                     }
-                  });
+                  }).catch(() => audioFeedback.playError());
                 }
               }}
               disabled={!latestSigil}

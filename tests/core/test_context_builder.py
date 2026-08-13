@@ -24,6 +24,7 @@ from core.context_builder import (
     build_system_prompt,
     load_rate_database,
     search_rates,
+    unwrap_rate_entries,
 )
 
 # ---------------------------------------------------------------------------
@@ -82,9 +83,27 @@ def test_build_chakra_reference_returns_string():
 
 
 @pytest.mark.unit
+def test_unwrap_rate_entries_reads_rates_key():
+    entries = unwrap_rate_entries(
+        {"rates": [{"name": "Root", "values": [9, 49, 84]}], "meta": "ignore"}
+    )
+    assert len(entries) == 1
+    assert entries[0]["name"] == "Root"
+
+
+@pytest.mark.unit
+def test_unwrap_rate_entries_empty_on_wrong_shape():
+    assert unwrap_rate_entries({"rates": "nope"}) == []
+
+
+@pytest.mark.unit
 def test_load_rate_database_returns_dict():
     db = load_rate_database()
     assert isinstance(db, dict)
+    # Catalog files are {"rates": [...]} — a broken unwrap yields empty lists.
+    assert "chakra_rates" in db
+    assert len(db["chakra_rates"]) >= 7
+    assert any("root" in str(r.get("name", "")).lower() for r in db["chakra_rates"])
 
 
 @pytest.mark.unit
@@ -92,6 +111,8 @@ def test_search_rates_returns_list():
     """search_rates returns a list for any query (possibly empty)."""
     results = search_rates("healing")
     assert isinstance(results, list)
+    assert len(results) > 0
+    assert any("values" in r for r in results)
 
 
 @pytest.mark.unit

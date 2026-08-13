@@ -21,6 +21,7 @@ import type { DefaultOptionType } from 'antd/es/select';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
+import { resolveChatRoute } from '../../utils/chatRoute';
 
 import { useWebSocketStable as useWebSocket, getActiveConnectionId } from '../../hooks/useWebSocketStable';
 import { subscribe } from '../../hooks/chatProgress';
@@ -189,6 +190,9 @@ export default function CommandCenter({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef(false);
+  const jobIdRef = useRef<string | null>(null);
+  const waitRejectRef = useRef<((err: Error) => void) | null>(null);
   const [toolLogs, setToolLogs] = useState([
     {
       timestamp: new Date().toLocaleTimeString(),
@@ -652,14 +656,17 @@ export default function CommandCenter({
 
     const start = Date.now();
     abortRef.current = new AbortController();
+    cancelledRef.current = false;
+    jobIdRef.current = null;
     const connectionId = getActiveConnectionId();
+    const routed = resolveChatRoute(model, availableModelList);
     const chatResponse = await fetch(apiUrl('/llm/chat/async'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: messagesToSend.map(m => ({ role: m.role, content: m.content })),
-        provider: 'auto',
-        model: model === 'auto' ? null : (model || null),
+        provider: routed.provider,
+        model: routed.model,
         include_astrology: astrology,
         astrology_data: astrology ? astroData : null,
         include_anatomy: anatomy,
@@ -674,6 +681,7 @@ export default function CommandCenter({
     }
     const json = await chatResponse.json();
     const jobId: string = json.job_id;
+    jobIdRef.current = jobId;
 
     return await waitForChatJob(jobId);
   }
@@ -686,25 +694,41 @@ export default function CommandCenter({
   }> {
     const start = Date.now();
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const finish = (fn: () => void) => {
+        clearTimeout(timer);
         unsub();
-        reject(new Error('Chat job timed out after 180s'));
+        waitRejectRef.current = null;
+        fn();
+      };
+      const timer = setTimeout(() => {
+        finish(() => reject(new Error('Chat job timed out after 180s')));
       }, 180000);
+      waitRejectRef.current = (err: Error) => {
+        finish(() => reject(err));
+      };
       const unsub = subscribe((jid, evt) => {
         if (jid !== jobId) return;
+        if (cancelledRef.current) return;
+        if (evt.type === 'chat_tool_start' && typeof evt.tool === 'string') {
+          addToolLog('tool', `Calling ${evt.tool}...`, 'pending');
+          return;
+        }
         if (evt.type === 'chat_complete') {
-          clearTimeout(timer);
-          unsub();
-          resolve({
-            response: evt.response ?? '',
-            tool_calls: evt.tool_calls,
-            debug_info: undefined,
+          const debugInfo = evt.debug_info;
+          finish(() => resolve({
+            response: typeof evt.response === 'string' ? evt.response : '',
+            tool_calls: Array.isArray(evt.tool_calls) ? evt.tool_calls as ToolCall[] : undefined,
+            debug_info: debugInfo && typeof debugInfo === 'object' ? debugInfo as DebugInfo : undefined,
             latencyMs: Date.now() - start,
-          });
+          }));
         } else if (evt.type === 'chat_error') {
-          clearTimeout(timer);
-          unsub();
-          reject(new Error(evt.error || 'Chat job failed'));
+          finish(() => reject(new Error(typeof evt.error === 'string' ? evt.error : 'Chat job failed')));
+        } else if (evt.type === 'chat_cancelled') {
+          finish(() => {
+            const err = new Error('cancelled');
+            err.name = 'AbortError';
+            reject(err);
+          });
         }
       });
     });
@@ -729,6 +753,9 @@ export default function CommandCenter({
       addToolLog('llm', 'Analyzing intent and planning operations...', 'pending');
 
       const data = await callChatAPI(newMessages);
+      if (cancelledRef.current) {
+        return;
+      }
       const latencyMs = data.latencyMs;
       if (data.debug_info) {
         setDebugPayload(data.debug_info);
@@ -799,9 +826,20 @@ export default function CommandCenter({
   }
 
   function handleCancelGeneration() {
+    cancelledRef.current = true;
+    const jobId = jobIdRef.current;
+    if (jobId) {
+      void fetch(apiUrl(`/llm/chat/jobs/${jobId}/cancel`), { method: 'POST' });
+    }
     if (abortRef.current) {
       abortRef.current.abort();
       abortRef.current = null;
+    }
+    const rejectWait = waitRejectRef.current;
+    if (rejectWait) {
+      const err = new Error('cancelled');
+      err.name = 'AbortError';
+      rejectWait(err);
     }
     setIsLoading(false);
     addToolLog('system', 'Generation cancelled by user.', 'error');

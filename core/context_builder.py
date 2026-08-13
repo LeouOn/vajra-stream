@@ -148,17 +148,28 @@ def build_chakra_reference() -> str:
 | Crown | Sahasrara | Top of head | Consciousness | Violet | 963 |"""
 
 
+def unwrap_rate_entries(data: Any) -> list[dict]:
+    """Normalize a rate-library JSON payload to a list of rate dicts.
+
+    Catalog files are ``{"rates": [...]}``. Older loaders treated the
+    top-level object as ``{id: rate}`` and dropped every file because
+    the ``rates`` value is a list, not a dict.
+    """
+    if isinstance(data, dict) and isinstance(data.get("rates"), list):
+        return [entry for entry in data["rates"] if isinstance(entry, dict)]
+    if isinstance(data, list):
+        return [entry for entry in data if isinstance(entry, dict)]
+    if isinstance(data, dict):
+        return [{**v, "id": k} for k, v in data.items() if isinstance(v, dict)]
+    return []
+
+
 def load_rate_database() -> dict[str, list[dict]]:
     """Load all radionics rate databases."""
     rates_dir = KNOWLEDGE_DIR / "radionics_rates"
     databases = {}
     for rate_file in rates_dir.glob("*.json"):
-        key = rate_file.stem
-        data = _load_json(rate_file)
-        if isinstance(data, dict):
-            databases[key] = [{**v, "id": k} for k, v in data.items() if isinstance(v, dict)]
-        elif isinstance(data, list):
-            databases[key] = data
+        databases[rate_file.stem] = unwrap_rate_entries(_load_json(rate_file))
     return databases
 
 

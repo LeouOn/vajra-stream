@@ -49,6 +49,7 @@ class CrystalService:
         hardware_level: int = 2,
         prayer_bowl_mode: bool = True,
         amplitude: float = 0.3,
+        blocking: bool = True,
     ) -> dict[str, Any]:
         """Broadcast intention through crystal grid.
 
@@ -77,7 +78,11 @@ class CrystalService:
                 if frequencies:
                     # Use rate-derived frequencies instead of hardcoded defaults
                     broadcaster.generate_custom_frequencies(
-                        frequencies, intention=intention, duration=duration, amplitude=amplitude
+                        frequencies,
+                        intention=intention,
+                        duration=duration,
+                        amplitude=amplitude,
+                        blocking=blocking,
                     )
                 else:
                     broadcaster.generate_amplified_blessing(intention, duration)
@@ -85,7 +90,11 @@ class CrystalService:
                 broadcaster = Level2CrystalBroadcaster(pure_sine=pure_sine)
                 if frequencies:
                     broadcaster.generate_custom_frequencies(
-                        frequencies, intention=intention, duration=duration, amplitude=amplitude
+                        frequencies,
+                        intention=intention,
+                        duration=duration,
+                        amplitude=amplitude,
+                        blocking=blocking,
                     )
                 else:
                     broadcaster.generate_5_channel_blessing(intention, duration)

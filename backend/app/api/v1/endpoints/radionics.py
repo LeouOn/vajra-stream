@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from backend.core.orchestrator_bridge import orchestrator_bridge
+from core.context_builder import unwrap_rate_entries
 from core.integrated_scalar_radionics import IntegratedScalarRadionicsBroadcaster, IntentionType
 from core.schema import get_db_path
 
@@ -1167,8 +1168,9 @@ async def search_rates(query: str = "", category: str | None = None, limit: int 
                             with open(fpath, encoding="utf-8") as f:
                                 data = json.load(f)
                             cat_name = fname.replace(".json", "").replace("_", " ")
-                            if isinstance(data, list):
-                                for entry in data:
+                            entries = unwrap_rate_entries(data)
+                            if entries:
+                                for entry in entries:
                                     name = entry.get("name", entry.get("rate_name", ""))
                                     desc = entry.get("description", entry.get("notes", ""))
                                     values = entry.get("rate", entry.get("values", []))
@@ -1306,3 +1308,12 @@ async def set_audio_mute(request: dict):
     muted = bool(request.get("muted", False))
     set_audio_broadcasts_muted(muted)
     return {"muted": muted, "status": "ok"}
+
+
+@router.post("/stop")
+async def stop_radionics_broadcast():
+    """Stop crystal-grid audio that was started by a non-blocking broadcast."""
+    from hardware.crystal_broadcaster import stop_playback
+
+    stop_playback()
+    return {"status": "stopped"}

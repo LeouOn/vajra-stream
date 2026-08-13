@@ -25,6 +25,20 @@ from core.audio_generator import ScalarWaveGenerator
 from core.enhanced_audio_generator import EnhancedAudioGenerator
 
 
+def stop_playback() -> None:
+    """Stop whatever sounddevice is currently playing (HTTP /radionics/stop)."""
+    if sd is not None:
+        sd.stop()
+
+
+def _play_wave(stereo_wave, sample_rate: int, *, blocking: bool = True) -> None:
+    if sd is None:
+        return
+    sd.play(stereo_wave, samplerate=sample_rate, loop=not blocking)
+    if blocking:
+        sd.wait()
+
+
 class Level2CrystalBroadcaster:
     """
     Software for crystal grid broadcasting
@@ -108,7 +122,9 @@ class Level2CrystalBroadcaster:
             print("Dedication: May all beings benefit from this practice.")
             print(f"{'=' * 60}\n")
 
-    def generate_custom_frequencies(self, frequencies, intention="custom", duration=300, amplitude=0.3):
+    def generate_custom_frequencies(
+        self, frequencies, intention="custom", duration=300, amplitude=0.3, blocking=True
+    ):
         """
         Generate prayer bowl synthesis from a custom frequency list.
 
@@ -121,6 +137,8 @@ class Level2CrystalBroadcaster:
             intention: Intention text for display/logging.
             duration: Duration in seconds.
             amplitude: Peak amplitude (0.15-0.50), from rate potency.
+            blocking: If False, play a looped excerpt and return immediately
+                so the HTTP worker is not held for the full duration.
         """
         print(f"\n{'=' * 60}")
         print("VAJRA.STREAM - Custom Crystal Broadcast")
@@ -133,8 +151,9 @@ class Level2CrystalBroadcaster:
         for i, freq in enumerate(frequencies):
             print(f"  [{i + 1}] {freq:.2f} Hz")
 
-        # Generate time array
-        t = np.linspace(0, duration, int(self.sample_rate * duration))
+        # HTTP path: synthesize a short loopable excerpt instead of N minutes.
+        play_seconds = duration if blocking else min(int(duration), 20)
+        t = np.linspace(0, play_seconds, int(self.sample_rate * play_seconds))
 
         # Create combined wave using prayer bowl synthesis
         wave = np.zeros_like(t)
@@ -143,7 +162,7 @@ class Level2CrystalBroadcaster:
             if self.pure_sine:
                 wave += np.sin(2 * np.pi * freq * t)
             else:
-                prayer_bowl = self.enhanced_gen.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
+                prayer_bowl = self.enhanced_gen.generate_prayer_bowl_tone(freq, play_seconds, pure_sine=False)
                 wave += prayer_bowl
 
         # Normalize to target amplitude
@@ -158,10 +177,9 @@ class Level2CrystalBroadcaster:
         print("\nBroadcasting now... (Ctrl+C to stop)\n")
 
         try:
-            sd.play(stereo_wave, samplerate=self.sample_rate)
-            sd.wait()
+            _play_wave(stereo_wave, self.sample_rate, blocking=blocking)
         except KeyboardInterrupt:
-            sd.stop()
+            stop_playback()
             print("\n\nBroadcast completed.")
             print("Dedication: May all beings benefit from this practice.")
             print(f"{'=' * 60}\n")

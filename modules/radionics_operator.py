@@ -300,43 +300,26 @@ class ToolDispatcher:
                 return loop.get_status()
 
             elif tool_name == "check_saka_dawa":
-                from datetime import datetime
+                from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
 
-                from core.models.practice import Practice
-
-                practices = Practice.get_default_practices()
-                saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
-                if not saka_dawa:
-                    return {"error": "Saka Dawa practice not found"}
-                now = datetime.now()
-                in_window = now.month in (5, 6)
-                return {
-                    "in_saka_dawa_window": in_window,
-                    "current_month": now.month,
-                    "saka_dawa_months": [5, 6],
-                    "practice": {
-                        "id": saka_dawa.id,
-                        "name": saka_dawa.name,
-                        "tradition": saka_dawa.tradition,
-                        "description": saka_dawa.description,
-                        "genre": saka_dawa.genre,
-                        "merit_multiplier": saka_dawa.merit_multiplier,
-                        "blessing_prompt": saka_dawa.base_prompt_template,
-                        "preferred_hours": saka_dawa.preferred_planetary_hours,
-                    },
-                    "message": (
-                        "We ARE in the Saka Dawa holy month — the 4th Tibetan month where merit is multiplied 100,000 times! "
-                        "All compassionate practices are profoundly amplified."
-                        if in_window
-                        else "We are NOT currently in the Saka Dawa window (4th Tibetan month, typically May-June). "
-                        "Consider timing your major practice for that period when merit multiplies 100,000x."
-                    ),
-                    "suggested_action": (
-                        "Perform the Saka Dawa Blessing — generate the epic three-part sutra now while the cosmic multiplier is active!"
-                        if in_window
-                        else "Prepare for Saka Dawa by accumulating preliminary practices and setting your intention."
-                    ),
-                }
+                status = _check_saka_dawa()
+                if status.get("is_duchen"):
+                    suggested = (
+                        "Perform the Saka Dawa Blessing now — Duchen, the full moon "
+                        "of the 4th Tibetan month, multiplies merit 100,000×."
+                    )
+                elif status.get("is_saka_dawa"):
+                    suggested = (
+                        "Perform the Saka Dawa Blessing — the 4th Tibetan month "
+                        f"(from Losar {status.get('losar')}) is active."
+                    )
+                else:
+                    suggested = (
+                        "Prepare for Saka Dawa. Next Duchen is "
+                        f"{status.get('saka_dawa_duchen')} "
+                        f"({status.get('days_until_duchen')} days)."
+                    )
+                return {**status, "suggested_action": suggested}
 
             # ---- Container-required guard ----
             if self._container is None:

@@ -536,47 +536,64 @@ def get_all_windows() -> dict[str, dict[str, Any]]:
     return _timing_instance.get_all_genre_windows()
 
 
-def check_saka_dawa(target_date: datetime = None) -> dict[str, Any]:
-    """
-    Check if a given date falls within the Saka Dawa month (4th Tibetan lunar month).
-    We use the Chinese lunar calendar via lunar_python as a close proxy for the
-    Tibetan lunar calendar. The 15th day (full moon) is Saka Dawa Duchen.
-    """
+def _saka_practice_payload() -> dict[str, Any] | None:
+    """Attach the Saka Dawa sadhana catalog entry when it exists."""
     try:
-        from lunar_python import Lunar, Solar
-    except ImportError:
-        # Fallback if library missing
+        from core.models.practice import Practice
+
+        practices = Practice.get_default_practices()
+        saka = next(
+            (p for p in practices if "saka" in p.name.lower() or "saka" in getattr(p, "id", "").lower()),
+            None,
+        )
+        if saka is None:
+            return None
         return {
-            "is_saka_dawa": False,
-            "multiplier": 1,
-            "current_date": target_date.isoformat() if target_date else datetime.now().isoformat(),
-            "error": "lunar_python not installed",
+            "id": saka.id,
+            "name": saka.name,
+            "tradition": getattr(saka, "tradition", ""),
+            "description": getattr(saka, "description", ""),
+            "genre": saka.genre,
+            "merit_multiplier": saka.merit_multiplier,
+            "blessing_prompt": saka.base_prompt_template,
+            "preferred_hours": getattr(saka, "preferred_planetary_hours", []),
         }
+    except Exception:
+        return None
 
-    dt = target_date or datetime.now()
-    solar = Solar.fromYmd(dt.year, dt.month, dt.day)
-    lunar = Lunar.fromSolar(solar)
 
-    lunar_month = lunar.getMonth()
-    lunar_day = lunar.getDay()
+def check_saka_dawa(target_date: datetime | None = None) -> dict[str, Any]:
+    """Check whether ``target_date`` falls in Saka Dawa (4th Tibetan month).
 
-    # 4th Lunar month is Saga Dawa
-    # Month > 0 handles leap months in lunar calendar logic
-    is_saka_dawa = abs(lunar_month) == 4
-    is_duchen = is_saka_dawa and (lunar_day == 15)
+    Anchored to published Phugpa/CTA Losar dates, not the Chinese lunar
+    month. See ``core.tibetan_calendar``.
+    """
+    from core.tibetan_calendar import saka_dawa_status
 
-    # Merit multiplier rules
-    multiplier = 1
-    if is_duchen:
-        multiplier = 100000
-    elif is_saka_dawa:
-        multiplier = 10000
+    result = saka_dawa_status(target_date)
+    practice = _saka_practice_payload()
+    if practice is not None:
+        result["practice"] = practice
 
-    return {
-        "is_saka_dawa": is_saka_dawa,
-        "multiplier": multiplier,
-        "current_date": dt.isoformat(),
-        "is_duchen": is_duchen,
-        "lunar_month": lunar_month,
-        "lunar_day": lunar_day,
-    }
+    if result.get("is_duchen"):
+        result["message"] = (
+            "Saka Dawa Duchen — full moon of the 4th Tibetan month "
+            "(Losar-anchored). Merit ×100,000."
+        )
+    elif result.get("is_saka_dawa"):
+        result["message"] = (
+            "Saka Dawa holy month is active (4th month after Losar "
+            f"{result.get('losar')}). Duchen {result.get('saka_dawa_duchen')}. "
+            "Merit ×10,000."
+        )
+    elif result.get("saka_dawa_duchen"):
+        days = result.get("days_until_duchen")
+        result["message"] = (
+            f"Not in Saka Dawa. Next Duchen {result.get('saka_dawa_duchen')}"
+            + (f" ({days} days)." if days is not None else ".")
+            + f" Month runs {result.get('saka_dawa_month_start')} to "
+            f"{result.get('saka_dawa_month_end')}."
+        )
+    else:
+        result.setdefault("message", "Saka Dawa date is unavailable for this year.")
+    return result

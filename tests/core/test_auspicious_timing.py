@@ -24,6 +24,7 @@ from core.auspicious_timing import (
     AuspiciousTiming,
     TimingWindow,
     check_auspicious_window,
+    check_saka_dawa,
     get_all_windows,
 )
 
@@ -286,3 +287,22 @@ def test_check_handles_engine_exceptions_gracefully():
     # Engine failure => tithi/nakshatra fall back to "Unknown"
     assert window.tithi == "Unknown"
     assert window.nakshatra == "Unknown"
+
+
+# ---------------------------------------------------------------------------
+# 8. Saka Dawa wrapper (Losar-anchored)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_check_saka_dawa_uses_losar_and_attaches_practice():
+    """check_saka_dawa() is the single payload used by API, WS, and tools."""
+    status = check_saka_dawa(datetime(2025, 6, 11))
+    assert status["is_duchen"] is True
+    assert status["is_saka_dawa"] is True
+    assert status["losar"] == "2025-02-28"
+    assert status["saka_dawa_duchen"] == "2025-06-11"
+    assert "saka_dawa_months" not in status
+    assert "in_saka_dawa_window" not in status
+    assert "message" in status
+    assert status.get("practice", {}).get("name") == "Saka Dawa Blessing"

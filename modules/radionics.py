@@ -142,6 +142,7 @@ class RadionicsService(RadionicsBroadcaster):
                     hardware_level=2,
                     prayer_bowl_mode=True,
                     amplitude=amplitude,
+                    blocking=False,
                 )
             except Exception as e:
                 crystal_result = {"status": "failed", "error": str(e)}

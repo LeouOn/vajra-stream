@@ -1125,27 +1125,10 @@ def get_buddha_recitation_status() -> dict[str, Any]:
 
 
 def check_saka_dawa() -> dict[str, Any]:
-    """Check Saka Dawa holy month status."""
-    from datetime import datetime
+    """Check Saka Dawa holy month status (Losar-anchored 4th Tibetan month)."""
+    from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
 
-    from core.models.practice import Practice
-
-    practices = Practice.get_default_practices()
-    saka = next((p for p in practices if "saka" in p.name.lower()), None)
-    if not saka:
-        return {"error": "Saka Dawa practice not found"}
-    now = datetime.now()
-    in_window = now.month in (5, 6)
-    return {
-        "in_saka_dawa_window": in_window,
-        "practice": {
-            "name": saka.name,
-            "genre": saka.genre,
-            "merit_multiplier": saka.merit_multiplier,
-            "blessing_prompt": saka.base_prompt_template,
-        },
-        "message": "ACTIVE — 100,000x merit!" if in_window else "Not in Saka Dawa window.",
-    }
+    return _check_saka_dawa()
 
 
 def check_auspicious_timing(genre: str = "healing") -> dict[str, Any]:
@@ -1774,45 +1757,41 @@ TOOL_REGISTRY = {
 }
 
 
-ESSENTIAL_TOOL_NAMES: set[str] = {
-    "get_system_status",
-    "list_populations",
-    "create_population",
-    "get_population_statistics",
-    "start_automation",
-    "stop_automation",
-    "get_automation_status",
+# Single ordered allowlist sent to the chat model. TOOL_REGISTRY can still
+# execute other names if a model invents them; they are just not advertised.
+# Keep this list and ``_prioritize_tool_schemas`` in lockstep — there is no
+# second filter.
+ESSENTIAL_TOOL_ORDER: list[str] = [
+    "generate_single_outlook",
+    "generate_prayer",
+    "generate_image",
+    "generate_epic_outlook",
+    "generate_blessing",
+    "generate_teaching",
+    "forge_sigil",
+    "speak_text",
     "cast_tarot_spread",
     "cast_i_ching",
     "cast_geomancy",
-    "forge_sigil",
     "search_grimoire_correspondences",
-    "get_planetary_hours_and_transits",
     "search_knowledge",
     "web_search",
-    "web_fetch",
-    "generate_single_outlook",
-    "generate_epic_outlook",
-    "list_narrative_locations",
-    "list_narrative_characters",
-    "generate_character",
-    "start_character_journey",
-    "advance_journey",
-    "get_journey_status",
-    "generate_blessing",
-    "generate_teaching",
-    "generate_audio",
-    "play_chakra_healing_audio",
-    # Critical tools the "28 essentials" trim omitted — these are core to
-    # the chat experience (image generation, prayers, TTS, timing, updates)
-    "generate_image",
-    "generate_prayer",
-    "speak_text",
     "check_auspicious_timing",
-    "update_population",
-    "get_random_buddha",
     "check_saka_dawa",
-}
+    "get_planetary_hours_and_transits",
+    "get_random_buddha",
+    "create_population",
+    "list_populations",
+    "update_population",
+    "get_population_statistics",
+    "get_system_status",
+    "start_automation",
+    "stop_automation",
+    "get_automation_status",
+    "play_chakra_healing_audio",
+]
+
+ESSENTIAL_TOOL_NAMES: set[str] = set(ESSENTIAL_TOOL_ORDER)
 
 
 def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
@@ -2411,6 +2390,25 @@ def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
                     "context": {"type": "string", "description": "Why you wanted to do it"},
                 },
                 "required": ["agent_id", "intention", "missing_tools", "context"],
+            },
+        },
+        {
+            "name": "speak_text",
+            "description": (
+                "Speak text through the TTS engine. Use after generating a "
+                "blessing, prayer, or teaching so it can be heard."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to speak"},
+                    "voice": {"type": "string", "description": "Optional voice override"},
+                    "role": {
+                        "type": "string",
+                        "description": "Ritual role for voice selection (default dharma_teaching)",
+                    },
+                },
+                "required": ["text"],
             },
         },
         {

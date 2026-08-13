@@ -88,6 +88,7 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'chat_tool_error',
   'chat_complete',
   'chat_error',
+  'chat_cancelled',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');

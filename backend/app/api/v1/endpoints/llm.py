@@ -557,28 +557,9 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
 
         return get_recitation_loop().get_status()
     elif name == "check_saka_dawa":
-        from datetime import datetime as dt
+        from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
 
-        from core.models.practice import Practice
-
-        practices = Practice.get_default_practices()
-        saka_dawa = next((p for p in practices if "saka" in p.name.lower() or "saka" in p.id.lower()), None)
-        if not saka_dawa:
-            return {"error": "Saka Dawa practice not found"}
-        now = dt.now()
-        in_window = now.month in (5, 6)
-        return {
-            "in_saka_dawa_window": in_window,
-            "current_month": now.month,
-            "practice": {
-                "id": saka_dawa.id,
-                "name": saka_dawa.name,
-                "genre": saka_dawa.genre,
-                "merit_multiplier": saka_dawa.merit_multiplier,
-                "blessing_prompt": saka_dawa.base_prompt_template,
-            },
-            "message": "Saka Dawa is ACTIVE — 100,000x merit!" if in_window else "Not in Saka Dawa window.",
-        }
+        return _check_saka_dawa()
     elif name == "check_auspicious_timing":
         from core.auspicious_timing import check_auspicious_window
 
@@ -1099,11 +1080,10 @@ async def _build_system_prompt_with_context(request: ChatRequest) -> str:
         "rather than saying 'Let me survey the populations first.' "
         "Available tools include: list_populations, create_population, update_population, "
         "start_automation, stop_automation, get_system_status, get_automation_status, "
-        "create_rng_session, get_rng_reading, forge_sigil, cast_tarot_spread, cast_i_ching, "
+        "forge_sigil, cast_tarot_spread, cast_i_ching, check_saka_dawa, "
         "play_chakra_healing_audio, generate_single_outlook, generate_epic_outlook, "
-        "generate_blessing, generate_prayer, generate_teaching, "
-        "create_narrative_character, create_narrative_location, "
-        "search_grimoire_correspondences, get_planetary_hours_and_transits, and many more. "
+        "generate_blessing, generate_prayer, generate_teaching, generate_image, speak_text, "
+        "search_grimoire_correspondences, get_planetary_hours_and_transits. "
         "\n\n"
         "KEY CAPABILITIES:\n"
         "- You can CREATE new populations for any group the user mentions "
@@ -1510,49 +1490,15 @@ async def _run_anthropic_tool_loop(
 
 
 def _prioritize_tool_schemas(schemas: list[dict], max_count: int) -> list[dict]:
-    """Return a lean, deduplicated core toolset for the LLM chat.
+    """Return the single chat allowlist, in ESSENTIAL_TOOL_ORDER.
 
-    The registry exposes ~90 tools, many redundant (aliases, niche engines,
-    radionics-specific, overlapping status/search/audio). Sending all of them
-    blows the OpenRouter request size and — worse — a naive positional slice
-    cuts off the actually-important tools (generate_single_outlook,
-    generate_prayer, generate_image). This curated allowlist keeps the
-    compound/high-value tools and drops the redundancy. Radionics-specific
-    tools are intentionally excluded for now and can be re-added as a
-    dedicated set later.
+    ``get_tool_schemas(essential_only=True)`` already filters to the same
+    names. This only restores priority order and applies ``max_count``.
     """
+    from backend.core.llm_agent.tools import ESSENTIAL_TOOL_ORDER
 
-    core_order = [
-        "generate_single_outlook",
-        "generate_prayer",
-        "generate_image",
-        "generate_epic_outlook",
-        "generate_blessing",
-        "generate_teaching",
-        "forge_sigil",
-        "speak_text",
-        "cast_tarot_spread",
-        "cast_i_ching",
-        "cast_geomancy",
-        "search_grimoire_correspondences",
-        "search_knowledge",
-        "web_search",
-        "check_auspicious_timing",
-        "check_saka_dawa",
-        "get_planetary_hours_and_transits",
-        "get_random_buddha",
-        "create_population",
-        "list_populations",
-        "update_population",
-        "get_population_statistics",
-        "get_system_status",
-        "start_automation",
-        "stop_automation",
-        "get_automation_status",
-        "play_chakra_healing_audio",
-    ]
     by_name = {s.get("name"): s for s in schemas}
-    prioritized = [by_name[n] for n in core_order if n in by_name]
+    prioritized = [by_name[n] for n in ESSENTIAL_TOOL_ORDER if n in by_name]
     return prioritized[:max_count]
 
 
@@ -1598,6 +1544,10 @@ async def _chat_via_registry(
         )
 
     from core.llm.models import ToolDefinition
+
+    normalized = _normalize_model_id(request.model)
+    if normalized != request.model:
+        request = request.model_copy(update={"model": normalized})
 
     limited_schemas = _prioritize_tool_schemas(tool_schemas or [], 50)
     tool_defs = [ToolDefinition(**s) for s in limited_schemas]
@@ -1661,6 +1611,21 @@ async def _chat_via_registry(
             all_tool_calls.append({"name": tc.get("name", ""), "arguments": tc.get("arguments", {})})
         all_tool_calls.extend(text_tool_calls)
 
+        # Native function-calling + prose JSON often describe the same call.
+        seen_calls: set[str] = set()
+        deduped_calls: list[dict] = []
+        for tc in all_tool_calls:
+            key = json.dumps(
+                {"name": tc.get("name"), "arguments": tc.get("arguments")},
+                sort_keys=True,
+                default=str,
+            )
+            if key in seen_calls:
+                continue
+            seen_calls.add(key)
+            deduped_calls.append(tc)
+        all_tool_calls = deduped_calls
+
         if not all_tool_calls:
             break
 
@@ -1676,7 +1641,7 @@ async def _chat_via_registry(
             name = _resolve_tool_name(tc_text["name"])
             args = tc_text["arguments"]
             try:
-                result = await execute_tool_locally(name, args)
+                result = await _execute(name, args)
                 tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
                 turn_results.append({"tool": name, "status": "success", "result": result})
                 raw_tool_results.append({"tool": name, "status": "success", "result": result})
@@ -1698,10 +1663,11 @@ async def _chat_via_registry(
             (str(m.content).lower() for m in reversed(request.messages) if m.role == "user"),
             "",
         )
+        already_generated = {"generate_single_outlook", "generate_prayer", "generate_blessing", "generate_epic_outlook"}
         if (
             re.search(r"\b(outlook|blessing|narrative|prayer|sutra|bless|healing story)\b", user_query)
-            and not any(r.get("tool") == "generate_single_outlook" for r in turn_results)
-            and not any(r.get("tool") == "generate_single_outlook" for r in raw_tool_results)
+            and not any(r.get("tool") in already_generated and r.get("status") == "success" for r in turn_results)
+            and not any(r.get("tool") in already_generated and r.get("status") == "success" for r in raw_tool_results)
         ):
             created_pops = [
                 r
@@ -1713,7 +1679,7 @@ async def _chat_via_registry(
             pop_name = created_pops[0]["result"].get("name", "") if created_pops else ""
             custom_context = f"An outlook blessing for {pop_name or 'all beings in need'}. The user said: {user_query}"
             try:
-                outlook_result = await execute_tool_locally(
+                outlook_result = await _execute(
                     "generate_single_outlook",
                     {"genre": "healing", "custom_context": custom_context[:500]},
                 )
@@ -1746,7 +1712,7 @@ async def _chat_via_registry(
             ]
             results_text = "\n".join(
                 f"[Tool: {r['tool']}] {'OK' if r['status'] == 'success' else 'ERROR: ' + r.get('error', '')}\n"
-                f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
+                f"{_summarize_tool_result(r.get('result', r.get('error', '')))}"
                 for r in turn_results
             )
             conversation_messages.append(
@@ -1777,7 +1743,7 @@ async def _chat_via_registry(
         ]
         results_text = "\n".join(
             f"[Tool: {r['tool']}] {'OK' if r['status'] == 'success' else 'ERROR: ' + r.get('error', '')}\n"
-            f"{json.dumps(r.get('result', r.get('error', '')))[:2000]}"
+            f"{_summarize_tool_result(r.get('result', r.get('error', '')))}"
             for r in turn_results
         )
 
@@ -1894,11 +1860,34 @@ async def chat_compat(request: ChatRequest, http_request: Request):
 @router.post("/chat/async")
 async def chat_async(request: ChatRequest, http_request: Request):
     """Asynchronous chat — returns immediately with a job_id, pushes progress via WebSocket."""
-    from backend.app.api.v1.chat_job_manager import create_job
+    from backend.app.api.v1.chat_job_manager import create_job, register_task
 
     job_id = create_job(connection_id=request.connection_id)
-    asyncio.create_task(_run_chat_async(job_id, request, http_request, request.connection_id))
+    task = asyncio.create_task(_run_chat_async(job_id, request, http_request, request.connection_id))
+    register_task(job_id, task)
     return {"status": "accepted", "job_id": job_id}
+
+
+@router.get("/chat/jobs/{job_id}")
+async def chat_job_status(job_id: str):
+    """Poll an async chat job (fallback when the websocket event is missed)."""
+    from backend.app.api.v1.chat_job_manager import get_job, job_public_view
+
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown chat job")
+    return job_public_view(job)
+
+
+@router.post("/chat/jobs/{job_id}/cancel")
+async def chat_job_cancel(job_id: str):
+    """Cancel a running async chat job. Stop in the UI should call this."""
+    from backend.app.api.v1.chat_job_manager import cancel_job, get_job
+
+    if get_job(job_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown chat job")
+    cancel_job(job_id)
+    return {"status": "cancelled", "job_id": job_id}
 
 
 # Backward-compatible name for autonomous_agent.py
@@ -2619,6 +2608,7 @@ async def _run_chat_async(
     """Background task: run the tool loop and push progress via WebSocket."""
     from backend.app.api.v1.chat_job_manager import (
         add_event,
+        is_cancelled,
         update_job,
     )
     from backend.websocket.connection_manager import stable_connection_manager_v2
@@ -2661,6 +2651,9 @@ async def _run_chat_async(
             tool_schemas=get_tool_schemas(),
             tool_executor=_tracking_execute,
         )
+        if is_cancelled(job_id):
+            await _push("chat_cancelled", {})
+            return
         update_job(
             job_id,
             status="completed",
@@ -2669,13 +2662,55 @@ async def _run_chat_async(
         )
         await _push(
             "chat_complete",
-            {"response": response.response, "tool_calls": [t.model_dump() for t in response.tool_calls]},
+            {
+                "response": response.response,
+                "tool_calls": [t.model_dump() for t in response.tool_calls],
+                "debug_info": response.debug_info,
+            },
         )
 
+    except asyncio.CancelledError:
+        update_job(job_id, status="cancelled")
+        await _push("chat_cancelled", {})
+        raise
     except Exception as ex:
+        if is_cancelled(job_id):
+            await _push("chat_cancelled", {})
+            return
         logger.exception("Async chat job %s failed", job_id)
         update_job(job_id, status="error", error=str(ex))
         await _push("chat_error", {"error": str(ex)})
+
+
+_FOLLOWUP_DROP_KEYS = frozenset({"svg", "ai_image", "image_data_url", "image"})
+
+
+def _summarize_tool_result(result: Any, limit: int = 800) -> str:
+    """Compact a tool result for the follow-up LLM turn.
+
+    Divination tools return inline SVG (often >2KB). Stuffing that back into
+    the next prompt makes free models echo JSON/SVG into the chat bubble.
+    """
+    if not isinstance(result, dict):
+        return str(result)[:limit]
+
+    slim: dict[str, Any] = {}
+    for key, value in result.items():
+        if key.lower() in _FOLLOWUP_DROP_KEYS:
+            continue
+        if isinstance(value, str) and (value.lstrip().startswith("<svg") or len(value) > 400):
+            slim[key] = f"<{key} omitted, {len(value)} chars>"
+            continue
+        if isinstance(value, list) and value and isinstance(value[0], dict):
+            slim[key] = [
+                {ik: iv for ik, iv in item.items() if ik.lower() not in _FOLLOWUP_DROP_KEYS}
+                if isinstance(item, dict)
+                else item
+                for item in value[:12]
+            ]
+            continue
+        slim[key] = value
+    return json.dumps(slim, default=str)[:limit]
 
 
 def _safe_serialize(obj: Any) -> Any:
@@ -2689,11 +2724,54 @@ def _safe_serialize(obj: Any) -> Any:
     return str(obj)
 
 
+# Names the ProviderRegistry actually registers. Catalog vendor prefixes
+# (nvidia/, meta/, google/) are OpenRouter slugs, not registry providers.
+_REGISTRY_PROVIDERS = frozenset(
+    {
+        "auto",
+        "openrouter",
+        "lm_studio",
+        "local",
+        "deepseek",
+        "anthropic",
+        "openai",
+        "minimax",
+        "z_ai",
+    }
+)
+
+
+def _normalize_model_id(model: str | None) -> str | None:
+    """Strip launcher prefixes so the provider sees a bare model id."""
+    if not model:
+        return model
+    for prefix in ("lm_studio:", "local:"):
+        if model.startswith(prefix):
+            return model[len(prefix) :]
+    return model
+
+
+def _provider_for_model(provider: str | None, model: str | None) -> str:
+    """Map a chat request onto a registered provider name.
+
+    OpenRouter catalog ids look like ``nvidia/nemotron-…``. Treating the
+    first path segment as the provider used to send an OpenRouter model
+    to a non-existent ``nvidia`` backend (or to ``pick_best``, which can
+    pick LM Studio). Slash-ids go to OpenRouter unless the caller named
+    a real registry provider.
+    """
+    requested = (provider or "auto").strip() or "auto"
+    mid = model or ""
+    if mid.startswith("lm_studio:"):
+        return "lm_studio"
+    if mid.startswith("local:"):
+        return "local"
+    if requested in _REGISTRY_PROVIDERS and requested != "auto":
+        return requested
+    if "/" in mid:
+        return "openrouter"
+    return requested
+
+
 def _resolve_provider_name(request: ChatRequest, http_request: Request) -> str:
-    provider = request.provider or "auto"
-    if provider == "auto" and request.model:
-        if request.model.startswith("lm_studio:"):
-            return "lm_studio"
-        if request.model.startswith("local:"):
-            return "local"
-    return provider
+    return _provider_for_model(request.provider, request.model)

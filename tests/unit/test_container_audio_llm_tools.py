@@ -127,6 +127,10 @@ class TestContainerAudioLLMToolIntegration:
             "when called via the LLM tool kwarg shape "
             "(frequency=, duration=)."
         )
+        with_mode = svc.generate_tone(frequency=528.0, duration=0.05, mode="prayer_bowl")
+        assert isinstance(with_mode, dict), (
+            "generate_tone must accept mode= (RadionicsOperator always passes it)."
+        )
 
     def test_radionics_operator_generate_audio_tool_routes_to_container_audio(self, container: Container) -> None:
         """Smoke-test the actual LLM tool dispatcher path:

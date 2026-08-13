@@ -276,14 +276,34 @@ export interface RecitationStatus {
   last_recited_at: string;
 }
 
+export interface SakaDawaPractice {
+  id?: string;
+  name?: string;
+  tradition?: string;
+  description?: string;
+  genre?: string;
+  merit_multiplier?: number;
+  blessing_prompt?: string;
+  preferred_hours?: string[];
+}
+
 export interface SakaDawaResult {
   is_saka_dawa: boolean;
+  is_duchen?: boolean;
   multiplier: number;
   current_date: string;
-  saka_dawa_month_start?: string;
-  saka_dawa_month_end?: string;
-  saka_dawa_duchen?: string;
-  is_duchen?: boolean;
+  lunar_month?: number | null;
+  lunar_day?: number | null;
+  losar?: string | null;
+  saka_dawa_month_start?: string | null;
+  saka_dawa_month_end?: string | null;
+  saka_dawa_duchen?: string | null;
+  days_until_saka_dawa?: number | null;
+  days_until_duchen?: number | null;
+  calendar?: string;
+  tibetan_year?: number;
+  message?: string;
+  practice?: SakaDawaPractice;
 }
 
 // ---------------------------------------------------------------------------

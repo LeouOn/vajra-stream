@@ -31,6 +31,7 @@ def create_job(connection_id: str | None = None) -> str:
         "result": None,
         "error": None,
         "connection_id": connection_id,
+        "task": None,
     }
     return job_id
 
@@ -39,10 +40,43 @@ def get_job(job_id: str) -> dict[str, Any] | None:
     return _jobs.get(job_id)
 
 
+def job_public_view(job: dict[str, Any]) -> dict[str, Any]:
+    """Strip the live asyncio.Task before returning job state over HTTP."""
+    return {k: v for k, v in job.items() if k != "task"}
+
+
 def update_job(job_id: str, **kwargs: Any) -> None:
     job = _jobs.get(job_id)
     if job:
         job.update(kwargs)
+
+
+def register_task(job_id: str, task: asyncio.Task) -> None:
+    job = _jobs.get(job_id)
+    if job:
+        job["task"] = task
+
+
+def is_cancelled(job_id: str) -> bool:
+    job = _jobs.get(job_id)
+    return bool(job and job.get("status") == "cancelled")
+
+
+def cancel_job(job_id: str) -> bool:
+    """Mark a job cancelled and cancel its asyncio task if still running.
+
+    Returns False if the job id is unknown.
+    """
+    job = _jobs.get(job_id)
+    if job is None:
+        return False
+    if job["status"] in ("completed", "error"):
+        return True
+    job["status"] = "cancelled"
+    task = job.get("task")
+    if isinstance(task, asyncio.Task) and not task.done():
+        task.cancel()
+    return True
 
 
 def add_event(job_id: str, event: dict[str, Any]) -> None:

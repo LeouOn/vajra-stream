@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createLogger } from '../utils/logger';
+import { apiUrl } from '../utils/api';
 
 const log = createLogger('crystalStore');
 
@@ -421,7 +422,7 @@ export const useCrystalStore = create<CrystalState>()(
 
       fetchCrystalGrid: async () => {
         try {
-          const response = await fetch('/api/v1/radionics/crystal/grid');
+          const response = await fetch(apiUrl('/radionics/crystal/grid'));
           if (!response.ok) throw new Error('Failed to fetch crystal grid');
           const data = await response.json();
           return data;
@@ -434,7 +435,7 @@ export const useCrystalStore = create<CrystalState>()(
 
       programCrystal: async (crystalId, intention) => {
         try {
-          const response = await fetch('/api/v1/radionics/crystal/program', {
+          const response = await fetch(apiUrl('/radionics/crystal/program'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ crystal_id: crystalId, intention }),
@@ -468,7 +469,7 @@ export const useCrystalStore = create<CrystalState>()(
           if (rateValues && rateValues.length > 0) {
             body.rate_values = rateValues;
           }
-          const response = await fetch('/api/v1/radionics/broadcast', {
+          const response = await fetch(apiUrl('/radionics/broadcast'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
