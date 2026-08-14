@@ -31,6 +31,8 @@ describe('useRateStore', () => {
       tuningSessionId: null,
       autoTune: false,
       autoTuneConfidence: 0,
+      loadedWorkingId: null,
+      boardRevision: 0,
     });
   });
 
@@ -65,6 +67,18 @@ describe('useRateStore', () => {
       const newRate = { values: [10, 20, 30], name: 'Custom', category: 'test', potency: 0.3 };
       useRateStore.getState().setCurrentRate(newRate);
       expect(useRateStore.getState().currentRate).toEqual(newRate);
+    });
+
+    it('loadWorkingRates writes five dials and bumps the board', () => {
+      useRateStore.getState().loadWorkingRates([12, 44, 70, 33, 81], {
+        name: 'May the waters be clean',
+        working_id: 'wrk_test',
+      });
+      const state = useRateStore.getState();
+      expect(state.currentRate.values).toEqual([12, 44, 70, 33, 81]);
+      expect(state.currentRate.name).toBe('May the waters be clean');
+      expect(state.loadedWorkingId).toBe('wrk_test');
+      expect(state.boardRevision).toBe(1);
     });
 
     it('updateRateValue clamps to 0-100', () => {

@@ -16,6 +16,7 @@ import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
 import { apiUrl } from '../../utils/api';
 import { useCrystalStore } from '../../stores/crystalStore';
+import { useRateStore } from '../../stores/rateStore';
 
 interface Dimensions {
   d1: number;
@@ -61,6 +62,8 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
   const { isPlaying, frequency, updateSettings } = useAudioStore();
   const broadcastCrystal = useCrystalStore((s) => s.broadcastCrystal);
+  const boardRevision = useRateStore((s) => s.boardRevision);
+  const loadedWorkingId = useRateStore((s) => s.loadedWorkingId);
 
   // Radionics rates D1 - D5
   const [dimensions, setDimensions] = useState<Dimensions>({
@@ -97,6 +100,19 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     });
     fetchPopulations();
   }, []);
+
+  useEffect(() => {
+    if (boardRevision < 1) return;
+    const values = useRateStore.getState().currentRate.values;
+    if (values.length < 5) return;
+    setDimensions({
+      d1: values[0],
+      d2: values[1],
+      d3: values[2],
+      d4: values[3],
+      d5: values[4],
+    });
+  }, [boardRevision]);
 
   const forgeUserSigil = async () => {
     if (!sigilIntention.trim() || isForging) return;
@@ -336,6 +352,11 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
               <Sliders className="w-4 h-4 text-cyan-400" />
               DIMENSIONAL RESONANCE AXES
             </h3>
+            {loadedWorkingId && boardRevision > 0 && (
+              <p className="text-[10px] font-mono text-cyan-300/80" data-testid="board-from-working">
+                Loaded from {loadedWorkingId}
+              </p>
+            )}
             
             {/* Dials */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 place-items-center">

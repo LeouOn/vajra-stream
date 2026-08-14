@@ -13,7 +13,7 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 
-type PaletteName = 'compassion' | 'wisdom' | 'peace' | 'awakening' | 'emptiness' | 'earth' | 'transcendence' | 'rainbow-body';
+export type PaletteName = 'compassion' | 'wisdom' | 'peace' | 'awakening' | 'emptiness' | 'earth' | 'transcendence' | 'rainbow-body';
 
 interface Props {
   audioSpectrum?: number[];

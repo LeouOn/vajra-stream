@@ -60,6 +60,7 @@ describe('Working folio widget', () => {
       );
     });
     expect(container.querySelector('[data-testid="working-folio"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="working-instrument"]')).not.toBeNull();
     expect(container.textContent).toContain('12 · 44 · 70 · 33 · 81');
     expect(container.textContent).toContain('May the waters be clean');
     root.unmount();

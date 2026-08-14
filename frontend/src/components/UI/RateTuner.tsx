@@ -4,7 +4,7 @@
  * broadcasting, and live analysis feedback.
  * @component
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Sliders, Save, RotateCcw, Search, Star, Play, Square, Zap, ChevronDown, X, Bookmark } from 'lucide-react';
 import { Card, Tag, Button } from 'antd';
 import RateDial from './RateDial';
@@ -25,7 +25,7 @@ import {
 import { rateToDharma } from '../../lib/rateDharma';
 import { useCrystalStore } from '../../stores/crystalStore';
 
-const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
+const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700', '#f472b6', '#22d3ee'];
 
 interface RateTunerProps {
   className?: string;
@@ -56,6 +56,12 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [showSaved, setShowSaved] = useState<boolean>(false);
   const [numDials, setNumDials] = useState<number>(currentRate.values.length);
+  const boardRevision = useRateStore((s) => s.boardRevision);
+  const loadedWorkingId = useRateStore((s) => s.loadedWorkingId);
+
+  useEffect(() => {
+    setNumDials(currentRate.values.length);
+  }, [currentRate.values.length, boardRevision]);
   
   const handleValueChange = useCallback((index: number, value: number): void => {
     updateRateValue(index, value);
@@ -196,7 +202,12 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
       </div>
       
       {/* Dials - Responsive Grid */}
-      <div className="grid grid-cols-3 gap-3 justify-items-center">
+      {loadedWorkingId && boardRevision > 0 && (
+        <p className="text-[10px] font-mono text-cyan-300/80" data-testid="tuner-from-working">
+          Loaded from {loadedWorkingId}
+        </p>
+      )}
+      <div className={`grid gap-3 justify-items-center ${numDials >= 5 ? 'grid-cols-5' : 'grid-cols-3'}`}>
         {currentRate.values.slice(0, numDials).map((value, index) => (
           <RateDial
             key={index}

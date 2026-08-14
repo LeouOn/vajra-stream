@@ -11,6 +11,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { apiUrl } from '../../utils/api';
+import WorkingInstrument, { WitnessPlate } from './WorkingInstrument';
 
 // ---------------------------------------------------------------------------
 // Divination payload types
@@ -139,6 +140,9 @@ export interface ToolCall {
     };
     spoken?: { status?: string; error?: string; audio_path?: string };
     video?: { status?: string; error?: string; task_id?: string };
+    source?: string;
+    chart_name?: string;
+    hour_stamp?: { planetary_hour?: string | null; moon_phase?: string | null };
   } | null;
 }
 
@@ -260,6 +264,7 @@ export function WorkingFolioCard({
       </div>
       <p className="text-sm text-white leading-relaxed">{folio.intention}</p>
       <p className="text-xs text-amber-200/80">For {folio.target || 'all beings'}</p>
+      <WorkingInstrument folio={folio} />
       <div className="grid grid-cols-2 gap-2 text-[11px]">
         <div className="rounded-lg bg-amber-950/40 border border-amber-500/20 px-2 py-1.5">
           <div className="text-amber-400/70 uppercase tracking-wider text-[9px]">Dials</div>
@@ -277,16 +282,18 @@ export function WorkingFolioCard({
         <p className="text-[10px] font-mono text-amber-400/80">Broadcast: {folio.broadcast.status}</p>
       )}
       {witnessUrl && (
-        <img
-          src={witnessUrl}
-          alt="Manifestation image"
-          className="w-full max-h-64 object-contain rounded-lg border border-amber-500/20 cursor-zoom-in"
-          onClick={() => onZoomItemClick?.({
-            type: 'image',
-            title: folio.intention || 'Manifestation',
-            image_data_url: witnessUrl,
-          })}
-        />
+        <WitnessPlate label="Manifestation still">
+          <img
+            src={witnessUrl}
+            alt="Manifestation image"
+            className="w-full max-h-64 object-contain rounded-lg cursor-zoom-in"
+            onClick={() => onZoomItemClick?.({
+              type: 'image',
+              title: folio.intention || 'Manifestation',
+              image_data_url: witnessUrl,
+            })}
+          />
+        </WitnessPlate>
       )}
       {folio.witness?.error && (
         <p className="text-[11px] text-red-300">{folio.witness.error}</p>
@@ -596,25 +603,27 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
                   )}
                 </div>
               </div>
-              <div
-                onClick={() => onZoomItemClick && onZoomItemClick({
-                  type: 'image',
-                  title: img.revised_prompt || 'Generated Image',
-                  image_data_url: img.image_data_url,
-                  model: img.model,
-                  cost_usd: img.cost_usd,
-                  provider_used: img.provider_used,
-                  cached: img.cached,
-                  revised_prompt: img.revised_prompt,
-                })}
-                className="cursor-zoom-in rounded-lg overflow-hidden border border-white/5 hover:border-pink-400/60 hover:scale-[1.01] transition-all duration-300"
-              >
-                <img
-                  src={img.image_data_url}
-                  alt={img.revised_prompt || 'Generated image'}
-                  className="w-full max-h-[400px] object-contain bg-gray-950"
-                />
-              </div>
+              <WitnessPlate label="Generated still">
+                <div
+                  onClick={() => onZoomItemClick && onZoomItemClick({
+                    type: 'image',
+                    title: img.revised_prompt || 'Generated Image',
+                    image_data_url: img.image_data_url,
+                    model: img.model,
+                    cost_usd: img.cost_usd,
+                    provider_used: img.provider_used,
+                    cached: img.cached,
+                    revised_prompt: img.revised_prompt,
+                  })}
+                  className="cursor-zoom-in rounded-lg overflow-hidden hover:scale-[1.01] transition-all duration-300"
+                >
+                  <img
+                    src={img.image_data_url}
+                    alt={img.revised_prompt || 'Generated image'}
+                    className="w-full max-h-[400px] object-contain bg-gray-950"
+                  />
+                </div>
+              </WitnessPlate>
               {img.revised_prompt && (
                 <div className="text-[11px] text-gray-400 italic border-l-2 border-pink-500/40 pl-2">
                   "{img.revised_prompt}"

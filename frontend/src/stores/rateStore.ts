@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { RatePreset } from '../types';
 import { createLogger } from '../utils/logger';
+import { apiUrl } from '../utils/api';
 
 const log = createLogger('rateStore');
 
@@ -78,8 +79,16 @@ export interface RateState {
   autoTune: boolean;
   autoTuneConfidence: number;
 
+  // Last folio loaded onto the broadcast / tuner board
+  loadedWorkingId: string | null;
+  boardRevision: number;
+
   // Rate mutations
   setCurrentRate: (rate: Rate) => void;
+  loadWorkingRates: (
+    values: number[],
+    meta?: { name?: string; working_id?: string },
+  ) => void;
   updateRateValue: (index: number, value: number) => void;
   setRateName: (name: string) => void;
   setRateCategory: (category: string) => void;
@@ -172,6 +181,9 @@ export const useRateStore = create<RateState>()(
       // Last error from async backend operations (consumed by UI)
       error: null,
 
+      loadedWorkingId: null,
+      boardRevision: 0,
+
       // Real-time tuning
       isTuning: false,
       tuningSessionId: null,
@@ -183,6 +195,25 @@ export const useRateStore = create<RateState>()(
       // Actions
       setCurrentRate: (rate) => {
         set({ currentRate: rate });
+      },
+
+      loadWorkingRates: (values, meta) => {
+        const nextValues = values
+          .slice(0, 5)
+          .map((v) => Math.max(0, Math.min(100, Math.round(Number(v) || 0))));
+        if (nextValues.length < 2) return;
+        const rate: Rate = {
+          values: nextValues,
+          name: meta?.name || 'Working',
+          category: 'working',
+          description: meta?.working_id || '',
+        };
+        set((state) => ({
+          currentRate: rate,
+          loadedWorkingId: meta?.working_id || null,
+          boardRevision: state.boardRevision + 1,
+        }));
+        get().addToHistory(rate, meta?.working_id || null);
       },
 
       updateRateValue: (index, value) => {
@@ -408,8 +439,8 @@ export const useRateStore = create<RateState>()(
       fetchRatesFromBackend: async (query = '') => {
         try {
           const url = query
-            ? `/api/v1/radionics/rates/search?query=${encodeURIComponent(query)}`
-            : '/api/v1/radionics/rates/categories';
+            ? apiUrl(`/radionics/rates/search?query=${encodeURIComponent(query)}`)
+            : apiUrl('/radionics/rates/categories');
           const response = await fetch(url);
           if (!response.ok) throw new Error('Failed to fetch rates');
           const data = await response.json();
@@ -423,7 +454,7 @@ export const useRateStore = create<RateState>()(
 
       getRateCategories: async () => {
         try {
-          const response = await fetch('/api/v1/radionics/rates/categories');
+          const response = await fetch(apiUrl('/radionics/rates/categories'));
           if (!response.ok) throw new Error('Failed to fetch categories');
           const data = await response.json();
           if (data.categories) {
