@@ -114,13 +114,15 @@ class PopulationManager:
     - Export/import for backup
     """
 
-    def __init__(self, storage_path: str | None = None):
+    def __init__(self, storage_path: str | None = None, *, seed: bool = True):
         """
         Initialize population manager
 
         Args:
             storage_path: Path to JSON storage file
                          Default: ~/.vajra-stream/populations.json
+            seed: Load knowledge-base blessing targets when the store is empty.
+                  Tests pass seed=False so they start from a blank ledger.
         """
         if storage_path is None:
             home = Path.home()
@@ -131,7 +133,7 @@ class PopulationManager:
         self.storage_path = storage_path
         self.populations: dict[str, TargetPopulation] = {}
         self._load()
-        if not self.populations:
+        if seed and not self.populations:
             self._seed_knowledge_populations()
 
     def _load(self):

@@ -576,10 +576,7 @@ def check_saka_dawa(target_date: datetime | None = None) -> dict[str, Any]:
         result["practice"] = practice
 
     if result.get("is_duchen"):
-        result["message"] = (
-            "Saka Dawa Duchen — full moon of the 4th Tibetan month "
-            "(Losar-anchored). Merit ×100,000."
-        )
+        result["message"] = "Saka Dawa Duchen — full moon of the 4th Tibetan month " "(Losar-anchored). Merit ×100,000."
     elif result.get("is_saka_dawa"):
         result["message"] = (
             "Saka Dawa holy month is active (4th month after Losar "

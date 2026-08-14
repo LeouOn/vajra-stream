@@ -188,7 +188,7 @@ class TestPopulationManager:
         """Use temporary storage for populations"""
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_file = os.path.join(tmpdir, "populations.json")
-            manager = PopulationManager(storage_path=storage_file)
+            manager = PopulationManager(storage_path=storage_file, seed=False)
             yield manager
 
     def test_population_creation(self, temp_storage):
@@ -326,7 +326,7 @@ class TestBlessingScheduler:
         """Create manager with test populations"""
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_file = os.path.join(tmpdir, "populations.json")
-            manager = PopulationManager(storage_path=storage_file)
+            manager = PopulationManager(storage_path=storage_file, seed=False)
 
             # Create test populations
             for i in range(3):
@@ -508,7 +508,7 @@ class TestIntegration:
         # Setup
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_file = os.path.join(tmpdir, "populations.json")
-            manager = PopulationManager(storage_path=storage_file)
+            manager = PopulationManager(storage_path=storage_file, seed=False)
 
             # Create populations
             for i in range(2):
@@ -553,7 +553,7 @@ class TestIntegration:
         # Setup all services
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_file = os.path.join(tmpdir, "populations.json")
-            manager = PopulationManager(storage_path=storage_file)
+            manager = PopulationManager(storage_path=storage_file, seed=False)
             scheduler = BlessingScheduler()
             scheduler.population_manager = manager
 
@@ -634,7 +634,7 @@ class TestEndToEndWorkflows:
 
             # Create storage
             storage_file = os.path.join(tmpdir, "populations.json")
-            manager = PopulationManager(storage_path=storage_file)
+            manager = PopulationManager(storage_path=storage_file, seed=False)
 
             yield {"photo_dir": photo_dir, "manager": manager, "tmpdir": tmpdir}
 

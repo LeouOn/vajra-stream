@@ -97,9 +97,7 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
     prompt = folio.get("image_prompt") or _image_prompt(
         str(folio.get("intention") or ""),
         str(folio.get("target") or "all beings"),
-        (folio.get("saka_dawa") or {}).get("saka_dawa_duchen")
-        if isinstance(folio.get("saka_dawa"), dict)
-        else None,
+        (folio.get("saka_dawa") or {}).get("saka_dawa_duchen") if isinstance(folio.get("saka_dawa"), dict) else None,
     )
     try:
         from backend.core.llm_agent.tools import generate_image
@@ -211,9 +209,7 @@ def run_working(
 
     saka = check_saka_dawa()
     timing = check_auspicious_window("healing")
-    rate = SignatureCalculator().text_to_rate(
-        f"{intention} :: {target}", num_dials=5, algorithm="mixed"
-    )
+    rate = SignatureCalculator().text_to_rate(f"{intention} :: {target}", num_dials=5, algorithm="mixed")
     values = [int(v) for v in rate.values]
     carriers = map_rate_to_carriers(values)
     library = search_rates(intention)[:3]
@@ -232,8 +228,7 @@ def run_working(
         "solfeggio_names": list(carriers.solfeggio_names),
         "amplitude": carriers.amplitude,
         "library_hits": [
-            {"name": hit.get("name"), "values": hit.get("values"), "category": hit.get("category")}
-            for hit in library
+            {"name": hit.get("name"), "values": hit.get("values"), "category": hit.get("category")} for hit in library
         ],
         "saka_dawa": {
             "is_saka_dawa": saka.get("is_saka_dawa"),

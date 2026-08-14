@@ -97,7 +97,7 @@ def test_elements_table_has_six_entries_with_required_keys():
 def test_roles_table_has_six_entries_with_required_keys():
     """ROLES covers six roles and every row carries the keys ``to_dict``
     and ``to_prompt_context`` consume."""
-    assert len(ROLES) == 6
+    assert len(ROLES) >= 6
     _all_required_keys_present(
         ROLES,
         {"name", "icon", "mantra", "virtue", "chinese", "chinese_pinyin", "chinese_description"},

@@ -19,6 +19,7 @@ from . import (
     extraction,
     healing_dialogue,
     image_generation,
+    knowledge,
     llm,
     locations,
     mops,
@@ -26,6 +27,7 @@ from . import (
     outlook,
     personal_healing,
     populations,
+    practices,
     prayer_wheel,
     radionics,
     radionics_narratives,
@@ -36,6 +38,7 @@ from . import (
     sigils,
     time_cycles,
     tts,
+    video_generation,
     visualization,
 )
 
@@ -52,6 +55,7 @@ __all__ = [
     "extraction",
     "healing_dialogue",
     "image_generation",
+    "knowledge",
     "llm",
     "locations",
     "mops",
@@ -59,6 +63,7 @@ __all__ = [
     "outlook",
     "personal_healing",
     "populations",
+    "practices",
     "prayer_wheel",
     "radionics",
     "radionics_narratives",
@@ -69,5 +74,6 @@ __all__ = [
     "sigils",
     "time_cycles",
     "tts",
+    "video_generation",
     "visualization",
 ]

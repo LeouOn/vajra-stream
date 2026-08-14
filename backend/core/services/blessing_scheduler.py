@@ -261,8 +261,15 @@ class BlessingScheduler:
                 pop_session.rng_session_id = rng_id
                 session.current_rng_id = rng_id
 
-            # Convert intentions
-            intentions = [IntentionType(i) for i in population.intentions]
+            # Knowledge-base targets store free-text prayers; enum keys are optional.
+            intentions: list[IntentionType] = []
+            for raw in population.intentions:
+                try:
+                    intentions.append(IntentionType(raw))
+                except ValueError:
+                    continue
+            if not intentions:
+                intentions = [IntentionType.COMPASSION]
 
             # Create intention set
             intention_set = IntentionSet(

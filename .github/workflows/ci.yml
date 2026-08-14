@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -45,7 +45,29 @@ jobs:
       - name: Run tests
         # tests/e2e/ requires running services (LM Studio, PostgreSQL, etc.)
         # and is excluded from CI. Developers can run them locally with
-        # 'pytest tests/e2e/ -m \"not slow\"'.
-        # Verbose + --tb=short so any collection/test error is visible in
-        # the GitHub Actions log instead of just exit code 2.
-        run: pytest tests/ -m "not slow" --ignore=tests/e2e --tb=short -v --cov --cov-report=term-missing 2>&1 | tail -200
+        # 'pytest tests/e2e/ -m "not slow"'.
+        # pipefail so a pytest failure is not hidden by tail's exit 0.
+        run: |
+          set -o pipefail
+          pytest tests/ -m "not slow" --ignore=tests/e2e --tb=short -v --cov --cov-report=term-missing 2>&1 | tail -n 200
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Frontend unit tests
+        run: npm test

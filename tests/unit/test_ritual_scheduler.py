@@ -62,9 +62,9 @@ def test_is_timing_good_enough_returns_true_when_current_hour_matches_favorable_
     is a favorable one for at least one genre."""
     # Sun is in favorable set for: victory, protection, wisdom-neutrals
     for quality in ["excellent", "good", "challenging", "transmutative"]:
-        assert scheduler._is_timing_good_enough("Sun", quality) is True, (
-            f"Sun hour should always pass for quality={quality!r}"
-        )
+        assert (
+            scheduler._is_timing_good_enough("Sun", quality) is True
+        ), f"Sun hour should always pass for quality={quality!r}"
 
 
 def test_is_timing_good_enough_respects_threshold(scheduler: RitualScheduler):
@@ -72,9 +72,9 @@ def test_is_timing_good_enough_respects_threshold(scheduler: RitualScheduler):
     lowest threshold should fail — the method must actually filter."""
     # Empty string matches no genre's favorable/neutral/unfavorable set
     # (every list is a list of proper names, never includes "").
-    assert scheduler._is_timing_good_enough("", "transmutative") is False, (
-        "empty hour with lowest threshold should still fail"
-    )
+    assert (
+        scheduler._is_timing_good_enough("", "transmutative") is False
+    ), "empty hour with lowest threshold should still fail"
 
 
 # --- _get_upcoming_schedule ---

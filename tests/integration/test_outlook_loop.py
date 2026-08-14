@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -74,8 +74,11 @@ def test_outlook_request_parameters(client):
 
 
 def test_loop_start_parameters(client):
-    with patch("container.container.outlook.start_broadcast_loop") as mock_start_loop:
-        mock_start_loop.return_value = True
+    with patch(
+        "backend.app.api.v1.endpoints.outlook.start_background_generation",
+        new_callable=AsyncMock,
+    ) as mock_start:
+        mock_start.return_value = {"status": "started", "stats": {}}
 
         response = client.post(
             "/api/v1/outlook/loop/start",
@@ -95,28 +98,18 @@ def test_loop_start_parameters(client):
         )
 
         assert response.status_code == 200
-        mock_start_loop.assert_called_once_with(
-            interval_minutes=10,
-            lat=34.0522,
-            lon=-118.2437,
-            languages=["Tibetan"],
-            genre="dharani",
-            custom_context=None,
-            realm_id=None,
-            population_ids=None,
-            character_ids=None,
-            excluded_forces=None,
-            include_dialogue=False,
-            loop_mode="sequential_delay",
-            model="loop-model-xyz",
-            include_astrology=False,
-            include_tarot=False,
-            include_iching=False,
-            include_geomancy=True,
-            cycle_genres=False,
-            randomize_realm=True,
-            randomize_characters=True,
-        )
+        mock_start.assert_called_once()
+        cfg = mock_start.call_args.args[0]
+        assert cfg.interval_minutes == 10
+        assert cfg.lat == 34.0522
+        assert cfg.lon == -118.2437
+        assert cfg.languages == ["Tibetan"]
+        assert cfg.genre == "dharani"
+        assert cfg.model == "loop-model-xyz"
+        assert cfg.include_astrology is False
+        assert cfg.include_tarot is False
+        assert cfg.include_iching is False
+        assert cfg.include_geomancy is True
 
 
 def test_randomization_logic_in_generator(fresh_outlook_service):

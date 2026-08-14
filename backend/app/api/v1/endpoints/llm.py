@@ -1677,10 +1677,9 @@ async def _chat_via_registry(
             "",
         )
         already_generated = {"generate_single_outlook", "generate_prayer", "generate_blessing", "generate_epic_outlook"}
-        if (
-            re.search(r"\b(working|radionic|attune|broadcast a rate|begin a working|charge this)\b", user_query)
-            and not any(r.get("tool") == "run_working" and r.get("status") == "success" for r in raw_tool_results)
-        ):
+        if re.search(
+            r"\b(working|radionic|attune|broadcast a rate|begin a working|charge this)\b", user_query
+        ) and not any(r.get("tool") == "run_working" and r.get("status") == "success" for r in raw_tool_results):
             try:
                 working_result = await _execute(
                     "run_working",
@@ -2114,6 +2113,161 @@ async def get_providers_health(request: Request) -> dict:
         "healthy_count": sum(1 for s in statuses if s.healthy),
         "total_count": len(statuses),
     }
+
+
+PROVIDER_CATALOG: dict[str, dict[str, Any]] = {
+    "openai": {"label": "OpenAI", "requires_api_key": True, "default_priority": 50},
+    "anthropic": {"label": "Anthropic", "requires_api_key": True, "default_priority": 60},
+    "openrouter": {"label": "OpenRouter", "requires_api_key": True, "default_priority": 90},
+    "deepseek": {"label": "DeepSeek", "requires_api_key": True, "default_priority": 70},
+    "z_ai": {"label": "Z.AI", "requires_api_key": True, "default_priority": 65},
+    "minimax": {"label": "MiniMax", "requires_api_key": True, "default_priority": 40},
+    "lm_studio": {"label": "LM Studio", "requires_api_key": False, "default_priority": 80},
+    "local_gguf": {"label": "Local GGUF", "requires_api_key": False, "default_priority": 30},
+}
+
+
+class ProviderRegisterRequest(BaseModel):
+    provider: str
+    api_key: str | None = None
+    base_url: str | None = None
+    priority: int | None = None
+
+
+class ProviderTestRequest(BaseModel):
+    provider: str
+    api_key: str | None = None
+    base_url: str | None = None
+
+
+class ProviderUnregisterRequest(BaseModel):
+    provider: str
+
+
+def _provider_factory(name: str):
+    from core.llm.providers import (
+        AnthropicProvider,
+        DeepSeekProvider,
+        LMStudioProvider,
+        LocalGGUFProvider,
+        MinimaxProvider,
+        OpenAIProvider,
+        OpenRouterProvider,
+        ZAIProvider,
+    )
+
+    return {
+        "openai": OpenAIProvider,
+        "anthropic": AnthropicProvider,
+        "openrouter": OpenRouterProvider,
+        "deepseek": DeepSeekProvider,
+        "z_ai": ZAIProvider,
+        "minimax": MinimaxProvider,
+        "lm_studio": LMStudioProvider,
+        "local_gguf": LocalGGUFProvider,
+    }[name]
+
+
+@router.get("/providers/available")
+async def providers_available() -> dict:
+    """Return the static catalog of providers the UI can register."""
+    return {"providers": PROVIDER_CATALOG}
+
+
+@router.post("/providers/discover")
+async def providers_discover() -> dict:
+    """Probe local LM Studio and report discovered vs unreachable endpoints."""
+    entry: dict[str, Any] = {
+        "name": "lm_studio",
+        "base_url": "http://localhost:1234/v1",
+        "reachable": False,
+        "models": [],
+        "error": None,
+    }
+    discovered: list[dict[str, Any]] = []
+    unreachable: list[dict[str, Any]] = []
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=1.5) as client:
+            resp = await client.get("http://localhost:1234/v1/models")
+        if resp.status_code == 200:
+            payload = resp.json()
+            models = payload.get("data", []) if isinstance(payload, dict) else []
+            entry["reachable"] = True
+            entry["models"] = [m.get("id") for m in models if isinstance(m, dict)]
+            discovered.append(entry)
+        else:
+            entry["error"] = f"HTTP {resp.status_code}"
+            unreachable.append(entry)
+    except Exception as exc:
+        entry["error"] = str(exc)[:200]
+        unreachable.append(entry)
+    return {"discovered": discovered, "unreachable": unreachable}
+
+
+@router.post("/providers/test")
+async def providers_test(req: ProviderTestRequest) -> dict:
+    if req.provider not in PROVIDER_CATALOG:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{req.provider} is not a supported provider. Supported: {sorted(PROVIDER_CATALOG)}",
+        )
+    try:
+        factory = _provider_factory(req.provider)
+        kwargs: dict[str, Any] = {}
+        if req.api_key:
+            kwargs["api_key"] = req.api_key
+        if req.base_url:
+            kwargs["base_url"] = req.base_url
+        provider = factory(**kwargs)
+        status = await provider.health_check()
+        return {
+            "reachable": bool(status.healthy),
+            "provider": req.provider,
+            "error": None if status.healthy else getattr(status, "message", None) or getattr(status, "error", None),
+        }
+    except Exception as exc:
+        return {"reachable": False, "provider": req.provider, "error": str(exc)[:200]}
+
+
+@router.post("/providers/register")
+async def providers_register(req: ProviderRegisterRequest, request: Request) -> dict:
+    if req.provider not in PROVIDER_CATALOG:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{req.provider} is not a supported provider. Supported: {sorted(PROVIDER_CATALOG)}",
+        )
+    meta = PROVIDER_CATALOG[req.provider]
+    if meta["requires_api_key"] and not req.api_key:
+        raise HTTPException(status_code=400, detail="API key is required for this provider")
+    registry = getattr(request.app.state, "llm_registry", None)
+    if registry is None:
+        raise HTTPException(status_code=503, detail="LLM registry not initialized")
+    if any(p.name == req.provider for p in registry.providers):
+        raise HTTPException(status_code=409, detail=f"{req.provider} is already registered")
+    factory = _provider_factory(req.provider)
+    kwargs: dict[str, Any] = {}
+    if req.api_key:
+        kwargs["api_key"] = req.api_key
+    if req.base_url:
+        kwargs["base_url"] = req.base_url
+    if req.priority is not None:
+        kwargs["priority"] = req.priority
+    provider = factory(**kwargs)
+    registry.register(provider)
+    return {"registered": req.provider, "priority": provider.priority}
+
+
+@router.post("/providers/unregister")
+async def providers_unregister(req: ProviderUnregisterRequest, request: Request) -> dict:
+    registry = getattr(request.app.state, "llm_registry", None)
+    if registry is None:
+        raise HTTPException(status_code=503, detail="LLM registry not initialized")
+    if not any(p.name == req.provider for p in registry.providers):
+        raise HTTPException(status_code=404, detail=f"{req.provider} is not registered")
+    registry.unregister(req.provider)
+    return {"unregistered": req.provider}
 
 
 # ============================ Model Discovery & Management ============================
@@ -2750,11 +2904,11 @@ def _summarize_tool_result(result: Any, limit: int = 800) -> str:
 
 def _safe_serialize(obj: Any) -> Any:
     """Serialize tool result for JSON transport."""
-    if isinstance(obj, (str, int, float, bool, type(None))):
+    if isinstance(obj, str | int | float | bool | type(None)):
         return obj
     if isinstance(obj, dict):
         return {k: _safe_serialize(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, list | tuple):
         return [_safe_serialize(v) for v in obj]
     return str(obj)
 

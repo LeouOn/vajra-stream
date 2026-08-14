@@ -181,9 +181,7 @@ def saka_dawa_status(target: datetime | date | None = None) -> dict[str, Any]:
     """Return Saka Dawa status for ``target`` (default: today, local date)."""
     day = _as_date(target)
     iso_now = (
-        target.isoformat()
-        if isinstance(target, datetime)
-        else datetime.combine(day, datetime.min.time()).isoformat()
+        target.isoformat() if isinstance(target, datetime) else datetime.combine(day, datetime.min.time()).isoformat()
     )
 
     tib_year = tibetan_year_for(day)

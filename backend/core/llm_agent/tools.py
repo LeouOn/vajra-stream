@@ -19,7 +19,6 @@ class APIClient:
     """Client for making requests to Vajra Stream API"""
 
     def __init__(self, base_url: str | None = None):
-
         if base_url is None:
             port = os.environ.get("PORT", "8008")
             base_url = f"http://localhost:{port}"

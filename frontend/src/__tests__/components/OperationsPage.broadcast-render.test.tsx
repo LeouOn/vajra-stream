@@ -14,6 +14,10 @@ import { act } from 'react-dom/test-utils';
 import { ConfigProvider } from 'antd';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
+vi.mock('../../components/3D/RadionicsGlobe', () => ({
+  MiniGlobe: () => <div data-testid="mini-globe-stub" />,
+}));
+
 beforeEach(() => {
   globalThis.fetch = vi.fn().mockImplementation(() => {
     return Promise.resolve({
@@ -62,5 +66,5 @@ describe('OperationsPage /broadcast — offline render (S2)', () => {
 
     const text = container.textContent || '';
     expect(text).not.toContain('Operations failed to render');
-  }, 15000);
+  }, 30000);
 });

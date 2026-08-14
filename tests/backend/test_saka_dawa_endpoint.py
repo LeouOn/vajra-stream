@@ -35,12 +35,12 @@ def test_saka_dawa_endpoint_returns_lunar_fields_not_hardcoded_months(client):
     assert "losar" in body
     assert "saka_dawa_duchen" in body
 
-    assert "saka_dawa_months" not in body, (
-        f"OLD KEY 'saka_dawa_months' found in response — endpoint still hardcoded: {body.get('saka_dawa_months')}"
-    )
-    assert "in_saka_dawa_window" not in body, (
-        "OLD KEY 'in_saka_dawa_window' found in response — endpoint still hardcoded"
-    )
+    assert (
+        "saka_dawa_months" not in body
+    ), f"OLD KEY 'saka_dawa_months' found in response — endpoint still hardcoded: {body.get('saka_dawa_months')}"
+    assert (
+        "in_saka_dawa_window" not in body
+    ), "OLD KEY 'in_saka_dawa_window' found in response — endpoint still hardcoded"
 
 
 def test_saka_dawa_endpoint_2025_duchen_follows_losar_not_chinese_ny(client):

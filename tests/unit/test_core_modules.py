@@ -317,8 +317,8 @@ class TestLLMUsageTracker:
 
         tracker = LLMUsageTracker.get()
         cost = tracker.estimate_cost("deepseek", "deepseek-chat", prompt_tokens=1_000_000, completion_tokens=1_000_000)
-        # ~$0.14 input + ~$0.28 output = ~$0.42
-        assert 0.30 <= cost <= 0.55
+        # Default DeepSeek rates are $0.098/M in + $0.196/M out = $0.294
+        assert 0.25 <= cost <= 0.55
 
     def test_cost_estimation_local_is_zero(self):
         from core.llm.usage import LLMUsageTracker

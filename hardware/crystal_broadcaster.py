@@ -122,9 +122,7 @@ class Level2CrystalBroadcaster:
             print("Dedication: May all beings benefit from this practice.")
             print(f"{'=' * 60}\n")
 
-    def generate_custom_frequencies(
-        self, frequencies, intention="custom", duration=300, amplitude=0.3, blocking=True
-    ):
+    def generate_custom_frequencies(self, frequencies, intention="custom", duration=300, amplitude=0.3, blocking=True):
         """
         Generate prayer bowl synthesis from a custom frequency list.
 

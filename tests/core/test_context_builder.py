@@ -84,9 +84,7 @@ def test_build_chakra_reference_returns_string():
 
 @pytest.mark.unit
 def test_unwrap_rate_entries_reads_rates_key():
-    entries = unwrap_rate_entries(
-        {"rates": [{"name": "Root", "values": [9, 49, 84]}], "meta": "ignore"}
-    )
+    entries = unwrap_rate_entries({"rates": [{"name": "Root", "values": [9, 49, 84]}], "meta": "ignore"})
     assert len(entries) == 1
     assert entries[0]["name"] == "Root"
 

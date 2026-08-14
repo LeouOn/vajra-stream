@@ -3,6 +3,7 @@
 
 import pytest
 
+from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
 from core.llm.providers import (
     AnthropicProvider,
     DeepSeekProvider,
@@ -28,8 +29,9 @@ def test_openrouter_provider_construction(monkeypatch):
     p = OpenRouterProvider()
     assert p.name == "openrouter"
     assert p.priority == 90
-    assert p.default_model == "deepseek/deepseek-v4-pro"
-    assert p._fallback_models == ["deepseek/deepseek-v4-flash", "google/gemini-3.5-flash", "xiaomi/mimo-v2.5-pro"]
+    assert p.default_model == NEMOTRON_FREE_MODEL_ID
+    assert NEMOTRON_FREE_MODEL_ID in p.fallback_models
+    assert "deepseek/deepseek-v4-flash" in p.fallback_models
 
 
 def test_deepseek_provider_construction(monkeypatch):

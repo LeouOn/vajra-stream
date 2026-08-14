@@ -34,9 +34,9 @@ def test_bodhicitta_transmutations_have_non_empty_message_and_mantra(timing):
         message, mantra = timing._get_transmutation(genre, "Bodhicitta")
         assert isinstance(message, str) and len(message) > 20, f"{genre}: message too short: {message!r}"
         assert isinstance(mantra, str) and len(mantra) > 5, f"{genre}: mantra too short: {mantra!r}"
-        assert mantra.startswith("Om ") or mantra.startswith("Gate "), (
-            f"{genre}: mantra should start with 'Om ' or 'Gate ': {mantra!r}"
-        )
+        assert mantra.startswith("Om ") or mantra.startswith(
+            "Gate "
+        ), f"{genre}: mantra should start with 'Om ' or 'Gate ': {mantra!r}"
 
 
 def test_bodhicitta_messages_reference_bodhicitta_or_bodhisattva(timing):
@@ -44,9 +44,9 @@ def test_bodhicitta_messages_reference_bodhicitta_or_bodhisattva(timing):
     for genre in BODHICITTA_GENRES:
         message, _ = timing._get_transmutation(genre, "Bodhicitta")
         msg_lower = message.lower()
-        assert any(kw in msg_lower for kw in keywords), (
-            f"{genre}: message should mention bodhicitta/bodhisattva: {message!r}"
-        )
+        assert any(
+            kw in msg_lower for kw in keywords
+        ), f"{genre}: message should mention bodhicitta/bodhisattva: {message!r}"
 
 
 def test_bodhicitta_mantras_are_known_phrases(timing):
@@ -61,9 +61,9 @@ def test_bodhicitta_mantras_are_known_phrases(timing):
     )
     for genre in BODHICITTA_GENRES:
         _, mantra = timing._get_transmutation(genre, "Bodhicitta")
-        assert any(sub in mantra for sub in known_phrase_substrings), (
-            f"{genre}: mantra {mantra!r} doesn't match any known phrase"
-        )
+        assert any(
+            sub in mantra for sub in known_phrase_substrings
+        ), f"{genre}: mantra {mantra!r} doesn't match any known phrase"
 
 
 def test_bodhicitta_uses_unique_mantras_across_genres(timing):

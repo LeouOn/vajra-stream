@@ -583,7 +583,7 @@ class ImageGenerationService:
                     continue
             except Exception as exc:
                 last_error = exc
-                if attempt == 0 and not isinstance(exc, (ValueError, RuntimeError)):
+                if attempt == 0 and not isinstance(exc, ValueError | RuntimeError):
                     logger.warning("Image generation attempt 1 failed (unexpected): %s", exc)
                     continue
                 raise RuntimeError(f"Image generation failed via {provider_name}: {exc}") from exc
