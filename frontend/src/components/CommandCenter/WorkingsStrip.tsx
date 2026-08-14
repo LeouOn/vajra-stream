@@ -55,7 +55,7 @@ export default function WorkingsStrip() {
           <div className="text-xs text-amber-100 line-clamp-2 mt-0.5">{item.intention}</div>
           <div className="text-[10px] text-amber-300/60 mt-1 font-mono">
             {(item.rate_values || []).join(' · ') || '—'}
-            {item.has_witness ? ' · witness' : ''}
+            {item.has_witness ? ' · image' : ''}
           </div>
         </Link>
       ))}

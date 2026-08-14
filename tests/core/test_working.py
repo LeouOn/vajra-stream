@@ -29,6 +29,7 @@ def test_run_working_seals_folio_without_broadcast(tmp_path: Path, monkeypatch: 
     assert folio["saka_dawa"]["saka_dawa_duchen"]
     assert folio["spoken_charge"]
     assert folio["image_prompt"]
+    assert "Manifestation" in folio["image_prompt"]
     assert folio["broadcast"] is None
     assert folio["saved"] is True
     saved = tmp_path / f"{folio['working_id']}.json"

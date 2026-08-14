@@ -86,7 +86,7 @@ export default function WorkingsPage(): React.ReactElement {
               <div className="text-sm text-amber-50">{item.intention}</div>
               <div className="text-[10px] text-amber-300/60 font-mono mt-1">
                 {(item.rate_values || []).join(' · ') || '—'}
-                {item.has_witness ? ' · witness' : ''}
+                {item.has_witness ? ' · image' : ''}
               </div>
             </button>
           ))}

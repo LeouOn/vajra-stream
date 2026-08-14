@@ -72,6 +72,7 @@ def list_workings(limit: int = 20) -> list[dict[str, Any]]:
             continue
         witness = data.get("witness") if isinstance(data.get("witness"), dict) else {}
         saka = data.get("saka_dawa") if isinstance(data.get("saka_dawa"), dict) else {}
+        has_image = bool(witness.get("image_data_url"))
         out.append(
             {
                 "working_id": data.get("working_id"),
@@ -79,7 +80,8 @@ def list_workings(limit: int = 20) -> list[dict[str, Any]]:
                 "target": data.get("target"),
                 "sealed_at": data.get("sealed_at"),
                 "rate_values": data.get("rate_values"),
-                "has_witness": bool(witness.get("image_data_url")),
+                "has_witness": has_image,
+                "has_manifestation": has_image,
                 "saka_dawa_duchen": saka.get("saka_dawa_duchen"),
             }
         )
@@ -103,7 +105,7 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
         from backend.core.llm_agent.tools import generate_image
 
         img = generate_image(prompt)
-        folio["witness"] = {
+        visual = {
             "status": "ok",
             "image_data_url": img.get("image_data_url"),
             "model": img.get("model"),
@@ -111,8 +113,12 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
             "provider_used": img.get("provider_used"),
             "prompt": prompt,
         }
+        folio["witness"] = visual
+        folio["manifestation"] = visual
     except Exception as exc:
-        folio["witness"] = {"status": "error", "error": str(exc)[:300], "prompt": prompt}
+        err = {"status": "error", "error": str(exc)[:300], "prompt": prompt}
+        folio["witness"] = err
+        folio["manifestation"] = err
 
     try:
         _persist(folio, index=False)
@@ -169,12 +175,12 @@ def record_video(working_id: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _image_prompt(intention: str, target: str, duchen: str | None) -> str:
-    moon = f" a pale full moon for Saka Dawa Duchen {duchen}," if duchen else ""
+    moon = f" Pale full moon for Saka Dawa Duchen {duchen}." if duchen else ""
     return (
-        f"A quiet ritual still life,{moon} brass singing bowls and a five-dial "
-        f"radionics board on dark wood, soft amber lamplight, no readable text, "
-        f"no real people. Mood: dedication of merit for {target}. "
-        f"Theme: {intention[:160]}."
+        f"Manifestation still of the fulfilled intention: {intention[:200]}. "
+        f"Dedicated to {target}. Sacred cinematic lighting, brass singing bowls "
+        f"at the edge of frame, amber and indigo, photographic, no readable text, "
+        f"no real people.{moon}"
     )
 
 

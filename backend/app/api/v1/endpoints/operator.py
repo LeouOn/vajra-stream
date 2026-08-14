@@ -729,7 +729,8 @@ async def get_working_endpoint(working_id: str):
     return folio
 
 
-@router.post("/workings/{working_id}/witness", summary="Generate a witness image for a working")
+@router.post("/workings/{working_id}/witness", summary="Generate a manifestation image for a working")
+@router.post("/workings/{working_id}/manifest", summary="Generate a manifestation image for a working")
 async def forge_working_witness(working_id: str):
     from core.working import attach_witness_image, load_working
 

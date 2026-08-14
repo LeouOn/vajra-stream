@@ -2455,8 +2455,8 @@ def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
         {
             "name": "forge_witness",
             "description": (
-                "Generate a witness image for an already sealed working and "
-                "attach it to the folio. Pass the working_id from run_working."
+                "Generate a manifestation image for an already sealed working "
+                "and attach it to the folio. Cheaper than video. Pass working_id."
             ),
             "parameters": {
                 "type": "object",

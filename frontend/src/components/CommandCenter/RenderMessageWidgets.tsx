@@ -155,10 +155,12 @@ export function WorkingFolioCard({
   initial,
   onZoomItemClick,
   autoSpeak = false,
+  autoManifest = false,
 }: {
   initial: WorkingResult;
   onZoomItemClick?: (item: ZoomItem) => void;
   autoSpeak?: boolean;
+  autoManifest?: boolean;
 }) {
   const [folio, setFolio] = useState<WorkingResult>(initial);
   const [busy, setBusy] = useState(false);
@@ -217,6 +219,25 @@ export function WorkingFolioCard({
     }
   };
 
+  const forgeWitness = async () => {
+    if (!folio.working_id || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(apiUrl(`/operator/workings/${folio.working_id}/manifest`), { method: 'POST' });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        setError('Manifestation image failed');
+        return;
+      }
+      applyFolio(data);
+    } catch {
+      setError('Manifestation image failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (!autoSpeak || !initial.working_id || initial.spoken?.status === 'ok') return;
     void speakCharge();
@@ -224,24 +245,12 @@ export function WorkingFolioCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSpeak, initial.working_id]);
 
-  const forgeWitness = async () => {
-    if (!folio.working_id || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(apiUrl(`/operator/workings/${folio.working_id}/witness`), { method: 'POST' });
-      const data: unknown = await res.json();
-      if (!res.ok) {
-        setError('Witness forge failed');
-        return;
-      }
-      applyFolio(data);
-    } catch {
-      setError('Witness forge failed');
-    } finally {
-      setBusy(false);
-    }
-  };
+  useEffect(() => {
+    if (!autoManifest || !initial.working_id || initial.witness?.image_data_url) return;
+    void forgeWitness();
+    // Manifestation image is the cheap default visual for a new working.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoManifest, initial.working_id]);
 
   return (
     <div data-testid="working-folio" className="bg-black/60 p-4 rounded-xl border border-amber-500/25 space-y-3">
@@ -270,11 +279,11 @@ export function WorkingFolioCard({
       {witnessUrl && (
         <img
           src={witnessUrl}
-          alt="Working witness"
+          alt="Manifestation image"
           className="w-full max-h-64 object-contain rounded-lg border border-amber-500/20 cursor-zoom-in"
           onClick={() => onZoomItemClick?.({
             type: 'image',
-            title: folio.intention || 'Witness',
+            title: folio.intention || 'Manifestation',
             image_data_url: witnessUrl,
           })}
         />
@@ -313,7 +322,7 @@ export function WorkingFolioCard({
           disabled={busy}
           className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
         >
-          {busy ? 'Forging witness…' : witnessUrl ? 'Re-forge witness' : 'Generate witness image'}
+          {busy ? 'Painting manifestation…' : witnessUrl ? 'Re-paint manifestation' : 'Manifestation image'}
         </button>
         <button
           type="button"
@@ -394,7 +403,15 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
         if (tc.tool_name === 'run_working' || tc.tool_name === 'forge_witness') {
           const w = tc.result;
           if (!w || !w.working_id) return null;
-          return <WorkingFolioCard key={idx} initial={w} onZoomItemClick={onZoomItemClick} autoSpeak />;
+          return (
+            <WorkingFolioCard
+              key={idx}
+              initial={w}
+              onZoomItemClick={onZoomItemClick}
+              autoSpeak
+              autoManifest
+            />
+          );
         }
 
         // 1. Forge Sigil Widget
