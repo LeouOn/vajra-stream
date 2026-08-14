@@ -17,6 +17,8 @@ import DharaniReciter from './DharaniReciter';
 import TimeCycles from './TimeCycles';
 import ChakraBodyMap from '../2D/ChakraBodyMap';
 import PageHeader from './PageHeader';
+import { apiUrl } from '../../utils/api';
+import { WorkingFolioCard, type WorkingResult } from '../CommandCenter/RenderMessageWidgets';
 
 interface TarotCard {
   id: string | number;
@@ -135,21 +137,36 @@ export default function OperationsPanel() {
   
   // Ritual composer state
   const [composerSteps, setComposerSteps] = useState<ComposerStep[]>([
-    { id: 'step_1', label: 'Oracle Divination Draw', status: 'pending', description: 'Consult the high-entropy RNG system for guidance' },
-    { id: 'step_2', label: 'Planetary Hour Attunement', status: 'pending', description: 'Lock carrier wave frequency to the active planetary ruler' },
-    { id: 'step_3', label: 'Program Broadcaster Node', status: 'pending', description: 'Load intention signature code into the active crystal matrix' },
-    { id: 'step_4', label: 'Trigger Scalar Wave Emissions', status: 'pending', description: 'Initialize continuous broadcast rotation cycle' }
+    { id: 'step_1', label: 'Oracle draw', status: 'pending', description: 'Draw guidance (uses the last cast, or a new tarot card)' },
+    { id: 'step_2', label: 'Read the hour', status: 'pending', description: 'Stamp planetary hour and moon onto the folio' },
+    { id: 'step_3', label: 'Seal the working', status: 'pending', description: 'Derive rates, Saka Dawa stamp, spoken charge' },
+    { id: 'step_4', label: 'Broadcast', status: 'pending', description: 'Send D1–D5 to the radionics board' },
   ]);
   const [isRitualRunning, setIsRitualRunning] = useState<boolean>(false);
   const [activeStepIndex, setActiveStepIndex] = useState<number>(-1);
+  const [composerIntention, setComposerIntention] = useState<string>('');
+  const [sealedWorking, setSealedWorking] = useState<WorkingResult | null>(null);
 
-  const fetchAstrology = async (): Promise<void> => {
+  const fetchAstrology = async (): Promise<{ hour?: string; moon?: string }> => {
     try {
-      await fetch(`/api/v1/astrology/current`);
-      await fetch(`/api/v1/astrology/planetary-hours`);
-      await fetch(`/api/v1/astrology/transits`);
+      const [cur, hours] = await Promise.all([
+        fetch(apiUrl('/astrology/current')),
+        fetch(apiUrl('/astrology/planetary-hours')),
+      ]);
+      const stamp: { hour?: string; moon?: string } = {};
+      if (hours.ok) {
+        const h = await hours.json() as { current_planetary_hour?: string; planetary_hour?: string };
+        stamp.hour = h.current_planetary_hour || h.planetary_hour;
+      }
+      if (cur.ok) {
+        const c = await cur.json() as { astrology?: { planetary_hours?: { current_planetary_hour?: string }; moon_phase?: { phase_name?: string } } };
+        stamp.hour = stamp.hour || c.astrology?.planetary_hours?.current_planetary_hour;
+        stamp.moon = c.astrology?.moon_phase?.phase_name;
+      }
+      return stamp;
     } catch (e) {
       console.error("Astrology fetch error:", e);
+      return {};
     }
   };
 
@@ -157,7 +174,7 @@ export default function OperationsPanel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const response = await fetch(`/api/v1/divination/tarot/draw`, {
+      const response = await fetch(apiUrl('/divination/tarot/draw'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: tarotDrawCount })
@@ -191,7 +208,7 @@ export default function OperationsPanel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const response = await fetch(`/api/v1/divination/iching/cast`, {
+      const response = await fetch(apiUrl('/divination/iching/cast'), {
         method: 'POST'
       });
       if (response.ok) {
@@ -211,7 +228,7 @@ export default function OperationsPanel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const response = await fetch(`/api/v1/divination/geomancy/shield`, {
+      const response = await fetch(apiUrl('/divination/geomancy/shield'), {
         method: 'POST'
       });
       if (response.ok) {
@@ -219,7 +236,7 @@ export default function OperationsPanel() {
         setGeomancyResult(data.chart);
         // Also fetch elemental balance comparison
         try {
-          const balRes = await fetch(`/api/v1/divination/geomancy/elemental-balance`);
+          const balRes = await fetch(apiUrl('/divination/geomancy/elemental-balance'));
           if (balRes.ok) setGeoBalance(await balRes.json() as GeoBalance);
         } catch { }
         audioFeedback.playSuccess();
@@ -246,7 +263,7 @@ export default function OperationsPanel() {
       if (ichingResult) details.iching = ichingResult;
       if (geomancyResult) details.geomancy = geomancyResult;
 
-      const res = await fetch('/api/v1/divination/interpret', {
+      const res = await fetch(apiUrl('/divination/interpret'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -269,20 +286,17 @@ export default function OperationsPanel() {
     }
   };
 
-  // Run Visual Ritual flow — actually executes each step via API
   const startRitualSequence = async (): Promise<void> => {
     if (isRitualRunning) return;
     setIsRitualRunning(true);
+    setSealedWorking(null);
     audioFeedback.playSuccess();
-    
-    // Reset all statuses
     setComposerSteps(prev => prev.map(s => ({ ...s, status: 'pending' as RitualStepStatus })));
 
     const executeStep = async (index: number, action: () => Promise<void>): Promise<void> => {
       setActiveStepIndex(index);
       setComposerSteps(prev => { const n = [...prev]; n[index].status = 'running'; return n; });
       audioFeedback.playTelemetry();
-
       try {
         await action();
         setComposerSteps(prev => { const n = [...prev]; n[index].status = 'success'; return n; });
@@ -290,51 +304,79 @@ export default function OperationsPanel() {
       } catch (e) {
         console.error(`Step ${index + 1} failed:`, e);
         setComposerSteps(prev => { const n = [...prev]; n[index].status = 'pending'; return n; });
+        throw e;
       }
     };
 
-    // Step 1: Draw a tarot card for guidance
-    await executeStep(0, async () => {
-      const res = await fetch(`/api/v1/divination/tarot/draw`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ count: 1 })
-      });
-      if (res.ok) {
-        const data = await res.json() as TarotDrawResponse;
-        setTarotCards(data.cards);
-        setTarotSpread(data.spread || []);
-        setTarotFlipped(new Array(data.cards.length).fill(false));
-      }
-      await new Promise<void>(r => setTimeout(r, 1500));
-    });
+    const intention = (composerIntention.trim() || question.trim() || 'May all beings be free from suffering');
+    let hourStamp: { hour?: string; moon?: string } = {};
+    let folio: WorkingResult | null = null;
+    let oracleCards = tarotCards;
 
-    // Step 2: Fetch planetary hour and align
-    await executeStep(1, async () => {
-      await fetchAstrology();
-      await new Promise<void>(r => setTimeout(r, 1000));
-    });
-
-    // Step 3: Forge a sigil for the intention
-    await executeStep(2, async () => {
-      await fetch(`/api/v1/sigils/forge`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intention: 'Ritual Sequence Alignment', kamea: 'saturn' })
+    try {
+      await executeStep(0, async () => {
+        if (oracleCards && oracleCards.length > 0) return;
+        const res = await fetch(apiUrl('/divination/tarot/draw'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ count: 1 }),
+        });
+        if (res.ok) {
+          const data = await res.json() as TarotDrawResponse;
+          oracleCards = data.cards;
+          setTarotCards(data.cards);
+          setTarotSpread(data.spread || []);
+          setTarotFlipped(new Array(data.cards.length).fill(true));
+        }
       });
-      await new Promise<void>(r => setTimeout(r, 1500));
-    });
 
-    // Step 4: Trigger scalar wave generation
-    await executeStep(3, async () => {
-      await fetch(`/api/v1/scalar/generate`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method: 'hybrid', count: 10000, intensity: 0.8 })
+      await executeStep(1, async () => {
+        hourStamp = await fetchAstrology();
       });
-      await new Promise<void>(r => setTimeout(r, 2000));
-    });
-    
+
+      await executeStep(2, async () => {
+        const divination: Record<string, unknown> = {};
+        if (oracleCards && oracleCards.length > 0) {
+          divination.system = 'tarot';
+          divination.cards = oracleCards.map((c) => ({ name: c.name, reversed: c.reversed }));
+        } else if (ichingResult) {
+          divination.system = 'iching';
+          divination.primary = ichingResult.primary?.name;
+        } else if (geomancyResult) {
+          divination.system = 'geomancy';
+        }
+        const res = await fetch(apiUrl('/operator/working'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            intention,
+            target: 'all beings',
+            broadcast: true,
+            duration_minutes: 5,
+            source: 'operations-composer',
+            planetary_hour: hourStamp.hour,
+            moon_phase: hourStamp.moon,
+            divination: Object.keys(divination).length ? divination : undefined,
+          }),
+        });
+        if (!res.ok) throw new Error(`working ${res.status}`);
+        folio = await res.json() as WorkingResult;
+        setSealedWorking(folio);
+      });
+
+      await executeStep(3, async () => {
+        const broadcast = folio?.broadcast as { status?: string } | undefined;
+        if (broadcast?.status === 'skipped' || broadcast?.status === 'error') {
+          throw new Error('broadcast skipped');
+        }
+      });
+    } catch {
+      audioFeedback.playError();
+    }
+
     setIsRitualRunning(false);
     setActiveStepIndex(-1);
-    audioFeedback.playSuccess();
+    if (folio) audioFeedback.playSuccess();
   };
 
   return (
@@ -751,19 +793,27 @@ export default function OperationsPanel() {
                 Magical Operation Sequencing Board
               </h3>
               <p className="text-xs text-gray-400 mt-1">
-                Chains visual triggers together, feeding data outputs into the next operational node recursively.
+                Oracle → hour → seal a working folio → broadcast. Uses your intention, not a demo string.
               </p>
             </div>
             
             <button
-              onClick={startRitualSequence}
+              onClick={() => { void startRitualSequence(); }}
               disabled={isRitualRunning}
-              className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded font-bold text-xs shadow flex items-center gap-2 animate-pulse"
+              data-testid="seal-working"
+              className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded font-bold text-xs shadow flex items-center gap-2"
             >
               <Play className="w-3.5 h-3.5" />
-              {isRitualRunning ? 'Broadcasting Chain...' : 'Execute Ritual Sequence'}
+              {isRitualRunning ? 'Sealing…' : 'Seal working'}
             </button>
           </div>
+          <Input.TextArea
+            value={composerIntention}
+            onChange={(e) => setComposerIntention(e.target.value)}
+            placeholder={question.trim() || 'Intention for this sitting (or use the Divination question)'}
+            rows={2}
+            className="bg-gray-950/60"
+          />
 
           {/* Workflow Sequence Blocks */}
           <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch">
@@ -811,6 +861,9 @@ export default function OperationsPanel() {
               );
             })}
           </div>
+          {sealedWorking && (
+            <WorkingFolioCard initial={sealedWorking} autoSpeak autoManifest />
+          )}
         </div>
       )}
 

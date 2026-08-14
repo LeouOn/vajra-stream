@@ -694,6 +694,11 @@ class RunWorkingRequest(BaseModel):
     target: str = Field(default="all beings", max_length=200)
     broadcast: bool = True
     duration_minutes: int = Field(default=5, ge=1, le=30)
+    source: str | None = Field(default=None, max_length=80)
+    chart_name: str | None = Field(default=None, max_length=200)
+    planetary_hour: str | None = Field(default=None, max_length=40)
+    moon_phase: str | None = Field(default=None, max_length=80)
+    divination: dict | None = None
 
 
 @router.post("/working", summary="Seal a radionics working from an intention")
@@ -707,6 +712,11 @@ async def run_working_endpoint(request: RunWorkingRequest):
             target=request.target,
             broadcast=request.broadcast,
             duration_minutes=request.duration_minutes,
+            source=request.source,
+            chart_name=request.chart_name,
+            planetary_hour=request.planetary_hour,
+            moon_phase=request.moon_phase,
+            divination=request.divination,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

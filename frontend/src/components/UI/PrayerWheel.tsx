@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HelpCircle, Play, RefreshCw, Award, Heart, Check, BookOpen } from 'lucide-react';
 import { message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { apiUrl } from '../../utils/api';
 import { createLogger } from '../../utils/logger';
 
 interface TraditionalMantra {
@@ -81,7 +82,7 @@ export default function PrayerWheel() {
     setGeneratingPrayer(true);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`/api/v1/prayer-wheel/generate-prayer`, {
+      const res = await fetch(apiUrl('/prayer-wheel/generate-prayer'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention, use_llm: true, tradition: 'universal' })
@@ -109,7 +110,7 @@ export default function PrayerWheel() {
     setLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`/api/v1/prayer-wheel/spin`, {
+      const res = await fetch(apiUrl('/prayer-wheel/spin'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

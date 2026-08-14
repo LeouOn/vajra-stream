@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { apiUrl } from '../../utils/api';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import VedicPanchanga from './VedicPanchanga';
@@ -118,6 +119,12 @@ export default function AstrologyPanel() {
   // Privacy toggle for LLM-export paths — defaults ON so personal info is
   // stripped unless the user explicitly opts in to sharing it.
   const [stripPii, setStripPii] = useState<boolean>(true);
+  const [saka, setSaka] = useState<{
+    saka_dawa_duchen?: string;
+    days_until_duchen?: number | null;
+    is_saka_dawa?: boolean;
+  } | null>(null);
+  const [sealingHour, setSealingHour] = useState(false);
 
   // Geolocation guard — stop retrying after user blocks permission
   const geoBlocked = useRef(false);
@@ -125,7 +132,7 @@ export default function AstrologyPanel() {
   // Load saved charts from database
   const fetchSavedCharts = async () => {
     try {
-      const response = await fetch(`/api/v1/astrology/charts`);
+      const response = await fetch(apiUrl('/astrology/charts'));
       if (response.ok) {
         const data = await response.json();
         setCharts(data);
@@ -150,7 +157,7 @@ export default function AstrologyPanel() {
           params.append('longitude', lon.toString());
         }
         
-        const response = await fetch(`/api/v1/astrology/current?${params.toString()}`);
+        const response = await fetch(apiUrl(`/astrology/current?${params.toString()}`));
         if (response.ok) {
           const result = await response.json();
           setLiveData(result.astrology);
@@ -181,6 +188,10 @@ export default function AstrologyPanel() {
   useEffect(() => {
     fetchSavedCharts();
     fetchLiveAstrology();
+    fetch(apiUrl('/operator/saka-dawa'))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setSaka(data); })
+      .catch(() => {});
     const interval = setInterval(() => {
       if (isLiveMode) fetchLiveAstrology();
     }, 20000);
@@ -207,7 +218,7 @@ export default function AstrologyPanel() {
   // Helper: compute and display a chart from raw birth data (city + time)
   const _computeTemporaryChart = async (birthTimeIso, cityName) => {
     // Resolve coordinates via geocode
-    const geoResponse = await fetch(`/api/v1/astrology/geocode`, {
+    const geoResponse = await fetch(apiUrl('/astrology/geocode'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ city_name: cityName })
@@ -224,7 +235,7 @@ export default function AstrologyPanel() {
       latitude: geo.latitude.toString(),
       longitude: geo.longitude.toString()
     }).toString();
-    const response = await fetch(`/api/v1/astrology/current?${params}`);
+    const response = await fetch(apiUrl(`/astrology/current?${params}`));
     if (!response.ok) {
       const err = await _readError(response);
       throw new Error(`Chart calculation failed: ${err}`);
@@ -257,7 +268,7 @@ export default function AstrologyPanel() {
         let savedChart = null;
         if (editingChart) {
           setLoadingStatus('Updating saved profile…');
-          const response = await fetch(`/api/v1/astrology/charts/${editingChart.id}`, {
+          const response = await fetch(apiUrl(`/astrology/charts/${editingChart.id}`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -273,7 +284,7 @@ export default function AstrologyPanel() {
           }
         } else {
           setLoadingStatus('Saving to database…');
-          const response = await fetch(`/api/v1/astrology/charts`, {
+          const response = await fetch(apiUrl('/astrology/charts'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -340,7 +351,7 @@ export default function AstrologyPanel() {
   const recalculateChart = async (id) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v1/astrology/charts/${id}/recalculate`, {
+      const response = await fetch(apiUrl(`/astrology/charts/${id}/recalculate`), {
         method: 'POST'
       });
       if (response.ok) {
@@ -360,7 +371,7 @@ export default function AstrologyPanel() {
 
   const handleDeleteChart = async (id) => {
     try {
-      const response = await fetch(`/api/v1/astrology/charts/${id}`, {
+      const response = await fetch(apiUrl(`/astrology/charts/${id}`), {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -377,7 +388,7 @@ export default function AstrologyPanel() {
 
   const handleExportCharts = async () => {
     try {
-      const response = await fetch(`/api/v1/astrology/charts/export`);
+      const response = await fetch(apiUrl('/astrology/charts/export'));
       if (response.ok) {
         const data = await response.json();
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -397,7 +408,7 @@ export default function AstrologyPanel() {
 
   const handleImportCharts = async (jsonData) => {
     try {
-      const response = await fetch(`/api/v1/astrology/charts/import`, {
+      const response = await fetch(apiUrl('/astrology/charts/import'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jsonData)
@@ -444,7 +455,7 @@ export default function AstrologyPanel() {
     }
     try {
       const response = await fetch(
-        `/api/v1/astrology/charts/${activeChart.id}/natal-export`,
+        apiUrl(`/astrology/charts/${activeChart.id}/natal-export`),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -467,6 +478,47 @@ export default function AstrologyPanel() {
     } catch (e) {
       console.error(e);
       addToast({ type: 'error', title: 'Natal chart copy failed: ' + e.message, duration: 5 });
+    }
+  };
+
+  const handleBeginWorkingFromHour = async () => {
+    const sky = isLiveMode ? liveData : customData;
+    const hour = sky?.planetary_hours?.current_planetary_hour;
+    const moon = sky?.moon_phase?.phase_name;
+    const chartName = isLiveMode ? 'live sky' : (activeChart?.name || 'natal');
+    const intention = isLiveMode
+      ? `Working in the ${hour || 'present'} hour under a ${moon || 'changing'} moon`
+      : `Working from ${chartName}'s chart in the ${hour || 'present'} hour`;
+    setSealingHour(true);
+    audioFeedback.playTelemetry();
+    try {
+      const res = await fetch(apiUrl('/operator/working'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          intention,
+          target: 'all beings',
+          broadcast: true,
+          source: 'cosmic-clock',
+          chart_name: chartName,
+          planetary_hour: hour || undefined,
+          moon_phase: moon || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const folio = await res.json();
+      addToast({
+        type: 'success',
+        title: `Working sealed ${folio.working_id || ''}`,
+        message: 'See Workings for the folio, charge, and manifestation image.',
+        duration: 5,
+      });
+      audioFeedback.playSuccess();
+    } catch (e) {
+      addToast({ type: 'error', title: 'Could not seal working from this hour', duration: 5 });
+      audioFeedback.playError();
+    } finally {
+      setSealingHour(false);
     }
   };
 
@@ -520,6 +572,13 @@ export default function AstrologyPanel() {
             <div>
               <h2 className="text-xl font-bold text-white tracking-wide">Cosmic Clockwork</h2>
               <p className="text-xs text-gray-400">Tropical · Sidereal · BaZi — Swiss Ephemeris v2.10</p>
+              {saka?.saka_dawa_duchen && (
+                <p className="text-[11px] text-amber-300/80 mt-1" data-testid="cosmic-clock-saka">
+                  Next Saka Dawa Duchen {saka.saka_dawa_duchen}
+                  {saka.days_until_duchen != null ? ` · ${saka.days_until_duchen} days` : ''}
+                  {saka.is_saka_dawa ? ' · holy month' : ''}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
@@ -545,6 +604,16 @@ export default function AstrologyPanel() {
               className={isLiveMode ? 'animate-pulse' : ''}
             >
               🔴 LIVE
+            </Button>
+            <Button
+              size="small"
+              type="primary"
+              loading={sealingHour}
+              onClick={handleBeginWorkingFromHour}
+              style={{ fontSize: 10 }}
+              data-testid="begin-working-from-hour"
+            >
+              Begin working from this hour
             </Button>
             <Button
               size="small"

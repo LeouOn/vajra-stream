@@ -28,12 +28,34 @@ def test_run_working_seals_folio_without_broadcast(tmp_path: Path, monkeypatch: 
     assert all(0 <= v <= 100 for v in folio["rate_values"])
     assert folio["saka_dawa"]["saka_dawa_duchen"]
     assert folio["spoken_charge"]
+    assert folio["source"] == "command-center"
     assert folio["image_prompt"]
     assert "Manifestation" in folio["image_prompt"]
     assert folio["broadcast"] is None
     assert folio["saved"] is True
     saved = tmp_path / f"{folio['working_id']}.json"
     assert saved.exists()
+
+
+@pytest.mark.unit
+def test_run_working_keeps_hour_and_divination(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import core.working as working
+
+    monkeypatch.setattr(working, "WORKINGS_DIR", tmp_path)
+    folio = working.run_working(
+        "peace for the watershed",
+        broadcast=False,
+        source="cosmic-clock",
+        chart_name="live sky",
+        planetary_hour="Venus",
+        moon_phase="Waxing Gibbous",
+        divination={"system": "tarot", "cards": [{"name": "The Star"}]},
+    )
+    assert folio["source"] == "cosmic-clock"
+    assert folio["chart_name"] == "live sky"
+    assert folio["hour_stamp"]["planetary_hour"] == "Venus"
+    assert folio["hour_stamp"]["moon_phase"] == "Waxing Gibbous"
+    assert folio["divination"]["system"] == "tarot"
 
 
 @pytest.mark.unit
@@ -113,3 +135,21 @@ def test_run_working_is_on_the_chat_allowlist():
     names = {s["name"] for s in get_tool_schemas()}
     assert "run_working" in names
     assert "forge_witness" in names
+
+
+@pytest.mark.unit
+def test_run_working_request_accepts_hour_and_divination():
+    from backend.app.api.v1.endpoints.operator import RunWorkingRequest
+
+    req = RunWorkingRequest(
+        intention="peace for the watershed",
+        source="cosmic-clock",
+        chart_name="live sky",
+        planetary_hour="Venus",
+        moon_phase="Waxing Gibbous",
+        divination={"system": "tarot", "cards": [{"name": "The Star"}]},
+    )
+    assert req.source == "cosmic-clock"
+    assert req.chart_name == "live sky"
+    assert req.planetary_hour == "Venus"
+    assert req.divination["system"] == "tarot"

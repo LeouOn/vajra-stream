@@ -7,6 +7,8 @@
 import React, { useState, useEffect } from 'react';
 import { message } from 'antd';
 import { Heart, Zap, RefreshCw, ChevronRight, Play, Square } from 'lucide-react';
+import { audioFeedback } from '../../utils/audioFeedback';
+import { apiUrl } from '../../utils/api';
 import { createLogger } from '../../utils/logger';
 
 const log = createLogger('ChakraHealing');
@@ -80,7 +82,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
   const loadChakras = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/v1/healing/chakra/all`);
+      const response = await fetch(apiUrl('/healing/chakra/all'));
       if (response.ok) {
         const data = await response.json();
         setChakras(data.chakras || {});
@@ -97,7 +99,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
 
   const getChakraInfo = async (chakraName: string) => {
     try {
-      const response = await fetch(`/api/v1/healing/chakra/info/${chakraName}`);
+      const response = await fetch(apiUrl(`/healing/chakra/info/${chakraName}`));
       if (response.ok) {
         const data = await response.json();
         setChakraInfo(data.chakra);
@@ -115,7 +117,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
   const createSequence = async (type: string = 'full') => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/v1/healing/chakra/balance`, {
+      const response = await fetch(apiUrl('/healing/chakra/balance'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention, sequence_type: type })
@@ -140,14 +142,14 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
     setPlayingChakra(chakraName);
     try {
       // 1. Generate the tone in the backend
-      const genResponse = await fetch(`/api/v1/audio/generate_chakra`, {
+      const genResponse = await fetch(apiUrl('/audio/generate_chakra'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chakra_name: chakraName, duration: 30.0 })
       });
       if (genResponse.ok) {
         // 2. Play it on the hardware
-        await fetch(`/api/v1/audio/play`, {
+        await fetch(apiUrl('/audio/play'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ hardware_level: 2 })
@@ -163,7 +165,7 @@ const ChakraHealing: React.FC<Props> = ({ className = '' }) => {
 
   const stopAudio = async () => {
     try {
-      await fetch(`/api/v1/audio/stop`, { method: 'POST' });
+      await fetch(apiUrl('/audio/stop'), { method: 'POST' });
     } catch (e) {
       log.error('Failed to stop audio', e);
       message.error('Could not stop audio: ' + (e instanceof Error ? e.message : String(e)));

@@ -198,6 +198,11 @@ def run_working(
     target: str | None = None,
     broadcast: bool = True,
     duration_minutes: int = 5,
+    source: str | None = None,
+    chart_name: str | None = None,
+    planetary_hour: str | None = None,
+    moon_phase: str | None = None,
+    divination: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Seal one working and optionally start a non-blocking broadcast."""
     intention = (intention or "").strip() or "May all beings be free from suffering"
@@ -246,6 +251,13 @@ def run_working(
         "image_prompt": _image_prompt(intention, target, saka.get("saka_dawa_duchen")),
         "spoken_charge": _spoken_charge(intention, target, int(saka.get("multiplier") or 1)),
         "broadcast": None,
+        "source": source or "command-center",
+        "chart_name": chart_name,
+        "hour_stamp": {
+            "planetary_hour": planetary_hour or timing.planetary_hour,
+            "moon_phase": moon_phase,
+        },
+        "divination": divination,
     }
 
     if broadcast:

@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { HelpCircle, Play, RefreshCw, Compass, Moon, Sun, Clock, Calendar, Check, AlertTriangle } from 'lucide-react';
 import { message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { apiUrl } from '../../utils/api';
 import { createLogger } from '../../utils/logger';
 
 interface TimeCycleEvent {
@@ -76,7 +77,7 @@ export default function TimeCycles() {
 
   const fetchEvents = async () => {
     try {
-      const res = await fetch(`/api/v1/time-cycles/events`);
+      const res = await fetch(apiUrl('/time-cycles/events'));
       if (res.ok) {
         const data: EventsResponse = await res.json();
         setEvents(data.events || []);
@@ -92,7 +93,7 @@ export default function TimeCycles() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch(`/api/v1/time-cycles/status`);
+      const res = await fetch(apiUrl('/time-cycles/status'));
       if (res.ok) {
         const data: TimeCycleServiceStatus = await res.json();
         setServiceStatus(data);
@@ -152,7 +153,7 @@ export default function TimeCycles() {
       audioFeedback.playTelemetry();
 
       try {
-        const res = await fetch(`/api/v1/time-cycles/broadcast`, {
+        const res = await fetch(apiUrl('/time-cycles/broadcast'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
