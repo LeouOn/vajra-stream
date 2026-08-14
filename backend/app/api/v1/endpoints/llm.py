@@ -560,6 +560,19 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
         from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
 
         return _check_saka_dawa()
+    elif name == "run_working":
+        from core.working import run_working as _run_working
+
+        return _run_working(
+            intention=args.get("intention", ""),
+            target=args.get("target") or "all beings",
+            broadcast=bool(args.get("broadcast", True)),
+            duration_minutes=int(args.get("duration_minutes") or 5),
+        )
+    elif name == "forge_witness":
+        from core.working import attach_witness_image
+
+        return attach_witness_image(str(args.get("working_id") or ""))
     elif name == "check_auspicious_timing":
         from core.auspicious_timing import check_auspicious_window
 
@@ -1081,7 +1094,7 @@ async def _build_system_prompt_with_context(request: ChatRequest) -> str:
         "Available tools include: list_populations, create_population, update_population, "
         "start_automation, stop_automation, get_system_status, get_automation_status, "
         "forge_sigil, cast_tarot_spread, cast_i_ching, check_saka_dawa, "
-        "play_chakra_healing_audio, generate_single_outlook, generate_epic_outlook, "
+        "play_chakra_healing_audio, run_working, generate_single_outlook, generate_epic_outlook, "
         "generate_blessing, generate_prayer, generate_teaching, generate_image, speak_text, "
         "search_grimoire_correspondences, get_planetary_hours_and_transits. "
         "\n\n"
@@ -1665,6 +1678,28 @@ async def _chat_via_registry(
         )
         already_generated = {"generate_single_outlook", "generate_prayer", "generate_blessing", "generate_epic_outlook"}
         if (
+            re.search(r"\b(working|radionic|attune|broadcast a rate|begin a working|charge this)\b", user_query)
+            and not any(r.get("tool") == "run_working" and r.get("status") == "success" for r in raw_tool_results)
+        ):
+            try:
+                working_result = await _execute(
+                    "run_working",
+                    {"intention": user_query[:400], "target": "all beings", "broadcast": True},
+                )
+                tool_logs.append(
+                    ToolCallLog(
+                        tool_name="run_working",
+                        arguments={"intention": user_query[:400]},
+                        status="success",
+                        result=working_result,
+                    )
+                )
+                turn_results.append({"tool": "run_working", "status": "success", "result": working_result})
+                raw_tool_results.append({"tool": "run_working", "status": "success", "result": working_result})
+                logger.info("Auto-chained run_working (query-driven)")
+            except Exception as auto_ex:
+                logger.warning("Auto-chain run_working failed: %s", auto_ex)
+        elif (
             re.search(r"\b(outlook|blessing|narrative|prayer|sutra|bless|healing story)\b", user_query)
             and not any(r.get("tool") in already_generated and r.get("status") == "success" for r in turn_results)
             and not any(r.get("tool") in already_generated and r.get("status") == "success" for r in raw_tool_results)

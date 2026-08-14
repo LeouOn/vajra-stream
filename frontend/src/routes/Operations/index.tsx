@@ -27,8 +27,9 @@ import { Tabs } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import OperationsPanel from '../../components/UI/OperationsPanel';
 import BroadcastPanel from '../../components/UI/BroadcastPanel';
+import RateTuner from '../../components/UI/RateTuner';
 
-const TAB_KEYS = ['operations', 'broadcast'] as const;
+const TAB_KEYS = ['operations', 'broadcast', 'rates'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const DEFAULT_TAB: TabKey = 'operations';
@@ -64,6 +65,15 @@ export default function OperationsPage(): React.ReactElement {
       children: (
         <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto">
           <BroadcastPanel />
+        </div>
+      ),
+    },
+    {
+      key: 'rates',
+      label: 'Rate Tuner',
+      children: (
+        <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-4 md:p-6">
+          <RateTuner />
         </div>
       ),
     },

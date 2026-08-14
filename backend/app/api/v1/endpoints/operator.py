@@ -684,6 +684,60 @@ async def stop_recitation():
 
 
 # ============================================================================
+# Working (intention → rates → optional broadcast)
+# ============================================================================
+
+
+class RunWorkingRequest(BaseModel):
+    intention: str = Field(..., min_length=1, max_length=1000)
+    target: str = Field(default="all beings", max_length=200)
+    broadcast: bool = True
+    duration_minutes: int = Field(default=5, ge=1, le=30)
+
+
+@router.post("/working", summary="Seal a radionics working from an intention")
+async def run_working_endpoint(request: RunWorkingRequest):
+    """Derive rates, stamp Saka Dawa timing, optionally start a broadcast."""
+    from core.working import run_working as _run_working
+
+    try:
+        return _run_working(
+            intention=request.intention,
+            target=request.target,
+            broadcast=request.broadcast,
+            duration_minutes=request.duration_minutes,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/workings", summary="List recent sealed workings")
+async def list_workings_endpoint(limit: int = 20):
+    from core.working import list_workings
+
+    return {"workings": list_workings(limit=limit)}
+
+
+@router.get("/workings/{working_id}", summary="Load one sealed working folio")
+async def get_working_endpoint(working_id: str):
+    from core.working import load_working
+
+    folio = load_working(working_id)
+    if folio is None:
+        raise HTTPException(status_code=404, detail="Working not found")
+    return folio
+
+
+@router.post("/workings/{working_id}/witness", summary="Generate a witness image for a working")
+async def forge_working_witness(working_id: str):
+    from core.working import attach_witness_image, load_working
+
+    if load_working(working_id) is None:
+        raise HTTPException(status_code=404, detail="Working not found")
+    return attach_witness_image(working_id)
+
+
+# ============================================================================
 # Saka Dawa Endpoint
 # ============================================================================
 

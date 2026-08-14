@@ -1131,6 +1131,30 @@ def check_saka_dawa() -> dict[str, Any]:
     return _check_saka_dawa()
 
 
+def run_working(
+    intention: str,
+    target: str = "all beings",
+    broadcast: bool = True,
+    duration_minutes: int = 5,
+) -> dict[str, Any]:
+    """Seal one working: rates, Saka Dawa stamp, optional broadcast."""
+    from core.working import run_working as _run_working
+
+    return _run_working(
+        intention=intention,
+        target=target,
+        broadcast=broadcast,
+        duration_minutes=duration_minutes,
+    )
+
+
+def forge_witness(working_id: str) -> dict[str, Any]:
+    """Generate and attach a witness image to an existing working folio."""
+    from core.working import attach_witness_image
+
+    return attach_witness_image(working_id)
+
+
 def check_auspicious_timing(genre: str = "healing") -> dict[str, Any]:
     """Check auspicious timing for a ritual genre."""
     from core.auspicious_timing import check_auspicious_window
@@ -1754,6 +1778,8 @@ TOOL_REGISTRY = {
     "list_practices": list_practices,
     "get_ritual_schedule": get_ritual_schedule,
     "generate_image": _AGENT_DISPATCH,
+    "run_working": run_working,
+    "forge_witness": forge_witness,
 }
 
 
@@ -1762,6 +1788,8 @@ TOOL_REGISTRY = {
 # Keep this list and ``_prioritize_tool_schemas`` in lockstep — there is no
 # second filter.
 ESSENTIAL_TOOL_ORDER: list[str] = [
+    "run_working",
+    "forge_witness",
     "generate_single_outlook",
     "generate_prayer",
     "generate_image",
@@ -2390,6 +2418,55 @@ def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
                     "context": {"type": "string", "description": "Why you wanted to do it"},
                 },
                 "required": ["agent_id", "intention", "missing_tools", "context"],
+            },
+        },
+        {
+            "name": "run_working",
+            "description": (
+                "Begin a complete radionics working: derive a 5-dial rate from the "
+                "intention, stamp Saka Dawa / Losar timing, map Solfeggio carriers, "
+                "and optionally start a prayer-bowl broadcast. USE THIS when the user "
+                "asks to begin a working, attune, broadcast a rate, charge an intention, "
+                "or do radionics — not for casual chat."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "intention": {
+                        "type": "string",
+                        "description": "The working's intention in the user's own words",
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "Who or what the working is for (default: all beings)",
+                    },
+                    "broadcast": {
+                        "type": "boolean",
+                        "description": "Start the prayer-bowl broadcast (default true)",
+                    },
+                    "duration_minutes": {
+                        "type": "integer",
+                        "description": "Broadcast duration in minutes, 1-30 (default 5)",
+                    },
+                },
+                "required": ["intention"],
+            },
+        },
+        {
+            "name": "forge_witness",
+            "description": (
+                "Generate a witness image for an already sealed working and "
+                "attach it to the folio. Pass the working_id from run_working."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "working_id": {
+                        "type": "string",
+                        "description": "Id returned by run_working (wrk_…)",
+                    },
+                },
+                "required": ["working_id"],
             },
         },
         {

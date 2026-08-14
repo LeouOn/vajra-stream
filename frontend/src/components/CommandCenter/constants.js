@@ -20,6 +20,7 @@
  * @type {Array<{label: string, text: string}>}
  */
 export const quickCommands = [
+  { label: 'Begin a working', text: 'Begin a working: may all beings be free from suffering' },
   { label: 'Start automation', text: 'start automation' },
   { label: 'Stop automation', text: 'stop automation' },
   { label: 'List populations', text: 'list populations' },
@@ -40,23 +41,34 @@ export const quickCommands = [
  * @param {Object}  [deps.scalarStatus]  - scalar array status object.
  * @returns {Array} operator action definitions (key/label/icon/prompt/endpoint/body).
  */
-export function createOperatorActions({ frequency, isPlaying, sessions, crystalStatus, scalarStatus }) {
+export function createOperatorActions({ frequency, isPlaying, sessions, crystalStatus, scalarStatus, currentInput }) {
+  const typed = typeof currentInput === 'string' ? currentInput.trim() : '';
+  const intention = typed || 'help my friend with chronic back pain';
+  const rateQuery = typed || 'emotional healing after loss';
   return [
+    {
+      key: 'working',
+      label: 'Begin working',
+      icon: '✦',
+      prompt: intention,
+      endpoint: `/api/v1/operator/working`,
+      body: () => ({ intention, target: 'all beings', broadcast: true, duration_minutes: 5 }),
+    },
     {
       key: 'analyze',
       label: 'Analyze intention',
       icon: '🎯',
-      prompt: 'help my friend with chronic back pain',
+      prompt: intention,
       endpoint: `/api/v1/operator/analyze`,
-      body: () => ({ intention: 'help my friend with chronic back pain' }),
+      body: () => ({ intention }),
     },
     {
       key: 'rates',
       label: 'Suggest rates',
       icon: '📊',
-      prompt: 'emotional healing after loss',
+      prompt: rateQuery,
       endpoint: `/api/v1/operator/suggest-rates`,
-      body: () => ({ intention_or_condition: 'emotional healing after loss', count: 5 }),
+      body: () => ({ intention_or_condition: rateQuery, count: 5 }),
     },
     {
       key: 'insight',

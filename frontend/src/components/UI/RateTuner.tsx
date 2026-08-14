@@ -23,6 +23,7 @@ import {
   type CrystalPreset,
 } from '../../lib/crystalPresets';
 import { rateToDharma } from '../../lib/rateDharma';
+import { useCrystalStore } from '../../stores/crystalStore';
 
 const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700'];
 
@@ -48,6 +49,8 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
   const loadRate = useRateStore((s) => s.loadRate);
 
   const addToast = useUIStore((s) => s.addToast);
+  const broadcastCrystal = useCrystalStore((s) => s.broadcastCrystal);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
   
   const [showPresets, setShowPresets] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
@@ -77,6 +80,25 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
     });
   }, [loadRate, addToast]);
   
+  const handleBroadcast = useCallback(async (): Promise<void> => {
+    setIsBroadcasting(true);
+    const result = await broadcastCrystal(
+      5 * 60,
+      2,
+      currentRate.name || currentRate.description || 'rate tuner',
+      ['all beings'],
+      currentRate.values.map((v) => Math.round(v)),
+    );
+    setIsBroadcasting(false);
+    if (result) {
+      audioFeedback.playSuccess();
+      addToast({ type: 'success', title: 'Broadcast started', message: 'Dials sent to the radionics board', duration: 2500 });
+    } else {
+      audioFeedback.playError();
+      addToast({ type: 'error', title: 'Broadcast failed', message: 'Could not reach /radionics/broadcast', duration: 3000 });
+    }
+  }, [broadcastCrystal, currentRate, addToast]);
+
   const handleSave = useCallback((): void => {
     saveRate();
     audioFeedback.playSuccess();
@@ -141,6 +163,15 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
             title="Reset to defaults"
           >
             <RotateCcw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => { void handleBroadcast(); }}
+            disabled={isBroadcasting}
+            onMouseEnter={() => audioFeedback.playTick()}
+            className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-cyan-400 transition-colors disabled:opacity-50"
+            title="Broadcast these dials"
+          >
+            <Play className="w-4 h-4" />
           </button>
           <button
             onClick={handleSave}

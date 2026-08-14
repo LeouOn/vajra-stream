@@ -117,6 +117,26 @@ export interface ToolCall {
     figures?: Record<string, GeomancyFigure | undefined>;
     houses?: Record<number, GeomancyFigure>;
     narrative?: string;
+    working_id?: string;
+    target?: string;
+    rate_values?: number[];
+    solfeggio_names?: string[];
+    frequencies?: number[];
+    spoken_charge?: string;
+    image_prompt?: string;
+    saka_dawa?: {
+      multiplier?: number;
+      saka_dawa_duchen?: string;
+      days_until_duchen?: number | null;
+      is_saka_dawa?: boolean;
+    };
+    broadcast?: { status?: string; error?: string } | null;
+    witness?: {
+      status?: string;
+      image_data_url?: string;
+      error?: string;
+      model?: string;
+    };
   } | null;
 }
 
@@ -125,6 +145,95 @@ interface RenderMessageWidgetsProps {
   toolCalls: ToolCall[];
   /** Callback invoked with a zoom-modal payload. */
   onZoomItemClick?: (item: ZoomItem) => void;
+}
+
+type WorkingResult = NonNullable<ToolCall['result']>;
+
+function WorkingFolioCard({
+  initial,
+  onZoomItemClick,
+}: {
+  initial: WorkingResult;
+  onZoomItemClick?: (item: ZoomItem) => void;
+}) {
+  const [folio, setFolio] = useState<WorkingResult>(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dials = (folio.rate_values || []).join(' · ');
+  const duchen = folio.saka_dawa?.saka_dawa_duchen;
+  const days = folio.saka_dawa?.days_until_duchen;
+  const witnessUrl = folio.witness?.image_data_url;
+
+  const forgeWitness = async () => {
+    if (!folio.working_id || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(apiUrl(`/operator/workings/${folio.working_id}/witness`), { method: 'POST' });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        setError('Witness forge failed');
+        return;
+      }
+      setFolio(data as WorkingResult);
+    } catch {
+      setError('Witness forge failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div data-testid="working-folio" className="bg-black/60 p-4 rounded-xl border border-amber-500/25 space-y-3">
+      <div className="flex items-center justify-between gap-2 text-amber-300 text-xs font-semibold uppercase font-mono">
+        <span>✦ Working sealed</span>
+        <span className="text-[10px] text-amber-200/70 normal-case">{folio.working_id}</span>
+      </div>
+      <p className="text-sm text-white leading-relaxed">{folio.intention}</p>
+      <p className="text-xs text-amber-200/80">For {folio.target || 'all beings'}</p>
+      <div className="grid grid-cols-2 gap-2 text-[11px]">
+        <div className="rounded-lg bg-amber-950/40 border border-amber-500/20 px-2 py-1.5">
+          <div className="text-amber-400/70 uppercase tracking-wider text-[9px]">Dials</div>
+          <div className="font-mono text-amber-100">{dials || '—'}</div>
+        </div>
+        <div className="rounded-lg bg-amber-950/40 border border-amber-500/20 px-2 py-1.5">
+          <div className="text-amber-400/70 uppercase tracking-wider text-[9px]">Next Duchen</div>
+          <div className="text-amber-100">{duchen || '—'}{days != null ? ` · ${days}d` : ''}</div>
+        </div>
+      </div>
+      {folio.spoken_charge && (
+        <p className="text-xs italic text-slate-300 border-l-2 border-amber-500/40 pl-3">{folio.spoken_charge}</p>
+      )}
+      {folio.broadcast?.status && (
+        <p className="text-[10px] font-mono text-amber-400/80">Broadcast: {folio.broadcast.status}</p>
+      )}
+      {witnessUrl && (
+        <img
+          src={witnessUrl}
+          alt="Working witness"
+          className="w-full max-h-64 object-contain rounded-lg border border-amber-500/20 cursor-zoom-in"
+          onClick={() => onZoomItemClick?.({
+            type: 'image',
+            title: folio.intention || 'Witness',
+            image_data_url: witnessUrl,
+          })}
+        />
+      )}
+      {folio.witness?.error && (
+        <p className="text-[11px] text-red-300">{folio.witness.error}</p>
+      )}
+      {error && <p className="text-[11px] text-red-300">{error}</p>}
+      <button
+        type="button"
+        onClick={() => { void forgeWitness(); }}
+        disabled={busy}
+        className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
+      >
+        {busy ? 'Forging witness…' : witnessUrl ? 'Re-forge witness' : 'Generate witness image'}
+      </button>
+    </div>
+  );
 }
 
 const COORD_RE = /\(\s*(\d+)\s*,\s*(\d+)\s*\)/g;
@@ -189,6 +298,12 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
     <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
       {toolCalls.map((tc, idx) => {
         if (tc.status !== 'success') return null;
+
+        if (tc.tool_name === 'run_working' || tc.tool_name === 'forge_witness') {
+          const w = tc.result;
+          if (!w || !w.working_id) return null;
+          return <WorkingFolioCard key={idx} initial={w} onZoomItemClick={onZoomItemClick} />;
+        }
 
         // 1. Forge Sigil Widget
         if (tc.tool_name === 'forge_sigil') {

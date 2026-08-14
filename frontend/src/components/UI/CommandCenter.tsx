@@ -22,10 +22,10 @@ import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
 import { resolveChatRoute } from '../../utils/chatRoute';
-
 import { useWebSocketStable as useWebSocket, getActiveConnectionId } from '../../hooks/useWebSocketStable';
 import { subscribe } from '../../hooks/chatProgress';
 import SakaDawaBanner from './SakaDawaBanner';
+import WorkingsStrip from '../CommandCenter/WorkingsStrip';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
 import { RichMarkdownRenderer } from '../CommandCenter/RichMarkdownRenderer';
 import { quickCommands, createOperatorActions } from '../CommandCenter/constants';
@@ -33,6 +33,24 @@ import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
 import LogsCard from '../CommandCenter/LogsCard';
 import ZoomModal from '../CommandCenter/ZoomModal';
 import PageHeader from './PageHeader';
+
+function formatWorkingSummary(data: Record<string, unknown>): string {
+  const values = Array.isArray(data.rate_values) ? (data.rate_values as unknown[]).join(' · ') : '—';
+  const saka = (data.saka_dawa && typeof data.saka_dawa === 'object')
+    ? data.saka_dawa as Record<string, unknown>
+    : {};
+  const charge = typeof data.spoken_charge === 'string' ? data.spoken_charge : '';
+  const duchen = typeof saka.saka_dawa_duchen === 'string' ? saka.saka_dawa_duchen : '—';
+  const days = saka.days_until_duchen != null ? String(saka.days_until_duchen) : '—';
+  return (
+    `✦ Working ${data.working_id || ''}\n` +
+    `Intention: ${data.intention || '—'}\n` +
+    `Target: ${data.target || '—'}\n` +
+    `Dials: ${values}\n` +
+    `Next Duchen: ${duchen} (${days} days)\n` +
+    (charge ? `\n${charge}` : '')
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -890,7 +908,7 @@ export default function CommandCenter({
     }
   }
 
-  const operatorActions = createOperatorActions({ frequency, isPlaying, sessions, crystalStatus, scalarStatus });
+  const operatorActions = createOperatorActions({ frequency, isPlaying, sessions, crystalStatus, scalarStatus, currentInput: input });
 
   async function handleOperatorAction(action: { key: string; label: string; icon: string; prompt: string; endpoint: string; body: () => Record<string, unknown> }) {
     if (isLoading) return;
@@ -907,12 +925,21 @@ export default function CommandCenter({
       });
       if (res.ok) {
         const data = await res.json();
-        const summary = action.key === 'analyze'
+        const summary = action.key === 'working'
+          ? formatWorkingSummary(data)
+          : action.key === 'analyze'
           ? `🎯 Target: ${data.analysis?.target || '—'}\n🌀 Chakra: ${data.analysis?.primary_chakra || '—'}\n📡 Freq: ${data.analysis?.recommended_frequency || '—'} Hz\n🕉️ Mantra: ${data.analysis?.recommended_mantra_tradition || '—'}`
           : action.key === 'rates'
             ? `📊 ${(data.rates || []).map((r: Record<string, unknown>, i: number) => `${i + 1}. ${r.name || 'Rate ' + (i + 1)} → ${Array.isArray(r.values) ? (r.values as unknown[]).join('-') : r.values}`).join('\n')}`
             : data.insight || JSON.stringify(data);
-        setMessages(prev => [...prev, { role: 'assistant' as const, content: summary, action: action.key }]);
+        setMessages(prev => [...prev, {
+          role: 'assistant' as const,
+          content: summary,
+          action: action.key,
+          toolCalls: action.key === 'working'
+            ? [{ tool_name: 'run_working', arguments: {}, status: 'success', result: data }]
+            : undefined,
+        }]);
         addToolLog('llm', `${action.label} complete`, 'success');
       } else {
         setMessages(prev => [...prev, { role: 'assistant' as const, content: 'Operator service unavailable.', action: 'error' }]);
@@ -933,6 +960,7 @@ export default function CommandCenter({
 
       {/* Saka Dawa Banner */}
       <SakaDawaBanner sakaDawa={sakaDawa} />
+      <WorkingsStrip />
 
       <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
         
