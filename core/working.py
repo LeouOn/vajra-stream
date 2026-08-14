@@ -123,6 +123,51 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
     return folio
 
 
+def charge_audio_path(working_id: str) -> Path:
+    safe = "".join(ch for ch in working_id if ch.isalnum() or ch == "_")
+    return WORKINGS_DIR / f"{safe}_charge.mp3"
+
+
+def record_spoken(working_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    folio = load_working(working_id)
+    if folio is None:
+        return {"error": "working_not_found", "working_id": working_id}
+    folio["spoken"] = payload
+    try:
+        _persist(folio, index=False)
+        folio["saved"] = True
+    except OSError as exc:
+        folio["saved"] = False
+        folio["save_error"] = str(exc)[:200]
+    return folio
+
+
+def video_prompt_for(folio: dict[str, Any]) -> str:
+    """Build a MiniMax-length prompt from the sealed folio."""
+    intention = str(folio.get("intention") or "a blessing")
+    target = str(folio.get("target") or "all beings")
+    charge = str(folio.get("spoken_charge") or "")
+    still = str(folio.get("image_prompt") or "")
+    return (
+        f"{still} Slow cinematic push-in, seamless loop, prayer-bowl glow, "
+        f"dedication of merit for {target}. {charge} Theme: {intention}."
+    )[:1800]
+
+
+def record_video(working_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    folio = load_working(working_id)
+    if folio is None:
+        return {"error": "working_not_found", "working_id": working_id}
+    folio["video"] = payload
+    try:
+        _persist(folio, index=False)
+        folio["saved"] = True
+    except OSError as exc:
+        folio["saved"] = False
+        folio["save_error"] = str(exc)[:200]
+    return folio
+
+
 def _image_prompt(intention: str, target: str, duchen: str | None) -> str:
     moon = f" a pale full moon for Saka Dawa Duchen {duchen}," if duchen else ""
     return (

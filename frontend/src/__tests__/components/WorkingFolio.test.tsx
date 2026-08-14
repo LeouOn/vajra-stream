@@ -2,10 +2,31 @@
  * RenderMessageWidgets — run_working folio card.
  */
 import React from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { RenderMessageWidgets } from '../../components/CommandCenter/RenderMessageWidgets';
+
+const originalFetch = globalThis.fetch;
+
+beforeEach(() => {
+  globalThis.fetch = vi.fn().mockImplementation(async () => ({
+    ok: true,
+    json: async () => ({
+      working_id: 'wrk_test',
+      intention: 'May the waters be clean',
+      target: 'the watershed',
+      rate_values: [12, 44, 70, 33, 81],
+      spoken_charge: 'For the watershed: May the waters be clean.',
+      saka_dawa: { saka_dawa_duchen: '2027-05-21', days_until_duchen: 281 },
+      spoken: { status: 'ok' },
+    }),
+  } as Response));
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 describe('Working folio widget', () => {
   it('renders dials and the spoken charge', async () => {

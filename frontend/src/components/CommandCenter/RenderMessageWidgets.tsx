@@ -137,6 +137,8 @@ export interface ToolCall {
       error?: string;
       model?: string;
     };
+    spoken?: { status?: string; error?: string; audio_path?: string };
+    video?: { status?: string; error?: string; task_id?: string };
   } | null;
 }
 
@@ -147,23 +149,80 @@ interface RenderMessageWidgetsProps {
   onZoomItemClick?: (item: ZoomItem) => void;
 }
 
-type WorkingResult = NonNullable<ToolCall['result']>;
+export type WorkingResult = NonNullable<ToolCall['result']>;
 
-function WorkingFolioCard({
+export function WorkingFolioCard({
   initial,
   onZoomItemClick,
+  autoSpeak = false,
 }: {
   initial: WorkingResult;
   onZoomItemClick?: (item: ZoomItem) => void;
+  autoSpeak?: boolean;
 }) {
   const [folio, setFolio] = useState<WorkingResult>(initial);
   const [busy, setBusy] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [videoBusy, setVideoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chargeRev, setChargeRev] = useState(0);
 
   const dials = (folio.rate_values || []).join(' · ');
   const duchen = folio.saka_dawa?.saka_dawa_duchen;
   const days = folio.saka_dawa?.days_until_duchen;
   const witnessUrl = folio.witness?.image_data_url;
+
+  const applyFolio = (data: unknown) => {
+    if (data && typeof data === 'object') {
+      setFolio(data as WorkingResult);
+    }
+  };
+
+  const speakCharge = async () => {
+    if (!folio.working_id || speaking) return;
+    setSpeaking(true);
+    setError(null);
+    try {
+      const res = await fetch(apiUrl(`/operator/workings/${folio.working_id}/speak`), { method: 'POST' });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        setError('Could not speak the charge');
+        return;
+      }
+      applyFolio(data);
+      setChargeRev((n) => n + 1);
+    } catch {
+      setError('Could not speak the charge');
+    } finally {
+      setSpeaking(false);
+    }
+  };
+
+  const submitVideo = async () => {
+    if (!folio.working_id || videoBusy) return;
+    setVideoBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(apiUrl(`/operator/workings/${folio.working_id}/video`), { method: 'POST' });
+      const data: unknown = await res.json();
+      if (!res.ok) {
+        setError('Video submit failed');
+        return;
+      }
+      applyFolio(data);
+    } catch {
+      setError('Video submit failed');
+    } finally {
+      setVideoBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!autoSpeak || !initial.working_id || initial.spoken?.status === 'ok') return;
+    void speakCharge();
+    // Speak once when a newly sealed working is shown in chat.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSpeak, initial.working_id]);
 
   const forgeWitness = async () => {
     if (!folio.working_id || busy) return;
@@ -176,7 +235,7 @@ function WorkingFolioCard({
         setError('Witness forge failed');
         return;
       }
-      setFolio(data as WorkingResult);
+      applyFolio(data);
     } catch {
       setError('Witness forge failed');
     } finally {
@@ -224,14 +283,47 @@ function WorkingFolioCard({
         <p className="text-[11px] text-red-300">{folio.witness.error}</p>
       )}
       {error && <p className="text-[11px] text-red-300">{error}</p>}
-      <button
-        type="button"
-        onClick={() => { void forgeWitness(); }}
-        disabled={busy}
-        className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
-      >
-        {busy ? 'Forging witness…' : witnessUrl ? 'Re-forge witness' : 'Generate witness image'}
-      </button>
+      {folio.spoken?.status === 'ok' && folio.working_id && (
+        <audio
+          key={chargeRev}
+          controls
+          className="w-full"
+          src={apiUrl(`/operator/workings/${folio.working_id}/charge`)}
+        />
+      )}
+      {folio.video?.status && (
+        <p className="text-[10px] font-mono text-amber-400/80">
+          Video: {folio.video.status}
+          {folio.video.task_id ? ` · ${folio.video.task_id}` : ''}
+          {folio.video.error ? ` · ${folio.video.error}` : ''}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => { void speakCharge(); }}
+          disabled={speaking}
+          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
+        >
+          {speaking ? 'Speaking…' : 'Speak charge'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { void forgeWitness(); }}
+          disabled={busy}
+          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
+        >
+          {busy ? 'Forging witness…' : witnessUrl ? 'Re-forge witness' : 'Generate witness image'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { void submitVideo(); }}
+          disabled={videoBusy}
+          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
+        >
+          {videoBusy ? 'Submitting video…' : 'Manifestation video'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -302,7 +394,7 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
         if (tc.tool_name === 'run_working' || tc.tool_name === 'forge_witness') {
           const w = tc.result;
           if (!w || !w.working_id) return null;
-          return <WorkingFolioCard key={idx} initial={w} onZoomItemClick={onZoomItemClick} />;
+          return <WorkingFolioCard key={idx} initial={w} onZoomItemClick={onZoomItemClick} autoSpeak />;
         }
 
         // 1. Forge Sigil Widget

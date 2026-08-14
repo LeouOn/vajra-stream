@@ -78,6 +78,32 @@ def test_attach_witness_persists_image(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 @pytest.mark.unit
+def test_video_prompt_is_long_enough_for_minimax():
+    from core.working import video_prompt_for
+
+    prompt = video_prompt_for(
+        {
+            "intention": "peace for the watershed",
+            "target": "the river",
+            "spoken_charge": "For the river: peace.",
+            "image_prompt": "A quiet ritual still life with brass bowls on dark wood.",
+        }
+    )
+    assert len(prompt) >= 50
+
+
+@pytest.mark.unit
+def test_record_spoken_and_charge_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import core.working as working
+
+    monkeypatch.setattr(working, "WORKINGS_DIR", tmp_path)
+    folio = working.run_working("a lamp in the dark", broadcast=False)
+    updated = working.record_spoken(folio["working_id"], {"status": "ok", "audio_path": "x.mp3"})
+    assert updated["spoken"]["status"] == "ok"
+    assert working.charge_audio_path(folio["working_id"]).name.endswith("_charge.mp3")
+
+
+@pytest.mark.unit
 def test_run_working_is_on_the_chat_allowlist():
     from backend.core.llm_agent.tools import ESSENTIAL_TOOL_ORDER, get_tool_schemas
 

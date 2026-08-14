@@ -6,6 +6,7 @@ Exposes the LLM-powered radionics operator to the frontend.
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 router = APIRouter()
@@ -735,6 +736,64 @@ async def forge_working_witness(working_id: str):
     if load_working(working_id) is None:
         raise HTTPException(status_code=404, detail="Working not found")
     return attach_witness_image(working_id)
+
+
+@router.post("/workings/{working_id}/speak", summary="Speak the working charge")
+async def speak_working_charge(working_id: str):
+    from core.tts_provider import get_tts_provider
+    from core.working import charge_audio_path, load_working, record_spoken
+
+    folio = load_working(working_id)
+    if folio is None:
+        raise HTTPException(status_code=404, detail="Working not found")
+    charge = str(folio.get("spoken_charge") or folio.get("intention") or "")
+    if not charge:
+        raise HTTPException(status_code=400, detail="Working has no charge to speak")
+    out = charge_audio_path(working_id)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        provider = get_tts_provider()
+        path = await provider.speak(charge, role="dharma_teaching", output_file=str(out))
+    except Exception as exc:
+        return record_spoken(working_id, {"status": "error", "error": str(exc)[:300]})
+    if not path:
+        return record_spoken(working_id, {"status": "error", "error": "TTS returned no audio"})
+    return record_spoken(working_id, {"status": "ok", "audio_path": path})
+
+
+@router.get("/workings/{working_id}/charge", summary="Stream the spoken charge audio")
+async def get_working_charge_audio(working_id: str):
+    from core.working import charge_audio_path, load_working
+
+    if load_working(working_id) is None:
+        raise HTTPException(status_code=404, detail="Working not found")
+    path = charge_audio_path(working_id)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Charge audio not generated yet")
+    media = "audio/mpeg" if path.suffix == ".mp3" else "audio/wav"
+    return FileResponse(path, media_type=media, filename=path.name)
+
+
+@router.post("/workings/{working_id}/video", summary="Submit a manifestation video for a working")
+async def forge_working_video(working_id: str):
+    from backend.app.api.v1.endpoints.video_generation import get_service
+    from core.working import load_working, record_video, video_prompt_for
+
+    folio = load_working(working_id)
+    if folio is None:
+        raise HTTPException(status_code=404, detail="Working not found")
+    service = get_service()
+    if not service.config.get("enabled", False):
+        return record_video(working_id, {"status": "disabled", "error": "Video generation is disabled in Settings"})
+    prompt = video_prompt_for(folio)
+    try:
+        task_id = await service.submit_task(prompt=prompt)
+    except Exception as exc:
+        return record_video(working_id, {"status": "error", "error": str(exc)[:300], "prompt": prompt})
+    return record_video(
+        working_id,
+        {"status": "submitted", "task_id": task_id, "prompt": prompt},
+    )
 
 
 # ============================================================================

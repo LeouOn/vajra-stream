@@ -37,6 +37,7 @@ import {
   Settings,
   Heart,
   Sparkles,
+  Flame,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -52,6 +53,7 @@ export const ROUTES: RouteEntry[] = [
   { key: 'practices', label: 'Practice Library', icon: Sparkles },
   { key: 'astrology', label: 'Cosmic Clock', icon: Clock },
   { key: 'outlook', label: 'Outlook', icon: FileText },
+  { key: 'workings', label: 'Workings', icon: Flame },
   { key: 'operations', label: 'Operations', icon: Compass },
   { key: 'grimoire', label: 'Grimoire', icon: BookOpen },
   { key: 'settings', label: 'Settings', icon: Settings },

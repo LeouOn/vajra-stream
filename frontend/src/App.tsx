@@ -27,6 +27,7 @@ import GrimoirePanel from './components/UI/GrimoirePanel';
 import PracticePage from './routes/Practice';
 import OperationsPage from './routes/Operations';
 import SettingsPage from './routes/Settings';
+import WorkingsPage from './routes/Workings';
 import PracticeSelector from './components/UI/PracticeSelector';
 import PracticeDetail from './components/UI/PracticeDetail';
 import ErrorBoundary from './components/UI/ErrorBoundary';
@@ -173,6 +174,12 @@ function AppContent(): React.ReactElement {
             <div className="flex-1 h-full overflow-hidden">
               <OutlookDashboard />
             </div>
+          </ErrorBoundary>
+        } />
+
+        <Route path="/workings" element={
+          <ErrorBoundary fallbackTitle="Workings failed to render">
+            <WorkingsPage />
           </ErrorBoundary>
         } />
 
