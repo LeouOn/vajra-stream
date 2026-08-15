@@ -1834,18 +1834,27 @@ async def _chat_via_registry(
             logger.warning(f"Follow-up LLM call failed: {followup_ex}. Returning raw results.")
             break
 
-    debug_info: dict | None = None
+    if not (clean_content or "").strip() and tool_logs:
+        names = ", ".join(t.tool_name for t in tool_logs if t.tool_name)
+        clean_content = f"Completed {len(tool_logs)} tool call(s): {names or 'unnamed'}."
+
+    debug_info: dict = {
+        "provider": response.provider,
+        "model": response.model,
+        "tools_executed": len(tool_logs),
+        "tool_names": [t.tool_name for t in tool_logs],
+        "response_chars": len(clean_content or ""),
+    }
     if request.debug_mode:
-        debug_info = {
-            "provider": response.provider,
-            "model": response.model,
-            "input_tokens": response.input_tokens,
-            "output_tokens": response.output_tokens,
-            "finish_reason": response.finish_reason,
-            "text_parsed_tool_calls": [t["name"] for t in text_tool_calls],
-            "tools_executed": len(tool_logs),
-            "raw_tool_results": raw_tool_results[:3],
-        }
+        debug_info.update(
+            {
+                "input_tokens": response.input_tokens,
+                "output_tokens": response.output_tokens,
+                "finish_reason": response.finish_reason,
+                "text_parsed_tool_calls": [t["name"] for t in text_tool_calls],
+                "raw_tool_results": raw_tool_results[:3],
+            }
+        )
         if getattr(response, "reasoning_content", None):
             debug_info["reasoning_content"] = response.reasoning_content
         if getattr(response, "reasoning_tokens", 0):
@@ -2848,6 +2857,7 @@ async def _run_chat_async(
             status="completed",
             response=response.response,
             tool_calls=[t.model_dump() for t in response.tool_calls],
+            debug_info=response.debug_info,
         )
         await _push(
             "chat_complete",

@@ -127,6 +127,25 @@ def test_record_spoken_and_charge_path(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 @pytest.mark.unit
+@pytest.mark.unit
+def test_hide_and_delete_working(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import core.working as working
+
+    monkeypatch.setattr(working, "WORKINGS_DIR", tmp_path)
+    folio = working.run_working("a lamp in the dark", broadcast=False)
+    hidden = working.set_working_hidden(folio["working_id"], True)
+    assert hidden is not None
+    assert hidden["hidden"] is True
+    assert working.list_workings() == []
+    listed = working.list_workings(include_hidden=True)
+    assert listed[0]["working_id"] == folio["working_id"]
+    updated = working.update_working_rates(folio["working_id"], [10, 20, 30, 40, 50])
+    assert updated is not None
+    assert updated["rate_values"] == [10, 20, 30, 40, 50]
+    assert working.delete_working(folio["working_id"]) is True
+    assert working.load_working(folio["working_id"]) is None
+
+
 def test_run_working_is_on_the_chat_allowlist():
     from backend.core.llm_agent.tools import ESSENTIAL_TOOL_ORDER, get_tool_schemas
 

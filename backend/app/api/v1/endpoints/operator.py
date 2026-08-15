@@ -723,10 +723,10 @@ async def run_working_endpoint(request: RunWorkingRequest):
 
 
 @router.get("/workings", summary="List recent sealed workings")
-async def list_workings_endpoint(limit: int = 20):
+async def list_workings_endpoint(limit: int = 20, include_hidden: bool = False):
     from core.working import list_workings
 
-    return {"workings": list_workings(limit=limit)}
+    return {"workings": list_workings(limit=limit, include_hidden=include_hidden)}
 
 
 @router.get("/workings/{working_id}", summary="Load one sealed working folio")
@@ -737,6 +737,34 @@ async def get_working_endpoint(working_id: str):
     if folio is None:
         raise HTTPException(status_code=404, detail="Working not found")
     return folio
+
+
+class WorkingPatchRequest(BaseModel):
+    hidden: bool | None = None
+    rate_values: list[int] | None = None
+
+
+@router.patch("/workings/{working_id}", summary="Hide or retune a sealed working")
+async def patch_working_endpoint(working_id: str, request: WorkingPatchRequest):
+    from core.working import load_working, set_working_hidden, update_working_rates
+
+    if load_working(working_id) is None:
+        raise HTTPException(status_code=404, detail="Working not found")
+    folio = None
+    if request.rate_values is not None:
+        folio = update_working_rates(working_id, request.rate_values)
+    if request.hidden is not None:
+        folio = set_working_hidden(working_id, request.hidden)
+    return folio or load_working(working_id)
+
+
+@router.delete("/workings/{working_id}", summary="Delete a sealed working")
+async def delete_working_endpoint(working_id: str):
+    from core.working import delete_working
+
+    if not delete_working(working_id):
+        raise HTTPException(status_code=404, detail="Working not found")
+    return {"deleted": working_id}
 
 
 @router.post("/workings/{working_id}/witness", summary="Generate a manifestation image for a working")

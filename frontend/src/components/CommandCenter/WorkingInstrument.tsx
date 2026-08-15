@@ -103,7 +103,15 @@ export function WitnessPlate({
   );
 }
 
-export default function WorkingInstrument({ folio }: { folio: WorkingInstrumentFolio }): React.ReactElement | null {
+export default function WorkingInstrument({
+  folio,
+  showRates = true,
+  showField = true,
+}: {
+  folio: WorkingInstrumentFolio;
+  showRates?: boolean;
+  showField?: boolean;
+}): React.ReactElement | null {
   const values = (folio.rate_values || []).slice(0, 5).map((v) => Math.max(0, Math.min(100, Math.round(Number(v) || 0))));
   const swept = useSweptRates(values);
   const loadWorkingRates = useRateStore((s) => s.loadWorkingRates);
@@ -124,27 +132,31 @@ export default function WorkingInstrument({ folio }: { folio: WorkingInstrumentF
 
   return (
     <div data-testid="working-instrument" className="space-y-3">
-      <div className="h-[72px] overflow-hidden rounded-lg border border-white/5">
-        <RothkoGenerator
-          palette={paletteForFolio(folio)}
-          transitionSpeed={90}
-          isPlaying
-        />
-      </div>
-
-      <div className="grid grid-cols-5 gap-1 place-items-center" data-testid="working-dials">
-        {values.map((_, i) => (
-          <RateDial
-            key={DIAL_META[i]?.name || i}
-            value={swept[i] ?? 0}
-            disabled
-            size={64}
-            color={DIAL_META[i]?.color}
-            label={DIAL_META[i]?.name}
-            showValue
+      {showField && (
+        <div className="h-[72px] overflow-hidden rounded-lg border border-white/5">
+          <RothkoGenerator
+            palette={paletteForFolio(folio)}
+            transitionSpeed={90}
+            isPlaying
           />
-        ))}
-      </div>
+        </div>
+      )}
+
+      {showRates && (
+        <div className="grid grid-cols-5 gap-1 place-items-center" data-testid="working-dials">
+          {values.map((_, i) => (
+            <RateDial
+              key={DIAL_META[i]?.name || i}
+              value={swept[i] ?? 0}
+              disabled
+              size={64}
+              color={DIAL_META[i]?.color}
+              label={DIAL_META[i]?.name}
+              showValue
+            />
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5 text-[10px] font-mono">
         {(folio.solfeggio_names || []).slice(0, 5).map((name, i) => (

@@ -57,18 +57,23 @@ def load_working(working_id: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def list_workings(limit: int = 20) -> list[dict[str, Any]]:
+def list_workings(limit: int = 20, *, include_hidden: bool = False) -> list[dict[str, Any]]:
     """Newest sealed workings, without image payloads."""
     if not WORKINGS_DIR.is_dir():
         return []
     files = sorted(WORKINGS_DIR.glob("wrk_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
     out: list[dict[str, Any]] = []
-    for path in files[: max(1, min(limit, 50))]:
+    for path in files:
+        if len(out) >= max(1, min(limit, 50)):
+            break
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         if not isinstance(data, dict):
+            continue
+        hidden = bool(data.get("hidden"))
+        if hidden and not include_hidden:
             continue
         witness = data.get("witness") if isinstance(data.get("witness"), dict) else {}
         saka = data.get("saka_dawa") if isinstance(data.get("saka_dawa"), dict) else {}
@@ -80,12 +85,72 @@ def list_workings(limit: int = 20) -> list[dict[str, Any]]:
                 "target": data.get("target"),
                 "sealed_at": data.get("sealed_at"),
                 "rate_values": data.get("rate_values"),
+                "frequencies": data.get("frequencies"),
+                "solfeggio_names": data.get("solfeggio_names"),
+                "source": data.get("source"),
+                "hidden": hidden,
                 "has_witness": has_image,
                 "has_manifestation": has_image,
                 "saka_dawa_duchen": saka.get("saka_dawa_duchen"),
             }
         )
     return out
+
+
+def delete_working(working_id: str) -> bool:
+    """Remove a folio and its charge audio from disk."""
+    folio = load_working(working_id)
+    if folio is None:
+        return False
+    safe = "".join(ch for ch in working_id if ch.isalnum() or ch == "_")
+    path = WORKINGS_DIR / f"{safe}.json"
+    try:
+        path.unlink()
+        charge = charge_audio_path(working_id)
+        if charge.is_file():
+            charge.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def set_working_hidden(working_id: str, hidden: bool) -> dict[str, Any] | None:
+    folio = load_working(working_id)
+    if folio is None:
+        return None
+    folio["hidden"] = bool(hidden)
+    try:
+        _persist(folio, index=False)
+        folio["saved"] = True
+    except OSError as exc:
+        folio["saved"] = False
+        folio["save_error"] = str(exc)[:200]
+    return folio
+
+
+def update_working_rates(working_id: str, rate_values: list[int]) -> dict[str, Any] | None:
+    folio = load_working(working_id)
+    if folio is None:
+        return None
+    values = [max(0, min(100, int(v))) for v in (rate_values or [])[:5]]
+    if len(values) < 2:
+        return folio
+    carriers = map_rate_to_carriers(values)
+    folio["rate_values"] = values
+    folio["dials"] = [
+        {"name": _DIAL_NAMES[i] if i < len(_DIAL_NAMES) else f"D{i + 1}", "value": values[i]}
+        for i in range(len(values))
+    ]
+    folio["frequencies"] = list(carriers.frequencies)
+    folio["solfeggio_names"] = list(carriers.solfeggio_names)
+    folio["amplitude"] = carriers.amplitude
+    try:
+        _persist(folio, index=False)
+        folio["saved"] = True
+    except OSError as exc:
+        folio["saved"] = False
+        folio["save_error"] = str(exc)[:200]
+    return folio
 
 
 def attach_witness_image(working_id: str) -> dict[str, Any]:

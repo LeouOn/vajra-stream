@@ -24,6 +24,7 @@ import { apiUrl } from '../../utils/api';
 import { resolveChatRoute } from '../../utils/chatRoute';
 import { useWebSocketStable as useWebSocket, getActiveConnectionId } from '../../hooks/useWebSocketStable';
 import { subscribe } from '../../hooks/chatProgress';
+import { createLogger } from '../../utils/logger';
 import SakaDawaBanner from './SakaDawaBanner';
 import WorkingsStrip from '../CommandCenter/WorkingsStrip';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
@@ -678,6 +679,17 @@ export default function CommandCenter({
     jobIdRef.current = null;
     const connectionId = getActiveConnectionId();
     const routed = resolveChatRoute(model, availableModelList);
+    const chatLog = createLogger('CommandCenter');
+    chatLog.info('chat.send', {
+      provider: routed.provider,
+      model: routed.model,
+      connectionId,
+      messages: messagesToSend.length,
+      debug,
+    });
+    if (!connectionId) {
+      chatLog.warn('chat.send: no WebSocket connection id — will poll job status');
+    }
     const chatResponse = await fetch(apiUrl('/llm/chat/async'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -700,6 +712,7 @@ export default function CommandCenter({
     const json = await chatResponse.json();
     const jobId: string = json.job_id;
     jobIdRef.current = jobId;
+    createLogger('CommandCenter').info('chat.accepted', { jobId, status: json.status });
 
     return await waitForChatJob(jobId);
   }
@@ -711,12 +724,50 @@ export default function CommandCenter({
     latencyMs: number;
   }> {
     const start = Date.now();
+    const chatLog = createLogger('CommandCenter');
     return new Promise((resolve, reject) => {
+      let settled = false;
       const finish = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
+        clearInterval(poller);
         unsub();
         waitRejectRef.current = null;
         fn();
+      };
+      const applyTerminal = (status: string, payload: Record<string, unknown>) => {
+        if (status === 'completed') {
+          const debugInfo = payload.debug_info;
+          chatLog.info('chat.complete', {
+            jobId,
+            responseLen: typeof payload.response === 'string' ? payload.response.length : 0,
+            tools: Array.isArray(payload.tool_calls) ? payload.tool_calls.length : 0,
+            debug: debugInfo,
+          });
+          finish(() => resolve({
+            response: typeof payload.response === 'string' ? payload.response : '',
+            tool_calls: Array.isArray(payload.tool_calls) ? payload.tool_calls as ToolCall[] : undefined,
+            debug_info: debugInfo && typeof debugInfo === 'object' ? debugInfo as DebugInfo : undefined,
+            latencyMs: Date.now() - start,
+          }));
+          return true;
+        }
+        if (status === 'error') {
+          const errText = typeof payload.error === 'string' ? payload.error : 'Chat job failed';
+          chatLog.error('chat.error', { jobId, error: errText });
+          finish(() => reject(new Error(errText)));
+          return true;
+        }
+        if (status === 'cancelled') {
+          finish(() => {
+            const err = new Error('cancelled');
+            err.name = 'AbortError';
+            reject(err);
+          });
+          return true;
+        }
+        return false;
       };
       const timer = setTimeout(() => {
         finish(() => reject(new Error('Chat job timed out after 180s')));
@@ -724,29 +775,37 @@ export default function CommandCenter({
       waitRejectRef.current = (err: Error) => {
         finish(() => reject(err));
       };
+      const poller = setInterval(() => {
+        void (async () => {
+          try {
+            const res = await fetch(apiUrl(`/llm/chat/jobs/${jobId}`));
+            if (!res.ok) return;
+            const job = await res.json() as Record<string, unknown>;
+            chatLog.debug('chat.poll', { jobId, status: job.status });
+            applyTerminal(String(job.status || ''), job);
+          } catch (err) {
+            chatLog.warn('chat.poll failed', err);
+          }
+        })();
+      }, 1500);
       const unsub = subscribe((jid, evt) => {
         if (jid !== jobId) return;
         if (cancelledRef.current) return;
+        chatLog.debug('chat.ws', { jobId, type: evt.type, tool: evt.tool });
         if (evt.type === 'chat_tool_start' && typeof evt.tool === 'string') {
           addToolLog('tool', `Calling ${evt.tool}...`, 'pending');
           return;
         }
+        if (evt.type === 'chat_tool_error' && typeof evt.tool === 'string') {
+          addToolLog('tool', `Tool ${evt.tool} failed: ${String(evt.error || '')}`, 'error');
+          return;
+        }
         if (evt.type === 'chat_complete') {
-          const debugInfo = evt.debug_info;
-          finish(() => resolve({
-            response: typeof evt.response === 'string' ? evt.response : '',
-            tool_calls: Array.isArray(evt.tool_calls) ? evt.tool_calls as ToolCall[] : undefined,
-            debug_info: debugInfo && typeof debugInfo === 'object' ? debugInfo as DebugInfo : undefined,
-            latencyMs: Date.now() - start,
-          }));
+          applyTerminal('completed', evt);
         } else if (evt.type === 'chat_error') {
-          finish(() => reject(new Error(typeof evt.error === 'string' ? evt.error : 'Chat job failed')));
+          applyTerminal('error', evt);
         } else if (evt.type === 'chat_cancelled') {
-          finish(() => {
-            const err = new Error('cancelled');
-            err.name = 'AbortError';
-            reject(err);
-          });
+          applyTerminal('cancelled', evt);
         }
       });
     });
@@ -805,9 +864,16 @@ export default function CommandCenter({
       const modelUsed = dbg?.model || (selectedModel !== 'auto' ? selectedModel : null);
       const inputTokens = dbg?.input_tokens ?? null;
       const outputTokens = dbg?.output_tokens ?? null;
+      const replyText = (data.response || '').trim()
+        || (data.tool_calls && data.tool_calls.length
+          ? `The operator ran: ${data.tool_calls.map((t) => t.tool_name).join(', ')}. See the cards below.`
+          : '');
+      if (!replyText) {
+        throw new Error('The model returned an empty reply. Check the console [vajra:CommandCenter] logs.');
+      }
       const assistantMsg: ChatMessage = {
         role: 'assistant',
-        content: data.response,
+        content: replyText,
         toolCalls: data.tool_calls,
         debugInfo: dbg,
         reasoningContent: dbg?.reasoning_content || null,

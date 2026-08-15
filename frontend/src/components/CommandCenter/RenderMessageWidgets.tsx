@@ -160,11 +160,15 @@ export function WorkingFolioCard({
   onZoomItemClick,
   autoSpeak = false,
   autoManifest = false,
+  showInstrument = true,
+  showRates = true,
 }: {
   initial: WorkingResult;
   onZoomItemClick?: (item: ZoomItem) => void;
   autoSpeak?: boolean;
   autoManifest?: boolean;
+  showInstrument?: boolean;
+  showRates?: boolean;
 }) {
   const [folio, setFolio] = useState<WorkingResult>(initial);
   const [busy, setBusy] = useState(false);
@@ -264,12 +268,14 @@ export function WorkingFolioCard({
       </div>
       <p className="text-sm text-white leading-relaxed">{folio.intention}</p>
       <p className="text-xs text-amber-200/80">For {folio.target || 'all beings'}</p>
-      <WorkingInstrument folio={folio} />
+      {showInstrument && <WorkingInstrument folio={folio} showRates={showRates} />}
       <div className="grid grid-cols-2 gap-2 text-[11px]">
+        {showRates && (
         <div className="rounded-lg bg-amber-950/40 border border-amber-500/20 px-2 py-1.5">
           <div className="text-amber-400/70 uppercase tracking-wider text-[9px]">Dials</div>
           <div className="font-mono text-amber-100">{dials || '—'}</div>
         </div>
+        )}
         <div className="rounded-lg bg-amber-950/40 border border-amber-500/20 px-2 py-1.5">
           <div className="text-amber-400/70 uppercase tracking-wider text-[9px]">Next Duchen</div>
           <div className="text-amber-100">{duchen || '—'}{days != null ? ` · ${days}d` : ''}</div>
