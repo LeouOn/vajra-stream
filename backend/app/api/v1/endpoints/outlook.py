@@ -105,7 +105,10 @@ async def generate_single(request: OutlookRequest):
         if request.natal_lat is not None and request.natal_lon is not None:
             natal_location = (request.natal_lat, request.natal_lon)
 
-        result = container.outlook.generate_single(
+        # Sync generate blocks for minutes on Nemotron Ultra. Offload so
+        # the event loop can still serve chat polls / health / cancel.
+        result = await asyncio.to_thread(
+            container.outlook.generate_single,
             lat=request.lat,
             lon=request.lon,
             languages=request.languages,
@@ -180,7 +183,8 @@ async def generate_epic(request: EpicOutlookRequest):
     Generates a multi-stage epic narrative outlook (9-12 generations) over an extended arc.
     """
     try:
-        result = container.outlook.generate_epic(
+        result = await asyncio.to_thread(
+            container.outlook.generate_epic,
             lat=request.lat,
             lon=request.lon,
             languages=request.languages,
@@ -992,7 +996,8 @@ async def _background_generation_loop(config: BackgroundGenerationConfig) -> Non
                 current_intention[:40],
             )
 
-            result = container.outlook.generate_single(
+            result = await asyncio.to_thread(
+                container.outlook.generate_single,
                 lat=config.lat,
                 lon=config.lon,
                 languages=config.languages,

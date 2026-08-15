@@ -34,4 +34,19 @@ describe('resolveChatRoute', () => {
       model: 'qwen2.5',
     });
   });
+
+  it('routes Laguna and DeepSeek slash-ids to OpenRouter', () => {
+    expect(resolveChatRoute('poolside/laguna-s-2.1:free', [])).toEqual({
+      provider: 'openrouter',
+      model: 'poolside/laguna-s-2.1:free',
+    });
+    expect(resolveChatRoute('poolside/laguna-xs-2.1:free', [])).toEqual({
+      provider: 'openrouter',
+      model: 'poolside/laguna-xs-2.1:free',
+    });
+    expect(resolveChatRoute('deepseek/deepseek-v4-flash', [])).toEqual({
+      provider: 'openrouter',
+      model: 'deepseek/deepseek-v4-flash',
+    });
+  });
 });

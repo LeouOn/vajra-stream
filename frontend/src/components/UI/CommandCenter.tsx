@@ -22,6 +22,7 @@ import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
 import { resolveChatRoute } from '../../utils/chatRoute';
+import { FEATURED_MODEL_IDS, FEATURED_MODEL_LABELS } from '../../lib/featuredModels';
 import { useWebSocketStable as useWebSocket, getActiveConnectionId } from '../../hooks/useWebSocketStable';
 import { subscribe } from '../../hooks/chatProgress';
 import { createLogger } from '../../utils/logger';
@@ -468,25 +469,31 @@ export default function CommandCenter({
     const stripPrefix = (m: string, prefix: string) =>
       m.startsWith(`${prefix}:`) ? m.slice(prefix.length + 1) : m;
 
-    const RECOMMENDED_IDS = new Set([
-      'nvidia/nemotron-3-ultra-550b-a55b:free',
-      'inclusionai/ling-3.0-flash:free',
-      'poolside/laguna-s-2.1:free',
-      'poolside/laguna-xs-2.1:free',
-      'deepseek/deepseek-v4-flash',
-      'minimax/minimax-m3',
-    ]);
-
+    const featuredIds = new Set<string>(FEATURED_MODEL_IDS);
     const groups: DefaultOptionType[] = [{
       label: '⚡ Auto',
       title: 'Auto-select',
       options: [
-        { value: 'auto', label: '⚡ Auto (registry pick_best)' },
+        { value: 'auto', label: '⚡ Auto (DeepSeek V4 Flash / pick_best)' },
       ],
     }];
 
-    const recommendedModels = availableModelList.filter(m => RECOMMENDED_IDS.has(m.id));
-    const otherApiModels = availableModelList.filter(m => !RECOMMENDED_IDS.has(m.id));
+    let recommendedModels = availableModelList.filter(m => m.featured || featuredIds.has(m.id));
+    const otherApiModels = availableModelList.filter(m => !(m.featured || featuredIds.has(m.id)));
+    if (recommendedModels.length === 0) {
+      recommendedModels = FEATURED_MODEL_IDS.map((id) => ({
+        id,
+        name: FEATURED_MODEL_LABELS[id] || id,
+        provider: 'openrouter',
+        context_length: null,
+        input_per_m: 0,
+        output_per_m: 0,
+        is_free: id.endsWith(':free'),
+        featured: true,
+        description: '',
+        source: 'builtin',
+      }));
+    }
 
     if (recommendedModels.length > 0) {
       groups.push({
@@ -773,9 +780,9 @@ export default function CommandCenter({
       };
       const timer = setTimeout(() => {
         finish(() => reject(new Error(
-          `Chat job timed out after 180s (last status: ${lastPoll.status}${lastPoll.phase ? `, ${lastPoll.phase}` : ''}). The model or a tool never returned.`,
+          `Chat job timed out after 300s (last status: ${lastPoll.status}${lastPoll.phase ? `, ${lastPoll.phase}` : ''}). The model or a tool never returned.`,
         )));
-      }, 180000);
+      }, 300000);
       waitRejectRef.current = (err: Error) => {
         finish(() => reject(err));
       };

@@ -63,9 +63,9 @@ def test_defaults_pin_nemotron_for_unbounded_loops(use_case: str):
     """The two unbounded/24x7 use cases must default to the free model so
     the loop never incurs cost."""
     entry = DEFAULT_MODELS_BY_USE_CASE[use_case]
-    assert (
-        entry["model_id"] == NEMOTRON_FREE_MODEL_ID
-    ), f"{use_case} should default to Nemotron free, got {entry['model_id']}"
+    assert entry["model_id"] == NEMOTRON_FREE_MODEL_ID, (
+        f"{use_case} should default to Nemotron free, got {entry['model_id']}"
+    )
     assert entry["provider"] == "openrouter"
 
 
@@ -85,21 +85,31 @@ def test_known_featured_models_include_nemotron():
     assert NEMOTRON_FREE_MODEL_ID in OpenRouterProvider.KNOWN_FEATURED_MODELS
 
 
+def test_featured_list_includes_live_fast_models():
+    """Laguna + DeepSeek must be pickable; withdrawn :free slugs must not."""
+    for mid in (
+        "poolside/laguna-s-2.1:free",
+        "poolside/laguna-xs-2.1:free",
+        "deepseek/deepseek-v4-flash",
+        "nvidia/nemotron-3.5-lightning:free",
+    ):
+        assert mid in KNOWN_FEATURED_MODEL_IDS
+        assert mid in OpenRouterProvider.KNOWN_FEATURED_MODELS
+    assert "inclusionai/ling-3.0-flash:free" not in KNOWN_FEATURED_MODEL_IDS
+    assert "anthropic/claude-3.5-haiku" not in KNOWN_FEATURED_MODEL_IDS
+
+
 # ─── fallback chain declaration ───────────────────────────────────────
 
 
 def test_openrouter_provider_has_four_model_fallback_chain(monkeypatch):
-    """The fallback chain must be exactly:
-    Nemotron → DeepSeek V4 Flash → DeepSeek Chat → GPT-4o-mini.
-    """
+    """The fallback chain starts with Nemotron and includes a cheap/fast alt."""
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
     provider = OpenRouterProvider()
-    assert provider.fallback_models == [
-        NEMOTRON_FREE_MODEL_ID,
-        "deepseek/deepseek-v4-flash",
-        "deepseek/deepseek-chat",
-        "openai/gpt-4o-mini",
-    ]
+    assert provider.fallback_models[0] == NEMOTRON_FREE_MODEL_ID
+    assert "deepseek/deepseek-v4-flash" in provider.fallback_models
+    assert "poolside/laguna-xs-2.1:free" in provider.fallback_models
+    assert provider.timeout_seconds == 180
 
 
 def test_fallback_chain_starts_with_default_model(monkeypatch):
@@ -113,11 +123,12 @@ def test_fallback_chain_starts_with_default_model(monkeypatch):
 # ─── generate() fallback behaviour ────────────────────────────────────
 
 
-def _build_response(*, content: str = "OK") -> Any:
+def _build_response(*, content: str = "OK", reasoning: str | None = None) -> Any:
     """Build a minimal stand-in for an OpenAI ChatCompletion response."""
     message = MagicMock()
     message.content = content
-    message.reasoning_content = None
+    message.reasoning_content = reasoning
+    message.reasoning = None
     choice = MagicMock()
     choice.message = message
     choice.finish_reason = "stop"
@@ -274,6 +285,26 @@ async def test_generate_succeeds_first_try_without_fallback_overhead():
     assert response.model == "primary-model"
     assert response.content == "primary ok"
     assert attempted == ["primary-model"], "happy path must not probe fallbacks"
+    await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_generate_uses_reasoning_when_content_empty():
+    """Nemotron Ultra often returns empty content + reasoning_content."""
+    provider = OpenAICompatibleProvider(
+        name="test-reasoning",
+        api_key="sk-test",
+        base_url="http://localhost/v1",
+        default_model="nemotron",
+        fallback_models=[],
+    )
+
+    async def fake_create(**kwargs: Any) -> Any:
+        return _build_response(content="", reasoning="May all beings be well.")
+
+    provider._client.chat.completions.create = fake_create  # type: ignore[assignment]
+    response = await provider.generate(_make_request())
+    assert response.content == "May all beings be well."
     await provider.close()
 
 

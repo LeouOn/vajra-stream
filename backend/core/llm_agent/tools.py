@@ -719,6 +719,7 @@ def generate_single_outlook(
     character_ids: list[str] | None = None,
     excluded_forces: list[str] | None = None,
     include_dialogue: bool = False,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate a single-pass sutra-style blessing and narrative outlook.
@@ -737,6 +738,8 @@ def generate_single_outlook(
     """
     if languages is None:
         languages = ["English"]
+    from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
+
     client = get_client()
     return client._post(
         "/api/v1/outlook/generate_single",
@@ -751,6 +754,7 @@ def generate_single_outlook(
             "character_ids": character_ids,
             "excluded_forces": excluded_forces,
             "include_dialogue": include_dialogue,
+            "model": model or NEMOTRON_FREE_MODEL_ID,
         },
     )
 

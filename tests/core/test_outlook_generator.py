@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
 from core.outlook_generator import OutlookGenerator
 
 # ---------------------------------------------------------------------------
@@ -147,10 +148,35 @@ def test_generate_single_outlook_calls_llm_when_provided(mock_llm):
     assert "prompt" in call_kwargs
     assert "Invocatio" in call_kwargs["prompt"]
     assert "Sanskrit" in call_kwargs["prompt"]
+    assert call_kwargs["model"] == NEMOTRON_FREE_MODEL_ID
 
     # Narrative field contains the LLM's response verbatim
     assert result["narrative"] == mock_llm.generate.return_value
     assert "LLM unavailable" not in result["narrative"]
+
+
+@pytest.mark.unit
+def test_generate_single_outlook_honors_explicit_model(mock_llm):
+    """A caller-pinned model must be forwarded instead of the Nemotron default."""
+    g = OutlookGenerator(llm_integration=mock_llm)
+    mock_llm.generate.return_value = "ok"
+    with (
+        patch.object(g, "_gather_astrology_context", return_value="A"),
+        patch.object(g, "_gather_divination_data", return_value=("D", {})),
+        patch.object(g, "_select_sacred_entities", return_value="E"),
+    ):
+        g.generate_single_outlook(
+            lat=0.0,
+            lon=0.0,
+            languages=["English"],
+            genre="healing",
+            model="openrouter:deepseek/deepseek-v4-flash",
+            include_astrology=False,
+            include_tarot=False,
+            include_iching=False,
+            include_geomancy=False,
+        )
+    assert mock_llm.generate.call_args.kwargs["model"] == "openrouter:deepseek/deepseek-v4-flash"
 
 
 # ---------------------------------------------------------------------------

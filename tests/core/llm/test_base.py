@@ -32,6 +32,17 @@ def test_openai_compatible_constructs_with_valid_args():
     assert hasattr(provider, "close")
 
 
+def test_visible_text_falls_back_to_reasoning():
+    from core.llm.base import visible_text
+
+    assert visible_text("hello", "hidden thought") == "hello"
+    assert visible_text("", "the blessing is complete") == "the blessing is complete"
+    assert visible_text(None, "  only reasoning  ") == "only reasoning"
+    assert visible_text("<think>scratch</think>\n amen", None) == "amen"
+    assert visible_text("<think>scratch</think>", None) == "scratch"
+    assert visible_text("", None) == ""
+
+
 def test_candidate_models_auto_tries_one_fallback():
     provider = OpenAICompatibleProvider(
         name="test",

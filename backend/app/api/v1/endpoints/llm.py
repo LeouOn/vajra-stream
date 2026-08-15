@@ -37,7 +37,7 @@ from core.context import (
     HardwareContextModule,
     SystemPromptBuilder,
 )
-from core.llm.base import strip_thinking
+from core.llm.base import visible_text
 from core.llm.defaults import (
     DEFAULT_MODELS_BY_USE_CASE,
     KNOWN_FEATURED_MODEL_IDS,
@@ -568,6 +568,44 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
             target=args.get("target") or "all beings",
             broadcast=bool(args.get("broadcast", True)),
             duration_minutes=int(args.get("duration_minutes") or 5),
+        )
+    elif name == "generate_single_outlook":
+        # Call the service directly. The HTTP tool used to POST back into
+        # this same FastAPI worker; generate_single blocked the event loop
+        # and the chat job's 25s wait_for then discarded the finished result.
+        from container import container
+
+        return await asyncio.to_thread(
+            container.outlook.generate_single,
+            lat=float(args.get("lat") or 34.0522),
+            lon=float(args.get("lon") or -118.2437),
+            languages=args.get("languages") or ["English"],
+            genre=args.get("genre") or "healing",
+            custom_context=args.get("custom_context"),
+            realm_id=args.get("realm_id"),
+            population_ids=args.get("population_ids"),
+            character_ids=args.get("character_ids"),
+            excluded_forces=args.get("excluded_forces"),
+            include_dialogue=bool(args.get("include_dialogue", False)),
+            model=args.get("model") or NEMOTRON_FREE_MODEL_ID,
+        )
+    elif name == "generate_epic_outlook":
+        from container import container
+
+        return await asyncio.to_thread(
+            container.outlook.generate_epic,
+            lat=float(args.get("lat") or 34.0522),
+            lon=float(args.get("lon") or -118.2437),
+            languages=args.get("languages") or ["English"],
+            genre=args.get("genre") or "alchemist",
+            stages=int(args.get("stages") or 9),
+            custom_context=args.get("custom_context"),
+            realm_id=args.get("realm_id"),
+            population_ids=args.get("population_ids"),
+            character_ids=args.get("character_ids"),
+            excluded_forces=args.get("excluded_forces"),
+            include_dialogue=bool(args.get("include_dialogue", False)),
+            model=args.get("model") or NEMOTRON_FREE_MODEL_ID,
         )
     elif name == "forge_witness":
         from core.working import attach_witness_image
@@ -1604,14 +1642,14 @@ async def _chat_via_registry(
 
     # Convert the new core.llm.models.ChatResponse to the local ChatResponse
     # (which the endpoint advertises as response_model).
-    clean_content, _ = strip_thinking(response.content)
+    clean_content = visible_text(response.content, getattr(response, "reasoning_content", None))
 
     tool_logs: list[ToolCallLog] = []
     raw_tool_results: list[dict] = []
     conversation_messages = list(request.messages)
     prev_tool_signature: str | None = None
     loop_start = time.time()
-    max_loop_seconds = 45
+    max_loop_seconds = 200
 
     for turn in range(2):
         if time.time() - loop_start > max_loop_seconds:
@@ -1767,7 +1805,9 @@ async def _chat_via_registry(
             )
             try:
                 followup_response = await chosen.generate(followup_request)
-                clean_content, _ = strip_thinking(followup_response.content)
+                clean_content = visible_text(
+                    followup_response.content, getattr(followup_response, "reasoning_content", None)
+                )
             except Exception as followup_ex:
                 logger.warning(f"Outlook summary LLM call failed: {followup_ex}")
             break
@@ -1828,7 +1868,9 @@ async def _chat_via_registry(
                 }
             )
             followup_response = await chosen.generate(followup_request)
-            clean_content, _ = strip_thinking(followup_response.content)
+            clean_content = visible_text(
+                followup_response.content, getattr(followup_response, "reasoning_content", None)
+            )
             logger.info(f"Registry turn {turn}: follow-up LLM call succeeded")
         except Exception as followup_ex:
             logger.warning(f"Follow-up LLM call failed: {followup_ex}. Returning raw results.")
@@ -2001,7 +2043,7 @@ async def teach_interaction(request: ChatRequest, http_request: Request):
         else:
             raise HTTPException(status_code=503, detail=f"All providers failed. Primary: {e}")
 
-    clean_content, _ = strip_thinking(response.content)
+    clean_content = visible_text(response.content, getattr(response, "reasoning_content", None))
     return ChatResponse(response=clean_content, tool_calls=[])
 
 
@@ -2794,6 +2836,17 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# Nemotron Ultra on the OpenRouter :free pool regularly takes 1–3 minutes
+# (reasoning tokens, then the public reply). The previous 75s job budget
+# and 25s per-tool cap aborted the call while the model was still thinking.
+_CHAT_JOB_TIMEOUT = 240.0
+_DEFAULT_TOOL_TIMEOUT = 25.0
+_TOOL_TIMEOUTS: dict[str, float] = {
+    "generate_single_outlook": 200.0,
+    "generate_epic_outlook": 300.0,
+}
+
+
 # ── Async chat support ──────────────────────────────────────────────
 
 
@@ -2824,13 +2877,14 @@ async def _run_chat_async(
         update_job(job_id, status="running", phase=f"tool:{name}")
         await _push("chat_tool_start", {"tool": name, "args": args})
         add_event(job_id, {"type": "tool_start", "tool": name, "args": args})
+        tool_timeout = _TOOL_TIMEOUTS.get(name, _DEFAULT_TOOL_TIMEOUT)
         try:
-            result = await asyncio.wait_for(execute_tool_locally(name, args), timeout=25.0)
+            result = await asyncio.wait_for(execute_tool_locally(name, args), timeout=tool_timeout)
             await _push("chat_tool_complete", {"tool": name, "result": _safe_serialize(result)})
             add_event(job_id, {"type": "tool_complete", "tool": name, "result": _safe_serialize(result)})
             return result
         except TimeoutError:
-            err = f"Tool {name} timed out after 25s"
+            err = f"Tool {name} timed out after {int(tool_timeout)}s"
             await _push("chat_tool_error", {"tool": name, "error": err})
             add_event(job_id, {"type": "tool_error", "tool": name, "error": err})
             raise RuntimeError(err)
@@ -2861,10 +2915,10 @@ async def _run_chat_async(
             )
 
         try:
-            response = await asyncio.wait_for(_run_body(), timeout=75.0)
+            response = await asyncio.wait_for(_run_body(), timeout=_CHAT_JOB_TIMEOUT)
         except TimeoutError:
             phase = (get_job(job_id) or {}).get("phase") or "generate"
-            msg = f"Timed out after 75s while {phase}. The model or a tool never returned."
+            msg = f"Timed out after {int(_CHAT_JOB_TIMEOUT)}s while {phase}. The model or a tool never returned."
             logger.error("Async chat job %s: %s", job_id, msg)
             update_job(job_id, status="error", error=msg)
             await _push("chat_error", {"error": msg})
@@ -2985,10 +3039,12 @@ def _provider_for_model(provider: str | None, model: str | None) -> str:
         return "lm_studio"
     if mid.startswith("local:"):
         return "local"
-    if requested in _REGISTRY_PROVIDERS and requested != "auto":
-        return requested
+    # Catalog slugs (deepseek/..., poolside/laguna-...) are OpenRouter ids.
+    # Honour them even if the picker labeled the vendor "deepseek".
     if "/" in mid:
         return "openrouter"
+    if requested in _REGISTRY_PROVIDERS and requested != "auto":
+        return requested
     return requested
 
 

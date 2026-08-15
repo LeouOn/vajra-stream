@@ -56,6 +56,25 @@ def _suffix_prefix_len(text: str, tag: str) -> int:
     return 0
 
 
+def visible_text(content: str | None, reasoning: str | None = None) -> str:
+    """Prefer the public reply; fall back to reasoning if content is empty.
+
+    Reasoning-first models (Nemotron Ultra, DeepSeek-R1, GLM thinking)
+    often return an empty ``content`` and put the entire answer in
+    ``reasoning`` / ``reasoning_content``. Callers that only read
+    ``content`` then look like they "got nothing back".
+    """
+    clean, inline = strip_thinking(content or "")
+    if (clean or "").strip():
+        return clean
+    for candidate in (reasoning, inline):
+        if candidate and str(candidate).strip():
+            fallback, _ = strip_thinking(str(candidate))
+            if fallback.strip():
+                return fallback.strip()
+    return clean or ""
+
+
 def strip_thinking(content: str) -> tuple[str, str | None]:
     """Remove ``<think>...</think>`` blocks from ``content``.
 
@@ -309,12 +328,19 @@ class OpenAICompatibleProvider:
                 )
                 choice = response.choices[0]
                 raw_content = choice.message.content or ""
-                reasoning = getattr(choice.message, "reasoning_content", None)
+                reasoning = getattr(choice.message, "reasoning_content", None) or getattr(
+                    choice.message, "reasoning", None
+                )
                 content, inline_reasoning = strip_thinking(raw_content)
                 if reasoning is None and inline_reasoning is not None:
                     reasoning = inline_reasoning
                 elif reasoning and inline_reasoning:
                     reasoning = f"{reasoning}\n{inline_reasoning}"
+                # Nemotron Ultra (and other reasoning models) often emit the
+                # entire answer in reasoning_content with an empty content
+                # field. Surface that as the reply so callers are not empty.
+                if not (content or "").strip() and reasoning:
+                    content = visible_text("", reasoning)
 
                 native_tool_calls = []
                 raw_tc = getattr(choice.message, "tool_calls", None)

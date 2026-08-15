@@ -50,7 +50,7 @@ import threading
 import time
 from typing import Any
 
-from core.llm.base import strip_thinking
+from core.llm.base import visible_text
 from core.llm.models import ChatMessage, ChatRequest, ChatResponse
 from core.llm.registry import ProviderRegistry
 
@@ -178,6 +178,8 @@ def _parse_model_spec(model: str | None) -> tuple[str | None, str | None]:
     - ``"lm-studio:foo"`` → ``("lm_studio", "foo")`` (hyphen normalised)
     - ``"gpt-4o-mini"`` → name-based detection returns ``(None, "gpt-4o-mini")``
       and the caller decides the provider.
+    - ``"nvidia/nemotron-3-ultra-550b-a55b:free"`` is an OpenRouter catalog
+      id (the colon is a *variant* suffix, not a provider prefix).
 
     Returns:
         ``(provider_name, model_name)``. Either element may be ``None``:
@@ -194,7 +196,7 @@ def _parse_model_spec(model: str | None) -> tuple[str | None, str | None]:
         prefix, _, rest = model_str.partition(":")
         pref = prefix.strip().lower().replace("-", "_")
         # Only treat as a provider prefix if we recognise it; otherwise
-        # the colon may be part of a model id (rare, but safe).
+        # the colon may be part of a model id (``vendor/model:free``).
         if pref in _PROVIDER_TO_MODEL_TYPE.values() or pref in {
             "openrouter",
             "lm_studio",
@@ -216,8 +218,13 @@ def _parse_model_spec(model: str | None) -> tuple[str | None, str | None]:
 def _detect_provider_from_name(model_name: str) -> str | None:
     """Guess a provider key from a bare model name (no prefix).
 
-    Mirrors the legacy name-based detection in
-    :meth:`LLMIntegration.generate`: GGUF → local, "deepseek" → deepseek,
+    OpenRouter catalog ids (``vendor/model`` and ``vendor/model:free``)
+    must go to OpenRouter — ``nvidia/nemotron-…`` is not an NVIDIA API
+    and ``pick_best()`` can send it to a dead LM Studio. Slash-ids are
+    checked first so ``deepseek/deepseek-v4-flash`` stays on OpenRouter
+    instead of the native DeepSeek client.
+
+    Other heuristics: GGUF → local, "deepseek" → deepseek,
     "claude"/"haiku"/"sonnet" → anthropic, "glm" → z_ai, "gpt-" → openai.
     Returns ``None`` if no heuristic matches.
     """
@@ -226,6 +233,14 @@ def _detect_provider_from_name(model_name: str) -> str | None:
     lower = model_name.lower()
     if lower.endswith(".gguf") or "gguf" in lower:
         return "local"
+    if lower.startswith("lm_studio:") or lower.startswith("lm-studio:"):
+        return "lm_studio"
+    if "/" in lower:
+        vendor = lower.split("/", 1)[0]
+        if vendor not in {"lm_studio", "lm-studio", "local"}:
+            return "openrouter"
+    if "nemotron" in lower or lower.startswith("nvidia"):
+        return "openrouter"
     if "deepseek" in lower:
         return "deepseek"
     if "glm-" in lower or "glm" in lower:
@@ -533,17 +548,21 @@ class LegacyLLMIntegration:
         latency_ms = (time.time() - start) * 1000.0
 
         # Refresh primary attributes so .client / .model_type track the
-        # provider actually used. ``force=True`` updates model_name to the
-        # used provider's default so current_model is accurate.
+        # provider actually used. Prefer the model we just called (or the
+        # provider's reported response.model) — force=True used to overwrite
+        # that with OpenRouter's default Nemotron, so Outlook showed
+        # "used Nemotron" after a Laguna/DeepSeek generate.
         self._primary_provider = provider
         self._sync_client_cache = None  # invalidate; rebuilt on next access
         self._apply_primary_attributes(provider, force=True)
+        used = target_model or getattr(response, "model", None)
+        if used:
+            self.model_name = used
 
         # Record usage (best-effort; never blocks generation).
         self._record_usage(provider, response, latency_ms, success)
 
-        clean_content, _ = strip_thinking(response.content)
-        return clean_content
+        return visible_text(response.content, getattr(response, "reasoning_content", None))
 
     def _record_usage(
         self,

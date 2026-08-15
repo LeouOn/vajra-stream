@@ -24,6 +24,8 @@ import random
 from datetime import datetime
 from typing import Any
 
+from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
+
 # Attempt imports for local services, degraded gracefully if missing
 try:
     from backend.core.services.divination_service import divination_service
@@ -916,11 +918,10 @@ CRITICAL: When reciting mantras and dharanis, include the FULL text — never ab
         # Debug: log the full prompt for verification
         log_filename = self._debug_log_prompt(prompt, genre, lat, lon)
 
-        # Propagate ``None`` so the registry's pick_best() selects the best
-        # HEALTHY registered provider at call time. Hardcoding a provider here
-        # caused "Provider 'deepseek' is not registered" when DeepSeek was not
-        # configured. See _generate_async() in core/llm/legacy_adapter.py.
-        effective_model = model
+        # Pin the outlook default to Nemotron Ultra on OpenRouter. Passing
+        # ``None`` used to hit pick_best(), which would send the request to
+        # a healthy-looking LM Studio and never produce a narrative.
+        effective_model = model or NEMOTRON_FREE_MODEL_ID
 
         print(
             f"[DEBUG generate_single_outlook] model={model!r}, effective_model={effective_model!r}, self.llm={type(self.llm).__name__ if self.llm else 'None'}"
@@ -930,7 +931,7 @@ CRITICAL: When reciting mantras and dharanis, include the FULL text — never ab
                 result = self.llm.generate(
                     prompt=prompt,
                     system_prompt=self.GENRE_SYSTEM_PROMPTS.get(genre.lower(), self.DEFAULT_SYSTEM_PROMPT),
-                    max_tokens=4000,
+                    max_tokens=2200,
                     temperature=0.7,
                     model=effective_model,
                 )
@@ -998,10 +999,7 @@ CRITICAL: When reciting mantras and dharanis, include the FULL text — never ab
         """
         Orchestrates a multi-stage (e.g. 9-12 stages) epic narrative outlook.
         """
-        # Propagate ``None`` so registry.pick_best() selects the best healthy
-        # provider. Hardcoding a provider here caused registration errors when
-        # that provider was not configured. See core/llm/legacy_adapter.py.
-        epic_model = model
+        epic_model = model or NEMOTRON_FREE_MODEL_ID
 
         if randomize_realm and get_location_manager:
             active_locs = get_location_manager().get_active_locations()
@@ -1151,8 +1149,6 @@ CRITICAL: When reciting mantras and dharanis, include the FULL text — never ab
         if not self.llm:
             return {"status": "error", "message": "LLM required for epic generation"}
 
-        # Model resolution is handled per-call by the registry; no hardcoded
-        # default here. See epic_model initialization above.
         is_fallback = False
 
         # Stage 1: Invocation

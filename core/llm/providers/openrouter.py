@@ -4,7 +4,7 @@
 import os
 
 from core.llm.base import OpenAICompatibleProvider
-from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
+from core.llm.defaults import KNOWN_FEATURED_MODEL_IDS, NEMOTRON_FREE_MODEL_ID
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
@@ -25,16 +25,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     #: whether the OpenRouter /models endpoint is currently reachable.
     #: Kept in sync with ``KNOWN_FEATURED_MODEL_IDS`` in
     #: :mod:`core.llm.defaults`.
-    KNOWN_FEATURED_MODELS: tuple[str, ...] = (
-        NEMOTRON_FREE_MODEL_ID,
-        "inclusionai/ling-3.0-flash:free",
-        "poolside/laguna-s-2.1:free",
-        "poolside/laguna-xs-2.1:free",
-        "deepseek/deepseek-v4-flash",
-        "minimax/minimax-m3",
-        "anthropic/claude-3.5-haiku",
-        "openai/gpt-4o-mini",
-    )
+    KNOWN_FEATURED_MODELS: tuple[str, ...] = tuple(KNOWN_FEATURED_MODEL_IDS)
 
     def __init__(
         self,
@@ -48,11 +39,14 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             api_key=api_key or os.getenv("OPENROUTER_API_KEY", ""),
             base_url=base_url or os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
             default_model=default_model,
-            timeout_seconds=60,
+            # 550B reasoning models (Nemotron Ultra) routinely take 1–3 min
+            # on the :free pool. 60s used to abort mid-thought and leave
+            # Command Center / Outlook looking like they "never returned".
+            timeout_seconds=180,
             priority=priority,
             fallback_models=[
                 NEMOTRON_FREE_MODEL_ID,
-                "inclusionai/ling-3.0-flash:free",
+                "poolside/laguna-xs-2.1:free",
                 "poolside/laguna-s-2.1:free",
                 "deepseek/deepseek-v4-flash",
                 "minimax/minimax-m3",

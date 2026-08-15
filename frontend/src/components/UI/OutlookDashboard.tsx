@@ -34,6 +34,8 @@ import SadhanaVisualization from './SadhanaVisualization';
 import { getDeityFromEntityText } from '../../lib/deityVisualizations';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { apiUrl } from '../../utils/api';
+import { featuredFallbackChoices, type FeaturedModelChoice } from '../../lib/featuredModels';
 
 const { Text, Paragraph, Title } = Typography;
 
@@ -411,6 +413,10 @@ export default function OutlookDashboard() {
 
   // ─── Model Selection ─────────────────────────────────────
   const [selectedModel, setSelectedModel] = useState<string>('');
+  const [outlookDefaultModel, setOutlookDefaultModel] = useState<string>(
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+  );
+  const [featuredModels, setFeaturedModels] = useState<FeaturedModelChoice[]>(featuredFallbackChoices);
   const [randomModel, setRandomModel] = useState<boolean>(false);
   const [outlookModels, setOutlookModels] = useState<OutlookModels>({ lm_studio: [], local: [], api: [] });
   const [healthyProviders, setHealthyProviders] = useState<Record<string, boolean>>({});
@@ -464,16 +470,44 @@ export default function OutlookDashboard() {
 
   const fetchModels = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`/api/v1/llm/models`);
-      if (res.ok) {
-        const data = await res.json() as {
+      const [modelsRes, defaultsRes, catalogRes] = await Promise.all([
+        fetch(apiUrl('/llm/models')),
+        fetch(apiUrl('/llm/models/defaults')),
+        fetch(apiUrl('/llm/models/available')),
+      ]);
+      if (modelsRes.ok) {
+        const data = await modelsRes.json() as {
           status?: string;
           available?: OutlookModels;
-          default_model?: string;
         };
         if (data.status === 'success') {
           setOutlookModels(data.available || { lm_studio: [], local: [], api: [] });
-          if (!selectedModel && data.default_model) setSelectedModel(data.default_model);
+        }
+      }
+      if (catalogRes.ok) {
+        const catalog = await catalogRes.json() as {
+          status?: string;
+          models?: Array<{ id?: string; name?: string; is_free?: boolean; featured?: boolean }>;
+        };
+        if (catalog.status === 'success' && Array.isArray(catalog.models)) {
+          const featured = catalog.models
+            .filter((m) => m.featured && typeof m.id === 'string' && m.id)
+            .map((m) => ({
+              id: m.id as string,
+              name: m.name || (m.id as string),
+              is_free: Boolean(m.is_free),
+            }));
+          if (featured.length > 0) setFeaturedModels(featured);
+        }
+      }
+      if (defaultsRes.ok) {
+        const defaultsPayload = await defaultsRes.json() as {
+          defaults?: { outlook_narrative?: { model_id?: string } };
+        };
+        const outlookDefault = defaultsPayload.defaults?.outlook_narrative?.model_id;
+        if (outlookDefault) {
+          setOutlookDefaultModel(outlookDefault);
+          if (!selectedModel) setSelectedModel(outlookDefault);
         }
       }
     } catch (e) {
@@ -680,7 +714,7 @@ export default function OutlookDashboard() {
         character_ids: selectedCharIds.length > 0 ? selectedCharIds : null,
         excluded_forces: excludedForcesText ? excludedForcesText.split(',').map(s => s.trim()) : null,
         include_dialogue: includeDialogue,
-        model: randomModel ? null : (selectedModel || null),
+        model: randomModel ? null : (selectedModel || outlookDefaultModel || null),
         random: randomModel || null,
         include_astrology: includeAstrology,
         include_tarot: includeTarot,
@@ -690,7 +724,7 @@ export default function OutlookDashboard() {
       };
       if (isEpic) body.stages = parseInt(String(stages));
 
-      const res = await fetch(`/api/v1${endpoint}`, {
+      const res = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1145,8 +1179,21 @@ export default function OutlookDashboard() {
   const modelOptions = useMemo<ModelSelectOption[]>(() => {
     // Sentinel: '' → backend auto-detect (registry.pick_best()).
     const opts: ModelSelectOption[] = [
-      { value: '', label: '✨ Auto-detect (default)' },
+      { value: '', label: '✨ Auto-detect (Nemotron Ultra)' },
     ];
+    featuredModels.forEach((m) => {
+      const tag = m.is_free ? 'FREE' : 'paid';
+      opts.push({
+        value: m.id,
+        label: `${m.is_free ? '🆓' : '💳'} ${m.name} (${tag})`,
+      });
+    });
+    if (outlookDefaultModel && !featuredModels.some((m) => m.id === outlookDefaultModel)) {
+      opts.push({
+        value: outlookDefaultModel,
+        label: '🧭 Nemotron 3 Ultra 550B (Free)',
+      });
+    }
 
     // API providers: built from the ACTUAL healthy providers reported by
     // /llm/providers/health, cross-referenced with /llm/models so each
@@ -1183,7 +1230,7 @@ export default function OutlookDashboard() {
     );
     const seen = new Set<string>();
     return opts.filter(o => { const k = o.value; if (seen.has(k)) return false; seen.add(k); return true; });
-  }, [outlookModels, healthyProviders]);
+  }, [outlookModels, healthyProviders, outlookDefaultModel, featuredModels]);
 
   // ─── Render ──────────────────────────────────────────────
 

@@ -96,13 +96,16 @@ DEFAULT_MODELS_BY_USE_CASE: dict[str, UseCaseDefault] = {
 # ---------------------------------------------------------------------------
 NEMOTRON_FREE_MODEL_ID = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
+# Live OpenRouter slugs (checked 2026-08-14). ``:free`` variants that
+# OpenRouter has withdrawn (e.g. ``inclusionai/ling-3.0-flash:free``)
+# must not stay here — they show up in the picker and then 404.
 KNOWN_FEATURED_MODEL_IDS: list[str] = [
     NEMOTRON_FREE_MODEL_ID,
-    "inclusionai/ling-3.0-flash:free",
+    "nvidia/nemotron-3.5-lightning:free",
     "poolside/laguna-s-2.1:free",
     "poolside/laguna-xs-2.1:free",
     "deepseek/deepseek-v4-flash",
     "minimax/minimax-m3",
-    "anthropic/claude-3.5-haiku",
+    "inclusionai/ling-3.0-flash",
     "openai/gpt-4o-mini",
 ]
