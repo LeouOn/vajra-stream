@@ -30,3 +30,19 @@ def test_openai_compatible_constructs_with_valid_args():
     assert hasattr(provider, "generate")
     assert hasattr(provider, "stream")
     assert hasattr(provider, "close")
+
+
+def test_candidate_models_auto_tries_one_fallback():
+    provider = OpenAICompatibleProvider(
+        name="test",
+        api_key="sk-test",
+        base_url="http://localhost:1234/v1",
+        default_model="default-model",
+        fallback_models=["fb-a", "fb-b", "fb-c"],
+    )
+    from core.llm.models import ChatRequest
+
+    auto = ChatRequest(messages=[])
+    assert provider._candidate_models(auto) == ["default-model", "fb-a"]
+    pinned = ChatRequest(messages=[], model="pinned-model")
+    assert provider._candidate_models(pinned) == ["pinned-model"]

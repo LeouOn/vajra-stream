@@ -55,6 +55,7 @@ def test_lm_studio_provider_construction():
     assert p.name == "lm_studio"
     assert p.priority == 80
     assert p.default_model == "local-model"
+    assert p.timeout_seconds == 45
 
 
 def test_all_providers_have_unique_names():

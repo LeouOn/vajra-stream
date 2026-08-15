@@ -52,55 +52,27 @@ async def test_registry_registration():
 
 
 @pytest.mark.asyncio
-async def test_registry_pick_keeps_provider_through_hysteresis_threshold():
-    """A single failed health check is treated as a transient blip by
-    hysteresis — the provider remains effectively healthy and is preferred
-    over a lower-priority genuinely-healthy peer.
+async def test_registry_pick_skips_unhealthy_provider():
+    """First selection must not send chat to a host that just failed health.
+
+    A down LM Studio used to stay 'effectively healthy' for one blip and
+    then sit in generate() until the Command Center 180s waiter fired.
     """
     registry = ProviderRegistry()
     registry.register(FakeProvider("high-sick", priority=90, healthy=False))
     registry.register(FakeProvider("low-ok", priority=10, healthy=True))
 
-    # First pick: high-sick fails once (1/2) — still effectively healthy.
     first = await registry.pick_best(use_cache=False)
     assert first is not None
-    assert first.name == "high-sick"
-
-    # Second pick: high-sick has now failed twice (2/2) — marked down, so
-    # pick_best falls through to the lower-priority genuinely-healthy one.
-    second = await registry.pick_best(use_cache=False)
-    assert second is not None
-    assert second.name == "low-ok"
+    assert first.name == "low-ok"
 
 
 @pytest.mark.asyncio
-async def test_registry_pick_returns_none_when_all_fail_threshold():
-    """After FAILURE_THRESHOLD consecutive failures of every provider,
-    pick_best() returns None.
-
-    Implementation detail: ``pick_best`` short-circuits at the first
-    effectively-healthy provider, so the lower-priority provider only gets
-    its failure count incremented after the higher-priority one has been
-    excluded. We therefore need a third call to mark the second provider
-    down once both have crossed the threshold.
-    """
+async def test_registry_pick_returns_none_when_all_unhealthy():
     registry = ProviderRegistry()
     registry.register(FakeProvider("a", priority=90, healthy=False))
     registry.register(FakeProvider("b", priority=10, healthy=False))
-
-    # Call 1: a fails once (1/2) — still effectively healthy — a is returned.
-    #          b is never iterated.
-    first = await registry.pick_best(use_cache=False)
-    assert first is not None
-
-    # Call 2: a reaches threshold (2/2) — marked down — falls through to b,
-    #          which has its first failure (1/2) — still effectively healthy.
-    second = await registry.pick_best(use_cache=False)
-    assert second is not None
-
-    # Call 3: a stays down; b reaches threshold (2/2) — also down — None.
-    third = await registry.pick_best(use_cache=False)
-    assert third is None
+    assert await registry.pick_best(use_cache=False) is None
 
 
 @pytest.mark.asyncio

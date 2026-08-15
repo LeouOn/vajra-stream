@@ -290,21 +290,22 @@ class OpenAICompatibleProvider:
                 logger.debug("response cache get failed", exc_info=True)
 
         start_time = time.time()
-        candidate_models = [model]
-        if not request.model and self.fallback_models:
-            candidate_models = [self.default_model] + [m for m in self.fallback_models if m != self.default_model]
+        candidate_models = self._candidate_models(request)
 
         last_error: Exception | None = None
         for attempt_model in candidate_models:
             try:
-                response = await self._client.chat.completions.create(
-                    model=attempt_model,
-                    messages=messages,
-                    max_tokens=request.max_tokens,
-                    temperature=request.temperature,
-                    tools=[{"type": "function", "function": t.model_dump()} for t in request.tools]
-                    if request.tools
-                    else None,
+                response = await asyncio.wait_for(
+                    self._client.chat.completions.create(
+                        model=attempt_model,
+                        messages=messages,
+                        max_tokens=request.max_tokens,
+                        temperature=request.temperature,
+                        tools=[{"type": "function", "function": t.model_dump()} for t in request.tools]
+                        if request.tools
+                        else None,
+                    ),
+                    timeout=self.timeout_seconds,
                 )
                 choice = response.choices[0]
                 raw_content = choice.message.content or ""
@@ -373,6 +374,19 @@ class OpenAICompatibleProvider:
                 raise RuntimeError(f"{self.name} generation failed: {e}") from e
 
         raise RuntimeError(f"{self.name} all models exhausted: {last_error}") from last_error
+
+    def _candidate_models(self, request: ChatRequest) -> list[str]:
+        """One pinned model, or default plus a single fallback for auto chat.
+
+        Walking the whole fallback list (5×60s) plus registry failover used
+        to exceed the Command Center's 180s waiter while the job stayed
+        ``running``.
+        """
+        model = request.model or self.default_model
+        if request.model:
+            return [model]
+        extras = [m for m in self.fallback_models if m and m != model]
+        return [model] + extras[:1]
 
     def _record_usage(
         self,

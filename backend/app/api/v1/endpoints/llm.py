@@ -1575,7 +1575,7 @@ async def _chat_via_registry(
         return await chosen.generate(chat_request)
 
     try:
-        response = await retry_with_backoff(_do_generate, max_retries=1, initial_backoff=0.5)
+        response = await retry_with_backoff(_do_generate, max_retries=0, initial_backoff=0.5)
     except Exception as e:
         # Failover to next healthy provider
         chain = await registry.failover_chain()
@@ -1683,7 +1683,7 @@ async def _chat_via_registry(
             try:
                 working_result = await _execute(
                     "run_working",
-                    {"intention": user_query[:400], "target": "all beings", "broadcast": True},
+                    {"intention": user_query[:400], "target": "all beings", "broadcast": False},
                 )
                 tool_logs.append(
                     ToolCallLog(
@@ -2806,6 +2806,7 @@ async def _run_chat_async(
     """Background task: run the tool loop and push progress via WebSocket."""
     from backend.app.api.v1.chat_job_manager import (
         add_event,
+        get_job,
         is_cancelled,
         update_job,
     )
@@ -2820,35 +2821,54 @@ async def _run_chat_async(
         )
 
     async def _tracking_execute(name: str, args: dict):
+        update_job(job_id, status="running", phase=f"tool:{name}")
         await _push("chat_tool_start", {"tool": name, "args": args})
         add_event(job_id, {"type": "tool_start", "tool": name, "args": args})
         try:
-            result = await execute_tool_locally(name, args)
+            result = await asyncio.wait_for(execute_tool_locally(name, args), timeout=25.0)
             await _push("chat_tool_complete", {"tool": name, "result": _safe_serialize(result)})
             add_event(job_id, {"type": "tool_complete", "tool": name, "result": _safe_serialize(result)})
             return result
+        except TimeoutError:
+            err = f"Tool {name} timed out after 25s"
+            await _push("chat_tool_error", {"tool": name, "error": err})
+            add_event(job_id, {"type": "tool_error", "tool": name, "error": err})
+            raise RuntimeError(err)
         except Exception as ex:
             await _push("chat_tool_error", {"tool": name, "error": str(ex)})
             add_event(job_id, {"type": "tool_error", "tool": name, "error": str(ex)})
             raise
 
     try:
-        update_job(job_id, status="running")
+        update_job(job_id, status="running", phase="starting")
         await _push("chat_started", {"message": "Processing your request..."})
 
-        provider_name = _resolve_provider_name(request, http_request)
-        if provider_name == "auto":
-            registry_choice = await _select_provider_via_registry(http_request, "auto")
-            if registry_choice:
-                provider_name = registry_choice
+        async def _run_body():
+            update_job(job_id, status="running", phase="selecting_provider")
+            provider_name = _resolve_provider_name(request, http_request)
+            if provider_name == "auto":
+                registry_choice = await _select_provider_via_registry(http_request, "auto")
+                if registry_choice:
+                    provider_name = registry_choice
+            update_job(job_id, status="running", phase=f"generate:{provider_name}")
+            await _push("chat_started", {"message": f"Calling {provider_name}..."})
+            return await _chat_via_registry(
+                http_request,
+                request,
+                provider_name,
+                tool_schemas=get_tool_schemas(),
+                tool_executor=_tracking_execute,
+            )
 
-        response = await _chat_via_registry(
-            http_request,
-            request,
-            provider_name,
-            tool_schemas=get_tool_schemas(),
-            tool_executor=_tracking_execute,
-        )
+        try:
+            response = await asyncio.wait_for(_run_body(), timeout=75.0)
+        except TimeoutError:
+            phase = (get_job(job_id) or {}).get("phase") or "generate"
+            msg = f"Timed out after 75s while {phase}. The model or a tool never returned."
+            logger.error("Async chat job %s: %s", job_id, msg)
+            update_job(job_id, status="error", error=msg)
+            await _push("chat_error", {"error": msg})
+            return
         if is_cancelled(job_id):
             await _push("chat_cancelled", {})
             return

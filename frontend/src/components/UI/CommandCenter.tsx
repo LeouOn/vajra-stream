@@ -208,6 +208,7 @@ export default function CommandCenter({
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [chatPhase, setChatPhase] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
   const jobIdRef = useRef<string | null>(null);
@@ -736,6 +737,7 @@ export default function CommandCenter({
         waitRejectRef.current = null;
         fn();
       };
+      const lastPoll = { status: 'pending', phase: '' };
       const applyTerminal = (status: string, payload: Record<string, unknown>) => {
         if (status === 'completed') {
           const debugInfo = payload.debug_info;
@@ -770,24 +772,31 @@ export default function CommandCenter({
         return false;
       };
       const timer = setTimeout(() => {
-        finish(() => reject(new Error('Chat job timed out after 180s')));
+        finish(() => reject(new Error(
+          `Chat job timed out after 180s (last status: ${lastPoll.status}${lastPoll.phase ? `, ${lastPoll.phase}` : ''}). The model or a tool never returned.`,
+        )));
       }, 180000);
       waitRejectRef.current = (err: Error) => {
         finish(() => reject(err));
       };
-      const poller = setInterval(() => {
+      const pollOnce = () => {
         void (async () => {
           try {
             const res = await fetch(apiUrl(`/llm/chat/jobs/${jobId}`));
             if (!res.ok) return;
             const job = await res.json() as Record<string, unknown>;
-            chatLog.debug('chat.poll', { jobId, status: job.status });
+            lastPoll.status = String(job.status || 'unknown');
+            lastPoll.phase = typeof job.phase === 'string' ? job.phase : '';
+            if (lastPoll.phase) setChatPhase(lastPoll.phase);
+            chatLog.info('chat.poll', { jobId, status: lastPoll.status, phase: lastPoll.phase });
             applyTerminal(String(job.status || ''), job);
           } catch (err) {
             chatLog.warn('chat.poll failed', err);
           }
         })();
-      }, 1500);
+      };
+      pollOnce();
+      const poller = setInterval(pollOnce, 1000);
       const unsub = subscribe((jid, evt) => {
         if (jid !== jobId) return;
         if (cancelledRef.current) return;
@@ -817,6 +826,7 @@ export default function CommandCenter({
 
     setInput('');
     setIsLoading(true);
+    setChatPhase('sending');
     setLastError(null);
     audioFeedback.playTelemetry();
 
@@ -905,6 +915,7 @@ export default function CommandCenter({
       ]);
     } finally {
       setIsLoading(false);
+      setChatPhase('');
       abortRef.current = null;
     }
   }
@@ -1107,7 +1118,9 @@ export default function CommandCenter({
                   <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span className="text-[11px] font-mono text-purple-300/80">Generating...</span>
+                <span className="text-[11px] font-mono text-purple-300/80">
+                  {chatPhase ? `Working… ${chatPhase}` : 'Generating...'}
+                </span>
               </div>
             </div>
           )}

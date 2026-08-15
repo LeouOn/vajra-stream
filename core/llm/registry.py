@@ -81,10 +81,17 @@ class ProviderRegistry:
         return False
 
     async def pick_best(self, use_cache: bool = True) -> BaseLLMProvider | None:
+        """Pick the highest-priority provider that passed its last health check.
+
+        Hysteresis still applies to an already-selected in-flight provider
+        (``_is_effectively_healthy``). First selection must not send chat
+        to a host that just failed (LM Studio down used to sit in generate()
+        for 300s).
+        """
         statuses = await self.health_check_all(use_cache=use_cache)
         for provider in self.providers:
             status = next((s for s in statuses if s.provider == provider.name), None)
-            if status is not None and self._is_effectively_healthy(provider.name, status):
+            if status is not None and status.healthy:
                 return provider
         return None
 
@@ -93,7 +100,7 @@ class ProviderRegistry:
         chain: list[BaseLLMProvider] = []
         for provider in self.providers:
             status = next((s for s in statuses if s.provider == provider.name), None)
-            if status is not None and self._is_effectively_healthy(provider.name, status):
+            if status is not None and status.healthy:
                 chain.append(provider)
         return chain
 
