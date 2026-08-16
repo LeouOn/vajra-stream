@@ -55,7 +55,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "default_model": "T2V-01",
     "daily_cost_cap_usd": 2.0,
     "max_per_hour": 2,
-    "default_duration": 5,
+    "default_duration": 6,
     "default_resolution": "720P",
     "default_ratio": "16:9",
     "max_prompt_chars": 2000,
