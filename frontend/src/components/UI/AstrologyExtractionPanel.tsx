@@ -3,6 +3,7 @@
  * Tabs: Setup, Sweep, Results, Replay. Only the Setup tab is implemented
  * in this revision; the remaining tabs are placeholders.
  */
+import { apiUrl } from '../../utils/api';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Tabs,
@@ -125,7 +126,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
   const fetchRuns = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`/api/v1/astrology/runs`);
+      const r = await fetch(apiUrl(`/astrology/runs`));
       if (r.ok) setRuns(await r.json());
     } catch (e: unknown) {
       const err = e as Error;
@@ -139,7 +140,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
 
   const handleDelete = async (id: number | string) => {
     try {
-      const r = await fetch(`/api/v1/astrology/runs/${id}`, { method: 'DELETE' });
+      const r = await fetch(apiUrl(`/astrology/runs/${id}`), { method: 'DELETE' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       addToast({ type: 'success', title: `Run ${id} deleted`, duration: 3 });
       fetchRuns();
@@ -151,7 +152,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
 
   const handleRecompute = async (id: number | string) => {
     try {
-      const r = await fetch(`/api/v1/astrology/runs/${id}/recompute`, { method: 'POST' });
+      const r = await fetch(apiUrl(`/astrology/runs/${id}/recompute`), { method: 'POST' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       addToast({ type: 'success', title: `Recompute started: run ${data.run_id}`, duration: 3 });
@@ -165,7 +166,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
 
   const handleExport = (id: number | string, fmt: string) => {
     const a = document.createElement('a');
-    a.href = `/api/v1/astrology/runs/${id}/results/export?fmt=${fmt}`;
+    a.href = apiUrl(`/astrology/runs/${id}/results/export?fmt=${fmt}`);
     a.download = `run-${id}.${fmt}`;
     document.body.appendChild(a);
     a.click();
@@ -223,7 +224,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
     if (!currentRunId) return;
     setLoading(true);
     setError(null);
-    fetch(`/api/v1/astrology/runs/${currentRunId}/results?format=markdown`)
+    fetch(apiUrl(`/astrology/runs/${currentRunId}/results?format=markdown`))
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then(setMarkdown)
       .catch((e: unknown) => {
@@ -239,7 +240,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
       if (fmt === 'markdown') {
         text = markdown;
       } else {
-        const r = await fetch(`/api/v1/astrology/runs/${currentRunId}/results?format=json`);
+        const r = await fetch(apiUrl(`/astrology/runs/${currentRunId}/results?format=json`));
         text = await r.text();
       }
       await navigator.clipboard.writeText(text);
@@ -254,7 +255,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
 
   const handleDownload = (fmt: string) => {
     const a = document.createElement('a');
-    a.href = `/api/v1/astrology/runs/${currentRunId}/results/export?fmt=${fmt}`;
+    a.href = apiUrl(`/astrology/runs/${currentRunId}/results/export?fmt=${fmt}`);
     a.download = `run-${currentRunId}.${fmt}`;
     document.body.appendChild(a);
     a.click();
@@ -322,7 +323,7 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
         lat: t.lat,
         lon: t.lon,
       }));
-      const r = await fetch(`/api/v1/astrology/extract`, {
+      const r = await fetch(apiUrl(`/astrology/extract`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -353,7 +354,7 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
     }, 1000);
     const poll = async () => {
       try {
-        const r = await fetch(`/api/v1/astrology/runs/${currentRunId}`);
+        const r = await fetch(apiUrl(`/astrology/runs/${currentRunId}`));
         if (r.ok) {
           const data = await r.json();
           setRunStatus(data.status);
@@ -448,7 +449,7 @@ const AstrologyExtractionPanel = () => {
       setLocationsLoading(true);
       setLocationsError(null);
       try {
-        const res = await fetch(`/api/v1/astrology/locations`);
+        const res = await fetch(apiUrl(`/astrology/locations`));
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
