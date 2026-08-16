@@ -18,6 +18,7 @@
  * @component
  * @route /settings
  */
+import { apiUrl } from '../../utils/api';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Tag, Typography, Space, Empty, Tooltip, Tabs } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -76,7 +77,7 @@ export default function ProviderSettings() {
     */
   const fetchHealthOnce = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`/api/v1/llm/providers/health`);
+      const res = await fetch(apiUrl(`/llm/providers/health`));
       if (!res.ok) {
         console.warn(
           'ProviderSettings: initial health fetch non-OK status',
