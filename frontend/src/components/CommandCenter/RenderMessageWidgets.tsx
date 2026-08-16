@@ -118,6 +118,14 @@ export interface ToolCall {
     figures?: Record<string, GeomancyFigure | undefined>;
     houses?: Record<number, GeomancyFigure>;
     narrative?: string;
+    genre?: string;
+    astrology_used?: string;
+    divination_used?: string;
+    entities_used?: string;
+    model_used?: string;
+    name?: string;
+    mantra_preference?: string;
+    intentions?: string[];
     working_id?: string;
     target?: string;
     rate_values?: number[];
@@ -639,13 +647,73 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
           );
         }
 
-        // 6. Narrative Sigil Extraction — for outlook narratives generated
-        // via chat that embed (x,y) coordinate pairs in the Sigillum section.
+        if (tc.tool_name === 'list_populations' || tc.tool_name === 'list_targets') {
+          const rows = Array.isArray(tc.result) ? tc.result : [];
+          if (rows.length === 0) {
+            return (
+              <div key={idx} className="bg-black/50 p-3 rounded-xl border border-emerald-500/20 text-xs text-gray-400">
+                No populations in the field.
+              </div>
+            );
+          }
+          return (
+            <div key={idx} className="bg-black/50 p-3 rounded-xl border border-emerald-500/20 space-y-2">
+              <div className="text-[10px] text-emerald-400 font-mono font-semibold uppercase">
+                Populations in the field ({rows.length})
+              </div>
+              <ul className="text-xs text-gray-200 space-y-1 max-h-48 overflow-y-auto">
+                {rows.map((row, i) => {
+                  const rec = row as { id?: string; name?: string; mantra_preference?: string; intentions?: string[] };
+                  const intent = Array.isArray(rec.intentions) ? rec.intentions.slice(0, 3).join(', ') : '';
+                  return (
+                    <li key={rec.id || `${rec.name || 'pop'}-${i}`}>
+                      <span className="text-white">{rec.name || rec.id}</span>
+                      {rec.mantra_preference ? <span className="text-gray-500"> · {rec.mantra_preference}</span> : null}
+                      {intent ? <span className="text-gray-500"> · {intent}</span> : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        }
+
         if (tc.tool_name === 'generate_outlook' || tc.tool_name === 'generate_single_outlook' || tc.tool_name === 'generate_epic_outlook') {
           const narrativeText = tc.result?.narrative;
           if (!narrativeText) return null;
+          const ctxBits = [
+            tc.result.genre,
+            tc.result.model_used || tc.result.provider_used,
+          ].filter(Boolean);
           return (
-            <div key={idx}>
+            <div key={idx} className="bg-black/60 p-4 rounded-xl border border-cyan-500/25 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-cyan-300 text-xs font-semibold uppercase font-mono">Outlook</div>
+                {ctxBits.length > 0 && (
+                  <div className="text-[10px] text-gray-400 font-mono">{ctxBits.join(' · ')}</div>
+                )}
+              </div>
+              {tc.result.astrology_used && (
+                <div className="text-[11px] text-gray-300">
+                  <span className="text-cyan-400/80 font-semibold">Astrology. </span>
+                  {tc.result.astrology_used.slice(0, 360)}
+                </div>
+              )}
+              {tc.result.divination_used && (
+                <div className="text-[11px] text-gray-300">
+                  <span className="text-amber-300/80 font-semibold">Oracle. </span>
+                  {tc.result.divination_used.slice(0, 360)}
+                </div>
+              )}
+              {tc.result.entities_used && (
+                <div className="text-[11px] text-gray-300">
+                  <span className="text-purple-300/80 font-semibold">Entities. </span>
+                  {tc.result.entities_used.slice(0, 280)}
+                </div>
+              )}
+              <div className="text-[13px] leading-relaxed text-gray-100 whitespace-pre-wrap max-h-[28rem] overflow-y-auto border-t border-white/5 pt-3">
+                {narrativeText}
+              </div>
               <NarrativeSigilExtractor narrative={narrativeText} />
             </div>
           );
