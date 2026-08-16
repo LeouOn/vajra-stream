@@ -427,11 +427,11 @@ export default function OutlookDashboard() {
   const fetchUniverseData = useCallback(async (): Promise<void> => {
     try {
       const [realmsRes, charsRes, popsRes, rolesRes, typesRes] = await Promise.all([
-        fetch(`/api/v1/outlook/locations`),
-        fetch(`/api/v1/outlook/characters`),
-        fetch(`/api/v1/populations/`),
-        fetch(`/api/v1/outlook/characters/roles/list`),
-        fetch(`/api/v1/outlook/locations/types/list`),
+        fetch(apiUrl(`/outlook/locations`)),
+        fetch(apiUrl(`/outlook/characters`)),
+        fetch(apiUrl(`/populations/`)),
+        fetch(apiUrl(`/outlook/characters/roles/list`)),
+        fetch(apiUrl(`/outlook/locations/types/list`)),
       ]);
       // Defensive unwrap — same crash class as AstrologyExtractionPanel's
       // ``runs.some is not a function`` bug. Backend today returns bare arrays
@@ -461,7 +461,7 @@ export default function OutlookDashboard() {
 
   const fetchHistory = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`/api/v1/outlook/history?limit=15`);
+      const res = await fetch(apiUrl(`/outlook/history?limit=15`));
       if (res.ok) setHistoryList(((await res.json()) as { history?: HistoryItem[] }).history || []);
     } catch (e) {
       addToast({ type: 'error', title: 'Could not load history', message: 'Backend unreachable.', duration: 3000 });
@@ -517,7 +517,7 @@ export default function OutlookDashboard() {
 
   const fetchProvidersHealth = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`/api/v1/llm/providers/health`);
+      const res = await fetch(apiUrl(`/llm/providers/health`));
       if (!res.ok) return;
       const data = await res.json() as {
         providers?: Array<{ provider: string; healthy: boolean }>;
@@ -532,7 +532,7 @@ export default function OutlookDashboard() {
 
   const fetchBgStatus = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(`/api/v1/outlook/background/status`);
+      const res = await fetch(apiUrl(`/outlook/background/status`));
       if (res.ok) {
         const data = await res.json() as {
           active?: boolean;
@@ -562,7 +562,7 @@ export default function OutlookDashboard() {
   const toggleBackgroundGeneration = useCallback(async (): Promise<void> => {
     if (bgActive) {
       try {
-        await fetch(`/api/v1/outlook/background/stop`, { method: 'POST' });
+        await fetch(apiUrl(`/outlook/background/stop`), { method: 'POST' });
         setBgActive(false);
         message.success('Background generation stopped.');
       } catch {
@@ -570,7 +570,7 @@ export default function OutlookDashboard() {
       }
     } else {
       try {
-        const res = await fetch(`/api/v1/outlook/background/start`, {
+        const res = await fetch(apiUrl(`/outlook/background/start`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -758,7 +758,7 @@ export default function OutlookDashboard() {
       const intention = customContext
         || currentNarrative.genre
         || 'spiritual practice';
-      const res = await fetch(`/api/v1/radionics/affirmation/generate`, {
+      const res = await fetch(apiUrl(`/radionics/affirmation/generate`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ intention, style: 'empowering' }),
@@ -819,8 +819,8 @@ export default function OutlookDashboard() {
       else { payload.latitude = parseFloat(String(payload.latitude)); payload.longitude = parseFloat(String(payload.longitude)); }
 
       const url = editingRealm
-        ? `/api/v1/outlook/locations/${editingRealm.id}`
-        : `/api/v1/outlook/locations`;
+        ? apiUrl(`/outlook/locations/${editingRealm.id}`)
+        : apiUrl('/outlook/locations');
       const method = editingRealm ? 'PUT' : 'POST';
 
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -846,7 +846,7 @@ export default function OutlookDashboard() {
       okText: 'Delete', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
         try {
-          const res = await fetch(`/api/v1/outlook/locations/${id}`, { method: 'DELETE' });
+          const res = await fetch(apiUrl(`/outlook/locations/${id}`), { method: 'DELETE' });
           if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
           message.success('Realm deleted.');
           fetchUniverseData();
@@ -873,8 +873,8 @@ export default function OutlookDashboard() {
     try {
       const values = await charForm.validateFields() as Record<string, unknown>;
       const url = editingChar
-        ? `/api/v1/outlook/characters/${editingChar.id}`
-        : `/api/v1/outlook/characters`;
+        ? apiUrl(`/outlook/characters/${editingChar.id}`)
+        : apiUrl('/outlook/characters');
       const method = editingChar ? 'PUT' : 'POST';
 
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) });
@@ -900,7 +900,7 @@ export default function OutlookDashboard() {
       okText: 'Exile', okType: 'danger', cancelText: 'Cancel',
       onOk: async () => {
         try {
-          const res = await fetch(`/api/v1/outlook/characters/${id}`, { method: 'DELETE' });
+          const res = await fetch(apiUrl(`/outlook/characters/${id}`), { method: 'DELETE' });
           if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
           message.success('Character exiled.');
           fetchUniverseData();
@@ -945,7 +945,7 @@ export default function OutlookDashboard() {
       const excerpt = narrativeText.slice(0, 600);
       const genre = currentNarrative.genre || 'spiritual';
       const prompt = `Illustration for a "${genre}" blessing transmission: ${excerpt}`;
-      const res = await fetch('/api/v1/images/generate', {
+      const res = await fetch(apiUrl('/images/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, n: 1 }),
@@ -985,7 +985,7 @@ export default function OutlookDashboard() {
       };
       if (currentNarrative.id != null) payload.narrative_id = currentNarrative.id;
 
-      const res = await fetch('/api/v1/videos/from-narrative', {
+      const res = await fetch(apiUrl('/videos/from-narrative'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -996,7 +996,7 @@ export default function OutlookDashboard() {
         message.success('Video task submitted. Polling for completion...');
         const interval = window.setInterval(async () => {
           try {
-            const sres = await fetch('/api/v1/videos/status', {
+            const sres = await fetch(apiUrl('/videos/status'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ task_id: data.task_id, model: data.model || 'MiniMax-H3' }),
