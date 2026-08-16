@@ -1,3 +1,4 @@
+import { apiUrl } from '../../utils/api';
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -96,7 +97,7 @@ export default function Astrocartography({
       try {
         // Result populated by WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook).
         // Fetch is retained for immediate data on first mount before WS push arrives.
-        const response = await fetch('/api/v1/astrology/planetary-positions');
+        const response = await fetch(apiUrl('/astrology/planetary-positions'));
         await response.json();
       } catch (error) {
         log.error('Failed to fetch astrology data:', error);

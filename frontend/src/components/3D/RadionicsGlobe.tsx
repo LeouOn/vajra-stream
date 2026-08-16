@@ -4,6 +4,7 @@
  * projections, blessing target markers, and energy emanation effects.
  * @component
  */
+import { apiUrl } from '../../utils/api';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
@@ -578,7 +579,7 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }: Radionic
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`/api/v1/operator/world-context`);
+        const res = await fetch(apiUrl(`/operator/world-context`));
         if (res.ok) {
           const data = await res.json() as { disasters?: Disaster[]; events?: unknown[] };
           setWorldData({ disasters: data.disasters || [], events: data.events || [] });
@@ -589,7 +590,7 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }: Radionic
     };
     const fetchAstro = async () => {
       try {
-        const res = await fetch(`/api/v1/astrology/current?latitude=${DEFAULT_LAT}&longitude=${DEFAULT_LNG}`);
+        const res = await fetch(apiUrl(`/astrology/current?latitude=${DEFAULT_LAT}&longitude=${DEFAULT_LNG}`));
         if (res.ok) {
           const data = await res.json() as { astrology?: { western?: { positions?: PlanetPositions; aspects?: Aspect[] } } };
           const western = data.astrology?.western;

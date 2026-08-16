@@ -1,3 +1,4 @@
+import { apiUrl } from '../../utils/api';
 import React, { useState, useMemo } from 'react';
 import { Input, Button, Collapse, Typography, Spin } from 'antd';
 
@@ -239,7 +240,7 @@ If the user asked a specific question (not a full reading), focus deeply on that
 
 Keep your response between 400–800 words unless the question demands more depth.`;
 
-      const res = await fetch('/api/v1/llm/chat', {
+      const res = await fetch(apiUrl('/llm/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
