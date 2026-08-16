@@ -191,6 +191,19 @@ interface BasicModelsResponse {
   lm_studio_connected: boolean;
 }
 
+function collapseChatStutter(text: string): string {
+  if (!text || text.length < 24) return text;
+  let current = text;
+  for (let i = 0; i < 4; i += 1) {
+    const next = current
+      .replace(/(.{6,60}?)\1{4,}/g, '$1')
+      .replace(/\b(\S{3,40})(?:[ \t]+\1){4,}\b/g, '$1');
+    if (next === current) break;
+    current = next;
+  }
+  return current;
+}
+
 export default function CommandCenter({ 
   isConnected, 
   isPlaying, 
@@ -881,7 +894,7 @@ export default function CommandCenter({
       const modelUsed = dbg?.model || (selectedModel !== 'auto' ? selectedModel : null);
       const inputTokens = dbg?.input_tokens ?? null;
       const outputTokens = dbg?.output_tokens ?? null;
-      const replyText = (data.response || '').trim()
+      const replyText = collapseChatStutter((data.response || '').trim())
         || (data.tool_calls && data.tool_calls.length
           ? `The operator ran: ${data.tool_calls.map((t) => t.tool_name).join(', ')}. See the cards below.`
           : '');
