@@ -75,6 +75,67 @@ def find_recent_working(
     return None
 
 
+def collapse_duplicate_workings() -> dict[str, Any]:
+    """Hide redundant folios: same intention + target + rate signature keeps only the newest.
+
+    The pre-idempotency ledger minted one folio per auto-chain retry, so a
+    single sitting can appear many times. Duplicates are hidden (not deleted)
+    and stamped ``duplicate_of`` so the newest folio remains the one sitting.
+    """
+    if not WORKINGS_DIR.is_dir():
+        return {"status": "success", "unique_sittings": 0, "hidden": [], "kept": []}
+
+    entries: list[tuple[datetime, dict[str, Any]]] = []
+    for path in WORKINGS_DIR.glob("wrk_*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        sealed = _sealed_at_utc(data) or datetime.min.replace(tzinfo=timezone.utc)
+        entries.append((sealed, data))
+    # Folio-internal timestamps, not filesystem mtimes: rapid writes can
+    # share an mtime and make "newest" nondeterministic.
+    entries.sort(key=lambda item: item[0], reverse=True)
+
+    groups: dict[tuple[str, str, tuple[int, ...]], list[dict[str, Any]]] = {}
+    order: list[tuple[str, str, tuple[int, ...]]] = []
+    for _, data in entries:
+        rates = tuple(int(v) for v in (data.get("rate_values") or []) if isinstance(v, (int, float)))
+        key = (
+            *_normalize_sitting_key(str(data.get("intention") or ""), str(data.get("target") or "all beings")),
+            rates,
+        )
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(data)
+
+    kept: list[str] = []
+    hidden: list[str] = []
+    for key in order:
+        folios = groups[key]
+        keeper = next((f for f in folios if not f.get("hidden")), folios[0])
+        keeper_id = str(keeper.get("working_id") or "")
+        if keeper_id:
+            kept.append(keeper_id)
+        for dup in folios:
+            if dup is keeper:
+                continue
+            if dup.get("hidden") and dup.get("duplicate_of") == keeper_id:
+                continue
+            dup["hidden"] = True
+            dup["duplicate_of"] = keeper_id
+            try:
+                _persist(dup, index=False)
+                hidden.append(str(dup.get("working_id") or ""))
+            except OSError:
+                continue
+
+    return {"status": "success", "unique_sittings": len(kept), "hidden": hidden, "kept": kept}
+
+
 def _persist(folio: dict[str, Any], *, index: bool = True) -> None:
     WORKINGS_DIR.mkdir(parents=True, exist_ok=True)
     path = WORKINGS_DIR / f"{folio['working_id']}.json"

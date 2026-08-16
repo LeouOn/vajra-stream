@@ -729,6 +729,14 @@ async def list_workings_endpoint(limit: int = 20, include_hidden: bool = False):
     return {"workings": list_workings(limit=limit, include_hidden=include_hidden)}
 
 
+@router.post("/workings/collapse_duplicates", summary="Hide duplicate folios sharing intention+target+rates")
+async def collapse_duplicates_endpoint():
+    """Collapse the pre-idempotency ledger: one visible folio per sitting."""
+    from core.working import collapse_duplicate_workings
+
+    return collapse_duplicate_workings()
+
+
 @router.get("/workings/{working_id}", summary="Load one sealed working folio")
 async def get_working_endpoint(working_id: str):
     from core.working import load_working

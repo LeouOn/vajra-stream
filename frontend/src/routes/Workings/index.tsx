@@ -32,6 +32,8 @@ export default function WorkingsPage(): React.ReactElement {
   const [showHidden, setShowHidden] = useState(false);
   const [showRates, setShowRates] = useState(true);
   const [showInstrument, setShowInstrument] = useState(true);
+  const [collapsing, setCollapsing] = useState(false);
+  const [collapseMsg, setCollapseMsg] = useState<string | null>(null);
   const loadWorkingRates = useRateStore((s) => s.loadWorkingRates);
 
   const refreshList = () => {
@@ -122,6 +124,26 @@ export default function WorkingsPage(): React.ReactElement {
     audioFeedback.playSuccess();
   };
 
+  const collapseDuplicates = async () => {
+    setCollapsing(true);
+    try {
+      const res = await fetch(apiUrl('/operator/workings/collapse_duplicates'), { method: 'POST' });
+      if (!res.ok) throw new Error(`collapse ${res.status}`);
+      const data = await res.json() as { hidden?: string[]; unique_sittings?: number };
+      audioFeedback.playSuccess();
+      setError(null);
+      setCollapseMsg(
+        `Collapsed ${data.hidden?.length ?? 0} duplicate${(data.hidden?.length ?? 0) === 1 ? '' : 's'} — ` +
+        `${data.unique_sittings ?? 0} unique sitting${(data.unique_sittings ?? 0) === 1 ? '' : 's'} remain.`,
+      );
+      refreshList();
+    } catch {
+      setError('Could not collapse duplicates');
+    } finally {
+      setCollapsing(false);
+    }
+  };
+
   return (
     <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-4">
       <PageHeader
@@ -130,6 +152,7 @@ export default function WorkingsPage(): React.ReactElement {
         subtitle="Manage sealed sittings — hide, retune, load rates onto the board."
       />
       {error && <p className="text-sm text-red-300">{error}</p>}
+      {collapseMsg && !error && <p className="text-sm text-emerald-300/90" data-testid="collapse-msg">{collapseMsg}</p>}
 
       <div className="flex flex-wrap items-center gap-4">
         <Input
@@ -139,6 +162,15 @@ export default function WorkingsPage(): React.ReactElement {
           placeholder="Search intention, source, id…"
           className="max-w-sm"
         />
+        <button
+          type="button"
+          data-testid="collapse-duplicates"
+          onClick={() => { void collapseDuplicates(); }}
+          disabled={collapsing}
+          className="text-[10px] px-2 py-1 rounded border border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/10 disabled:opacity-50"
+        >
+          {collapsing ? 'Collapsing…' : 'Collapse duplicates'}
+        </button>
         <label className="flex items-center gap-2 text-xs text-amber-100/80">
           <Switch size="small" checked={showRates} onChange={setShowRates} />
           Show rates

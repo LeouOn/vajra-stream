@@ -85,6 +85,52 @@ def test_run_working_is_idempotent_within_window(tmp_path: Path, monkeypatch: py
 
 
 @pytest.mark.unit
+def test_collapse_duplicate_workings_hides_all_but_newest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import core.working as working
+
+    monkeypatch.setattr(working, "WORKINGS_DIR", tmp_path)
+
+    def mint(working_id: str, intention: str, rates: list[int], day: int) -> None:
+        working._persist(
+            {
+                "working_id": working_id,
+                "sealed_at": f"2020-01-{day:02d}T00:00:00+00:00",
+                "intention": intention,
+                "target": "all beings",
+                "rate_values": rates,
+                "dials": [],
+                "frequencies": [],
+                "solfeggio_names": [],
+            },
+            index=False,
+        )
+
+    # Five pre-idempotency auto-chain retries of one sitting, plus one distinct sitting.
+    rates = [68, 30, 71, 50, 68]
+    for i in range(5):
+        mint(f"wrk_dup{i:012x}", "peace for the watershed", rates, i + 1)
+    mint("wrk_other000001", "a different sitting", [1, 2, 3, 4, 5], 9)
+
+    result = working.collapse_duplicate_workings()
+
+    assert result["unique_sittings"] == 2
+    assert len(result["hidden"]) == 4
+    visible = [w["working_id"] for w in working.list_workings()]
+    assert len(visible) == 2
+    assert f"wrk_dup{4:012x}" in visible  # newest duplicate survives
+    for i in range(4):
+        folio = working.load_working(f"wrk_dup{i:012x}")
+        assert folio is not None
+        assert folio["hidden"] is True
+        assert folio["duplicate_of"] in visible
+
+    # Idempotent: a second run hides nothing new.
+    again = working.collapse_duplicate_workings()
+    assert again["hidden"] == []
+    assert again["unique_sittings"] == 2
+
+
+@pytest.mark.unit
 def test_list_and_load_working(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import core.working as working
 
