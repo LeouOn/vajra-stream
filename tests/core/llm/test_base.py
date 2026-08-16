@@ -33,7 +33,7 @@ def test_openai_compatible_constructs_with_valid_args():
 
 
 def test_visible_text_falls_back_to_reasoning():
-    from core.llm.base import visible_text
+    from core.llm.base import collapse_stutter, visible_text
 
     assert visible_text("hello", "hidden thought") == "hello"
     assert visible_text("", "the blessing is complete") == "the blessing is complete"
@@ -41,6 +41,9 @@ def test_visible_text_falls_back_to_reasoning():
     assert visible_text("<think>scratch</think>\n amen", None) == "amen"
     assert visible_text("<think>scratch</think>", None) == "scratch"
     assert visible_text("", None) == ""
+    assert collapse_stutter("California" * 20).count("California") <= 2
+    assert collapse_stutter("Operational Insight:" * 12).count("Operational Insight:") <= 2
+    assert "peace" in collapse_stutter("May all beings have peace")
 
 
 def test_candidate_models_auto_tries_one_fallback():

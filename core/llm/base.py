@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import AsyncIterator
 from typing import Protocol, runtime_checkable
@@ -73,6 +74,30 @@ def visible_text(content: str | None, reasoning: str | None = None) -> str:
             if fallback.strip():
                 return fallback.strip()
     return clean or ""
+
+
+_GLUED_PHRASE = re.compile(r"(.{6,60}?)\1{4,}")
+_WORD_RUN = re.compile(r"\b(\S{3,40})(?:[ \t]+\1){4,}\b")
+
+
+def collapse_stutter(text: str, *, max_rounds: int = 4) -> str:
+    """Collapse glued/run-on repeats from a degenerated model reply.
+
+    Free reasoning models sometimes emit ``CaliforniaCalifornia…`` or
+    ``Operational Insight:`` hundreds of times. Five-plus copies of the
+    same 6–60 character phrase is never a mantra (those keep spaces and
+    stay short). Safe to run on chat summaries, not required on sutras.
+    """
+    if not text or len(text) < 24:
+        return text
+    current = text
+    for _ in range(max_rounds):
+        nxt = _GLUED_PHRASE.sub(r"\1", current)
+        nxt = _WORD_RUN.sub(r"\1", nxt)
+        if nxt == current:
+            break
+        current = nxt
+    return current
 
 
 def strip_thinking(content: str) -> tuple[str, str | None]:
