@@ -10,6 +10,7 @@
  *
  * @component
  */
+import { apiUrl } from '../../utils/api';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import {
@@ -142,7 +143,7 @@ export default function JourneyCard() {
   // bug where the old polling was removed in commit a329ada.
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/operator/journey/status`);
+      const res = await fetch(apiUrl(`/operator/journey/status`));
       if (res.ok) {
         const data: JourneyStatus = await res.json();
         setJourney((prev) => {
@@ -176,7 +177,7 @@ export default function JourneyCard() {
     setAdvancing(true);
     audioFeedback.playTelemetry();
     try {
-      const res = await fetch(`/api/v1/operator/journey/advance`, { method: 'POST' });
+      const res = await fetch(apiUrl(`/operator/journey/advance`), { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setJourney(prev => ({ ...prev, ...data } as JourneyStatus));
@@ -197,9 +198,9 @@ export default function JourneyCard() {
     audioFeedback.playTelemetry();
     try {
       const endpoint = mode === 'full'
-        ? `/api/v1/operator/journey/run-full`
-        : `/api/v1/operator/journey/start`;
-      const res = await fetch(endpoint, { method: 'POST' });
+        ? '/operator/journey/run-full'
+        : '/operator/journey/start';
+      const res = await fetch(apiUrl(endpoint), { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         setJourney((data && typeof data === 'object' && (data.active || data.stage_results))

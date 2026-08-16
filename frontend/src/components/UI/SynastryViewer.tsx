@@ -1,3 +1,4 @@
+import { apiUrl } from '../../utils/api';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Award, Compass, Heart, RefreshCw, AlertTriangle, Sparkles, ShieldAlert, Minus } from 'lucide-react';
 import { Card, Button, Select, Space, Row, Col, Progress, Table, Tag, message } from 'antd';
@@ -133,7 +134,7 @@ export default function SynastryViewer({
     if (!subjectA || !subjectB) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/v1/astrology/charts/compare`, {
+      const response = await fetch(apiUrl(`/astrology/charts/compare`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
