@@ -1,3 +1,4 @@
+import { apiUrl } from './utils/api';
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
@@ -44,7 +45,7 @@ function AppContent(): React.ReactElement {
   useEffect(() => {
     const fetchMops = async (): Promise<void> => {
       try {
-        const res = await fetch('/api/v1/mops/current');
+        const res = await fetch(apiUrl('/mops/current'));
         if (res.ok) {
           const data = await res.json();
           setMopsData(data.mops as MopsData);

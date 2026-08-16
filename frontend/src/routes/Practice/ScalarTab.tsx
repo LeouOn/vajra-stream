@@ -32,6 +32,7 @@
  * @component
  * @route /practice/scalar
  */
+import { apiUrl } from '../../utils/api';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ScalarWaveVisualizer, {
   type ScalarMode,
@@ -208,7 +209,7 @@ export default function ScalarTab(): React.ReactElement {
     let cancelled = false;
     const fetchOnce = async () => {
       try {
-        const res = await fetch('/api/v1/mops/current');
+        const res = await fetch(apiUrl('/mops/current'));
         if (!res.ok) return;
         const data = (await res.json()) as {
           status?: string;
@@ -234,7 +235,7 @@ export default function ScalarTab(): React.ReactElement {
     let cancelled = false;
     const fetchOnce = async () => {
       try {
-        const res = await fetch('/api/v1/operator/journey/status');
+        const res = await fetch(apiUrl('/operator/journey/status'));
         if (!res.ok) return;
         const data = (await res.json()) as JourneyStatus;
         if (cancelled) return;

@@ -176,9 +176,9 @@ export default function BuddhasPage() {
     audioFeedback.playTelemetry();
     try {
       if (running) {
-        await fetch(`/api/v1/operator/buddhas/recitation/stop`, { method: 'POST' });
+        await fetch(apiUrl(`/operator/buddhas/recitation/stop`), { method: 'POST' });
       } else {
-        await fetch(`/api/v1/operator/buddhas/recitation/start`, {
+        await fetch(apiUrl(`/operator/buddhas/recitation/start`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
