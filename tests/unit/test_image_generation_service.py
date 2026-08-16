@@ -177,6 +177,7 @@ async def test_generate_openrouter_success():
 
 @pytest.mark.asyncio
 async def test_generate_minimax_with_aspect_ratio():
+    """Supported ratios pass through verbatim; unsupported ones fall back to 1:1."""
     service = ImageGenerationService({"enabled": True, "minimax_api_key": "sk-mm-test", "default_provider": "minimax"})
     client = _patched_client(_response(json_data={"data": {"image_base64": [FAKE_B64]}}))
     with patch("httpx.AsyncClient", return_value=client):
@@ -184,13 +185,30 @@ async def test_generate_minimax_with_aspect_ratio():
             prompt="green tara portrait",
             provider="minimax",
             model="image-01",
+            aspect_ratio="3:4",
+        )
+
+    body = client.post.call_args.kwargs["json"]
+    assert body["aspect_ratio"] == "3:4"
+    assert "size" not in body
+    assert result["provider_used"] == "minimax"
+
+
+@pytest.mark.asyncio
+async def test_generate_minimax_unsupported_aspect_ratio_falls_back():
+    """image-01 supports only 1:1/16:9/9:16/4:3/3:4 — anything else degrades to 1:1."""
+    service = ImageGenerationService({"enabled": True, "minimax_api_key": "sk-mm-test", "default_provider": "minimax"})
+    client = _patched_client(_response(json_data={"data": {"image_base64": [FAKE_B64]}}))
+    with patch("httpx.AsyncClient", return_value=client):
+        await service.generate(
+            prompt="green tara portrait",
+            provider="minimax",
+            model="image-01",
             aspect_ratio="4:5",
         )
 
     body = client.post.call_args.kwargs["json"]
-    assert body["aspect_ratio"] == "4:5"
-    assert "size" not in body
-    assert result["provider_used"] == "minimax"
+    assert body["aspect_ratio"] == "1:1"
 
 
 @pytest.mark.asyncio
@@ -374,9 +392,9 @@ def test_service_module_has_no_project_imports():
         if isinstance(node, ast.Import):
             for alias in node.names:
                 root = alias.name.split(".")[0]
-                assert (
-                    root not in FORBIDDEN_ROOTS
-                ), f"image_generation_service.py line {node.lineno}: import {alias.name} breaks standalone extraction."
+                assert root not in FORBIDDEN_ROOTS, (
+                    f"image_generation_service.py line {node.lineno}: import {alias.name} breaks standalone extraction."
+                )
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 root = node.module.split(".")[0]

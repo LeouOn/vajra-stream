@@ -4,7 +4,6 @@ Tests for RadionicsOperator — all methods tested via fallback paths (no LLM re
 These tests verify the operator's logic, dispatch, and fallback behavior.
 """
 
-import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -186,19 +185,21 @@ class TestBlessingLoop:
     @pytest.mark.asyncio
     async def test_blessing_loop_async_task(self, operator_with_container):
         op = operator_with_container
-        # We start the blessing loop with a very short interval for testing
         result = op.start_blessing_loop("peace", interval_seconds=0.01)
         assert result["status"] == "started"
+        # The interval is floored to 30s so an accidental fast loop can't
+        # burn the daily cost cap.
+        assert op._blessing_loop_interval == 30.0
         assert op._blessing_loop_active is True
         assert op._blessing_loop_task is not None
         assert not op._blessing_loop_task.done()
 
-        # Let the task tick multiple times in background
-        await asyncio.sleep(0.05)
-        # Verify that more blessings were generated (first one immediate, and then at least one tick)
-        assert len(op._blessing_stream) > 1
+        # The loop body is just generate_next_blessing on a timer — exercise
+        # it directly instead of waiting out the 30s floor.
+        before = len(op._blessing_stream)
+        op.generate_next_blessing()
+        assert len(op._blessing_stream) == before + 1
 
-        # Stop the blessing loop and check task cancellation
         stop_result = op.stop_blessing_loop()
         assert stop_result["status"] == "stopped"
         assert op._blessing_loop_active is False
@@ -229,7 +230,8 @@ class TestAutonomousMode:
         result = operator.stop_autonomous_mode()
         assert result["status"] == "stopped"
 
-    def test_approve_dismiss_suggestions(self, operator):
+    def test_approve_dismiss_suggestions(self, operator_with_container):
+        operator = operator_with_container
         operator.start_autonomous_mode(60)
         operator._autonomous_suggestions = [
             {
@@ -237,7 +239,8 @@ class TestAutonomousMode:
                 "target": "Test",
                 "action": "broadcast_healing",
                 "frequency": 528,
-                "duration_minutes": 30,
+                # 1 minute keeps the real broadcast the approval triggers short.
+                "duration_minutes": 1,
             }
         ]
         approved = operator.approve_suggestion(0)
