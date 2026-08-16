@@ -204,6 +204,10 @@ def list_workings(limit: int = 20, *, include_hidden: bool = False) -> list[dict
                 "has_witness": has_image,
                 "has_manifestation": has_image,
                 "saka_dawa_duchen": saka.get("saka_dawa_duchen"),
+                "planetary_hour": (data.get("hour_stamp") or {}).get("planetary_hour"),
+                "moon_phase": (data.get("hour_stamp") or {}).get("moon_phase"),
+                "saka_dawa_multiplier": saka.get("multiplier", 1),
+                "duplicate_of": data.get("duplicate_of"),
             }
         )
     return out

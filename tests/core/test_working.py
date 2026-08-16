@@ -131,6 +131,34 @@ def test_collapse_duplicate_workings_hides_all_but_newest(tmp_path: Path, monkey
 
 
 @pytest.mark.unit
+def test_list_workings_summary_carries_constellation_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import core.working as working
+
+    monkeypatch.setattr(working, "WORKINGS_DIR", tmp_path)
+    working._persist(
+        {
+            "working_id": "wrk_sky00000001",
+            "sealed_at": "2026-08-16T00:00:00+00:00",
+            "intention": "peace for the watershed",
+            "target": "all beings",
+            "rate_values": [68, 30, 71, 50, 68],
+            "hour_stamp": {"planetary_hour": "Venus", "moon_phase": "Full Moon"},
+            "saka_dawa": {"multiplier": 100000},
+            "hidden": True,
+            "duplicate_of": "wrk_keep000001",
+        },
+        index=False,
+    )
+
+    listed = working.list_workings(include_hidden=True)
+    row = next(w for w in listed if w["working_id"] == "wrk_sky00000001")
+    assert row["planetary_hour"] == "Venus"
+    assert row["moon_phase"] == "Full Moon"
+    assert row["saka_dawa_multiplier"] == 100000
+    assert row["duplicate_of"] == "wrk_keep000001"
+
+
+@pytest.mark.unit
 def test_list_and_load_working(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import core.working as working
 
