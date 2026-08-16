@@ -147,7 +147,7 @@ import {
   sourceHue,
   starSize,
   summaryToStar,
-} from '../../../components/Workings/star';
+} from '../../components/Workings/star';
 
 describe('moonPhaseToBand', () => {
   it('maps canonical phases case-insensitively', () => {
