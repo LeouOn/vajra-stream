@@ -9,6 +9,7 @@ import PageHeader from '../../components/UI/PageHeader';
 import { WorkingFolioCard, type WorkingResult } from '../../components/CommandCenter/RenderMessageWidgets';
 import { useRateStore } from '../../stores/rateStore';
 import { audioFeedback } from '../../utils/audioFeedback';
+import SittingsConstellation from '../../components/Workings/SittingsConstellation';
 
 interface WorkingSummary {
   working_id: string;
@@ -21,6 +22,10 @@ interface WorkingSummary {
   source?: string;
   hidden?: boolean;
   has_witness?: boolean;
+  planetary_hour?: string | null;
+  moon_phase?: string | null;
+  saka_dawa_multiplier?: number | null;
+  duplicate_of?: string | null;
 }
 
 export default function WorkingsPage(): React.ReactElement {
@@ -34,6 +39,7 @@ export default function WorkingsPage(): React.ReactElement {
   const [showInstrument, setShowInstrument] = useState(true);
   const [collapsing, setCollapsing] = useState(false);
   const [collapseMsg, setCollapseMsg] = useState<string | null>(null);
+  const [sky, setSky] = useState<WorkingSummary[]>([]);
   const loadWorkingRates = useRateStore((s) => s.loadWorkingRates);
 
   const refreshList = () => {
@@ -45,8 +51,20 @@ export default function WorkingsPage(): React.ReactElement {
       .catch(() => setError('Could not load workings'));
   };
 
+  // The sky always renders the full ledger (hidden-inclusive), independent
+  // of the list's "Show hidden" toggle.
+  const refreshSky = () => {
+    fetch(apiUrl('/operator/workings?limit=50&include_hidden=true'))
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('sky failed'))))
+      .then((data: { workings?: WorkingSummary[] }) => {
+        setSky(Array.isArray(data.workings) ? data.workings : []);
+      })
+      .catch(() => undefined);
+  };
+
   useEffect(() => {
     refreshList();
+    refreshSky();
   }, [showHidden]);
 
   useEffect(() => {
@@ -87,6 +105,7 @@ export default function WorkingsPage(): React.ReactElement {
     const data = await res.json() as WorkingResult;
     if (openId === id) setFolio(data);
     refreshList();
+    refreshSky();
     return data;
   };
 
@@ -112,6 +131,7 @@ export default function WorkingsPage(): React.ReactElement {
         setFolio(null);
       }
       refreshList();
+      refreshSky();
       audioFeedback.playSuccess();
     } catch {
       setError('Could not delete that working');
@@ -137,6 +157,7 @@ export default function WorkingsPage(): React.ReactElement {
         `${data.unique_sittings ?? 0} unique sitting${(data.unique_sittings ?? 0) === 1 ? '' : 's'} remain.`,
       );
       refreshList();
+      refreshSky();
     } catch {
       setError('Could not collapse duplicates');
     } finally {
@@ -153,6 +174,8 @@ export default function WorkingsPage(): React.ReactElement {
       />
       {error && <p className="text-sm text-red-300">{error}</p>}
       {collapseMsg && !error && <p className="text-sm text-emerald-300/90" data-testid="collapse-msg">{collapseMsg}</p>}
+
+      <SittingsConstellation workings={sky} onSelect={(id) => setOpenId(id)} />
 
       <div className="flex flex-wrap items-center gap-4">
         <Input
