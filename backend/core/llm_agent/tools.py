@@ -6,59 +6,45 @@ radionics system via tool calling (function calling).
 
 Each function is designed to be called by an LLM agent and returns structured data
 that can be used in the agent's responses.
+
+Every tool runs IN-PROCESS against the backing service or endpoint function.
+Tools must not HTTP back into this same FastAPI process — the socket hop can
+deadlock a saturated worker, couples tools to port 8008, and lets endpoint
+paths silently drift into 404 ghosts.
 """
 
 import os
 import time
 from typing import Any
 
-import requests
+# ============================================================================
+# IN-PROCESS BRIDGE
+# ----------------------------------------------------------------------------
+# ``_run_async`` bridges sync tool bodies to async services on the persistent
+# background loop (safe from inside a running event loop); ``_spawn`` is the
+# fire-and-forget twin for background work like audio playback.
+# ============================================================================
 
 
-class APIClient:
-    """Client for making requests to Vajra Stream API"""
+def _run_async(coro: Any) -> Any:
+    """Run an async service call from a sync tool body and return its result."""
+    from core.llm.legacy_adapter import run_async
 
-    def __init__(self, base_url: str | None = None):
-        if base_url is None:
-            port = os.environ.get("PORT", "8008")
-            base_url = f"http://localhost:{port}"
-        self.base_url = base_url
-
-    def _get(self, endpoint: str) -> dict[str, Any]:
-        """Make GET request"""
-        response = requests.get(f"{self.base_url}{endpoint}")
-        response.raise_for_status()
-        return response.json()
-
-    def _post(self, endpoint: str, data: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Make POST request"""
-        response = requests.post(f"{self.base_url}{endpoint}", json=data or {})
-        response.raise_for_status()
-        return response.json()
-
-    def _put(self, endpoint: str, data: dict[str, Any]) -> dict[str, Any]:
-        """Make PUT request"""
-        response = requests.put(f"{self.base_url}{endpoint}", json=data)
-        response.raise_for_status()
-        return response.json()
-
-    def _delete(self, endpoint: str) -> dict[str, Any]:
-        """Make DELETE request"""
-        response = requests.delete(f"{self.base_url}{endpoint}")
-        response.raise_for_status()
-        return response.json()
+    return run_async(coro)
 
 
-# Global API client instance
-_client = None
+def _spawn(coro: Any) -> None:
+    """Schedule an async side-effect (e.g. audio playback) without waiting."""
+    from core.llm.legacy_adapter import spawn_async
+
+    spawn_async(coro)
 
 
-def get_client() -> APIClient:
-    """Get or create API client"""
-    global _client
-    if _client is None:
-        _client = APIClient()
-    return _client
+def _dump(result: Any) -> Any:
+    """Normalize a Pydantic model returned by an endpoint function to a dict."""
+    if hasattr(result, "model_dump"):
+        return result.model_dump()
+    return result
 
 
 # ============================================================================
@@ -82,10 +68,11 @@ def create_rng_session(baseline_tone_arm: float = 5.0, sensitivity: float = 1.0)
     Returns:
         {"session_id": "rng_1234567890_abcdef12"}
     """
-    client = get_client()
-    return client._post(
-        "/api/v1/rng/session/create", {"baseline_tone_arm": baseline_tone_arm, "sensitivity": sensitivity}
-    )
+    from backend.core.services.rng_attunement_service import get_rng_service
+
+    service = get_rng_service()
+    session_id = service.create_session(baseline_tone_arm=baseline_tone_arm, sensitivity=sensitivity)
+    return {"session_id": session_id}
 
 
 def get_rng_reading(session_id: str) -> dict[str, Any]:
@@ -110,19 +97,91 @@ def get_rng_reading(session_id: str) -> dict[str, Any]:
             "entropy": 0.82
         }
     """
-    client = get_client()
-    return client._get(f"/api/v1/rng/session/{session_id}/reading")
+    from backend.core.services.rng_attunement_service import get_rng_service
+
+    service = get_rng_service()
+    reading = service.get_reading(session_id)
+    if reading:
+        return {
+            "timestamp": reading.timestamp,
+            "raw_value": reading.raw_value,
+            "tone_arm": reading.tone_arm,
+            "needle_position": reading.needle_position,
+            "needle_state": reading.needle_state.value
+            if hasattr(reading.needle_state, "value")
+            else reading.needle_state,
+            "quality": reading.quality.value if hasattr(reading.quality, "value") else reading.quality,
+            "entropy": reading.entropy,
+            "coherence": reading.coherence,
+            "trend": reading.trend,
+            "floating_needle_score": reading.floating_needle_score,
+        }
+    return {}
 
 
 def stop_rng_session(session_id: str) -> dict[str, Any]:
     """Stop active RNG session"""
-    client = get_client()
-    return client._post(f"/api/v1/rng/session/{session_id}/stop")
+    from backend.core.services.rng_attunement_service import get_rng_service
+
+    service = get_rng_service()
+    summary = service.get_session_summary(session_id) or {}
+    service.stop_session(session_id)
+    return summary
 
 
 # ============================================================================
 # AUDIO TOOLS
+# ----------------------------------------------------------------------------
+# ADR 001: the user-facing audio subsystem is the ``vajra_service``
+# singleton — these tools call it in-process instead of POSTing to
+# ``/api/v1/audio/*``.
 # ============================================================================
+
+
+def _audio_generate(config: dict[str, Any]) -> dict[str, Any]:
+    """Generate prayer-bowl audio on the canonical vajra_service (in-process)."""
+    from backend.core.services.vajra_service import AudioConfig as ServiceAudioConfig
+    from backend.core.services.vajra_service import vajra_service
+
+    service_config = ServiceAudioConfig(
+        frequency=config["frequency"],
+        duration=config["duration"],
+        volume=config["volume"],
+        prayer_bowl_mode=config["prayer_bowl_mode"],
+        harmonic_strength=config["harmonic_strength"],
+        modulation_depth=config["modulation_depth"],
+    )
+    _run_async(vajra_service.generate_prayer_bowl_audio(service_config))
+    return {
+        "status": "success",
+        "message": "Audio generation completed",
+        "config": dict(config),
+        "audio_generated": True,
+        "samples": len(vajra_service.current_audio_data) if vajra_service.current_audio_data is not None else 0,
+    }
+
+
+def _audio_play(hardware_level: int = 2) -> dict[str, Any]:
+    """Play the generated audio in the background (mirrors the /play endpoint)."""
+    from backend.core.services.vajra_service import vajra_service
+
+    if vajra_service.current_audio_data is None:
+        return {"status": "error", "message": "No audio data available. Please generate audio first."}
+    audio_length = len(vajra_service.current_audio_data)
+    _spawn(vajra_service.broadcast_audio(vajra_service.current_audio_data, hardware_level))
+    return {
+        "status": "success",
+        "message": "Audio playback started",
+        "hardware_level": hardware_level,
+        "audio_duration": audio_length / 44100,
+        "audio_samples": audio_length,
+    }
+
+
+def _audio_presets() -> dict[str, Any]:
+    from backend.app.api.v1.endpoints.audio import get_audio_presets
+
+    return _dump(_run_async(get_audio_presets()))
 
 
 def play_chakra_healing_audio(chakra_name: str, duration: float = 30.0) -> dict[str, Any]:
@@ -141,21 +200,24 @@ def play_chakra_healing_audio(chakra_name: str, duration: float = 30.0) -> dict[
     Returns:
         {"status": "success", "message": "..."}
     """
-    client = get_client()
+    from backend.core.services.vajra_service import vajra_service
 
-    # Generate the audio in memory
-    gen_res = client._post("/api/v1/audio/generate_chakra", {"chakra_name": chakra_name, "duration": duration})
+    _run_async(vajra_service.generate_chakra_audio(chakra_name, duration))
+    gen_res = {
+        "status": "success",
+        "message": f"Chakra audio generation completed for {chakra_name}",
+        "config": {"chakra_name": chakra_name, "duration": duration},
+        "audio_generated": True,
+        "samples": len(vajra_service.current_audio_data) if vajra_service.current_audio_data is not None else 0,
+    }
 
-    if gen_res.get("status") == "success":
-        # Play the audio on local hardware
-        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
-        return {
-            "status": "success",
-            "message": f"Successfully playing {chakra_name} chakra healing audio.",
-            "generation_details": gen_res,
-            "playback_details": play_res,
-        }
-    return gen_res
+    play_res = _audio_play()
+    return {
+        "status": "success",
+        "message": f"Successfully playing {chakra_name} chakra healing audio.",
+        "generation_details": gen_res,
+        "playback_details": play_res,
+    }
 
 
 def set_audio_frequency(freq_hz: float, duration_s: float = 30.0) -> dict[str, Any]:
@@ -170,7 +232,6 @@ def set_audio_frequency(freq_hz: float, duration_s: float = 30.0) -> dict[str, A
         freq_hz: The frequency in Hz to play
         duration_s: Duration to play in seconds, default 30.0
     """
-    client = get_client()
     config = {
         "frequency": freq_hz,
         "duration": duration_s,
@@ -179,9 +240,9 @@ def set_audio_frequency(freq_hz: float, duration_s: float = 30.0) -> dict[str, A
         "harmonic_strength": 0.3,
         "modulation_depth": 0.05,
     }
-    gen_res = client._post("/api/v1/audio/generate", config)
+    gen_res = _audio_generate(config)
     if gen_res.get("status") == "success":
-        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
+        play_res = _audio_play()
         return {"status": "success", "message": f"Successfully tuned frequency to {freq_hz} Hz.", "playback": play_res}
     return gen_res
 
@@ -199,7 +260,6 @@ def set_audio_modulation(harmonic_strength: float, modulation_depth: float, dura
         modulation_depth: 0.0 to 1.0, depth of vibrato/tremolo
         duration_s: Duration in seconds, default 30.0
     """
-    client = get_client()
     config = {
         "frequency": 432.0,  # Defaulting to a safe base frequency
         "duration": duration_s,
@@ -208,9 +268,9 @@ def set_audio_modulation(harmonic_strength: float, modulation_depth: float, dura
         "harmonic_strength": harmonic_strength,
         "modulation_depth": modulation_depth,
     }
-    gen_res = client._post("/api/v1/audio/generate", config)
+    gen_res = _audio_generate(config)
     if gen_res.get("status") == "success":
-        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
+        play_res = _audio_play()
         return {
             "status": "success",
             "message": f"Successfully modulated audio (harmonics: {harmonic_strength}, depth: {modulation_depth}).",
@@ -233,18 +293,17 @@ def play_audio_preset(preset_name: str, duration_s: float = 30.0) -> dict[str, A
         preset_name: Name of the preset to play
         duration_s: Duration in seconds, default 30.0
     """
-    client = get_client()
-    presets_res = client._get("/api/v1/audio/presets")
+    presets_res = _audio_presets()
     presets = presets_res.get("presets", {})
     if preset_name not in presets:
         return {"status": "error", "message": f"Preset '{preset_name}' not found."}
 
-    config = presets[preset_name]
+    config = dict(presets[preset_name])
     config["duration"] = duration_s
 
-    gen_res = client._post("/api/v1/audio/generate", config)
+    gen_res = _audio_generate(config)
     if gen_res.get("status") == "success":
-        play_res = client._post("/api/v1/audio/play", {"hardware_level": 2})
+        play_res = _audio_play()
         return {"status": "success", "message": f"Successfully playing preset '{preset_name}'.", "playback": play_res}
     return gen_res
 
@@ -286,22 +345,30 @@ def create_blessing_slideshow(
     if intentions is None:
         intentions = ["love", "healing", "peace"]
 
-    client = get_client()
-    return client._post(
-        "/api/v1/slideshow/session/create",
-        {
-            "directory_path": directory_path,
-            "intention_set": {
-                "primary_mantra": mantra,
-                "intentions": intentions,
-                "repetitions_per_photo": repetitions_per_photo,
-                "dedication": "May all beings benefit",
-            },
-            "loop_mode": loop_mode,
-            "display_duration_ms": display_duration_ms,
-            "rng_session_id": rng_session_id,
-        },
+    from backend.core.services.blessing_slideshow_service import (
+        IntentionSet,
+        IntentionType,
+        MantraType,
+        get_blessing_slideshow_service,
     )
+
+    service = get_blessing_slideshow_service()
+    intention_set = IntentionSet(
+        primary_mantra=MantraType(mantra),
+        intentions=[IntentionType(i) for i in intentions],
+        repetitions_per_photo=repetitions_per_photo,
+        dedication="May all beings benefit",
+    )
+    session_id = service.create_session(
+        directory_path=directory_path,
+        intention_set=intention_set,
+        loop_mode=loop_mode,
+        display_duration_ms=display_duration_ms,
+        rng_session_id=rng_session_id,
+    )
+    session = service.sessions.get(session_id)
+    total_photos = len(session.photos) if session else 0
+    return {"session_id": session_id, "total_photos": total_photos}
 
 
 def get_current_slide(session_id: str) -> dict[str, Any]:
@@ -314,8 +381,11 @@ def get_current_slide(session_id: str) -> dict[str, Any]:
     Returns:
         Complete current slide info including photo, session, overlay, progress
     """
-    client = get_client()
-    return client._get(f"/api/v1/slideshow/session/{session_id}/current")
+    from backend.core.services.blessing_slideshow_service import get_blessing_slideshow_service
+
+    service = get_blessing_slideshow_service()
+    slide_info = service.get_current_slide(session_id)
+    return slide_info if slide_info is not None else {}
 
 
 def stop_slideshow(session_id: str) -> dict[str, Any]:
@@ -328,8 +398,10 @@ def stop_slideshow(session_id: str) -> dict[str, Any]:
     Returns:
         Final statistics including photos blessed, mantras repeated
     """
-    client = get_client()
-    return client._post(f"/api/v1/slideshow/session/{session_id}/stop")
+    from backend.core.services.blessing_slideshow_service import get_blessing_slideshow_service
+
+    service = get_blessing_slideshow_service()
+    return service.stop_session(session_id)
 
 
 # ============================================================================
@@ -373,25 +445,30 @@ def create_population(
     if intentions is None:
         intentions = ["love", "healing", "peace"]
 
-    client = get_client()
-    return client._post(
-        "/api/v1/populations/create",
-        {
-            "name": name,
-            "description": description,
-            "category": category,
-            "source_type": source_type,
-            "directory_path": directory_path,
-            "mantra_preference": mantra_preference,
-            "intentions": intentions,
-            "repetitions_per_photo": 108,
-            "display_duration_ms": 2000,
-            "priority": priority,
-            "is_urgent": is_urgent,
-            "tags": [],
-            "notes": "",
-        },
+    from backend.core.services.population_manager import PopulationCategory, SourceType, get_population_manager
+
+    try:
+        category = PopulationCategory(category) if isinstance(category, str) else category
+    except ValueError:
+        category = PopulationCategory.CUSTOM
+    try:
+        source = SourceType(source_type) if isinstance(source_type, str) else source_type
+    except ValueError:
+        source = SourceType.MANUAL
+
+    pm = get_population_manager()
+    pop = pm.create_population(
+        name=name,
+        description=description,
+        category=category,
+        source_type=source,
+        directory_path=directory_path,
+        mantra_preference=mantra_preference,
+        intentions=intentions,
+        priority=priority,
+        is_urgent=is_urgent,
     )
+    return pop.to_dict() if pop else {"status": "error", "message": f"Could not create population '{name}'."}
 
 
 def list_populations(
@@ -408,17 +485,40 @@ def list_populations(
     Returns:
         List of population objects
     """
-    client = get_client()
-    params = []
-    if active_only:
-        params.append("active_only=true")
-    if category:
-        params.append(f"category={category}")
-    if urgent_only:
-        params.append("urgent_only=true")
+    from backend.core.services.population_manager import get_population_manager
 
-    query = "?" + "&".join(params) if params else ""
-    return client._get(f"/api/v1/populations/{query}")
+    pm = get_population_manager()
+    pops = [p.to_dict() for p in pm.get_all_populations()]
+    if active_only:
+        pops = [p for p in pops if p.get("is_active")]
+    if category:
+        pops = [p for p in pops if p.get("category") == category]
+    if urgent_only:
+        pops = [p for p in pops if p.get("is_urgent")]
+    # Dedup by name so a seeded "California" × N ledger cannot flood the
+    # follow-up prompt (repetition makes free models stutter the name).
+    unique: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for pop in pops:
+        name = str(pop.get("name") or pop.get("id") or "").strip()
+        key = name.lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(
+            {
+                "id": pop.get("id"),
+                "name": name,
+                "category": pop.get("category"),
+                "is_active": pop.get("is_active"),
+                "is_urgent": pop.get("is_urgent"),
+                "mantra_preference": pop.get("mantra_preference"),
+                "intentions": (pop.get("intentions") or [])[:4],
+            }
+        )
+        if len(unique) >= 30:
+            break
+    return unique
 
 
 def get_population_statistics() -> dict[str, Any]:
@@ -428,8 +528,16 @@ def get_population_statistics() -> dict[str, Any]:
     Returns:
         Statistics including totals, categories, blessings sent
     """
-    client = get_client()
-    return client._get("/api/v1/populations/statistics/overall")
+    from backend.core.services.population_manager import get_population_manager
+
+    pm = get_population_manager()
+    stats = pm.get_statistics()
+    return {
+        "total_populations": stats.get("total_populations", 0),
+        "active_populations": stats.get("active_populations", 0),
+        "total_blessings_sent": stats.get("total_blessings_sent", 0),
+        "total_mantras_repeated": stats.get("total_mantras_repeated", 0),
+    }
 
 
 def get_system_status() -> dict[str, Any]:
@@ -439,18 +547,38 @@ def get_system_status() -> dict[str, Any]:
 
     Returns all data in a single call so the LLM doesn't need multiple follow-up turns.
     """
-    client = get_client()
+    from backend.app.api.v1.endpoints.automation import get_automation_overview
+    from backend.app.api.v1.endpoints.practices import all_practice_status
+    from backend.app.api.v1.endpoints.ritual_engine import get_status as get_ritual_status_fn
+    from backend.core.services.population_manager import get_population_manager
+    from backend.core.services.rng_attunement_service import get_rng_service
+
     result: dict[str, Any] = {}
 
-    for name, path in [
-        ("population_stats", "/api/v1/populations/statistics/overall"),
-        ("automation_status", "/api/v1/automation/status"),
-        ("rng_attunement", "/api/v1/rng/attunement"),
-        ("ritual_status", "/api/v1/ritual/status"),
-        ("practice_status", "/api/v1/practices/active"),
+    try:
+        stats = get_population_manager().get_statistics()
+        result["population_stats"] = {
+            "total_populations": stats.get("total_populations", 0),
+            "active_populations": stats.get("active_populations", 0),
+            "total_blessings_sent": stats.get("total_blessings_sent", 0),
+            "total_mantras_repeated": stats.get("total_mantras_repeated", 0),
+        }
+    except Exception:
+        result["population_stats"] = {"error": "unavailable"}
+
+    try:
+        rng_sessions = get_rng_service().get_all_sessions()
+        result["rng_attunement"] = {"active": bool(rng_sessions), "sessions": len(rng_sessions)}
+    except Exception:
+        result["rng_attunement"] = {"error": "unavailable"}
+
+    for name, call in [
+        ("automation_status", get_automation_overview),
+        ("ritual_status", get_ritual_status_fn),
+        ("practice_status", all_practice_status),
     ]:
         try:
-            result[name] = client._get(path)
+            result[name] = _dump(_run_async(call()))
         except Exception:
             result[name] = {"error": "unavailable"}
 
@@ -475,8 +603,13 @@ def update_population(population_id: str, **updates) -> dict[str, Any]:
     Returns:
         Updated population object
     """
-    client = get_client()
-    return client._put(f"/api/v1/populations/{population_id}", updates)
+    from backend.core.services.population_manager import get_population_manager
+
+    pm = get_population_manager()
+    pop = pm.update_population(population_id, **updates)
+    if pop is None:
+        return {"status": "error", "message": f"Population not found: {population_id}"}
+    return pop.to_dict()
 
 
 # ============================================================================
@@ -511,20 +644,23 @@ def start_automation(
     Returns:
         {"session_id": "scheduler_...", "populations_in_queue": 15}
     """
-    client = get_client()
-    return client._post(
-        "/api/v1/automation/start",
-        {
-            "mode": "round_robin",
-            "duration_per_population": duration_per_population,
-            "transition_pause": transition_pause,
-            "link_rng": link_rng,
-            "auto_dedicate": True,
-            "continuous_mode": continuous_mode,
-            "only_active": only_active,
-            "min_priority": min_priority,
-        },
+    from backend.core.services.blessing_scheduler import SchedulerConfig, SchedulerMode, get_scheduler
+
+    scheduler = get_scheduler()
+    config = SchedulerConfig(
+        mode=SchedulerMode("round_robin"),
+        duration_per_population=duration_per_population,
+        transition_pause=transition_pause,
+        link_rng=link_rng,
+        auto_dedicate=True,
+        continuous_mode=continuous_mode,
+        only_active=only_active,
+        min_priority=min_priority,
     )
+    session_id = scheduler.start_automation(config=config)
+    session = scheduler.sessions.get(session_id)
+    queue_len = len(session.populations_queue) if session else 0
+    return {"session_id": session_id, "populations_in_queue": queue_len}
 
 
 def get_automation_status(session_id: str) -> dict[str, Any]:
@@ -542,8 +678,11 @@ def get_automation_status(session_id: str) -> dict[str, Any]:
     Returns:
         Current status including population, progress, elapsed time
     """
-    client = get_client()
-    return client._get(f"/api/v1/automation/{session_id}/status")
+    from backend.core.services.blessing_scheduler import get_scheduler
+
+    scheduler = get_scheduler()
+    status_info = scheduler.get_current_status(session_id)
+    return status_info if status_info is not None else {}
 
 
 def get_automation_stats(session_id: str) -> dict[str, Any]:
@@ -556,8 +695,9 @@ def get_automation_stats(session_id: str) -> dict[str, Any]:
     Returns:
         Complete statistics including history, totals, sessions completed
     """
-    client = get_client()
-    return client._get(f"/api/v1/automation/{session_id}/stats")
+    from backend.core.services.blessing_scheduler import get_scheduler
+
+    return get_scheduler().get_session_stats(session_id)
 
 
 def stop_automation(session_id: str) -> dict[str, Any]:
@@ -570,8 +710,9 @@ def stop_automation(session_id: str) -> dict[str, Any]:
     Returns:
         Final statistics for entire automation session
     """
-    client = get_client()
-    return client._post(f"/api/v1/automation/{session_id}/stop")
+    from backend.core.services.blessing_scheduler import get_scheduler
+
+    return get_scheduler().stop_automation(session_id)
 
 
 def pause_automation(session_id: str) -> dict[str, Any]:
@@ -584,8 +725,14 @@ def pause_automation(session_id: str) -> dict[str, Any]:
     Returns:
         Confirmation message
     """
-    client = get_client()
-    return client._post(f"/api/v1/automation/{session_id}/pause")
+    from backend.core.services.blessing_scheduler import get_scheduler
+
+    scheduler = get_scheduler()
+    success = scheduler.pause_automation(session_id)
+    return {
+        "success": success,
+        "message": "Automation paused successfully" if success else "Failed to pause automation",
+    }
 
 
 def resume_automation(session_id: str) -> dict[str, Any]:
@@ -598,8 +745,14 @@ def resume_automation(session_id: str) -> dict[str, Any]:
     Returns:
         Confirmation message
     """
-    client = get_client()
-    return client._post(f"/api/v1/automation/{session_id}/resume")
+    from backend.core.services.blessing_scheduler import get_scheduler
+
+    scheduler = get_scheduler()
+    success = scheduler.resume_automation(session_id)
+    return {
+        "success": success,
+        "message": "Automation resumed successfully" if success else "Failed to resume automation",
+    }
 
 
 # ============================================================================
@@ -616,8 +769,9 @@ def forge_sigil(intention: str, kamea: str = "saturn") -> dict[str, Any]:
         intention: What the sigil is designed to manifest or bless
         kamea: Planetary Kamea grid to draw on (saturn, jupiter, mars)
     """
-    client = get_client()
-    return client._post("/api/v1/sigils/forge", {"intention": intention, "kamea": kamea})
+    from backend.core.services.sigil_service import sigil_service
+
+    return _dump(_run_async(sigil_service.forge_sigil(intention, kamea)))
 
 
 def cast_tarot_spread(count: int = 3, question: str = "") -> dict[str, Any]:
@@ -628,14 +782,11 @@ def cast_tarot_spread(count: int = 3, question: str = "") -> dict[str, Any]:
         count: Number of cards to draw (1, 3, or 10 for Celtic Cross)
         question: Question in focus for the Tarot oracle
     """
-    client = get_client()
-    res = client._post("/api/v1/divination/tarot/draw", {"count": count})
+    from backend.app.api.v1.endpoints.divination import DrawTarotRequest, draw_tarot
+
+    res = _dump(_run_async(draw_tarot(DrawTarotRequest(count=count))))
     if question and "cards" in res:
-        # Request esoteric interpretation
-        interpretation = client._post(
-            "/api/v1/divination/interpret", {"system": "Tarot", "question": question, "details": res}
-        )
-        res["interpretation"] = interpretation.get("interpretation")
+        res["interpretation"] = _interpret_divination("Tarot", question, res)
     return res
 
 
@@ -647,13 +798,11 @@ def cast_i_ching(question: str = "") -> dict[str, Any]:
     Args:
         question: The situation or focus query for the hexagram
     """
-    client = get_client()
-    res = client._post("/api/v1/divination/iching/cast")
+    from backend.app.api.v1.endpoints.divination import cast_iching
+
+    res = _dump(_run_async(cast_iching()))
     if question and "cast" in res:
-        interpretation = client._post(
-            "/api/v1/divination/interpret", {"system": "I Ching", "question": question, "details": res}
-        )
-        res["interpretation"] = interpretation.get("interpretation")
+        res["interpretation"] = _interpret_divination("I Ching", question, res)
     return res
 
 
@@ -665,14 +814,25 @@ def cast_geomancy(question: str = "") -> dict[str, Any]:
     Args:
         question: Query/trend-check focus
     """
-    client = get_client()
-    res = client._post("/api/v1/divination/geomancy/shield")
+    from backend.app.api.v1.endpoints.divination import cast_geomancy as cast_geomancy_shield
+
+    res = _dump(_run_async(cast_geomancy_shield()))
     if question and "chart" in res:
-        interpretation = client._post(
-            "/api/v1/divination/interpret", {"system": "Geomancy", "question": question, "details": res}
-        )
-        res["interpretation"] = interpretation.get("interpretation")
+        res["interpretation"] = _interpret_divination("Geomancy", question, res)
     return res
+
+
+def _interpret_divination(system: str, question: str, details: dict[str, Any]) -> str | None:
+    """RAG-grounded interpretation via the /interpret endpoint function (in-process)."""
+    from backend.app.api.v1.endpoints.divination import InterpretRequest, interpret_divination
+
+    try:
+        res = _dump(
+            _run_async(interpret_divination(InterpretRequest(system=system, question=question, details=details)))
+        )
+        return res.get("interpretation")
+    except Exception:
+        return None
 
 
 def search_grimoire_correspondences(query: str) -> list[dict[str, Any]]:
@@ -692,15 +852,15 @@ def get_planetary_hours_and_transits() -> dict[str, Any]:
     """
     Retrieve current planetary hour, day ruler, auspicious timing guidelines, and transits.
     """
-    client = get_client()
-    astrology_data = client._get("/api/v1/current")
-    planetary_hours = client._get("/api/v1/planetary-hours")
-    transits = client._get("/api/v1/transits")
-    return {
-        "astrology": astrology_data.get("astrology", {}),
-        "planetary_hours": planetary_hours,
-        "transits": transits.get("transits", []),
-    }
+    import datetime
+
+    from backend.core.services.grimoire_service import grimoire_service
+    from backend.core.services.vajra_service import vajra_service
+
+    now = datetime.datetime.now()
+    astro_data = _run_async(vajra_service._get_astrology_data())
+    hour_data = grimoire_service.get_planetary_hours(now.hour, now.weekday())
+    return {"astrology": astro_data, "planetary_hour": hour_data, "timestamp": time.time()}
 
 
 # ============================================================================
@@ -808,8 +968,9 @@ def list_narrative_locations() -> list[dict[str, Any]]:
     """
     List all active locations and metaphysical realms.
     """
-    client = get_client()
-    return client._get("/api/v1/outlook/locations")
+    from backend.app.api.v1.endpoints.outlook import list_locations
+
+    return _dump(_run_async(list_locations()))
 
 
 def create_narrative_location(
@@ -845,33 +1006,41 @@ def create_narrative_location(
         elemental_affinity: Primary element (Fire, Water, etc.)
         priority: Priority weighting (1-10)
     """
-    client = get_client()
-    return client._post(
-        "/api/v1/outlook/locations",
-        {
-            "name": name,
-            "description": description,
-            "location_type": location_type,
-            "source_type": source_type,
-            "is_metaphysical": is_metaphysical,
-            "latitude": latitude,
-            "longitude": longitude,
-            "celestial_coordinates": celestial_coordinates,
-            "dimension_frequency": dimension_frequency,
-            "realm_governor": realm_governor,
-            "astrological_anchor": astrological_anchor,
-            "elemental_affinity": elemental_affinity,
-            "priority": priority,
-        },
+    from backend.app.api.v1.endpoints.outlook import LocationCreate, create_location
+
+    loc = _dump(
+        _run_async(
+            create_location(
+                LocationCreate(
+                    **{
+                        "name": name,
+                        "description": description,
+                        "location_type": location_type,
+                        "source_type": source_type,
+                        "is_metaphysical": is_metaphysical,
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "celestial_coordinates": celestial_coordinates,
+                        "dimension_frequency": dimension_frequency,
+                        "realm_governor": realm_governor,
+                        "astrological_anchor": astrological_anchor,
+                        "elemental_affinity": elemental_affinity,
+                        "priority": priority,
+                    }
+                )
+            )
+        )
     )
+    return loc
 
 
 def list_narrative_characters() -> list[dict[str, Any]]:
     """
     List all active narrative characters and archetypes.
     """
-    client = get_client()
-    return client._get("/api/v1/outlook/characters")
+    from backend.app.api.v1.endpoints.outlook import list_characters
+
+    return _dump(_run_async(list_characters()))
 
 
 def create_narrative_character(
@@ -899,20 +1068,26 @@ def create_narrative_character(
         elemental_anchor: earth, water, fire, air, space, aether
         priority: Priority weighting (1-10)
     """
-    client = get_client()
-    return client._post(
-        "/api/v1/outlook/characters",
-        {
-            "name": name,
-            "role": role,
-            "description": description,
-            "source_type": source_type,
-            "dialogue_style": dialogue_style,
-            "associated_realms": associated_realms or [],
-            "mantra_preference": mantra_preference,
-            "elemental_anchor": elemental_anchor,
-            "priority": priority,
-        },
+    from backend.app.api.v1.endpoints.outlook import CharacterCreate, create_character
+
+    return _dump(
+        _run_async(
+            create_character(
+                CharacterCreate(
+                    **{
+                        "name": name,
+                        "role": role,
+                        "description": description,
+                        "source_type": source_type,
+                        "dialogue_style": dialogue_style,
+                        "associated_realms": associated_realms or [],
+                        "mantra_preference": mantra_preference,
+                        "elemental_anchor": elemental_anchor,
+                        "priority": priority,
+                    }
+                )
+            )
+        )
     )
 
 
@@ -947,39 +1122,52 @@ def start_narrative_loop(
     """
     if languages is None:
         languages = ["English"]
-    client = get_client()
-    return client._post(
-        "/api/v1/outlook/loop/start",
-        {
-            "interval_minutes": interval_minutes,
-            "lat": lat,
-            "lon": lon,
-            "languages": languages,
-            "genre": genre,
-            "custom_context": custom_context,
-            "realm_id": realm_id,
-            "population_ids": population_ids,
-            "character_ids": character_ids,
-            "excluded_forces": excluded_forces,
-            "include_dialogue": include_dialogue,
-        },
+    from backend.app.api.v1.endpoints.outlook import BackgroundGenerationConfig, start_background_generation
+
+    config = BackgroundGenerationConfig(
+        interval_minutes=interval_minutes,
+        loop_mode="sequential_delay",
+        cycle_genres=False,
+        cycle_intentions=False,
+        lat=lat,
+        lon=lon,
+        languages=languages,
+        genre=genre,
+        custom_context=custom_context,
     )
+    result = _dump(_run_async(start_background_generation(config)))
+    if result.get("status") == "already_running":
+        return {"status": "already_running", "stats": result.get("stats", {})}
+    return {
+        "status": "success",
+        "message": f"Background generation started. Mode: sequential_delay. Every {interval_minutes} min.",
+        "stats": result.get("stats", {}),
+    }
 
 
 def stop_narrative_loop() -> dict[str, Any]:
     """
     Stop the active background narrative transmission loop.
     """
-    client = get_client()
-    return client._post("/api/v1/outlook/loop/stop")
+    from backend.app.api.v1.endpoints.outlook import stop_background_generation
+
+    return _dump(_run_async(stop_background_generation()))
 
 
 def get_narrative_loop_status() -> dict[str, Any]:
     """
     Check active background narrative loop state, configuration, and last generated draft.
     """
-    client = get_client()
-    return client._get("/api/v1/outlook/loop/status")
+    from backend.app.api.v1.endpoints.outlook import background_status
+
+    status = _dump(_run_async(background_status()))
+    return {
+        "active": status["active"],
+        "interval_minutes": status["config"].get("interval_minutes", 5),
+        "config": {"loop_mode": status["config"].get("loop_mode", "sequential_delay")},
+        "stats": status.get("stats", {}),
+        "last_generated": status.get("stats", {}).get("last_generated_at"),
+    }
 
 
 # ============================================================================
@@ -1184,8 +1372,14 @@ def get_ritual_status() -> dict[str, Any]:
             "current_ritual": {...} | None,
         }
     """
-    client = get_client()
-    return client._get("/api/v1/ritual/status")
+    from core.ritual_engine import get_ritual_engine
+
+    engine = get_ritual_engine()
+    return {
+        "status": engine.status,
+        "history": engine.get_history(20),
+        "merit": engine.get_merit_stats(),
+    }
 
 
 def start_ritual_engine(min_timing_quality: str = "challenging") -> dict[str, Any]:
@@ -1209,8 +1403,12 @@ def start_ritual_engine(min_timing_quality: str = "challenging") -> dict[str, An
     Returns:
         {"status": "started" | "already_running", "state": "running"}
     """
-    client = get_client()
-    return client._post("/api/v1/ritual/start", {"min_timing_quality": min_timing_quality})
+    from core.ritual_engine import get_ritual_engine
+
+    engine = get_ritual_engine()
+    engine.update_config(min_timing_quality=min_timing_quality)
+    _run_async(engine.start())
+    return {"status": "started", "state": engine.state.value}
 
 
 def stop_ritual_engine() -> dict[str, Any]:
@@ -1223,8 +1421,11 @@ def stop_ritual_engine() -> dict[str, Any]:
     - You're transitioning to a manual ritual mode
     - The engine has accumulated enough merit and the user wants a break
     """
-    client = get_client()
-    return client._post("/api/v1/ritual/stop", {})
+    from core.ritual_engine import get_ritual_engine
+
+    engine = get_ritual_engine()
+    _run_async(engine.stop())
+    return {"status": "stopped", "state": engine.state.value}
 
 
 def trigger_ritual() -> dict[str, Any]:
@@ -1239,8 +1440,13 @@ def trigger_ritual() -> dict[str, Any]:
         {"status": "executed" | "no_practice_selected",
          "ritual": {RitualRecord fields} | None}
     """
-    client = get_client()
-    return client._post("/api/v1/ritual/trigger", {})
+    from core.ritual_engine import get_ritual_engine
+
+    engine = get_ritual_engine()
+    record = _run_async(engine.trigger_now())
+    if record is None:
+        return {"status": "no_suitable_practice", "message": "No practice scored above threshold"}
+    return {"status": "executed", "ritual": record.to_dict()}
 
 
 def list_practices() -> dict[str, Any]:
@@ -1274,8 +1480,10 @@ def get_ritual_schedule(hours: int = 24) -> dict[str, Any]:
     Returns:
         {"schedule": [{"datetime", "planetary_hour", "favorable_genres", "quality"}, ...]}
     """
-    client = get_client()
-    return client._get(f"/api/v1/ritual/schedule?hours={hours}")
+    from core.ritual_engine import get_ritual_engine
+
+    engine = get_ritual_engine()
+    return {"schedule": engine.status.get("schedule", [])}
 
 
 def generate_character() -> dict[str, Any]:
@@ -1596,31 +1804,27 @@ def speak_text(text: str, voice: str | None = None, role: str = "dharma_teaching
     """
     import tempfile
 
-    client = get_client()
+    from core.tts_provider import get_tts_provider
+
     try:
-        response = requests.post(
-            f"{client.base_url}/api/v1/tts/stream",
-            json={"text": text[:5000], "voice": voice, "role": role},
-            timeout=120,
-        )
-        if response.ok:
-            audio_dir = os.path.join(tempfile.gettempdir(), "vajra_tts")
-            os.makedirs(audio_dir, exist_ok=True)
-            filename = (
-                f"tts_{int(time.time())}.{'mp3' if 'mpeg' in response.headers.get('content-type', '') else 'wav'}"
-            )
-            filepath = os.path.join(audio_dir, filename)
-            with open(filepath, "wb") as f:
-                f.write(response.content)
-            backend = response.headers.get("X-TTS-Backend", "unknown")
-            return {
-                "status": "success",
-                "audio_path": filepath,
-                "backend_used": backend,
-                "text_length": len(text),
-                "size_bytes": len(response.content),
-            }
-        return {"status": "error", "error": f"TTS returned HTTP {response.status_code}"}
+        provider = get_tts_provider()
+        result = _run_async(provider.speak_stream(text=text[:5000], voice=voice, role=role))
+        if result is None:
+            return {"status": "error", "error": "TTS generation failed — check backend availability"}
+        audio_bytes, mime_type, backend = result
+        audio_dir = os.path.join(tempfile.gettempdir(), "vajra_tts")
+        os.makedirs(audio_dir, exist_ok=True)
+        filename = f"tts_{int(time.time())}.{'mp3' if 'mpeg' in mime_type else 'wav'}"
+        filepath = os.path.join(audio_dir, filename)
+        with open(filepath, "wb") as f:
+            f.write(audio_bytes)
+        return {
+            "status": "success",
+            "audio_path": filepath,
+            "backend_used": backend,
+            "text_length": len(text),
+            "size_bytes": len(audio_bytes),
+        }
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
@@ -1674,10 +1878,12 @@ def add_agent_suggestion(agent_id: str, intention: str, missing_tools: str, cont
         missing_tools: The specific tools or capabilities you needed
         context: Why you wanted to do it
     """
-    client = get_client()
-    return client._post(
-        "/api/v1/agent_suggestions/intentional_paths",
-        {"agent_id": agent_id, "intention": intention, "missing_tools": missing_tools, "context": context},
+    from backend.app.api.v1.endpoints.agent_suggestions import IntentionalPathSchema, log_intentional_path
+
+    return _dump(
+        log_intentional_path(
+            IntentionalPathSchema(agent_id=agent_id, intention=intention, missing_tools=missing_tools, context=context)
+        )
     )
 
 

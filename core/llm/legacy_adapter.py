@@ -152,6 +152,19 @@ def run_async(coro: Any) -> Any:
     return future.result()  # blocks until the coroutine completes; re-raises
 
 
+def spawn_async(coro: Any) -> None:
+    """Schedule a coroutine on the background loop WITHOUT waiting for it.
+
+    Fire-and-forget counterpart to :func:`run_async` — used by sync LLM
+    tools (e.g. audio playback) that mirror FastAPI ``BackgroundTasks``
+    semantics: return immediately, let the work finish on the persistent
+    loop. Exceptions inside the coroutine are logged by the loop's
+    exception handler rather than propagated.
+    """
+    loop = _get_bg_loop()
+    asyncio.run_coroutine_threadsafe(coro, loop)
+
+
 # ===========================================================================
 # Provider-name → legacy model_type mapping
 # ===========================================================================
