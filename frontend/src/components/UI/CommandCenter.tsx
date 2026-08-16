@@ -266,7 +266,7 @@ export default function CommandCenter({
           params.append('longitude', lon.toString());
         }
         
-        const res = await fetch(`/api/v1/astrology/current?${params.toString()}`);
+        const res = await fetch(apiUrl(`/astrology/current?${params.toString()}`));
         if (res.ok) {
           const data = await res.json();
           setAstroData(data.astrology);
@@ -1015,7 +1015,7 @@ export default function CommandCenter({
     addToolLog('user', `Operator action: ${action.label}`);
     addToolLog('llm', `Calling ${action.endpoint.split('/').pop()}...`, 'pending');
     try {
-      const res = await fetch(action.endpoint, {
+      const res = await fetch(apiUrl(action.endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(action.body()),

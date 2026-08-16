@@ -51,7 +51,7 @@ export function createOperatorActions({ frequency, isPlaying, sessions, crystalS
       label: 'Begin working',
       icon: '✦',
       prompt: intention,
-      endpoint: `/api/v1/operator/working`,
+      endpoint: '/operator/working',
       body: () => ({ intention, target: 'all beings', broadcast: true, duration_minutes: 5 }),
     },
     {
@@ -59,7 +59,7 @@ export function createOperatorActions({ frequency, isPlaying, sessions, crystalS
       label: 'Analyze intention',
       icon: '🎯',
       prompt: intention,
-      endpoint: `/api/v1/operator/analyze`,
+      endpoint: '/operator/analyze',
       body: () => ({ intention }),
     },
     {
@@ -67,7 +67,7 @@ export function createOperatorActions({ frequency, isPlaying, sessions, crystalS
       label: 'Suggest rates',
       icon: '📊',
       prompt: rateQuery,
-      endpoint: `/api/v1/operator/suggest-rates`,
+      endpoint: '/operator/suggest-rates',
       body: () => ({ intention_or_condition: rateQuery, count: 5 }),
     },
     {
@@ -75,7 +75,7 @@ export function createOperatorActions({ frequency, isPlaying, sessions, crystalS
       label: 'Session insight',
       icon: '👁',
       prompt: 'what do my current readings suggest?',
-      endpoint: `/api/v1/operator/insights`,
+      endpoint: '/operator/insights',
       body: () => ({
         session_context: {
           currentFrequency: frequency,
