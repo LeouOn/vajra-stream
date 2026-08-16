@@ -59,11 +59,29 @@ def test_run_working_keeps_hour_and_divination(tmp_path: Path, monkeypatch: pyte
 
 
 @pytest.mark.unit
-def test_same_intention_yields_same_dials():
-    a = run_working("peace for the watershed", broadcast=False)
-    b = run_working("peace for the watershed", broadcast=False)
+def test_same_intention_yields_same_dials(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import core.working as working
+
+    monkeypatch.setattr(working, "WORKINGS_DIR", tmp_path)
+    a = working.run_working("peace for the watershed", broadcast=False)
+    b = working.run_working("peace for the watershed", broadcast=False)
     assert a["rate_values"] == b["rate_values"]
-    assert a["working_id"] != b["working_id"]
+    assert b["working_id"] == a["working_id"]
+    assert b.get("reused") is True
+
+
+@pytest.mark.unit
+def test_run_working_is_idempotent_within_window(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import core.working as working
+
+    monkeypatch.setattr(working, "WORKINGS_DIR", tmp_path)
+    a = working.run_working("peace for the watershed", broadcast=False)
+    b = working.run_working("peace for the watershed", broadcast=False)
+    assert b["working_id"] == a["working_id"]
+    assert b.get("reused") is True
+    c = working.run_working("peace for the watershed", target="the children", broadcast=False)
+    assert c["working_id"] != a["working_id"]
+    assert not c.get("reused")
 
 
 @pytest.mark.unit

@@ -23,6 +23,57 @@ WORKINGS_DIR = Path(__file__).resolve().parent.parent / "generated" / "workings"
 
 _DIAL_NAMES = ("Physical", "Astral", "Mental", "Causal", "Spiritual")
 
+# Same intention+target within this window is one sitting, not a new folio.
+SITTING_WINDOW_SECONDS = 60
+
+
+def _normalize_sitting_key(intention: str, target: str) -> tuple[str, str]:
+    return (intention.lower().strip(), target.lower().strip())
+
+
+def _sealed_at_utc(folio: dict[str, Any]) -> datetime | None:
+    raw = folio.get("sealed_at")
+    if not raw:
+        return None
+    try:
+        stamped = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if stamped.tzinfo is None:
+        stamped = stamped.replace(tzinfo=timezone.utc)
+    return stamped.astimezone(timezone.utc)
+
+
+def find_recent_working(
+    intention: str,
+    target: str = "all beings",
+    window_seconds: int = SITTING_WINDOW_SECONDS,
+) -> dict[str, Any] | None:
+    """Return the newest matching folio sealed inside ``window_seconds``, or None."""
+    if not WORKINGS_DIR.is_dir():
+        return None
+    key = _normalize_sitting_key(intention, target)
+    now = datetime.now(timezone.utc)
+    files = sorted(WORKINGS_DIR.glob("wrk_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for path in files:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict) or data.get("hidden"):
+            continue
+        sealed = _sealed_at_utc(data)
+        if sealed is None:
+            continue
+        age = (now - sealed).total_seconds()
+        if age > window_seconds:
+            # Newest-first: older files cannot match the window.
+            break
+        stored_key = _normalize_sitting_key(str(data.get("intention") or ""), str(data.get("target") or "all beings"))
+        if stored_key == key:
+            return data
+    return None
+
 
 def _persist(folio: dict[str, Any], *, index: bool = True) -> None:
     WORKINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -271,6 +322,12 @@ def run_working(
     intention = (intention or "").strip() or "May all beings be free from suffering"
     target = (target or "all beings").strip() or "all beings"
     duration_minutes = max(1, min(int(duration_minutes or 5), 30))
+
+    existing = find_recent_working(intention, target)
+    if existing:
+        reused = dict(existing)
+        reused["reused"] = True
+        return reused
 
     saka = check_saka_dawa()
     timing = check_auspicious_window("healing")
