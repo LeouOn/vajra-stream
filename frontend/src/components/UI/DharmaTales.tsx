@@ -7,6 +7,7 @@
  *
  * @component
  */
+import { apiUrl } from '../../utils/api';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BookOpen, Sparkles, RefreshCw, Volume2, VolumeX, Save, ChevronDown, Trash2, Copy, Maximize2, Minimize2 } from 'lucide-react';
 import { message, Select } from 'antd';
@@ -61,7 +62,7 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
   
   const loadThemes = async () => {
     try {
-      const response = await fetch(`/api/v1/dharma/tale/themes`);
+      const response = await fetch(apiUrl(`/dharma/tale/themes`));
       if (response.ok) {
         const data = await response.json();
         setAvailableThemes(data.themes || []);
@@ -75,7 +76,7 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
 
   const loadTraditions = async () => {
     try {
-      const response = await fetch(`/api/v1/dharma/tale/traditions`);
+      const response = await fetch(apiUrl(`/dharma/tale/traditions`));
       if (response.ok) {
         const data = await response.json();
         setAvailableTraditions(data.traditions || []);
@@ -90,7 +91,7 @@ const DharmaTales: React.FC<DharmaTalesProps> = ({ className = '' }) => {
   const generateTale = useCallback(async () => {
     setIsGenerating(true);
     try {
-      const response = await fetch(`/api/v1/dharma/tale/generate`, {
+      const response = await fetch(apiUrl(`/dharma/tale/generate`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ theme, tradition, length, use_llm: true })

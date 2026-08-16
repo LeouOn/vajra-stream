@@ -4,6 +4,7 @@
  * correspondences from the Grimoire service.
  * @component
  */
+import { apiUrl } from '../../utils/api';
 import React, { useState, useEffect } from 'react';
 import { BookOpen, Search, Sparkles, RefreshCw, Compass, Moon, Sun, Layers, HelpCircle, ArrowRight, Clock } from 'lucide-react';
 import { message, Collapse, Typography } from 'antd';
@@ -58,7 +59,7 @@ const GrimoirePanel: React.FC = () => {
   const handleSearch = async (query: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/divination/grimoire/search?query=${encodeURIComponent(query)}`);
+      const res = await fetch(apiUrl(`/divination/grimoire/search?query=${encodeURIComponent(query)}`));
       if (res.ok) {
         const data = await res.json();
         setResults(data.results || []);

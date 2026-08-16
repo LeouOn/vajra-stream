@@ -24,6 +24,7 @@ import {
   Sparkles, Compass, Dices, Volume2, Radio, CheckCircle,
   ArrowLeft, ArrowRight, RotateCcw, Moon, Star, Sun, AlertTriangle,
 } from 'lucide-react';
+import { apiUrl } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import { createLogger } from '../../utils/logger';
@@ -231,7 +232,7 @@ export default function GuidedRitualFlow({
           ? '/divination/iching/cast'
           : '/divination/geomancy/shield';
       const body = kind === 'tarot' ? JSON.stringify({ count: 1 }) : undefined;
-      const res = await fetch(`/api/v1${endpoint}`, {
+      const res = await fetch(apiUrl(`${endpoint}`), {
         method: 'POST',
         headers: body ? { 'Content-Type': 'application/json' } : undefined,
         body,
@@ -270,7 +271,7 @@ export default function GuidedRitualFlow({
       if (activeChart?.latitude != null) params.set('latitude', String(activeChart.latitude));
       if (activeChart?.longitude != null) params.set('longitude', String(activeChart.longitude));
       const qs = params.toString();
-      const res = await fetch(`/api/v1/astrology/current${qs ? `?${qs}` : ''}`);
+      const res = await fetch(apiUrl(`/astrology/current${qs ? `?${qs}` : ''}`));
       if (!res.ok) {
         throw new Error(`Astrology fetch failed: HTTP ${res.status}`);
       }
@@ -334,7 +335,7 @@ export default function GuidedRitualFlow({
       // weave moon phase / planetary positions / nakshatra into the narrative.
       if (astroContext) body.astrology_data = astroContext;
 
-      const res = await fetch('/api/v1/outlook/generate_single', {
+      const res = await fetch(apiUrl('/outlook/generate_single'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
