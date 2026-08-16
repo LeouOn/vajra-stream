@@ -24,7 +24,7 @@
  *   proxy-relative `/ws` URL from `utils/api.ts`).
  */
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
-import { WS_URL } from '../utils/api';
+import { WS_URL, apiUrl } from '../utils/api';
 import type {
   WSMessage,
   CrystalStatus,
@@ -613,7 +613,7 @@ function _sendMessage(message: Record<string, unknown>): boolean {
 
 async function _startSession(sessionConfig: Record<string, unknown>): Promise<ApiResponse> {
   try {
-    const response = await fetch('/api/v1/sessions/create', {
+    const response = await fetch(apiUrl('/sessions/create'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(sessionConfig),
@@ -621,7 +621,7 @@ async function _startSession(sessionConfig: Record<string, unknown>): Promise<Ap
     const result: ApiResponse = await response.json();
 
     if (result.status === 'success' && result.session_id) {
-      const startResponse = await fetch(`/api/v1/sessions/${result.session_id}/start`, { method: 'POST' });
+      const startResponse = await fetch(apiUrl(`/sessions/${result.session_id}/start`), { method: 'POST' });
       const startResult: ApiResponse = await startResponse.json();
       if (startResult.status === 'success') {
         console.log('Session started successfully:', result.session_id);
@@ -637,7 +637,7 @@ async function _startSession(sessionConfig: Record<string, unknown>): Promise<Ap
 
 async function _stopSession(sessionId: string): Promise<ApiResponse> {
   try {
-    const response = await fetch(`/api/v1/sessions/${sessionId}/stop`, { method: 'POST' });
+    const response = await fetch(apiUrl(`/sessions/${sessionId}/stop`), { method: 'POST' });
     const result: ApiResponse = await response.json();
     if (result.status === 'success') console.log('Session stopped:', sessionId);
     return result;
