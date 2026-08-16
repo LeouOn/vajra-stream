@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import { apiUrl } from '../../utils/api';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Calendar, ArrowRight, RefreshCw, Compass, ShieldAlert, Sparkles, Activity, Clipboard } from 'lucide-react';
 import { Card, DatePicker, Button, Table, Tag, Segmented, Row, Col, Progress, Empty, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -131,7 +132,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
     if (!chart) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/v1/astrology/charts/${chart.id}/transits`, {
+      const response = await fetch(apiUrl(`/astrology/charts/${chart.id}/transits`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transit_time_iso: transitTime })
@@ -161,7 +162,7 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
     if (!transitData || !chart) return;
     setExporting(true);
     try {
-      const response = await fetch(`/api/v1/astrology/charts/${chart.id}/transit-export`, {
+      const response = await fetch(apiUrl(`/astrology/charts/${chart.id}/transit-export`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strip_pii: stripPii })

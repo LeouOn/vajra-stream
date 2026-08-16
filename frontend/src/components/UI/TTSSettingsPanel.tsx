@@ -9,6 +9,7 @@
  *
  * @component
  */
+import { apiUrl } from '../../utils/api';
 import React, { useState, useEffect } from 'react';
 import {
   Volume2, Zap, Cpu, Mic, Languages, Settings,
@@ -119,7 +120,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
   const fetchConfig = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/tts/config`);
+      const res = await fetch(apiUrl(`/tts/config`));
       if (res.ok) {
         const data: TtsConfig = await res.json();
         setConfig(data);
@@ -152,7 +153,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
       if (!updates.qwen_language) body.qwen_language = qwenLanguage;
   if (!updates.kokoro_voice) body.kokoro_voice = kokoroVoice;
 
-      const res = await fetch(`/api/v1/tts/config`, {
+      const res = await fetch(apiUrl(`/tts/config`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

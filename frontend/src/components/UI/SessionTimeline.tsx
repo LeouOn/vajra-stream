@@ -5,6 +5,7 @@
  * @component
  * @param {{ sessions }} props
  */
+import { apiUrl } from '../../utils/api';
 import React, { useState, useEffect } from 'react';
 import { Clock, Zap, Heart, Shield, Sparkles } from 'lucide-react';
 import { message } from 'antd';
@@ -81,7 +82,7 @@ export default function SessionTimeline({ sessions }: SessionTimelineProps) {
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/v1/sessions/history');
+        const res = await fetch(apiUrl('/sessions/history'));
         if (res.ok) {
           const data = await res.json();
           const list: HistoryEntry[] = data.history || data || [];
