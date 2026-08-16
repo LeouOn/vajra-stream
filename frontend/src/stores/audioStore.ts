@@ -6,6 +6,7 @@
  * (/api/v1/audio/{generate,play,stop}). Not persisted — all state resets
  * on page reload.
  */
+import { apiUrl } from '../utils/api';
 import { create } from 'zustand';
 
 /** Lifecycle status for the audio engine. */
@@ -92,7 +93,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
       const { frequency, volume, prayerBowlMode, harmonicStrength, modulationDepth, duration } = get();
 
-      const response = await fetch('/api/v1/audio/generate', {
+      const response = await fetch(apiUrl('/audio/generate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,7 +147,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
       set({ audioStatus: 'playing', errorMessage: null });
 
-      const response = await fetch('/api/v1/audio/play', {
+      const response = await fetch(apiUrl('/audio/play'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -180,7 +181,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
 
   stopAudio: async () => {
     try {
-      const response = await fetch('/api/v1/audio/stop', {
+      const response = await fetch(apiUrl('/audio/stop'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

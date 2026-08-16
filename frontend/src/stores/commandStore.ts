@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CommandDef } from '../types';
+import { apiUrl } from '../utils/api';
 
 /** A registered command (static catalogue). */
 export type Command = CommandDef;
@@ -189,7 +190,7 @@ export const useCommandStore = create<CommandState>()(
         // Search stories (if backend available)
         if (state.searchContext === 'all' || state.searchContext === 'stories') {
           try {
-            const response = await fetch('/api/v1/stories/search?q=' + encodeURIComponent(query));
+            const response = await fetch(apiUrl('/stories/search?q=' + encodeURIComponent(query)));
             if (response.ok) {
               const data = await response.json();
               data.stories?.forEach((story: Record<string, unknown>) => {
@@ -229,7 +230,7 @@ export const useCommandStore = create<CommandState>()(
         // Search rates
         if (state.searchContext === 'all' || state.searchContext === 'rates') {
           try {
-            const response = await fetch('/api/v1/radionics/rates/search?query=' + encodeURIComponent(query));
+            const response = await fetch(apiUrl('/radionics/rates/search?query=' + encodeURIComponent(query)));
             if (response.ok) {
               const data = await response.json();
               data.results?.forEach((rate: Record<string, unknown>) => {
