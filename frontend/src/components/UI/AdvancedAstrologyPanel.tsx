@@ -19,6 +19,7 @@ import {
   Satellite, Globe, Calendar, Copy, Activity, Compass, Sun, MapPin,
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { apiUrl } from '../../utils/api';
 import { createLogger } from '../../utils/logger';
 import type { SavedChart } from './SavedChartsDrawer';
 
@@ -152,7 +153,7 @@ const toIso = (s: string): string => {
 
 const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
   'solar-return': {
-    path: '/api/v1/astrology/solar-return',
+      path: apiUrl('/astrology/solar-return'),
     buildBody: (s) => ({
       natal_date_iso: toIso(s.natal_date_iso),
       natal_lat: Number(s.natal_lat),
@@ -164,7 +165,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'progressions': {
-    path: '/api/v1/astrology/secondary-progressions',
+      path: apiUrl('/astrology/secondary-progressions'),
     buildBody: (s) => ({
       natal_date_iso: toIso(s.natal_date_iso),
       natal_lat: Number(s.natal_lat),
@@ -176,7 +177,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'year-ahead': {
-    path: '/api/v1/astrology/year-ahead',
+      path: apiUrl('/astrology/year-ahead'),
     buildBody: (s) => {
       const body: Record<string, unknown> = {
         natal_date_iso: toIso(s.natal_date_iso),
@@ -195,7 +196,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'profection': {
-    path: '/api/v1/astrology/profection',
+      path: apiUrl('/astrology/profection'),
     buildBody: (s) => ({
       natal_date_iso: toIso(s.natal_date_iso),
       target_year: Number(s.target_year),
@@ -205,7 +206,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'solar-arc': {
-    path: '/api/v1/astrology/solar-arc',
+      path: apiUrl('/astrology/solar-arc'),
     buildBody: (s) => ({
       natal_date_iso: toIso(s.natal_date_iso),
       natal_lat: Number(s.natal_lat),
@@ -217,7 +218,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'astrocartography': {
-    path: '/api/v1/astrology/astrocartography',
+      path: apiUrl('/astrology/astrocartography'),
     buildBody: (s) => ({
       date_iso: toIso(s.date_iso),
       step_degrees: Number(s.step_degrees),
@@ -227,7 +228,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'lots': {
-    path: '/api/v1/astrology/lots',
+      path: apiUrl('/astrology/lots'),
     buildBody: (s) => ({
       date_iso: toIso(s.date_iso),
       lat: Number(s.lat),
@@ -242,7 +243,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'fixed-stars': {
-    path: '/api/v1/astrology/fixed-stars',
+      path: apiUrl('/astrology/fixed-stars'),
     buildBody: (s) => ({
       date_iso: toIso(s.date_iso),
       lat: Number(s.lat),
@@ -254,7 +255,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'midpoints': {
-    path: '/api/v1/astrology/midpoints',
+      path: apiUrl('/astrology/midpoints'),
     buildBody: (s) => ({
       date_iso: toIso(s.date_iso),
       lat: Number(s.lat),
@@ -266,7 +267,7 @@ const ENDPOINTS: Record<TechniqueKey, EndpointConfig> = {
     ],
   },
   'antiscia': {
-    path: '/api/v1/astrology/antiscia',
+      path: apiUrl('/astrology/antiscia'),
     buildBody: (s) => ({
       date_iso: toIso(s.date_iso),
       lat: Number(s.lat),
