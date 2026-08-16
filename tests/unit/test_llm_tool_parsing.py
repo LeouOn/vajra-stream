@@ -5,6 +5,13 @@ from unittest.mock import patch
 import pytest
 
 
+def test_run_working_is_in_generation_dedup_set():
+    from backend.app.api.v1.endpoints import llm as llm_endpoint
+
+    assert "run_working" in llm_endpoint._ALREADY_GENERATED
+    assert "generate_single_outlook" in llm_endpoint._ALREADY_GENERATED
+
+
 class TestParseTextToolCalls:
     def _parse(self, content):
         from backend.app.api.v1.endpoints.llm import _parse_text_tool_calls

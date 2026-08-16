@@ -37,7 +37,7 @@ from core.context import (
     HardwareContextModule,
     SystemPromptBuilder,
 )
-from core.llm.base import visible_text
+from core.llm.base import collapse_stutter, visible_text
 from core.llm.defaults import (
     DEFAULT_MODELS_BY_USE_CASE,
     KNOWN_FEATURED_MODEL_IDS,
@@ -91,6 +91,18 @@ class ChatResponse(BaseModel):
     response: str
     tool_calls: list[ToolCallLog]
     debug_info: dict | None = None
+
+
+# One sitting: do not re-mint these once a success is already on the job.
+_ALREADY_GENERATED = frozenset(
+    {
+        "generate_single_outlook",
+        "generate_prayer",
+        "generate_blessing",
+        "generate_epic_outlook",
+        "run_working",
+    }
+)
 
 
 def format_messages_for_llm(request_messages: list[ChatMessage], default_system_prompt: str):
@@ -278,7 +290,30 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
             pops = [p for p in pops if p.get("category") == category]
         if urgent_only:
             pops = [p for p in pops if p.get("is_urgent")]
-        return pops
+        # Dedup by name so a seeded "California" × N ledger cannot flood
+        # the follow-up prompt (Nemotron then stutter-repeats the name).
+        unique: list[dict] = []
+        seen: set[str] = set()
+        for pop in pops:
+            name = str(pop.get("name") or pop.get("id") or "").strip()
+            key = name.lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            unique.append(
+                {
+                    "id": pop.get("id"),
+                    "name": name,
+                    "category": pop.get("category"),
+                    "is_active": pop.get("is_active"),
+                    "is_urgent": pop.get("is_urgent"),
+                    "mantra_preference": pop.get("mantra_preference"),
+                    "intentions": (pop.get("intentions") or [])[:4],
+                }
+            )
+            if len(unique) >= 30:
+                break
+        return unique
     elif name == "get_population_statistics":
         pm = get_population_manager()
         stats = pm.get_statistics()
@@ -1642,7 +1677,7 @@ async def _chat_via_registry(
 
     # Convert the new core.llm.models.ChatResponse to the local ChatResponse
     # (which the endpoint advertises as response_model).
-    clean_content = visible_text(response.content, getattr(response, "reasoning_content", None))
+    clean_content = _chat_text(response)
 
     tool_logs: list[ToolCallLog] = []
     raw_tool_results: list[dict] = []
@@ -1691,6 +1726,13 @@ async def _chat_via_registry(
         for tc_text in all_tool_calls:
             name = _resolve_tool_name(tc_text["name"])
             args = tc_text["arguments"]
+            already_ran = {r.get("tool") for r in raw_tool_results if r.get("status") == "success"}
+            if name == "list_populations" and "list_populations" in already_ran:
+                logger.info("Skipping duplicate list_populations")
+                continue
+            if name in _ALREADY_GENERATED and name in already_ran:
+                logger.info("Skipping duplicate %s", name)
+                continue
             try:
                 result = await _execute(name, args)
                 tool_logs.append(ToolCallLog(tool_name=name, arguments=args, status="success", result=result))
@@ -1710,23 +1752,20 @@ async def _chat_via_registry(
         # DETERMINISTICALLY on the backend. The model frequently loops on
         # inspection tools (list_populations, get_*) or create_population and
         # never reaches the outlook tool even when it's available and hinted.
-        user_query = next(
-            (str(m.content).lower() for m in reversed(request.messages) if m.role == "user"),
-            "",
-        )
-        already_generated = {"generate_single_outlook", "generate_prayer", "generate_blessing", "generate_epic_outlook"}
+        user_query = _latest_user_text(request.messages)
+        intention = _intention_from_messages(request.messages)
         if re.search(
             r"\b(working|radionic|attune|broadcast a rate|begin a working|charge this)\b", user_query
         ) and not any(r.get("tool") == "run_working" and r.get("status") == "success" for r in raw_tool_results):
             try:
                 working_result = await _execute(
                     "run_working",
-                    {"intention": user_query[:400], "target": "all beings", "broadcast": False},
+                    {"intention": intention[:400], "target": "all beings", "broadcast": False},
                 )
                 tool_logs.append(
                     ToolCallLog(
                         tool_name="run_working",
-                        arguments={"intention": user_query[:400]},
+                        arguments={"intention": intention[:400]},
                         status="success",
                         result=working_result,
                     )
@@ -1738,8 +1777,8 @@ async def _chat_via_registry(
                 logger.warning("Auto-chain run_working failed: %s", auto_ex)
         elif (
             re.search(r"\b(outlook|blessing|narrative|prayer|sutra|bless|healing story)\b", user_query)
-            and not any(r.get("tool") in already_generated and r.get("status") == "success" for r in turn_results)
-            and not any(r.get("tool") in already_generated and r.get("status") == "success" for r in raw_tool_results)
+            and not any(r.get("tool") in _ALREADY_GENERATED and r.get("status") == "success" for r in turn_results)
+            and not any(r.get("tool") in _ALREADY_GENERATED and r.get("status") == "success" for r in raw_tool_results)
         ):
             created_pops = [
                 r
@@ -1749,7 +1788,9 @@ async def _chat_via_registry(
                 and isinstance(r.get("result"), dict)
             ]
             pop_name = created_pops[0]["result"].get("name", "") if created_pops else ""
-            custom_context = f"An outlook blessing for {pop_name or 'all beings in need'}. The user said: {user_query}"
+            custom_context = (
+                f"An outlook blessing for {pop_name or 'all beings in need'}. The user's intention: {intention}"
+            )
             try:
                 outlook_result = await _execute(
                     "generate_single_outlook",
@@ -1792,8 +1833,10 @@ async def _chat_via_registry(
                     role="user",
                     content=(
                         f"[System: Tool results received]\n{results_text}\n\n"
-                        "The outlook has been generated. Write a brief, warm summary "
-                        "of the blessing to the user — do not call any more tools."
+                        "The outlook has been generated and is shown to the user as a card. "
+                        "Write at most 3 short sentences that point at the card. "
+                        "Do not restate rates, populations, or the narrative. "
+                        "Do not call any more tools."
                     ),
                 )
             )
@@ -1805,9 +1848,7 @@ async def _chat_via_registry(
             )
             try:
                 followup_response = await chosen.generate(followup_request)
-                clean_content = visible_text(
-                    followup_response.content, getattr(followup_response, "reasoning_content", None)
-                )
+                clean_content = _chat_text(followup_response)
             except Exception as followup_ex:
                 logger.warning(f"Outlook summary LLM call failed: {followup_ex}")
             break
@@ -1824,10 +1865,7 @@ async def _chat_via_registry(
         # Auto-chain: if a population was just created and the user's query asks
         # for an outlook/blessing/narrative/prayer, give the LLM an explicit next step.
         chain_hint = ""
-        user_query = next(
-            (str(m.content).lower() for m in reversed(request.messages) if m.role == "user"),
-            "",
-        )
+        user_query = _latest_user_text(request.messages)
         if re.search(r"\b(outlook|blessing|narrative|prayer|sutra|bless|healing story)\b", user_query):
             created_pops = [
                 r
@@ -1868,9 +1906,7 @@ async def _chat_via_registry(
                 }
             )
             followup_response = await chosen.generate(followup_request)
-            clean_content = visible_text(
-                followup_response.content, getattr(followup_response, "reasoning_content", None)
-            )
+            clean_content = _chat_text(followup_response)
             logger.info(f"Registry turn {turn}: follow-up LLM call succeeded")
         except Exception as followup_ex:
             logger.warning(f"Follow-up LLM call failed: {followup_ex}. Returning raw results.")
@@ -2043,7 +2079,7 @@ async def teach_interaction(request: ChatRequest, http_request: Request):
         else:
             raise HTTPException(status_code=503, detail=f"All providers failed. Primary: {e}")
 
-    clean_content = visible_text(response.content, getattr(response, "reasoning_content", None))
+    clean_content = _chat_text(response)
     return ChatResponse(response=clean_content, tool_calls=[])
 
 
@@ -2956,6 +2992,53 @@ async def _run_chat_async(
 
 
 _FOLLOWUP_DROP_KEYS = frozenset({"svg", "ai_image", "image_data_url", "image"})
+_META_USER_RE = re.compile(
+    r"\b(do you have|information that you need|glad you|finally run|check out if|"
+    r"maybe check|did you|can you see)\b",
+    re.IGNORECASE,
+)
+
+
+def _chat_text(response: Any) -> str:
+    """Visible reply for Command Center — strip think tokens and stutter."""
+    return collapse_stutter(
+        visible_text(getattr(response, "content", None), getattr(response, "reasoning_content", None))
+    )
+
+
+def _latest_user_text(messages: list) -> str:
+    for message in reversed(messages):
+        if getattr(message, "role", None) == "user":
+            return str(getattr(message, "content", "") or "")
+    return ""
+
+
+def _intention_from_messages(messages: list) -> str:
+    """Prefer the original sitting intention over a follow-up meta question."""
+    texts = [str(getattr(m, "content", "") or "").strip() for m in messages if getattr(m, "role", None) == "user"]
+    texts = [t for t in texts if t]
+    for text in texts:
+        if not _META_USER_RE.search(text) and len(text) > 12:
+            return text[:400]
+    return (texts[-1] if texts else "all beings")[:400]
+
+
+def _summarize_population_list(items: list, limit: int = 800) -> str:
+    names: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or item.get("id") or "").strip()
+        key = name.lower()
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        extra = item.get("mantra_preference") or item.get("category") or ""
+        names.append(f"{name} ({extra})" if extra else name)
+        if len(names) >= 20:
+            break
+    return f"{len(items)} listed, {len(seen)} unique: " + "; ".join(names)
 
 
 def _summarize_tool_result(result: Any, limit: int = 800) -> str:
@@ -2963,9 +3046,27 @@ def _summarize_tool_result(result: Any, limit: int = 800) -> str:
 
     Divination tools return inline SVG (often >2KB). Stuffing that back into
     the next prompt makes free models echo JSON/SVG into the chat bubble.
+    Population lists must not dump every row — a wall of "California" makes
+    Nemotron stutter the name hundreds of times in the summary.
     """
+    if isinstance(result, list):
+        if result and isinstance(result[0], dict):
+            return _summarize_population_list(result, limit)[:limit]
+        return str(result)[:limit]
+
     if not isinstance(result, dict):
         return str(result)[:limit]
+
+    if result.get("narrative"):
+        slim = {
+            "genre": result.get("genre"),
+            "model_used": result.get("model_used"),
+            "astrology": str(result.get("astrology_used") or "")[:160],
+            "divination": str(result.get("divination_used") or "")[:160],
+            "entities": str(result.get("entities_used") or "")[:160],
+            "narrative_excerpt": str(result.get("narrative") or "")[:280],
+        }
+        return json.dumps(slim, default=str)[:limit]
 
     slim: dict[str, Any] = {}
     for key, value in result.items():
