@@ -738,24 +738,21 @@ def generate_single_outlook(
     """
     if languages is None:
         languages = ["English"]
+    from container import container
     from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
 
-    client = get_client()
-    return client._post(
-        "/api/v1/outlook/generate_single",
-        {
-            "lat": lat,
-            "lon": lon,
-            "languages": languages,
-            "genre": genre,
-            "custom_context": custom_context,
-            "realm_id": realm_id,
-            "population_ids": population_ids,
-            "character_ids": character_ids,
-            "excluded_forces": excluded_forces,
-            "include_dialogue": include_dialogue,
-            "model": model or NEMOTRON_FREE_MODEL_ID,
-        },
+    return container.outlook.generate_single(
+        lat=lat,
+        lon=lon,
+        languages=languages,
+        genre=genre,
+        custom_context=custom_context,
+        realm_id=realm_id,
+        population_ids=population_ids,
+        character_ids=character_ids,
+        excluded_forces=excluded_forces,
+        include_dialogue=include_dialogue,
+        model=model or NEMOTRON_FREE_MODEL_ID,
     )
 
 
@@ -790,22 +787,20 @@ def generate_epic_outlook(
     """
     if languages is None:
         languages = ["English"]
-    client = get_client()
-    return client._post(
-        "/api/v1/outlook/generate_epic",
-        {
-            "lat": lat,
-            "lon": lon,
-            "languages": languages,
-            "genre": genre,
-            "stages": stages,
-            "custom_context": custom_context,
-            "realm_id": realm_id,
-            "population_ids": population_ids,
-            "character_ids": character_ids,
-            "excluded_forces": excluded_forces,
-            "include_dialogue": include_dialogue,
-        },
+    from container import container
+
+    return container.outlook.generate_epic(
+        lat=lat,
+        lon=lon,
+        languages=languages,
+        genre=genre,
+        stages=stages,
+        custom_context=custom_context,
+        realm_id=realm_id,
+        population_ids=population_ids,
+        character_ids=character_ids,
+        excluded_forces=excluded_forces,
+        include_dialogue=include_dialogue,
     )
 
 
