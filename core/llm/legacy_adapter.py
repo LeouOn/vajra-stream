@@ -47,7 +47,6 @@ import asyncio
 import logging
 import os
 import threading
-import time
 from typing import Any
 
 from core.llm.base import visible_text
@@ -549,16 +548,11 @@ class LegacyLLMIntegration:
             model=target_model,
         )
 
-        start = time.time()
-        success = True
         try:
             response: ChatResponse = await provider.generate(request)
         except Exception as e:
-            success = False
             logger.warning("generate via %s failed: %s", getattr(provider, "name", "?"), e)
             return f"{getattr(provider, 'name', 'unknown')} generation failed: {e}"
-
-        latency_ms = (time.time() - start) * 1000.0
 
         # Refresh primary attributes so .client / .model_type track the
         # provider actually used. Prefer the model we just called (or the
@@ -572,41 +566,9 @@ class LegacyLLMIntegration:
         if used:
             self.model_name = used
 
-        # Record usage (best-effort; never blocks generation).
-        self._record_usage(provider, response, latency_ms, success)
+        # Usage is recorded by the provider layer (core/llm/base.py) — never here.
 
         return visible_text(response.content, getattr(response, "reasoning_content", None))
-
-    def _record_usage(
-        self,
-        provider: Any,
-        response: ChatResponse,
-        latency_ms: float,
-        success: bool,
-    ) -> None:
-        """Record a usage entry in the shared :class:`LLMUsageTracker`."""
-        if not (_HAS_USAGE_TRACKER and self._tracker):
-            return
-        try:
-            provider_name = getattr(provider, "name", "unknown")
-            prompt_tokens = getattr(response, "input_tokens", 0) or 0
-            completion_tokens = getattr(response, "output_tokens", 0) or 0
-            cost = self._tracker.estimate_cost(provider_name, response.model, prompt_tokens, completion_tokens)
-            self._tracker.record(
-                UsageRecord(
-                    provider=provider_name,
-                    model=response.model,
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=prompt_tokens + completion_tokens,
-                    cost_usd=cost,
-                    latency_ms=latency_ms,
-                    endpoint="chat",
-                    success=success,
-                )
-            )
-        except Exception:
-            logger.debug("usage recording failed (ignored)", exc_info=True)
 
     def list_available_models(self) -> dict[str, list[str]]:
         """List all available models across registered providers.
