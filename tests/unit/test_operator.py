@@ -21,6 +21,11 @@ def operator():
     op = RadionicsOperator(event_bus=bus, llm=MagicMock())  # Mock LLM to force fallback paths
     op._llm.client = None
     op._llm.local_model = None
+    # creative_llm lazily builds a REAL LegacyLLMIntegration from env keys;
+    # neutralize it too or the blessing tests spend real tokens.
+    op._creative_llm = MagicMock()
+    op._creative_llm.client = None
+    op._creative_llm.local_model = None
     yield op
     bus.clear()
 
@@ -37,6 +42,9 @@ def operator_with_container():
     op = RadionicsOperator(container=c, event_bus=c.event_bus, llm=MagicMock())
     op._llm.client = None
     op._llm.local_model = None
+    op._creative_llm = MagicMock()
+    op._creative_llm.client = None
+    op._creative_llm.local_model = None
     return op
 
 

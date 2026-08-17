@@ -16,12 +16,23 @@ from modules.radionics_operator import RadionicsOperator
 
 @pytest.fixture
 def operator():
-    """Create a RadionicsOperator with a mock LLM (no real API calls)."""
+    """Create a RadionicsOperator with a mock LLM (no real API calls).
+
+    ``llm=None`` would make the ``orchestrator_llm`` property lazily build a
+    REAL adapter from env keys — every analysis then spends live tokens.
+    A MagicMock with ``client``/``local_model`` nulled forces the
+    deterministic fallback paths instead.
+    """
     op = RadionicsOperator(
         container=None,
         event_bus=None,
-        llm=None,
+        llm=MagicMock(),
     )
+    op._llm.client = None
+    op._llm.local_model = None
+    op._creative_llm = MagicMock()
+    op._creative_llm.client = None
+    op._creative_llm.local_model = None
     return op
 
 
@@ -119,7 +130,12 @@ class TestPrepareCrystalBroadcast:
         """When event_bus is set, prepare_crystal_broadcast should
         publish a BroadcastStarted event."""
         mock_bus = MagicMock()
-        op = RadionicsOperator(container=None, event_bus=mock_bus, llm=None)
+        op = RadionicsOperator(container=None, event_bus=mock_bus, llm=MagicMock())
+        op._llm.client = None
+        op._llm.local_model = None
+        op._creative_llm = MagicMock()
+        op._creative_llm.client = None
+        op._creative_llm.local_model = None
 
         op.prepare_crystal_broadcast(
             intention="Test event publishing",
