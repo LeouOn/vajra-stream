@@ -1,9 +1,10 @@
-# tests/integration/test_nemotron_integration.py
-"""Live integration test against the OpenRouter Nemotron free endpoint.
+# tests/e2e/test_nemotron_openrouter.py
+"""Live e2e test against the OpenRouter Nemotron free endpoint.
 
-Skips gracefully when ``OPENROUTER_API_KEY`` is not set so CI without
-secrets still passes. When the key is present, the test sends a tiny
-chat completion request and asserts:
+This is a REAL external API call — it lives in tests/e2e/ so the standard
+``pytest tests/ -m "not slow" --ignore=tests/e2e`` invocation never runs
+it. Skips gracefully when ``OPENROUTER_API_KEY`` is not set. When the key
+is present, the test sends a tiny chat completion request and asserts:
 
 * HTTP 200 from OpenRouter
 * the response body carries a non-empty assistant message
@@ -25,10 +26,11 @@ _BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 _NEMOTRON_MODEL_ID = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 pytestmark = [
+    pytest.mark.e2e,
     pytest.mark.integration,
     pytest.mark.skipif(
         not _OPENROUTER_API_KEY,
-        reason="OPENROUTER_API_KEY not set — skipping live Nemotron integration test",
+        reason="OPENROUTER_API_KEY not set — skipping live Nemotron e2e test",
     ),
 ]
 

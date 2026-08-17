@@ -172,3 +172,40 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "unit: fast isolated tests")
     config.addinivalue_line("markers", "integration: tests wiring multiple modules")
     config.addinivalue_line("markers", "slow: tests taking more than a few seconds")
+
+
+# ---------------------------------------------------------------------------
+# No real external LLM spend from the test suite
+# ---------------------------------------------------------------------------
+# A test that reaches an external provider (openrouter/deepseek/openai/...)
+# burns quota and money even when it "passes". Recording happens in
+# LLMUsageTracker.record — every layer funnels there — so the guard wraps
+# it and fails whichever test was running when an external record landed.
+# Live external calls belong in tests/e2e/ only, which this guard exempts.
+_EXTERNAL_LLM_PROVIDERS = frozenset({"openrouter", "deepseek", "openai", "anthropic", "z_ai", "minimax"})
+
+
+@pytest.fixture(autouse=True)
+def _no_external_llm_spend(request, monkeypatch):
+    nodeid = request.node.nodeid.replace("\\", "/")
+    if "/e2e/" in nodeid or request.node.get_closest_marker("e2e"):
+        return
+
+    from core.llm.usage import LLMUsageTracker
+
+    violations: list[str] = []
+    original = LLMUsageTracker.record
+
+    def guarded_record(self, record):
+        if str(getattr(record, "provider", "")).lower() in _EXTERNAL_LLM_PROVIDERS:
+            violations.append(
+                f"{record.provider}/{getattr(record, 'model', '?')} tok={getattr(record, 'total_tokens', '?')}"
+            )
+        return original(self, record)
+
+    monkeypatch.setattr(LLMUsageTracker, "record", guarded_record)
+    yield
+    assert not violations, (
+        f"{request.node.nodeid} made REAL external LLM call(s): {', '.join(violations)}. "
+        "Mock the LLM/registry in this test — live external calls belong in tests/e2e/."
+    )

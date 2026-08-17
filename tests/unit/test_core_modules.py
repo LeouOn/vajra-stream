@@ -257,7 +257,7 @@ class TestLLMUsageTracker:
         prompt_before = tracker.total_prompt_tokens
 
         record = UsageRecord(
-            provider="deepseek",
+            provider="test-deepseek",
             model="deepseek-chat",
             prompt_tokens=500,
             completion_tokens=200,
@@ -281,7 +281,7 @@ class TestLLMUsageTracker:
 
         tracker.record(
             UsageRecord(
-                provider="deepseek",
+                provider="test-deepseek",
                 model="deepseek-chat",
                 prompt_tokens=100,
                 completion_tokens=50,
@@ -291,7 +291,7 @@ class TestLLMUsageTracker:
         )
         tracker.record(
             UsageRecord(
-                provider="openai",
+                provider="test-openai",
                 model="gpt-4o-mini",
                 prompt_tokens=200,
                 completion_tokens=80,
@@ -302,8 +302,8 @@ class TestLLMUsageTracker:
 
         summary = tracker.get_summary()
         assert summary["total_calls"] >= calls_before + 2
-        assert "deepseek" in summary["provider_stats"]
-        assert "openai" in summary["provider_stats"]
+        assert "test-deepseek" in summary["provider_stats"]
+        assert "test-openai" in summary["provider_stats"]
 
     def test_token_estimation(self):
         from core.llm.usage import LLMUsageTracker
