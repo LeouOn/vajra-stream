@@ -184,3 +184,147 @@ def test_format_context_for_llm_delegates_to_to_prompt_context():
     """``format_context_for_llm(ctx)`` returns the same string as ``ctx.to_prompt_context()``."""
     ctx = InternetContext(planetary_hour="Sun", day_ruler="Sun")
     assert format_context_for_llm(ctx) == ctx.to_prompt_context()
+
+
+# ---------------------------------------------------------------------------
+# 7. GDACS and ReliefWeb XML Parsing with Coordinates and Metadata
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_fetch_gdacs_disasters_parses_coordinates_and_metadata():
+    """GDACS parser extracts lat, lon, country, severity, and event type from RSS XML."""
+    sample_xml = """<?xml version="1.0" encoding="utf-8"?>
+    <rss version="2.0" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#" xmlns:gdacs="http://www.gdacs.org">
+        <channel>
+            <title>GDACS Alerts</title>
+            <item>
+                <title>Green alert for Earthquake in Japan</title>
+                <description>Magnitude 5.8 earthquake near Honshu, depth 35km</description>
+                <gdacs:country>Japan</gdacs:country>
+                <gdacs:eventname>Honshu Earthquake</gdacs:eventname>
+                <gdacs:eventtype>EQ</gdacs:eventtype>
+                <gdacs:severity>green</gdacs:severity>
+                <geo:lat>37.5000</geo:lat>
+                <geo:long>141.2000</geo:long>
+                <link>https://www.gdacs.org/report.aspx?eventid=123</link>
+                <pubDate>Tue, 18 Aug 2026 08:00:00 GMT</pubDate>
+            </item>
+            <item>
+                <title>Red alert for Tropical Cyclone in Philippines</title>
+                <description>Category 4 cyclone approaching Luzon</description>
+                <gdacs:country>Philippines</gdacs:country>
+                <gdacs:eventtype>TC</gdacs:eventtype>
+                <gdacs:alertlevel>Red</gdacs:alertlevel>
+                <geo:lat>14.6000</geo:lat>
+                <geo:long>121.0000</geo:long>
+            </item>
+        </channel>
+    </rss>
+    """
+    with patch("core.internet_context._safe_http_get", return_value=sample_xml):
+        disasters = fetch_gdacs_disasters()
+
+    assert len(disasters) == 2
+
+    d1 = disasters[0]
+    assert d1["country"] == "Japan"
+    assert d1["location"] == "Japan"
+    assert d1["event_name"] == "Honshu Earthquake"
+    assert d1["event_type"] == "EQ"
+    assert d1["severity"] == "low"  # green -> low
+    assert d1["lat"] == 37.5
+    assert d1["lon"] == 141.2
+    assert d1["url"] == "https://www.gdacs.org/report.aspx?eventid=123"
+
+    d2 = disasters[1]
+    assert d2["country"] == "Philippines"
+    assert d2["severity"] == "critical"  # red -> critical
+    assert d2["lat"] == 14.6
+    assert d2["lon"] == 121.0
+
+
+@pytest.mark.unit
+def test_fetch_reliefweb_headlines_parses_category_location():
+    """ReliefWeb parser extracts location/country category from RSS XML."""
+    sample_xml = """<?xml version="1.0" encoding="utf-8"?>
+    <rss version="2.0">
+        <channel>
+            <title>ReliefWeb Updates</title>
+            <item>
+                <title>Emergency response in Sudan escalating</title>
+                <description>Humanitarian situation remains critical in Darfur</description>
+                <category>Sudan</category>
+                <link>https://reliefweb.int/report/sudan/123</link>
+                <pubDate>Tue, 18 Aug 2026 09:00:00 GMT</pubDate>
+            </item>
+        </channel>
+    </rss>
+    """
+    with patch("core.internet_context._safe_http_get", return_value=sample_xml):
+        headlines = fetch_reliefweb_headlines()
+
+    assert len(headlines) == 1
+    h = headlines[0]
+    assert h["location"] == "Sudan"
+    assert h["country"] == "Sudan"
+    assert h["title"] == "Emergency response in Sudan escalating"
+    assert h["source"] == "ReliefWeb"
+
+
+@pytest.mark.unit
+def test_get_planetary_hour_chaldean_rotation_specific_time():
+    """Planetary hour follows the deterministic Chaldean sequence."""
+    from datetime import datetime
+
+    # Sunday 2026-08-23 06:00 (Sunday sunrise hour) -> Day Ruler = Sun, Hour = Sun
+    sun_6am = datetime(2026, 8, 23, 6, 0, 0)
+    with patch("core.astrology.AstrologyEngine.calculate_exact_planetary_hours", side_effect=RuntimeError("no swisseph")):
+        hour, ruler = get_planetary_hour(sun_6am)
+    assert ruler == "Sun"
+    assert hour == "Sun"
+
+    # Sunday 2026-08-23 07:00 (Hour 2 after sunrise) -> Next in Chaldean is Venus
+    sun_7am = datetime(2026, 8, 23, 7, 0, 0)
+    with patch("core.astrology.AstrologyEngine.calculate_exact_planetary_hours", side_effect=RuntimeError("no swisseph")):
+        hour2, ruler2 = get_planetary_hour(sun_7am)
+    assert ruler2 == "Sun"
+    assert hour2 == "Venus"
+
+
+@pytest.mark.unit
+def test_compile_world_context_propagates_gdacs_coords_to_world_event():
+    """End-to-end: ``<geo:lat>``/``<geo:long>`` XML → ``fetch_gdacs_disasters`` → ``WorldEvent`` carries real coords, ``to_context_str`` renders them."""
+    sample_xml = """<?xml version="1.0" encoding="utf-8"?>
+        <rss version="2.0" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#">
+            <channel>
+                <item>
+                    <title>Red Earthquake: Indonesia</title>
+                    <country>Indonesia</country>
+                    <alertlevel>Red</alertlevel>
+                    <geo:lat>-7.5408</geo:lat>
+                    <geo:long>110.4444</geo:long>
+                </item>
+            </channel>
+        </rss>
+        """
+    with patch("core.internet_context._safe_http_get", return_value=sample_xml):
+        ctx = compile_world_context(
+            include_disasters=True,
+            include_headlines=False,
+            include_astrology=False,
+        )
+
+    assert ctx.disasters
+    assert ctx.disasters[0]["lat"] == -7.5408
+    assert ctx.disasters[0]["lon"] == 110.4444
+
+    matching = [e for e in ctx.events if e.title == "Red Earthquake: Indonesia"]
+    assert matching, "Indonesia event must reach the events list"
+    ev = matching[0]
+    assert ev.lat == -7.5408
+    assert ev.lon == 110.4444
+    assert ev.severity == "critical"
+    line = ev.to_context_str()
+    assert "-7.54" in line and "110.44" in line
+
