@@ -266,6 +266,8 @@ def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
 
 async def execute_tool_locally(name: str, args: dict) -> Any:
     """Helper to execute a tool function from the tool registry"""
+    import asyncio
+
     if name not in TOOL_REGISTRY:
         resolved = _resolve_tool_name(name)
         if resolved in TOOL_REGISTRY:
