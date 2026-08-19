@@ -150,3 +150,20 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
         mock_cm.return_value.get_active_characters.assert_called_once()
         # random.choices is called for realm selection AND character selection
         assert mock_choices.call_count >= 2
+
+
+def test_outlook_default_coordinates(client):
+    from backend.app.api.v1.endpoints.outlook import BackgroundGenerationConfig, LoopStartRequest, OutlookRequest
+    from config.settings import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
+
+    req = OutlookRequest()
+    assert req.lat == DEFAULT_LATITUDE
+    assert req.lon == DEFAULT_LONGITUDE
+
+    loop_req = LoopStartRequest()
+    assert loop_req.lat == DEFAULT_LATITUDE
+    assert loop_req.lon == DEFAULT_LONGITUDE
+
+    bg_cfg = BackgroundGenerationConfig()
+    assert bg_cfg.lat == DEFAULT_LATITUDE
+    assert bg_cfg.lon == DEFAULT_LONGITUDE

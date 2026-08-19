@@ -16,6 +16,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
+
 
 class RitualPhase(Enum):
     IDLE = "idle"
@@ -185,8 +187,8 @@ class RitualSequencer:
 
             elif current == RitualPhase.INVOCATION:
                 if self.outlook_generator:
-                    lat = self.state.metadata.get("lat", 34.0522)
-                    lon = self.state.metadata.get("lon", -118.2437)
+                    lat = self.state.metadata.get("lat", DEFAULT_LAT)
+                    lon = self.state.metadata.get("lon", DEFAULT_LNG)
                     res = self.outlook_generator.generate_single(
                         lat=lat, lon=lon, genre=self.state.genre, custom_context=self.state.intention
                     )

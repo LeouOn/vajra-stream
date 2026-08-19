@@ -28,6 +28,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import OperationsPanel from '../../components/UI/OperationsPanel';
 import BroadcastPanel from '../../components/UI/BroadcastPanel';
 import RateTuner from '../../components/UI/RateTuner';
+import WorldEmanation from '../../components/3D/WorldEmanation';
 
 const TAB_KEYS = ['operations', 'broadcast', 'rates'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
@@ -63,7 +64,8 @@ export default function OperationsPage(): React.ReactElement {
       key: 'broadcast',
       label: 'Broadcast',
       children: (
-        <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto">
+        <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-4 md:p-6 flex flex-col gap-6">
+          <WorldEmanation variant="full" />
           <BroadcastPanel />
         </div>
       ),

@@ -25,6 +25,7 @@
  */
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { WS_URL, apiUrl } from '../utils/api';
+import { useBroadcastStore } from '../stores/broadcastStore';
 import type {
   WSMessage,
   CrystalStatus,
@@ -394,6 +395,18 @@ function _connect(url: string = _url): void {
             const freq = b.frequency_hz ?? b.frequencies?.[1] ?? '?';
             const target = b.target ?? 'the field';
             const muted = !!b.audio_muted;
+
+            useBroadcastStore.getState().push({
+              target: typeof b.target === 'string' ? b.target : undefined,
+              location: typeof b.location === 'string' ? b.location : undefined,
+              lat: typeof b.lat === 'number' ? b.lat : undefined,
+              lon: typeof b.lon === 'number' ? b.lon : undefined,
+              frequency_hz: typeof b.frequency_hz === 'number' ? b.frequency_hz : undefined,
+              frequencies: Array.isArray(b.frequencies) ? (b.frequencies as number[]) : undefined,
+              duration_minutes: typeof b.duration_minutes === 'number' ? b.duration_minutes : undefined,
+              audio_muted: typeof b.audio_muted === 'boolean' ? b.audio_muted : undefined,
+            });
+
             import('antd').then(({ notification }) => {
               notification.open({
                 key: 'healing-broadcast',

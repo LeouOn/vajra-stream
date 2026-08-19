@@ -34,6 +34,7 @@ import { quickCommands, createOperatorActions } from '../CommandCenter/constants
 import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
 import LogsCard from '../CommandCenter/LogsCard';
 import ZoomModal from '../CommandCenter/ZoomModal';
+import WorldEmanation from '../3D/WorldEmanation';
 import PageHeader from './PageHeader';
 
 function formatWorkingSummary(data: Record<string, unknown>): string {
@@ -1322,6 +1323,9 @@ export default function CommandCenter({
 
       {/* Right Column: Status & Tool execution logs */}
       <div className="w-full lg:w-80 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-purple-900/50 scrollbar-track-transparent">
+
+        {/* World Emanation Compact Live 3D Globe */}
+        <WorldEmanation variant="compact" />
 
         {/* Status Monitors Card */}
         <SystemMonitorsCard

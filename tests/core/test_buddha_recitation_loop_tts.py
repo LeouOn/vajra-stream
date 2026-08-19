@@ -40,8 +40,8 @@ async def test_speak_text_plays_audio_via_sounddevice():
     mock_provider = MagicMock(name="TTSProvider")
     mock_provider.speak = AsyncMock(return_value=fake_path)
 
-    # Instantiate the loop with TTS disabled (so _tts is False, not None)
-    loop = BuddhaRecitationLoop(tts_reciter=False)
+    # Instantiate the loop with TTS disabled and local playback enabled
+    loop = BuddhaRecitationLoop(tts_reciter=False, play_local=True)
     # Inject the mock provider directly
     loop._provider = mock_provider
 
@@ -69,4 +69,28 @@ async def test_speak_text_plays_audio_via_sounddevice():
     mock_sd.wait.assert_called_once()
 
     # 5. The function returned True (speech was produced)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_speak_text_skips_sounddevice_when_play_local_is_false():
+    """When play_local=False, _speak_text() must synthesize audio via TTS
+    provider but skip local sounddevice.play() to avoid double playback
+    on systems with browser clients."""
+    mock_sd = MagicMock(name="sounddevice")
+    mock_sf = MagicMock(name="soundfile")
+
+    fake_path = "/tmp/buddha_tts_test.mp3"
+    mock_provider = MagicMock(name="TTSProvider")
+    mock_provider.speak = AsyncMock(return_value=fake_path)
+
+    loop = BuddhaRecitationLoop(tts_reciter=False, play_local=False)
+    loop._provider = mock_provider
+
+    with patch.dict(sys.modules, {"sounddevice": mock_sd, "soundfile": mock_sf}):
+        result = await loop._speak_text("南無金剛堅强消伏坏散佛")
+
+    mock_provider.speak.assert_called_once()
+    mock_sf.read.assert_not_called()
+    mock_sd.play.assert_not_called()
     assert result is True

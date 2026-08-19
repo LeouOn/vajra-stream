@@ -30,6 +30,7 @@ const AspectChart = lazy(() => import('../2D/AspectChart'));
 
 // Extraction panel — lazy-loaded
 const LazyAstrologyExtractionPanel = lazy(() => import('./AstrologyExtractionPanel'));
+const AuspiciousTimingWheel = lazy(() => import('./AuspiciousTimingWheel'));
 
 // Fallback skeleton for lazy components
 const LazyFallback = () => (
@@ -677,6 +678,7 @@ export default function AstrologyPanel() {
             <Segmented
               options={[
                 { value: 'wheel', label: 'Celestial Positions' },
+                { value: 'timing', label: 'Auspicious Timing' },
                 { value: 'transits', label: 'Transit-to-Natal' },
                 { value: 'synastry', label: 'Synastry (Compatibility)' },
                 { value: 'extraction', label: 'Extraction' }
@@ -914,6 +916,16 @@ export default function AstrologyPanel() {
                 </div>
               )}
             </Space>
+          )}
+
+          {activeTab === 'timing' && (
+            <div key="timing" className="animate-slide-up">
+              <ErrorBoundary fallbackTitle="Auspicious timing wheel failed to load">
+                <Suspense fallback={<LazyFallback />}>
+                  <AuspiciousTimingWheel />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
           )}
 
           {activeTab === 'transits' && (

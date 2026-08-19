@@ -150,6 +150,16 @@ class AuspiciousTiming:
         "Moon",
     ]
 
+    WEEKDAY_RULERS = [
+        "Moon",  # Monday
+        "Mars",  # Tuesday
+        "Mercury",  # Wednesday
+        "Jupiter",  # Thursday
+        "Venus",  # Friday
+        "Saturn",  # Saturday
+        "Sun",  # Sunday
+    ]
+
     def __init__(self, astrology_engine=None):
         self._engine = astrology_engine
 
@@ -515,9 +525,220 @@ class AuspiciousTiming:
 
         return 60, favorable_hours[0]  # Fallback
 
+    def get_timing_wheel_data(
+        self,
+        lat: float | None = None,
+        lon: float | None = None,
+        target_dt: datetime | None = None,
+    ) -> dict[str, Any]:
+        """
+        Build full 24-hour Auspicious Timing Wheel data structure.
+        Includes 24 planetary hour slices, moon ring, tithi, nakshatra, Saka Dawa multiplier,
+        genre compatibility, and upcoming green windows.
+        """
+        from datetime import timedelta
+
+        from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
+
+        dt = target_dt or datetime.now()
+        latitude = lat if lat is not None else DEFAULT_LAT
+        longitude = lon if lon is not None else DEFAULT_LNG
+        location = (latitude, longitude)
+
+        # 1. Exact or estimated planetary hours calculation
+        exact_hours = None
+        if self.engine:
+            try:
+                exact_hours = self.engine.calculate_exact_planetary_hours(dt, location)
+            except Exception:
+                exact_hours = None
+
+        if not exact_hours or exact_hours.get("status") != "success":
+            # Fallback estimation based on 6:00 AM sunrise and 6:00 PM sunset
+            weekday_idx = dt.weekday()
+            day_ruler = self.WEEKDAY_RULERS[weekday_idx]
+            start_ruler_idx = self.CHALDEAN_ORDER.index(day_ruler)
+            day_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + i) % 7] for i in range(12)]
+            night_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + 12 + i) % 7] for i in range(12)]
+
+            sunrise = dt.replace(hour=6, minute=0, second=0, microsecond=0)
+            sunset = dt.replace(hour=18, minute=0, second=0, microsecond=0)
+            is_daytime = 6 <= dt.hour < 18
+            hour_idx = (dt.hour - 6) % 12 if is_daytime else (dt.hour - 18) % 12
+            current_ruler = day_rulers[hour_idx] if is_daytime else night_rulers[hour_idx]
+            day_hour_dur = timedelta(minutes=60)
+            night_hour_dur = timedelta(minutes=60)
+            prev_sunset = sunset if dt.hour >= 18 else sunset - timedelta(days=1)
+        else:
+            day_rulers = exact_hours["day_rulers"]
+            night_rulers = exact_hours["night_rulers"]
+            is_daytime = exact_hours["is_daytime"]
+            hour_idx = exact_hours["hour_index"] - 1
+            current_ruler = exact_hours["current_planetary_hour"]
+            day_ruler = exact_hours["day_planet"]
+
+            times = self.engine.calculate_auspicious_times(dt, location) if self.engine else {}
+            sunrise = times.get("sunrise") or dt.replace(hour=6, minute=0, second=0, microsecond=0)
+            sunset = times.get("sunset") or dt.replace(hour=18, minute=0, second=0, microsecond=0)
+            day_hour_dur = (sunset - sunrise) / 12
+
+            if dt >= sunset:
+                prev_sunset = sunset
+                next_day_times = (
+                    self.engine.calculate_auspicious_times(dt + timedelta(days=1), location) if self.engine else {}
+                )
+                next_sunrise = next_day_times.get("sunrise") or (sunrise + timedelta(days=1))
+            elif dt < sunrise:
+                prev_day_times = (
+                    self.engine.calculate_auspicious_times(dt - timedelta(days=1), location) if self.engine else {}
+                )
+                prev_sunset = prev_day_times.get("sunset") or (sunset - timedelta(days=1))
+                next_sunrise = sunrise
+            else:
+                prev_sunset = sunset
+                next_day_times = (
+                    self.engine.calculate_auspicious_times(dt + timedelta(days=1), location) if self.engine else {}
+                )
+                next_sunrise = next_day_times.get("sunrise") or (sunrise + timedelta(days=1))
+            night_hour_dur = (next_sunrise - prev_sunset) / 12
+
+        # 2. Build 24 planetary hour slices
+        hour_slices: list[dict[str, Any]] = []
+
+        # 12 day hours
+        for i in range(12):
+            ruler = day_rulers[i]
+            h_start = sunrise + day_hour_dur * i
+            h_end = sunrise + day_hour_dur * (i + 1)
+            is_curr = is_daytime and (hour_idx == i)
+
+            affinities = {}
+            for g, cfg in GENRE_PLANETARY_HOURS.items():
+                if ruler in cfg.get("favorable", []):
+                    affinities[g] = "favorable"
+                elif ruler in cfg.get("neutral", []):
+                    affinities[g] = "neutral"
+                else:
+                    affinities[g] = "unfavorable"
+
+            hour_slices.append(
+                {
+                    "index": i,
+                    "period": "day",
+                    "hour_number": i + 1,
+                    "ruler": ruler,
+                    "start_time": h_start.isoformat(),
+                    "end_time": h_end.isoformat(),
+                    "is_current": is_curr,
+                    "affinities": affinities,
+                }
+            )
+
+        # 12 night hours
+        for i in range(12):
+            ruler = night_rulers[i]
+            h_start = prev_sunset + night_hour_dur * i
+            h_end = prev_sunset + night_hour_dur * (i + 1)
+            is_curr = (not is_daytime) and (hour_idx == i)
+
+            affinities = {}
+            for g, cfg in GENRE_PLANETARY_HOURS.items():
+                if ruler in cfg.get("favorable", []):
+                    affinities[g] = "favorable"
+                elif ruler in cfg.get("neutral", []):
+                    affinities[g] = "neutral"
+                else:
+                    affinities[g] = "unfavorable"
+
+            hour_slices.append(
+                {
+                    "index": i + 12,
+                    "period": "night",
+                    "hour_number": i + 1,
+                    "ruler": ruler,
+                    "start_time": h_start.isoformat(),
+                    "end_time": h_end.isoformat(),
+                    "is_current": is_curr,
+                    "affinities": affinities,
+                }
+            )
+
+        # 3. Moon Phase and Tithi
+        moon_data = self._get_moon_phase()
+        phase_name = moon_data.get("phase_name", "Waxing Gibbous")
+        phase_angle = moon_data.get("phase_angle", 120.0)
+
+        glyph_idx = int(((phase_angle + 22.5) % 360) / 45) % 8
+        moon_glyphs = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"]
+        moon_glyph = moon_glyphs[glyph_idx]
+
+        tithi_name = self._get_tithi()
+        nakshatra_name = self._get_nakshatra()
+        nakshatra_quality = NAKSHATRA_QUALITIES.get(nakshatra_name, "")
+        saka = check_saka_dawa(dt)
+
+        # 4. Genre Assessment and Upcoming Windows
+        genre_windows = {}
+        next_optimal_windows: dict[str, list[dict[str, Any]]] = {}
+
+        for g, cfg in GENRE_PLANETARY_HOURS.items():
+            win = self.check(g)
+            genre_windows[g] = win.to_dict()
+
+            fav_slices = []
+            for s in hour_slices:
+                if s["ruler"] in cfg.get("favorable", []):
+                    fav_slices.append(
+                        {
+                            "period": s["period"],
+                            "hour_number": s["hour_number"],
+                            "ruler": s["ruler"],
+                            "start_time": s["start_time"],
+                            "end_time": s["end_time"],
+                            "is_current": s["is_current"],
+                        }
+                    )
+            next_optimal_windows[g] = fav_slices
+
+        return {
+            "status": "success",
+            "datetime": dt.isoformat(),
+            "location": {"latitude": latitude, "longitude": longitude},
+            "current_planetary_hour": {
+                "ruler": current_ruler,
+                "day_planet": day_ruler,
+                "is_daytime": is_daytime,
+                "hour_number": hour_idx + 1,
+            },
+            "moon": {
+                "phase_name": phase_name,
+                "phase_angle": phase_angle,
+                "glyph": moon_glyph,
+                "tithi": tithi_name,
+                "nakshatra": nakshatra_name,
+                "nakshatra_quality": nakshatra_quality,
+            },
+            "saka_dawa": saka,
+            "hourly_slices": hour_slices,
+            "genre_windows": genre_windows,
+            "next_optimal_windows": next_optimal_windows,
+        }
+
 
 # Convenience
 _timing_instance: AuspiciousTiming | None = None
+
+
+def get_timing_wheel(
+    lat: float | None = None,
+    lon: float | None = None,
+    target_dt: datetime | None = None,
+) -> dict[str, Any]:
+    """Get the full 24-hour Auspicious Timing Wheel data structure."""
+    global _timing_instance
+    if _timing_instance is None:
+        _timing_instance = AuspiciousTiming()
+    return _timing_instance.get_timing_wheel_data(lat=lat, lon=lon, target_dt=target_dt)
 
 
 def check_auspicious_window(genre: str = "healing") -> TimingWindow:

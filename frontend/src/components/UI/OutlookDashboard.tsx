@@ -35,6 +35,7 @@ import { getDeityFromEntityText } from '../../lib/deityVisualizations';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { apiUrl } from '../../utils/api';
+import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { featuredFallbackChoices, type FeaturedModelChoice } from '../../lib/featuredModels';
 
 const { Text, Paragraph, Title } = Typography;
@@ -309,8 +310,8 @@ export default function OutlookDashboard() {
   const [activeTab, setActiveTab] = useState<GeneratorTab>('generator');
 
   // ─── Generator State ─────────────────────────────────────
-  const [lat, setLat] = useState<number | null>(34.0522);
-  const [lon, setLon] = useState<number | null>(-118.2437);
+  const [lat, setLat] = useState<number | null>(DEFAULT_LAT);
+  const [lon, setLon] = useState<number | null>(DEFAULT_LNG);
   const [genre, setGenre] = useState<string>('healing');
   const [selectedLangs, setSelectedLangs] = useState<string[]>(['English']);
   const [isEpic, setIsEpic] = useState<boolean>(false);

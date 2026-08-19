@@ -392,9 +392,9 @@ def test_service_module_has_no_project_imports():
         if isinstance(node, ast.Import):
             for alias in node.names:
                 root = alias.name.split(".")[0]
-                assert root not in FORBIDDEN_ROOTS, (
-                    f"image_generation_service.py line {node.lineno}: import {alias.name} breaks standalone extraction."
-                )
+                assert (
+                    root not in FORBIDDEN_ROOTS
+                ), f"image_generation_service.py line {node.lineno}: import {alias.name} breaks standalone extraction."
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 root = node.module.split(".")[0]

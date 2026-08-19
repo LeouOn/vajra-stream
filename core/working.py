@@ -102,7 +102,7 @@ def collapse_duplicate_workings() -> dict[str, Any]:
     groups: dict[tuple[str, str, tuple[int, ...]], list[dict[str, Any]]] = {}
     order: list[tuple[str, str, tuple[int, ...]]] = []
     for _, data in entries:
-        rates = tuple(int(v) for v in (data.get("rate_values") or []) if isinstance(v, (int, float)))
+        rates = tuple(int(v) for v in (data.get("rate_values") or []) if isinstance(v, int | float))
         key = (
             *_normalize_sitting_key(str(data.get("intention") or ""), str(data.get("target") or "all beings")),
             rates,

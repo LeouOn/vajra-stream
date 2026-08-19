@@ -10,30 +10,15 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
-
-// ─── Approximate country → lat/lon for disaster markers ───
-const COUNTRY_COORDS: Record<string, [number, number]> = {
-  'japan': [36, 138], 'indonesia': [-2, 118], 'philippines': [13, 122],
-  'china': [35, 105], 'india': [20, 78], 'turkey': [39, 35],
-  'iran': [32, 53], 'pakistan': [30, 70], 'nepal': [28, 84],
-  'mexico': [23, -102], 'united states': [38, -97], 'usa': [38, -97],
-  'chile': [-35, -71], 'peru': [-10, -76], 'ecuador': [-2, -77],
-  'italy': [42, 13], 'greece': [39, 22], 'iceland': [65, -18],
-  'new zealand': [-41, 174], 'papua new guinea': [-6, 144],
-  'myanmar': [22, 96], 'bangladesh': [24, 90], 'thailand': [15, 101],
-  'vietnam': [14, 108], 'afghanistan': [34, 67], 'iraq': [33, 44],
-  'syria': [35, 39], 'yemen': [15, 48], 'sudan': [15, 30],
-  'ethiopia': [9, 40], 'somalia': [6, 47], 'congo': [-4, 22],
-  'nigeria': [9, 8], 'ukraine': [49, 31], 'haiti': [19, -72],
-  'colombia': [4, -72], 'venezuela': [7, -66], 'brazil': [-10, -55],
-  'argentina': [-34, -64], 'australia': [-25, 135], 'france': [47, 2],
-  'germany': [51, 10], 'spain': [40, -4], 'portugal': [39, -8],
-  'morocco': [32, -6], 'algeria': [28, 3], 'egypt': [27, 30],
-  'south africa': [-29, 24], 'kenya': [0, 38], 'tanzania': [-6, 35],
-  'madagascar': [-20, 47], 'canada': [56, -106], 'russia': [61, 95],
-  'south korea': [36, 128], 'north korea': [40, 127],
-  'taiwan': [23.5, 121], 'malaysia': [4, 102], 'singapore': [1.3, 103.8],
-};
+import {
+  COUNTRY_COORDS,
+  resolveTargetCoords as resolveCoords,
+  latLonToVec3,
+  planetToLatLon,
+  createEarthTexture,
+  PLANET_COLORS,
+  ASPECT_COLORS,
+} from './worldEmanationHelpers';
 
 interface PlanetPosition {
   longitude?: number;
@@ -51,13 +36,18 @@ interface Aspect {
 
 interface Disaster {
   location?: string;
+  country?: string;
   title?: string;
   severity?: string;
+  lat?: number;
+  lon?: number;
 }
 
 interface BroadcastTarget {
   location?: string;
   name?: string;
+  lat?: number;
+  lon?: number;
 }
 
 interface MarkerData {
@@ -69,75 +59,6 @@ interface MarkerData {
   isDisaster?: boolean;
   isTarget?: boolean;
   isPlanet?: boolean;
-}
-
-function resolveCoords(locationStr: string | undefined): [number, number] | null {
-  if (!locationStr) return null;
-  const low = locationStr.toLowerCase();
-  for (const [country, coords] of Object.entries(COUNTRY_COORDS)) {
-    if (low.includes(country)) return coords;
-  }
-  return null;
-}
-
-function latLonToVec3(lat: number, lon: number, radius = 2.05): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
-// Ecliptic longitude → sub-planetary point on globe
-function planetToLatLon(eclipticLongitude: number): [number, number] {
-  const lon = eclipticLongitude - 180; // 0° Aries → prime meridian, going east
-  const lat = 23.44 * Math.sin(eclipticLongitude * (Math.PI / 180)); // obliquity projection
-  return [lat, lon];
-}
-
-// ─── Procedural Earth Texture ───
-function createEarthTexture(): THREE.CanvasTexture {
-  const size = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size / 2;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
-
-  // Ocean gradient
-  const grad = ctx.createLinearGradient(0, 0, 0, size / 2);
-  grad.addColorStop(0, '#0a1628');
-  grad.addColorStop(0.3, '#0d2137');
-  grad.addColorStop(0.5, '#0f2b45');
-  grad.addColorStop(0.7, '#0d2137');
-  grad.addColorStop(1, '#0a1628');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size / 2);
-
-  // Simplified continent blobs
-  ctx.fillStyle = '#1a3a2a';
-  // North America
-  ctx.beginPath(); ctx.ellipse(100, 80, 110, 70, -0.2, 0, Math.PI * 2); ctx.fill();
-  // South America
-  ctx.beginPath(); ctx.ellipse(130, 185, 35, 65, 0.1, 0, Math.PI * 2); ctx.fill();
-  // Europe
-  ctx.beginPath(); ctx.ellipse(260, 65, 55, 40, 0, 0, Math.PI * 2); ctx.fill();
-  // Africa
-  ctx.beginPath(); ctx.ellipse(275, 160, 45, 90, 0, 0, Math.PI * 2); ctx.fill();
-  // Asia
-  ctx.beginPath(); ctx.ellipse(370, 75, 120, 65, 0, 0, Math.PI * 2); ctx.fill();
-  // Australia
-  ctx.beginPath(); ctx.ellipse(420, 200, 30, 22, 0, 0, Math.PI * 2); ctx.fill();
-  // Southeast Asia islands
-  ctx.beginPath(); ctx.ellipse(430, 140, 18, 25, 0.3, 0, Math.PI * 2); ctx.fill();
-  // Japan
-  ctx.beginPath(); ctx.ellipse(455, 85, 8, 20, 0.2, 0, Math.PI * 2); ctx.fill();
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  return tex;
 }
 
 // ─── Atmosphere Glow ───
@@ -375,18 +296,6 @@ const RainbowRing: React.FC<RainbowRingProps> = ({ radius = 2.25, isActive = fal
   );
 };
 
-// ─── Aspect Colors ───
-const ASPECT_COLORS: Record<string, string> = {
-  Conjunction: '#ffd700', Trine: '#22d3ee', Sextile: '#a855f7',
-  Square: '#ef4444', Opposition: '#f97316',
-};
-const ASPECT_GLOW: Record<string, string> = {
-  Conjunction: 'rgba(255,215,0,0.3)', Trine: 'rgba(34,211,238,0.25)',
-  Sextile: 'rgba(168,85,247,0.2)', Square: 'rgba(239,68,68,0.3)',
-  Opposition: 'rgba(249,115,22,0.25)',
-};
-void ASPECT_GLOW;
-
 // Great-circle arc between two points on a sphere
 interface AspectLineProps {
   start: THREE.Vector3;
@@ -444,14 +353,6 @@ const AspectLines: React.FC<AspectLinesProps> = ({ planetPositions, aspects }) =
   return <group>{lines}</group>;
 };
 
-// ─── Planet Colors ───
-const PLANET_COLORS: Record<string, string> = {
-  sun: '#fbbf24', moon: '#e2e8f0', mercury: '#94a3b8', venus: '#f472b6',
-  mars: '#ef4444', jupiter: '#f59e0b', saturn: '#e2c97e',
-  uranus: '#22d3ee', neptune: '#3b82f6', pluto: '#a78bfa',
-  north_node: '#c084fc',
-};
-
 // ─── Globe Content ───
 interface GlobeContentProps {
   disasters?: Disaster[];
@@ -483,7 +384,9 @@ const GlobeContent: React.FC<GlobeContentProps> = ({
   const markerData = useMemo<MarkerData[]>(() => {
     const markers: MarkerData[] = [];
     (disasters || []).forEach((d) => {
-      const coords = resolveCoords(d.location || d.title || '');
+      const coords = (d.lat !== undefined && d.lon !== undefined && d.lat !== null && d.lon !== null)
+        ? [d.lat, d.lon] as [number, number]
+        : resolveCoords(d.location || d.country || d.title || '');
       if (coords) {
         markers.push({
           pos: latLonToVec3(coords[0], coords[1]),
@@ -496,14 +399,16 @@ const GlobeContent: React.FC<GlobeContentProps> = ({
       }
     });
     (broadcastTargets || []).forEach((t) => {
-      const coords = resolveCoords(t.location || t.name || '');
+      const coords = (t.lat !== undefined && t.lon !== undefined && t.lat !== null && t.lon !== null)
+        ? [t.lat, t.lon] as [number, number]
+        : resolveCoords(t.location || t.name || '');
       if (coords) {
         markers.push({
           pos: latLonToVec3(coords[0], coords[1]),
           color: '#22d3ee',
           size: 0.05,
           pulseSpeed: 1.5,
-          label: (t.name || 'Broadcast').slice(0, 30),
+          label: (t.name || t.location || 'Broadcast').slice(0, 30),
           isTarget: true,
         });
       }

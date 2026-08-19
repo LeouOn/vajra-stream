@@ -47,18 +47,27 @@ class BroadcastRequest(BaseModel):
         None,
         description="Radionics dial values (0-100). When provided, mapped to Solfeggio carrier frequencies via rate_to_audio bridge.",
     )
+    location: str | None = Field(default=None, description="Target location name or region")
+    lat: float | None = Field(default=None, description="Target latitude")
+    lon: float | None = Field(default=None, description="Target longitude")
 
 
 class HealingProtocolRequest(BaseModel):
     target_name: str = Field(..., description="Name of person/situation to heal")
     duration_minutes: int = Field(default=10, ge=1, le=120, description="Duration")
     specific_intention: str | None = Field(None, description="Specific healing intention")
+    location: str | None = Field(default=None, description="Target location name or region")
+    lat: float | None = Field(default=None, description="Target latitude")
+    lon: float | None = Field(default=None, description="Target longitude")
 
 
 class LiberationProtocolRequest(BaseModel):
     event_name: str = Field(..., description="Name of event/situation")
     souls_count: int = Field(default=1, ge=1, description="Estimated number of souls")
     duration_minutes: int = Field(default=30, ge=10, le=180, description="Duration")
+    location: str | None = Field(default=None, description="Target location name or region")
+    lat: float | None = Field(default=None, description="Target latitude")
+    lon: float | None = Field(default=None, description="Target longitude")
 
 
 class RitualBroadcastRequest(BaseModel):
@@ -79,6 +88,9 @@ class RitualBroadcastRequest(BaseModel):
     recite_with_tts: bool = Field(
         default=True, description="Speak the ritual via TTS (Sanskrit preprocessed for pronunciation)"
     )
+    location: str | None = Field(default=None, description="Target location name or region")
+    lat: float | None = Field(default=None, description="Target latitude")
+    lon: float | None = Field(default=None, description="Target longitude")
 
 
 # Response Models
@@ -87,6 +99,9 @@ class BroadcastResponse(BaseModel):
     session_id: str
     intention: str
     targets: list[str]
+    location: str | None = None
+    lat: float | None = None
+    lon: float | None = None
     frequency_hz: float
     duration_seconds: float
     scalar_mops: float
@@ -198,6 +213,18 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
 
         frequency_hz = request.frequency_hz or frequency_mapping.get(request.intention.lower(), 432)
 
+        # Resolve target location & coordinates
+        target_name = request.target_names[0] if request.target_names else "all beings"
+        target_loc = request.location or target_name
+        target_lat = request.lat
+        target_lon = request.lon
+        if target_lat is None or target_lon is None:
+            from core.situation_geometry import resolve_target_coordinates
+
+            resolved = resolve_target_coordinates(target_loc)
+            if resolved:
+                target_lat, target_lon = resolved
+
         # Invoke the real RadionicsService (not the old mock).
         # The service maps the intention to prayer bowl carrier frequencies,
         # invokes the crystal broadcaster for audio, and the integrated
@@ -212,15 +239,21 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
         if radionics_service:
             try:
                 result = radionics_service.broadcast_healing(
-                    target_name=request.target_names[0] if request.target_names else "all beings",
+                    target_name=target_name,
                     duration_minutes=request.duration_minutes,
                     frequency_hz=frequency_hz,
                     intensity=request.scalar_intensity,
                     rate_values=request.rate_values,
+                    location=target_loc,
+                    lat=target_lat,
+                    lon=target_lon,
                 )
                 actual_freqs = result.get("frequencies", actual_freqs)
                 crystal_result = result.get("crystal_output")
                 scalar_result = result.get("scalar_output")
+                target_lat = result.get("lat", target_lat)
+                target_lon = result.get("lon", target_lon)
+                target_loc = result.get("location", target_loc)
             except Exception as exc:
                 logger.warning(f"RadionicsService broadcast failed: {exc}")
 
@@ -262,6 +295,9 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             session_id=session_id,
             intention=request.intention,
             targets=request.target_names,
+            location=target_loc,
+            lat=target_lat,
+            lon=target_lon,
             frequency_hz=frequency_hz,
             duration_seconds=duration,
             scalar_mops=estimated_mops,
@@ -295,6 +331,9 @@ async def healing_protocol(request: HealingProtocolRequest, background_tasks: Ba
             use_meridians=False,
             mantra="Om Mani Padme Hum",
             breathing_pattern=True,
+            location=request.location,
+            lat=request.lat,
+            lon=request.lon,
         )
 
         response = await start_broadcast(broadcast_request, background_tasks)
@@ -313,20 +352,23 @@ async def healing_protocol(request: HealingProtocolRequest, background_tasks: Ba
 
 @router.post("/liberation-protocol")
 async def liberation_protocol(request: LiberationProtocolRequest, background_tasks: BackgroundTasks):
-    """Run liberation protocol (396 Hz, liberation from fear)"""
+    """Run liberation protocol for souls (396 Hz)"""
     try:
-        logger.info(f"🕊️ Liberation protocol for {request.event_name}, {request.souls_count} souls")
+        logger.info(f"🕊️ Liberation protocol for {request.event_name} ({request.souls_count} souls)")
 
         broadcast_request = BroadcastRequest(
             intention="liberation",
-            target_names=[request.event_name],
+            target_names=[f"{request.event_name} ({request.souls_count} souls)"],
             duration_minutes=request.duration_minutes,
             frequency_hz=396,  # Liberation frequency
-            scalar_intensity=1.0,  # Maximum intensity for liberation
+            scalar_intensity=0.9,
             use_chakras=True,
-            use_meridians=True,  # Full meridian activation
-            mantra="Namo Amitabha Buddha",  # Liberation mantra
+            use_meridians=True,
+            mantra="Om Mani Padme Hum",
             breathing_pattern=True,
+            location=request.location or request.event_name,
+            lat=request.lat,
+            lon=request.lon,
         )
 
         response = await start_broadcast(broadcast_request, background_tasks)
@@ -334,9 +376,8 @@ async def liberation_protocol(request: LiberationProtocolRequest, background_tas
         return {
             **response.dict(),
             "protocol": "liberation",
-            "frequency_name": "396 Hz - Liberation from Guilt & Fear",
+            "frequency_name": "396 Hz - Liberation from Fear and Guilt",
             "souls_count": request.souls_count,
-            "event": request.event_name,
             "special_dedication": f"May the {request.souls_count} souls find peace, liberation, and the highest rebirth",
         }
 
@@ -470,6 +511,44 @@ async def ritual_broadcast(request: RitualBroadcastRequest):
         )
     except Exception as exc:
         logger.warning(f"Crystal broadcast failed (continuing without audio): {exc}")
+
+    # Notify WebSocket clients / 3D Globe about the ritual broadcast
+    try:
+        target_loc = request.location or request.target
+        target_lat = request.lat
+        target_lon = request.lon
+        if target_lat is None or target_lon is None:
+            from core.situation_geometry import resolve_target_coordinates
+
+            resolved = resolve_target_coordinates(target_loc)
+            if resolved:
+                target_lat, target_lon = resolved
+
+        import asyncio
+        import time
+
+        from backend.websocket.connection_manager import stable_connection_manager_v2
+        from modules.radionics import audio_broadcasts_muted
+
+        loop = stable_connection_manager_v2.main_loop or asyncio.get_event_loop()
+        if loop.is_running():
+            payload = {
+                "type": "HEALING_BROADCAST_STARTED",
+                "data": {
+                    "target": request.target,
+                    "location": target_loc,
+                    "lat": target_lat,
+                    "lon": target_lon,
+                    "frequency_hz": frequencies[1] if len(frequencies) > 1 else 528.0,
+                    "frequencies": frequencies,
+                    "duration_minutes": request.duration_minutes,
+                    "audio_muted": audio_broadcasts_muted(),
+                },
+                "timestamp": time.time(),
+            }
+            asyncio.run_coroutine_threadsafe(stable_connection_manager_v2.broadcast(payload), loop)
+    except Exception as exc:
+        logger.debug(f"WS notification for ritual broadcast failed: {exc}")
 
     # ── 5. Archive ritual to outlook_narratives table (non-fatal) ─────────
     narrative_id: int | None = None

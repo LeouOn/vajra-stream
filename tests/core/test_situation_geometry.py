@@ -3,6 +3,7 @@
 Locks the honesty contract (no fake pin for abstract targets), the
 5-stage fallback order, and the in-memory cache.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch

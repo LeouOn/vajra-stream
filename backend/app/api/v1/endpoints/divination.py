@@ -912,11 +912,31 @@ async def eighty_eight_recitation_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/grimoire/search")
-async def search_grimoire(query: str):
-    """Search correspondences grimoire"""
+@router.get("/grimoire/search", summary="Search esoteric grimoire & correspondences library")
+async def search_grimoire(query: str = "", category: str | None = None):
+    """Search multi-corpus correspondences grimoire (Planets, Tarot, I Ching, Mantras, Sutras, Frequencies)."""
     try:
-        results = grimoire_service.search(query)
-        return {"status": "success", "results": results}
+        results = grimoire_service.search(query, category=category)
+        return {"status": "success", "results": results, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/grimoire/categories", summary="Get all grimoire knowledge categories")
+async def get_grimoire_categories():
+    """Retrieve catalog of available knowledge domains with counts and descriptions."""
+    try:
+        categories = grimoire_service.get_categories()
+        return {"status": "success", "categories": categories}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/grimoire/category/{category_name}", summary="Get all entries in a grimoire category")
+async def get_grimoire_category(category_name: str):
+    """Retrieve all entries belonging to a specific knowledge domain."""
+    try:
+        entries = grimoire_service.get_all_in_category(category_name)
+        return {"status": "success", "category": category_name, "results": entries, "count": len(entries)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

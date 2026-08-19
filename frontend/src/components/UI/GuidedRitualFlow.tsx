@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { apiUrl } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
+import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import { createLogger } from '../../utils/logger';
 
@@ -318,8 +319,8 @@ export default function GuidedRitualFlow({
 
     try {
       const body: Record<string, unknown> = {
-        lat: activeChart?.latitude ?? 34.0522,
-        lon: activeChart?.longitude ?? -118.2437,
+        lat: activeChart?.latitude ?? DEFAULT_LAT,
+        lon: activeChart?.longitude ?? DEFAULT_LNG,
         languages: ['English'],
         genre,
         custom_context: intention,

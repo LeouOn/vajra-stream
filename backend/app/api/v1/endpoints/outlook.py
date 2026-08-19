@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from backend.app.config import settings
 from backend.core.services.character_manager import CharacterRole, CharacterSourceType, get_character_manager
 from backend.core.services.location_manager import LocationSourceType, LocationType, get_location_manager
+from config.settings import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,8 @@ def get_project_root() -> Path:
 
 
 class OutlookRequest(BaseModel):
-    lat: float = Field(34.0522, description="Latitude of the target location")
-    lon: float = Field(-118.2437, description="Longitude of the target location")
+    lat: float = Field(DEFAULT_LATITUDE, description="Latitude of the target location")
+    lon: float = Field(DEFAULT_LONGITUDE, description="Longitude of the target location")
     languages: list[str] = Field(default=["English"], description="Target languages to weave into the narrative")
     genre: str = Field(
         default="healing", description="Narrative genre (healing, victory, alchemist, fun_parable, dharani)"
@@ -708,8 +709,8 @@ async def list_location_types():
 # ----------------- LOOP CONTROL -----------------
 class LoopStartRequest(BaseModel):
     interval_minutes: int = Field(5, ge=1, le=1440)
-    lat: float = 34.0522
-    lon: float = -118.2437
+    lat: float = DEFAULT_LATITUDE
+    lon: float = DEFAULT_LONGITUDE
     languages: list[str] = ["English"]
     genre: str = "healing"
     custom_context: str | None = None
@@ -922,8 +923,8 @@ class BackgroundGenerationConfig(BaseModel):
     cycle_intentions: bool = Field(default=True, description="Cycle through preset intentions")
     genres: list[str] | None = Field(default=None, description="Specific genres; None = all 7")
     intentions: list[str] | None = Field(default=None, description="Specific intentions; None = 8 defaults")
-    lat: float = Field(default=34.0522)
-    lon: float = Field(default=-118.2437)
+    lat: float = Field(default=DEFAULT_LATITUDE)
+    lon: float = Field(default=DEFAULT_LONGITUDE)
     languages: list[str] = Field(default=["English"])
     genre: str = Field(default="healing", description="Used when cycle_genres=False")
     custom_context: str | None = Field(default=None, description="Used when cycle_intentions=False")

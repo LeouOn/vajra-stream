@@ -16,7 +16,7 @@
  * @route /buddhas
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result, Tooltip, Switch } from 'antd';
+import { Row, Col, Card, Progress, Typography, Space, Tag, Divider, Empty, Button, Result, Tooltip, Switch, Slider } from 'antd';
 import {
   BookOpen, Sparkles, Compass, Zap, Activity, Play, Square, Loader2,
   Volume2, VolumeX,
@@ -207,7 +207,10 @@ export default function BuddhasPage() {
    * blocked) is swallowed so recitation stays uninterrupted.
    */
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastSpokenKeyRef = useRef<string>('');
   const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+  const [volume, setVolume] = useState<number>(0.8);
 
   // 136.1 Hz = 88_Buddhas catalog frequency (Om, the Great Confession).
   const [ambientEnabled, setAmbientEnabled] = useState<boolean>(false);
@@ -220,69 +223,126 @@ export default function BuddhasPage() {
     }
   }, [running, ambientEnabled, ttsEnabled, ambient]);
 
-  const speakBuddhaName = useCallback(async (name: string, pinyin?: string): Promise<void> => {
-    if (!ttsEnabled) return;
+  const speakBuddhaName = useCallback(
+    async (name: string, pinyin?: string): Promise<void> => {
+      if (!ttsEnabled) return;
 
-    // Stop any currently playing audio so we don't overlap chants.
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
+      // Cancel any in-flight request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
 
-    try {
-      const text = pinyin ? `Namo ${pinyin}` : `Namo ${name}`;
-      const res = await fetch(apiUrl('/tts/stream'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          role: 'buddhist_chant',
-          rate: '-20%',
-        }),
-      });
-
-      if (!res.ok) return;
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
+      // Stop any currently playing audio so we don't overlap chants.
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
         audioRef.current = null;
-      };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-      await audio.play();
-    } catch {
-      // Silent fail — audio is enhancement, not critical.
-    }
-  }, [ttsEnabled]);
+      }
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const text = pinyin ? `Namo ${pinyin}` : `Namo ${name}`;
+        const res = await fetch(apiUrl('/tts/stream'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            role: 'buddhist_chant',
+            rate: '-20%',
+          }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok || controller.signal.aborted) return;
+
+        const blob = await res.blob();
+        if (controller.signal.aborted) return;
+
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.volume = Math.max(0, Math.min(1, volume));
+        audioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+          }
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+          }
+        };
+        await audio.play();
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          // Expected on new chant arrival
+          return;
+        }
+        // Silent fail — audio is enhancement, not critical.
+      }
+    },
+    [ttsEnabled, volume],
+  );
 
   /**
    * Speak each new Buddha name as the recitation loop advances.
    *
-   * The effect watches `current_buddha.name_chinese` (the stable Buddha
-   * identity, not the recitation counter) plus the `running` flag so we
-   * never speak while the session is idle.
+   * Deduplicates by cycle + index + name so the 1-second WebSocket
+   * heartbeat does not re-trigger playback of the same Buddha.
    */
   useEffect(() => {
-    if (!running) return;
+    if (!running) {
+      lastSpokenKeyRef.current = '';
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      return;
+    }
     const name = buddhaStatus?.current_buddha?.name_chinese;
     if (!name) return;
+
+    const cycle = buddhaStatus?.current_cycle ?? 0;
+    const index = buddhaStatus?.current_index ?? 0;
+    const key = `${cycle}-${index}-${name}`;
+    if (key === lastSpokenKeyRef.current) {
+      return;
+    }
+    lastSpokenKeyRef.current = key;
+
     void speakBuddhaName(
       name,
       buddhaStatus?.current_buddha?.name_pinyin,
     );
-  }, [buddhaStatus?.current_buddha?.name_chinese, buddhaStatus?.current_buddha?.name_pinyin, running, speakBuddhaName]);
+  }, [
+    buddhaStatus?.current_buddha?.name_chinese,
+    buddhaStatus?.current_buddha?.name_pinyin,
+    buddhaStatus?.current_cycle,
+    buddhaStatus?.current_index,
+    running,
+    speakBuddhaName,
+  ]);
 
   /** Stop any in-flight audio when the page unmounts. */
   useEffect(() => {
     return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = '';
         audioRef.current = null;
       }
     };
@@ -360,6 +420,24 @@ export default function BuddhasPage() {
                       {ttsEnabled ? 'TTS On' : 'TTS Off'}
                     </Button>
                   </Tooltip>
+
+                  {ttsEnabled && (
+                    <div className="flex items-center gap-2 px-3 h-10 rounded-lg bg-white/5 border border-white/10 text-white/80 min-w-[150px]">
+                      <Volume2 size={14} className="text-purple-300 shrink-0" />
+                      <Slider
+                        min={0}
+                        max={100}
+                        value={Math.round(volume * 100)}
+                        onChange={(val: number) => setVolume(val / 100)}
+                        style={{ flex: 1, margin: '0 4px' }}
+                        tooltip={{ formatter: (v) => `${v}%` }}
+                        aria-label="Recitation Volume"
+                      />
+                      <span className="text-[11px] font-mono text-purple-300/70 w-7 text-right shrink-0">
+                        {Math.round(volume * 100)}%
+                      </span>
+                    </div>
+                  )}
 
                   <Tooltip
                     title={

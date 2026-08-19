@@ -27,6 +27,23 @@ class HealingSessionStarted(DomainEvent):
     target_name: str
     intention: str
     duration_minutes: int
+    location: str | None = None
+    lat: float | None = None
+    lon: float | None = None
+
+
+@dataclass
+class HealingBroadcastStarted(DomainEvent):
+    """Event: Radionics healing broadcast has started"""
+
+    target_name: str
+    frequency_hz: float
+    frequencies: list[float]
+    duration_minutes: int
+    location: str | None = None
+    lat: float | None = None
+    lon: float | None = None
+    audio_muted: bool = False
 
 
 @dataclass

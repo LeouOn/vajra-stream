@@ -69,6 +69,7 @@ class RecitationState:
     speaker: str = ""
     role: str = "buddhist_chant"
     project_id: str | None = None
+    play_local: bool = False
     stats: dict[str, Any] = field(default_factory=dict)
 
 
@@ -84,13 +85,14 @@ class BuddhaRecitationLoop:
     - Callback hooks for UI updates
     """
 
-    def __init__(self, tts_reciter: Any = None) -> None:
+    def __init__(self, tts_reciter: Any = None, play_local: bool = False) -> None:
         """
         Args:
             tts_reciter: Optional pre-built TTS engine. Pass ``False`` to
                 explicitly disable TTS (e.g. for tests). If ``None``, start()
                 will try the unified TTSProvider (Qwen3-TTS or Edge) first,
                 then fall back to a legacy BuddhaTTSReciter if it is down.
+            play_local: If True, plays speech through host sounddevice.
         """
         self._buddha_service = get_eighty_eight_buddhas()
         # ``_tts`` has three states:
@@ -98,13 +100,14 @@ class BuddhaRecitationLoop:
         #   False -> TTS explicitly disabled or unavailable (sentinel)
         #   <obj> -> a legacy BuddhaTTSReciter usable as fallback
         self._tts: Any = tts_reciter
-        self.state = RecitationState()
+        self.state = RecitationState(play_local=play_local)
         self._on_name: list[Callable[..., Any]] = []
         self._on_dedication: list[Callable[..., Any]] = []
         self._on_cycle_complete: list[Callable[..., Any]] = []
         self._buddhas: list[dict[str, Any]] = []
         self._voice_override: str | None = None
         self._provider: Any = None
+        self._play_local: bool = play_local
         # Stored so stop() can cancel it; prevents fire-and-forget task leaks.
         self._task: asyncio.Task[None] | None = None
 
@@ -150,6 +153,7 @@ class BuddhaRecitationLoop:
         voice: str = _DEFAULT_EDGE_VOICE,
         role: str = "buddhist_chant",
         project_id: str | None = None,
+        play_local: bool = False,
     ) -> RecitationState:
         """
         Start the continuous recitation loop.
@@ -165,6 +169,8 @@ class BuddhaRecitationLoop:
                   Defaults to 'buddhist_chant'. Ignored if `voice` is provided.
             project_id: Project id; the loop will use per-project speaker
                   overrides if set via `tts_provider.set_project_speaker(...)`.
+            play_local: If True, plays audio through host sounddevice (for CLI).
+                  Defaults to False (web clients play audio in-browser).
         """
         if self.state.running:
             return self.state
@@ -181,8 +187,10 @@ class BuddhaRecitationLoop:
             started_at=datetime.now().isoformat(),
             role=role,
             project_id=project_id,
+            play_local=play_local,
         )
         self._voice_override = voice
+        self._play_local = play_local
 
         # Broadcast WS event
         self._broadcast_ws(
@@ -306,15 +314,16 @@ class BuddhaRecitationLoop:
                     role=self.state.role,
                 )
                 if path:
-                    try:
-                        import sounddevice as sd
-                        import soundfile as sf
+                    if self._play_local:
+                        try:
+                            import sounddevice as sd
+                            import soundfile as sf
 
-                        data, samplerate = sf.read(path)
-                        sd.play(data, samplerate)
-                        sd.wait()
-                    except Exception as e:
-                        logger.warning("TTS playback failed (file synthesized at %s): %s", path, e)
+                            data, samplerate = sf.read(path)
+                            sd.play(data, samplerate)
+                            sd.wait()
+                        except Exception as e:
+                            logger.warning("TTS playback failed (file synthesized at %s): %s", path, e)
                     return True
             except Exception as e:
                 logger.debug("TTSProvider speak failed, trying legacy reciter: %s", e)

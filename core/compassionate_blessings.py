@@ -33,6 +33,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
+from core.situation_geometry import DEFAULT_COORDS
+
 
 class BlessingCategory(Enum):
     """Categories of beings receiving blessings."""
@@ -719,7 +721,7 @@ if __name__ == "__main__":
     target2 = create_target(
         name="Max - Dog #A789",
         category=BlessingCategory.SHELTER_ANIMAL,
-        location=(34.0522, -118.2437),  # LA
+        location=DEFAULT_COORDS,
         date=datetime(2024, 12, 1),
         description="Awaiting adoption",
         priority=6,

@@ -279,14 +279,18 @@ def test_get_planetary_hour_chaldean_rotation_specific_time():
 
     # Sunday 2026-08-23 06:00 (Sunday sunrise hour) -> Day Ruler = Sun, Hour = Sun
     sun_6am = datetime(2026, 8, 23, 6, 0, 0)
-    with patch("core.astrology.AstrologyEngine.calculate_exact_planetary_hours", side_effect=RuntimeError("no swisseph")):
+    with patch(
+        "core.astrology.AstrologyEngine.calculate_exact_planetary_hours", side_effect=RuntimeError("no swisseph")
+    ):
         hour, ruler = get_planetary_hour(sun_6am)
     assert ruler == "Sun"
     assert hour == "Sun"
 
     # Sunday 2026-08-23 07:00 (Hour 2 after sunrise) -> Next in Chaldean is Venus
     sun_7am = datetime(2026, 8, 23, 7, 0, 0)
-    with patch("core.astrology.AstrologyEngine.calculate_exact_planetary_hours", side_effect=RuntimeError("no swisseph")):
+    with patch(
+        "core.astrology.AstrologyEngine.calculate_exact_planetary_hours", side_effect=RuntimeError("no swisseph")
+    ):
         hour2, ruler2 = get_planetary_hour(sun_7am)
     assert ruler2 == "Sun"
     assert hour2 == "Venus"
@@ -327,4 +331,3 @@ def test_compile_world_context_propagates_gdacs_coords_to_world_event():
     assert ev.severity == "critical"
     line = ev.to_context_str()
     assert "-7.54" in line and "110.44" in line
-

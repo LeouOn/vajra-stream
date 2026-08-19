@@ -17,6 +17,8 @@ import os
 import time
 from typing import Any
 
+from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
+
 # ============================================================================
 # IN-PROCESS BRIDGE
 # ----------------------------------------------------------------------------
@@ -869,8 +871,8 @@ def get_planetary_hours_and_transits() -> dict[str, Any]:
 
 
 def generate_single_outlook(
-    lat: float = 34.0522,
-    lon: float = -118.2437,
+    lat: float = DEFAULT_LAT,
+    lon: float = DEFAULT_LNG,
     languages: list[str] = None,
     genre: str = "healing",
     custom_context: str | None = None,
@@ -917,8 +919,8 @@ def generate_single_outlook(
 
 
 def generate_epic_outlook(
-    lat: float = 34.0522,
-    lon: float = -118.2437,
+    lat: float = DEFAULT_LAT,
+    lon: float = DEFAULT_LNG,
     languages: list[str] = None,
     genre: str = "alchemist",
     stages: int = 9,
@@ -1093,8 +1095,8 @@ def create_narrative_character(
 
 def start_narrative_loop(
     interval_minutes: int = 15,
-    lat: float = 34.0522,
-    lon: float = -118.2437,
+    lat: float = DEFAULT_LAT,
+    lon: float = DEFAULT_LNG,
     languages: list[str] = None,
     genre: str = "healing",
     custom_context: str | None = None,

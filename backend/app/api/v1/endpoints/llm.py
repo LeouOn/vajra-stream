@@ -45,6 +45,7 @@ from core.llm.defaults import (
 )
 from core.llm.retry import retry_with_backoff
 from core.llm.usage import LLMUsageTracker, UsageRecord
+from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -612,8 +613,8 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
 
         return await asyncio.to_thread(
             container.outlook.generate_single,
-            lat=float(args.get("lat") or 34.0522),
-            lon=float(args.get("lon") or -118.2437),
+            lat=float(args.get("lat") or DEFAULT_LAT),
+            lon=float(args.get("lon") or DEFAULT_LNG),
             languages=args.get("languages") or ["English"],
             genre=args.get("genre") or "healing",
             custom_context=args.get("custom_context"),
@@ -629,8 +630,8 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
 
         return await asyncio.to_thread(
             container.outlook.generate_epic,
-            lat=float(args.get("lat") or 34.0522),
-            lon=float(args.get("lon") or -118.2437),
+            lat=float(args.get("lat") or DEFAULT_LAT),
+            lon=float(args.get("lon") or DEFAULT_LNG),
             languages=args.get("languages") or ["English"],
             genre=args.get("genre") or "alchemist",
             stages=int(args.get("stages") or 9),
@@ -2015,13 +2016,275 @@ async def chat_job_cancel(job_id: str):
 chat_interaction = chat_compat
 
 
+def _generate_offline_teach_response(chat_msgs: list[Any], system_prompt: str) -> str:
+    """Generate structured educational response using local knowledge corpora when LLMs are offline."""
+    user_text = ""
+    for m in reversed(chat_msgs):
+        if getattr(m, "role", None) == "user" or (isinstance(m, dict) and m.get("role") == "user"):
+            user_text = getattr(m, "content", "") if hasattr(m, "content") else m.get("content", "")
+            break
+
+    query = user_text.lower().strip()
+    from backend.core.services.grimoire_service import grimoire_service
+
+    # 1. Tarot Queries
+    if "tarot" in system_prompt.lower() or "card" in query or "arcana" in query or "suit" in query:
+        matches = grimoire_service.search(query, category="tarot")
+        if matches:
+            top = matches[0]
+            card = top.get("details", {})
+            return (
+                f"## 🃏 {top['title']}\n\n"
+                f"**Arcana:** {str(card.get('arcana', '')).capitalize()} Arcana · **Element:** {card.get('element', 'N/A')} · **Astrological Ruler:** {card.get('ruler', 'N/A')}\n\n"
+                f"### Symbolism & Description\n{card.get('desc', top['description'])}\n\n"
+                f"### Core Interpretations\n"
+                f"- **Upright (Direct Energy):** {card.get('upright', '')}\n"
+                f"- **Reversed (Internalized / Blocked):** {card.get('reversed', '')}\n\n"
+                f"### Key Keywords\n{', '.join(card.get('keywords', []))}\n\n"
+                f"> *Lesson Tip:* In a reading, observe whether this card interacts harmoniously with adjacent cards of the same elemental suit."
+            )
+        if "major" in query:
+            return (
+                "## 🃏 The Major Arcana: The Fool's Journey\n\n"
+                "The 22 Major Arcana cards (0 to 21) represent the soul's profound spiritual evolution, from innocence to cosmic integration:\n\n"
+                "- **0. The Fool:** The beginning of the journey, unconditioned awareness, holy trust.\n"
+                "- **1. The Magician:** Focused will, mastery of the 4 elements (Wand, Cup, Sword, Pentacle).\n"
+                "- **2. The High Priestess:** Intuition, subconscious wisdom, the veil between worlds.\n"
+                "- **3. The Empress:** Abundance, creative fertility, mother nature.\n"
+                "- **4. The Emperor:** Order, structure, temporal sovereignty.\n"
+                "- **5. The Hierophant:** Sacred tradition, esoteric transmission, spiritual teacher.\n\n"
+                "When a Major Arcana card appears in a spread, it indicates major life lessons and archetypal themes beyond temporary daily circumstances."
+            )
+        if "suit" in query or "element" in query:
+            return (
+                "## 🃏 The Four Tarot Suits & Elements\n\n"
+                "The 56 Minor Arcana are organized into four suits, each governing an elemental domain of human experience:\n\n"
+                "1. **Wands (Fire 🔥):** Willpower, inspiration, creative drive, spiritual passion, career ambition.\n"
+                "2. **Cups (Water 💧):** Emotions, intuition, love, relationships, the unconscious psyche.\n"
+                "3. **Swords (Air 💨):** Intellect, logic, communication, mental clarity, truth and conflict.\n"
+                "4. **Pentacles (Earth 🌍):** Material abundance, physical body, finances, craft, manifest stability.\n\n"
+                "When reading, notice which suit dominates the spread to determine the primary life plane involved."
+            )
+        if "spread" in query:
+            return (
+                "## 🃏 Essential Tarot Spreads\n\n"
+                "Here are the core classical spreads for practice:\n\n"
+                "1. **Single-Card Daily Draw:** Perfect for daily contemplation. Ask: *'What energy requires my awareness today?'*\n"
+                "2. **Three-Card Spread (Past / Present / Future):**\n"
+                "   - **Card 1 (Left):** Root influences & past conditions.\n"
+                "   - **Card 2 (Center):** Current situation & active lesson.\n"
+                "   - **Card 3 (Right):** Potential outcome based on current trajectory.\n"
+                "3. **Mind / Body / Spirit Spread:** Analyzes energetic alignment across your mental, physical, and spiritual planes.\n"
+                "4. **The Celtic Cross (10 Cards):** The comprehensive classical spread revealing hidden obstacles, unconscious influences, and final synthesis."
+            )
+
+    # 2. I Ching Queries
+    if "iching" in system_prompt.lower() or "i ching" in query or "hexagram" in query or "trigram" in query:
+        matches = grimoire_service.search(query, category="iching")
+        if matches:
+            top = matches[0]
+            hex_data = top.get("details", {})
+            lines_md = "\n".join(f"- **Line {idx + 1}:** {line}" for idx, line in enumerate(hex_data.get("lines", [])))
+            return (
+                f"## ☯️ {top['title']}\n\n"
+                f"**Upper Trigram:** {hex_data.get('upper_trigram')} · **Lower Trigram:** {hex_data.get('lower_trigram')} · **Element:** {hex_data.get('element', '')}\n\n"
+                f"### The Judgment (彖)\n{hex_data.get('judgment', '')}\n\n"
+                f"### The Image (象)\n{hex_data.get('image', hex_data.get('images', ''))}\n\n"
+                f"### The Six Line Dynamics\n{lines_md}\n\n"
+                f"> *Philosophical Wisdom:* {hex_data.get('meaning', 'Adapt with clarity to the transforming season.')}"
+            )
+        if "trigram" in query or "bagua" in query:
+            return (
+                "## ☯️ The 8 Bagua Trigrams (八卦)\n\n"
+                "The I Ching is built from combinations of the eight primordial nature trigrams:\n\n"
+                "1. **☰ Qián (Heaven):** Pure Yang, creative strength, leadership, northwest.\n"
+                "2. **☷ Kūn (Earth):** Pure Yin, receptive devotion, mothering, southwest.\n"
+                "3. **☵ Kǎn (Water/Abyss):** Flowing through danger, emotional depth, north.\n"
+                "4. **☲ Lí (Fire/Clinging):** Clarity, illumination, consciousness, south.\n"
+                "5. **☳ Zhèn (Thunder):** Arousing action, springtime, dynamic movement, east.\n"
+                "6. **☴ Xùn (Wind/Wood):** Gentle penetration, subtle influence, southeast.\n"
+                "7. **☶ Gèn (Mountain):** Keeping still, meditation, steadfastness, northeast.\n"
+                "8. **☱ Duì (Lake/Joy):** Joyous expression, serenity, openness, west."
+            )
+        if "cast" in query or "coin" in query:
+            return (
+                "## ☯️ The 3-Coin Casting Method\n\n"
+                "To cast a hexagram with 3 identical coins:\n\n"
+                "- Assign **Heads = 3** (Yang) and **Tails = 2** (Yin).\n"
+                "- Toss all 3 coins 6 times, recording from **bottom (Line 1) to top (Line 6)**:\n"
+                "  - **6 (2+2+2):** Old Yin (changing broken line `--- x ---` -> solid).\n"
+                "  - **7 (2+2+3):** Young Yang (stable solid line `-------`).\n"
+                "  - **8 (2+3+3):** Young Yin (stable broken line `---   ---`).\n"
+                "  - **9 (3+3+3):** Old Yang (changing solid line `--- o ---` -> broken).\n\n"
+                "Lines 6 and 9 transform into their polar opposites to generate the resulting hexagram."
+            )
+
+    # 3. Astrology Queries
+    if (
+        "astrology" in system_prompt.lower()
+        or "zodiac" in query
+        or "sign" in query
+        or "planet" in query
+        or "aspect" in query
+        or "house" in query
+    ):
+        matches = grimoire_service.search(query, category="planets")
+        if matches:
+            top = matches[0]
+            p = top.get("details", {})
+            return (
+                f"## 🪐 Astrological Teaching: {top['title']}\n\n"
+                f"**Cosmic Influence:** {p.get('influence', '')}\n\n"
+                f"- **Chakra Resonance:** {p.get('chakra', 'N/A')}\n"
+                f"- **Element & Metal:** {p.get('element', 'N/A')} · {p.get('metal', 'N/A')}\n"
+                f"- **Sacred Minerals:** {', '.join(p.get('minerals', []))}\n"
+                f"- **Aligned Herbs:** {', '.join(p.get('herbs', []))}\n"
+                f"- **Harmonic Frequencies:** {', '.join(str(f) + ' Hz' for f in p.get('frequencies', []))}\n"
+                f"- **Radionics Dial Rates:** {', '.join(str(r) for r in p.get('rates', []))}\n\n"
+                f"> *Tutor Guidance:* When analyzing a chart, place this planet in its sign and house to see how its archetypal principle expresses through the native's life path."
+            )
+        if "sign" in query or "zodiac" in query:
+            return (
+                "## 🌟 The 12 Zodiac Signs & The 4 Elements\n\n"
+                "The zodiac divides the ecliptic into 12 archetypal fields grouped by 4 elements and 3 modalities:\n\n"
+                "- **🔥 Fire (Aries, Leo, Sagittarius):** Vitality, inspiration, initiative, dynamic passion.\n"
+                "- **🌍 Earth (Taurus, Virgo, Capricorn):** Grounded pragmatism, material stability, manifest structure.\n"
+                "- **💨 Air (Gemini, Libra, Aquarius):** Intellect, communication, social exchange, objective clarity.\n"
+                "- **💧 Water (Cancer, Scorpio, Pisces):** Intuition, emotional empathy, psychic sensitivity, spiritual depth.\n\n"
+                "**Modalities:**\n"
+                "- **Cardinal (Aries, Cancer, Libra, Capricorn):** Initiators, pioneering momentum.\n"
+                "- **Fixed (Taurus, Leo, Scorpio, Aquarius):** Stabilizers, persistent endurance.\n"
+                "- **Mutable (Gemini, Virgo, Sagittarius, Pisces):** Adaptors, flexible transition."
+            )
+        if "house" in query:
+            return (
+                "## 🏛️ The 12 Astrological Houses (Life Arenas)\n\n"
+                "The 12 houses represent where planetary energies manifest in daily existence:\n\n"
+                "- **1st House (Ascendant):** Self, identity, physical appearance, vitality.\n"
+                "- **2nd House:** Resources, personal values, material income.\n"
+                "- **3rd House:** Communication, siblings, local environment, learning.\n"
+                "- **4th House (IC):** Home, roots, family foundation, inner sanctuary.\n"
+                "- **5th House:** Creativity, self-expression, children, joy.\n"
+                "- **6th House:** Daily discipline, health, sacred service, work routine.\n"
+                "- **7th House (Descendant):** Partnerships, marriage, one-on-one relationships.\n"
+                "- **8th House:** Transformation, shared resources, occult mystery, rebirth.\n"
+                "- **9th House:** Higher philosophy, spiritual quests, long journeys, dharma.\n"
+                "- **10th House (MC):** Vocation, public reputation, worldly achievement.\n"
+                "- **11th House:** Community, aspirational ideals, friendships, collective vision.\n"
+                "- **12th House:** Unconscious psyche, spiritual liberation, meditation, solitude."
+            )
+        if "aspect" in query:
+            return (
+                "## 📐 The 5 Major Astrological Aspects\n\n"
+                "Aspects describe geometric angular relationships between planetary nodes:\n\n"
+                "- **Conjunction (0°):** Fusion of planetary energies into a unified powerhouse.\n"
+                "- **Sextile (60°):** Harmonious opportunity, creative communication between compatible elements.\n"
+                "- **Square (90°):** Dynamic friction, catalytic challenge compelling growth and action.\n"
+                "- **Trine (120°):** Effortless flow, natural grace, mutual elemental harmony.\n"
+                "- **Opposition (180°):** Polar tension requiring conscious balance and relational synthesis."
+            )
+
+    # 4. Sutra & Sacred Scripture Queries
+    if (
+        "sutra" in query
+        or "shurangama" in query
+        or "surangama" in query
+        or "ushnisha" in query
+        or "usnisa" in query
+        or "casket" in query
+        or "karanda" in query
+        or "dharani" in query
+        or "mantra" in query
+    ):
+        # Check specific famous sutras/dharanis first
+        if "shurangama" in query or "surangama" in query or "楞嚴" in query:
+            return (
+                "## 📜 The Śūraṅgama Sūtra (楞嚴經 — The Sutra of the Heroic March)\n\n"
+                "The **Śūraṅgama Sūtra** is the supreme Mahayana scripture on meditation, the nature of consciousness, and overcoming psychic/energetic obstacles on the path to Buddhahood.\n\n"
+                "### 1. The True Mind vs. Conscious Illusion (Seven Inquiries into the Mind)\n"
+                "The Buddha questions Ananda on where the 'mind' is located. Ananda offers seven locations (inside the body, outside, behind the sense organs, hidden within, between inner and outer, etc.) — all are systematically refuted. The Buddha reveals that the discriminating conscious mind is merely a shadow of external conditions, while the **True Mind (Tathāgatagarbha)** is unborn, unceasing, and ever-present luminous awareness.\n\n"
+                "### 2. Avalokiteshvara's Organ of Hearing Penetration (耳根圓通)\n"
+                "Among the 25 sages who describe their gateway to enlightenment, Bodhisattva Avalokiteshvara presents the practice of **turning the faculty of hearing inward** (*反聞聞自性*): entering the stream of hearing, forgetting external sounds, dissolving the duality of sound and silence, and resting in primordial stillness until the illusion of birth and death vanishes.\n\n"
+                "### 3. The Great Śūraṅgama Mantra (楞嚴咒 / Sitātapatrā Dhāraṇī)\n"
+                "The longest and most protective mantra in the Buddhist canon. It is taught as the indestructible diamond canopy (*Sitātapatrā*) protecting practitioners against the **50 Skandha Maras (五陰魔)** — the subtle psychic distortions of form, feeling, perception, impulse, and consciousness that arise during advanced samadhi."
+            )
+
+        if "ushnisha" in query or "usnisa" in query or "vijaya" in query or "尊勝" in query or "namgyalma" in query:
+            return (
+                "## 📜 The Uṣṇīṣa Vijaya Dhāraṇī Sūtra (佛頂尊勝陀羅尼經)\n\n"
+                "The **Uṣṇīṣa Vijaya Dhāraṇī** ('Victorious Crown of the Buddha') is one of the most venerated longevity and karmic purification scriptures in East Asian and Tibetan Buddhism (where the deity is revered as **Namgyalma**).\n\n"
+                "### 1. Origin & Purpose: The Rescue of Devaputra Sushthita\n"
+                "The god Sushthita learned that upon his death he would fall from heaven to suffer seven consecutive rebirths as animals (dog, fox, monkey, snake, vulture, crow) and then fall into the lowest hells. Terrified, he sought refuge in the Buddha, who radiated rainbow light from His crown uṣṇīṣa and revealed this sacred Dharani, entirely reversing Sushthita's negative karma and granting him liberation.\n\n"
+                "### 2. Purification of Heavy Karma & Liberation from Lower Realms\n"
+                "Reciting the Uṣṇīṣa Vijaya Dharani eliminates all obstacles arising from past negative actions, cures chronic and terminal illnesses, and protects against untimely death. It is traditionally recited 21 times daily or 108 times during healing and memorial services.\n\n"
+                "### 3. Consecration of Stupas and Wind-Blessing Pillars\n"
+                "The sutra records that if this Dharani is engraved onto a high pillar, stupa, or mountain crest, any sentient being touched by the shadow of the pillar or by wind carrying dust from the stupa will have their karmic obscurations cleansed and gain rebirth in a pure land."
+            )
+
+        if "casket" in query or "karanda" in query or "guhyadhatu" in query or "寶篋印" in query or "relic" in query:
+            return (
+                "## 📿 The Guhyadhātu Karaṇḍa-mudrā Dhāraṇī (寶篋印陀羅尼)\n\n"
+                "**Full Title:** *Ārya Sarva-tathāgatādhiṣṭhāna-hṛdaya Guhyadhātu Karaṇḍa-mudrā Dhāraṇī Sūtra* (*一切如來心秘密全身舍利寶篋印陀羅尼經* — The Secret Relic Casket Seal of the Heart-Essence of All Tathāgatas).\n\n"
+                "### 1. The Reliquary of All Tathāgatas\n"
+                "When the Buddha discovered a ruined, crumbling stupa in Magadha, He wept and prostrated before it. When Vajrapāṇi asked why, the Buddha revealed that within this single Dharani reside the **whole-body relics (*dhātu*) and heart-essence (*hṛdaya*) of all Buddhas of the ten directions**, past, present, and future, along with all 84,000 Dharma teachings.\n\n"
+                "### 2. Transmutation of Ruin into Diamond\n"
+                "The sutra teaches that whenever this Dharani is written, recited, or enshrined within a stupa, the ground transforms into an indestructible diamond reliquary. All Buddhas gather to bless it, celestial beings guard it, and whoever circumambulates it is liberated from poverty, suffering, and negative karmic cycles.\n\n"
+                "### 3. Canonical Sanskrit Invocations\n"
+                "- *Namas tryadhvikānāṃ sarva tathāgatānām...*\n"
+                "- *Sarva-tathāgata-dhātu-dhare padmaṃ-bhavati...*\n"
+                "- *Supratiṣṭhita-stūpe tathāgatādhiṣṭhite hūṃ hūṃ svāhā!*\n\n"
+                "> *Application:* Highly recommended for stupa consecration, ancestor liberation, wishing fulfillment, and supreme energetic protection."
+            )
+
+        # General sutra search fallback
+        matches = grimoire_service.search(query, category="sutras")
+        if matches:
+            top = matches[0]
+            s_det = top.get("details", {})
+            return (
+                f"## 📜 {top['title']}\n\n"
+                f"**Theme:** {s_det.get('theme', '').capitalize()} · **Sanskrit:** {s_det.get('sanskrit_name', '')}\n\n"
+                f"### Sacred Scripture Passage\n"
+                f"{s_det.get('passage', top['description'])}\n\n"
+                f"### Context & Practice Meaning\n"
+                f"{s_det.get('context', 'A profound Mahayana teaching on wisdom, compassion, and awakening.')}\n\n"
+                f"> *Keywords:* {', '.join(s_det.get('tags', []))}"
+            )
+
+        mantra_matches = grimoire_service.search(query, category="mantras")
+        if mantra_matches:
+            top = mantra_matches[0]
+            m_det = top.get("details", {})
+            return (
+                f"## 📿 {top['title']}\n\n"
+                f"**Deity / Alignment:** {m_det.get('deity', 'All Buddhas')} · **Tradition:** {m_det.get('tradition', 'Mahayana/Vajrayana')}\n\n"
+                f"### Sacred Mantra Text\n"
+                f"```\n{m_det.get('text_sanskrit') or m_det.get('mantra', '')}\n```\n\n"
+                f"- **Purpose:** {m_det.get('purpose') or m_det.get('meaning', '')}\n"
+                f"- **Chakra Resonance:** {m_det.get('chakra', 'Heart')}\n"
+                f"- **Frequency Tuning:** {m_det.get('frequency_hz', 'N/A')} Hz\n"
+            )
+
+    # 5. General Fallback
+    return (
+        f"## 📚 Esoteric Wisdom Lesson: {user_text.title()}\n\n"
+        f"In traditional esoteric study, **{user_text}** connects the macrocosm (cosmic laws and astrological cycles) with the microcosm (the human subtle body and consciousness).\n\n"
+        f"### Key Principles\n"
+        f"1. **As Above, So Below:** The celestial cycles reflect internal psychological and energetic states.\n"
+        f"2. **Harmonic Resonance:** Colors, minerals, herbs, and sound frequencies share vibrational signatures.\n"
+        f"3. **Intuitive Synthesis:** Real mastery arises from integrating intellectual understanding with direct meditative contemplation.\n\n"
+        f"> *Contemplation:* Select any specific card, hexagram, or planet in the Grimoire to explore its exact correspondences."
+    )
+
+
 @router.post("/teach", response_model=ChatResponse)
 async def teach_interaction(request: ChatRequest, http_request: Request):
     """Clean LLM endpoint for educational use — no operator prompt, no tools.
 
     Unlike ``/chat``, this endpoint passes the caller's system message
     directly to the LLM without prepending the operator base prompt or
-    exposing operator tool schemas. Used by the Esoteric Tutor.
+    exposing operator tool schemas. If no LLM provider is available, it
+    falls back to the structured offline knowledge curriculum.
     """
     if not request.messages:
         raise HTTPException(status_code=400, detail="Message list cannot be empty")
@@ -2033,14 +2296,17 @@ async def teach_interaction(request: ChatRequest, http_request: Request):
         raise HTTPException(status_code=400, detail="No user/assistant messages found")
 
     registry = getattr(http_request.app.state, "llm_registry", None)
-    if not registry:
-        raise HTTPException(status_code=503, detail="LLM registry not initialized")
+    if not registry or not registry.providers:
+        # Graceful offline teaching fallback
+        fallback_text = _generate_offline_teach_response(chat_msgs, system_prompt)
+        return ChatResponse(response=fallback_text, tool_calls=[])
 
     provider_name = await _select_provider_via_registry(http_request, request.provider or "auto")
     if not provider_name:
         provider_name = registry.providers[0].name if registry.providers else None
     if not provider_name:
-        raise HTTPException(status_code=503, detail="No LLM providers available")
+        fallback_text = _generate_offline_teach_response(chat_msgs, system_prompt)
+        return ChatResponse(response=fallback_text, tool_calls=[])
 
     chosen = None
     for p in registry.providers:
@@ -2048,7 +2314,8 @@ async def teach_interaction(request: ChatRequest, http_request: Request):
             chosen = p
             break
     if chosen is None:
-        raise HTTPException(status_code=503, detail=f"Provider '{provider_name}' not selectable")
+        fallback_text = _generate_offline_teach_response(chat_msgs, system_prompt)
+        return ChatResponse(response=fallback_text, tool_calls=[])
 
     from core.llm.models import ChatRequest as CoreChatRequest
 
@@ -2077,7 +2344,10 @@ async def teach_interaction(request: ChatRequest, http_request: Request):
                 logger.warning("Teach failover to %s failed: %s", next_provider.name, e2)
                 continue
         else:
-            raise HTTPException(status_code=503, detail=f"All providers failed. Primary: {e}")
+            # All external LLM providers failed — fall back to structured curriculum
+            logger.info("External LLMs failed for /teach; using offline knowledge fallback: %s", e)
+            fallback_text = _generate_offline_teach_response(chat_msgs, system_prompt)
+            return ChatResponse(response=fallback_text, tool_calls=[])
 
     clean_content = _chat_text(response)
     return ChatResponse(response=clean_content, tool_calls=[])

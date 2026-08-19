@@ -201,6 +201,37 @@ async def get_planetary_hours():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/timing-wheel")
+async def get_timing_wheel_endpoint(
+    latitude: float | None = None,
+    longitude: float | None = None,
+    date: str | None = None,
+):
+    """Get 24-hour Auspicious Timing Wheel data structure.
+
+    Includes 24 planetary hour slices, moon ring, tithi, nakshatra, Saka Dawa status,
+    genre affinities (healing, wisdom, purification...), and upcoming green windows.
+    """
+    try:
+        logger.info("☸️ Timing wheel request")
+        from datetime import datetime
+
+        from core.auspicious_timing import get_timing_wheel
+
+        target_dt = None
+        if date:
+            try:
+                target_dt = datetime.fromisoformat(date.replace("Z", "+00:00"))
+            except Exception:
+                target_dt = None
+
+        wheel_data = get_timing_wheel(lat=latitude, lon=longitude, target_dt=target_dt)
+        return wheel_data
+    except Exception as e:
+        logger.error(f"❌ Timing wheel error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/western")
 async def get_western_astrology():
     """Get comprehensive Western astrology data"""

@@ -298,7 +298,16 @@ async def get_world_context():
             "events_count": len(ctx.events),
             "disasters": ctx.disasters[:10],
             "events": [
-                {"title": e.title, "type": e.event_type, "severity": e.severity, "location": e.location}
+                {
+                    "title": e.title,
+                    "type": e.event_type,
+                    "severity": e.severity,
+                    "location": e.location,
+                    "country": e.country,
+                    "lat": e.lat,
+                    "lon": e.lon,
+                    "source": e.source,
+                }
                 for e in ctx.events[:15]
             ],
             "planetary_hour": ctx.planetary_hour,
@@ -621,6 +630,7 @@ async def start_recitation(
     voice: str = "zh-CN-YunxiNeural",
     role: str = "buddhist_chant",
     project_id: str | None = None,
+    play_local: bool = False,
 ):
     """Start the continuous 88-Buddha recitation loop."""
     import asyncio
@@ -642,6 +652,7 @@ async def start_recitation(
                         voice=voice,
                         role=role,
                         project_id=project_id,
+                        play_local=play_local,
                     )
                 )
             else:
@@ -653,6 +664,7 @@ async def start_recitation(
                         voice=voice,
                         role=role,
                         project_id=project_id,
+                        play_local=play_local,
                     )
                 )
         except RuntimeError:
@@ -664,6 +676,7 @@ async def start_recitation(
                     voice=voice,
                     role=role,
                     project_id=project_id,
+                    play_local=play_local,
                 )
             )
         return loop.get_status()

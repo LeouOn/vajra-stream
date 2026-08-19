@@ -14,6 +14,7 @@ from typing import Any
 
 from backend.core.services.rng_attunement_service import get_rng_service
 from core.ritual_sequencer import RitualContext, RitualSequencer
+from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
 from modules.interfaces import BlessingGenerated, EventBus
 
 logger = logging.getLogger(__name__)
@@ -475,8 +476,8 @@ class OutlookService:
                         genre=config.get("genre", "healing"),
                         intention=config.get("custom_context") or "",
                         metadata={
-                            "lat": config.get("lat", 34.0522),
-                            "lon": config.get("lon", -118.2437),
+                            "lat": config.get("lat", DEFAULT_LAT),
+                            "lon": config.get("lon", DEFAULT_LNG),
                         },
                     )
 
@@ -513,8 +514,8 @@ class OutlookService:
                                 "single",
                                 final_context.genre,
                                 json.dumps(config.get("languages", ["English"])),
-                                config.get("lat", 34.0522),
-                                config.get("lon", -118.2437),
+                                config.get("lat", DEFAULT_LAT),
+                                config.get("lon", DEFAULT_LNG),
                                 datetime.now().isoformat(),
                                 final_context.invocation_narrative,
                                 json.dumps(final_context.astrology_results),

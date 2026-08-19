@@ -11,6 +11,7 @@ Integrates with:
 import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,8 @@ import logging
 
 from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
 from core.rate_to_audio import map_rate_to_carriers
-from modules.interfaces import EventBus, RadionicsBroadcaster
+from core.situation_geometry import resolve_target_coordinates
+from modules.interfaces import EventBus, HealingBroadcastStarted, RadionicsBroadcaster
 from modules.radionics_enhancer import RadionicsEnhancer
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,9 @@ class RadionicsService(RadionicsBroadcaster):
         frequency_hz: float = 528.0,
         intensity: float = 0.8,
         rate_values: list[int] | None = None,
+        location: str | None = None,
+        lat: float | None = None,
+        lon: float | None = None,
     ) -> dict[str, Any]:
         """Broadcast healing to target.
 
@@ -77,6 +82,15 @@ class RadionicsService(RadionicsBroadcaster):
         scalar waves in parallel.
         """
         session_id = str(uuid.uuid4())
+
+        # Resolve target coordinates for telemetry and global emanation
+        target_lat = lat
+        target_lon = lon
+        target_loc = location or target_name
+        if target_lat is None or target_lon is None:
+            resolved = resolve_target_coordinates(target_loc)
+            if resolved:
+                target_lat, target_lon = resolved
 
         # Derive carrier frequencies from rate, enhancer auto-tune, or manual
         if rate_values:
@@ -118,18 +132,39 @@ class RadionicsService(RadionicsBroadcaster):
         )
 
         # Notify the UI FIRST so users aren't surprised by the singing bowls
-        # (and a muted broadcast still shows a toast). Fires before any
-        # blocking audio/scalar work so the toast is immediate.
+        # (and a muted broadcast still shows a toast + 3D globe flight arc).
         self._broadcast_ws(
             "HEALING_BROADCAST_STARTED",
             {
                 "target": target_name,
+                "location": target_loc,
+                "lat": target_lat,
+                "lon": target_lon,
                 "frequency_hz": freq_list[1] if len(freq_list) > 1 else frequency_hz,
                 "frequencies": freq_list,
                 "duration_minutes": duration_minutes,
                 "audio_muted": bool(_AUDIO_MUTED),
             },
         )
+
+        if self.event_bus:
+            try:
+                self.event_bus.publish(
+                    HealingBroadcastStarted(
+                        timestamp=datetime.now(),
+                        event_id=session_id,
+                        target_name=target_name,
+                        location=target_loc,
+                        lat=target_lat,
+                        lon=target_lon,
+                        frequency_hz=freq_list[1] if len(freq_list) > 1 else frequency_hz,
+                        frequencies=freq_list,
+                        duration_minutes=duration_minutes,
+                        audio_muted=bool(_AUDIO_MUTED),
+                    )
+                )
+            except Exception as e:
+                logger.debug("Event bus publish failed: %s", e)
 
         # Invoke crystal service for prayer bowl audio (if available)
         crystal_result = None
@@ -157,6 +192,9 @@ class RadionicsService(RadionicsBroadcaster):
         return {
             "session_id": session_id,
             "target": target_name,
+            "location": target_loc,
+            "lat": target_lat,
+            "lon": target_lon,
             "frequencies": freq_list,
             "frequency_source": freq_source,
             "amplitude": amplitude,
