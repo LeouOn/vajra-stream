@@ -48,7 +48,6 @@ import {
 } from 'lucide-react';
 import { apiUrl } from '../../utils/api';
 import { PRACTICES, type Practice } from './practicesCatalog';
-import BijaResonanceChart from './BijaResonanceChart';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -335,17 +334,6 @@ export default function PracticeSelector(): React.ReactElement {
           )}
 
           {/* Bīja Resonance Chart */}
-          <Collapse
-            ghost
-            size="small"
-            className="!mt-8"
-            items={[{
-              key: 'bija',
-              label: <Text className="!text-xs !font-mono !text-purple-300">⚖ Bīja Resonance Chart — Compare Deity Profiles</Text>,
-              children: <BijaResonanceChart size={340} />,
-            }]}
-          />
-
           {/* Closing dedication */}
           <div className="text-center pt-8">
             <Text type="secondary" className="!text-xs !font-mono !italic">
