@@ -4,7 +4,6 @@ Thin adapter wrapping core/outlook_generator.py for the DI container.
 Supports background broadcast loops.
 """
 
-import asyncio
 import json
 import logging
 import uuid
@@ -13,8 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from backend.core.services.rng_attunement_service import get_rng_service
-from core.ritual_sequencer import RitualContext, RitualSequencer
-from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
 from modules.interfaces import BlessingGenerated, EventBus
 
 logger = logging.getLogger(__name__)
@@ -35,10 +32,6 @@ class OutlookService:
         self.event_bus = event_bus
         self._generator = None
         self.container = None
-        self._loop_task: asyncio.Task | None = None
-        self._loop_running = False
-        self._loop_interval = 5
-        self._loop_config = {}
         self._last_generated_narrative: dict | None = None
 
     def initialize(self, container: Any = None):
@@ -409,150 +402,3 @@ class OutlookService:
             "genres": self.generator.genres,
             "supported_languages": self.generator.supported_languages,
         }
-
-    # ----------------- LOOP METHODS -----------------
-    def start_broadcast_loop(self, interval_minutes: int, **config) -> bool:
-        if self._loop_running:
-            return False
-
-        self._loop_interval = interval_minutes
-        self._loop_config = config
-        self._loop_config["genre_index"] = 0  # Initialize for cycling
-        self._loop_running = True
-
-        # Start async task
-        loop = asyncio.get_running_loop()
-        self._loop_task = loop.create_task(self._run_broadcast_loop())
-        logger.info(f"Broadcast narrative loop started (interval: {interval_minutes}m)")
-        return True
-
-    def stop_broadcast_loop(self) -> bool:
-        if not self._loop_running:
-            return False
-
-        self._loop_running = False
-        if self._loop_task:
-            self._loop_task.cancel()
-            self._loop_task = None
-
-        logger.info("Broadcast narrative loop stopped")
-        return True
-
-    def get_loop_status(self) -> dict:
-        return {
-            "active": self._loop_running,
-            "interval_minutes": self._loop_interval,
-            "config": self._loop_config,
-            "last_generated": self._last_generated_narrative,
-        }
-
-    async def _run_broadcast_loop(self):
-        try:
-            while self._loop_running:
-                logger.info("Executing scheduled narrative broadcast generation...")
-                try:
-                    config = self._loop_config.copy()
-                    config["date"] = datetime.now()
-
-                    # Cycle genre if enabled
-                    if config.get("cycle_genres", False) and self.generator.genres:
-                        genres = self.generator.genres
-                        idx = self._loop_config.get("genre_index", 0)
-                        current_genre = genres[idx % len(genres)]
-                        config["genre"] = current_genre
-                        self._loop_config["genre_index"] = idx + 1
-                        logger.info(f"Cycling genre: {current_genre}")
-
-                    # Create the context for the sequencer.
-                    # NOTE: RitualState has fields ``intention``, ``genre``,
-                    # and ``metadata`` — NOT ``lat``, ``lon``, or
-                    # ``target_intention``. The previous constructor call
-                    # passed non-existent kwargs, raising TypeError which was
-                    # silently swallowed by the broad ``except Exception``
-                    # at line 517, so the broadcast loop NEVER produced a
-                    # narrative. Fixed: pass lat/lon via ``metadata`` dict
-                    # and intention via the correct field name.
-                    context = RitualContext(
-                        genre=config.get("genre", "healing"),
-                        intention=config.get("custom_context") or "",
-                        metadata={
-                            "lat": config.get("lat", DEFAULT_LAT),
-                            "lon": config.get("lon", DEFAULT_LNG),
-                        },
-                    )
-
-                    # Instantiate and execute the workflow engine sequence
-                    sequencer = RitualSequencer(outlook_generator=self.generator, event_bus=self.event_bus)
-                    final_context = await sequencer.execute_ritual(context)
-
-                    # Store last generated narrative
-                    self._last_generated_narrative = final_context.invocation_narrative
-                    logger.info(
-                        f"Ritual Broadcast completed successfully. Narrative Length: {len(self._last_generated_narrative)}"
-                    )
-
-                    # Save to DB
-                    try:
-                        import os
-                        import sqlite3
-
-                        from backend.app.config import settings
-
-                        db_path = settings.DATABASE_URL.replace("sqlite:///", "")
-                        if not os.path.isabs(db_path):
-                            db_path = str((get_project_root() / db_path).resolve())
-
-                        conn = sqlite3.connect(db_path)
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            """
-                            INSERT INTO outlook_narratives
-                            (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                            (
-                                "single",
-                                final_context.genre,
-                                json.dumps(config.get("languages", ["English"])),
-                                config.get("lat", DEFAULT_LAT),
-                                config.get("lon", DEFAULT_LNG),
-                                datetime.now().isoformat(),
-                                final_context.invocation_narrative,
-                                json.dumps(final_context.astrology_results),
-                                json.dumps(final_context.divination_results),
-                                # Previously wrote divination_results into
-                                # BOTH divination_context AND divination_raw
-                                # columns — the raw data (with merged
-                                # radionics rates + sigil coordinates) was
-                                # lost. Fixed to use the correct field.
-                                json.dumps(final_context.divination_raw or final_context.divination_results),
-                                # Previously hardcoded to "" — the entity
-                                # invocation text (buddha + yidam with
-                                # qualities/description/purpose) was computed
-                                # and shown to the LLM but never persisted.
-                                final_context.entities_used or "",
-                            ),
-                        )
-                        conn.commit()
-                        conn.close()
-                    except Exception as db_err:
-                        logger.error(f"Error saving loop outlook to db: {db_err}")
-
-                except Exception as e:
-                    logger.error(f"Error in broadcast loop generation step: {e}")
-
-                # Determine next sleep interval based on loop_mode: sequential_delay or consecutive
-                mode = self._loop_config.get("loop_mode", "sequential_delay")
-                if mode == "consecutive":
-                    sleep_seconds = 5.0
-                    logger.info("Consecutive loop mode: waiting 5 seconds before next narrative generation.")
-                else:
-                    sleep_seconds = self._loop_interval * 60.0
-                    logger.info(f"Sequential delay mode: sleeping for {self._loop_interval} minutes.")
-
-                await asyncio.sleep(sleep_seconds)
-        except asyncio.CancelledError:
-            logger.info("Broadcast loop task cancelled")
-        except Exception as e:
-            logger.error(f"Broadcast loop task encountered fatal error: {e}")
-            self._loop_running = False
