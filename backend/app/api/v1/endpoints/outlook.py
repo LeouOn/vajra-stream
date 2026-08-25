@@ -706,75 +706,6 @@ async def list_location_types():
     return [t.value for t in LocationType]
 
 
-# ----------------- LOOP CONTROL -----------------
-class LoopStartRequest(BaseModel):
-    interval_minutes: int = Field(5, ge=1, le=1440)
-    lat: float = DEFAULT_LATITUDE
-    lon: float = DEFAULT_LONGITUDE
-    languages: list[str] = ["English"]
-    genre: str = "healing"
-    custom_context: str | None = None
-    realm_id: str | None = None
-    population_ids: list[str] | None = None
-    character_ids: list[str] | None = None
-    excluded_forces: list[str] | None = None
-    include_dialogue: bool = False
-    loop_mode: str | None = "sequential_delay"  # "sequential_delay" or "consecutive"
-    model: str | None = None
-    include_astrology: bool = True
-    include_tarot: bool = True
-    include_iching: bool = True
-    include_geomancy: bool = True
-    cycle_genres: bool = False
-    randomize_realm: bool = False
-    randomize_characters: bool = False
-
-
-@router.post("/loop/start", summary="Start background narrative loop")
-async def start_loop(req: LoopStartRequest):
-    bg_config = BackgroundGenerationConfig(
-        interval_minutes=req.interval_minutes,
-        loop_mode=req.loop_mode or "sequential_delay",
-        cycle_genres=req.cycle_genres or False,
-        cycle_intentions=False,
-        lat=req.lat,
-        lon=req.lon,
-        languages=req.languages,
-        genre=req.genre,
-        custom_context=req.custom_context,
-        include_astrology=req.include_astrology,
-        include_tarot=req.include_tarot,
-        include_iching=req.include_iching,
-        include_geomancy=req.include_geomancy,
-        model=req.model,
-    )
-    result = await start_background_generation(bg_config)
-    if result["status"] == "already_running":
-        raise HTTPException(status_code=400, detail="Loop already running")
-    return {
-        "status": "success",
-        "message": f"Background generation started. Mode: {req.loop_mode}. Every {req.interval_minutes} min.",
-        "stats": result.get("stats", {}),
-    }
-
-
-@router.post("/loop/stop", summary="Stop background narrative loop")
-async def stop_loop():
-    return await stop_background_generation()
-
-
-@router.get("/loop/status", summary="Get background narrative loop status")
-async def get_loop_status():
-    status = await background_status()
-    return {
-        "active": status["active"],
-        "interval_minutes": status["config"].get("interval_minutes", 5),
-        "config": {"loop_mode": status["config"].get("loop_mode", "sequential_delay")},
-        "stats": status.get("stats", {}),
-        "last_generated": status.get("stats", {}).get("last_generated_at"),
-    }
-
-
 # ----------------- NARRATIVES IMPORT/EXPORT -----------------
 class OutlookNarrativeImportSchema(BaseModel):
     type: str
@@ -906,16 +837,6 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ----------------- IDLE REFLECTION ENGINE -----------------
-
-
-class IdleConfig(BaseModel):
-    interval_minutes: int = Field(default=60, ge=1, le=1440)
-    genres: list[str] | None = Field(default=None)
-    intentions: list[str] | None = Field(default=None)
-    enabled: bool = Field(default=True)
-
-
 class BackgroundGenerationConfig(BaseModel):
     interval_minutes: int = Field(default=60, ge=1, le=1440)
     loop_mode: str = Field(default="sequential_delay", description="sequential_delay or consecutive")
@@ -980,6 +901,10 @@ async def _background_generation_loop(config: BackgroundGenerationConfig) -> Non
         try:
             if config.loop_mode == "consecutive":
                 await asyncio.sleep(5.0)
+            elif idx == 0:
+                # Warmup: generate once shortly after start — a full
+                # interval-first sleep left short sessions with nothing.
+                await asyncio.sleep(120.0)
             else:
                 await asyncio.sleep(config.interval_minutes * 60)
 
@@ -1119,38 +1044,4 @@ async def background_status():
         "active": _bg_task is not None and not _bg_task.done(),
         "config": _bg_config.model_dump(),
         "stats": dict(_bg_stats),
-    }
-
-
-@router.post("/idle/start", summary="Start auto-generating reflections periodically")
-async def start_idle_reflections(config: IdleConfig):
-    bg_config = BackgroundGenerationConfig(
-        interval_minutes=config.interval_minutes,
-        genres=config.genres,
-        intentions=config.intentions,
-        enabled=config.enabled,
-        cycle_genres=True,
-        cycle_intentions=True,
-        loop_mode="sequential_delay",
-    )
-    return await start_background_generation(bg_config)
-
-
-@router.post("/idle/stop", summary="Stop auto-generating reflections")
-async def stop_idle_reflections():
-    return await stop_background_generation()
-
-
-@router.get("/idle/status", summary="Get idle reflection loop status")
-async def idle_status():
-    status = await background_status()
-    return {
-        "active": status["active"],
-        "config": {
-            "interval_minutes": status["config"].get("interval_minutes", 60),
-            "genres": status["config"].get("genres"),
-            "intentions": status["config"].get("intentions"),
-            "enabled": status["config"].get("enabled", True),
-        },
-        "stats": status.get("stats", {}),
     }

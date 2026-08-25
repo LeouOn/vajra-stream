@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -74,14 +74,17 @@ def test_outlook_request_parameters(client):
 
 
 def test_loop_start_parameters(client):
-    with patch(
-        "backend.app.api.v1.endpoints.outlook.start_background_generation",
-        new_callable=AsyncMock,
-    ) as mock_start:
-        mock_start.return_value = {"status": "started", "stats": {}}
+    """POST /background/start stores the config the loop will use.
 
+    The endpoint function is registered directly as the route handler, so
+    patching the module attribute is useless here — assert on the stored
+    ``_bg_config`` global instead, then stop the loop it started.
+    """
+    from backend.app.api.v1.endpoints import outlook as outlook_endpoint
+
+    try:
         response = client.post(
-            "/api/v1/outlook/loop/start",
+            "/api/v1/outlook/background/start",
             json={
                 "interval_minutes": 10,
                 "lat": 34.0522,
@@ -92,14 +95,11 @@ def test_loop_start_parameters(client):
                 "include_astrology": False,
                 "include_tarot": False,
                 "include_iching": False,
-                "randomize_realm": True,
-                "randomize_characters": True,
             },
         )
 
         assert response.status_code == 200
-        mock_start.assert_called_once()
-        cfg = mock_start.call_args.args[0]
+        cfg = outlook_endpoint._bg_config
         assert cfg.interval_minutes == 10
         assert cfg.lat == 34.0522
         assert cfg.lon == -118.2437
@@ -110,6 +110,8 @@ def test_loop_start_parameters(client):
         assert cfg.include_tarot is False
         assert cfg.include_iching is False
         assert cfg.include_geomancy is True
+    finally:
+        client.post("/api/v1/outlook/background/stop")
 
 
 def test_randomization_logic_in_generator(fresh_outlook_service):
@@ -153,17 +155,41 @@ def test_randomization_logic_in_generator(fresh_outlook_service):
 
 
 def test_outlook_default_coordinates(client):
-    from backend.app.api.v1.endpoints.outlook import BackgroundGenerationConfig, LoopStartRequest, OutlookRequest
+    from backend.app.api.v1.endpoints.outlook import BackgroundGenerationConfig, OutlookRequest
     from config.settings import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
 
     req = OutlookRequest()
     assert req.lat == DEFAULT_LATITUDE
     assert req.lon == DEFAULT_LONGITUDE
 
-    loop_req = LoopStartRequest()
-    assert loop_req.lat == DEFAULT_LATITUDE
-    assert loop_req.lon == DEFAULT_LONGITUDE
-
     bg_cfg = BackgroundGenerationConfig()
     assert bg_cfg.lat == DEFAULT_LATITUDE
     assert bg_cfg.lon == DEFAULT_LONGITUDE
+
+
+@pytest.mark.asyncio
+async def test_background_loop_warmup_beats_full_interval():
+    """First sequential_delay sleep is the 120s warmup, not interval_minutes*60.
+
+    Regression lock: the loop used to sleep the full interval before its
+    first generation, so any server session shorter than interval_minutes
+    produced nothing (History stayed empty despite the loop "running").
+    """
+    import asyncio
+
+    from backend.app.api.v1.endpoints import outlook as outlook_endpoint
+
+    sleeps: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        raise asyncio.CancelledError()
+
+    with patch.object(outlook_endpoint.asyncio, "sleep", fake_sleep):
+        # The loop's CancelledError handler breaks the while-loop, so this
+        # returns normally after the first (warmup) sleep.
+        await outlook_endpoint._background_generation_loop(
+            outlook_endpoint.BackgroundGenerationConfig(interval_minutes=60)
+        )
+
+    assert sleeps[0] == 120.0

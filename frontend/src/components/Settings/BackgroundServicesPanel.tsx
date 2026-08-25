@@ -31,14 +31,15 @@ interface AutonomousStatus {
   suggestions_count: number;
 }
 
-interface OutlookLoopStatus {
+interface BackgroundStatus {
   active: boolean;
-  interval_minutes: number;
+  config?: { interval_minutes?: number };
+  stats?: { total_generated?: number };
 }
 
 export default function BackgroundServicesPanel() {
   const [autonomous, setAutonomous] = useState<AutonomousStatus | null>(null);
-  const [outlookLoop, setOutlookLoop] = useState<OutlookLoopStatus | null>(null);
+  const [outlookLoop, setOutlookLoop] = useState<BackgroundStatus | null>(null);
   const [audioMuted, setAudioMuted] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +48,7 @@ export default function BackgroundServicesPanel() {
     try {
       const [autoRes, outlookRes, muteRes] = await Promise.all([
         fetch(apiUrl('/operator/autonomous/status')),
-        fetch(apiUrl('/outlook/loop/status')),
+        fetch(apiUrl('/outlook/background/status')),
         fetch(apiUrl('/radionics/audio-mute')),
       ]);
       if (autoRes.ok) setAutonomous(await autoRes.json());
@@ -106,15 +107,17 @@ export default function BackgroundServicesPanel() {
 
   const toggleOutlookLoop = async (on: boolean) => {
     try {
-      const res = await fetch(apiUrl(on ? '/outlook/loop/start' : '/outlook/loop/stop'), {
+      const res = await fetch(apiUrl(on ? '/outlook/background/start' : '/outlook/background/stop'), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: on ? JSON.stringify({}) : undefined,
       });
       if (!res.ok) {
         message.error(`Could not ${on ? 'start' : 'stop'} outlook loop`);
         return;
       }
       message.success(on ? 'Outlook loop started' : 'Outlook loop stopped');
-      setOutlookLoop((prev) => ({ active: on, interval_minutes: prev?.interval_minutes ?? 60 }));
+      setOutlookLoop((prev) => ({ active: on, config: prev?.config }));
     } catch (err) {
       message.error(String(err));
     }
@@ -258,7 +261,7 @@ export default function BackgroundServicesPanel() {
           <div>
             <Text strong style={{ fontSize: 12 }}>What it does</Text>
             <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
-              Regenerates outlooks every {outlookLoop?.interval_minutes ?? 60} minutes
+              Regenerates outlooks every {outlookLoop?.config?.interval_minutes ?? 60} minutes
               in the background. Uses LLM + full oracles. Toggle off to save API cost.
             </Paragraph>
           </div>
