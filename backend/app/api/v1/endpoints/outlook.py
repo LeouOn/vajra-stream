@@ -9,7 +9,6 @@ on their birth chart, current transits, and divination results.
 import asyncio
 import json
 import logging
-import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +18,6 @@ from dateutil import parser as _dt_parser
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.app.config import settings
 from backend.core.services.character_manager import CharacterRole, CharacterSourceType, get_character_manager
 from backend.core.services.location_manager import LocationSourceType, LocationType, get_location_manager
 from config.settings import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
@@ -68,10 +66,11 @@ class EpicOutlookRequest(OutlookRequest):
 
 
 def get_db_connection():
-    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.isabs(db_path):
-        db_path = str((get_project_root() / db_path).resolve())
-    conn = sqlite3.connect(db_path)
+    # Single DB resolver — local walk-up resolvers can find a different
+    # (stray) database file and silently split reads/writes.
+    from core.schema import get_db_path
+
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -137,8 +136,8 @@ async def generate_single(request: OutlookRequest):
             cursor.execute(
                 """
                 INSERT INTO outlook_narratives
-                (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked, model_used, provider_used)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     "single",
@@ -152,6 +151,8 @@ async def generate_single(request: OutlookRequest):
                     result.get("divination_used"),
                     json.dumps(result.get("divination_raw")),
                     result.get("entities_used"),
+                    result.get("model_used"),
+                    result.get("provider_used"),
                 ),
             )
             conn.commit()
@@ -211,8 +212,8 @@ async def generate_epic(request: EpicOutlookRequest):
             cursor.execute(
                 """
                 INSERT INTO outlook_narratives
-                (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked, model_used, provider_used)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     "epic",
@@ -226,6 +227,8 @@ async def generate_epic(request: EpicOutlookRequest):
                     result.get("divination_used"),
                     json.dumps(result.get("divination_raw")),
                     result.get("entities_used"),
+                    result.get("model_used"),
+                    result.get("provider_used"),
                 ),
             )
             conn.commit()
@@ -249,21 +252,45 @@ async def generate_epic(request: EpicOutlookRequest):
 
 
 @router.get("/history", summary="Get Outlook Generation History")
-async def get_history(limit: int = 20):
+async def get_history(
+    limit: int = 20,
+    genre: str | None = None,
+    narrative_type: str | None = None,
+    q: str | None = None,
+):
     """
     Fetches the history of generated narrative outlooks.
+
+    Optional filters: ``genre`` (exact, case-insensitive), ``narrative_type``
+    (``single`` or ``epic``), and ``q`` (case-insensitive substring over the
+    narrative content).
     """
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        clauses = []
+        params: list = []
+        if genre:
+            clauses.append("LOWER(genre) = LOWER(?)")
+            params.append(genre)
+        if narrative_type:
+            clauses.append("type = ?")
+            params.append(narrative_type)
+        if q:
+            clauses.append("LOWER(content) LIKE '%' || LOWER(?) || '%'")
+            params.append(q)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
         cursor.execute(
-            """
-            SELECT id, type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked
+            f"""
+            SELECT id, type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked, model_used, provider_used
             FROM outlook_narratives
+            {where}
             ORDER BY date_generated DESC
             LIMIT ?
         """,
-            (limit,),
+            (*params, limit),
         )
         rows = cursor.fetchall()
         conn.close()
@@ -304,11 +331,30 @@ async def get_history(limit: int = 20):
                     "divination_context": row["divination_context"],
                     "divination_raw": div_raw,
                     "entities_invoked": row["entities_invoked"],
+                    "model_used": row["model_used"],
+                    "provider_used": row["provider_used"],
                 }
             )
         return {"status": "success", "history": history}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/history/{narrative_id}", summary="Delete one stored narrative")
+async def delete_history_item(narrative_id: int):
+    """Remove a single narrative from the history ledger."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM outlook_narratives WHERE id = ?", (narrative_id,))
+        deleted = cursor.rowcount
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Narrative {narrative_id} not found")
+    return {"status": "success", "deleted": narrative_id}
 
 
 @router.get("/status", summary="Get Outlook Generator Status")
@@ -719,6 +765,8 @@ class OutlookNarrativeImportSchema(BaseModel):
     divination_context: str | None = None
     divination_raw: dict | list | str | None = None
     entities_invoked: str | None = None
+    model_used: str | None = None
+    provider_used: str | None = None
 
 
 @router.get("/export", summary="Export all outlook narratives")
@@ -729,7 +777,7 @@ async def export_narratives():
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked
+            SELECT type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked, model_used, provider_used
             FROM outlook_narratives
             ORDER BY date_generated DESC
             """
@@ -773,6 +821,8 @@ async def export_narratives():
                     "divination_context": row["divination_context"],
                     "divination_raw": div_raw,
                     "entities_invoked": row["entities_invoked"],
+                    "model_used": row["model_used"],
+                    "provider_used": row["provider_used"],
                 }
             )
         return {"status": "success", "narratives": narratives}
@@ -812,8 +862,8 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
             cursor.execute(
                 """
                 INSERT INTO outlook_narratives
-                (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (type, genre, languages, lat, lon, date_generated, content, astrology_context, divination_context, divination_raw, entities_invoked, model_used, provider_used)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     n.type,
@@ -827,6 +877,8 @@ async def import_narratives(narratives: list[OutlookNarrativeImportSchema]):
                     n.divination_context,
                     div_raw_val,
                     n.entities_invoked,
+                    n.model_used,
+                    n.provider_used,
                 ),
             )
             count += 1
@@ -948,8 +1000,8 @@ async def _background_generation_loop(config: BackgroundGenerationConfig) -> Non
                     INSERT INTO outlook_narratives
                     (type, genre, languages, lat, lon, date_generated,
                      content, astrology_context, divination_context,
-                     divination_raw, entities_invoked)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     divination_raw, entities_invoked, model_used, provider_used)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         "single",
@@ -963,6 +1015,8 @@ async def _background_generation_loop(config: BackgroundGenerationConfig) -> Non
                         result.get("divination_used"),
                         json.dumps(result.get("divination_raw")),
                         result.get("entities_used"),
+                        result.get("model_used"),
+                        result.get("provider_used"),
                     ),
                 )
                 conn.commit()
