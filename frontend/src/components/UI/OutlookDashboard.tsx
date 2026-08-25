@@ -19,7 +19,7 @@ import {
 import {
   Card, Tabs, Form, Input, InputNumber, Button, Select, Switch, Tag,
   Segmented, Row, Col, Space, Slider, Collapse, List, Typography,
-  Spin, Empty, Divider, Badge, Tooltip, message, Modal, Checkbox,
+  Spin, Empty, Divider, Badge, Tooltip, message, Modal, Checkbox, Popconfirm,
 } from 'antd';
 import { useUIStore } from '../../stores/uiStore';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -108,6 +108,7 @@ interface Population {
 }
 
 interface HistoryItem {
+  id?: number;
   type?: string;
   date_generated?: string;
   genre?: string;
@@ -116,6 +117,8 @@ interface HistoryItem {
   divination_context?: string;
   divination_raw?: DivinationRaw;
   entities_invoked?: string;
+  model_used?: string | null;
+  provider_used?: string | null;
   [key: string]: unknown;
 }
 
@@ -353,6 +356,8 @@ export default function OutlookDashboard() {
   const [currentNarrative, setCurrentNarrative] = useState<CurrentNarrative | null>(null);
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
   const [historyGenreFilter, setHistoryGenreFilter] = useState<string>('all');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('all');
+  const [historySearch, setHistorySearch] = useState('');
   const [copied, setCopied] = useState<boolean>(false);
   const [resultTab, setResultTab] = useState<ResultTab>('narrative');
   const [affirmation, setAffirmation] = useState<string | null>(null);
@@ -462,12 +467,32 @@ export default function OutlookDashboard() {
 
   const fetchHistory = useCallback(async (): Promise<void> => {
     try {
-      const res = await fetch(apiUrl(`/outlook/history?limit=15`));
+      const res = await fetch(apiUrl(`/outlook/history?limit=100`));
       if (res.ok) setHistoryList(((await res.json()) as { history?: HistoryItem[] }).history || []);
     } catch (e) {
       addToast({ type: 'error', title: 'Could not load history', message: 'Backend unreachable.', duration: 3000 });
     }
   }, [addToast]);
+
+  const deleteHistoryItem = useCallback(
+    async (item: HistoryItem): Promise<void> => {
+      if (item.id == null) {
+        message.warning('This entry predates row ids and cannot be deleted.');
+        return;
+      }
+      try {
+        const res = await fetch(apiUrl(`/outlook/history/${item.id}`), { method: 'DELETE' });
+        if (!res.ok) throw new Error(String(res.status));
+        message.success('Transmission deleted.');
+        audioFeedback.playClick();
+        fetchHistory();
+      } catch {
+        message.error('Could not delete that transmission.');
+        audioFeedback.playError();
+      }
+    },
+    [fetchHistory],
+  );
 
   const fetchModels = useCallback(async (): Promise<void> => {
     try {
@@ -2341,14 +2366,33 @@ export default function OutlookDashboard() {
                 </Col>
                 <Col>
                   <Space>
+                    <Input.Search
+                      size="small"
+                      allowClear
+                      placeholder="Search transmissions…"
+                      style={{ width: 180 }}
+                      value={historySearch}
+                      onChange={(e) => setHistorySearch(e.target.value)}
+                    />
                     <Select
                       size="small"
                       value={historyGenreFilter}
                       onChange={setHistoryGenreFilter}
-                      style={{ width: 150 }}
+                      style={{ width: 140 }}
                       options={[
                         { value: 'all', label: 'All Genres' },
                         ...Array.from(new Set(historyList.map(h => h.genre).filter(Boolean))).map(g => ({ value: g!, label: g!.charAt(0).toUpperCase() + g!.slice(1) })),
+                      ]}
+                    />
+                    <Select
+                      size="small"
+                      value={historyTypeFilter}
+                      onChange={setHistoryTypeFilter}
+                      style={{ width: 110 }}
+                      options={[
+                        { value: 'all', label: 'All Types' },
+                        { value: 'single', label: 'Single' },
+                        { value: 'epic', label: 'Epic' },
                       ]}
                     />
                     <Button size="small" icon={<RefreshCw className="w-3 h-3" />} onClick={fetchHistory}>Refresh</Button>
@@ -2373,6 +2417,13 @@ export default function OutlookDashboard() {
               <Row gutter={[16, 16]}>
                 {historyList
                   .filter(item => historyGenreFilter === 'all' || item.genre === historyGenreFilter)
+                  .filter(item => historyTypeFilter === 'all' || item.type === historyTypeFilter)
+                  .filter(item => {
+                    const needle = historySearch.trim().toLowerCase();
+                    if (!needle) return true;
+                    const hay = `${item.content || ''} ${item.entities_invoked || ''} ${item.genre || ''}`.toLowerCase();
+                    return hay.includes(needle);
+                  })
                   .map((item, idx) => {
                     const genre = item.genre || 'unknown';
                     const genreColor = GENRE_COLORS[genre] || 'transparent';
@@ -2424,8 +2475,8 @@ export default function OutlookDashboard() {
                                     narrative: item.content || '',
                                     divinationRaw: item.divination_raw || null,
                                     entities: item.entities_invoked || null,
-                                    model: null,
-                                    provider: null,
+                                    model: item.model_used || null,
+                                    provider: item.provider_used || null,
                                   };
                                   try {
                                     const existing = JSON.parse(window.localStorage.getItem(SAVED_RITUALS_KEY) || '[]') as SavedRitual[];
@@ -2437,6 +2488,17 @@ export default function OutlookDashboard() {
                                 }}
                               />
                             </Tooltip>,
+                            <Popconfirm
+                              key="delete"
+                              title="Delete this transmission?"
+                              description="It will be removed from the ledger permanently."
+                              okText="Delete"
+                              okType="danger"
+                              cancelText="Keep"
+                              onConfirm={() => { void deleteHistoryItem(item); }}
+                            >
+                              <Button type="text" size="small" icon={<Trash2 className="w-3 h-3" />} danger />
+                            </Popconfirm>,
                           ]}
                         >
                           <Card.Meta
@@ -2467,6 +2529,16 @@ export default function OutlookDashboard() {
                                     <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                       👤 {item.entities_invoked}
                                     </Tag>
+                                  )}
+                                  {item.model_used && (
+                                    <Tooltip title={`Written by ${item.model_used}${item.provider_used ? ` via ${item.provider_used}` : ''}`}>
+                                      <Tag
+                                        color="geekblue"
+                                        style={{ fontSize: 9, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                      >
+                                        🤖 {item.model_used.split('/').pop()}
+                                      </Tag>
+                                    </Tooltip>
                                   )}
                                   {item.divination_context && (
                                     <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
