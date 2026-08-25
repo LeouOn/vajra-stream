@@ -31,8 +31,9 @@ from core import schema
 @pytest.mark.unit
 def test_module_imports_and_exports():
     """Module imports cleanly and exposes the public API."""
-    assert schema.SCHEMA_VERSION == 3
+    assert schema.SCHEMA_VERSION == 4
     assert isinstance(schema.SCHEMA_DESCRIPTION, str)
+    assert "outlook_narratives" in schema.SCHEMA_DESCRIPTION
     assert "buddha_recitation_sessions" in schema.SCHEMA_DESCRIPTION
     assert "healing_dialogue_sessions" in schema.SCHEMA_DESCRIPTION
 
@@ -177,3 +178,46 @@ def test_init_db_returns_connection_with_row_factory(tmp_path: Path):
         assert row["version"] == schema.SCHEMA_VERSION
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# 7. _COLUMN_ADDITIONS — guarded ALTER migrates old databases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_column_additions_migrate_old_databases(tmp_path: Path):
+    """A database with the pre-v4 outlook_narratives shape gains the new columns.
+
+    Existing rows survive with NULL in the added columns; re-running
+    init_db is a no-op.
+    """
+    db = tmp_path / "old_shape.db"
+    conn = sqlite3.connect(db)
+    conn.execute(
+        """CREATE TABLE outlook_narratives (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, genre TEXT,
+        languages TEXT, lat REAL, lon REAL, date_generated TIMESTAMP, content TEXT,
+        astrology_context TEXT, divination_context TEXT, divination_raw TEXT,
+        entities_invoked TEXT)"""
+    )
+    conn.execute("INSERT INTO outlook_narratives (type, genre, content) VALUES ('single', 'healing', 'kept row')")
+    conn.commit()
+    conn.close()
+
+    c1 = schema.init_db(str(db))
+    try:
+        cols = {r[1] for r in c1.execute("PRAGMA table_info(outlook_narratives)")}
+        assert {"model_used", "provider_used"} <= cols
+        row = c1.execute("SELECT content, model_used FROM outlook_narratives").fetchone()
+        assert row["content"] == "kept row"
+        assert row["model_used"] is None
+    finally:
+        c1.close()
+
+    c2 = schema.init_db(str(db))
+    try:
+        versions = [r[0] for r in c2.execute("SELECT version FROM _schema_version").fetchall()]
+        assert versions == [schema.SCHEMA_VERSION]
+    finally:
+        c2.close()

@@ -27,6 +27,12 @@ Conventions
 - Existing tables: never modify the DDL of a shipped table; add a new
   ``CREATE TABLE IF NOT EXISTS`` statement for the new shape and migrate data
   in code if needed.
+- Additive nullable columns on an existing table: update the table's DDL
+  entry (so fresh databases get the column) AND register the column in
+  :data:`_COLUMN_ADDITIONS` — the guarded ``ALTER TABLE ADD COLUMN`` in
+  ``apply_schema`` brings existing databases to the same shape. Only
+  nullable, no-default columns may be added this way (SQLite restriction
+  and keeps old readers working).
 """
 
 from __future__ import annotations
@@ -37,8 +43,10 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION: int = 3
+SCHEMA_VERSION: int = 4
 SCHEMA_DESCRIPTION: str = (
+    "v4: adds model_used/provider_used (nullable) to outlook_narratives so "
+    "History can badge which model wrote each narrative. "
     "v3: adds buddha_recitation_sessions (88-Buddha continuous recitation "
     "container — intention, cycle/recitation counters, dedication, optional "
     "link to a healing_dialogue_session). "
@@ -238,7 +246,9 @@ _TABLE_DDL: tuple[tuple[str, str], ...] = (
             astrology_context   TEXT,
             divination_context  TEXT,
             divination_raw      TEXT,
-            entities_invoked    TEXT
+            entities_invoked    TEXT,
+            model_used          TEXT,
+            provider_used       TEXT
         )
         """,
     ),
@@ -437,14 +447,26 @@ _TABLE_DDL: tuple[tuple[str, str], ...] = (
     ),
 )
 
+# Columns apply_schema adds via guarded ALTER TABLE on databases that
+# predate them. Nullable / no-default columns only (SQLite ADD COLUMN
+# constraint — keeps old readers working).
+_COLUMN_ADDITIONS: dict[str, dict[str, str]] = {
+    "outlook_narratives": {
+        "model_used": "TEXT",
+        "provider_used": "TEXT",
+    },
+}
+
 
 def apply_schema(conn: sqlite3.Connection) -> None:
     """Run every ``CREATE TABLE IF NOT EXISTS`` in :data:`_TABLE_DDL` on ``conn``.
 
     Safe to call repeatedly: every statement is idempotent.
 
-    Also enables foreign-key enforcement and WAL journal mode, and creates
-    frequently-queried indexes that the table DDL doesn't cover.
+    Also enables foreign-key enforcement and WAL journal mode, creates
+    frequently-queried indexes that the table DDL doesn't cover, and adds
+    any columns registered in :data:`_COLUMN_ADDITIONS` that an existing
+    database predates.
 
     Does NOT record the schema version; use :func:`init_db` for that.
     """
@@ -472,6 +494,15 @@ def apply_schema(conn: sqlite3.Connection) -> None:
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_saved_natal_charts_name_city ON saved_natal_charts(name, city)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_blessing_targets_category ON blessing_targets(category)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_scheduled_events_target_dt ON scheduled_events(target_datetime)")
+
+    # ── Column additions for databases that predate them ──────────────
+    for table, columns in _COLUMN_ADDITIONS.items():
+        existing = {row[1] for row in cursor.execute(f"PRAGMA table_info({table})")}
+        if not existing:
+            continue  # table absent from this database — nothing to alter
+        for column, decl in columns.items():
+            if column not in existing:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
     conn.commit()
 
