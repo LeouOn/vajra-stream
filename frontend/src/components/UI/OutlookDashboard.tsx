@@ -29,6 +29,15 @@ import RothkoGenerator from '../2D/RothkoGenerator';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import GuidedRitualFlow from './GuidedRitualFlow';
 import JourneyCard from './JourneyCard';
+import HistoryTab from './outlook/HistoryTab';
+import {
+  GENRE_BORDER_COLORS,
+  GENRE_COLORS,
+  SAVED_RITUALS_KEY,
+  stripMarkdown,
+  type HistoryItem,
+  type SavedRitual,
+} from './outlook/outlookShared';
 import RitualVisualization from './RitualVisualization';
 import SadhanaVisualization from './SadhanaVisualization';
 import { getDeityFromEntityText } from '../../lib/deityVisualizations';
@@ -107,21 +116,6 @@ interface Population {
   [key: string]: unknown;
 }
 
-interface HistoryItem {
-  id?: number;
-  type?: string;
-  date_generated?: string;
-  genre?: string;
-  content?: string;
-  astrology_context?: string;
-  divination_context?: string;
-  divination_raw?: DivinationRaw;
-  entities_invoked?: string;
-  model_used?: string | null;
-  provider_used?: string | null;
-  [key: string]: unknown;
-}
-
 interface DivinationCardPayload {
   svg?: string;
   name?: string;
@@ -192,22 +186,6 @@ const LANGUAGES: string[] = [
 const GENRE_OPTIONS = GENRES.map(g => ({ value: g.value, label: g.label }));
 const LANGUAGE_OPTIONS = LANGUAGES.map(l => ({ value: l, label: l }));
 
-/**
- * Genre color theming — soft tinted card backgrounds that visually evoke
- * the genre's energy without overwhelming the typography. Keyed by genre
- * id; unknown genres fall back to transparent.
- */
-const GENRE_COLORS: Record<string, string> = {
-  healing: 'rgba(0, 168, 107, 0.05)',     // 00A86B green
-  victory: 'rgba(220, 20, 60, 0.05)',      // crimson
-  alchemist: 'rgba(218, 165, 32, 0.05)',   // goldenrod
-  fun_parable: 'rgba(100, 149, 237, 0.05)',// cornflower
-  dharani: 'rgba(138, 43, 226, 0.05)',     // violet
-  compassion: 'rgba(255, 105, 180, 0.05)', // pink
-  wisdom: 'rgba(100, 149, 237, 0.05)',     // cornflower
-  protection: 'rgba(34, 139, 34, 0.05)',   // forest green
-};
-
 const RITUAL_PHASES: string[] = [
   'Invocatio',
   'Pacificatio',
@@ -216,45 +194,11 @@ const RITUAL_PHASES: string[] = [
   'Dedicatio',
 ];
 
-const SAVED_RITUALS_KEY = 'vajra.savedRituals.v1';
-
-interface SavedRitual {
-  id: string;
-  savedAt: string;
-  genre: string;
-  narrative: string;
-  divinationRaw: DivinationRaw | null;
-  entities: string | null;
-  model: string | null;
-  provider: string | null;
-}
-
 const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   { id: 'mild', label: 'Mild', desc: 'Minor obstacles and everyday challenges' },
   { id: 'moderate', label: 'Moderate', desc: 'Persistent patterns and recurring issues' },
   { id: 'deep', label: 'Deep', desc: 'Profound wounds and life-changing difficulties' },
 ];
-
-const GENRE_BORDER_COLORS: Record<string, string> = {
-  healing: '#00A86B',
-  victory: '#dc143c',
-  alchemist: '#daa520',
-  fun_parable: '#6495ed',
-  dharani: '#8a2be2',
-  compassion: '#ff69b4',
-  wisdom: '#6495ed',
-  protection: '#228b22',
-};
-
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/^>\s+/gm, '')
-    .trim();
-}
 
 const GLOBAL_INTENTIONS: GlobalIntention[] = [
   { id: 'world peace', label: 'World Peace', planet: 'Jupiter', freq: '852Hz', icon: '🕊' },  // dove
@@ -355,9 +299,6 @@ export default function OutlookDashboard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [currentNarrative, setCurrentNarrative] = useState<CurrentNarrative | null>(null);
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
-  const [historyGenreFilter, setHistoryGenreFilter] = useState<string>('all');
-  const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('all');
-  const [historySearch, setHistorySearch] = useState('');
   const [copied, setCopied] = useState<boolean>(false);
   const [resultTab, setResultTab] = useState<ResultTab>('narrative');
   const [affirmation, setAffirmation] = useState<string | null>(null);
@@ -2354,210 +2295,17 @@ export default function OutlookDashboard() {
             HISTORY TAB
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'history' && (
-          <div className="space-y-4">
-            <Card size="small">
-              <Row justify="space-between" align="middle">
-                <Col>
-                  <Space>
-                    <History className="w-4 h-4 text-cyan-400" />
-                    <Text strong className="font-mono text-xs uppercase">Past Transmissions</Text>
-                    <Tag color="cyan">{historyList.length}</Tag>
-                  </Space>
-                </Col>
-                <Col>
-                  <Space>
-                    <Input.Search
-                      size="small"
-                      allowClear
-                      placeholder="Search transmissions…"
-                      style={{ width: 180 }}
-                      value={historySearch}
-                      onChange={(e) => setHistorySearch(e.target.value)}
-                    />
-                    <Select
-                      size="small"
-                      value={historyGenreFilter}
-                      onChange={setHistoryGenreFilter}
-                      style={{ width: 140 }}
-                      options={[
-                        { value: 'all', label: 'All Genres' },
-                        ...Array.from(new Set(historyList.map(h => h.genre).filter(Boolean))).map(g => ({ value: g!, label: g!.charAt(0).toUpperCase() + g!.slice(1) })),
-                      ]}
-                    />
-                    <Select
-                      size="small"
-                      value={historyTypeFilter}
-                      onChange={setHistoryTypeFilter}
-                      style={{ width: 110 }}
-                      options={[
-                        { value: 'all', label: 'All Types' },
-                        { value: 'single', label: 'Single' },
-                        { value: 'epic', label: 'Epic' },
-                      ]}
-                    />
-                    <Button size="small" icon={<RefreshCw className="w-3 h-3" />} onClick={fetchHistory}>Refresh</Button>
-                  </Space>
-                </Col>
-              </Row>
-            </Card>
-
-            {historyList.length === 0 ? (
-              <Card>
-                <Empty
-                  image={<Compass className="w-16 h-16" style={{ color: '#06b6d4', opacity: 0.4 }} />}
-                  description={
-                    <div>
-                      <Title level={4} style={{ color: '#94a3b8' }}>No Transmissions Yet</Title>
-                      <Text type="secondary">Create one in the Generator tab.</Text>
-                    </div>
-                  }
-                />
-              </Card>
-            ) : (
-              <Row gutter={[16, 16]}>
-                {historyList
-                  .filter(item => historyGenreFilter === 'all' || item.genre === historyGenreFilter)
-                  .filter(item => historyTypeFilter === 'all' || item.type === historyTypeFilter)
-                  .filter(item => {
-                    const needle = historySearch.trim().toLowerCase();
-                    if (!needle) return true;
-                    const hay = `${item.content || ''} ${item.entities_invoked || ''} ${item.genre || ''}`.toLowerCase();
-                    return hay.includes(needle);
-                  })
-                  .map((item, idx) => {
-                    const genre = item.genre || 'unknown';
-                    const genreColor = GENRE_COLORS[genre] || 'transparent';
-                    const borderColor = GENRE_BORDER_COLORS[genre] || '#334155';
-                    const rawContent = item.type === 'epic' ? 'Multi-stage epic narrative' : (item.content || '');
-                    const preview = stripMarkdown(rawContent);
-                    const date = item.date_generated ? new Date(item.date_generated) : null;
-                    return (
-                      <Col xs={24} md={12} lg={8} key={`hist-${idx}`}>
-                        <Card
-                          size="small"
-                          hoverable
-                          style={{
-                            background: genreColor,
-                            borderLeft: `3px solid ${borderColor}`,
-                            transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
-                          }}
-                          actions={[
-                            <Tooltip title="Load in Generator" key="load">
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<Play className="w-3 h-3" />}
-                                onClick={() => { loadHistoryItem(item); setActiveTab('generator'); audioFeedback.playClick(); }}
-                              />
-                            </Tooltip>,
-                            <Tooltip title="Copy text" key="copy">
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<Copy className="w-3 h-3" />}
-                                onClick={() => {
-                                  navigator.clipboard.writeText(item.content || '');
-                                  message.success('Copied narrative text.');
-                                  audioFeedback.playSuccess();
-                                }}
-                              />
-                            </Tooltip>,
-                            <Tooltip title="Save to archive" key="save">
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<Download className="w-3 h-3" />}
-                                onClick={() => {
-                                  const entry: SavedRitual = {
-                                    id: `ritual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-                                    savedAt: new Date().toISOString(),
-                                    genre: item.genre || 'unknown',
-                                    narrative: item.content || '',
-                                    divinationRaw: item.divination_raw || null,
-                                    entities: item.entities_invoked || null,
-                                    model: item.model_used || null,
-                                    provider: item.provider_used || null,
-                                  };
-                                  try {
-                                    const existing = JSON.parse(window.localStorage.getItem(SAVED_RITUALS_KEY) || '[]') as SavedRitual[];
-                                    window.localStorage.setItem(SAVED_RITUALS_KEY, JSON.stringify([entry, ...existing].slice(0, 50)));
-                                    message.success('Saved to local archive.');
-                                  } catch {
-                                    message.error('Could not save — storage full or disabled.');
-                                  }
-                                }}
-                              />
-                            </Tooltip>,
-                            <Popconfirm
-                              key="delete"
-                              title="Delete this transmission?"
-                              description="It will be removed from the ledger permanently."
-                              okText="Delete"
-                              okType="danger"
-                              cancelText="Keep"
-                              onConfirm={() => { void deleteHistoryItem(item); }}
-                            >
-                              <Button type="text" size="small" icon={<Trash2 className="w-3 h-3" />} danger />
-                            </Popconfirm>,
-                          ]}
-                        >
-                          <Card.Meta
-                            title={
-                              <Space size={4}>
-                                <Text strong className="capitalize" style={{ fontSize: 13 }}>{genre}</Text>
-                                <Tag color={item.type === 'epic' ? 'purple' : 'cyan'} style={{ fontSize: 9 }}>
-                                  {item.type === 'epic' ? 'EPIC' : 'SINGLE'}
-                                </Tag>
-                              </Space>
-                            }
-                            description={
-                              <div>
-                                <Paragraph
-                                  ellipsis={{ rows: 3 }}
-                                  style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, lineHeight: 1.5 }}
-                                >
-                                  {preview || '(empty)'}
-                                </Paragraph>
-                                <Space size={[8, 4]} wrap>
-                                  {date && (
-                                    <Text type="secondary" style={{ fontSize: 10 }}>
-                                      <Clock className="w-2.5 h-2.5 inline mr-1" />
-                                      {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </Text>
-                                  )}
-                                  {item.entities_invoked && (
-                                    <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      👤 {item.entities_invoked}
-                                    </Tag>
-                                  )}
-                                  {item.model_used && (
-                                    <Tooltip title={`Written by ${item.model_used}${item.provider_used ? ` via ${item.provider_used}` : ''}`}>
-                                      <Tag
-                                        color="geekblue"
-                                        style={{ fontSize: 9, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                      >
-                                        🤖 {item.model_used.split('/').pop()}
-                                      </Tag>
-                                    </Tooltip>
-                                  )}
-                                  {item.divination_context && (
-                                    <Tag style={{ fontSize: 9, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      🔮 {item.divination_context}
-                                    </Tag>
-                                  )}
-                                </Space>
-                              </div>
-                            }
-                          />
-                        </Card>
-                      </Col>
-                    );
-                  })}
-              </Row>
-            )}
-          </div>
+          <HistoryTab
+            historyList={historyList}
+            onRefresh={fetchHistory}
+            onDelete={(item) => deleteHistoryItem(item)}
+            onLoadInGenerator={(item) => {
+              loadHistoryItem(item);
+              setActiveTab('generator');
+              audioFeedback.playClick();
+            }}
+          />
         )}
-
         {activeTab === 'journey' && (
           <div className="max-w-2xl mx-auto">
             <JourneyCard />
