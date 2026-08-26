@@ -3,6 +3,55 @@
  * extracted Outlook tab components (Generator / Universe / History).
  */
 
+export interface Realm {
+  id: string | number;
+  name: string;
+  description?: string;
+  location_type?: string;
+  is_metaphysical?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  dimension_frequency?: number;
+  priority?: number;
+  realm_governor?: string;
+  celestial_coordinates?: string;
+  total_narratives_featured?: number;
+  timezone?: string;
+  astrological_anchor?: string;
+  elemental_affinity?: string;
+  source_type?: string;
+  [key: string]: unknown;
+}
+
+export interface Character {
+  id: string | number;
+  name: string;
+  description?: string;
+  role: string;
+  tags?: string[];
+  mantra_preference?: string;
+  elemental_anchor?: string;
+  total_narratives_featured?: number;
+  dialogue_style?: string;
+  priority?: number;
+  source_type?: string;
+  [key: string]: unknown;
+}
+
+export interface Population {
+  id: string | number;
+  name: string;
+  description?: string;
+  category?: string;
+  is_active?: boolean;
+  is_urgent?: boolean;
+  priority?: number;
+  intentions?: string[];
+  [key: string]: unknown;
+}
+
+export type UniverseTabId = 'realms' | 'characters' | 'populations';
+
 export const GENRE_COLORS: Record<string, string> = {
   healing: 'rgba(0, 168, 107, 0.05)',
   victory: 'rgba(220, 20, 60, 0.05)',
