@@ -10,6 +10,12 @@ import App from './App'
 import './index.css'
 import './styles/globals.css'
 
+// Suppress verbose console.log in production builds; warn/error stay visible.
+// The `logger.ts` utility is unaffected — it routes through these same methods.
+if (import.meta.env.PROD) {
+  console.log = () => {};
+}
+
 const rootElement: HTMLElement | null = document.getElementById('root');
 
 if (!rootElement) {
