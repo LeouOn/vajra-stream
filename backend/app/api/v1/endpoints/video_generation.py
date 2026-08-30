@@ -16,6 +16,7 @@ video is ready (and we auto-download it on success).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sqlite3
@@ -396,6 +397,14 @@ async def generate_video(request: GenerateRequest) -> dict[str, Any]:
 
     model_used = request.model or service.config["default_model"]
     cost_usd = MODEL_SPECS.get(model_used, {}).get("cost_usd", 0.0)
+
+    # Server-side completion watcher — polls + downloads even if the
+    # browser tab navigates away, so paid MiniMax output always lands
+    # on disk at generated/videos/.
+    asyncio.get_event_loop().create_task(
+        _watch_video_task(service, task_id, model_used)
+    )
+
     return {
         "status": "submitted",
         "task_id": task_id,
@@ -403,6 +412,36 @@ async def generate_video(request: GenerateRequest) -> dict[str, Any]:
         "cost_usd": cost_usd,
         "prompt": request.prompt,
     }
+
+
+async def _watch_video_task(service, task_id: str, model: str) -> None:
+    """Poll a video task in the background until done, then auto-download.
+
+    Interval matches the frontend poller (5 s); timeout matches the
+    configured poll_timeout_seconds so runaway tasks are bounded.
+    """
+    import asyncio
+
+    poll_interval = 5.0
+    max_wait = service.config.get("poll_timeout_seconds", 600)
+    deadline = asyncio.get_event_loop().time() + max_wait
+
+    while asyncio.get_event_loop().time() < deadline:
+        await asyncio.sleep(poll_interval)
+        try:
+            status = await service.poll_task(task_id, model)
+            if status.status == "done" and status.video_url:
+                try:
+                    await service.download_video(status.video_url)
+                    logger.info("Video %s auto-downloaded to %s", task_id, service.config["video_output_dir"])
+                except RuntimeError as exc:
+                    logger.warning("Auto-download failed for video %s: %s", task_id, exc)
+                return
+            if status.status == "failed":
+                logger.warning("Video %s failed on MiniMax side", task_id)
+                return
+        except Exception:
+            logger.debug("Background video poll error for %s", task_id, exc_info=True)
 
 
 @router.post("/status")
