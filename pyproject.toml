@@ -124,12 +124,19 @@ python_version = "3.10"
 strict = false
 warn_return_any = true
 warn_unused_configs = true
+# Repo root is the only package base: `core/` and `backend/core/` are two
+# distinct top-level packages (same for `app` vs `backend/app`). Without
+# this, mypy 2.x infers a second base at `backend/` and aborts with
+# "Duplicate module named" for every module under both trees.
+explicit_package_bases = true
 exclude = [
     "frontend/",
     "generated/",
     ".venv/",
     "node_modules/",
     "ai_integration_project*",
+    "build/",
+    "dist/",
 ]
 
 [[tool.mypy.overrides]]

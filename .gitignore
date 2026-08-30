@@ -103,6 +103,7 @@ tests/.pytest_tmp/
 
 # AI tooling
 .kilo/
+.reasonix/
 
 # Backend server logs (runtime artifacts)
 backend_server.err
