@@ -145,4 +145,18 @@ class Practice:
                 duration_sec=120,
                 mantra="Om vajrahum ah",
             ),
+            cls(
+                id="saka_dawa",
+                name="Saka Dawa Blessing",
+                genre="compassion",
+                merit_multiplier=35,
+                preferred_planetary_hours=["Moon", "Venus", "Jupiter"],
+                base_prompt_template=(
+                    "Compose a Saka Dawa dedication: honoring the birth, awakening, "
+                    "and parinirvana of the Buddha, multiplying merit through acts "
+                    "of compassion, recitation, and dedication to all beings."
+                ),
+                duration_sec=240,
+                mantra="OM MANI PADME HUM",
+            ),
         ]

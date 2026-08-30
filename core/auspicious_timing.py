@@ -760,7 +760,7 @@ def get_all_windows() -> dict[str, dict[str, Any]]:
 def _saka_practice_payload() -> dict[str, Any] | None:
     """Attach the Saka Dawa sadhana catalog entry when it exists."""
     try:
-        from core.models.practice import Practice
+        from core.practices.practice import Practice
 
         practices = Practice.get_default_practices()
         saka = next(
