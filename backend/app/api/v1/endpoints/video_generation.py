@@ -401,9 +401,7 @@ async def generate_video(request: GenerateRequest) -> dict[str, Any]:
     # Server-side completion watcher — polls + downloads even if the
     # browser tab navigates away, so paid MiniMax output always lands
     # on disk at generated/videos/.
-    asyncio.get_event_loop().create_task(
-        _watch_video_task(service, task_id, model_used)
-    )
+    asyncio.get_event_loop().create_task(_watch_video_task(service, task_id, model_used))
 
     return {
         "status": "submitted",
