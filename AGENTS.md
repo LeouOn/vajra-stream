@@ -205,6 +205,10 @@ Other useful one-shot scripts in `scripts/`:
 - `setup_database.py` (initial DB schema)
 - `scalar_wave_benchmark.py --method all --duration 3`
 
+> **scripts/ cleanup backlog:** see `docs/script-audit.md` for the
+> inventory of the remaining 25 files and the 13 deletion candidates
+> (8 recommended, 5 pending owner confirmation).
+
 ## PowerShell (Windows) Notes
 
 The default shell here is `powershell` (5.1). Three things that bite:

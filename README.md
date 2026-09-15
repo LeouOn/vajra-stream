@@ -108,8 +108,8 @@ python scripts/run_blessing.py --mode healing --chakra heart --duration 600
 # Continuous background blessing
 python scripts/run_blessing.py --continuous
 
-# Test prayer bowl audio vs original sine waves
-python scripts/test_prayer_bowl_audio.py
+# Test prayer bowl audio vs original sine waves (marked @pytest.mark.slow)
+pytest tests/unit/test_prayer_bowl_audio.py -v
 ```
 
 #### Python API
