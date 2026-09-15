@@ -31,8 +31,9 @@ from core import schema
 @pytest.mark.unit
 def test_module_imports_and_exports():
     """Module imports cleanly and exposes the public API."""
-    assert schema.SCHEMA_VERSION == 4
+    assert schema.SCHEMA_VERSION == 5
     assert isinstance(schema.SCHEMA_DESCRIPTION, str)
+    assert "astrological_snapshots" in schema.SCHEMA_DESCRIPTION
     assert "outlook_narratives" in schema.SCHEMA_DESCRIPTION
     assert "buddha_recitation_sessions" in schema.SCHEMA_DESCRIPTION
     assert "healing_dialogue_sessions" in schema.SCHEMA_DESCRIPTION

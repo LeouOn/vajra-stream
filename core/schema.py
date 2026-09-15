@@ -43,8 +43,11 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION: int = 4
+SCHEMA_VERSION: int = 5
 SCHEMA_DESCRIPTION: str = (
+    "v5: adds astrological_snapshots (moon phase, illumination, lunar "
+    "mansion, recommended frequencies) — written by "
+    "scripts/radionics_operation.py at the start of each broadcast. "
     "v4: adds model_used/provider_used (nullable) to outlook_narratives so "
     "History can badge which model wrote each narrative. "
     "v3: adds buddha_recitation_sessions (88-Buddha continuous recitation "
@@ -435,6 +438,28 @@ _TABLE_DDL: tuple[tuple[str, str], ...] = (
             FOREIGN KEY (session_id) REFERENCES blessing_sessions(id)
         )
         """,
+    ),
+    (
+        "astrological_snapshots",
+        """
+        CREATE TABLE IF NOT EXISTS astrological_snapshots (
+            id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp                TIMESTAMP NOT NULL,
+            moon_phase               TEXT,
+            moon_illumination        REAL,
+            lunar_mansion            TEXT,
+            recommended_frequencies   TEXT,
+            session_id               INTEGER
+        )
+        """,
+    ),
+    (
+        "astrological_snapshots_idx_timestamp",
+        "CREATE INDEX IF NOT EXISTS idx_astro_snapshots_ts ON astrological_snapshots (timestamp DESC)",
+    ),
+    (
+        "astrological_snapshots_idx_session",
+        "CREATE INDEX IF NOT EXISTS idx_astro_snapshots_session ON astrological_snapshots (session_id)",
     ),
     (
         "user_preferences",
