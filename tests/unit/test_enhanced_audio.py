@@ -7,6 +7,12 @@ NOTE: These tests play actual audio through the default output device
 and block on ``sd.wait()``. On headless CI runners (no audio device),
 ``sd.wait()`` can hang indefinitely. The ``@pytest.mark.slow`` marker
 excludes them from the default CI command (``pytest -m "not slow"``).
+
+Playback levels: each tone is scaled by ``_QUIET_GAIN`` (0.2) before
+``sd.play`` so the demo is quiet enough to run next to a normal
+workstation, and durations are kept short (1-2 s) so the full LFO sweep
+finishes in well under a minute. Bump these if you want to A/B audibly,
+but don't commit louder defaults.
 """
 
 import os
@@ -15,12 +21,12 @@ import sys
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import time
-
 import pytest
 import sounddevice as sd
 
 from core.enhanced_audio_generator import EnhancedAudioGenerator
+
+_QUIET_GAIN = 0.2
 
 
 @pytest.mark.slow
@@ -43,14 +49,11 @@ def test_lfo_modulation():
         for depth in lfo_depths:
             print(f"\nLFO Rate: {rate} Hz, Depth: {depth}")
 
-            # Generate 5-second tone with specific LFO
-            tone = gen.generate_prayer_bowl_tone(528, duration=5, pure_sine=False)
+            tone = gen.generate_prayer_bowl_tone(528, duration=1, pure_sine=False)
 
-            # Play the tone
             try:
-                sd.play(tone, 44100)
+                sd.play(tone * _QUIET_GAIN, 44100)
                 sd.wait()
-                time.sleep(1)
             except KeyboardInterrupt:
                 sd.stop()
                 print("\nTest interrupted by user.")
@@ -68,14 +71,13 @@ def test_harmonic_content():
 
     gen = EnhancedAudioGenerator()
 
-    # Test single frequency to hear harmonics
     print("\nTesting single frequency (528 Hz) for harmonic richness...")
     print("Listen for multiple harmonic overtones and metallic partials.\n")
 
-    tone = gen.generate_prayer_bowl_tone(528, duration=8, pure_sine=False)
+    tone = gen.generate_prayer_bowl_tone(528, duration=2, pure_sine=False)
 
     try:
-        sd.play(tone, 44100)
+        sd.play(tone * _QUIET_GAIN, 44100)
         sd.wait()
     except KeyboardInterrupt:
         sd.stop()
@@ -94,31 +96,26 @@ def test_adsr_envelope():
 
     gen = EnhancedAudioGenerator()
 
-    # Test with different envelope settings
     print("\nTesting different envelope configurations...")
     print("Listen for natural attack, decay, and release characteristics.\n")
 
-    # Test quick attack (percussive)
     print("\n1. Quick attack (like struck bowl)...")
-    tone1 = gen.generate_prayer_bowl_tone(528, duration=3, pure_sine=False)
+    tone1 = gen.generate_prayer_bowl_tone(528, duration=1, pure_sine=False)
 
     try:
-        sd.play(tone1, 44100)
+        sd.play(tone1 * _QUIET_GAIN, 44100)
         sd.wait()
-        time.sleep(1)
     except KeyboardInterrupt:
         sd.stop()
         print("\nTest interrupted by user.")
         return False
 
-    # Test slow attack (slow swelling)
     print("\n2. Slow attack (like swelling into sound)...")
-    tone2 = gen.generate_prayer_bowl_tone(528, duration=3, pure_sine=False)
+    tone2 = gen.generate_prayer_bowl_tone(528, duration=1, pure_sine=False)
 
     try:
-        sd.play(tone2, 44100)
+        sd.play(tone2 * _QUIET_GAIN, 44100)
         sd.wait()
-        time.sleep(1)
     except KeyboardInterrupt:
         sd.stop()
         print("\nTest interrupted by user.")

@@ -40,6 +40,25 @@ def _cmd(args, **kwargs):
     return subprocess.run(args, **kwargs)
 
 
+# Packages whose latest pinned version in requirements.txt has no wheel for
+# the current Python interpreter. Pre-flight skips them with an info note
+# instead of letting pip spam "ERROR: Could not find a version" lines for
+# every missing-but-uninstallable package.
+#
+# Add to this list when a package's release train hasn't caught up to a new
+# Python version. Don't remove entries until the package's pinned minimum
+# version publishes a matching wheel.
+_PYTHON_SKIP_PACKAGES: dict[tuple[int, int], frozenset[str]] = {
+    (3, 14): frozenset(
+        {
+            "kokoro-onnx",  # >=0.5.0 requires <3.14; 0.4.x is the last 3.14-compatible
+            "sherpa-onnx",  # >=0.5.0 requires <3.14
+            "llama-cpp-python",  # latest wheels require <3.14
+        }
+    ),
+}
+
+
 def _popen(args, **kwargs):
     kwargs.setdefault("cwd", SCRIPT_DIR)
     if sys.platform == "win32":
@@ -357,14 +376,34 @@ def preflight_checks():
                         except importlib.metadata.PackageNotFoundError:
                             missing.append(line)
 
-            if missing:
+            # Separate packages that simply have no wheel for this Python from
+            # genuinely-missing-but-installable ones. The skipped packages will
+            # be logged as informational; only the installable ones get pip.
+            skip_for_this_py = _PYTHON_SKIP_PACKAGES.get((sys.version_info.major, sys.version_info.minor), frozenset())
+            installable: list[str] = []
+            skipped: list[str] = []
+            for line in missing:
+                pkg_name = line.split(">=")[0].split("==")[0].split("~=")[0].strip().lower()
+                if pkg_name in skip_for_this_py:
+                    skipped.append(pkg_name)
+                else:
+                    installable.append(line)
+
+            if skipped:
                 print(
-                    f"[WARN] Missing {len(missing)} Python packages (e.g. {', '.join([m.split('>=')[0] for m in missing[:3]])})."
+                    f"[INFO] Skipping {len(skipped)} packages with no wheel for "
+                    f"Python {sys.version_info.major}.{sys.version_info.minor}: "
+                    f"{', '.join(sorted(skipped))}"
+                )
+
+            if installable:
+                print(
+                    f"[WARN] Missing {len(installable)} Python packages (e.g. {', '.join([m.split('>=')[0] for m in installable[:3]])})."
                 )
                 print("       Installing dependencies...")
                 _cmd([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
                 print("[OK] Python dependencies installed.")
-            else:
+            elif not skipped:
                 print("[OK] Python dependencies are satisfied.")
         except Exception as e:
             print(f"[WARN] Error verifying Python dependencies: {e}. Running pip install just in case...")

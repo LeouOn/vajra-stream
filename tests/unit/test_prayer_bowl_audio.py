@@ -8,6 +8,12 @@ audio and block until completion. On headless CI runners (no audio
 device), ``sd.wait()`` hangs indefinitely. Every test is therefore
 marked ``@pytest.mark.slow`` so the default CI command
 (``pytest -m "not slow"``) excludes them.
+
+Playback levels: each tone is scaled by ``_QUIET_GAIN`` (0.2) before
+``sd.play`` so the demo is quiet enough to run next to a normal
+workstation, and durations are kept short (1-2 s) so the full demo
+finishes in well under a minute. Bump these if you want to A/B
+audibly, but don't commit louder defaults.
 """
 
 import os
@@ -25,6 +31,8 @@ import sounddevice as sd
 from core.audio_generator import ScalarWaveGenerator
 from hardware.crystal_broadcaster import Level2CrystalBroadcaster, Level3AmplifiedBroadcaster
 
+_QUIET_GAIN = 0.2
+
 
 @pytest.mark.slow
 def test_single_frequency_comparison():
@@ -35,23 +43,21 @@ def test_single_frequency_comparison():
 
     gen = ScalarWaveGenerator()
     test_freq = 528  # Love frequency
-    duration = 8
+    duration = 2
 
     print(f"\nTesting {test_freq} Hz (Love frequency) for {duration} seconds each")
     print("\n1. Playing PRAYER BOWL synthesis (rich harmonics)...")
     print("   Listen for complex overtones and slow attack/decay")
 
     prayer_bowl_wave = gen.generate_prayer_bowl_tone(test_freq, duration, pure_sine=False)
-    sd.play(prayer_bowl_wave, samplerate=gen.sample_rate)
+    sd.play(prayer_bowl_wave * _QUIET_GAIN, samplerate=gen.sample_rate)
     sd.wait()
-
-    time.sleep(2)
 
     print("\n2. Playing PURE SINE wave (original)...")
     print("   Notice the simpler, cleaner tone")
 
     sine_wave = gen.generate_prayer_bowl_tone(test_freq, duration, pure_sine=True)
-    sd.play(sine_wave, samplerate=gen.sample_rate)
+    sd.play(sine_wave * _QUIET_GAIN, samplerate=gen.sample_rate)
     sd.wait()
 
     print("\nComparison complete! Notice the richer harmonic content in prayer bowl mode.")
@@ -66,23 +72,21 @@ def test_layered_frequencies():
 
     gen = ScalarWaveGenerator()
     frequencies = [(528, 0.4), (639, 0.3), (7.83, 0.3)]  # Love, connection, earth
-    duration = 10
+    duration = 2
 
     print(f"\nTesting layered frequencies: {frequencies}")
     print("\n1. Playing PRAYER BOWL synthesis...")
     print("   Listen for how multiple bowls interact harmonically")
 
     prayer_bowl_wave = gen.layer_frequencies(frequencies, duration, pure_sine=False)
-    sd.play(prayer_bowl_wave, samplerate=gen.sample_rate)
+    sd.play(prayer_bowl_wave * _QUIET_GAIN, samplerate=gen.sample_rate)
     sd.wait()
-
-    time.sleep(2)
 
     print("\n2. Playing PURE SINE waves...")
     print("   Notice the simpler interaction between tones")
 
     sine_wave = gen.layer_frequencies(frequencies, duration, pure_sine=True)
-    sd.play(sine_wave, samplerate=gen.sample_rate)
+    sd.play(sine_wave * _QUIET_GAIN, samplerate=gen.sample_rate)
     sd.wait()
 
     print("\nLayered comparison complete!")
@@ -96,7 +100,7 @@ def test_crystal_broadcaster_modes():
     print("=" * 60)
 
     intention = "Testing prayer bowl synthesis"
-    duration = 12
+    duration = 2
 
     print(f"\nIntention: {intention}")
     print(f"Duration: {duration} seconds per mode")
@@ -123,10 +127,8 @@ def test_crystal_broadcaster_modes():
     stereo_wave = np.column_stack([wave, wave])
 
     print("   Broadcasting prayer bowl synthesis through crystal grid...")
-    sd.play(stereo_wave, samplerate=broadcaster.sample_rate)
+    sd.play(stereo_wave * _QUIET_GAIN, samplerate=broadcaster.sample_rate)
     sd.wait()
-
-    time.sleep(2)
 
     print("\n2. Level 2 - PURE SINE waves...")
     broadcaster = Level2CrystalBroadcaster(pure_sine=True)
@@ -145,7 +147,7 @@ def test_crystal_broadcaster_modes():
     stereo_wave = np.column_stack([wave, wave])
 
     print("   Broadcasting pure sine waves through crystal grid...")
-    sd.play(stereo_wave, samplerate=broadcaster.sample_rate)
+    sd.play(stereo_wave * _QUIET_GAIN, samplerate=broadcaster.sample_rate)
     sd.wait()
 
     print("\nCrystal broadcaster comparison complete!")
@@ -161,7 +163,7 @@ def test_bass_shaker_optimization():
     print("\n1. PRAYER BOWL synthesis optimized for bass shaker...")
     broadcaster = Level3AmplifiedBroadcaster(pure_sine=False)
 
-    duration = 10
+    duration = 2
     frequencies = {
         "schumann": 7.83,
         "theta": 6.0,
@@ -186,10 +188,8 @@ def test_bass_shaker_optimization():
     stereo_wave = np.column_stack([wave, wave])
 
     print("   Notice the richer low-frequency content for tactile response")
-    sd.play(stereo_wave, samplerate=broadcaster.sample_rate)
+    sd.play(stereo_wave * _QUIET_GAIN, samplerate=broadcaster.sample_rate)
     sd.wait()
-
-    time.sleep(2)
 
     print("\n2. PURE SINE waves for bass shaker...")
     broadcaster = Level3AmplifiedBroadcaster(pure_sine=True)
@@ -209,7 +209,7 @@ def test_bass_shaker_optimization():
     stereo_wave = np.column_stack([wave, wave])
 
     print("   Notice the simpler low-frequency response")
-    sd.play(stereo_wave, samplerate=broadcaster.sample_rate)
+    sd.play(stereo_wave * _QUIET_GAIN, samplerate=broadcaster.sample_rate)
     sd.wait()
 
     print("\nBass shaker comparison complete!")
@@ -234,20 +234,18 @@ def interactive_frequency_test():
 
         try:
             freq = float(user_input)
-            duration = 6
+            duration = 1
 
             print(f"\nTesting {freq} Hz...")
 
             print("\n1. Prayer Bowl Synthesis:")
             prayer_wave = gen.generate_prayer_bowl_tone(freq, duration, pure_sine=False)
-            sd.play(prayer_wave, samplerate=gen.sample_rate)
+            sd.play(prayer_wave * _QUIET_GAIN, samplerate=gen.sample_rate)
             sd.wait()
-
-            time.sleep(1)
 
             print("2. Pure Sine Wave:")
             sine_wave = gen.generate_prayer_bowl_tone(freq, duration, pure_sine=True)
-            sd.play(sine_wave, samplerate=gen.sample_rate)
+            sd.play(sine_wave * _QUIET_GAIN, samplerate=gen.sample_rate)
             sd.wait()
 
         except ValueError:
