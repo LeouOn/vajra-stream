@@ -206,8 +206,8 @@ Other useful one-shot scripts in `scripts/`:
 - `scalar_wave_benchmark.py --method all --duration 3`
 
 > **scripts/ cleanup backlog:** see `docs/script-audit.md` for the
-> inventory of the remaining 25 files and the 13 deletion candidates
-> (8 recommended, 5 pending owner confirmation).
+> inventory of the remaining 25 files and the 9 deletion candidates
+> (8 recommended, 1 pending owner confirmation; re-evaluated 2026-09-15).
 
 ## PowerShell (Windows) Notes
 

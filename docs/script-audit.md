@@ -1,24 +1,31 @@
-# `scripts/` Audit — 2026-09-14
+# `scripts/` Audit — 2026-09-14 (re-evaluated 2026-09-15)
 
 Inventory + recommendations for the contents of `scripts/`. Generated from
 `git log --since="6 months ago"`, AST parsing, and grep across the repo for
 references. **No files were deleted by this audit** — it is a report only,
 to be acted on later.
 
+> **2026-09-15 re-evaluation:** verdicts re-derived against runtime evidence
+> (committed data artifacts, live endpoint callers, test dependencies).
+> Changes: `generate_iching_data.py` and `tts_narrator.py` moved to KEEP,
+> both Chinese-lore seeders moved to KEEP (unique curated content),
+> `create_test_populations.py` moved to DELETE-recommended (superseded by
+> committed `knowledge/blessing_populations/*.json` + the importer).
+
 ## Summary
 
 After the 2026-09-14 sweep, `scripts/` holds 25 files (~9,200 lines).
-**10 are live dependencies or have clear keepers status**; the other **15
-are candidates for deletion**, accounting for ~5,800 lines (~63% of
-`scripts/`).
+**14 are keepers**; **8 are recommended for deletion** (~2,700 lines);
+**1 is pending owner confirmation**.
 
 | Bucket | Count | Lines | Action |
 |---|---|---|---|
 | Documented entries (referenced in `README.md` / `AGENTS.md` / `START_HERE.md` / `OPERATIONS_GUIDE.md`) | 6 | 2,027 | KEEP |
 | Live import targets (imported by code outside `scripts/`) | 4 | 1,890 | KEEP |
 | Recently active (≥2 commits in last 6 months, has docstring, clear purpose) | 3 | 1,371 | KEEP, review next audit |
-| Suspicious cruft (no live use, stale, duplicates, missing docstrings) | 8 | ~3,300 | **DELETE (recommended)** |
-| Feature-coupled utilities (could be tied to a feature; ask before delete) | 5 | ~2,683 | ASK before delete |
+| Provenance / content scripts (re-evaluated 2026-09-15) | 4 | ~2,900 | KEEP |
+| Suspicious cruft (no live use, stale, duplicates, missing docstrings) | 8 | ~2,700 | **DELETE (recommended)** |
+| Feature-coupled utility (could be tied to a feature; ask before delete) | 1 | 584 | ASK before delete |
 
 ## Definite KEEP — 10 files
 
@@ -44,27 +51,29 @@ are candidates for deletion**, accounting for ~5,800 lines (~63% of
 
 | File | Lines | Why delete |
 |---|---|---|
-| `scripts/integrated_blessing.py` | 138 | Duplicates `run_blessing.py` (combined prayer bowl + visuals demo). 1 commit in last 6mo (style-only). |
+| `scripts/integrated_blessing.py` | 138 | Duplicates `run_blessing.py` (combined prayer bowl + visuals demo). 1 commit in last 6mo (style-only). No cross-imports. |
 | `scripts/holistic_blessing_run.py` | 197 | Demo script (the docstring literally says "Demonstrates the integration of…"). 3 commits in last 6mo but all style-only. No live import. |
-| `scripts/verify_narratives.py` | 39 | No docstring, no live import. 1 commit 4mo ago. |
-| `scripts/audit_modules.py` | 124 | Module-import check that's been superseded by pytest's collection. No live import. 1 commit 4mo ago. |
+| `scripts/verify_narratives.py` | 39 | Confirmed on read: bare ad-hoc `requests.post` probe against a running localhost backend; no docstring, no imports of it. |
+| `scripts/audit_modules.py` | 124 | Module-import check that's been superseded by pytest's collection (135-file import sweep runs in every CI pass). No live import. |
 | `scripts/astrocartography_analysis.py` | 525 | CLI analysis tool, last touched May 2026 for a style pass. No live import, no docs reference. |
 | `scripts/radionics_analysis.py` | 384 | CLI radionics analysis, same story as above. |
-| `scripts/vajra_stream_ui.py` | 481 | Terminal UI demo (`rich` + `questionary`). No live import, no docs reference. 2 style-only commits in 6mo. |
-| `scripts/generate_iching_data.py` | 1128 | **1128-line file with no module docstring** — code smell. Generates iching (易經) test data, no live import. Last touched July 2026. |
+| `scripts/vajra_stream_ui.py` | 481 | Terminal UI demo. **Confirmed broken**: line 429 shells out to `scripts/time_cycle_healer.py`, deleted in the 2026-09-14 sweep — its "Time Cycle" menu item now fails at runtime. |
+| `scripts/create_test_populations.py` | 308 | Superseded: all blessing populations are committed as `knowledge/blessing_populations/*.json` (12 files) and loaded by the kept `import_blessing_populations.py`. No test references it (verified). |
 
-## ASK before delete — 5 files (~2,700 lines)
+## KEEP — 4 provenance/content scripts (re-evaluated 2026-09-15)
 
-These could be tied to a feature I don't know about. Ask the user/feature
-owner before removing.
+| File | Lines | Why keep (changed verdict) |
+|---|---|---|
+| `scripts/generate_iching_data.py` | 1128 | Writes `knowledge/iching.json`, which is **committed and loaded at runtime** by `/api/v1/divination/iching/cast`. Deleting it removes the provenance/regeneration path for load-bearing data. Mirrors the kept `generate_tarot_art.py` pattern. Follow-up: add a module docstring (only smell). |
+| `scripts/tts_narrator.py` | 362 | Not superseded — it's the CLI layer over three live core modules (`core.blessing_narratives`, `core.time_cycle_broadcaster`, `core.tts_integration`). The lib alone has no CLI entry point. |
+| `scripts/seed_chinese_lore.py` | 701 | Contains **unique curated content** (Chinese mythological figures/locations) that exists nowhere else in the repo. `CharacterManager` persists to `~/.vajra-stream/characters.json`, which feeds live `/api/v1/outlook` character endpoints; the store is currently empty on a fresh install, so this seeder is the only way to populate it. |
+| `scripts/direct_seed_chinese_lore.py` | 728 | Same content rationale, direct-file variant (docstring says the manager path failed to persist historically). Keep until `seed_chinese_lore.py` is proven to persist reliably; consider extracting the shared lore data into `knowledge/` JSONs and collapsing the two scripts into one. |
+
+## ASK before delete — 1 file
 
 | File | Lines | What it does | Last touched |
 |---|---|---|---|
-| `scripts/blessing_manager.py` | 584 | Compassionate Blessing Manager CLI — manages blessing targets and dedicates mantras. Imported by no one now (was previously imported by `radionics_operation.py`). | 2026-05-21 |
-| `scripts/tts_narrator.py` | 362 | TTS narrator CLI for blessing stories/mantras/meditations. May be superseded by `core/tts_integration.py`. | 2026-05-30 |
-| `scripts/seed_chinese_lore.py` | 701 | Populates `CharacterManager` + `LocationManager` with Chinese mythological figures. Uses the proper API. | 2026-05-26 |
-| `scripts/create_test_populations.py` | 308 | Creates test populations (California, Myanmar, Congo) for the data-loading test. Likely a one-off dev utility. | 2026-05-26 |
-| `scripts/direct_seed_chinese_lore.py` | 728 | **Bypasses `CharacterManager`/`LocationManager`** ("bypasses the CharacterManager/LocationManager entirely to guarantee persistence") — looks like a workaround. Duplicates what `seed_chinese_lore.py` does, but via direct file I/O. | 2026-05-26 |
+| `scripts/blessing_manager.py` | 584 | Compassionate Blessing Manager CLI — manages blessing targets and dedicates mantras. Not imported by anything; overlaps with the HTTP surface (`/api/v1/blessings`, `blessing_targets`/`mantra_dedications` tables), but the mantra-dedication CLI flow may be unique. Wraps the kept `radionics_operation.py`. | 2026-05-21 |
 
 ## Already-removed (2026-09-14 sweep)
 
