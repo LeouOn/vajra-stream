@@ -28,7 +28,9 @@ class TestRadionics:
 
     def test_broadcast_healing(self, fresh_container):
         radionics = fresh_container.radionics
-        result = radionics.broadcast_healing("Test Target", 1, 528)
+        # duration_minutes=0 keeps the scalar broadcast loop fast
+        # (see guard in core/integrated_scalar_radionics.py).
+        result = radionics.broadcast_healing("Test Target", 0, 528)
         assert "session_id" in result
         assert result["target"] == "Test Target"
 

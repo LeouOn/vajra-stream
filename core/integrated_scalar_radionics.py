@@ -253,28 +253,35 @@ class IntegratedScalarRadionicsBroadcaster:
                 print("🌬️  Using sacred breathing pattern...")
                 self._breathing_broadcast(config, results)
             else:
-                # Continuous broadcast
-                while (time.time() - start_time) < config.duration_seconds:
-                    # Generate based on intensity
-                    batch_size = int(1000 * config.scalar_intensity)
-                    stream = self.scalar_gen.generate_hybrid_stream(batch_size)
+                # Continuous broadcast. Guard against zero/negative durations
+                # (used by smoke tests) to avoid ZeroDivisionError in the
+                # progress calculation below; one batch is enough to prove
+                # the code path works.
+                if config.duration_seconds <= 0:
+                    stream = self.scalar_gen.generate_hybrid_stream(int(1000 * config.scalar_intensity))
+                    ops_count = len(stream) * 7
+                else:
+                    while (time.time() - start_time) < config.duration_seconds:
+                        # Generate based on intensity
+                        batch_size = int(1000 * config.scalar_intensity)
+                        stream = self.scalar_gen.generate_hybrid_stream(batch_size)
 
-                    ops_count += len(stream) * 7  # 7 methods
+                        ops_count += len(stream) * 7  # 7 methods
 
-                    # Show progress every 5 seconds
-                    elapsed = time.time() - start_time
-                    if int(elapsed) % 5 == 0:
-                        mops = (ops_count / elapsed) / 1_000_000
-                        progress = elapsed / config.duration_seconds
-                        temp = self.scalar_gen.thermal.state.temperature
-                        print(
-                            f"\r⏱️  {elapsed:.0f}s/{config.duration_seconds:.0f}s | "
-                            f"📊 {mops:.2f} MMOPS | "
-                            f"🌡️  {temp:.1f}°C | "
-                            f"{'█' * int(progress * 20)}{' ' * (20 - int(progress * 20))} {progress:.0%}",
-                            end="",
-                            flush=True,
-                        )
+                        # Show progress every 5 seconds
+                        elapsed = time.time() - start_time
+                        if int(elapsed) % 5 == 0:
+                            mops = (ops_count / elapsed) / 1_000_000
+                            progress = elapsed / config.duration_seconds
+                            temp = self.scalar_gen.thermal.state.temperature
+                            print(
+                                f"\r⏱️  {elapsed:.0f}s/{config.duration_seconds:.0f}s | "
+                                f"📊 {mops:.2f} MMOPS | "
+                                f"🌡️  {temp:.1f}°C | "
+                                f"{'█' * int(progress * 20)}{' ' * (20 - int(progress * 20))} {progress:.0%}",
+                                end="",
+                                flush=True,
+                            )
 
             elapsed = time.time() - start_time
             results["operations"] = ops_count

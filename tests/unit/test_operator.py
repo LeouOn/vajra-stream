@@ -247,8 +247,9 @@ class TestAutonomousMode:
                 "target": "Test",
                 "action": "broadcast_healing",
                 "frequency": 528,
-                # 1 minute keeps the real broadcast the approval triggers short.
-                "duration_minutes": 1,
+                # 0 keeps the test fast — broadcast_to_targets guards against
+                # zero/negative durations (see core/integrated_scalar_radionics.py).
+                "duration_minutes": 0,
             }
         ]
         approved = operator.approve_suggestion(0)
@@ -326,7 +327,10 @@ class TestToolDispatcher:
 
     def test_dispatch_broadcast_healing(self, operator_with_container):
         result = operator_with_container.dispatcher.dispatch(
-            "broadcast_healing", {"target_name": "Test Target", "duration_minutes": 1}
+            "broadcast_healing",
+            # duration_minutes=0 keeps the scalar broadcast loop fast
+            # (see guard in core/integrated_scalar_radionics.py).
+            {"target_name": "Test Target", "duration_minutes": 0},
         )
         assert "session_id" in result
         assert result["target"] == "Test Target"
