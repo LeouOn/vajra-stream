@@ -2,8 +2,8 @@
 
 Inventory + recommendations for the contents of `scripts/`. Generated from
 `git log --since="6 months ago"`, AST parsing, and grep across the repo for
-references. **No files were deleted by this audit** — it is a report only,
-to be acted on later.
+references. The 2026-09-14 report recommended deletions; the re-evaluation
+and implementation happened 2026-09-15 (deletions are recorded below).
 
 > **2026-09-15 re-evaluation:** verdicts re-derived against runtime evidence
 > (committed data artifacts, live endpoint callers, test dependencies).
@@ -14,9 +14,8 @@ to be acted on later.
 
 ## Summary
 
-After the 2026-09-14 sweep, `scripts/` holds 25 files (~9,200 lines).
-**14 are keepers**; **8 are recommended for deletion** (~2,700 lines);
-**1 is pending owner confirmation**.
+After the 2026-09-15 implementation sweep, `scripts/` holds **17 files**.
+**14 are keepers**; **1 is pending owner confirmation** (`blessing_manager.py`).
 
 | Bucket | Count | Lines | Action |
 |---|---|---|---|
@@ -24,7 +23,6 @@ After the 2026-09-14 sweep, `scripts/` holds 25 files (~9,200 lines).
 | Live import targets (imported by code outside `scripts/`) | 4 | 1,890 | KEEP |
 | Recently active (≥2 commits in last 6 months, has docstring, clear purpose) | 3 | 1,371 | KEEP, review next audit |
 | Provenance / content scripts (re-evaluated 2026-09-15) | 4 | ~2,900 | KEEP |
-| Suspicious cruft (no live use, stale, duplicates, missing docstrings) | 8 | ~2,700 | **DELETE (recommended)** |
 | Feature-coupled utility (could be tied to a feature; ask before delete) | 1 | 584 | ASK before delete |
 
 ## Definite KEEP — 10 files
@@ -47,9 +45,12 @@ After the 2026-09-14 sweep, `scripts/` holds 25 files (~9,200 lines).
 - `scripts/run_88_buddhas_3x.py` (243 lines) — runs 3 cycles of the 88-Buddha liturgy; 3 commits, ties into `core/practice_engine.py`.
 - `scripts/smoke_image_generation.py` (84 lines) — image-endpoint smoke test; 2 recent commits.
 
-## DELETE recommended — 8 files (~3,300 lines)
+## DELETE recommended — 8 files (~2,200 lines) — **REMOVED 2026-09-15**
 
-| File | Lines | Why delete |
+All 8 were deleted in the implementation sweep. Their filenames are locked
+out of `PROJECT_STRUCTURE.md` by `tests/unit/test_docs_no_ghost_paths.py`.
+
+| File | Lines | Why deleted |
 |---|---|---|
 | `scripts/integrated_blessing.py` | 138 | Duplicates `run_blessing.py` (combined prayer bowl + visuals demo). 1 commit in last 6mo (style-only). No cross-imports. |
 | `scripts/holistic_blessing_run.py` | 197 | Demo script (the docstring literally says "Demonstrates the integration of…"). 3 commits in last 6mo but all style-only. No live import. |
@@ -57,7 +58,7 @@ After the 2026-09-14 sweep, `scripts/` holds 25 files (~9,200 lines).
 | `scripts/audit_modules.py` | 124 | Module-import check that's been superseded by pytest's collection (135-file import sweep runs in every CI pass). No live import. |
 | `scripts/astrocartography_analysis.py` | 525 | CLI analysis tool, last touched May 2026 for a style pass. No live import, no docs reference. |
 | `scripts/radionics_analysis.py` | 384 | CLI radionics analysis, same story as above. |
-| `scripts/vajra_stream_ui.py` | 481 | Terminal UI demo. **Confirmed broken**: line 429 shells out to `scripts/time_cycle_healer.py`, deleted in the 2026-09-14 sweep — its "Time Cycle" menu item now fails at runtime. |
+| `scripts/vajra_stream_ui.py` | 481 | Terminal UI demo. **Confirmed broken**: line 429 shells out to `scripts/time_cycle_healer.py`, deleted in the 2026-09-14 sweep — its "Time Cycle" menu item fails at runtime. Superseded by the web frontend; the `run.py ui` command and its `START_HERE.md` / `OPERATIONS_GUIDE.md` bullets were removed alongside. |
 | `scripts/create_test_populations.py` | 308 | Superseded: all blessing populations are committed as `knowledge/blessing_populations/*.json` (12 files) and loaded by the kept `import_blessing_populations.py`. No test references it (verified). |
 
 ## KEEP — 4 provenance/content scripts (re-evaluated 2026-09-15)

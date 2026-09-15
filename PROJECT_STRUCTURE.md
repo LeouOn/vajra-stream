@@ -332,15 +332,14 @@ knowledge/
 
 ## Scripts (`scripts/`)
 
-Utility and orchestration scripts (35 Python files).
+Utility and orchestration scripts (17 Python files).
 
 ```
 scripts/
 ├── unified_orchestrator.py        # Main orchestrator
 ├── vajra_orchestrator.py
-├── astrocartography_analysis.py   # CLI tool for astrocartography
 ├── radionics_operation.py
-└── ... (35 total utility scripts)
+└── ... (14 more utility scripts)
 ```
 
 ## Tests (`tests/`)

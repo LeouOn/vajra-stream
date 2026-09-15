@@ -205,9 +205,9 @@ Other useful one-shot scripts in `scripts/`:
 - `setup_database.py` (initial DB schema)
 - `scalar_wave_benchmark.py --method all --duration 3`
 
-> **scripts/ cleanup backlog:** see `docs/script-audit.md` for the
-> inventory of the remaining 25 files and the 9 deletion candidates
-> (8 recommended, 1 pending owner confirmation; re-evaluated 2026-09-15).
+> **scripts/ cleanup backlog:** see `docs/script-audit.md` — the 2026-09
+> sweeps removed 38 files total; 17 remain, with 1 deletion candidate
+> still pending owner confirmation (`blessing_manager.py`).
 
 ## PowerShell (Windows) Notes
 

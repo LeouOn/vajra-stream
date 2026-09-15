@@ -252,15 +252,6 @@ def run_benchmark(duration=3):
         print("ERROR: scripts/scalar_wave_benchmark.py not found")
 
 
-def run_ui():
-    print("Launching terminal UI...")
-    ui_script = SCRIPT_DIR / "scripts" / "vajra_stream_ui.py"
-    if ui_script.exists():
-        _cmd([sys.executable, str(ui_script)])
-    else:
-        print("ERROR: scripts/vajra_stream_ui.py not found")
-
-
 def show_status():
     print("Vajra.Stream System Status")
     print("=" * 50)
@@ -491,7 +482,7 @@ Examples:
         "command",
         nargs="?",
         default="full",
-        choices=["serve", "frontend", "full", "test", "install", "status", "benchmark", "ui", "help"],
+        choices=["serve", "frontend", "full", "test", "install", "status", "benchmark", "help"],
     )
 
     parser.add_argument("--host", default="0.0.0.0")
@@ -523,8 +514,6 @@ Examples:
         show_status()
     elif args.command == "benchmark":
         run_benchmark(duration=args.duration)
-    elif args.command == "ui":
-        run_ui()
 
     return 0
 

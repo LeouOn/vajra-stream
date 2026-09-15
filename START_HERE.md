@@ -28,7 +28,6 @@ All commands available:
 - `python run.py test` — Run test suite
 - `python run.py install` — Install Python dependencies
 - `python run.py benchmark` — Run scalar wave benchmark
-- `python run.py ui` — Launch terminal UI
 
 Windows users can also use `vajra.bat` instead of `python run.py`:
 - `vajra.bat serve`

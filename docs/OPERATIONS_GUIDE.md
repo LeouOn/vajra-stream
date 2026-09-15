@@ -49,7 +49,6 @@ Run the unified script wrapper to control individual nodes or start everything:
 - `python run.py frontend` — Starts the React development server on port `3009`.
 - `python run.py status` — Performs a diagnostic check of processes and ports.
 - `python run.py test` — Runs the system integration test suite.
-- `python run.py ui` — Launches the interactive terminal user interface.
 
 ### Radionics Operation Script (`scripts/radionics_operation.py`)
 Run customized radionics intentions directly from the terminal:

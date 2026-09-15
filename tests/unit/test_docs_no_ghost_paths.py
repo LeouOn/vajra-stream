@@ -63,6 +63,17 @@ GHOST_REFERENCES: list[tuple[str, str]] = [
     # --- tests/README.md: deleted test files (lines 14-15) ---
     ("tests/README.md", "test_integration_phase2.py"),
     ("tests/README.md", "test_api_endpoints.py"),
+    # --- PROJECT_STRUCTURE.md: scripts removed in the 2026-09 audit sweep
+    # (see docs/script-audit.md; bare filenames so both "scripts/x.py" and
+    # unprefixed mentions are caught) ---
+    ("PROJECT_STRUCTURE.md", "integrated_blessing.py"),
+    ("PROJECT_STRUCTURE.md", "holistic_blessing_run.py"),
+    ("PROJECT_STRUCTURE.md", "verify_narratives.py"),
+    ("PROJECT_STRUCTURE.md", "audit_modules.py"),
+    ("PROJECT_STRUCTURE.md", "astrocartography_analysis.py"),
+    ("PROJECT_STRUCTURE.md", "radionics_analysis.py"),
+    ("PROJECT_STRUCTURE.md", "vajra_stream_ui.py"),
+    ("PROJECT_STRUCTURE.md", "create_test_populations.py"),
 ]
 
 
