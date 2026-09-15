@@ -4,16 +4,27 @@ Speaks prayers, mantras, and teachings
 Converts generated text to spoken audio for meditation and practice
 """
 
+import logging
 import os
 import time
 
 import pyttsx3
+
+logger = logging.getLogger(__name__)
 
 
 class TTSEngine:
     """
     Text-to-speech engine for dharma content
     Speaks prayers, mantras, teachings with appropriate pacing and tone
+
+    ``pyttsx3.init()`` requires a system TTS driver (espeak / espeak-ng /
+    NSSpeechSynthesizer / SAPI5). On hosts without one — e.g. headless
+    CI runners — the driver import raises ``RuntimeError``. We catch that
+    so importing :mod:`core.tts_engine` (and any module that pulls it in
+    transitively, like ``backend.core.services.vajra_service``) doesn't
+    take down the whole process. All ``speak*`` methods short-circuit
+    when ``self.engine is None``.
     """
 
     def __init__(self, rate: int = 150, volume: float = 0.9, voice_index: int = 0):
@@ -25,19 +36,34 @@ class TTSEngine:
             volume: Volume level (0.0 to 1.0)
             voice_index: Which voice to use (0 = default, try different indices for different voices)
         """
-        self.engine = pyttsx3.init()
+        self.engine = None
+        try:
+            self.engine = pyttsx3.init()
+        except Exception as e:
+            logger.warning("TTS engine unavailable (%s); speak() calls will be no-ops.", e)
+            self.rate = rate
+            self.volume = volume
+            return
 
         # Set properties
         self.engine.setProperty("rate", rate)
         self.engine.setProperty("volume", volume)
 
         # Try to set voice
-        voices = self.engine.getProperty("voices")
-        if voice_index < len(voices):
-            self.engine.setProperty("voice", voices[voice_index].id)
+        try:
+            voices = self.engine.getProperty("voices")
+            if voice_index < len(voices):
+                self.engine.setProperty("voice", voices[voice_index].id)
+        except Exception as e:
+            logger.warning("TTS voice selection failed (%s); using default voice.", e)
 
         self.rate = rate
         self.volume = volume
+
+    @property
+    def available(self) -> bool:
+        """``True`` when a live pyttsx3 engine was successfully created."""
+        return self.engine is not None
 
     def speak(self, text: str, blocking: bool = True):
         """
@@ -47,6 +73,8 @@ class TTSEngine:
             text: Text to speak
             blocking: Wait for speech to finish
         """
+        if self.engine is None:
+            return
         self.engine.say(text)
 
         if blocking:
@@ -81,9 +109,12 @@ class TTSEngine:
         Args:
             mantra: Mantra text
             repetitions: How many times to repeat
-            pause_between: Pause between repetitions
+            pause_between: Seconds to pause between repetitions
             rate_override: Override default rate for this mantra
         """
+        if self.engine is None:
+            return
+
         # Slow down for mantras
         original_rate = self.rate
 
@@ -113,6 +144,9 @@ class TTSEngine:
             prayer: Prayer text (can be multi-line)
             pause_per_line: Seconds to pause after each line
         """
+        if self.engine is None:
+            return
+
         # Very slow for prayers
         original_rate = self.rate
         self.engine.setProperty("rate", int(self.rate * 0.6))
@@ -141,15 +175,19 @@ class TTSEngine:
     def adjust_rate(self, rate: int):
         """Adjust speaking rate"""
         self.rate = rate
-        self.engine.setProperty("rate", rate)
+        if self.engine is not None:
+            self.engine.setProperty("rate", rate)
 
     def adjust_volume(self, volume: float):
         """Adjust volume (0.0 to 1.0)"""
         self.volume = volume
-        self.engine.setProperty("volume", volume)
+        if self.engine is not None:
+            self.engine.setProperty("volume", volume)
 
     def list_available_voices(self) -> list[dict]:
         """Get information about available voices"""
+        if self.engine is None:
+            return []
         voices = self.engine.getProperty("voices")
 
         voice_list = []
@@ -169,6 +207,8 @@ class TTSEngine:
 
     def set_voice_by_index(self, index: int):
         """Change voice by index"""
+        if self.engine is None:
+            return False
         voices = self.engine.getProperty("voices")
         if 0 <= index < len(voices):
             self.engine.setProperty("voice", voices[index].id)

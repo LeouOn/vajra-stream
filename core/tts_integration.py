@@ -373,7 +373,14 @@ class TTSNarrator:
         self.voice = voice
 
     def _init_engine(self, engine_type: TTSEngineType) -> TTSEngine:
-        """Initialize TTS engine with fallback"""
+        """Initialize TTS engine with fallback.
+
+        ``AUTO`` always succeeds by falling back to the :class:`EdgeTTSEngine`
+        stub when neither ``pyttsx3`` nor ``gTTS`` is usable. Callers that
+        need real audio should check :meth:`TTSEngine.is_available` on the
+        returned engine before calling :meth:`synthesize` — the stub raises
+        ``RuntimeError`` instead of producing bytes.
+        """
 
         # Try requested engine or auto-select
         if engine_type == TTSEngineType.AUTO:
@@ -391,7 +398,11 @@ class TTSNarrator:
                 print("✓ Using gTTS (online) engine")
                 return GTTSEngine()
 
-            raise RuntimeError("No TTS engine available. Install pyttsx3 + espeak or gTTS.")
+            # Last resort: the EdgeTTSEngine stub. Synthesis will raise if
+            # called, but the contract surface is satisfied so callers can
+            # introspect voices / list engines without crashing the process.
+            print("⚠ No real TTS engine available; falling back to EdgeTTSEngine stub.")
+            return EdgeTTSEngine()
 
         elif engine_type == TTSEngineType.PYTTSX3:
             if not HAS_PYTTSX3:
