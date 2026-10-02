@@ -10,12 +10,11 @@ Covers:
 
 DB isolation
 ------------
-The tests use a fresh SQLite file under ``tests/.pytest_tmp/`` (not the real
-``vajra_stream.db``). The redirect is performed by setting the
-``DATABASE_URL`` env var **before** any module that instantiates
-``backend.app.config.settings`` is imported, so pydantic-settings picks up
-our test path on first construction. The env var name is whatever the rest
-of the test stack uses (the app's :class:`Settings` reads ``DATABASE_URL``).
+The tests use a fresh SQLite file under ``tests/integration/.pytest_tmp/`` (not the real
+``vajra_stream.db``). When run alone, setting ``DATABASE_URL`` here redirects
+``backend.app.config.settings`` on first import. In a full test run,
+``tests/conftest.py`` already redirects ``DATABASE_URL`` to a temp DB before any
+backend import, so the live ``vajra_stream.db`` is protected either way.
 """
 
 from __future__ import annotations
@@ -23,13 +22,12 @@ from __future__ import annotations
 import os
 
 # ---------------------------------------------------------------------------
-# CRITICAL: redirect the DB BEFORE the app is imported.
+# DB isolation: redirect DB when module is run in isolation
 # ---------------------------------------------------------------------------
-# pydantic-settings reads env vars on first instantiation of the Settings
-# class, and that happens the first time `backend.app.config.settings` is
-# imported — which happens transitively when `backend.app.main` is loaded
-# below. We must set DATABASE_URL before any `from backend.app...` line
-# executes, so we do it at the top of this module.
+# Setting DATABASE_URL here takes effect only when this module is the first to
+# import backend.app.config (running it alone). In a full test run,
+# tests/conftest.py already redirects DATABASE_URL to a temp DB before any
+# backend import, so the live vajra_stream.db is protected either way.
 _TMP_DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".pytest_tmp")
 os.makedirs(_TMP_DB_DIR, exist_ok=True)
 _TEST_DB_PATH = os.path.abspath(os.path.join(_TMP_DB_DIR, "test_extraction.db"))

@@ -102,6 +102,7 @@ line-length = 120
 exclude = [
     "ai_integration_project/**",
     "scratch/**",
+    ".claude/**",
 ]
 
 [tool.ruff.lint]

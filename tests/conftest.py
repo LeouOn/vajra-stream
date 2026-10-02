@@ -1,6 +1,75 @@
+import atexit
+import os
+import shutil
+import sys
+import tempfile
+
 import pytest
 
 from infrastructure.event_bus import EnhancedEventBus
+
+# ---------------------------------------------------------------------------
+# Test-suite DB isolation — the suite must NEVER touch vajra_stream.db
+# ---------------------------------------------------------------------------
+# `backend/app/api/v1/endpoints/outlook.py` calls `core.schema.init_db()` at
+# *import* time, and `core.schema.get_db_path()` resolves
+# `settings.DATABASE_URL` (default `sqlite:///./vajra_stream.db`, i.e. the
+# live DB in the repo root). Several endpoints build their db_path the same
+# way (`agent_suggestions.py:15`, `locations.py:53`). So merely *importing*
+# the backend during a test run migrates the real database — which is how the
+# live file acquired a v6 `_schema_version` row mid-cycle.
+#
+# Why the env var, set here, at conftest import time:
+#   `backend/app/config.py` builds `settings = Settings()` at *module import*
+#   time, and pydantic-settings resolves fields once, on construction. That
+#   object is frozen for the life of the process — later mutations of
+#   os.environ cannot move it. pytest imports tests/conftest.py before it
+#   imports any test module, so setting DATABASE_URL here is early enough to
+#   win that race for every backend import in the suite.
+#
+#   Note precisely what this does and does not do for
+#   `tests/integration/test_extraction.py`, whose own DATABASE_URL assignment
+#   (line 42) is silently ineffective in a full-suite run: tests/backend/
+#   test_config.py imports `backend.app.config` at module level and
+#   tests/backend is collected before tests/integration, so settings has
+#   already frozen by the time test_extraction.py is imported. In full-suite
+#   order the app therefore still uses the conftest temp DB set here — which
+#   is the point: the live file is off limits either way. test_extraction.py
+#   only gets its own per-module DB when it is the first thing to import the
+#   backend (e.g. run on its own); this block does not restore that ordering.
+#
+#   Scope limit: DATABASE_URL does NOT cover every DB consumer in this repo.
+#   `image_generation.py:82` and `video_generation.py:78` read a different
+#   variable, VAJRA_DB_PATH, which nothing here sets. `BlessingDatabase`
+#   (core/compassionate_blessings.py:275) defaults `db_path="vajra_stream.db"`
+#   as a literal and opens `sqlite3.connect(self.db_path)` for every data
+#   operation, bypassing get_db_path() entirely; only its schema
+#   initialization routes through core.schema.init_db(). Both remain live-DB
+#   reachable and are out of scope for this block.
+#
+# The four slashes are required, not a typo: `get_db_path()` strips the
+# literal `sqlite:///` prefix and only keeps the remainder when the result is
+# absolute. A three-slash URL would resolve relative to the project root and
+# hand us back the live file. This matches the construction already used by
+# tests/integration/test_extraction.py.
+#
+# The override is unconditional — a developer's or CI's own DATABASE_URL must
+# not be able to point the suite at real data. Nothing in tests/ reads the
+# live DB: tests/core/healing_dialogue/test_service.py monkeypatches
+# `core.schema.get_db_path` to its own tmp_path, and the remainder were
+# verified by grep to only *mention* vajra_stream.db in comments. So no
+# opt-in escape hatch is offered; one would only weaken the guarantee.
+_TEST_DB_DIR = tempfile.mkdtemp(prefix="vajra-test-db-")
+TEST_DB_PATH = os.path.join(_TEST_DB_DIR, "vajra_stream.db")
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
+
+
+def _cleanup_test_db_dir() -> None:
+    """Remove the session temp DB directory when the pytest process exits."""
+    shutil.rmtree(_TEST_DB_DIR, ignore_errors=True)
+
+
+atexit.register(_cleanup_test_db_dir)
 
 
 @pytest.fixture
@@ -210,3 +279,105 @@ def _no_external_llm_spend(request, monkeypatch):
         f"{request.node.nodeid} made REAL external LLM call(s): {', '.join(violations)}. "
         "Mock the LLM/registry in this test — live external calls belong in tests/e2e/."
     )
+
+
+# ---------------------------------------------------------------------------
+# Silent audio by default — tests must not play through the speakers
+# ---------------------------------------------------------------------------
+# tests/unit/test_enhanced_audio.py, test_prayer_bowl_audio.py and
+# test_intelligent_composition.py do `import sounddevice as sd` at module level
+# and then call sd.play/sd.wait/sd.stop against the real output device. They
+# scale their samples by _QUIET_GAIN (0.2), which is an attenuation, not a
+# mute — on a machine with a real sound card the suite is still audible.
+# (This box has six output devices; `sd.query_devices()` confirms it.)
+#
+# The stub replaces attributes on the sounddevice MODULE OBJECT rather than
+# swapping sys.modules["sounddevice"]. That matters because every production
+# caller reaches sounddevice as `import sounddevice as sd` followed by
+# attribute access at call time (core/audio_generator.py:41,
+# core/enhanced_audio_generator.py:27, core/buddha_recitation_loop.py:319,
+# backend/core/services/vajra_service.py:201) — there is no `from sounddevice
+# import play` binding anywhere in the repo, so module-attribute patching is
+# sufficient and complete for those call sites.
+#
+# tests/core/* is unaffected: those tests inject their own MagicMock via
+# `patch.dict(sys.modules, ...)` AND `patch.object(<consumer>, "sd", mock)`,
+# so they never reach the real module. Their assertions on mock_sd.play are
+# therefore untouched by this fixture.
+#
+# Only the four call-level functions are stubbed. OutputStream/Stream are
+# deliberately left alone: grep found no usage in tests/ or in production, and
+# substituting a plain function for a class would break isinstance() and the
+# context-manager protocol for any future test that did use them.
+#
+# Set VAJRA_TEST_AUDIO=1 to leave sounddevice completely untouched (the tests'
+# own _QUIET_GAIN then applies). That path is verified by inspection only —
+# never by actually playing audio.
+#
+# Recorded calls describe their arguments by shape/type rather than by value:
+# sd.play receives whole numpy waveforms, and retaining those would pin
+# megabytes of sample data in memory for the life of the session.
+_TEST_AUDIO_ENV = "VAJRA_TEST_AUDIO"
+_AUDIO_STUB_CALLS: list[dict[str, object]] = []
+_AUDIO_STUB_TARGETS = ("play", "playrec", "wait", "stop")
+
+
+def _describe_audio_call(name: str, args: tuple, kwargs: dict) -> dict[str, object]:
+    """Summarise an intercepted sounddevice call without retaining audio data."""
+    described: list[object] = []
+    for value in args:
+        shape = getattr(value, "shape", None)
+        if shape is not None:
+            described.append(f"ndarray{tuple(shape)}")
+        elif isinstance(value, int | float | str | bool | type(None)):
+            described.append(value)
+        else:
+            described.append(type(value).__name__)
+    return {"call": name, "args": described, "kwargs": sorted(kwargs)}
+
+
+@pytest.fixture
+def audio_stub_calls() -> list[dict[str, object]]:
+    """Calls intercepted by _silence_test_audio so far this session.
+
+    Empty when VAJRA_TEST_AUDIO=1 — in that mode nothing is patched and any
+    playback is real, so absence of entries means "not intercepted", not
+    "no audio happened".
+    """
+    return _AUDIO_STUB_CALLS
+
+
+@pytest.fixture(autouse=True)
+def _silence_test_audio(monkeypatch):
+    """No-op sounddevice.play/playrec/wait/stop unless VAJRA_TEST_AUDIO=1.
+
+    Autouse so no test can reach the speakers by accident. Restored per test
+    by monkeypatch. Resolves sounddevice from sys.modules first and only falls
+    back to importing it, so a missing PortAudio install (or a box without a
+    sound card) degrades to doing nothing instead of failing collection.
+    """
+    if os.environ.get(_TEST_AUDIO_ENV) == "1":
+        yield
+        return
+
+    sd = sys.modules.get("sounddevice")
+    if sd is None:
+        try:
+            import sounddevice as sd
+        except Exception:
+            # No PortAudio / not installed / no sound card: nothing to silence.
+            yield
+            return
+
+    for target in _AUDIO_STUB_TARGETS:
+        if not hasattr(sd, target):
+            continue
+
+        def _stub(*args, __name=target, **kwargs):
+            _AUDIO_STUB_CALLS.append(_describe_audio_call(__name, args, kwargs))
+
+        _stub.__name__ = f"stub_sounddevice_{target}"
+        _stub.__doc__ = f"Test stub: records and discards sounddevice.{target}()."
+        monkeypatch.setattr(sd, target, _stub)
+
+    yield

@@ -43,8 +43,12 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION: int = 5
+SCHEMA_VERSION: int = 6
 SCHEMA_DESCRIPTION: str = (
+    "v6: adds llm_generations and generated_visuals, written by "
+    "scripts/radionics_operation.py (_save_llm_generation, _save_visual); "
+    "they had no DDL so both writers failed with 'no such table', swallowed "
+    "behind a printed warning. "
     "v5: adds astrological_snapshots (moon phase, illumination, lunar "
     "mansion, recommended frequencies) — written by "
     "scripts/radionics_operation.py at the start of each broadcast. "
@@ -460,6 +464,40 @@ _TABLE_DDL: tuple[tuple[str, str], ...] = (
     (
         "astrological_snapshots_idx_session",
         "CREATE INDEX IF NOT EXISTS idx_astro_snapshots_session ON astrological_snapshots (session_id)",
+    ),
+    (
+        "llm_generations",
+        """
+        CREATE TABLE IF NOT EXISTS llm_generations (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id     INTEGER,
+            prompt_type    TEXT,
+            prompt_text    TEXT,
+            generated_text TEXT,
+            model_used     TEXT,
+            timestamp      TIMESTAMP
+        )
+        """,
+    ),
+    (
+        "llm_generations_idx_session",
+        "CREATE INDEX IF NOT EXISTS idx_llm_generations_session ON llm_generations (session_id)",
+    ),
+    (
+        "generated_visuals",
+        """
+        CREATE TABLE IF NOT EXISTS generated_visuals (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER,
+            intention  TEXT,
+            filepath   TEXT,
+            created_at TIMESTAMP
+        )
+        """,
+    ),
+    (
+        "generated_visuals_idx_session",
+        "CREATE INDEX IF NOT EXISTS idx_generated_visuals_session ON generated_visuals (session_id)",
     ),
     (
         "user_preferences",

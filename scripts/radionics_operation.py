@@ -619,7 +619,7 @@ class RadionicsOperation:
                 INSERT INTO sessions (session_type, start_time, intention, settings)
                 VALUES (?, ?, ?, ?)
             """,
-                ("radionics_broadcast", datetime.now(), intention, f"duration={duration}"),
+                ("radionics_broadcast", datetime.now().isoformat(sep=" "), intention, f"duration={duration}"),
             )
 
             self.session_id = cursor.lastrowid
@@ -645,10 +645,17 @@ class RadionicsOperation:
                 """
                 INSERT INTO astrological_snapshots
                 (timestamp, moon_phase, moon_illumination, lunar_mansion,
-                 recommended_frequencies)
-                VALUES (?, ?, ?, ?, ?)
+                 recommended_frequencies, session_id)
+                VALUES (?, ?, ?, ?, ?, ?)
             """,
-                (datetime.now(), moon_phase, moon_illum, nakshatra, ",".join(map(str, frequencies))),
+                (
+                    datetime.now().isoformat(sep=" "),
+                    moon_phase,
+                    moon_illum,
+                    nakshatra,
+                    ",".join(map(str, frequencies)),
+                    self.session_id,
+                ),
             )
 
             conn.commit()
@@ -678,7 +685,7 @@ class RadionicsOperation:
                     prompt,
                     generated,
                     self.llm.model_name if self.llm else "none",
-                    datetime.now(),
+                    datetime.now().isoformat(sep=" "),
                 ),
             )
 
@@ -702,7 +709,7 @@ class RadionicsOperation:
                 (session_id, intention, filepath, created_at)
                 VALUES (?, ?, ?, ?)
             """,
-                (self.session_id, intention, filepath, datetime.now()),
+                (self.session_id, intention, filepath, datetime.now().isoformat(sep=" ")),
             )
 
             conn.commit()
@@ -723,7 +730,7 @@ class RadionicsOperation:
                 """
                 UPDATE sessions SET end_time = ? WHERE id = ?
             """,
-                (datetime.now(), self.session_id),
+                (datetime.now().isoformat(sep=" "), self.session_id),
             )
 
             conn.commit()
