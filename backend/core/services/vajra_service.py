@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 import time
 from datetime import datetime
 
@@ -112,6 +113,21 @@ class VajraStreamService:
         # Background broadcast loop for live radionics + scalar data
         self._broadcast_task: asyncio.Task | None = None
 
+        # Direct-playback stop control (see stop_playback / _start_playback_thread).
+        # _playback_epoch is bumped by every Stop, so a playback worker that was
+        # queued just before a Stop fails its start gate and never becomes
+        # audible. _playback_pending counts spawned workers that have not yet
+        # passed that gate (released exactly once on every worker/spawn exit
+        # path). _playback_active counts workers that passed the gate and are
+        # inside sd.play/sd.wait — only a worker that incremented it may
+        # decrement it, so a cancelled worker cannot clear another worker's
+        # active state. The lock is an RLock so the one-shot pending-release
+        # helper can nest inside the start-gate block.
+        self._playback_lock = threading.RLock()
+        self._playback_epoch = 0
+        self._playback_pending = 0
+        self._playback_active = 0
+
         print("Vajra.Stream Service ready!")
 
     async def generate_prayer_bowl_audio(self, config: AudioConfig) -> np.ndarray:
@@ -192,107 +208,30 @@ class VajraStreamService:
         t = np.linspace(0, config.duration, int(sample_rate * config.duration), False)
         return np.sin(config.frequency * 2 * np.pi * t) * config.volume
 
-    async def broadcast_audio(self, audio_data: np.ndarray, hardware_level: int = 2) -> bool:
-        """Broadcast audio using existing crystal broadcasters"""
+    async def broadcast_audio(
+        self, audio_data: np.ndarray, hardware_level: int = 2, *, stop_epoch_floor: int | None = None
+    ) -> bool:
+        """Broadcast audio using existing crystal broadcasters.
+
+        ``stop_epoch_floor`` is the playback epoch captured when the caller
+        REQUESTED this broadcast (see current_playback_epoch); a worker whose
+        spawn sees a later epoch (a Stop landed between request and spawn) is
+        gated off instead of becoming audible.
+        """
         try:
-            # Import sounddevice for direct audio playback
-            import threading
-
-            import sounddevice as sd
-
             if ENHANCED_MODE:
                 if hardware_level == 2 and self.level2_broadcaster:
                     print("Broadcasting with Level 2 Crystal Broadcaster")
-
-                    # Play audio directly through sounddevice
-                    def play_audio():
-                        try:
-                            # Convert to stereo if needed
-                            if audio_data.ndim == 1:
-                                stereo_audio = np.column_stack([audio_data, audio_data])
-                            else:
-                                stereo_audio = audio_data
-
-                            sd.play(stereo_audio, samplerate=44100)
-                            sd.wait()
-                        except Exception as e:
-                            print(f"Error in audio playback: {e}")
-
-                    # Play in background thread
-                    playback_thread = threading.Thread(target=play_audio)
-                    playback_thread.daemon = True
-                    playback_thread.start()
-
-                    success = True
                 elif hardware_level == 3 and self.level3_broadcaster:
                     print("Broadcasting with Level 3 Crystal Broadcaster")
-
-                    # Play audio directly through sounddevice
-                    def play_audio():
-                        try:
-                            # Convert to stereo if needed
-                            if audio_data.ndim == 1:
-                                stereo_audio = np.column_stack([audio_data, audio_data])
-                            else:
-                                stereo_audio = audio_data
-
-                            sd.play(stereo_audio, samplerate=44100)
-                            sd.wait()
-                        except Exception as e:
-                            print(f"Error in audio playback: {e}")
-
-                    # Play in background thread
-                    playback_thread = threading.Thread(target=play_audio)
-                    playback_thread.daemon = True
-                    playback_thread.start()
-
-                    success = True
                 else:
                     print(f"Hardware level {hardware_level} not available, using direct audio playback")
-
-                    # Direct audio playback fallback
-                    def play_audio():
-                        try:
-                            # Convert to stereo if needed
-                            if audio_data.ndim == 1:
-                                stereo_audio = np.column_stack([audio_data, audio_data])
-                            else:
-                                stereo_audio = audio_data
-
-                            sd.play(stereo_audio, samplerate=44100)
-                            sd.wait()
-                        except Exception as e:
-                            print(f"Error in audio playback: {e}")
-
-                    # Play in background thread
-                    playback_thread = threading.Thread(target=play_audio)
-                    playback_thread.daemon = True
-                    playback_thread.start()
-
-                    success = True
             else:
                 # Direct audio playback in basic mode
                 print("Playing audio directly through system speakers")
 
-                def play_audio():
-                    try:
-                        # Convert to stereo if needed
-                        if audio_data.ndim == 1:
-                            stereo_audio = np.column_stack([audio_data, audio_data])
-                        else:
-                            stereo_audio = audio_data
-
-                        sd.play(stereo_audio, samplerate=44100)
-                        sd.wait()
-                    except Exception as e:
-                        print(f"Error in audio playback: {e}")
-
-                # Play in background thread
-                playback_thread = threading.Thread(target=play_audio)
-                playback_thread.daemon = True
-                playback_thread.start()
-
-                success = True
+            # All branches play through the same gated direct-playback worker.
+            success = self._start_playback_thread(audio_data, stop_epoch_floor)
 
             if success:
                 print("Audio broadcast successful - playing through system speakers")
@@ -308,6 +247,144 @@ class VajraStreamService:
         except Exception as e:
             print(f"Error broadcasting audio: {e}")
             return False
+
+    def _release_pending_once(self, release_state: dict) -> None:
+        """Release this spawn's pending count exactly once, on any exit path.
+
+        Must be called with ``_playback_lock`` held (RLock, so nesting inside
+        the start-gate block is safe). Shared between the worker body and the
+        spawn-failure rollback in _start_playback_thread so the count can
+        never be released twice for one spawn.
+        """
+        if not release_state["released"]:
+            release_state["released"] = True
+            self._playback_pending -= 1
+
+    def _start_playback_thread(self, audio_data: np.ndarray, stop_epoch_floor: int | None = None) -> bool:
+        """Spawn the daemon worker for this service's direct sounddevice playback.
+
+        The worker re-checks the playback epoch under ``_playback_lock``
+        immediately before ``sd.play`` (the start gate), so a worker queued
+        just before ``stop_playback()`` can never become audible afterwards.
+        ``stop_epoch_floor`` (the epoch at REQUEST time) additionally gates
+        off a worker whose spawn happened after a Stop that landed between
+        the request and the spawn. Returns False only when the thread itself
+        could not be created/started (pending rolled back, nothing spawned).
+        """
+        import sounddevice as sd
+
+        with self._playback_lock:
+            epoch = self._playback_epoch
+            self._playback_pending += 1
+
+        # One-shot release state shared by the worker's exit paths and the
+        # spawn-failure rollback below: whichever runs first releases the
+        # pending count exactly once.
+        release_state = {"released": False}
+
+        def play_audio():
+            owns_active = False
+            try:
+                # Convert to stereo if needed (may raise, e.g. MemoryError,
+                # before any lock is taken; the finally still releases pending).
+                if audio_data.ndim == 1:
+                    stereo_audio = np.column_stack([audio_data, audio_data])
+                else:
+                    stereo_audio = audio_data
+
+                # Start gate: hold the lock across check-then-play so it is
+                # atomic with respect to stop_playback()'s epoch bump. sd.play
+                # only queues the stream (non-blocking); the blocking sd.wait
+                # runs OUTSIDE the lock so Stop can always take it.
+                with self._playback_lock:
+                    self._release_pending_once(release_state)
+                    if self._playback_epoch != epoch or (
+                        stop_epoch_floor is not None and self._playback_epoch > stop_epoch_floor
+                    ):
+                        print("Playback skipped: stop requested before playback start")
+                        return
+                    sd.play(stereo_audio, samplerate=44100)
+                    owns_active = True
+                    self._playback_active += 1
+                sd.wait()
+            except Exception as e:
+                print(f"Error in audio playback: {e}")
+            finally:
+                with self._playback_lock:
+                    self._release_pending_once(release_state)
+                    if owns_active:
+                        # Only a worker that passed the gate and called sd.play
+                        # may release active ownership — a cancelled worker
+                        # must not clear a LATER worker's active state.
+                        self._playback_active -= 1
+
+        try:
+            # Play in background thread
+            playback_thread = threading.Thread(target=play_audio)
+            playback_thread.daemon = True
+            playback_thread.start()
+        except Exception as e:
+            # Thread creation/start failed: no worker can ever run, so take
+            # the pending count back (one-shot prevents a double release).
+            print(f"Error starting audio playback thread: {e}")
+            with self._playback_lock:
+                self._release_pending_once(release_state)
+            return False
+        return True
+
+    def stop_playback(self) -> dict[str, object]:
+        """Stop this service's DIRECT sounddevice playback and report what happened.
+
+        Bumps the playback epoch (so any worker queued but not yet past its
+        start gate skips instead of playing), calls ``sd.stop()`` to cut the
+        current stream, and returns what it found. Harmless when nothing is
+        playing; repeated calls are safe. Generated samples
+        (``current_audio_data``) are intentionally KEPT so replay stays
+        available after a Stop.
+
+        Scope (ADR 001): this covers only VajraStreamService's own direct
+        ``sd.play``/``sd.wait`` playback threads — the paths behind
+        ``/api/v1/audio/*`` and the websocket audio flow. It does NOT cancel
+        other audio producers: ``modules/audio.py`` AudioService (the
+        RadionicsOperator LLM-tool path), ritual/recitation loops, or TTS
+        engines each own their own output.
+
+        Returns a dict with ``was_playing`` (any worker is inside
+        sd.play/sd.wait and the stream was cut), ``pending_cancelled``
+        (workers queued but never started, now gated off) and
+        ``sd_stop_error`` (None on success, else a description — including
+        when sounddevice itself is unavailable).
+        """
+        with self._playback_lock:
+            self._playback_epoch += 1
+            was_playing = self._playback_active > 0
+            pending = self._playback_pending
+
+        sd_stop_error: str | None = None
+        try:
+            import sounddevice as sd
+
+            sd.stop()
+        except Exception as e:  # includes sounddevice missing entirely
+            sd_stop_error = f"{type(e).__name__}: {e}"
+
+        return {
+            "was_playing": was_playing,
+            "pending_cancelled": pending,
+            "sd_stop_error": sd_stop_error,
+        }
+
+    def current_playback_epoch(self) -> int:
+        """Current playback epoch (bumped by every stop_playback call).
+
+        Callers that request playback now but run it later — e.g. POST
+        /audio/play scheduling broadcast_audio as a FastAPI BackgroundTask —
+        capture this value at request time and pass it as
+        ``stop_epoch_floor`` so a Stop landing between the request and the
+        spawn still gates the playback off.
+        """
+        with self._playback_lock:
+            return self._playback_epoch
 
     async def create_session(
         self,

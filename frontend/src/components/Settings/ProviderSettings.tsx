@@ -26,6 +26,7 @@ import {
   Activity, Server, AlertTriangle, CheckCircle2, Cpu, Boxes, Image as ImageIcon, Radio,
 } from 'lucide-react';
 import { useWebSocketStable, type LLMUsageUpdate } from '../../hooks/useWebSocketStable';
+import type { ProviderHealthStatus } from '../../types';
 import UsageDashboard from './UsageDashboard';
 import ModelManager from './ModelManager';
 import ImageSettingsPanel from './ImageSettingsPanel';
@@ -67,39 +68,80 @@ export default function ProviderSettings() {
     usageUpdate,
     lastUsageUpdateAt,
   };
+  const [httpProviders, setHttpProviders] = useState<ProviderHealthStatus[] | null>(null);
+  const [httpFetchError, setHttpFetchError] = useState<string | null>(null);
   const [initialFetchAttempted, setInitialFetchAttempted] = useState<boolean>(false);
 
   /**
-    * One-shot initial fetch — backfills the table before the first WS push.
-    * On failure we just log; the WS stream is the authoritative source.
-    * We deliberately do not lift the response into local state because the
-    * WS hook's `providerHealth` is the single source of truth for this view.
-    */
-  const fetchHealthOnce = useCallback(async (): Promise<void> => {
-    try {
-      const res = await fetch(apiUrl(`/llm/providers/health`));
-      if (!res.ok) {
+   * Determine if a genuine WebSocket push has arrived.
+   * The hook records arrival via lastProviderHealthUpdate (Date.now()), or
+   * providerHealth contains items. An empty array with lastProviderHealthUpdate
+   * set is a genuine empty push.
+   */
+  const hasReceivedPush =
+    lastProviderHealthUpdate !== null ||
+    (providerHealth != null && providerHealth.length > 0);
+
+  /**
+   * One-shot initial fetch — backfills the table before the first WS push.
+   * Parses the { providers: [...] } envelope from /api/v1/llm/providers/health.
+   */
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchHealthOnce = async (): Promise<void> => {
+      try {
+        const res = await fetch(apiUrl('/llm/providers/health'));
+        if (!isMounted) return;
+
+        if (!res.ok) {
+          console.warn(
+            'ProviderSettings: initial health fetch non-OK status',
+            res.status,
+          );
+          setHttpFetchError(`HTTP ${res.status}${res.statusText ? `: ${res.statusText}` : ''}`);
+          return;
+        }
+
+        const data = await res.json();
+        if (!isMounted) return;
+
+        const providersList: ProviderHealthStatus[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.providers)
+            ? data.providers
+            : [];
+        setHttpProviders(providersList);
+        setHttpFetchError(null);
+      } catch (err: unknown) {
+        if (!isMounted) return;
         console.warn(
-          'ProviderSettings: initial health fetch non-OK status',
-          res.status,
+          'ProviderSettings: initial health fetch failed, relying on WS',
+          err,
         );
+        setHttpFetchError((err as Error)?.message || 'Network request failed');
+      } finally {
+        if (isMounted) {
+          setInitialFetchAttempted(true);
+        }
       }
-    } catch (err) {
-      console.warn(
-        'ProviderSettings: initial health fetch failed, relying on WS',
-        err,
-      );
-    } finally {
-      setInitialFetchAttempted(true);
-    }
+    };
+
+    fetchHealthOnce();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    fetchHealthOnce();
-  }, [fetchHealthOnce]);
+  // Push data takes precedence once received (including a genuine empty push).
+  // While awaiting the first push, fall back to initial HTTP response.
+  const activeProviders: ProviderHealthStatus[] = hasReceivedPush
+    ? (providerHealth || [])
+    : (httpProviders || []);
 
-  // Build table rows from the live WS state.
-  const dataSource: ProviderHealthRow[] = (providerHealth || []).map((p, idx) => ({
+  // Build table rows from active provider health state.
+  const dataSource: ProviderHealthRow[] = activeProviders.map((p, idx) => ({
     key: p.provider || idx,
     provider: p.provider,
     healthy: p.healthy,
@@ -250,12 +292,21 @@ export default function ProviderSettings() {
                             <Empty
                               image={Empty.PRESENTED_IMAGE_SIMPLE}
                               description={
-                                <Space orientation="vertical" size={2}>
-                                  <Text type="secondary">No providers registered</Text>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>
-                                    Configure provider credentials to populate the registry.
-                                  </Text>
-                                </Space>
+                                !hasReceivedPush && httpFetchError ? (
+                                  <Space orientation="vertical" size={2}>
+                                    <Text type="danger">Failed to fetch provider health</Text>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                      {httpFetchError}
+                                    </Text>
+                                  </Space>
+                                ) : (
+                                  <Space orientation="vertical" size={2}>
+                                    <Text type="secondary">No providers registered</Text>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                      Configure provider credentials to populate the registry.
+                                    </Text>
+                                  </Space>
+                                )
                               }
                             />
                           ),

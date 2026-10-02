@@ -37,7 +37,11 @@ vi.mock('../../hooks/useWebSocketStable', () => ({
 const fetchSpy = vi.fn();
 beforeEach(() => {
   fetchSpy.mockReset();
-  fetchSpy.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+  fetchSpy.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ providers: [], healthy_count: 0, total_count: 0 }),
+  });
   (globalThis as any).fetch = fetchSpy;
 });
 
@@ -173,5 +177,232 @@ describe('ProviderSettings', () => {
     ];
     renderPage();
     expect(container.textContent).toContain('2 / 3 providers healthy');
+  });
+
+  it('renders HTTP rows before any WebSocket push arrives', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        providers: [
+          {
+            provider: 'http-ollama',
+            healthy: true,
+            latency_ms: 45,
+            models_available: 3,
+            error: null,
+          },
+        ],
+        healthy_count: 1,
+        total_count: 1,
+      }),
+    });
+    renderPage();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain('http-ollama');
+    expect(container.textContent).toContain('1 / 1 providers healthy');
+    expect(container.textContent).toContain('45ms');
+    expect(container.textContent).toContain('Healthy');
+  });
+
+  it('retains newer push data when a deferred HTTP response resolves late', async () => {
+    let resolveDeferredFetch!: (val: any) => void;
+    const deferredPromise = new Promise((resolve) => {
+      resolveDeferredFetch = resolve;
+    });
+    fetchSpy.mockReturnValue(deferredPromise);
+
+    renderPage();
+
+    // Deliver a newer push before HTTP resolves
+    act(() => {
+      wsState.lastProviderHealthUpdate = Date.now();
+      wsState.providerHealth = [
+        {
+          provider: 'ws-provider-fast',
+          healthy: true,
+          latency_ms: 15,
+          models_available: 2,
+          error: null,
+        },
+      ];
+      root.render(
+        <ConfigProvider theme={{ algorithm: antdTheme.darkAlgorithm }}>
+          <MemoryRouter>
+            <ProviderSettings />
+          </MemoryRouter>
+        </ConfigProvider>,
+      );
+    });
+
+    expect(container.textContent).toContain('ws-provider-fast');
+
+    // Resolve deferred HTTP response with different provider data
+    await act(async () => {
+      resolveDeferredFetch({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          providers: [
+            {
+              provider: 'stale-http-provider',
+              healthy: true,
+              latency_ms: 999,
+              models_available: 1,
+              error: null,
+            },
+          ],
+        }),
+      });
+      await Promise.resolve();
+    });
+
+    // Newer push data must remain, stale HTTP response must not overwrite
+    expect(container.textContent).toContain('ws-provider-fast');
+    expect(container.textContent).not.toContain('stale-http-provider');
+  });
+
+  it('gives precedence to a genuine empty push over initial HTTP rows', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        providers: [
+          {
+            provider: 'initial-http-provider',
+            healthy: true,
+            latency_ms: 60,
+            models_available: 4,
+            error: null,
+          },
+        ],
+      }),
+    });
+
+    renderPage();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain('initial-http-provider');
+
+    // A genuine empty push lands
+    act(() => {
+      wsState.lastProviderHealthUpdate = Date.now();
+      wsState.providerHealth = [];
+      root.render(
+        <ConfigProvider theme={{ algorithm: antdTheme.darkAlgorithm }}>
+          <MemoryRouter>
+            <ProviderSettings />
+          </MemoryRouter>
+        </ConfigProvider>,
+      );
+    });
+
+    // Genuine empty push wins over initial HTTP rows
+    expect(container.textContent).not.toContain('initial-http-provider');
+    expect(container.textContent).toContain('0 / 0 providers healthy');
+    expect(container.textContent).toContain('No providers registered');
+  });
+
+function getAllByText(rootEl: HTMLElement, text: string): HTMLElement[] {
+  return Array.from(rootEl.querySelectorAll('*')).filter(
+    (el) => el.children.length === 0 && (el.textContent || '').includes(text)
+  ) as HTMLElement[];
+}
+
+  it('shows error state on non-OK response distinctly from no providers registered', async () => {
+    fetchSpy.mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+      json: async () => ({}),
+    });
+
+    renderPage();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getAllByText(container, 'Failed to fetch provider health')).toHaveLength(1);
+    expect(getAllByText(container, 'HTTP 503')).toHaveLength(1);
+    expect(container.textContent).not.toContain('No providers registered');
+  });
+
+  it('shows error state on network failure distinctly from no providers registered', async () => {
+    fetchSpy.mockRejectedValue(new Error('Network connection failed'));
+
+    renderPage();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(getAllByText(container, 'Failed to fetch provider health')).toHaveLength(1);
+    expect(getAllByText(container, 'Network connection failed')).toHaveLength(1);
+    expect(container.textContent).not.toContain('No providers registered');
+  });
+
+  it('handles unmount before fetch resolves without throwing or warning', async () => {
+    const errorSpy = vi.spyOn(console, 'error');
+    const warnSpy = vi.spyOn(console, 'warn');
+
+    const healthJsonSpy = vi.fn().mockResolvedValue({
+      providers: [
+        {
+          provider: 'unmounted-provider',
+          healthy: true,
+          latency_ms: 10,
+          models_available: 1,
+          error: null,
+          last_checked: 0,
+        },
+      ],
+    });
+
+    let resolveHealthPending!: (val: any) => void;
+    fetchSpy.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/llm/providers/health')) {
+        return new Promise((res) => { resolveHealthPending = res; });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+    });
+
+    renderPage();
+
+    act(() => {
+      root.unmount();
+      root = createRoot(container);
+    });
+
+    await act(async () => {
+      resolveHealthPending({
+        ok: true,
+        status: 200,
+        json: healthJsonSpy,
+      });
+      await Promise.resolve();
+    });
+
+    // Deterministic proof: response was not decoded after unmount
+    expect(healthJsonSpy).not.toHaveBeenCalled();
+
+    // Assert no React unmounted component warning was logged
+    const unmountedErrors = errorSpy.mock.calls.filter(([msg]) =>
+      typeof msg === 'string' && msg.includes('unmounted')
+    );
+    expect(unmountedErrors).toHaveLength(0);
+
+    const unmountedWarns = warnSpy.mock.calls.filter(([msg]) =>
+      typeof msg === 'string' && msg.includes('unmounted')
+    );
+    expect(unmountedWarns).toHaveLength(0);
+
+    errorSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });

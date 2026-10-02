@@ -141,10 +141,20 @@ async def play_audio(request: PlayRequest, background_tasks: BackgroundTasks):
         audio_length = len(vajra_service.current_audio_data) if vajra_service.current_audio_data is not None else 0
         logger.info(f"🔍 Audio data length: {audio_length} samples")
 
+        # Capture the playback epoch at REQUEST time: if a Stop lands between
+        # this request and the background task actually spawning its worker,
+        # the worker's start gate still refuses to become audible (the
+        # BackgroundTask race — see VajraStreamService.current_playback_epoch).
+        stop_epoch_floor = vajra_service.current_playback_epoch()
+
         # Play audio in background
         async def play_background():
             try:
-                success = await vajra_service.broadcast_audio(vajra_service.current_audio_data, request.hardware_level)
+                success = await vajra_service.broadcast_audio(
+                    vajra_service.current_audio_data,
+                    request.hardware_level,
+                    stop_epoch_floor=stop_epoch_floor,
+                )
                 if success:
                     logger.info("✅ Audio playback completed successfully")
                 else:
@@ -171,16 +181,54 @@ async def play_audio(request: PlayRequest, background_tasks: BackgroundTasks):
 
 @router.post("/stop")
 async def stop_audio():
-    """Stop audio playback"""
+    """Stop direct audio playback from the canonical VajraStreamService.
+
+    Stops this service's own sounddevice playback only (ADR 001); other
+    audio producers (modules/audio.py, ritual or LLM-tool audio) are not
+    cancelled by this endpoint.
+    """
     try:
         logger.info("🛑 Audio stop request")
 
-        # Note: This would need to be implemented in the actual hardware interface
-        # For now, we'll just log the request
-        logger.info("✅ Audio stop request processed")
+        from backend.core.services.vajra_service import vajra_service
 
-        return {"status": "success", "message": "Audio stop request processed"}
+        result = vajra_service.stop_playback()
 
+        sd_stop_error = result.get("sd_stop_error")
+        if sd_stop_error:
+            logger.error(f"❌ Audio stop failed to stop sounddevice output: {sd_stop_error}")
+            raise HTTPException(status_code=500, detail=f"Audio stop failed: {sd_stop_error}")
+
+        was_playing = bool(result.get("was_playing"))
+        pending = int(result.get("pending_cancelled") or 0)
+
+        # "status" stays "success" at the HTTP level (the request was served,
+        # matching every other route on this router and the frontend contract);
+        # the stopped-vs-nothing-playing truth is carried by "stopped" and
+        # friends below.
+        if was_playing or pending:
+            logger.info(f"✅ Audio stopped (was_playing={was_playing}, pending_cancelled={pending})")
+            return {
+                "status": "success",
+                "stopped": True,
+                "was_playing": was_playing,
+                "pending_cancelled": pending,
+                "message": "Audio playback stopped"
+                if was_playing
+                else "Pending playback cancelled before it became audible",
+            }
+
+        logger.info("✅ Audio stop request processed: nothing was playing")
+        return {
+            "status": "success",
+            "stopped": False,
+            "was_playing": False,
+            "pending_cancelled": 0,
+            "message": "Nothing was playing",
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Audio stop error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

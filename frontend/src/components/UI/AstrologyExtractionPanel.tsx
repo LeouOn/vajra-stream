@@ -1,7 +1,8 @@
 /**
  * AstrologyExtractionPanel — Sweep extraction configuration UI.
- * Tabs: Setup, Sweep, Results, Replay. Only the Setup tab is implemented
- * in this revision; the remaining tabs are placeholders.
+ * Tabs: Setup, Sweep, Results, Replay — all implemented. Replay lists saved
+ * runs from the paginated GET /astrology/runs envelope ({limit, offset,
+ * total, runs}) and its View action selects the run and opens Results.
  */
 import { apiUrl } from '../../utils/api';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -118,25 +119,59 @@ const DATE_MODES: SelectOption[] = [
   { value: 'astro_events', label: 'Astronomical Events' },
 ];
 
+const unwrapRuns = (data: unknown): RunRecord[] | null => {
+  const toRecords = (list: unknown[]): RunRecord[] =>
+    list.filter((r): r is RunRecord => !!r && typeof r === 'object');
+  if (Array.isArray(data)) {
+    return toRecords(data);
+  }
+  if (data && typeof data === 'object') {
+    const runs = (data as { runs?: unknown }).runs;
+    if (Array.isArray(runs)) {
+      return toRecords(runs);
+    }
+  }
+  return null;
+};
+
 const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const fetchSeqRef = useRef(0);
   const addToast = useUIStore((s) => s.addToast);
 
   const fetchRuns = async () => {
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
+    setError(null);
     try {
       const r = await fetch(apiUrl(`/astrology/runs`));
-      if (r.ok) setRuns(await r.json());
+      if (seq !== fetchSeqRef.current) return; // stale response — a newer request owns the state
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data: unknown = await r.json();
+      if (seq !== fetchSeqRef.current) return;
+      // Paginated envelope {limit, offset, total, runs}; a bare array is
+      // tolerated; anything else falls back to an empty list without rows.
+      setRuns(unwrapRuns(data) ?? []);
     } catch (e: unknown) {
-      const err = e as Error;
-      addToast({ type: 'error', title: 'Failed to load runs: ' + err.message, duration: 5 });
+      if (seq !== fetchSeqRef.current) return;
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      addToast({ type: 'error', title: 'Failed to load runs: ' + msg, duration: 5 });
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) setLoading(false);
     }
   };
 
-  useEffect(() => { fetchRuns(); }, []);
+  useEffect(() => {
+    fetchRuns();
+    return () => {
+      // Invalidate any in-flight list request on unmount: its sequence no
+      // longer matches, so no state setter or toast fires afterwards.
+      fetchSeqRef.current += 1;
+    };
+  }, []);
 
   const handleDelete = async (id: number | string) => {
     try {
@@ -202,14 +237,18 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
   ];
 
   return (
-    <Table<RunRecord>
-      dataSource={runs}
-      columns={columns}
-      rowKey="id"
-      loading={loading}
-      pagination={{ pageSize: 20 }}
-      size="small"
-    />
+    <Space orientation="vertical" className="w-full" size="middle">
+      {error && <Alert type="error" message="Failed to load runs" description={error} showIcon />}
+      <Table<RunRecord>
+        dataSource={runs}
+        columns={columns}
+        rowKey="id"
+        loading={loading}
+        pagination={{ pageSize: 20 }}
+        size="small"
+        locale={{ emptyText: 'No saved runs yet' }}
+      />
+    </Space>
   );
 };
 
@@ -221,17 +260,27 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
   const addToast = useUIStore((s) => s.addToast);
 
   useEffect(() => {
+    let cancelled = false; // invalidates this request on selection change or unmount
     if (!currentRunId) return;
     setLoading(true);
     setError(null);
+    setMarkdown(''); // never show a previous run's body under the new title
     fetch(apiUrl(`/astrology/runs/${currentRunId}/results?format=markdown`))
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setMarkdown)
+      .then((text) => {
+        if (!cancelled) setMarkdown(text);
+      })
       .catch((e: unknown) => {
-        const err = e as Error;
+        if (cancelled) return; // stale response — no longer the selected run
+        const err = e instanceof Error ? e : new Error(String(e));
         setError(err.message);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [currentRunId]);
 
   const handleCopy = async (fmt: string) => {
@@ -440,7 +489,8 @@ const AstrologyExtractionPanel = () => {
   const [houseSystem, setHouseSystem] = useState('placidus');
   const [sidereal, setSidereal] = useState(false);
 
-  const [currentRunId, setCurrentRunId] = useState(null);
+  const [currentRunId, setCurrentRunId] = useState<number | string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('setup');
 
   // Fetch available locations on mount
   useEffect(() => {
@@ -535,6 +585,11 @@ const AstrologyExtractionPanel = () => {
     if (runId) {
       setCurrentRunId(runId);
     }
+  };
+
+  const handleReplayView = (id: number | string) => {
+    setCurrentRunId(id);
+    setActiveTab('results');
   };
 
   const renderDateModeSubInputs = () => {
@@ -719,7 +774,7 @@ const AstrologyExtractionPanel = () => {
   );
 
   return (
-    <Tabs defaultActiveKey="setup" type="card">
+    <Tabs activeKey={activeTab} onChange={setActiveTab} type="card">
       <TabPane tab="Setup" key="setup">
         {renderSetupTab()}
       </TabPane>
@@ -730,7 +785,7 @@ const AstrologyExtractionPanel = () => {
         <ResultsTab currentRunId={currentRunId} />
       </TabPane>
       <TabPane tab="Replay" key="replay">
-        <ReplayTab />
+        <ReplayTab onView={handleReplayView} />
       </TabPane>
     </Tabs>
   );
