@@ -181,9 +181,10 @@ class LLMConfig(BaseSettings):
     lm_studio_base_url: str | None = None
     local_models_dir: str = "./models"
 
-    class Config:
-        env_prefix = "LLM_"
-        case_sensitive = False
+    model_config = {
+        "env_prefix": "LLM_",
+        "case_sensitive": False,
+    }
 
 
 _llm_config_instance: LLMConfig | None = None

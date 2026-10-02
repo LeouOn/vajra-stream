@@ -68,24 +68,58 @@ class EpicOutlookRequest(OutlookRequest):
 def get_db_connection():
     # Single DB resolver — local walk-up resolvers can find a different
     # (stray) database file and silently split reads/writes.
+    #
+    # The schema is created by the app lifespan, never by this module:
+    # backend/app/main.py runs core.schema.init_db() on the CRITICAL PATH
+    # before it yields. This module used to call init_db() at import time,
+    # which made merely importing the backend migrate whatever DB
+    # settings.DATABASE_URL pointed at. That call and its wrapper are gone;
+    # nothing imported outlook.init_db.
+    #
+    # CAVEAT — importing THIS module is still not side-effect free, and the
+    # remaining triggers are not in this file. The imports at lines 21-22
+    # pull in backend.core.services, whose package __init__ imports
+    # vajra_service, which imports backend.app.api.v1.endpoints as a package.
+    # That package __init__ still runs these at import time:
+    #   astrology.py:61          init_db()
+    #   locations.py:70          init_db()  (inside try/except)
+    #   agent_suggestions.py:29  init_tables()
+    #   radionics.py:32          IntegratedScalarRadionicsBroadcaster() ->
+    #                            BlessingDatabase.__init__ ->
+    #                            _initialize_database() -> init_db()
+    # Fixing those is a separate change; this module simply stops adding a
+    # fifth trigger of its own.
+    #
+    # outlook_narratives is the ONLY table this module queries. The
+    # /characters and /locations endpoints do not use SQLite at all —
+    # CharacterManager and LocationManager persist to
+    # ~/.vajra-stream/characters.json and locations.json.
+    #
+    # These endpoints need an initialized DB. The handlers that call
+    # get_db_connection — /generate_single, /generate_epic, /history,
+    # /history/{narrative_id}, /speak/{narrative_id}, /export and /import —
+    # query SQLite. /status does not (it returns container.outlook.get_status())
+    # and answers 200 even when the schema is absent.
+    #
+    # In normal startup the app lifespan provides that schema:
+    # backend/app/main.py runs core.schema.init_db() on the CRITICAL PATH.
+    # That call is wrapped in try/except (main.py ~57-59), so if it fails the
+    # error is logged and startup continues — those endpoints then fail rather
+    # than the server refusing to boot.
+    #
+    # A bare TestClient(app) — constructed without its `with` block, so startup
+    # never runs — is NOT evidence that the DB is uninitialized: the
+    # import-time triggers listed above usually create the full schema as a
+    # side effect of import, and such a client returns 200 for /history,
+    # /export and /status. Only a genuinely uninitialized DB behaves
+    # differently: 500 on /history and /export, still 200 on /status.
+    # This module no longer initializes the DB itself; the lifespan is the
+    # supported initializer.
     from core.schema import get_db_path
 
     conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
-
-
-def init_db():
-    from core.schema import init_db as _core_init_db  # noqa: WPS433
-
-    _core_init_db()
-
-
-# Initialize DB on endpoint load
-try:
-    init_db()
-except Exception as e:
-    print(f"Error initializing outlook database: {e}")
 
 
 @router.post("/generate_single", summary="Generate a dense, single-pass blessing narrative")

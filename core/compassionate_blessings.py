@@ -269,12 +269,18 @@ class BlessingDatabase:
     not designed for concurrent access.
 
     Attributes:
-        db_path: Path to the SQLite file (default ``"vajra_stream.db"``).
+        db_path: Path to the SQLite file (default resolved via
+            :func:`core.schema.get_db_path`).
     """
 
-    def __init__(self, db_path: str = "vajra_stream.db"):
+    def __init__(self, db_path: str | None = None):
         """Initialize database."""
-        self.db_path = db_path
+        if db_path is None:
+            from core.schema import get_db_path
+
+            self.db_path = get_db_path()
+        else:
+            self.db_path = db_path
         self._initialize_database()
 
     def _initialize_database(self):
@@ -288,7 +294,9 @@ class BlessingDatabase:
         """
         from core.schema import init_db as _core_init_db
 
-        _core_init_db()
+        conn = _core_init_db(self.db_path)
+        if conn is not None and hasattr(conn, "close"):
+            conn.close()
 
     def add_target(self, target: BlessingTarget):
         """Add a blessing target to the database."""

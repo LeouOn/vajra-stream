@@ -57,9 +57,7 @@ def test_lfo_modulation():
             except KeyboardInterrupt:
                 sd.stop()
                 print("\nTest interrupted by user.")
-                return False
-
-    return True
+                return
 
 
 @pytest.mark.slow
@@ -82,9 +80,7 @@ def test_harmonic_content():
     except KeyboardInterrupt:
         sd.stop()
         print("\nTest interrupted by user.")
-        return False
-
-    return True
+        return
 
 
 @pytest.mark.slow
@@ -108,7 +104,7 @@ def test_adsr_envelope():
     except KeyboardInterrupt:
         sd.stop()
         print("\nTest interrupted by user.")
-        return False
+        return
 
     print("\n2. Slow attack (like swelling into sound)...")
     tone2 = gen.generate_prayer_bowl_tone(528, duration=1, pure_sine=False)
@@ -119,9 +115,7 @@ def test_adsr_envelope():
     except KeyboardInterrupt:
         sd.stop()
         print("\nTest interrupted by user.")
-        return False
-
-    return True
+        return
 
 
 def main():

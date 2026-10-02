@@ -79,17 +79,10 @@ def _project_root() -> Path:
 
 
 def _db_path() -> str:
-    env = os.environ.get("VAJRA_DB_PATH")
-    if env:
-        return env
-    root = _project_root()
-    candidate = root / "vajra_stream.db"
-    if candidate.exists():
-        return str(candidate)
-    mirror = root / "backend" / "app" / "vajra_stream.db"
-    if mirror.exists():
-        return str(mirror)
-    return str(candidate)
+    """Locate the SQLite database file via core.schema.get_db_path."""
+    from core.schema import get_db_path
+
+    return get_db_path()
 
 
 def _connect_db() -> sqlite3.Connection:

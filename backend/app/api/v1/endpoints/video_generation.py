@@ -70,24 +70,10 @@ def _inject_fallback_keys(service: VideoGenerationService) -> None:
 
 
 def _db_path() -> str:
-    """Locate the SQLite database file.
+    """Locate the SQLite database file via core.schema.get_db_path."""
+    from core.schema import get_db_path
 
-    Prefers ``VAJRA_DB_PATH`` env var if set, then a project-root
-    ``vajra_stream.db``, then the mirrored backend copy.
-    """
-    env = os.environ.get("VAJRA_DB_PATH")
-    if env:
-        return env
-    # Discover project root by walking parents of this file
-    here = os.path.abspath(__file__)
-    cursor = os.path.dirname(here)
-    for _ in range(8):
-        candidate = os.path.join(cursor, "vajra_stream.db")
-        if os.path.exists(candidate):
-            return candidate
-        cursor = os.path.dirname(cursor)
-    # Fall back to the conventional mirrored path
-    return os.path.join(os.path.abspath(os.path.join(os.path.dirname(here), "..", "..", "..", "vajra_stream.db")))
+    return get_db_path()
 
 
 def _connect_db() -> sqlite3.Connection:
