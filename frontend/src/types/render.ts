@@ -35,6 +35,17 @@ export interface RenderJobRequest {
   backend?: string;
   working_id?: string;
   purpose?: 'free' | 'witness' | 'sigil';
+  /** From `POST /render/references`; conditions the scene (contract W2-1). */
+  reference_id?: string;
+}
+
+/** `POST /render/references` → 201. Sizes are measured from the stored file. */
+export interface RenderReference {
+  reference_id: string;
+  sha256: string;
+  filename: string;
+  width: number;
+  height: number;
 }
 
 /** `POST /render/jobs` → 202. */
@@ -51,6 +62,8 @@ export interface RenderResult {
   seed?: number;
   sha256?: string;
   artifact_path?: string;
+  /** sha256 of the reference image, when the job used one. */
+  reference_sha256?: string;
   /** Present only while queued/running. */
   queue_position?: number;
 }

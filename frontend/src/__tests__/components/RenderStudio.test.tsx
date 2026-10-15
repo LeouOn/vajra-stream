@@ -3,7 +3,8 @@
  *   - submits the right POST /render/jobs body (seed omitted when empty)
  *   - labels seeds "(drawn)" vs "(chosen)" from provenance.seed
  *   - shows measured image size and the image via apiUrl
- *   - running jobs count from started_at; cancel posts to the cancel route
+ *   - running jobs count from started_at; cancel posts to the generic operations cancel route
+ *   - reference images: client-side checks, multipart upload, reference_id in the job
  *   - says plainly when ComfyUI (or the render service) is unreachable
  */
 import React, { act } from 'react';
@@ -66,6 +67,8 @@ interface Routes {
   health: () => { status: number; body: unknown };
   list: () => { status: number; body: unknown };
   submit: (body: unknown) => { status: number; body: unknown };
+  cancel: () => { status: number; body: unknown };
+  upload: (form: FormData) => { status: number; body: unknown };
 }
 
 let routes: Routes;
@@ -87,18 +90,28 @@ beforeEach(() => {
     health: () => ({ status: 200, body: HEALTHY }),
     list: () => ({ status: 200, body: { operations: [], count: 0 } }),
     submit: (body) => {
-      const req = body as { seed?: number };
+      const req = body as { seed?: number; reference_id?: string };
       return {
         status: 202,
         body: {
           operation: renderOp({
             id: 'job-1',
-            params: { prompt: 'a quiet lake at dawn', preset: 'square-1024', seed: req.seed ?? 4242 },
+            params: {
+              prompt: 'a quiet lake at dawn',
+              preset: 'square-1024',
+              seed: req.seed ?? 4242,
+              ...(req.reference_id ? { reference_id: req.reference_id } : {}),
+            },
             provenance: { seed: req.seed === undefined ? 'draw' : 'record' },
           }),
         },
       };
     },
+    cancel: () => ({ status: 200, body: { operation: renderOp({ id: 'job-1', status: 'cancelled' }) } }),
+    upload: () => ({
+      status: 201,
+      body: { reference_id: 'ab12cd34ef56', sha256: 'ab12cd34ef567890ffff', filename: 'lake.png', width: 800, height: 600 },
+    }),
   };
   fetchSpy = vi.fn((url: string, init?: RequestInit) => {
     if (url === '/api/v1/render/presets') return respond(routes.presets());
@@ -107,8 +120,15 @@ beforeEach(() => {
     if (url === '/api/v1/render/jobs' && init?.method === 'POST') {
       return respond(routes.submit(JSON.parse(String(init.body))));
     }
-    if (url.endsWith('/cancel')) {
-      return respond({ status: 200, body: { operation: renderOp({ id: 'job-1', status: 'cancelled' }) } });
+    if (url.endsWith('/cancel')) return respond(routes.cancel());
+    if (url === '/api/v1/render/references' && init?.method === 'POST') {
+      return respond(routes.upload(init.body as FormData));
+    }
+    if (url === '/api/v1/operations/job-1') {
+      return respond({
+        status: 200,
+        body: renderOp({ id: 'job-1', status: 'success', finished_at: '2026-10-14T12:00:00+00:00' }),
+      });
     }
     return respond({ status: 404, body: { detail: 'not found' } });
   });
@@ -259,7 +279,7 @@ describe('RenderStudio', () => {
     expect(card().querySelector('button')).toBeNull(); // no cancel once finished
   });
 
-  it('cancels an active job through POST /render/jobs/{id}/cancel', async () => {
+  it('cancels an active job through POST /operations/{id}/cancel', async () => {
     await renderStudio();
     await fill('a quiet lake at dawn');
     await submit();
@@ -270,9 +290,105 @@ describe('RenderStudio', () => {
     });
     await flush();
     const cancelCall = fetchSpy.mock.calls.find((c) => String(c[0]).endsWith('/cancel'));
-    expect(cancelCall?.[0]).toBe('/api/v1/render/jobs/job-1/cancel');
+    expect(cancelCall?.[0]).toBe('/api/v1/operations/job-1/cancel');
     expect((cancelCall?.[1] as RequestInit).method).toBe('POST');
     expect(card().dataset.status).toBe('cancelled');
+    expect(toast.info).toHaveBeenCalledWith('Render cancelled.');
+  });
+
+  it('answers a 409 cancel calmly and shows the finished record', async () => {
+    routes.cancel = () => ({ status: 409, body: { detail: 'operation already finished' } });
+    await renderStudio();
+    await fill('a quiet lake at dawn');
+    await submit();
+    const cancel = Array.from(card().querySelectorAll('button')).find((b) => b.textContent?.includes('Cancel'));
+    await act(async () => {
+      cancel?.click();
+    });
+    await flush();
+    expect(toast.info).toHaveBeenCalledWith('This operation already finished (success).');
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(card().dataset.status).toBe('success');
+  });
+
+  describe('reference image', () => {
+    function pick(file: File): Promise<void> {
+      const input = container.querySelector<HTMLInputElement>('input[aria-label="Reference image"]');
+      if (!input) throw new Error('reference input not found');
+      Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+      return act(async () => {
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+
+    function sized(name: string, type: string, size: number): File {
+      const file = new File(['x'], name, { type });
+      Object.defineProperty(file, 'size', { value: size });
+      return file;
+    }
+
+    function uploads(): RequestInit[] {
+      return fetchSpy.mock.calls.filter((c) => c[0] === '/api/v1/render/references').map((c) => c[1] as RequestInit);
+    }
+
+    it('says what a reference does, and that it is not a pixel edit', async () => {
+      await renderStudio();
+      const text = container.querySelector('[data-testid="render-reference"]')?.textContent ?? '';
+      expect(text).toContain('conditions the scene');
+      expect(text).toContain('not a pixel edit');
+    });
+
+    it('refuses a non-image or an oversize file before uploading', async () => {
+      await renderStudio();
+      await pick(sized('notes.txt', 'text/plain', 100));
+      expect(container.querySelector('[data-testid="render-reference-error"]')?.textContent).toBe(
+        'A reference must be a PNG, JPEG or WebP image.',
+      );
+      await pick(sized('huge.png', 'image/png', 21 * 1024 * 1024));
+      expect(container.querySelector('[data-testid="render-reference-error"]')?.textContent).toContain(
+        'at most 20 MB',
+      );
+      expect(uploads()).toEqual([]);
+    });
+
+    it('uploads as multipart field "image", previews it, and sends reference_id with the job', async () => {
+      await renderStudio();
+      await pick(sized('lake.png', 'image/png', 2048));
+      await flush();
+      const [init] = uploads();
+      expect(init.method).toBe('POST');
+      expect(init.body).toBeInstanceOf(FormData);
+      const sent = (init.body as FormData).get('image');
+      expect(sent).toBeInstanceOf(File);
+      expect((sent as File).name).toBe('lake.png');
+
+      const preview = container.querySelector('[data-testid="render-reference-preview"]');
+      expect(preview?.querySelector('img')?.getAttribute('src')).toBe('/api/v1/render/references/ab12cd34ef56');
+      expect(preview?.textContent).toContain('800×600 px');
+      expect(preview?.textContent).toContain('sha256 ab12cd34ef56…');
+
+      await fill('a quiet lake at dawn');
+      await submit();
+      expect(postedBodies()).toEqual([
+        { prompt: 'a quiet lake at dawn', preset: 'square-1024', reference_id: 'ab12cd34ef56' },
+      ]);
+      const tag = card().querySelector('[data-testid="render-reference-tag"]');
+      expect(tag?.textContent).toBe('reference ab12cd…');
+      expect(tag?.getAttribute('href')).toBe('/api/v1/render/references/ab12cd34ef56');
+    });
+
+    it('shows a refused upload and sends no reference', async () => {
+      routes.upload = () => ({ status: 413, body: { detail: 'reference image is larger than 20 MB' } });
+      await renderStudio();
+      await pick(sized('lake.webp', 'image/webp', 4096));
+      await flush();
+      expect(container.querySelector('[data-testid="render-reference-error"]')?.textContent).toBe(
+        'reference image is larger than 20 MB',
+      );
+      await fill('a lake');
+      await submit();
+      expect(postedBodies()).toEqual([{ prompt: 'a lake', preset: 'square-1024' }]);
+    });
   });
 
   it('shows the healthy backend with its URL', async () => {
