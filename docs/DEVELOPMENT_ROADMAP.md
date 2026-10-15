@@ -68,8 +68,16 @@ vitality".
       user-visible bugs: sweep results overriding the Replay selection, an
       "explicit dates" picker that only allowed two dates, moon illumination
       under 1% shown 100× too high, and "Invalid Date" on failure.
-- [ ] Continue the tsc burn-down (`useWebSocketStable.ts`, `CommandCenter.tsx`,
-      `OutlookDashboard.tsx` are the largest remaining).
+- [x] Second tsc pass: 153 → 23 (2026-10-15). It fixed more silent runtime
+      bugs:
+      - the LLM usage badge always read 0;
+      - recitation showed "stopped" right after starting;
+      - an Outlook video poll never stopped;
+      - the Astrology mandala threw on every frame while audio played;
+      - "Ask the astrologer" failed on planets without a house;
+      - the Scalar tab's journey never rendered.
+- [ ] Finish the last 23 (mostly `BroadcastPanel.tsx`, AntD theme typing),
+      then make the ratchet a hard zero.
 - [ ] Recreate `.venv` on Python 3.13. Local venvs are 3.14, but
       `.python-version` pins 3.13 and 3.14 is documented as unsupported.
 
@@ -104,19 +112,29 @@ individual reviews catching each case.
    (schema v7), `/api/v1/operations`, live `operation_update` events, and
    the Operations → Ledger tab. A real operation has a start, a measured
    duration and a completion record.
-6. **Local render** **Engine and UI done (2026-10-15).** The Qwen-Image 2.1
-   adapter runs behind ComfyUI; see
-   [the spec](specs/2026-10-14-operations-and-local-render.md). Remaining
-   work (Phase B): sigils and the folio witness image use it, the launcher
-   is fixed, reference images are supported, and a live end-to-end render is
-   verified.
+6. **Local render** **Done, except the live run (2026-10-15).** The Qwen-Image
+   2.1 adapter runs behind ComfyUI; see
+   [the spec](specs/2026-10-14-operations-and-local-render.md). Built:
+   reference images, folio witness renders that return immediately and fill
+   in the folio when done, sigils through the engine, and the launcher
+   configured via `COMFYUI_LAUNCHER`. Still open: a live end-to-end render
+   on the real GPU.
 7. **Follow-ups found along the way:**
-   - `/radionics/broadcast` blocks the event loop for the whole broadcast
-     duration, because a sync loop runs inside an async route.
-   - Sigil and `vajra_service` sessions are not yet recorded as ledger
-     operations.
-   - `MainLayout`/`ScalarTab` poll `/operations/summary` themselves; fold
-     this into `operationsStore`.
+   - ~~`/radionics/broadcast` blocks the event loop~~ **Done.** Broadcasts
+     run in a capped worker pool, return immediately, and can be cancelled
+     from the Ledger (`POST /operations/{id}/cancel`, with a per-kind cancel
+     registry).
+   - ~~Sessions and sigil broadcasts are missing from the ledger~~ **Done.**
+   - ~~Summary polling duplicated~~ **Done.** One shared poller in
+     `operationsStore`.
+   - Sigil UI: with `IMAGE_PROVIDER=comfyui` the forge returns
+     `ai_image_render` (an operation). `BroadcastPanel` should show its
+     progress and result.
+   - The `forge_witness` LLM tool still uses the hosted path; offer local.
+   - `CharacterJourney._broadcast_ws` calls `asyncio.get_event_loop()`
+     inside `to_thread`, so autonomous journey advances emit no JOURNEY_*
+     events.
+   - The hosted witness path is a blocking call inside an async route.
 
 ## Phase 3: Consolidate
 
