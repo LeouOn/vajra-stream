@@ -8,6 +8,8 @@
  *   - Image size is the measured PNG size from `result`, not the request.
  *   - A seed is labeled "(drawn)" when `provenance.seed === 'draw'`, else "(chosen)".
  *   - A reference image conditions the scene; the copy says it is not a pixel edit.
+ *   - Witness and sigil renders carry no numbers in the image; their
+ *     `params.caption_facts` (computed/record values) are captioned under it.
  *
  * @component
  * @route /operations/render
@@ -37,6 +39,7 @@ import {
 } from '../../lib/operationFormat';
 import { useNow } from '../../hooks/useNow';
 import OperationStatusTag from './OperationStatusTag';
+import ImageCaptionFacts from '../UI/ImageCaptionFacts';
 import type { Operation } from '../../types/operations';
 import type { RenderHealth, RenderJobRequest, RenderPreset, RenderReference } from '../../types/render';
 
@@ -194,6 +197,8 @@ function JobCard({
           />
         </a>
       )}
+
+      {op.status === 'success' && <ImageCaptionFacts facts={op.params?.caption_facts} className="text-xs" />}
 
       {!active && (
         <div className="text-xs text-gray-400 font-mono flex flex-col gap-0.5" data-testid="render-facts">
