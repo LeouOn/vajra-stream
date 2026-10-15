@@ -34,7 +34,7 @@ KAMEAS = {
 class SigilService:
     """
     Sigil generation engine. Combines traditional planetary Kamea grid drawing
-    with AI image generation endpoints (local Stable Diffusion / ComfyUI / cloud).
+    with AI image generation (local Stable Diffusion, the local render engine, or cloud).
     """
 
     _instance = None
@@ -58,10 +58,10 @@ class SigilService:
 
         # Load API configurations from environment
         self.sd_api_url = os.getenv("SD_API_URL", "http://127.0.0.1:7860/sdapi/v1/txt2img")
-        self.image_provider = os.getenv("IMAGE_PROVIDER", "local")  # local, comfyui, openrouter, openai, none
+        # local (A1111 SD), comfyui (the render engine at settings.COMFYUI_BASE_URL), openrouter, openai, none
+        self.image_provider = os.getenv("IMAGE_PROVIDER", "local")
         self.openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.comfyui_api_url = os.getenv("COMFYUI_API_URL", "http://127.0.0.1:8188")
         self.openrouter_image_model = os.getenv("OPENROUTER_IMAGE_MODEL", "stabilityai/stable-diffusion-xl")
 
         self._initialized = True
@@ -228,12 +228,36 @@ class SigilService:
         coords = self.text_to_coordinates(intention, kamea_name)
         return self.render_svg_from_coords(coords, kamea_name)
 
-    async def generate_ai_image(self, intention: str) -> str | None:
-        """Generates a high-quality AI sigil from intention. Falls back to None if unconfigured/fails."""
-        import asyncio
+    def _submit_render(self, prompt: str) -> dict[str, Any]:
+        """Queue the sigil image on the local render engine (ComfyUI, ``purpose="sigil"``); never blocks.
 
+        The render takes minutes, so the forge returns the queued operation instead
+        of an image; the PNG appears at the operation's ``result.image_url`` on success.
+        """
+        from backend.core.services.render.jobs import RenderJobRequest, submit_job
+
+        try:
+            op = submit_job(RenderJobRequest(prompt=prompt, purpose="sigil"))
+        except Exception as e:
+            logger.warning(f"Local render submission for sigil failed: {e}")
+            return {"operation_id": None, "status": "error", "error": str(e)[:300]}
+        return {"operation_id": op["id"], "status": op["status"]}
+
+    async def generate_ai_image(self, intention: str) -> dict[str, Any]:
+        """AI image for a sigil, by ``IMAGE_PROVIDER``.
+
+        Returns ``{"ai_image": data URI or None, "ai_image_render": queued render or None}``.
+        ``comfyui`` queues a local render job (``ai_image_render`` = ``{"operation_id", "status"}``);
+        the other providers answer synchronously with a data URI, or None if unconfigured/failed.
+        """
         prompt = f"Abstract esoteric cyber-sigil, representing intention: '{intention}', sacred geometry grid, glowing cyan and magenta runes, orgone sandwiches, crystalline core structure, high-tech cyberdeck dashboard element, digital art, dark background, 8k render"
 
+        if self.image_provider == "comfyui":
+            return {"ai_image": None, "ai_image_render": self._submit_render(prompt)}
+        return {"ai_image": await self._generate_sync_image(prompt), "ai_image_render": None}
+
+    async def _generate_sync_image(self, prompt: str) -> str | None:
+        """Providers that return an image in one request (A1111 SD, OpenAI, OpenRouter)."""
         if self.image_provider == "local":
             try:
                 # Direct SD text2img endpoint call
@@ -256,102 +280,6 @@ class SigilService:
                         return f"data:image/png;base64,{img_b64}"
             except Exception as e:
                 logger.warning(f"Local Stable Diffusion generation failed or offline: {e}")
-
-        elif self.image_provider == "comfyui":
-            try:
-                # ComfyUI Headless Execution
-                workflow_path = Path("comfy_workflow.json")
-                if workflow_path.exists():
-                    with open(workflow_path, encoding="utf-8") as f:
-                        workflow = json.load(f)
-                else:
-                    # Default SD 1.5 workflow graph
-                    workflow = {
-                        "3": {"inputs": {"text": prompt, "clip": ["4", 1]}, "class_type": "CLIPTextEncode"},
-                        "4": {
-                            "inputs": {"ckpt_name": "v1-5-pruned-emaonly.ckpt"},
-                            "class_type": "CheckpointLoaderSimple",
-                        },
-                        "5": {
-                            "inputs": {"width": 512, "height": 512, "batch_size": 1},
-                            "class_type": "EmptyLatentImage",
-                        },
-                        "6": {
-                            "inputs": {
-                                "seed": int(time.time()) % 1000000,
-                                "steps": 20,
-                                "cfg": 8.0,
-                                "sampler_name": "euler",
-                                "scheduler": "normal",
-                                "denoise": 1.0,
-                                "model": ["4", 0],
-                                "positive": ["3", 0],
-                                "negative": ["7", 0],
-                                "latent_image": ["5", 0],
-                            },
-                            "class_type": "KSampler",
-                        },
-                        "7": {
-                            "inputs": {"text": "low quality, blurry, text, logo, face, human", "clip": ["4", 1]},
-                            "class_type": "CLIPTextEncode",
-                        },
-                        "8": {"inputs": {"samples": ["6", 0], "vae": ["4", 2]}, "class_type": "VAEDecode"},
-                        "9": {
-                            "inputs": {"filename_prefix": "VajraSigil", "images": ["8", 0]},
-                            "class_type": "SaveImage",
-                        },
-                    }
-
-                # Update workflow with prompt text
-                if "3" in workflow and "inputs" in workflow["3"] and "text" in workflow["3"]["inputs"]:
-                    workflow["3"]["inputs"]["text"] = prompt
-                else:
-                    for node_id, node in workflow.items():
-                        if node.get("class_type") == "CLIPTextEncode" and "inputs" in node:
-                            txt = node["inputs"].get("text", "")
-                            if "low quality" not in txt.lower():
-                                node["inputs"]["text"] = prompt
-                                break
-
-                # Queue the prompt
-                response = requests.post(f"{self.comfyui_api_url}/prompt", json={"prompt": workflow}, timeout=10)
-                if response.status_code == 200:
-                    res_data = response.json()
-                    prompt_id = res_data.get("prompt_id")
-
-                    if prompt_id:
-                        # Poll for history completion (up to 40 seconds)
-                        completed = False
-                        filename = None
-                        subfolder = None
-
-                        for _ in range(40):
-                            await asyncio.sleep(1.0)
-                            hist_res = requests.get(f"{self.comfyui_api_url}/history/{prompt_id}", timeout=5)
-                            if hist_res.status_code == 200:
-                                hist_data = hist_res.json()
-                                if prompt_id in hist_data:
-                                    outputs = hist_data[prompt_id].get("outputs", {})
-                                    for node_id, output in outputs.items():
-                                        if "images" in output and len(output["images"]) > 0:
-                                            img_info = output["images"][0]
-                                            filename = img_info.get("filename")
-                                            subfolder = img_info.get("subfolder", "")
-                                            completed = True
-                                            break
-                                    if completed:
-                                        break
-
-                        if completed and filename:
-                            view_url = (
-                                f"{self.comfyui_api_url}/view?filename={filename}&subfolder={subfolder}&type=output"
-                            )
-                            img_res = requests.get(view_url, timeout=10)
-                            if img_res.status_code == 200:
-                                b64_str = base64.b64encode(img_res.content).decode("utf-8")
-                                return f"data:image/png;base64,{b64_str}"
-            except Exception as e:
-                logger.warning(f"ComfyUI headless generation failed or offline: {e}")
 
         elif self.image_provider == "openai" and self.openai_api_key:
             try:
@@ -402,8 +330,8 @@ class SigilService:
         # Save signature log
         sigil_id = f"sigil_{int(time.time())}"
 
-        # Request AI generation in the background (if configured)
-        ai_image_uri = await self.generate_ai_image(intention)
+        # AI image if configured: inline for hosted providers, a queued render job for comfyui
+        ai = await self.generate_ai_image(intention)
 
         # Save to disk
         sigil_data = {
@@ -412,7 +340,9 @@ class SigilService:
             "reduced_letters": reduced,
             "kamea": kamea_name,
             "svg": svg_content,
-            "ai_image": ai_image_uri,
+            "ai_image": ai["ai_image"],
+            # {"operation_id", "status"} of the local render job, or None (see generate_ai_image)
+            "ai_image_render": ai["ai_image_render"],
             "timestamp": time.time(),
         }
 
