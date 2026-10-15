@@ -135,33 +135,25 @@ export default function ScalarTab(): React.ReactElement {
   const playAudio = useAudioStore((s) => s.playAudio);
   const stopAudio = useAudioStore((s) => s.stopAudio);
 
-  // ── websocket: scalar / crystal / sessions / link / slow-data ──────
-  // journeyStatus comes from the backend's 10s slow-data broadcast
-  // (JOURNEY_STATUS) and replaces HTTP polling.
+  // ── websocket: scalar / crystal / sessions / link / journey events ──
   const {
     scalarStatus,
     crystalStatus,
     sessions,
     isConnected,
-    journeyStatus,
+    lastJourneyEventAt,
   } = useWebSocketStable();
 
   // ── local UI state ─────────────────────────────────────────────────
-  // Journey derives from the WebSocket slow-data broadcast. The fallback
-  // state is seeded by a one-shot HTTP fetch on mount so the UI isn't
-  // blank while waiting for the first 10s WS push.
-  const [journeyFallback, setJourneyFallback] = useState<JourneyStatus | null>(null);
+  // Journey comes from /operator/journey/status: fetched on mount and
+  // refetched whenever a JOURNEY_* WebSocket event arrives (the hook bumps
+  // lastJourneyEventAt). The old JOURNEY_STATUS push no longer exists, and
+  // reading it left `journey` permanently null.
+  const [journey, setJourney] = useState<JourneyStatus | null>(null);
   // Today's operations ledger (undefined = loading, null = unreachable).
   // Replaces the retired MOPS readout (docs/DEVELOPMENT_ROADMAP.md, "Decisions").
   // Shared with the footer through the operations store's single poller.
   const ledger = useTodaySummary();
-  const journeyWs = journeyStatus as JourneyStatus | null;
-  const journey =
-    journeyWs?.active
-      ? journeyWs
-      : journeyWs === null
-        ? journeyFallback
-        : null;
   const [intention, setIntention] = useState('');
   const [busy, setBusy] = useState<'generate' | 'play' | 'stop' | null>(null);
 
@@ -174,8 +166,7 @@ export default function ScalarTab(): React.ReactElement {
   elementKeyRef.current = elementKey;
 
   // ───────────────────────────────────────────────────────────────────
-  // EFFECT: one-shot initial journey fetch (fallback while waiting for
-  // the first 10s WS push). Subsequent updates arrive via WebSocket.
+  // EFFECT: journey fetch on mount and on every JOURNEY_* event.
   // Element-mood recoloring is handled by the dedicated effect below.
   // ───────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -186,7 +177,7 @@ export default function ScalarTab(): React.ReactElement {
         if (!res.ok) return;
         const data = (await res.json()) as JourneyStatus;
         if (cancelled) return;
-        setJourneyFallback(data.active ? data : null);
+        setJourney(data.active ? data : null);
       } catch {
         /* silent */
       }
@@ -195,7 +186,7 @@ export default function ScalarTab(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lastJourneyEventAt]);
 
   // Set the initial element mood once the visualizer mounts / element resolves.
   useEffect(() => {

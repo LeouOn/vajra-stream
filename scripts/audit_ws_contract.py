@@ -80,6 +80,7 @@ CANONICAL_SUPPLEMENT_TYPES: set[str] = {
     "chat_tool_error",
     "chat_complete",
     "chat_error",
+    "chat_cancelled",  # llm.py _push on cancel/timeout paths
     # Singing-bowl broadcast notice (modules/radionics.py → _broadcast_ws)
     "HEALING_BROADCAST_STARTED",
     # Practice engine lifecycle (core/practice_engine.py → _broadcast_ws)

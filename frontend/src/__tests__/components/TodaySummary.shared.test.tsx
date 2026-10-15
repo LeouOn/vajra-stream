@@ -18,7 +18,7 @@ vi.mock('../../hooks/useWebSocketStable', () => ({
     crystalStatus: null,
     sessions: [],
     isConnected: false,
-    journeyStatus: null,
+    lastJourneyEventAt: null,
   }),
 }));
 

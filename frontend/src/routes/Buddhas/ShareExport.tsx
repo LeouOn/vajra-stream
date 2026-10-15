@@ -11,7 +11,7 @@
 import React, { useCallback } from 'react';
 import { Card, Button, Typography, Space } from 'antd';
 import { Share2, ClipboardCopy, Check } from 'lucide-react';
-import type { RecitationStatus } from '../../../types';
+import type { RecitationStatus } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Title } = Typography;

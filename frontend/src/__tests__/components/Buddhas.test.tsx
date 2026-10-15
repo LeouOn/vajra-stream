@@ -21,6 +21,7 @@ import { act } from 'react-dom/test-utils';
 import { MemoryRouter } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import type { FC } from 'react';
+import type { RecitationStatus } from '../../types';
 
 /* ------------------------------------------------------------------ *
  * Module-level mocks. `useWebSocketStable` is the canonical WS hook;
@@ -107,6 +108,26 @@ function renderNode(node: React.ReactNode) {
 /* ------------------------------------------------------------------ *
  * IntentionEditor
  * ------------------------------------------------------------------ */
+
+/** A complete RecitationStatus (the backend's idle shape) with overrides. */
+function recitationStatus(overrides: Partial<RecitationStatus> = {}): RecitationStatus {
+  return {
+    running: false,
+    intention: '',
+    current_index: 0,
+    current_cycle: 0,
+    total_recited: 0,
+    mala_count: 0,
+    dedications: 0,
+    total_buddhas: 88,
+    current_buddha: {},
+    progress_pct: 0,
+    started_at: '',
+    last_recited_at: '',
+    ...overrides,
+  };
+}
+
 describe('IntentionEditor', () => {
   it('renders the title and the default intention when none is stored', () => {
     renderNode(<IntentionEditor value="" onChange={() => {}} />);
@@ -178,7 +199,7 @@ describe('SessionHistory', () => {
   });
 
   it('disables Record when buddhaStatus is not running', () => {
-    renderNode(<SessionHistory buddhaStatus={{ running: false }} />);
+    renderNode(<SessionHistory buddhaStatus={recitationStatus({ running: false })} />);
     const buttons = container.querySelectorAll('button');
     const recordBtn = Array.from(buttons).find((b) => b.textContent === 'Record');
     expect(recordBtn).toBeDefined();
@@ -245,7 +266,7 @@ describe('ShareExport', () => {
   it('copies a summary to the clipboard when clicked', async () => {
     renderNode(
       <ShareExport
-        buddhaStatus={{ total_recited: 88, mala_count: 1, current_cycle: 1 }}
+        buddhaStatus={recitationStatus({ total_recited: 88, mala_count: 1, current_cycle: 1 })}
         intention="test vow"
       />,
     );

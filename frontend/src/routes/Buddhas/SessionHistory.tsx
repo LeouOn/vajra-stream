@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Button, Typography, List, Tag, Space, Empty, Popconfirm } from 'antd';
 import { History, Trash2, PlusCircle, Clock } from 'lucide-react';
-import type { RecitationStatus } from '../../../types';
+import type { RecitationStatus } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 
 const { Text, Title } = Typography;
