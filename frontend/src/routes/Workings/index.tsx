@@ -277,6 +277,7 @@ export default function WorkingsPage(): React.ReactElement {
         <div>
           {folio && folio.working_id && (
             <WorkingFolioCard
+              key={folio.working_id}
               initial={folio}
               autoSpeak={false}
               showInstrument={showInstrument}
