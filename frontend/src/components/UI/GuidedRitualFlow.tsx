@@ -28,6 +28,7 @@ import { apiUrl } from '../../utils/api';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import NarrativeTTSPlayer from './NarrativeTTSPlayer';
+import type { EpicChapter } from './EpicStoryViewer';
 import { createLogger } from '../../utils/logger';
 
 const { Text, Paragraph } = Typography;
@@ -41,12 +42,12 @@ interface CurrentNarrativeLike {
   type?: string;
   genre?: string;
   narrative?: string;
-  narrative_parts?: string[] | string;
+  narrative_parts?: EpicChapter[];
   astrology_used?: string;
   divination_used?: string;
   entities_used?: string;
-  model_used?: string;
-  provider_used?: string;
+  model_used?: string | null;
+  provider_used?: string | null;
   [key: string]: unknown;
 }
 

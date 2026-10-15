@@ -14,10 +14,16 @@ interface SigilData {
   kamea?: string;
   reduced?: string;
   svg?: string;
-  [key: string]: unknown;
 }
 
-interface DivinationRawPayload {
+/** One chapter of an epic outlook (core/outlook_generator.py generate_epic). */
+export interface EpicChapter {
+  chapter: number;
+  title: string;
+  content: string;
+}
+
+export interface DivinationRawPayload {
   tarot?: { svg?: string; name?: string; orientation?: string; [k: string]: unknown };
   iching?: { svg?: string; name?: string; [k: string]: unknown };
   sigil?: SigilData;
@@ -25,7 +31,7 @@ interface DivinationRawPayload {
 }
 
 interface EpicStoryViewerProps {
-  narrativeParts?: Array<{ chapter: number; title: string; content: string }>;
+  narrativeParts?: EpicChapter[];
   astrologyContext?: string;
   divinationContext?: string;
   divinationRaw?: DivinationRawPayload | null;
@@ -192,10 +198,10 @@ export default function EpicStoryViewer({
                     />
                   </div>
                   <span className="text-[10px] font-bold text-white truncate max-w-full block">
-                    {divinationRaw.iching.name.split(' / ')[0]}
+                    {(divinationRaw.iching.name ?? '').split(' / ')[0]}
                   </span>
                   <span className="text-[8px] text-cyan-400 font-serif italic block truncate max-w-full">
-                    {divinationRaw.iching.name.split(' / ')[1] || 'Hexagram'}
+                    {(divinationRaw.iching.name ?? '').split(' / ')[1] || 'Hexagram'}
                   </span>
                 </div>
               )}
