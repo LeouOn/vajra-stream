@@ -42,7 +42,12 @@ async def forge_sigil(payload: ForgeRequest):
 
 @router.post("/broadcast")
 async def broadcast_sigil(payload: BroadcastRequest):
-    """Broadcast the energetic vibration of a forged sigil"""
+    """Broadcast the energetic vibration of a forged sigil.
+
+    Recorded as a ``broadcast`` ledger operation (``operation_id``) that ends
+    by itself after ``duration_minutes``; cancel it with
+    ``POST /api/v1/operations/{operation_id}/cancel``.
+    """
     try:
         # Trigger broadcast through vajra_service
         session_id = await vajra_service.create_session(
@@ -55,15 +60,22 @@ async def broadcast_sigil(payload: BroadcastRequest):
             visuals_enabled=True,
         )
 
-        # Start session
-        started = await vajra_service.start_session(session_id)
+        # Start session (one timed ledger operation, ended by its own timer)
+        started = await vajra_service.start_session(
+            session_id,
+            operation_kind="broadcast",
+            operation_title=f"Sigil broadcast: {payload.intention[:60]}",
+            end_after_seconds=payload.duration_minutes * 60 if payload.duration_minutes else None,
+        )
 
         if not started:
             raise HTTPException(status_code=500, detail="Failed to initiate scalar signal broadcast.")
 
+        session = vajra_service.active_sessions.get(session_id) or {}
         return {
             "status": "success",
             "session_id": session_id,
+            "operation_id": session.get("operation_id"),
             "message": f"Broadcast of sigil '{payload.intention[:30]}...' initiated at {payload.frequency_hz} Hz.",
         }
     except Exception as e:
