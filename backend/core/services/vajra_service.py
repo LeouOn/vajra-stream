@@ -135,14 +135,14 @@ class VajraStreamService:
         try:
             if ENHANCED_MODE and self.prayer_bowl_generator:
                 print(f"Generating prayer bowl audio at {config.frequency} Hz")
-                audio_data = await self.prayer_bowl_generator.generate_prayer_bowl_tone(
+                duration_sec = max(config.duration, 0.01)
+                audio_data = self.prayer_bowl_generator.generate_prayer_bowl_tone(
                     frequency=config.frequency,
-                    duration=config.duration,
-                    volume=config.volume,
-                    harmonic_strength=config.harmonic_strength,
-                    modulation_depth=config.modulation_depth,
-                    envelope_type=config.envelope_type,
+                    duration=duration_sec,
+                    pure_sine=not config.prayer_bowl_mode,
                 )
+                if config.volume != 1.0:
+                    audio_data = audio_data * config.volume
             else:
                 # Fallback: generate simple sine wave
                 print(f"Generating basic sine wave at {config.frequency} Hz")
@@ -206,7 +206,10 @@ class VajraStreamService:
         """Generate fallback audio in case of errors"""
         sample_rate = 44100
         t = np.linspace(0, config.duration, int(sample_rate * config.duration), False)
-        return np.sin(config.frequency * 2 * np.pi * t) * config.volume
+        audio_data = np.sin(config.frequency * 2 * np.pi * t) * config.volume
+        self.current_audio_data = audio_data
+        self._update_audio_spectrum(audio_data)
+        return audio_data
 
     async def broadcast_audio(
         self, audio_data: np.ndarray, hardware_level: int = 2, *, stop_epoch_floor: int | None = None
