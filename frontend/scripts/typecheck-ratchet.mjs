@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * TypeScript error ratchet.
+ * TypeScript error gate.
  *
  * `vite build` does not type-check, so type errors used to ship silently
  * (e.g. an un-imported <UniverseTab> that crashed the Outlook tab at runtime).
- * The codebase still carries a backlog of pre-existing errors, so this gate
- * cannot demand zero yet. Instead it fails when the count rises above the
- * committed baseline, and asks for the baseline to be lowered when it falls.
+ * The backlog was burned down to zero (2026-10-15), so `.tsc-baseline` is 0
+ * and any error fails. The ratchet machinery stays for honesty: the baseline
+ * can only go down, never up.
  *
- *   npm run typecheck                  # check against baseline
- *   npm run typecheck -- --update      # rewrite baseline to the current count
+ *   npm run typecheck                  # fail on any error above the baseline (0)
+ *   npm run typecheck -- --update      # lower the baseline to the current count
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -32,20 +32,29 @@ try {
 const errors = output.split(/\r?\n/).filter((line) => /error TS\d+/.test(line));
 const count = errors.length;
 
-if (process.argv.includes('--update')) {
-  writeFileSync(baselinePath, `${count}\n`);
-  console.log(`tsc baseline set to ${count}.`);
-  process.exit(0);
-}
-
 const baseline = Number.parseInt(readFileSync(baselinePath, 'utf8').trim(), 10);
 if (Number.isNaN(baseline)) {
   console.error(`Could not parse ${baselinePath}.`);
   process.exit(2);
 }
 
+if (process.argv.includes('--update')) {
+  if (count > baseline) {
+    // The gate only tightens: a rise is fixed in code, not by raising the baseline.
+    console.error(
+      `Refusing to raise the tsc baseline from ${baseline} to ${count}. Fix the new errors:\n`,
+    );
+    console.error(errors.join('\n'));
+    process.exit(1);
+  }
+  writeFileSync(baselinePath, `${count}\n`);
+  console.log(`tsc baseline set to ${count}.`);
+  process.exit(0);
+}
+
 if (count > baseline) {
-  console.error(`TypeScript errors rose from ${baseline} to ${count}. Fix the new errors:\n`);
+  const what = baseline === 0 ? 'TypeScript must stay error-free' : `TypeScript errors rose from ${baseline}`;
+  console.error(`${what}: ${count} error(s). Fix them:\n`);
   console.error(errors.join('\n'));
   process.exit(1);
 }

@@ -185,11 +185,11 @@ CI runs the same on `ubuntu-latest` with Python 3.11 (`.github/workflows/ci.yml`
   remediation-18 / Issue 5.8 -->`). If you add a doc link, make sure the
   target file exists.
 - **No `as any` / `@ts-ignore` / `@ts-expect-error`.** Widen the type instead.
-- **TypeScript error ratchet.** `vite build` does not type-check, and `src/`
-  still carries a backlog of pre-existing `tsc` errors. CI runs
-  `npm run typecheck` (`frontend/scripts/typecheck-ratchet.mjs`), which fails
-  if the count exceeds `frontend/.tsc-baseline`. When you fix errors, lower
-  the baseline with `npm run typecheck -- --update` and commit it.
+- **TypeScript: zero errors (hard gate).** `vite build` does not type-check,
+  so CI runs `npm run typecheck` (`frontend/scripts/typecheck-ratchet.mjs`).
+  `frontend/.tsc-baseline` is `0`, so any `tsc` error fails. The baseline only
+  goes down: `npm run typecheck -- --update` refuses to raise it. Fix the type
+  (no casts to silence it) rather than touching the baseline.
 - **Pre-commit hooks** (`.pre-commit-config.yaml`): ruff + ruff-format on
   commit; ruff pinned to `v0.4.4` for the hook regardless of local ruff
   version.
