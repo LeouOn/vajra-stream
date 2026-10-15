@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +44,34 @@ def get_service() -> ImageGenerationService:
         _service = ImageGenerationService()
         _load_config_from_db(_service)
         _inject_fallback_keys(_service)
+        _anchor_output_dir(_service)
     return _service
+
+
+def hosted_output_dir() -> Path:
+    """Where hosted generations are saved: ``image_output_dir``, anchored at the project root.
+
+    The standalone service resolves a relative directory against the process
+    cwd; this adapter never lets that happen (:func:`_anchor_output_dir`), so
+    saving and the gallery that lists the saves agree whatever the cwd is.
+    """
+    return _anchored(get_service().config.get("image_output_dir") or "generated/images")
+
+
+def _anchored(raw: str) -> Path:
+    path = Path(raw)
+    if path.is_absolute():
+        return path
+    from core.schema import get_project_root
+
+    return get_project_root() / path
+
+
+def _anchor_output_dir(service: ImageGenerationService) -> None:
+    """Rewrite a relative ``image_output_dir`` (the default) as an absolute project-root path."""
+    raw = str(service.config.get("image_output_dir") or "generated/images")
+    if not Path(raw).is_absolute():
+        service.update_config({"image_output_dir": str(_anchored(raw))})
 
 
 def _inject_fallback_keys(service: ImageGenerationService) -> None:
@@ -68,14 +94,6 @@ def _inject_fallback_keys(service: ImageGenerationService) -> None:
 
 
 # ── DB helpers ─────────────────────────────────────────────────────────
-
-
-def _project_root() -> Path:
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        if (parent / "pyproject.toml").exists() or (parent / "vajra_stream.db").exists():
-            return parent
-    return here.parent
 
 
 def _db_path() -> str:
@@ -262,6 +280,7 @@ async def update_config(request: ConfigUpdateRequest) -> dict[str, Any]:
     try:
         service = get_service()
         service.update_config(updates)
+        _anchor_output_dir(service)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     _save_config_to_db(updates)
@@ -308,26 +327,7 @@ async def validate_prompt(payload: dict[str, Any]) -> dict[str, Any]:
     return get_service().validate_prompt(prompt)
 
 
-@router.get("/saved")
-async def list_saved_images() -> dict[str, Any]:
-    """List previously saved images from the output directory (QA / audit)."""
-
-    service: ImageGenerationService = get_service()
-    out_dir = Path(service.config.get("image_output_dir", "generated/images"))
-    if not out_dir.exists():
-        return {"images": [], "output_dir": str(out_dir)}
-
-    files = sorted(out_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
-    images = []
-    for f in files[:50]:
-        if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
-            stat = f.stat()
-            images.append(
-                {
-                    "filename": f.name,
-                    "path": str(f),
-                    "size_bytes": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-                }
-            )
-    return {"images": images, "output_dir": str(out_dir)}
+# ``GET /images/saved`` was retired on 2026-10-15: it had no caller, returned
+# filesystem paths it could not serve, and stopped at 50 files. Saved hosted
+# images are listed by ``GET /gallery?source=hosted`` and served by
+# ``GET /gallery/hosted/{filename}`` (backend/app/api/v1/endpoints/gallery.py).

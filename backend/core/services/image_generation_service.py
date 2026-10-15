@@ -605,9 +605,22 @@ class ImageGenerationService:
         self._hourly_calls.append(now)
         self._cache[cache_key] = (now + cfg["cache_ttl_seconds"], result)
 
-        saved_path = self._save_image(result.image_data_url, full_prompt)
-        if saved_path and caption_facts:
-            self._write_caption_sidecar(saved_path, full_prompt, result, caption_facts)
+        saved_path = self._save_image(
+            result.image_data_url,
+            full_prompt,
+            metadata={
+                "prompt": prompt,
+                "full_prompt": full_prompt,
+                "provider": result.provider,
+                "model": result.model,
+                "size": size,
+                "quality": quality,
+                "aspect_ratio": kwargs.get("aspect_ratio"),
+                "revised_prompt": result.revised_prompt,
+                "cost_usd": result.cost_usd,
+                **({"caption_facts": list(caption_facts)} if caption_facts else {}),
+            },
+        )
 
         response: dict[str, Any] = {
             "image_data_url": result.image_data_url,
@@ -625,8 +638,17 @@ class ImageGenerationService:
 
     # ── Internals ──────────────────────────────────────────────────────
 
-    def _save_image(self, data_url: str, prompt: str) -> str | None:
+    def _save_image(self, data_url: str, prompt: str, metadata: dict[str, Any] | None = None) -> str | None:
         """Save a base64 data URL to the configured output directory.
+
+        Next to ``img_<ts>_<prompthash>.<ext>`` it writes ``img_<ts>_<prompthash>.json``,
+        a small sidecar recording what made the image (``metadata``: prompt,
+        provider, model, size, ...) plus ``created_at``, ``content_type``,
+        ``bytes`` and ``sha256`` of the saved file. A sidecar that cannot be
+        written is logged and does not undo the image save.
+
+        A relative ``image_output_dir`` resolves against the current working
+        directory; embedders that want a fixed location pass an absolute path.
 
         Returns the saved file path, or None if the image is a URL
         (not a data URL) or saving fails.
@@ -644,46 +666,37 @@ class ImageGenerationService:
         content_type = "image/png"
         if ":" in header:
             content_type = header.split(":", 1)[1]
-        ext = "png" if "png" in content_type else "jpg"
+        ext = "png" if "png" in content_type else "webp" if "webp" in content_type else "jpg"
 
         out_dir = Path(self._config["image_output_dir"])
         try:
             out_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = int(time.time())
+            now = time.time()
+            timestamp = int(now)
             prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:8]
             filename = f"img_{timestamp}_{prompt_hash}.{ext}"
             filepath = out_dir / filename
             filepath.write_bytes(img_bytes)
             logger.info("Saved image to %s", filepath)
-            return str(filepath)
         except OSError as exc:
             logger.warning("Could not save image to %s: %s", out_dir, exc)
             return None
 
-    @staticmethod
-    def _write_caption_sidecar(
-        image_path: str, prompt: str, result: ProviderResult, caption_facts: list[dict[str, str]]
-    ) -> None:
-        """``<image>.json`` beside a saved image: the prompt sent and the facts to caption it with."""
-        sidecar = Path(image_path).with_suffix(".json")
+        sidecar = {
+            **(metadata or {"prompt": prompt}),
+            "filename": filename,
+            "content_type": content_type,
+            "bytes": len(img_bytes),
+            "sha256": hashlib.sha256(img_bytes).hexdigest(),
+            "created_at": datetime.fromtimestamp(now, tz=timezone.utc).isoformat(),
+        }
         try:
-            sidecar.write_text(
-                json.dumps(
-                    {
-                        "image": Path(image_path).name,
-                        "prompt": prompt,
-                        "model": result.model,
-                        "provider": result.provider,
-                        "caption_facts": list(caption_facts),
-                        "saved_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                    indent=2,
-                    ensure_ascii=False,
-                ),
-                encoding="utf-8",
+            filepath.with_suffix(".json").write_text(
+                json.dumps(sidecar, indent=2, ensure_ascii=False), encoding="utf-8"
             )
-        except OSError as exc:
-            logger.warning("Could not write caption sidecar %s: %s", sidecar, exc)
+        except (OSError, TypeError, ValueError) as exc:
+            logger.warning("Saved %s but could not write its sidecar: %s", filepath, exc)
+        return str(filepath)
 
     @staticmethod
     def _cache_key(
