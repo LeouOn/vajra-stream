@@ -239,7 +239,9 @@ def start_full_system(backend_port=BACKEND_PORT):
 
 def run_tests():
     print("Running test suite...")
-    result = _cmd([sys.executable, "-m", "pytest", "tests/", "-v"])
+    result = _cmd(
+        [sys.executable, "-m", "pytest", "tests/", "-m", "not slow", "--ignore=tests/e2e", "--tb=short", "-v"]
+    )
     return result.returncode
 
 

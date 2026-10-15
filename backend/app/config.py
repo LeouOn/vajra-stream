@@ -27,7 +27,7 @@ Contract preserved here:
 
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ---------------------------------------------------------------------------
 # 1. Re-export the canonical constants.
@@ -138,10 +138,10 @@ class Settings(BaseSettings):
     # ComfyUI (backend-only)
     COMFYUI_BASE_URL: str = "http://127.0.0.1:8188"
 
-    model_config = {
-        "env_file": ".env",
-        "extra": "ignore",  # Allow extra env vars not defined here
-    }
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",  # Allow extra env vars not defined here
+    )
 
 
 settings = Settings()
@@ -181,10 +181,10 @@ class LLMConfig(BaseSettings):
     lm_studio_base_url: str | None = None
     local_models_dir: str = "./models"
 
-    model_config = {
-        "env_prefix": "LLM_",
-        "case_sensitive": False,
-    }
+    model_config = SettingsConfigDict(
+        env_prefix="LLM_",
+        case_sensitive=False,
+    )
 
 
 _llm_config_instance: LLMConfig | None = None
