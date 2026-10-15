@@ -30,12 +30,14 @@ import NarrativeTTSPlayer from './NarrativeTTSPlayer';
 import GuidedRitualFlow from './GuidedRitualFlow';
 import JourneyCard from './JourneyCard';
 import HistoryTab from './outlook/HistoryTab';
+import UniverseTab from './outlook/UniverseTab';
 import {
   GENRE_BORDER_COLORS,
   GENRE_COLORS,
   SAVED_RITUALS_KEY,
   stripMarkdown,
   type HistoryItem,
+  type RealmSelection,
   type SavedRitual,
 } from './outlook/outlookShared';
 import RitualVisualization from './RitualVisualization';
@@ -263,7 +265,7 @@ export default function OutlookDashboard() {
   const [isEpic, setIsEpic] = useState<boolean>(false);
   const [stages, setStages] = useState<number>(9);
   const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 16));
-  const [selectedRealmId, setSelectedRealmId] = useState<string>('');
+  const [selectedRealmId, setSelectedRealmId] = useState<RealmSelection>('');
   const [selectedCharIds, setSelectedCharIds] = useState<Array<string | number>>([]);
   const [selectedPopIds, setSelectedPopIds] = useState<Array<string | number>>([]);
   const [includeDialogue, setIncludeDialogue] = useState<boolean>(false);
@@ -1940,16 +1942,16 @@ export default function OutlookDashboard() {
         ═══════════════════════════════════════════════════════ */}
         {activeTab === 'universe' && (
           <UniverseTab
-            realms={{realms}}
-            characters={{characters}}
-            populations={{populations}}
-            roles={{roles}}
-            locationTypes={{locationTypes}}
-            selectedRealmId={{selectedRealmId}}
-            onSelectRealm={{setSelectedRealmId}}
-            selectedCharIds={{selectedCharIds}}
-            onChangeSelectedCharIds={{setSelectedCharIds}}
-            onRefreshUniverse={{fetchUniverseData}}
+            realms={realms}
+            characters={characters}
+            populations={populations}
+            roles={roles}
+            locationTypes={locationTypes}
+            selectedRealmId={selectedRealmId}
+            onSelectRealm={setSelectedRealmId}
+            selectedCharIds={selectedCharIds}
+            onChangeSelectedCharIds={setSelectedCharIds}
+            onRefreshUniverse={fetchUniverseData}
           />
         )}
         {activeTab === 'history' && (

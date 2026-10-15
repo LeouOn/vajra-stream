@@ -15,7 +15,7 @@ import {
   Volume2, Zap, Cpu, Mic, Languages, Settings,
   RefreshCw, Check, ChevronDown,
 } from 'lucide-react';
-import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty } from 'antd';
+import { Card, Select, Slider, Button, Switch, Tag, Space, Typography, Divider, Spin, Empty, message } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useUIStore } from '../../stores/uiStore';
 import PageHeader from './PageHeader';

@@ -52,6 +52,11 @@ export interface Population {
 
 export type UniverseTabId = 'realms' | 'characters' | 'populations';
 
+export const UNIVERSE_TAB_IDS: readonly UniverseTabId[] = ['realms', 'characters', 'populations'];
+
+/** Selected realm for the Generator; '' means none. Ids are kept as the backend sends them. */
+export type RealmSelection = Realm['id'] | '';
+
 export const GENRE_COLORS: Record<string, string> = {
   healing: 'rgba(0, 168, 107, 0.05)',
   victory: 'rgba(220, 20, 60, 0.05)',

@@ -7,13 +7,13 @@
 import React, { useMemo, useState } from 'react';
 import {
   Button, Card, Col, Empty, Form, Input, InputNumber, Modal, Row,
-  Select, Space, Switch, Tabs, Tag, Tooltip, Typography,
+  Select, Space, Switch, Tabs, Tag, Tooltip, Typography, message,
 } from 'antd';
 import { Edit2, Plus, Search, Trash2 } from 'lucide-react';
 import { apiUrl } from '../../../utils/api';
 import { audioFeedback } from '../../../utils/audioFeedback';
 import { useUIStore } from '../../../stores/uiStore';
-import type { Character, Population, Realm, UniverseTabId } from './outlookShared';
+import { UNIVERSE_TAB_IDS, type Character, type Population, type Realm, type RealmSelection, type UniverseTabId } from './outlookShared';
 
 const { Text, Paragraph } = Typography;
 
@@ -23,8 +23,8 @@ interface UniverseTabProps {
   populations: Population[];
   roles: string[];
   locationTypes: string[];
-  selectedRealmId: string;
-  onSelectRealm: (id: string) => void;
+  selectedRealmId: RealmSelection;
+  onSelectRealm: (id: RealmSelection) => void;
   selectedCharIds: Array<string | number>;
   onChangeSelectedCharIds: (next: Array<string | number>) => void;
   onRefreshUniverse: () => Promise<void> | void;
@@ -45,7 +45,7 @@ export default function UniverseTab({
   const addToast = useUIStore(s => s.addToast);
 
   // ─── Universe Sub-tab ────────────────────────────────────
-  const [universeTab, setUniverseTab] = useState<UniverseTab>('realms');
+  const [universeTab, setUniverseTab] = useState<UniverseTabId>('realms');
 
   // ─── CRUD Modals ─────────────────────────────────────────
   const [realmModalOpen, setRealmModalOpen] = useState<boolean>(false);
@@ -215,11 +215,14 @@ export default function UniverseTab({
 
   return (
     <>
-{activeTab === 'universe' && (
-  <Card size="small" styles={{ body: { padding: 0 } }}>
+      <Card size="small" styles={{ body: { padding: 0 } }}>
     <Tabs
       activeKey={universeTab}
-      onChange={k => { setUniverseTab(k); audioFeedback.playClick(); }}
+      onChange={k => {
+        const next = UNIVERSE_TAB_IDS.find(id => id === k);
+        if (next) setUniverseTab(next);
+        audioFeedback.playClick();
+      }}
       style={{ padding: '0 16px' }}
       tabBarExtraContent={
         universeTab !== 'populations' && (
@@ -270,7 +273,7 @@ export default function UniverseTab({
                       className={r.id === selectedRealmId ? 'border-cyan-500' : ''}
                       actions={[
                         <Tooltip title="Set as setting" key="set"><Button type="text" size="small"
-                          onClick={() => { setSelectedRealmId(r.id === selectedRealmId ? '' : r.id); audioFeedback.playClick(); }}>
+                          onClick={() => { onSelectRealm(r.id === selectedRealmId ? '' : r.id); audioFeedback.playClick(); }}>
                           {r.id === selectedRealmId ? '📍 Active' : '📍 Set'}</Button></Tooltip>,
                         <Tooltip title="Edit" key="edit"><Button type="text" size="small" icon={<Edit2 className="w-3 h-3" />}
                           onClick={() => openRealmModal(r)} /></Tooltip>,
@@ -334,7 +337,7 @@ export default function UniverseTab({
                       actions={[
                         <Tooltip title={selectedCharIds.includes(c.id) ? 'Remove' : 'Add to narrative'} key="add">
                           <Button type="text" size="small"
-                            onClick={() => setSelectedCharIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}>
+                            onClick={() => onChangeSelectedCharIds(selectedCharIds.includes(c.id) ? selectedCharIds.filter(id => id !== c.id) : [...selectedCharIds, c.id])}>
                             {selectedCharIds.includes(c.id) ? '✓ Added' : '👤 Add'}</Button></Tooltip>,
                         <Tooltip title="Edit" key="edit"><Button type="text" size="small" icon={<Edit2 className="w-3 h-3" />}
                           onClick={() => openCharModal(c)} /></Tooltip>,
@@ -398,12 +401,6 @@ export default function UniverseTab({
       ]}
     />
   </Card>
-)}
-
-{/* ═══════════════════════════════════════════════════════
-    HISTORY TAB
-═══════════════════════════════════════════════════════ */}
-{activeTab === 'history' && (
 
       {/* ═══════════════════════════════════════════════════════
           REALM MODAL
