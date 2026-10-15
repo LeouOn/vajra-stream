@@ -62,6 +62,28 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize database schema: {e}")
         logger.error(traceback.format_exc())
 
+    # Operations ledger: anything left queued/running by a previous process is
+    # marked interrupted (never silently "still running"), and every state
+    # change is pushed to WebSocket clients as ``operation_update``.
+    try:
+        from core import operations as _operations
+
+        interrupted = _operations.reconcile_interrupted()
+        if interrupted:
+            logger.info(f"Marked {interrupted} in-flight operation(s) from a previous run as interrupted")
+
+        loop = asyncio.get_running_loop()
+
+        def _broadcast_operation(op: dict) -> None:
+            message = {"type": "operation_update", "data": op}
+            loop.call_soon_threadsafe(lambda: loop.create_task(stable_connection_manager_v2.broadcast(message)))
+
+        _operations.add_listener(_broadcast_operation)
+        app.state.operation_listener = _broadcast_operation
+    except Exception as e:
+        logger.error(f"Failed to initialize operations ledger: {e}")
+        logger.error(traceback.format_exc())
+
     app.state.health_task = None
     app.state.streaming_task = None
 
@@ -237,6 +259,12 @@ async def lifespan(app: FastAPI):
 
     # ---- SHUTDOWN ---------------------------------------------------------
     logger.info("Vajra.Stream API shutting down...")
+
+    listener = getattr(app.state, "operation_listener", None)
+    if listener is not None:
+        from core import operations as _operations
+
+        _operations.remove_listener(listener)
 
     # Cancel the warmup task first if it is still running so its
     # sub-tasks (health heartbeat, streaming) don't race the teardown.

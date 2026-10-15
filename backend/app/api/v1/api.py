@@ -16,6 +16,7 @@ from backend.app.api.v1.endpoints import knowledge as knowledge_endpoint
 from backend.app.api.v1.endpoints import llm as llm_endpoint
 from backend.app.api.v1.endpoints import locations as locations_endpoint
 from backend.app.api.v1.endpoints import mops as mops_endpoint
+from backend.app.api.v1.endpoints import operations as operations_endpoint
 from backend.app.api.v1.endpoints import operator as operator_endpoint
 from backend.app.api.v1.endpoints import outlook as outlook_endpoint
 from backend.app.api.v1.endpoints import personal_healing as personal_healing_endpoint
@@ -65,6 +66,7 @@ api_router.include_router(divination_endpoint.router, tags=["divination"])
 api_router.include_router(prayer_wheel_endpoint.router, tags=["prayer-wheel"])
 api_router.include_router(time_cycles_endpoint.router, tags=["time-cycles"])
 api_router.include_router(operator_endpoint.router, prefix="/operator", tags=["operator"])
+api_router.include_router(operations_endpoint.router)
 api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["outlook"])
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])
