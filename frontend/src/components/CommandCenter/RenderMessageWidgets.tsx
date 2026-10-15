@@ -12,6 +12,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiUrl } from '../../utils/api';
 import WorkingInstrument, { WitnessPlate } from './WorkingInstrument';
+import WitnessSection from '../Workings/WitnessSection';
+import type { WitnessBlock } from '../../lib/witnessApi';
 
 // ---------------------------------------------------------------------------
 // Divination payload types
@@ -140,12 +142,8 @@ export interface ToolCall {
       is_saka_dawa?: boolean;
     };
     broadcast?: { status?: string; error?: string } | null;
-    witness?: {
-      status?: string;
-      image_data_url?: string;
-      error?: string;
-      model?: string;
-    };
+    /** Hosted (`image_data_url`) or local render (`image_url`, contract W2-2). */
+    witness?: WitnessBlock;
     spoken?: { status?: string; error?: string; audio_path?: string };
     video?: { status?: string; error?: string; task_id?: string };
     source?: string;
@@ -179,7 +177,6 @@ export function WorkingFolioCard({
   showRates?: boolean;
 }) {
   const [folio, setFolio] = useState<WorkingResult>(initial);
-  const [busy, setBusy] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [videoBusy, setVideoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,7 +185,6 @@ export function WorkingFolioCard({
   const dials = (folio.rate_values || []).join(' · ');
   const duchen = folio.saka_dawa?.saka_dawa_duchen;
   const days = folio.saka_dawa?.days_until_duchen;
-  const witnessUrl = folio.witness?.image_data_url;
 
   const applyFolio = (data: unknown) => {
     if (data && typeof data === 'object') {
@@ -235,38 +231,12 @@ export function WorkingFolioCard({
     }
   };
 
-  const forgeWitness = async () => {
-    if (!folio.working_id || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(apiUrl(`/operator/workings/${folio.working_id}/manifest`), { method: 'POST' });
-      const data: unknown = await res.json();
-      if (!res.ok) {
-        setError('Manifestation image failed');
-        return;
-      }
-      applyFolio(data);
-    } catch {
-      setError('Manifestation image failed');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   useEffect(() => {
     if (!autoSpeak || !initial.working_id || initial.spoken?.status === 'ok') return;
     void speakCharge();
     // Speak once when a newly sealed working is shown in chat.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSpeak, initial.working_id]);
-
-  useEffect(() => {
-    if (!autoManifest || !initial.working_id || initial.witness?.image_data_url) return;
-    void forgeWitness();
-    // Manifestation image is the cheap default visual for a new working.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoManifest, initial.working_id]);
 
   return (
     <div data-testid="working-folio" className="bg-black/60 p-4 rounded-xl border border-amber-500/25 space-y-3">
@@ -295,23 +265,12 @@ export function WorkingFolioCard({
       {folio.broadcast?.status && (
         <p className="text-[10px] font-mono text-amber-400/80">Broadcast: {folio.broadcast.status}</p>
       )}
-      {witnessUrl && (
-        <WitnessPlate label="Manifestation still">
-          <img
-            src={witnessUrl}
-            alt="Manifestation image"
-            className="w-full max-h-64 object-contain rounded-lg cursor-zoom-in"
-            onClick={() => onZoomItemClick?.({
-              type: 'image',
-              title: folio.intention || 'Manifestation',
-              image_data_url: witnessUrl,
-            })}
-          />
-        </WitnessPlate>
-      )}
-      {folio.witness?.error && (
-        <p className="text-[11px] text-red-300">{folio.witness.error}</p>
-      )}
+      <WitnessSection
+        folio={folio}
+        onFolio={applyFolio}
+        onZoomItemClick={onZoomItemClick}
+        autoManifest={autoManifest}
+      />
       {error && <p className="text-[11px] text-red-300">{error}</p>}
       {folio.spoken?.status === 'ok' && folio.working_id && (
         <audio
@@ -336,14 +295,6 @@ export function WorkingFolioCard({
           className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
         >
           {speaking ? 'Speaking…' : 'Speak charge'}
-        </button>
-        <button
-          type="button"
-          onClick={() => { void forgeWitness(); }}
-          disabled={busy}
-          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
-        >
-          {busy ? 'Painting manifestation…' : witnessUrl ? 'Re-paint manifestation' : 'Manifestation image'}
         </button>
         <button
           type="button"

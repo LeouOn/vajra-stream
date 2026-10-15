@@ -5,6 +5,9 @@ import {
   selectByWorkingId,
   selectOperations,
   selectRecent,
+  subscribeTodaySummary,
+  SUMMARY_EVENT_DEBOUNCE_MS,
+  SUMMARY_POLL_MS,
   useOperationsStore,
 } from '../../stores/operationsStore';
 import type { Operation } from '../../types/operations';
@@ -146,5 +149,92 @@ describe('operationsStore', () => {
     const got = await state().fetchOperation('one');
     expect(got.status).toBe('running');
     expect(state().byId.one).toBeDefined();
+  });
+});
+
+describe('operationsStore: shared today summary poller', () => {
+  const summary = { since: null, by_status: {}, by_kind: {}, active: 0, completed: 1, seconds_held: 60 };
+  let fetchSpy: ReturnType<typeof vi.fn>;
+  const unsubscribers: Array<() => void> = [];
+
+  const summaryCalls = (): number =>
+    fetchSpy.mock.calls.filter((c) => String(c[0]).startsWith('/api/v1/operations/summary?since=')).length;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    state().clear();
+    fetchSpy = vi.fn().mockResolvedValue(jsonResponse(summary));
+    vi.stubGlobal('fetch', fetchSpy);
+  });
+
+  afterEach(() => {
+    unsubscribers.splice(0).forEach((u) => u());
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function subscribe(): () => void {
+    const u = subscribeTodaySummary();
+    unsubscribers.push(u);
+    return u;
+  }
+
+  it('starts on the first reader, shares one interval, and stops after the last', async () => {
+    const a = subscribe();
+    const b = subscribe();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(summaryCalls()).toBe(1);
+    expect(state().todaySummary).toEqual(summary);
+
+    await vi.advanceTimersByTimeAsync(SUMMARY_POLL_MS);
+    expect(summaryCalls()).toBe(2);
+
+    a();
+    await vi.advanceTimersByTimeAsync(SUMMARY_POLL_MS);
+    expect(summaryCalls()).toBe(3); // b still reading
+
+    b();
+    b(); // idempotent
+    await vi.advanceTimersByTimeAsync(SUMMARY_POLL_MS * 3);
+    expect(summaryCalls()).toBe(3);
+  });
+
+  it('refreshes once, debounced, after a burst of operation_update status changes', async () => {
+    subscribe();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(summaryCalls()).toBe(1);
+
+    state().ingest(op({ id: 'x', status: 'queued' }));
+    state().ingest(op({ id: 'x', status: 'running', started_at: '2026-10-14T10:00:01+00:00' }));
+    state().ingest(op({ id: 'y', status: 'queued' }));
+    await vi.advanceTimersByTimeAsync(SUMMARY_EVENT_DEBOUNCE_MS - 1);
+    expect(summaryCalls()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(summaryCalls()).toBe(2);
+  });
+
+  it('ignores result-only updates and REST upserts', async () => {
+    subscribe();
+    state().upsert(op({ id: 'x', status: 'running' }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(summaryCalls()).toBe(1);
+
+    state().ingest(op({ id: 'x', status: 'running', result: { queue_position: 2 } }));
+    state().upsertMany([op({ id: 'z', status: 'queued' })]);
+    await vi.advanceTimersByTimeAsync(SUMMARY_EVENT_DEBOUNCE_MS * 2);
+    expect(summaryCalls()).toBe(1);
+  });
+
+  it('does not fetch on events when nobody is reading', async () => {
+    state().ingest(op({ id: 'x', status: 'success' }));
+    await vi.advanceTimersByTimeAsync(SUMMARY_EVENT_DEBOUNCE_MS * 2);
+    expect(summaryCalls()).toBe(0);
+  });
+
+  it('stores null when the summary is unreachable', async () => {
+    fetchSpy.mockRejectedValue(new Error('offline'));
+    subscribe();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(state().todaySummary).toBeNull();
   });
 });

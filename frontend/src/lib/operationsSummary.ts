@@ -4,7 +4,8 @@
  * These replace the retired MOPS throughput figures (owner decision
  * 2026-10-14, docs/DEVELOPMENT_ROADMAP.md "Decisions"): instead of a
  * per-second rate, show real operations, each with a measured duration.
- * The full Ledger UI and live `operation_update` handling live elsewhere;
+ * The full Ledger UI and live `operation_update` handling live elsewhere,
+ * and polling is shared through `useTodaySummary` in stores/operationsStore.ts;
  * this module only fetches and formats the summary.
  */
 import { apiUrl } from '../utils/api';

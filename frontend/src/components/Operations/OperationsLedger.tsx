@@ -7,14 +7,17 @@
  *   - finished: the backend's measured `elapsed_seconds` and finish time
  * No scores, meters or throughput (docs/DEVELOPMENT_ROADMAP.md, "the honest instrument").
  *
+ * Active rows offer Cancel (`POST /operations/{id}/cancel`). A refusal is
+ * answered calmly in the row: already finished, not cancellable, or gone.
+ *
  * @component
  * @route /operations/ledger
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Select, Tag } from 'antd';
-import { RefreshCw } from 'lucide-react';
-import { selectOperations, useOperationsStore } from '../../stores/operationsStore';
+import { RefreshCw, Square } from 'lucide-react';
+import { isActiveStatus, selectOperations, useOperationsStore } from '../../stores/operationsStore';
 import { describeTiming, formatDuration } from '../../lib/operationFormat';
 import { useNow } from '../../hooks/useNow';
 import OperationStatusTag from './OperationStatusTag';
@@ -25,7 +28,29 @@ const STATUSES: OperationStatus[] = ['queued', 'running', 'success', 'error', 'c
 const ALL = 'all';
 
 function LedgerRow({ op, now }: { op: Operation; now: number }): React.ReactElement {
+  const cancelOperation = useOperationsStore((s) => s.cancelOperation);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelNote, setCancelNote] = useState<{ text: string; tone: 'calm' | 'error' } | null>(null);
   const showError = op.error && (op.status === 'error' || op.status === 'interrupted' || op.status === 'cancelled');
+  const active = isActiveStatus(op.status);
+
+  const handleCancel = async (): Promise<void> => {
+    setCancelling(true);
+    setCancelNote(null);
+    try {
+      const outcome = await cancelOperation(op.id);
+      if (outcome.ok) {
+        // A loop stops at its next tick, so the record may still read "running" for a moment.
+        const stillActive = !outcome.operation || isActiveStatus(outcome.operation.status);
+        setCancelNote(stillActive ? { text: 'Cancel requested; it stops at its next step.', tone: 'calm' } : null);
+      } else {
+        setCancelNote({ text: outcome.message, tone: outcome.reason === 'failed' ? 'error' : 'calm' });
+      }
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <li
       data-testid="ledger-row"
@@ -44,6 +69,18 @@ function LedgerRow({ op, now }: { op: Operation; now: number }): React.ReactElem
             working {op.working_id.slice(0, 8)}
           </Link>
         )}
+        {active && (
+          <Button
+            size="small"
+            danger
+            icon={<Square className="w-3 h-3" />}
+            loading={cancelling}
+            onClick={() => void handleCancel()}
+            data-testid="ledger-cancel"
+          >
+            Cancel
+          </Button>
+        )}
       </div>
       <div className="text-xs text-gray-400 font-mono" data-testid="ledger-timing">
         {describeTiming(op, now)}
@@ -51,6 +88,15 @@ function LedgerRow({ op, now }: { op: Operation; now: number }): React.ReactElem
       {showError && (
         <div className="text-xs text-red-300 break-words" data-testid="ledger-error">
           {op.error}
+        </div>
+      )}
+      {cancelNote && (
+        <div
+          className={`text-xs ${cancelNote.tone === 'error' ? 'text-red-300' : 'text-gray-300'}`}
+          data-testid="ledger-cancel-note"
+          role="status"
+        >
+          {cancelNote.text}
         </div>
       )}
     </li>

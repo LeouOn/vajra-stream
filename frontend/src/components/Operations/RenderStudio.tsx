@@ -7,21 +7,25 @@
  *     A running job shows only the live count from its recorded start.
  *   - Image size is the measured PNG size from `result`, not the request.
  *   - A seed is labeled "(drawn)" when `provenance.seed === 'draw'`, else "(chosen)".
+ *   - A reference image conditions the scene; the copy says it is not a pixel edit.
  *
  * @component
  * @route /operations/render
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, Select, message } from 'antd';
-import { ImageIcon, RefreshCw, Square } from 'lucide-react';
+import { ImageIcon, RefreshCw, Square, Upload } from 'lucide-react';
 import { selectActive, selectRecent, useOperationsStore } from '../../stores/operationsStore';
 import {
   FALLBACK_PRESETS,
-  cancelRenderJob,
+  REFERENCE_ACCEPT,
   fetchRenderHealth,
   fetchRenderPresets,
   parseSeed,
+  referenceImageUrl,
   submitRenderJob,
+  uploadReferenceImage,
+  validateReferenceFile,
 } from '../../lib/renderApi';
 import {
   describeTiming,
@@ -34,7 +38,7 @@ import {
 import { useNow } from '../../hooks/useNow';
 import OperationStatusTag from './OperationStatusTag';
 import type { Operation } from '../../types/operations';
-import type { RenderHealth, RenderJobRequest, RenderPreset } from '../../types/render';
+import type { RenderHealth, RenderJobRequest, RenderPreset, RenderReference } from '../../types/render';
 
 const POLL_MS = 10_000;
 const HEALTH_POLL_MS = 30_000;
@@ -47,6 +51,7 @@ interface RenderView {
   seed: number | null;
   sha256: string | null;
   queuePosition: number | null;
+  referenceId: string | null;
 }
 
 function num(v: unknown): number | null {
@@ -68,6 +73,7 @@ function readRender(op: Operation): RenderView {
     seed: num(r.seed) ?? num(p.seed),
     sha256: str(r.sha256),
     queuePosition: num(r.queue_position),
+    referenceId: str(p.reference_id),
   };
 }
 
@@ -207,6 +213,19 @@ function JobCard({
         </div>
       )}
 
+      {view.referenceId && (
+        <a
+          href={referenceImageUrl(view.referenceId)}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="render-reference-tag"
+          className="text-xs text-gray-400 font-mono hover:text-gray-200 self-start"
+          title="The reference image this render was conditioned on"
+        >
+          reference {view.referenceId.slice(0, 6)}…
+        </a>
+      )}
+
       {op.error && (op.status === 'error' || op.status === 'interrupted' || op.status === 'cancelled') && (
         <div className="text-xs text-red-300 break-words" role="alert">
           {op.error}
@@ -242,17 +261,104 @@ function GalleryTile({ op, onSelect }: { op: Operation; onSelect: (id: string) =
   );
 }
 
+function ReferencePicker({
+  reference,
+  onChange,
+}: {
+  reference: RenderReference | null;
+  onChange: (ref: RenderReference | null) => void;
+}): React.ReactElement {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFile = async (file: File): Promise<void> => {
+    const problem = validateReferenceFile(file);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(null);
+    setUploading(true);
+    try {
+      onChange(await uploadReferenceImage(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="render-reference">
+      <span className="text-xs text-gray-400">Reference image (optional)</span>
+      <p className="text-[11px] text-gray-500 m-0">
+        A reference conditions the scene: the model reads it alongside the prompt. It is not a pixel edit, and the
+        uploaded file is stored unchanged. PNG, JPEG or WebP, up to 20 MB.
+      </p>
+      {reference ? (
+        <div className="flex flex-wrap items-center gap-3" data-testid="render-reference-preview">
+          <img
+            src={referenceImageUrl(reference.reference_id)}
+            alt="Reference image"
+            className="h-20 w-20 rounded border border-white/10 object-cover"
+          />
+          <div className="text-[11px] text-gray-400 font-mono flex flex-col min-w-0">
+            <span className="truncate">{reference.filename}</span>
+            <span>
+              {reference.width}×{reference.height} px · sha256 {reference.sha256.slice(0, 12)}…
+            </span>
+          </div>
+          <Button size="small" onClick={() => onChange(null)}>
+            Remove reference
+          </Button>
+        </div>
+      ) : (
+        <div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={REFERENCE_ACCEPT}
+            aria-label="Reference image"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) void handleFile(file);
+            }}
+          />
+          <Button
+            size="small"
+            icon={<Upload className="w-3.5 h-3.5" />}
+            loading={uploading}
+            onClick={() => inputRef.current?.click()}
+          >
+            Choose image…
+          </Button>
+        </div>
+      )}
+      {error && (
+        <span className="text-[11px] text-amber-300" role="alert" data-testid="render-reference-error">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function RenderStudio(): React.ReactElement {
   const byId = useOperationsStore((s) => s.byId);
   const upsert = useOperationsStore((s) => s.upsert);
   const fetchOperations = useOperationsStore((s) => s.fetchOperations);
   const fetchOperation = useOperationsStore((s) => s.fetchOperation);
+  const cancelOperation = useOperationsStore((s) => s.cancelOperation);
 
   const [prompt, setPrompt] = useState('');
   const [presets, setPresets] = useState<readonly RenderPreset[]>(FALLBACK_PRESETS);
   const [presetsFallback, setPresetsFallback] = useState(false);
   const [presetId, setPresetId] = useState<string>(FALLBACK_PRESETS[0].id);
   const [seedText, setSeedText] = useState('');
+  const [reference, setReference] = useState<RenderReference | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
@@ -331,6 +437,7 @@ export default function RenderStudio(): React.ReactElement {
     }
     const body: RenderJobRequest = { prompt: text, preset: presetId };
     if (seedParse.seed !== undefined) body.seed = seedParse.seed;
+    if (reference) body.reference_id = reference.reference_id;
     setSubmitting(true);
     try {
       const op = await submitRenderJob(body);
@@ -347,11 +454,10 @@ export default function RenderStudio(): React.ReactElement {
   const handleCancel = async (id: string): Promise<void> => {
     setCancellingId(id);
     try {
-      const op = await cancelRenderJob(id);
-      if (op) upsert(op);
-      message.info('Render cancelled.');
-    } catch (err) {
-      message.error(err instanceof Error ? err.message : String(err));
+      const outcome = await cancelOperation(id);
+      if (outcome.ok) message.info('Render cancelled.');
+      else if (outcome.reason === 'failed') message.error(outcome.message);
+      else message.info(outcome.message);
     } finally {
       setCancellingId(null);
     }
@@ -409,6 +515,7 @@ export default function RenderStudio(): React.ReactElement {
           {presetsFallback ? 'Preset list unavailable from the server; showing the built-in list.' : null}
           {seedParse.error ? <span className="text-amber-300"> {seedParse.error}</span> : null}
         </div>
+        <ReferencePicker reference={reference} onChange={setReference} />
         <div>
           <Button type="primary" htmlType="submit" loading={submitting} icon={<ImageIcon className="w-4 h-4" />}>
             Render

@@ -4,6 +4,8 @@
  *   - running  → live count from started_at (this device's clock)
  *   - finished → the measured elapsed_seconds, never finished_at - started_at
  * plus error text for error/interrupted, the summary line, and working links.
+ * Active rows can be cancelled (POST /operations/{id}/cancel); 409 and 404
+ * get a calm note in the row.
  */
 import React, { act } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -194,5 +196,108 @@ describe('OperationsLedger', () => {
     await renderLedger();
     expect(container.textContent).toContain('Could not load the ledger');
     expect(container.textContent).toContain('Summary unavailable');
+  });
+
+  describe('cancel', () => {
+    type Reply = { status: number; body: unknown };
+    let cancelReply: Reply;
+    let opReply: Reply;
+
+    beforeEach(() => {
+      cancelReply = { status: 200, body: { operation: { ...OPS[1], status: 'cancelled', finished_at: '2026-10-14T12:00:00+00:00', elapsed_seconds: 83 } } };
+      opReply = { status: 404, body: { detail: 'not found' } };
+      fetchSpy.mockImplementation((url: string, init?: RequestInit) => {
+        let reply: Reply;
+        if (url.endsWith('/cancel') && init?.method === 'POST') reply = cancelReply;
+        else if (url.startsWith('/api/v1/operations/summary')) reply = { status: 200, body: SUMMARY };
+        else if (url.startsWith('/api/v1/operations?')) reply = { status: 200, body: { operations: OPS, count: OPS.length } };
+        else reply = opReply;
+        return Promise.resolve({
+          ok: reply.status >= 200 && reply.status < 300,
+          status: reply.status,
+          json: async () => reply.body,
+        } as Response);
+      });
+    });
+
+    async function cancel(status: string): Promise<void> {
+      const button = row(status).querySelector<HTMLButtonElement>('[data-testid="ledger-cancel"]');
+      if (!button) throw new Error(`no cancel on ${status} row`);
+      await act(async () => {
+        button.click();
+      });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 0));
+      });
+    }
+
+    function cancelCalls(): string[] {
+      return fetchSpy.mock.calls
+        .filter((c) => String(c[0]).endsWith('/cancel'))
+        .map((c) => `${(c[1] as RequestInit).method} ${String(c[0])}`);
+    }
+
+    it('offers Cancel only on queued and running rows', async () => {
+      await renderLedger();
+      expect(row('queued').querySelector('[data-testid="ledger-cancel"]')).not.toBeNull();
+      expect(row('running').querySelector('[data-testid="ledger-cancel"]')).not.toBeNull();
+      for (const s of ['success', 'error', 'interrupted']) {
+        expect(row(s).querySelector('[data-testid="ledger-cancel"]')).toBeNull();
+      }
+    });
+
+    it('200: posts to the generic route and shows the cancelled record', async () => {
+      await renderLedger();
+      await cancel('running');
+      expect(cancelCalls()).toEqual(['POST /api/v1/operations/r/cancel']);
+      expect(container.querySelector('[data-testid="ledger-row"][data-status="running"]')).toBeNull();
+      const cancelled = row('cancelled');
+      expect(cancelled.textContent).toContain('running render');
+      expect(cancelled.querySelector('[data-testid="ledger-cancel"]')).toBeNull();
+      expect(cancelled.querySelector('[data-testid="ledger-cancel-note"]')).toBeNull();
+    });
+
+    it('200 while the loop is still stopping: says the cancel was requested', async () => {
+      cancelReply = { status: 200, body: { operation: OPS[1] } };
+      await renderLedger();
+      await cancel('running');
+      expect(row('running').querySelector('[data-testid="ledger-cancel-note"]')?.textContent).toBe(
+        'Cancel requested; it stops at its next step.',
+      );
+    });
+
+    it('409 for a finished operation: re-reads it and says it already finished', async () => {
+      cancelReply = { status: 409, body: { detail: 'operation is already success' } };
+      opReply = {
+        status: 200,
+        body: { ...OPS[0], status: 'success', finished_at: '2026-10-14T12:00:00+00:00', elapsed_seconds: 30 },
+      };
+      await renderLedger();
+      await cancel('queued');
+      const done = row('success');
+      expect(done.textContent).toContain('queued render');
+      const note = done.querySelector('[data-testid="ledger-cancel-note"]');
+      expect(note?.textContent).toBe('This operation already finished (success).');
+      expect(note?.className).not.toContain('red');
+    });
+
+    it("409 for a kind with no cancel handler: says it can't be cancelled", async () => {
+      cancelReply = { status: 409, body: { detail: 'no cancel handler for kind tts' } };
+      opReply = { status: 200, body: OPS[0] };
+      await renderLedger();
+      await cancel('queued');
+      expect(row('queued').querySelector('[data-testid="ledger-cancel-note"]')?.textContent).toBe(
+        "This operation can't be cancelled.",
+      );
+    });
+
+    it('404: says the operation is no longer in the ledger', async () => {
+      cancelReply = { status: 404, body: { detail: 'Operation not found' } };
+      await renderLedger();
+      await cancel('queued');
+      expect(row('queued').querySelector('[data-testid="ledger-cancel-note"]')?.textContent).toBe(
+        'This operation is no longer in the ledger.',
+      );
+    });
   });
 });

@@ -10,11 +10,20 @@
  * upsert never lets an older, less-advanced copy overwrite a newer one —
  * e.g. a REST list fetched before a WS "success" push that lands after it.
  *
+ * Today's summary (`todaySummary`) has one shared poller for every reader
+ * (`useTodaySummary`): it fetches when the first reader mounts, again shortly
+ * after any `operation_update` that changes a status (debounced), and on a
+ * slow interval in case the WebSocket is down. It stops when the last
+ * reader unmounts.
+ *
  * Derived lists are pure selector functions so components can memoize them
  * over `byId` (see `selectOperations`, `selectActive`, ...).
  */
+import { useEffect } from 'react';
 import { create } from 'zustand';
 import { apiUrl } from '../utils/api';
+import { errorDetail } from '../lib/apiError';
+import { fetchOperationsSummary, startOfLocalDayIso } from '../lib/operationsSummary';
 import {
   ACTIVE_OPERATION_STATUSES,
   type Operation,
@@ -30,9 +39,20 @@ export interface OperationsQuery {
   limit?: number;
 }
 
+/**
+ * Result of `POST /operations/{id}/cancel`. Refusals are expected answers,
+ * not crashes: 409 means finished or not cancellable, 404 means unknown id.
+ */
+export type CancelOutcome =
+  | { ok: true; operation: Operation | null }
+  | { ok: false; reason: 'finished' | 'not-cancellable' | 'not-found' | 'failed'; message: string };
+
 export interface OperationsState {
   byId: Record<string, Operation>;
+  /** All-time summary (the Ledger's header). */
   summary: OperationsSummary | null;
+  /** Since local midnight. `undefined` = not read yet, `null` = unreachable. */
+  todaySummary: OperationsSummary | null | undefined;
   upsert: (op: Operation) => void;
   upsertMany: (ops: Operation[]) => void;
   /** Validate an untrusted WS payload and upsert it. Returns false if it was not an Operation. */
@@ -44,10 +64,19 @@ export interface OperationsState {
   fetchOperation: (id: string) => Promise<Operation>;
   /** `GET /operations/summary` → stores and returns it. */
   fetchSummary: () => Promise<OperationsSummary>;
+  /** `GET /operations/summary?since=<local midnight>` → `todaySummary`. Never throws. */
+  refreshTodaySummary: () => Promise<void>;
+  /** `POST /operations/{id}/cancel`; upserts the returned operation. Never throws. */
+  cancelOperation: (id: string) => Promise<CancelOutcome>;
   clear: () => void;
 }
 
 const STATUSES: readonly OperationStatus[] = ['queued', 'running', 'success', 'error', 'cancelled', 'interrupted'];
+
+/** Fallback interval for today's summary; WS events refresh it sooner. */
+export const SUMMARY_POLL_MS = 60_000;
+/** Coalesce a burst of `operation_update` events into one summary read. */
+export const SUMMARY_EVENT_DEBOUNCE_MS = 1_500;
 
 /** Lifecycle stage: 0 queued, 1 running, 2 any terminal status. */
 function stage(status: OperationStatus): number {
@@ -72,6 +101,15 @@ export function isOperation(value: unknown): value is Operation {
   );
 }
 
+/** The Operation in `{operation: Operation}` or a bare Operation body, else null. */
+export function operationFromBody(body: unknown): Operation | null {
+  if (body && typeof body === 'object' && 'operation' in body) {
+    const op = (body as { operation: unknown }).operation;
+    if (isOperation(op)) return op;
+  }
+  return isOperation(body) ? body : null;
+}
+
 function merge(byId: Record<string, Operation>, ops: Operation[]): Record<string, Operation> {
   let next: Record<string, Operation> | null = null;
   for (const op of ops) {
@@ -89,9 +127,58 @@ async function getJson<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+// ---------------------------------------------------------------------------
+// Shared poller for today's summary (module state: one per app)
+// ---------------------------------------------------------------------------
+
+let summaryReaders = 0;
+let summaryInterval: ReturnType<typeof setInterval> | null = null;
+let summaryDebounce: ReturnType<typeof setTimeout> | null = null;
+let summarySeq = 0;
+
+function scheduleSummaryRefresh(): void {
+  if (summaryReaders === 0 || summaryDebounce !== null) return;
+  summaryDebounce = setTimeout(() => {
+    summaryDebounce = null;
+    void useOperationsStore.getState().refreshTodaySummary();
+  }, SUMMARY_EVENT_DEBOUNCE_MS);
+}
+
+/**
+ * Register a reader of `todaySummary`. The first reader starts the shared
+ * poller; the returned function unregisters, and the last one stops it.
+ */
+export function subscribeTodaySummary(): () => void {
+  summaryReaders += 1;
+  if (summaryReaders === 1) {
+    void useOperationsStore.getState().refreshTodaySummary();
+    summaryInterval = setInterval(() => {
+      void useOperationsStore.getState().refreshTodaySummary();
+    }, SUMMARY_POLL_MS);
+  }
+  let subscribed = true;
+  return () => {
+    if (!subscribed) return;
+    subscribed = false;
+    summaryReaders -= 1;
+    if (summaryReaders > 0) return;
+    if (summaryInterval !== null) clearInterval(summaryInterval);
+    if (summaryDebounce !== null) clearTimeout(summaryDebounce);
+    summaryInterval = null;
+    summaryDebounce = null;
+  };
+}
+
+/** Today's ledger summary, kept fresh by the shared poller while mounted. */
+export function useTodaySummary(): OperationsSummary | null | undefined {
+  useEffect(() => subscribeTodaySummary(), []);
+  return useOperationsStore((s) => s.todaySummary);
+}
+
 export const useOperationsStore = create<OperationsState>((set, get) => ({
   byId: {},
   summary: null,
+  todaySummary: undefined,
 
   upsert: (op) => set((s) => ({ byId: merge(s.byId, [op]) })),
 
@@ -99,7 +186,10 @@ export const useOperationsStore = create<OperationsState>((set, get) => ({
 
   ingest: (payload) => {
     if (!isOperation(payload)) return false;
+    const previous = get().byId[payload.id];
     get().upsert(payload);
+    // Result-only updates (e.g. queue position) don't change any count.
+    if (!previous || previous.status !== payload.status) scheduleSummaryRefresh();
     return true;
   },
 
@@ -130,7 +220,54 @@ export const useOperationsStore = create<OperationsState>((set, get) => ({
     return summary;
   },
 
-  clear: () => set({ byId: {}, summary: null }),
+  refreshTodaySummary: async () => {
+    const seq = ++summarySeq;
+    const summary = await fetchOperationsSummary(startOfLocalDayIso());
+    if (seq === summarySeq) set({ todaySummary: summary });
+  },
+
+  cancelOperation: async (id) => {
+    let res: Response;
+    try {
+      res = await fetch(apiUrl(`/operations/${encodeURIComponent(id)}/cancel`), { method: 'POST' });
+    } catch {
+      return { ok: false, reason: 'failed', message: 'Could not reach the server to cancel.' };
+    }
+    if (res.ok) {
+      let op: Operation | null = null;
+      try {
+        op = operationFromBody(await res.json());
+      } catch {
+        op = null; // cancelled; the WS push will carry the new state
+      }
+      if (op) get().upsert(op);
+      return { ok: true, operation: op };
+    }
+    if (res.status === 404) {
+      return { ok: false, reason: 'not-found', message: 'This operation is no longer in the ledger.' };
+    }
+    if (res.status === 409) {
+      // Re-read the record so the row shows its real state.
+      let current: Operation | undefined = get().byId[id];
+      try {
+        current = await get().fetchOperation(id);
+      } catch {
+        // keep what we had
+      }
+      if (current && !isActiveStatus(current.status)) {
+        return { ok: false, reason: 'finished', message: `This operation already finished (${current.status}).` };
+      }
+      return { ok: false, reason: 'not-cancellable', message: "This operation can't be cancelled." };
+    }
+    const detail = await errorDetail(res);
+    return {
+      ok: false,
+      reason: 'failed',
+      message: detail ? `Cancel failed: ${detail}` : `Cancel failed (HTTP ${res.status}).`,
+    };
+  },
+
+  clear: () => set({ byId: {}, summary: null, todaySummary: undefined }),
 }));
 
 // ---------------------------------------------------------------------------

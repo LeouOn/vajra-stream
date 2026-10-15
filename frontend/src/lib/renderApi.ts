@@ -3,9 +3,10 @@
  * All URLs go through `apiUrl()` (ADR 004).
  */
 import { apiUrl } from '../utils/api';
-import { isOperation } from '../stores/operationsStore';
+import { errorMessage } from './apiError';
+import { operationFromBody } from '../stores/operationsStore';
 import type { Operation } from '../types/operations';
-import type { RenderHealth, RenderJobRequest, RenderPreset } from '../types/render';
+import type { RenderHealth, RenderJobRequest, RenderPreset, RenderReference } from '../types/render';
 
 /** Used when `GET /render/presets` fails; mirrors the spec's preset ids. */
 export const FALLBACK_PRESETS: readonly RenderPreset[] = [
@@ -30,32 +31,10 @@ export function parseSeed(text: string): { seed?: number; error?: string } {
   return { seed: Number(t) };
 }
 
-/** Pull a readable message out of a FastAPI error body (`detail` may be a string or a list). */
-async function errorMessage(res: Response, fallback: string): Promise<string> {
-  try {
-    const body: unknown = await res.json();
-    if (body && typeof body === 'object' && 'detail' in body) {
-      const detail = (body as { detail: unknown }).detail;
-      if (typeof detail === 'string') return detail;
-      if (Array.isArray(detail)) {
-        return detail
-          .map((d) => (d && typeof d === 'object' && 'msg' in d ? String((d as { msg: unknown }).msg) : String(d)))
-          .join('; ');
-      }
-    }
-  } catch {
-    // body was not JSON — fall through
-  }
-  return `${fallback} (HTTP ${res.status})`;
-}
-
 function operationFrom(body: unknown): Operation {
-  if (body && typeof body === 'object' && 'operation' in body) {
-    const op = (body as { operation: unknown }).operation;
-    if (isOperation(op)) return op;
-  }
-  if (isOperation(body)) return body;
-  throw new Error('render API returned no operation');
+  const op = operationFromBody(body);
+  if (!op) throw new Error('render API returned no operation');
+  return op;
 }
 
 export async function fetchRenderPresets(): Promise<RenderPreset[]> {
@@ -91,12 +70,62 @@ export async function submitRenderJob(request: RenderJobRequest): Promise<Operat
   return operationFrom(await res.json());
 }
 
-export async function cancelRenderJob(id: string): Promise<Operation | null> {
-  const res = await fetch(apiUrl(`/render/jobs/${encodeURIComponent(id)}/cancel`), { method: 'POST' });
-  if (!res.ok) throw new Error(await errorMessage(res, 'Cancel failed'));
-  try {
-    return operationFrom(await res.json());
-  } catch {
-    return null; // cancelled; the WS push will carry the new state
+// ---------------------------------------------------------------------------
+// Reference images (contract W2-1)
+// ---------------------------------------------------------------------------
+
+/** Server limit for a reference upload: 20 MB. */
+export const REFERENCE_MAX_BYTES = 20 * 1024 * 1024;
+
+const REFERENCE_TYPES: Record<string, readonly string[]> = {
+  'image/png': ['.png'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/webp': ['.webp'],
+};
+
+/** `accept` attribute for the file picker. */
+export const REFERENCE_ACCEPT = Object.keys(REFERENCE_TYPES).join(',');
+
+function formatMegabytes(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Check a picked file before uploading: PNG, JPEG or WebP, not empty, at
+ * most 20 MB. Returns a plain-language reason, or null when it is fine.
+ * The server checks again; this only saves a pointless upload.
+ */
+export function validateReferenceFile(file: Pick<File, 'name' | 'type' | 'size'>): string | null {
+  const name = file.name.toLowerCase();
+  const typeOk = file.type
+    ? file.type in REFERENCE_TYPES
+    : Object.values(REFERENCE_TYPES).some((exts) => exts.some((ext) => name.endsWith(ext)));
+  if (!typeOk) return 'A reference must be a PNG, JPEG or WebP image.';
+  if (file.size <= 0) return 'That file is empty.';
+  if (file.size > REFERENCE_MAX_BYTES) {
+    return `That file is ${formatMegabytes(file.size)}; a reference can be at most 20 MB.`;
   }
+  return null;
+}
+
+function isRenderReference(value: unknown): value is RenderReference {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.reference_id === 'string' && v.reference_id.length > 0 && typeof v.sha256 === 'string';
+}
+
+/** `POST /render/references` (multipart, field `image`) → the stored reference. */
+export async function uploadReferenceImage(file: File): Promise<RenderReference> {
+  const form = new FormData();
+  form.append('image', file, file.name);
+  const res = await fetch(apiUrl('/render/references'), { method: 'POST', body: form });
+  if (!res.ok) throw new Error(await errorMessage(res, 'Reference upload was refused'));
+  const body: unknown = await res.json();
+  if (!isRenderReference(body)) throw new Error('render API returned no reference');
+  return body;
+}
+
+/** URL of a stored reference image (`GET /render/references/{id}`). */
+export function referenceImageUrl(referenceId: string): string {
+  return apiUrl(`/render/references/${encodeURIComponent(referenceId)}`);
 }
