@@ -39,7 +39,7 @@ from core import schema
 @pytest.mark.unit
 def test_module_imports_and_exports():
     """Module imports cleanly and exposes the public API."""
-    assert schema.SCHEMA_VERSION == 6
+    assert schema.SCHEMA_VERSION == 7
     assert isinstance(schema.SCHEMA_DESCRIPTION, str)
     assert "llm_generations" in schema.SCHEMA_DESCRIPTION
     assert "generated_visuals" in schema.SCHEMA_DESCRIPTION
