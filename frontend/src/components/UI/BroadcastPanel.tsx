@@ -17,6 +17,8 @@ import { MiniGlobe } from '../3D/RadionicsGlobe';
 import { apiUrl } from '../../utils/api';
 import { useCrystalStore } from '../../stores/crystalStore';
 import { useRateStore } from '../../stores/rateStore';
+import { nudgeCarrierFrequency } from '../../lib/stickPlate';
+import ProvenanceTag from './ProvenanceTag';
 
 interface Dimensions {
   d1: number;
@@ -92,7 +94,9 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  // Load target lock and populations on mount — do NOT auto-forge sigils
+  // Load target lock and populations on mount — do NOT auto-forge sigils.
+  // The node position is a draw: the stick-pad analog of an unknown point
+  // the practitioner finds by touch. It is labeled "drawn" in the plate UI.
   useEffect(() => {
     setTargetLock({
       x: 50 + Math.random() * 200,
@@ -224,6 +228,8 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    // Horizontal hand movement since the last rub event (0 on the first touch).
+    const moveDx = isRubbing ? x - rubPosition.x : 0;
     setRubPosition({ x, y });
 
     // Calculate proximity to target lock
@@ -254,11 +260,10 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       if (resonantLocked) {
         setResonantLocked(false);
       }
-      // Smooth frequency shift based on distance to target
-      const freqShift = (1 - dist / maxDist) * 20;
-      const currentFreq = frequency;
-      updateSettings({ frequency: Math.round(currentFreq + freqShift * (Math.random() > 0.5 ? 1 : -1)) });
-      // Play a rubbing friction sound
+      // Shift grows near the node; direction follows the hand (deterministic).
+      const nextFreq = nudgeCarrierFrequency(frequency, dist, maxDist, moveDx);
+      if (nextFreq !== frequency) updateSettings({ frequency: nextFreq });
+      // Play a rubbing friction sound (decorative throttle: ~30% of moves)
       if (Math.random() < 0.3) {
         audioFeedback.playType();
       }
@@ -456,6 +461,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             </h3>
             <p className="text-xs text-gray-400">
               Drag your mouse across the pad. Subtle tactile resistance (friction) peaks when you cross the resonant node.
+              The node is placed by a draw, the stick-pad way; rubbing right raises the carrier, left lowers it.
             </p>
           </div>
 
@@ -500,8 +506,9 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             <div className="absolute bottom-2 left-3 text-[10px] font-mono text-gray-500 pointer-events-none">
               PAD POS: {Math.round(rubPosition.x)}, {Math.round(rubPosition.y)}
             </div>
-            <div className="absolute bottom-2 right-3 text-[10px] font-mono text-yellow-400 font-bold pointer-events-none">
-              FRICTION COEFFICIENT: {rubCoherence}%
+            <div className="absolute bottom-2 right-3 flex items-center gap-1.5 text-[10px] font-mono text-yellow-400 font-bold pointer-events-none">
+              <span>NEARNESS TO NODE: {rubCoherence}%</span>
+              <ProvenanceTag kind="draw" />
             </div>
           </div>
 
