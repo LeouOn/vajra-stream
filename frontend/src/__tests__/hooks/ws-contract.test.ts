@@ -89,6 +89,8 @@ const BACKEND_EMITTED_TYPES: ReadonlySet<string> = new Set([
   'chat_complete',
   'chat_error',
   'chat_cancelled',
+  // operations ledger (backend/app/main.py, docs/specs/2026-10-14-operations-and-local-render.md)
+  'operation_update',
 ]);
 
 const HOOK_PATH = resolve(process.cwd(), 'src/hooks/useWebSocketStable.ts');

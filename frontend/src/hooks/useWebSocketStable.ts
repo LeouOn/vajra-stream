@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { WS_URL, apiUrl } from '../utils/api';
 import { useBroadcastStore } from '../stores/broadcastStore';
+import { useOperationsStore } from '../stores/operationsStore';
 import { update as updateChatProgress } from './chatProgress';
 import type {
   WSMessage,
@@ -419,6 +420,11 @@ function _connect(url: string = _url): void {
             });
             break;
           }
+          // Backend: backend/app/main.py — operations ledger (core/operations.py)
+          // pushes the full Operation on every state change.
+          case 'operation_update':
+            useOperationsStore.getState().ingest((data as { data?: unknown }).data);
+            break;
           case 'SAKA_DAWA_CHECK':
             _updateSnapshot({ sakaDawa: data.data as SakaDawaResult });
             break;
