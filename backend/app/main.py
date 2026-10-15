@@ -64,11 +64,13 @@ async def lifespan(app: FastAPI):
 
     # Operations ledger: anything left queued/running by a previous process is
     # marked interrupted (never silently "still running"), and every state
-    # change is pushed to WebSocket clients as ``operation_update``.
+    # change is pushed to WebSocket clients as ``operation_update``. Render
+    # jobs are excluded: the render worker (started in warmup) re-attaches
+    # running ComfyUI jobs and resumes queued ones.
     try:
         from core import operations as _operations
 
-        interrupted = _operations.reconcile_interrupted()
+        interrupted = _operations.reconcile_interrupted(exclude_kinds=frozenset({"render"}))
         if interrupted:
             logger.info(f"Marked {interrupted} in-flight operation(s) from a previous run as interrupted")
 
@@ -86,6 +88,7 @@ async def lifespan(app: FastAPI):
 
     app.state.health_task = None
     app.state.streaming_task = None
+    app.state.render_task = None
 
     # ---- BACKGROUND WARMUP ------------------------------------------------
 
@@ -157,6 +160,17 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Failed to start health heartbeat: {e}")
                 logger.error(traceback.format_exc())
+
+        # Local render worker: one ComfyUI job at a time. Re-attaches render
+        # jobs left running by a previous process, then drains the queue.
+        try:
+            from backend.core.services.render.worker import get_render_worker
+
+            app.state.render_task = asyncio.create_task(get_render_worker().run())
+            logger.info("Render worker started")
+        except Exception as e:
+            logger.error(f"Failed to start render worker: {e}")
+            logger.error(traceback.format_exc())
 
         # Start real-time streaming with stable manager v2
         try:
@@ -329,6 +343,18 @@ async def lifespan(app: FastAPI):
             await health_task
         except asyncio.CancelledError:
             pass
+
+    # Stop the render worker. An in-flight job stays ``running`` on purpose:
+    # ComfyUI keeps executing it and the next start re-attaches.
+    render_task = getattr(app.state, "render_task", None)
+    if render_task:
+        render_task.cancel()
+        try:
+            await render_task
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.debug(f"Render worker ended with error during shutdown: {e}")
 
     streaming_task = getattr(app.state, "streaming_task", None)
     if streaming_task:
