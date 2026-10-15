@@ -2,6 +2,8 @@
  * Shared TypeScript types for Vajra.Stream frontend.
  */
 
+import type { Provenance } from './types/operations';
+
 // ---------------------------------------------------------------------------
 // WebSocket message types
 // ---------------------------------------------------------------------------
@@ -50,7 +52,8 @@ export interface WSCrystalBroadcast extends WSMessageBase {
 
 export interface WSRadionicsRate extends WSMessageBase {
   type: 'RADIONICS_RATE_BROADCAST';
-  data: { rate: number };
+  /** rate = carrier frequency mod 100 (computed, no jitter) — vajra_service.rate_broadcast_message. */
+  data: { rate: number; session_id?: string; frequency?: number; provenance?: Partial<Record<string, Provenance>> };
 }
 
 export interface WSScalarWave extends WSMessageBase {
@@ -375,6 +378,8 @@ export interface RNGReading {
   entropy: number;
   floating_needle_score: number;
   session_id?: string;
+  /** Every attunement value is a draw — rng_attunement_service.READING_PROVENANCE. */
+  provenance?: Partial<Record<string, Provenance>>;
 }
 
 export interface CharacterSheet {

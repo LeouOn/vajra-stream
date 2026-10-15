@@ -3,13 +3,20 @@ Radionics Analysis Engine
 
 This module implements core radionics functionality including:
 - Rate analysis and generation
-- General Vitality (GV) measurement
+- General Vitality (GV) draws
 - Signature-to-rate conversion
 - Rate database management
 - Random number generation for rate selection
 - Broadcasting feedback loops
 
 Inspired by AetherOnePi and traditional radionics practices.
+
+Provenance (docs/DEVELOPMENT_ROADMAP.md, "the honest instrument"): the RNG
+here is the digital analog of the stick pad or pendulum. GV values, drawn
+potencies and drawn dial values are ``draw`` values, a divinatory method and
+never a measurement. Signature rates are ``computed`` (deterministic from the
+text). Every structure returned by this module says which is which through a
+``provenance`` mapping of field name to one of ``core.operations.PROVENANCE_KINDS``.
 """
 
 import hashlib
@@ -21,6 +28,26 @@ import time
 from datetime import datetime
 
 import numpy as np
+
+# Provenance labels, mirrored from core.operations.PROVENANCE_KINDS. Kept as
+# literals so this engine stays importable without the operations ledger.
+DRAW = "draw"
+COMPUTED = "computed"
+
+# Every number in a GV statistics block derives from RNG draws.
+GV_STATS_PROVENANCE: dict[str, str] = {
+    "mean": DRAW,
+    "median": DRAW,
+    "std": DRAW,
+    "min": DRAW,
+    "max": DRAW,
+    "measurements": DRAW,
+}
+
+GV_DRAW_NOTE = (
+    "GV is drawn with an RNG, the digital analog of the stick pad or pendulum. "
+    "It is a divinatory reading, not a measurement, and never a diagnosis."
+)
 
 
 class RadionicsRate:
@@ -36,12 +63,21 @@ class RadionicsRate:
         name: Human-readable label.
         description: What this rate represents.
         category: Grouping (``"remedy"``, ``"condition"``, ``"organ"``, etc.).
-        potency: Measured resonance strength (0.0–1.0).
-        timestamp: When this rate was created/measured.
+        potency: Resonance strength (0.0–1.0). When the engine sets it, it is
+            a draw (see ``provenance``), not a measurement.
+        provenance: Field name -> provenance kind, e.g.
+            ``{"values": "computed"}`` or ``{"values": "draw", "potency": "draw"}``.
+        timestamp: When this rate was created.
     """
 
     def __init__(
-        self, values: list[int], name: str = "", description: str = "", category: str = "", potency: float = 0.0
+        self,
+        values: list[int],
+        name: str = "",
+        description: str = "",
+        category: str = "",
+        potency: float = 0.0,
+        provenance: dict[str, str] | None = None,
     ):
         """
         Initialize a radionics rate.
@@ -51,13 +87,15 @@ class RadionicsRate:
             name: Name/label for this rate
             description: Description of what this rate represents
             category: Category (remedy, condition, organ, etc.)
-            potency: Measured potency/resonance (0.0-1.0)
+            potency: Potency/resonance (0.0-1.0); drawn when set by the engine
+            provenance: Field name -> provenance kind (``draw``, ``computed``, ...)
         """
         self.values = values
         self.name = name
         self.description = description
         self.category = category
         self.potency = potency
+        self.provenance: dict[str, str] = dict(provenance or {})
         self.timestamp = datetime.now()
 
     def __str__(self) -> str:
@@ -77,6 +115,7 @@ class RadionicsRate:
             "description": self.description,
             "category": self.category,
             "potency": self.potency,
+            "provenance": dict(self.provenance),
             "timestamp": self.timestamp.isoformat(),
         }
 
@@ -89,6 +128,7 @@ class RadionicsRate:
             description=data.get("description", ""),
             category=data.get("category", ""),
             potency=data.get("potency", 0.0),
+            provenance=data.get("provenance"),
         )
         if "timestamp" in data:
             rate.timestamp = datetime.fromisoformat(data["timestamp"])
@@ -100,9 +140,13 @@ class RandomNumberGenerator:
     Random number generator for radionics rate selection.
 
     Supports multiple modes:
-    - Secure pseudo-random (cryptographic)
-    - Quantum-seeded (using system entropy)
-    - Intention-modulated (seeded by intention text)
+    - Secure pseudo-random (cryptographic, ``secrets``)
+    - "quantum": a Mersenne Twister seeded from ``os.urandom`` plus the clock.
+      The name is historical; no quantum source is involved.
+    - Intention-modulated (seeded by intention text, reproducible)
+
+    Whatever the mode, the output is a draw. Each call uses its own
+    ``random.Random`` instance so seeding never touches the process-wide RNG.
     """
 
     def __init__(self, mode: str = "secure"):
@@ -131,28 +175,32 @@ class RandomNumberGenerator:
             return [secrets.randbelow(max_val - min_val + 1) + min_val for _ in range(count)]
 
         elif self.mode == "quantum":
-            # Use system entropy and time-based seed
+            # System entropy plus the clock seeds a local PRNG.
             seed = int.from_bytes(os.urandom(8), "big") + int(time.time() * 1000000)
-            random.seed(seed)
-            return [random.randint(min_val, max_val) for _ in range(count)]
+            rng = random.Random(seed)
+            return [rng.randint(min_val, max_val) for _ in range(count)]
 
         elif self.mode == "intention":
             # Seed with intention text for reproducible but intention-specific randomness
             if intention:
                 seed = int(hashlib.sha256(intention.encode()).hexdigest(), 16) % (2**32)
-                random.seed(seed)
-            return [random.randint(min_val, max_val) for _ in range(count)]
+                rng = random.Random(seed)
+            else:
+                rng = random.Random()
+            return [rng.randint(min_val, max_val) for _ in range(count)]
 
         else:
-            # Fallback to standard random
-            return [random.randint(min_val, max_val) for _ in range(count)]
+            # Fallback to an unseeded local PRNG
+            rng = random.Random()
+            return [rng.randint(min_val, max_val) for _ in range(count)]
 
     def generate_float(self, min_val: float = 0.0, max_val: float = 1.0, count: int = 1) -> list[float]:
-        """Generate random floats."""
+        """Generate random floats (draws)."""
         if self.mode == "secure":
             return [min_val + secrets.randbelow(10000) / 10000.0 * (max_val - min_val) for _ in range(count)]
         else:
-            return [random.uniform(min_val, max_val) for _ in range(count)]
+            rng = random.Random()
+            return [rng.uniform(min_val, max_val) for _ in range(count)]
 
 
 class SignatureCalculator:
@@ -209,7 +257,11 @@ class SignatureCalculator:
             values.append(dial_val)
 
         return RadionicsRate(
-            values=values, name=text, description=f"Hash-generated rate for '{text}'", category="signature"
+            values=values,
+            name=text,
+            description=f"Hash-generated rate for '{text}'",
+            category="signature",
+            provenance={"values": COMPUTED},
         )
 
     def _gematria_algorithm(self, text: str, num_dials: int, max_value: int) -> RadionicsRate:
@@ -234,6 +286,7 @@ class SignatureCalculator:
             name=text,
             description=f"Gematria-generated rate for '{text}' (value: {total})",
             category="signature",
+            provenance={"values": COMPUTED},
         )
 
     def _phonetic_algorithm(self, text: str, num_dials: int, max_value: int) -> RadionicsRate:
@@ -258,7 +311,11 @@ class SignatureCalculator:
             values.extend(hash_rate.values)
 
         return RadionicsRate(
-            values=values, name=text, description=f"Phonetic-generated rate for '{text}'", category="signature"
+            values=values,
+            name=text,
+            description=f"Phonetic-generated rate for '{text}'",
+            category="signature",
+            provenance={"values": COMPUTED},
         )
 
     def _mixed_algorithm(self, text: str, num_dials: int, max_value: int) -> RadionicsRate:
@@ -273,20 +330,29 @@ class SignatureCalculator:
             values.append(avg_val)
 
         return RadionicsRate(
-            values=values, name=text, description=f"Mixed-algorithm rate for '{text}'", category="signature"
+            values=values,
+            name=text,
+            description=f"Mixed-algorithm rate for '{text}'",
+            category="signature",
+            provenance={"values": COMPUTED},
         )
 
 
 class GeneralVitalityMeter:
     """
-    Measures General Vitality (GV) - the core energy/resonance metric in radionics.
+    Draws General Vitality (GV), the core resonance reading in radionics.
 
-    GV scale: 0-1000
-    - 0-200: Very low vitality
-    - 200-400: Low vitality
-    - 400-600: Moderate vitality
-    - 600-800: Good vitality
-    - 800-1000: Excellent vitality
+    GV is a **draw**: an RNG stands in for the stick pad or pendulum. The
+    class keeps its historical name and ``measure`` method for API stability,
+    but nothing here measures anything. Readings are framed accordingly.
+
+    GV scale: 0-1000. Traditional reading bands, as read in the stick-pad
+    tradition (see :func:`gv_band`):
+    - 0-200: very low vitality
+    - 200-400: low vitality
+    - 400-600: balanced vitality
+    - 600-800: high vitality
+    - 800-1000: very high vitality
     """
 
     def __init__(self, rng: RandomNumberGenerator | None = None):
@@ -296,20 +362,21 @@ class GeneralVitalityMeter:
 
     def measure(self, subject: str = "", context: dict = None) -> float:
         """
-        Measure General Vitality.
+        Draw a General Vitality value.
 
-        In traditional radionics, this would be measured using a stick pad
-        or pendulum. Here we use quantum random generation with optional
-        biasing based on context.
+        In traditional radionics this reading is taken with a stick pad or
+        pendulum. Here an RNG draw takes that role, optionally nudged by
+        context (moon phase, hour, intention length). The result is a draw,
+        not a measurement.
 
         Args:
-            subject: What is being measured (person, intention, etc.)
-            context: Optional context that might influence measurement
+            subject: What the draw is for (person, intention, etc.)
+            context: Optional context that nudges the draw
 
         Returns:
-            GV value (0-1000)
+            Drawn GV value (0-1000)
         """
-        # Base measurement using quantum randomness
+        # Base draw from the engine RNG
         base_gv = self.rng.generate(min_val=0, max_val=1000, count=1)[0]
 
         # Apply context-based adjustments if provided
@@ -342,28 +409,30 @@ class GeneralVitalityMeter:
             # Apply adjustments with bounds
             base_gv = max(0, min(1000, base_gv + adjustments))
 
-        # Record measurement
-        measurement = {
+        # Record the draw
+        draw = {
             "gv": base_gv,
             "subject": subject,
             "timestamp": datetime.now().isoformat(),
             "context": context or {},
+            "provenance": {"gv": DRAW},
         }
-        self.history.append(measurement)
+        self.history.append(draw)
 
         return base_gv
 
     def measure_multiple(self, count: int = 10, subject: str = "", context: dict = None) -> dict:
         """
-        Take multiple GV measurements and return statistics.
+        Take several GV draws and return their statistics.
 
         Args:
-            count: Number of measurements to take
-            subject: What is being measured
+            count: Number of draws
+            subject: What the draws are for
             context: Optional context
 
         Returns:
-            Dictionary with mean, median, std, min, max
+            Dictionary with mean, median, std, min, max, the raw draws and a
+            ``provenance`` mapping marking every value as a draw.
         """
         measurements = [self.measure(subject, context) for _ in range(count)]
 
@@ -375,28 +444,38 @@ class GeneralVitalityMeter:
             "max": max(measurements),
             "measurements": measurements,
             "count": count,
+            "provenance": dict(GV_STATS_PROVENANCE),
         }
 
     def interpret_gv(self, gv: float) -> str:
         """
-        Interpret GV value into qualitative assessment.
+        Read a drawn GV value in the stick-pad tradition.
+
+        The wording always names the value as drawn and frames the band as a
+        traditional reading. It never claims a measurement or a diagnosis.
 
         Args:
-            gv: GV value (0-1000)
+            gv: Drawn GV value (0-1000)
 
         Returns:
-            Interpretation string
+            Reading string, e.g. ``"Drawn GV 812 — in the stick-pad tradition
+            this reads as very high vitality."``
         """
-        if gv >= 800:
-            return "Excellent - Very high vitality and resonance"
-        elif gv >= 600:
-            return "Good - Strong vitality and positive resonance"
-        elif gv >= 400:
-            return "Moderate - Balanced vitality, some improvement possible"
-        elif gv >= 200:
-            return "Low - Weakened vitality, attention recommended"
-        else:
-            return "Very Low - Significant vitality depletion, intervention suggested"
+        return f"Drawn GV {gv:.0f} — in the stick-pad tradition this reads as {gv_band(gv)} vitality."
+
+
+def gv_band(gv: float) -> str:
+    """Traditional reading band for a drawn GV value (0-1000)."""
+    if gv >= 800:
+        return "very high"
+    elif gv >= 600:
+        return "high"
+    elif gv >= 400:
+        return "balanced"
+    elif gv >= 200:
+        return "low"
+    else:
+        return "very low"
 
 
 class RateDatabase:
@@ -534,10 +613,11 @@ class RadionicsAnalyzer:
 
     def analyze_subject(self, subject: str, num_rates: int = 10, context: dict = None) -> dict:
         """
-        Perform radionics analysis on a subject.
+        Perform a radionics reading on a subject.
 
-        This generates rates that resonate with the subject and measures
-        their General Vitality.
+        The signature rate is computed from the subject text. The baseline GV,
+        the resonant rates and their potencies are draws (stick-pad analog).
+        The result carries a ``provenance`` mapping that says so.
 
         Args:
             subject: What/who to analyze (name, intention, etc.)
@@ -549,12 +629,12 @@ class RadionicsAnalyzer:
         """
         print(f"\n🔮 Performing radionics analysis on: {subject}")
 
-        # Measure baseline General Vitality
-        print("📊 Measuring General Vitality...")
+        # Draw baseline General Vitality
+        print("📊 Drawing General Vitality (stick-pad analog)...")
         gv_stats = self.gv_meter.measure_multiple(count=10, subject=subject, context=context)
         baseline_gv = gv_stats["mean"]
 
-        print(f"   Baseline GV: {baseline_gv:.1f} - {self.gv_meter.interpret_gv(baseline_gv)}")
+        print(f"   {self.gv_meter.interpret_gv(baseline_gv)}")
 
         # Generate signature rate for subject
         print("🔢 Generating signature rate...")
@@ -562,16 +642,21 @@ class RadionicsAnalyzer:
         print(f"   Signature: {signature_rate}")
 
         # Generate additional resonant rates
-        print(f"🎲 Generating {num_rates} resonant rates...")
+        print(f"🎲 Drawing {num_rates} resonant rates...")
         resonant_rates = []
         for i in range(num_rates):
-            # Generate random rate
+            # Draw the dial values
             values = self.rng.generate(min_val=0, max_val=100, count=3, intention=subject)
 
-            # Measure resonance (simulated via GV measurement)
-            test_rate = RadionicsRate(values, f"Rate-{i + 1}", category="generated")
-            resonance = self.rng.generate_float(0.0, 1.0, 1)[0]
-            test_rate.potency = resonance
+            # Draw a potency for the rate. This is the stick-pad step done by
+            # RNG: a draw, not a measured resonance.
+            test_rate = RadionicsRate(
+                values,
+                f"Rate-{i + 1}",
+                category="generated",
+                provenance={"values": DRAW, "potency": DRAW},
+            )
+            test_rate.potency = self.rng.generate_float(0.0, 1.0, 1)[0]
 
             resonant_rates.append(test_rate)
 
@@ -580,7 +665,7 @@ class RadionicsAnalyzer:
 
         print("   Top 5 resonant rates:")
         for i, rate in enumerate(resonant_rates[:5], 1):
-            print(f"      {i}. {rate} (potency: {rate.potency:.3f})")
+            print(f"      {i}. {rate} (drawn potency: {rate.potency:.2f})")
 
         # Create analysis result
         result = {
@@ -592,6 +677,14 @@ class RadionicsAnalyzer:
             "resonant_rates": [r.to_dict() for r in resonant_rates],
             "context": context or {},
             "interpretation": self.gv_meter.interpret_gv(baseline_gv),
+            "note": GV_DRAW_NOTE,
+            "provenance": {
+                "baseline_gv": DRAW,
+                "gv_stats": DRAW,
+                "signature_rate": COMPUTED,
+                "resonant_rates": DRAW,
+                "interpretation": DRAW,
+            },
         }
 
         self.analysis_history.append(result)
@@ -601,53 +694,54 @@ class RadionicsAnalyzer:
         self, subject: str, rate: RadionicsRate, duration_seconds: int = 300, check_interval: int = 60
     ) -> dict:
         """
-        Broadcast a rate while monitoring General Vitality for feedback.
+        Hold a rate for a duration while drawing General Vitality at intervals.
 
-        This implements the "auto-mode" concept from AetherOnePi.
+        This follows the "auto-mode" concept from AetherOnePi. Nothing is
+        emitted from here: no audio, scalar or hardware output happens in this
+        loop. It waits and draws GV, so every GV value and the trend are draws.
+        The result says so with ``emitted: False`` and a ``provenance`` map.
 
         Args:
-            subject: What/who is being broadcast to
-            rate: The rate to broadcast
-            duration_seconds: How long to broadcast
-            check_interval: How often to check GV (seconds)
+            subject: Who or what the rate is held for
+            rate: The rate being held
+            duration_seconds: How long to hold
+            check_interval: How often to draw GV (seconds)
 
         Returns:
-            Broadcasting results with GV trend
+            Holding results with the drawn GV trend
         """
-        print(f"\n📡 Broadcasting rate {rate} to: {subject}")
-        print(f"   Duration: {duration_seconds}s, checking GV every {check_interval}s")
+        print(f"\n📡 Holding rate {rate} for: {subject} (no emission from this loop)")
+        print(f"   Duration: {duration_seconds}s, drawing GV every {check_interval}s")
 
         gv_measurements = []
         start_time = time.time()
 
-        # Initial GV
+        # Initial GV draw
         initial_gv = self.gv_meter.measure(subject)
         gv_measurements.append({"time": 0, "gv": initial_gv})
-        print(f"   Initial GV: {initial_gv:.1f}")
+        print(f"   Initial drawn GV: {initial_gv:.1f}")
 
-        # Simulate broadcasting with periodic GV checks
+        # Wait between draws. This loop only waits and draws; emission (audio,
+        # scalar, hardware) is done elsewhere, by the broadcast services.
         elapsed = 0
         while elapsed < duration_seconds:
-            # In real implementation, this would actually broadcast the rate
-            # via audio, electromagnetic, or other means
             time.sleep(min(check_interval, duration_seconds - elapsed))
             elapsed = time.time() - start_time
 
-            # Measure current GV
             current_gv = self.gv_meter.measure(subject)
             gv_measurements.append({"time": elapsed, "gv": current_gv})
-            print(f"   GV at {elapsed:.0f}s: {current_gv:.1f}")
+            print(f"   Drawn GV at {elapsed:.0f}s: {current_gv:.1f}")
 
-        # Final GV
+        # Final GV draw
         final_gv = self.gv_meter.measure(subject)
         gv_measurements.append({"time": duration_seconds, "gv": final_gv})
-        print(f"   Final GV: {final_gv:.1f}")
+        print(f"   Final drawn GV: {final_gv:.1f}")
 
-        # Calculate trend
+        # Trend between two draws
         gv_change = final_gv - initial_gv
         gv_trend = "improving" if gv_change > 20 else "declining" if gv_change < -20 else "stable"
 
-        print(f"   GV Change: {gv_change:+.1f} ({gv_trend})")
+        print(f"   Drawn GV change: {gv_change:+.1f} ({gv_trend})")
 
         return {
             "subject": subject,
@@ -658,6 +752,15 @@ class RadionicsAnalyzer:
             "gv_change": gv_change,
             "gv_trend": gv_trend,
             "gv_measurements": gv_measurements,
+            "emitted": False,
+            "note": GV_DRAW_NOTE,
+            "provenance": {
+                "initial_gv": DRAW,
+                "final_gv": DRAW,
+                "gv_change": DRAW,
+                "gv_trend": DRAW,
+                "gv_measurements": DRAW,
+            },
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -665,7 +768,9 @@ class RadionicsAnalyzer:
         """
         Find rates that could help balance/heal the subject.
 
-        Uses inverse signature calculation and complementary rate generation.
+        The subject's signature is computed and inverted; each dial is then
+        offset by a draw, and each rate's potency is drawn. Every returned
+        rate carries ``provenance = {"values": "draw", "potency": "draw"}``.
 
         Args:
             subject: Subject to find balancing rates for
@@ -687,11 +792,12 @@ class RadionicsAnalyzer:
             rate = RadionicsRate(
                 values=complementary_values,
                 name=f"Balance-{i + 1} for {subject}",
-                description=f"Complementary balancing rate for {subject}",
+                description=f"Complementary balancing rate for {subject} (signature inverse, offset by a draw)",
                 category="balancing",
+                provenance={"values": DRAW, "potency": DRAW},
             )
 
-            # Estimate potency
+            # Draw a potency (stick-pad analog), not an estimate of anything
             rate.potency = self.rng.generate_float(0.4, 0.9, 1)[0]
             balancing_rates.append(rate)
 
@@ -717,8 +823,8 @@ def quick_analysis(subject: str, verbose: bool = True) -> dict:
     if verbose:
         print("\n✅ Analysis complete!")
         print(f"   Subject: {subject}")
-        print(f"   GV: {result['baseline_gv']:.1f}")
-        print(f"   Status: {result['interpretation']}")
+        print(f"   Drawn GV: {result['baseline_gv']:.1f}")
+        print(f"   Reading: {result['interpretation']}")
 
     return result
 
@@ -738,14 +844,14 @@ if __name__ == "__main__":
         rate = sig_calc.text_to_rate(subject, num_dials=3, algorithm="mixed")
         print(f"   {subject}: {rate}")
 
-    # Test GV measurement
-    print("\n2. GENERAL VITALITY MEASUREMENT")
+    # GV draws
+    print("\n2. GENERAL VITALITY DRAWS")
     gv_meter = GeneralVitalityMeter()
 
     for subject in test_subjects:
         gv = gv_meter.measure(subject)
         interpretation = gv_meter.interpret_gv(gv)
-        print(f"   {subject}: GV={gv:.1f} - {interpretation}")
+        print(f"   {subject}: {interpretation}")
 
     # Test full analysis
     print("\n3. FULL RADIONICS ANALYSIS")

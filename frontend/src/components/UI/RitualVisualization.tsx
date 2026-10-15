@@ -1,4 +1,7 @@
 import React, { useRef, useEffect, useMemo } from 'react';
+import type { Provenance } from '../../types/operations';
+import { formatPotency, potencyProvenance } from '../../lib/provenance';
+import ProvenanceTag from './ProvenanceTag';
 
 interface SigilCoord {
   x: number;
@@ -11,6 +14,20 @@ interface RateData {
   values: number[];
   name: string;
   potency?: number;
+  /** Field name -> provenance, from core/radionics_engine.py RadionicsRate.to_dict. */
+  provenance?: Partial<Record<string, Provenance>>;
+}
+
+function PotencyLine({ label, rate, className }: { label: string; rate: RateData & { potency: number }; className: string }) {
+  const kind = potencyProvenance(rate);
+  return (
+    <div className={`flex items-center justify-center gap-1.5 text-[9px] font-mono text-gray-600 ${className}`}>
+      <span>
+        {label}: {formatPotency(rate.potency)}
+      </span>
+      <ProvenanceTag kind={kind} />
+    </div>
+  );
 }
 
 interface RitualVisualizationProps {
@@ -261,14 +278,14 @@ export default function RitualVisualization({ sigil, rates, genre, kameaPlanet }
             ))}
           </div>
           {rates.signature?.potency !== undefined && rates.signature.potency > 0 && (
-            <div className="mt-2 text-center text-[9px] font-mono text-gray-600">
-              Potency: {(rates.signature.potency * 100).toFixed(1)}%
-            </div>
+            <PotencyLine label="Potency" rate={{ ...rates.signature, potency: rates.signature.potency }} className="mt-2" />
           )}
           {rates.balancing?.[0]?.potency !== undefined && (
-            <div className="mt-1 text-center text-[9px] font-mono text-gray-600">
-              Balance Potency: {(rates.balancing[0].potency * 100).toFixed(1)}%
-            </div>
+            <PotencyLine
+              label="Balance potency"
+              rate={{ ...rates.balancing[0], potency: rates.balancing[0].potency }}
+              className="mt-1"
+            />
           )}
         </div>
       )}

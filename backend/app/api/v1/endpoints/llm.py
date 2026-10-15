@@ -863,7 +863,7 @@ async def run_rule_based_fallback(query: str) -> ChatResponse:
             )
             response_text = (
                 f"🔮 **RNG Attunement Session Created**\n\n"
-                f"The random number generator is now capturing local quantum fluctuations.\n"
+                f"The session now draws random values for e-meter style readings (draws, not measurements).\n"
                 f"- **Session ID**: `{res.get('session_id')}`\n"
                 f"- Tone Arm Baseline calibrated to 5.0."
             )

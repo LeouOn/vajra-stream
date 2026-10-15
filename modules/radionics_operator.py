@@ -7,7 +7,7 @@ radionics practitioner by:
 - Loading knowledge base context (frequencies, mantras, rates, chakras)
 - Exposing all container services as typed tools
 - Analyzing user intentions and recommending rates/frequencies/configurations
-- Interpreting RNG readings and GV measurements in real-time
+- Reading RNG and GV draws in real time (divinatory draws, never measurements)
 - Generating personalized protocols combining multiple modalities
 - Streaming insights through the event bus to the frontend
 
@@ -43,6 +43,12 @@ from core.rate_to_audio import map_rate_to_carriers
 from modules.interfaces import EventBus
 
 logger = logging.getLogger(__name__)
+
+# prepare_crystal_broadcast: the placeholder rate used when the analysis
+# yields no usable rate (flagged as ``rate_is_fallback`` in the config), and
+# the fixed broadcast potency (a setting, not a reading).
+FALLBACK_BROADCAST_RATE: tuple[int, int, int] = (50, 50, 50)
+STANDARD_BROADCAST_POTENCY = 0.8
 
 
 def _record_operator_usage(
@@ -364,7 +370,9 @@ class ToolDispatcher:
                 return rate.to_dict()
 
             elif tool_name == "measure_general_vitality":
-                from core.radionics_engine import GeneralVitalityMeter
+                # Tool name kept for registry stability; this is a GV *draw*
+                # (RNG as stick pad), so the output says so field by field.
+                from core.radionics_engine import GV_DRAW_NOTE, GeneralVitalityMeter
 
                 meter = GeneralVitalityMeter()
                 stats = meter.measure_multiple(
@@ -373,6 +381,7 @@ class ToolDispatcher:
                 )
                 return {
                     "subject": arguments.get("subject", ""),
+                    "method": "draw",
                     "gv_mean": stats["mean"],
                     "gv_median": stats["median"],
                     "gv_std": stats["std"],
@@ -380,6 +389,15 @@ class ToolDispatcher:
                     "gv_max": stats["max"],
                     "interpretation": meter.interpret_gv(stats["mean"]),
                     "samples": arguments.get("samples", 10),
+                    "note": GV_DRAW_NOTE,
+                    "provenance": {
+                        "gv_mean": "draw",
+                        "gv_median": "draw",
+                        "gv_std": "draw",
+                        "gv_min": "draw",
+                        "gv_max": "draw",
+                        "interpretation": "draw",
+                    },
                 }
 
             elif tool_name == "find_balancing_rates":
@@ -392,7 +410,13 @@ class ToolDispatcher:
                 )
                 return {
                     "subject": arguments.get("subject", ""),
+                    "method": "draw",
                     "balancing_rates": [r.to_dict() for r in rates],
+                    "note": (
+                        "Dial values are the subject's signature inverted and offset by a draw; "
+                        "each potency is drawn (stick-pad analog), not measured."
+                    ),
+                    "provenance": {"balancing_rates": "draw"},
                 }
 
             elif tool_name == "search_knowledge":
@@ -455,7 +479,11 @@ class ToolDispatcher:
                 return {"session_id": session_id, "status": "active"}
 
             elif tool_name == "get_rng_reading":
-                from backend.core.services.rng_attunement_service import get_rng_service
+                from backend.core.services.rng_attunement_service import (
+                    ATTUNEMENT_DRAW_NOTE,
+                    get_rng_service,
+                    reading_provenance,
+                )
 
                 svc = get_rng_service()
                 reading = svc.get_reading(arguments["session_id"])
@@ -470,6 +498,8 @@ class ToolDispatcher:
                     "floating_needle_score": reading.floating_needle_score,
                     "coherence": reading.coherence,
                     "entropy": reading.entropy,
+                    "note": ATTUNEMENT_DRAW_NOTE,
+                    "provenance": reading_provenance(),
                 }
 
             elif tool_name == "get_rng_summary":
@@ -900,6 +930,9 @@ class RadionicsOperator:
         Returns a dict with:
             - analysis: structured intention breakdown
             - rate: the best suggested rate (dial values)
+            - rate_is_fallback: True when no usable rate came out of the
+              analysis and the fixed placeholder ``FALLBACK_BROADCAST_RATE``
+              was used instead (also flagged in ``broadcast_config``)
             - carriers: CarrierFrequencySet (frequencies + amplitude + overtone_richness)
             - solfeggio_names: human-readable names for each frequency
             - broadcast_config: ready-to-use config for the crystal broadcaster
@@ -908,21 +941,43 @@ class RadionicsOperator:
 
         # Extract the best rate from the analysis
         best_rate = None
+        rate_source = "fallback_default"
         suggested = analysis_result.get("suggested_rates", [])
         if suggested and suggested[0].get("values"):
             best_rate = suggested[0]["values"]
-        if best_rate is None:
-            # Fallback: use the recommended frequency directly
-            best_rate = [50, 50, 50]  # placeholder that snaps to 639
+            rate_source = suggested[0].get("source") or "database"
+        rate_is_fallback = best_rate is None
+        if rate_is_fallback:
+            # No usable rate came out of the analysis. Use a fixed placeholder
+            # (snaps to 639 Hz) and flag it, so it never reads as derived from
+            # the intention.
+            best_rate = list(FALLBACK_BROADCAST_RATE)
 
-        potency = 0.8  # standard broadcast potency
+        potency = STANDARD_BROADCAST_POTENCY  # a fixed setting, not a reading
         carriers = map_rate_to_carriers(best_rate, potency=potency)
+
+        # Signature rates are computed from the text; database rates are
+        # persisted records; the fallback is a fixed constant (deterministic,
+        # hence "computed") and is flagged separately.
+        if rate_is_fallback:
+            rate_provenance = "computed"
+        elif rate_source == "signature":
+            rate_provenance = "computed"
+        else:
+            rate_provenance = "record"
 
         broadcast_config = {
             "intention": intention,
             "duration_minutes": duration_minutes,
             "rate_values": best_rate,
+            "rate_source": rate_source,
+            "rate_is_fallback": rate_is_fallback,
             "potency": potency,
+            "provenance": {
+                "rate_values": rate_provenance,
+                "potency": "computed",
+                "frequencies": "computed",
+            },
             "frequencies": carriers.frequencies,
             "solfeggio_names": carriers.solfeggio_names,
             "amplitude": carriers.amplitude,
@@ -948,6 +1003,7 @@ class RadionicsOperator:
         return {
             "analysis": analysis_result.get("analysis", {}),
             "rate": best_rate,
+            "rate_is_fallback": rate_is_fallback,
             "carriers": carriers,
             "solfeggio_names": carriers.solfeggio_names,
             "broadcast_config": broadcast_config,
@@ -1019,11 +1075,14 @@ class RadionicsOperator:
 {json.dumps(state, indent=2, default=str)}
 
 Provide a brief insight (2-3 sentences) about:
-1. What the readings suggest about session effectiveness
+1. How the drawn readings read in the radionics tradition
 2. Any adjustments you'd recommend
 3. Whether to continue, extend, or conclude the session
 
-Be concise and practical. If RNG data shows a floating needle or high coherence, note it as a positive sign."""
+GV and the RNG needle values are draws (an RNG used as the stick pad or e-meter, a divinatory method),
+not measurements. Speak of them as drawn readings ("the draw reads as..."), never as detected effects,
+proof, or diagnosis. Be concise and practical. A drawn floating needle may be read as a good point to
+conclude or shift intention."""
 
         try:
             insight_text = self.llm.generate(
@@ -1978,29 +2037,42 @@ Return JSON with:
     def _fallback_insight(self, state: dict) -> dict[str, Any]:
         """Generate insight without LLM based on rule-based interpretation."""
         parts = []
-        gv = state.get("gv_measurement", 0)
+        try:
+            gv = float(state.get("gv_measurement") or 0)
+        except (TypeError, ValueError):
+            gv = 0.0
         rng = state.get("rng_state", {})
 
+        # GV and the needle are draws: phrase them as traditional readings of
+        # a draw, never as something detected or measured.
         if gv:
             if gv > 700:
-                parts.append("GV is high — strong resonance detected.")
+                parts.append(f"Drawn GV {gv:.0f} — in the stick-pad tradition this reads as strong resonance.")
             elif gv > 400:
-                parts.append("GV is moderate — session is active and stable.")
+                parts.append(f"Drawn GV {gv:.0f} — in the stick-pad tradition this reads as steady and balanced.")
             else:
-                parts.append("GV is low — consider increasing intensity or switching rates.")
+                parts.append(
+                    f"Drawn GV {gv:.0f} — in the stick-pad tradition this reads as low; "
+                    "you might try another rate or a stronger intention."
+                )
 
         if rng:
             needle = rng.get("state", "")
             if needle == "floating":
                 parts.append(
-                    "RNG shows floating needle — this indicates a release point. Good time to conclude or shift intention."
+                    "The drawn needle reads as floating — in the e-meter tradition, a release point. "
+                    "A good time to conclude or shift intention."
                 )
-            elif needle == "rock_slam":
+            elif needle in ("rock_slam", "rockslam"):
                 parts.append(
-                    "RNG shows rock slam — heavy charge detected. Continue broadcasting, the resistance is processing."
+                    "The drawn needle reads as a rock slam — in the e-meter tradition, heavy charge. "
+                    "You might continue with the current working."
                 )
             elif needle == "rising":
-                parts.append("RNG needle rising — energy is building. Continue the current rate configuration.")
+                parts.append(
+                    "The drawn needle reads as rising — in the e-meter tradition, building charge. "
+                    "You might continue the current rate configuration."
+                )
 
         if not parts:
             parts.append("Session is running. Continue with current configuration.")

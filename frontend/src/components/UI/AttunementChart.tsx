@@ -2,6 +2,24 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from 'antd';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
+import ProvenanceTag from './ProvenanceTag';
+
+/**
+ * Header for the attunement chart. The e-meter values are random draws read
+ * as a divinatory method (backend rng_attunement_service READING_PROVENANCE),
+ * so the chart names them as draws and makes no claim of measurement.
+ */
+export function AttunementChartTitle() {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xl">✨</span>
+      <span className="font-semibold text-purple-100">Attunement Draws</span>
+      <ProvenanceTag kind="draw" />
+    </div>
+  );
+}
+
+export const ATTUNEMENT_CAPTION = 'Random draws, read in the e-meter tradition. Not measurements.';
 
 interface AttunementDataPoint {
   time: string;
@@ -52,15 +70,14 @@ export const AttunementChart: React.FC<Props> = (_props: Props) => {
   }, [data]);
 
   return (
-    <Card 
-      title={<div className="flex items-center gap-2">
-        <span className="text-xl">✨</span> 
-        <span className="font-semibold text-purple-100">Live Attunement Metrics</span>
-      </div>}
-      size="small" 
+    <Card
+      title={<AttunementChartTitle />}
+      size="small"
       className="bg-gray-900/80 border-purple-500/20"
-      styles={{ body: { padding: '16px', height: '280px' } }}
+      styles={{ body: { padding: '16px', height: '280px', display: 'flex', flexDirection: 'column' } }}
     >
+      <p className="mb-2 text-[10px] text-gray-500">{ATTUNEMENT_CAPTION}</p>
+      <div className="min-h-0 flex-1">
       {data.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -129,9 +146,10 @@ export const AttunementChart: React.FC<Props> = (_props: Props) => {
             <div className="w-2 h-2 bg-purple-500/50 rounded-full animation-delay-200"></div>
             <div className="w-2 h-2 bg-purple-500/50 rounded-full animation-delay-400"></div>
           </div>
-          <p className="text-sm">Awaiting RNG attunement data...</p>
+          <p className="text-sm">Awaiting attunement draws...</p>
         </div>
       )}
+      </div>
     </Card>
   );
 };
