@@ -9,6 +9,7 @@ through the operator. The entire journey is driven by RNG-guided
 character growth and LLM narrative generation.
 """
 
+import logging
 import random
 import time
 from datetime import datetime
@@ -16,6 +17,8 @@ from enum import Enum
 from typing import Any
 
 from core.ritual_sequencer import RitualPhase, RitualSequencer
+
+logger = logging.getLogger(__name__)
 
 
 class JourneyStage(Enum):
@@ -218,22 +221,23 @@ class CharacterJourney:
             "first_stage": STAGE_CONFIG[0]["name"],
         }
 
-    def _broadcast_ws(self, event_type: str, data: dict):
-        """Broadcast a journey event to all WebSocket clients."""
-        try:
-            import asyncio
+    def _broadcast_ws(self, event_type: str, data: dict) -> bool:
+        """Broadcast a journey event to all WebSocket clients; True if a send was scheduled.
 
+        ``advance()`` usually runs in a worker thread (tools dispatch through
+        ``asyncio.to_thread``), where ``asyncio.get_event_loop()`` has no running
+        loop, so the send goes to the server's main loop recorded by
+        ``set_main_loop`` (see ``StableConnectionManagerV2.schedule_broadcast``).
+        Best-effort: never raises.
+        """
+        try:
             from backend.websocket.connection_manager import stable_connection_manager_v2
 
             payload = {"type": event_type, "data": data, "timestamp": time.time()}
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.ensure_future(stable_connection_manager_v2.broadcast(payload))
-            except RuntimeError:
-                pass
-        except Exception:
-            pass
+            return stable_connection_manager_v2.schedule_broadcast(payload)
+        except Exception as exc:
+            logger.debug("journey WS broadcast %s failed: %s", event_type, exc)
+            return False
 
     def advance(self) -> dict[str, Any]:
         """Advance through one complete stage (all 4 phases)."""

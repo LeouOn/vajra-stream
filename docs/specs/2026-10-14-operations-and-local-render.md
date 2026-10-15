@@ -172,12 +172,11 @@ as before: own your files, keep edits to shared files small and additive.
 
 ### Contract W2-3: cancellable background operations (H implements, G consumes)
 
-- `core.operations.register_cancel_handler(kind, fn)` and
-  `POST /api/v1/operations/{id}/cancel` return `200 {"operation"}`. They
-  return `404` for an unknown id, and `409 {"detail"}` when the operation is
-  already finished or its kind has no cancel handler. Render jobs register
-  their existing cancel through this handler too; `/render/jobs/{id}/cancel`
-  stays as an alias.
+- `POST /api/v1/operations/{id}/cancel` returns `200 {"operation"}` once the
+  operation has ended (normally `cancelled`, with its measured elapsed time).
+  It returns `404` for an unknown id, and `409 {"detail"}` when the operation
+  is already finished or nothing in this process can stop it. Which handler
+  stops it is described under [Cancel registries](#cancel-registries-as-built).
 - `POST /api/v1/radionics/broadcast` no longer blocks. It validates the
   request, creates the `broadcast` operation, runs the scalar loop in a
   worker thread, and returns straight away with the same fields as before.
@@ -187,3 +186,29 @@ as before: own your files, keep edits to shared files small and additive.
 - `vajra_service` sessions and sigil broadcasts that run for a duration are
   recorded as `broadcast`/`audio` operations (start → measured end).
 
+### Cancel registries (as built)
+
+`core.operations.request_cancel(op_id)` (behind `POST /operations/{id}/cancel`)
+looks up a handler in two registries, the more specific one first:
+
+| Registry | API | Who registers | Lifetime |
+|---|---|---|---|
+| **Per operation** | `register_op_cancel(op_id, fn)` / `unregister_op_cancel(op_id)` | Scalar-radionics broadcasts (`core/integrated_scalar_radionics.py`: `_track` registers `stop.request("cancelled")` on the run's `BroadcastStop`), and `vajra_service` audio sessions, including sigil broadcasts (`_cancel_session`). | Registered when the work is queued or started; removed when it ends (`_untrack`, `_end_session_operation`). |
+| **Per kind** | `register_cancel_handler(kind, fn)` / `unregister_cancel_handler(kind)` | Only `render`: `backend/app/main.py:register_cancel_handlers` wires it to the render queue's `jobs.cancel_job` at warmup. | For the life of the process. |
+
+A handler may be sync or async. It (or the worker it signals) records the
+terminal state. `request_cancel` waits up to `CANCEL_SETTLE_SECONDS` (5 s)
+for that. If the worker has not settled by then, it records `cancelled`
+itself, and a worker that loses that race gets an `OperationError` from its
+own late transition. No handler in either registry means `409`. That
+includes a broadcast or session whose process restarted: it was already
+reconciled to `interrupted`, so it is no longer active.
+
+The broadcast path also keeps a third, private table that is not a ledger
+registry: `_active` (operation id to `BroadcastStop`) in
+`core/integrated_scalar_radionics.py`. Server shutdown uses it
+(`stop_all_broadcasts` / `shutdown_broadcasts`, reason `"shutdown"`, so
+those runs end `interrupted` rather than `cancelled`). `POST
+/radionics/stop` stops crystal-grid playback only and does not cancel a
+broadcast operation. `/render/jobs/{id}/cancel` remains an alias that
+calls the render queue directly.

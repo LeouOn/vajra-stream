@@ -316,16 +316,28 @@ const AspectLine: React.FC<AspectLineProps> = ({ start, end, color, aspectType: 
     return curve.getPoints(40);
   }, [start, end, exactness]);
 
-  const geo = useMemo(() => {
-    const g = new THREE.BufferGeometry().setFromPoints(points);
-    return g;
-  }, [points]);
+  // A THREE.Line via <primitive>: in JSX, <line> is typed as the SVG element.
+  const line = useMemo(() => {
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.3 + exactness * 0.4,
+      linewidth: 1,
+      depthWrite: false,
+    });
+    return new THREE.Line(geometry, material);
+  }, [points, color, exactness]);
 
-  return (
-    <line geometry={geo}>
-      <lineBasicMaterial color={color} transparent opacity={0.3 + exactness * 0.4} linewidth={1} depthWrite={false} />
-    </line>
+  useEffect(
+    () => () => {
+      line.geometry.dispose();
+      line.material.dispose();
+    },
+    [line],
   );
+
+  return <primitive object={line} />;
 };
 
 interface AspectLinesProps {

@@ -171,8 +171,8 @@ export default function TransitComparison({ chart }: TransitComparisonProps) {
       const result = await response.json();
       const data = result.data || result;
       const formatted = exportFormat === 'json'
-        ? formatTransitReportJSON(data, { pii: stripPii })
-        : formatTransitReportMarkdown(data, { pii: stripPii });
+        ? formatTransitReportJSON(data)
+        : formatTransitReportMarkdown(data, { pii: !stripPii });
       await navigator.clipboard.writeText(formatted);
       addToast({
         type: 'success',

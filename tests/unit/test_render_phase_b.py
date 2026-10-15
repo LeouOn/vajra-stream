@@ -571,3 +571,95 @@ def test_stale_comfyui_paths_are_gone():
     command_lines = [line for line in launcher.splitlines() if not line.strip().upper().startswith("REM")]
     assert not any("--api-only" in line for line in command_lines)
     assert "COMFYUI_LAUNCHER" in (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+
+
+# -- one witness policy for the route and the LLM tools --------------------------------
+
+
+def fake_hosted_off_loop(monkeypatch) -> list[bool]:
+    """Hosted generator stub recording whether it ran on a thread with a running event loop."""
+    import asyncio
+
+    on_loop: list[bool] = []
+
+    def generate_image(prompt: str, **kwargs: Any) -> dict[str, Any]:
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)
+        except RuntimeError:
+            on_loop.append(False)
+        return {"image_data_url": "data:image/png;base64,QQ==", "model": "hosted-test", "cost_usd": 0.01}
+
+    monkeypatch.setattr("backend.core.llm_agent.tools.generate_image", generate_image)
+    return on_loop
+
+
+async def test_hosted_witness_runs_off_the_event_loop(fake, monkeypatch):
+    on_loop = fake_hosted_off_loop(monkeypatch)
+    folio = seal()
+    outcome = await working.forge_witness(folio["working_id"], "hosted")
+    assert outcome is not None and outcome.queued is False
+    assert outcome.body["witness"]["status"] == "ok"
+    assert on_loop == [False]  # a worker thread, so the loop kept serving while it ran
+
+
+def test_hosted_witness_route_runs_off_the_event_loop(operator_client, fake, monkeypatch):
+    on_loop = fake_hosted_off_loop(monkeypatch)
+    folio = seal()
+    response = operator_client.post(
+        f"/api/v1/operator/workings/{folio['working_id']}/witness", json={"backend": "hosted"}
+    )
+    assert response.status_code == 200
+    assert response.json()["witness"]["status"] == "ok"
+    assert on_loop == [False]
+
+
+async def test_witness_tool_queues_local_render_and_returns_its_operation_id(fake, monkeypatch):
+    hosted = fake_hosted(monkeypatch)
+    folio = seal()
+    result = await working.forge_witness_for_tool(folio["working_id"])
+    assert result["status"] == "queued" and result["backend"] == "local"
+    op = operations.get_operation(result["operation_id"])
+    assert op["kind"] == "render" and op["working_id"] == folio["working_id"]
+    assert op["params"]["purpose"] == "witness"
+    assert hosted == []
+
+
+async def test_witness_tool_falls_back_to_hosted_and_says_so(fake, monkeypatch):
+    on_loop = fake_hosted_off_loop(monkeypatch)
+    fake.down = True
+    folio = seal()
+    result = await working.forge_witness_for_tool(folio["working_id"])
+    assert result["witness"]["status"] == "ok"
+    assert result["witness_fallback"]["used"] == "hosted"
+    assert on_loop == [False]
+    assert operations.list_operations(kind="render") == []
+
+
+async def test_witness_tool_reports_missing_folio(fake):
+    assert await working.forge_witness_for_tool("wrk_missing") == {
+        "error": "working_not_found",
+        "working_id": "wrk_missing",
+    }
+
+
+async def test_chat_forge_witness_tool_uses_the_shared_policy(fake, monkeypatch):
+    from backend.app.api.v1.endpoints.llm import execute_tool_locally
+
+    hosted = fake_hosted(monkeypatch)
+    folio = seal()
+    result = await execute_tool_locally("forge_witness", {"working_id": folio["working_id"]})
+    assert result["status"] == "queued"
+    assert operations.get_operation(result["operation_id"])["params"]["purpose"] == "witness"
+    assert hosted == []
+
+
+def test_agent_forge_witness_tool_uses_the_shared_policy(fake, monkeypatch):
+    from backend.core.llm_agent.tools import TOOL_REGISTRY
+
+    hosted = fake_hosted(monkeypatch)
+    folio = seal()
+    result = TOOL_REGISTRY["forge_witness"](working_id=folio["working_id"])
+    assert result["status"] == "queued"
+    assert operations.get_operation(result["operation_id"])["working_id"] == folio["working_id"]
+    assert hosted == []

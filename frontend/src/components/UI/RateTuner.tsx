@@ -75,7 +75,9 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
     updateRateValue(index, value);
   }, [updateRateValue]);
   
-  const handlePresetSelect = useCallback((preset: RatePreset): void => {
+  // Legacy 3-dial RatePresets and 5-dial crystal presets both land here; only
+  // these fields are read.
+  const handlePresetSelect = useCallback((preset: Pick<RatePreset, 'id' | 'name' | 'values'>): void => {
     const rate: Rate = {
       values: preset.values,
       name: preset.name,
@@ -426,7 +428,7 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
               const all = [
                 ...RATE_PRESETS.map((p) => ({
                   id: p.id, name: p.name, values: p.values, icon: p.icon,
-                  description: p.description, solfeggio: [] as number[],
+                  description: `${p.name} rate preset`, solfeggio: [] as number[],
                 })),
                 ...shared,
               ];
@@ -445,7 +447,7 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
                 return (
                   <button
                     key={preset.id}
-                    onClick={() => handlePresetSelect(preset as RatePreset)}
+                    onClick={() => handlePresetSelect(preset)}
                     onMouseEnter={() => audioFeedback.playTick()}
                     className={`flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-300 hover:text-white transition-colors text-left ${
                       isActive

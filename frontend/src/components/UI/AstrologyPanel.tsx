@@ -457,7 +457,7 @@ export default function AstrologyPanel() {
       }
       try {
         const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
-        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: stripPii });
+        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: !stripPii });
         await navigator.clipboard.writeText(markdown);
         addToast({
           type: 'success',
@@ -490,7 +490,7 @@ export default function AstrologyPanel() {
       const result = await response.json();
       const data = result.data || result;
       const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
-      const markdown = formatNatalChartMarkdown(data, { pii: stripPii });
+      const markdown = formatNatalChartMarkdown(data, { pii: !stripPii });
       await navigator.clipboard.writeText(markdown);
       addToast({
         type: 'success',

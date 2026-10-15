@@ -796,15 +796,6 @@ class WitnessRequest(BaseModel):
     backend: Literal["local", "hosted"] | None = None
 
 
-async def _local_render_health() -> dict:
-    from backend.core.services.render import jobs
-
-    try:
-        return await jobs.get_backend(jobs.DEFAULT_BACKEND).health()
-    except Exception as exc:  # health never raises, but the backend lookup could
-        return {"reachable": False, "detail": str(exc) or type(exc).__name__}
-
-
 @router.post("/workings/{working_id}/witness", summary="Generate a manifestation image for a working")
 @router.post("/workings/{working_id}/manifest", summary="Generate a manifestation image for a working")
 async def forge_working_witness(working_id: str, request: WitnessRequest | None = Body(default=None)):
@@ -813,32 +804,14 @@ async def forge_working_witness(working_id: str, request: WitnessRequest | None 
     Without a ``backend``, renders locally when ``/render/health`` is reachable,
     otherwise falls back to hosted and says so in ``witness_fallback``.
     """
-    from core.working import attach_witness_image, load_working, submit_witness_render
+    from core.working import forge_witness
 
-    if load_working(working_id) is None:
+    outcome = await forge_witness(working_id, request.backend if request else None)
+    if outcome is None:
         raise HTTPException(status_code=404, detail="Working not found")
-    backend = request.backend if request else None
-    fallback = None
-    if backend is None:
-        health = await _local_render_health()
-        if health.get("reachable"):
-            backend = "local"
-        else:
-            backend = "hosted"
-            fallback = {
-                "requested": "local",
-                "used": "hosted",
-                "reason": f"local render backend unreachable: {health.get('detail') or 'no detail'}",
-            }
-    if backend == "local":
-        submitted = submit_witness_render(working_id)
-        if submitted is None:
-            raise HTTPException(status_code=404, detail="Working not found")
-        return JSONResponse(status_code=202, content=jsonable_encoder(submitted))
-    folio = attach_witness_image(working_id)
-    if fallback is not None:
-        folio["witness_fallback"] = fallback
-    return folio
+    if outcome.queued:
+        return JSONResponse(status_code=202, content=jsonable_encoder(outcome.body))
+    return outcome.body
 
 
 @router.post("/workings/{working_id}/speak", summary="Speak the working charge")

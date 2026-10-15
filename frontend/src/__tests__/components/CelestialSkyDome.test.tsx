@@ -115,7 +115,10 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(stubCtx());
+  // Spy through the 2d overload only; spyOn on the full overload set types the
+  // mock against the last overload (WebGPU's GPUCanvasContext).
+  const canvas2d: { getContext(contextId: '2d'): CanvasRenderingContext2D | null } = HTMLCanvasElement.prototype;
+  vi.spyOn(canvas2d, 'getContext').mockReturnValue(stubCtx());
   global.fetch = vi.fn().mockImplementation(() =>
     Promise.resolve({
       ok: true,

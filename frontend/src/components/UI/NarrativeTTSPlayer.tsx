@@ -213,7 +213,6 @@ export default function NarrativeTTSPlayer({
           </Tooltip>
           <Tooltip title="Playback volume">
             <Slider
-              size="small"
               min={0}
               max={1}
               step={0.05}

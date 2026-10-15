@@ -249,8 +249,10 @@ const ZhuntiMandala: React.FC<ZhuntiMandalaProps> = ({
     }
 
     // Arms layer — counter-rotate slightly per layer for shimmering rays
-    if (armsGroupRef.current) {
-      armsGroupRef.current.children.forEach((child, idx) => {
+    const armsGroup = armsGroupRef.current;
+    if (armsGroup) {
+      const armCount = armsGroup.children.length;
+      armsGroup.children.forEach((child, idx) => {
         const layer = arms[idx]?.layer ?? 0;
         const direction = layer % 2 === 0 ? 1 : -1;
         child.rotation.z += delta * 0.3 * direction;
@@ -258,7 +260,7 @@ const ZhuntiMandala: React.FC<ZhuntiMandalaProps> = ({
         // Audio reactivity
         let amp = 0;
         if (isPlaying && audioSpectrum.length > 0) {
-          const specIdx = Math.floor((idx / armsGroupRef.current.children.length) * audioSpectrum.length);
+          const specIdx = Math.floor((idx / armCount) * audioSpectrum.length);
           amp = audioSpectrum[specIdx] ?? 0;
         }
         // Subtle breathing scale

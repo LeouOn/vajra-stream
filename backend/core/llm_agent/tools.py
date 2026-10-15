@@ -765,7 +765,9 @@ def resume_automation(session_id: str) -> dict[str, Any]:
 def forge_sigil(intention: str, kamea: str = "saturn") -> dict[str, Any]:
     """
     Forge a magical visual sigil from an intention statement.
-    Generates both planetary Kamea SVGs and schedules Stable Diffusion generation.
+    Generates the planetary Kamea SVG plus an optional AI image: inline
+    (``ai_image``) for hosted providers, or a queued local render
+    (``ai_image_render`` = ``{"operation_id", "status"}``) with ``IMAGE_PROVIDER=comfyui``.
 
     Args:
         intention: What the sigil is designed to manifest or bless
@@ -1337,10 +1339,16 @@ def run_working(
 
 
 def forge_witness(working_id: str) -> dict[str, Any]:
-    """Generate and attach a witness image to an existing working folio."""
-    from core.working import attach_witness_image
+    """Witness image for an existing working folio, preferring the local render engine.
 
-    return attach_witness_image(working_id)
+    Same policy as ``POST /operator/workings/{id}/witness``
+    (:func:`core.working.forge_witness`): a queued local render returns its
+    ``operation_id``; with the engine unreachable the hosted image is attached
+    and ``witness_fallback`` says so.
+    """
+    from core.working import forge_witness_for_tool
+
+    return _run_async(forge_witness_for_tool(working_id))
 
 
 def check_auspicious_timing(genre: str = "healing") -> dict[str, Any]:
@@ -2509,7 +2517,11 @@ def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
         },
         {
             "name": "forge_sigil",
-            "description": "Create a graphical, neon-glowing vector sigil on a planetary magic square from an intention.",
+            "description": (
+                "Create a graphical, neon-glowing vector sigil on a planetary magic square from an intention. "
+                "An AI image comes inline as ai_image, or, on the local render engine, as ai_image_render "
+                "{operation_id, status}: a queued render that finishes a few minutes later."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -2860,8 +2872,12 @@ def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
         {
             "name": "forge_witness",
             "description": (
-                "Generate a manifestation image for an already sealed working "
-                "and attach it to the folio. Cheaper than video. Pass working_id."
+                "Generate a manifestation (witness) image for an already sealed working "
+                "and attach it to the folio. Cheaper than video. Pass working_id. "
+                "Uses the local render engine when it is up: that returns at once with "
+                "status 'queued' and an operation_id, and the image lands on the folio "
+                "a few minutes later. Otherwise a hosted image is attached immediately "
+                "(witness_fallback explains why local was not used)."
             ),
             "parameters": {
                 "type": "object",

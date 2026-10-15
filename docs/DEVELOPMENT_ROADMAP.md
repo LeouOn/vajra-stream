@@ -76,8 +76,16 @@ vitality".
       - the Astrology mandala threw on every frame while audio played;
       - "Ask the astrologer" failed on planets without a house;
       - the Scalar tab's journey never rendered.
-- [ ] Finish the last 23 (mostly `BroadcastPanel.tsx`, AntD theme typing),
-      then make the ratchet a hard zero.
+- [x] Finish the last 23: 23 → 0 (2026-10-15), with no casts or
+      suppressions. `.tsc-baseline` is 0 and the gate is a hard zero
+      (`--update` can no longer raise it). Bugs fixed along the way:
+      - "Strip PII" on the astrology copy buttons was inverted. The live
+        copy kept the observer's location while it said "PII stripped";
+      - the Astrocartography globe imported a hook that no longer exists
+        and threw away the positions it fetched;
+      - the scalar visualizer read a "coherence" that the status never
+        carries (it was always the fallback);
+      - the sadhana caption read a nonexistent field.
 - [ ] Recreate `.venv` on Python 3.13. Local venvs are 3.14, but
       `.python-version` pins 3.13 and 3.14 is documented as unsupported.
 
@@ -131,19 +139,29 @@ individual reviews catching each case.
 7. **Follow-ups found along the way:**
    - ~~`/radionics/broadcast` blocks the event loop~~ **Done.** Broadcasts
      run in a capped worker pool, return immediately, and can be cancelled
-     from the Ledger (`POST /operations/{id}/cancel`, with a per-kind cancel
-     registry).
+     from the Ledger (`POST /operations/{id}/cancel`). Each broadcast and
+     session registers its own stop; render registers one per kind. See
+     [Cancel registries](specs/2026-10-14-operations-and-local-render.md#cancel-registries-as-built).
    - ~~Sessions and sigil broadcasts are missing from the ledger~~ **Done.**
    - ~~Summary polling duplicated~~ **Done.** One shared poller in
      `operationsStore`.
-   - Sigil UI: with `IMAGE_PROVIDER=comfyui` the forge returns
-     `ai_image_render` (an operation). `BroadcastPanel` should show its
-     progress and result.
-   - The `forge_witness` LLM tool still uses the hosted path; offer local.
-   - `CharacterJourney._broadcast_ws` calls `asyncio.get_event_loop()`
-     inside `to_thread`, so autonomous journey advances emit no JOURNEY_*
-     events.
-   - The hosted witness path is a blocking call inside an async route.
+   - ~~Sigil UI ignores the local render~~ **Done (2026-10-15).** With
+     `IMAGE_PROVIDER=comfyui`, `BroadcastPanel` follows the forge's
+     `ai_image_render` operation through `operation_update` events. It
+     shows the status, the elapsed time, the finished image, any error and
+     a Cancel button.
+   - ~~The `forge_witness` LLM tool uses only the hosted path~~ **Done.**
+     The route and both tool registries share
+     `core.working.forge_witness`. It renders locally when the engine is
+     reachable, and the tools return the queued `operation_id`. Otherwise
+     it falls back to hosted and reports `witness_fallback`.
+   - ~~Autonomous journey advances emit no JOURNEY_* events~~ **Done.**
+     `StableConnectionManagerV2.schedule_broadcast` sends from worker
+     threads onto the recorded main loop.
+   - ~~The hosted witness path blocks the event loop~~ **Done.** It runs
+     in a worker thread. On the loop it had also failed every time:
+     `generate_image` returns a coroutine when a loop is running. The sigil
+     forge's synchronous providers now run in a thread as well.
 
 ## Phase 3: Consolidate
 
