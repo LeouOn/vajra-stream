@@ -24,6 +24,7 @@ import {
 } from '../../lib/crystalPresets';
 import { rateToDharma } from '../../lib/rateDharma';
 import { useCrystalStore } from '../../stores/crystalStore';
+import { isActiveStatus, useOperationsStore } from '../../stores/operationsStore';
 
 const COLORS: string[] = [BRAND_COLORS.primary, '#00bfff', '#ffd700', '#f472b6', '#22d3ee'];
 
@@ -50,7 +51,14 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
 
   const addToast = useUIStore((s) => s.addToast);
   const broadcastCrystal = useCrystalStore((s) => s.broadcastCrystal);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const cancelBroadcast = useCrystalStore((s) => s.cancelBroadcast);
+  // The broadcast runs in the background as a ledger operation; the request
+  // only starts it. Its status comes from the operations store.
+  const [isStarting, setIsStarting] = useState(false);
+  const [broadcastOpId, setBroadcastOpId] = useState<string | null>(null);
+  const broadcastOp = useOperationsStore((s) => (broadcastOpId ? s.byId[broadcastOpId] : undefined));
+  const isBroadcasting =
+    isStarting || (broadcastOpId !== null && (!broadcastOp || isActiveStatus(broadcastOp.status)));
   
   const [showPresets, setShowPresets] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
@@ -87,7 +95,7 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
   }, [loadRate, addToast]);
   
   const handleBroadcast = useCallback(async (): Promise<void> => {
-    setIsBroadcasting(true);
+    setIsStarting(true);
     const result = await broadcastCrystal(
       5 * 60,
       2,
@@ -95,15 +103,36 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
       ['all beings'],
       currentRate.values.map((v) => Math.round(v)),
     );
-    setIsBroadcasting(false);
+    setIsStarting(false);
     if (result) {
+      setBroadcastOpId(result.operation_id ?? null);
       audioFeedback.playSuccess();
-      addToast({ type: 'success', title: 'Broadcast started', message: 'Dials sent to the radionics board', duration: 2500 });
+      addToast({ type: 'success', title: 'Broadcast started', message: 'Dials sent to the radionics board (5 min)', duration: 2500 });
     } else {
       audioFeedback.playError();
       addToast({ type: 'error', title: 'Broadcast failed', message: 'Could not reach /radionics/broadcast', duration: 3000 });
     }
   }, [broadcastCrystal, currentRate, addToast]);
+
+  const handleStopBroadcast = useCallback(async (): Promise<void> => {
+    if (!broadcastOpId) return;
+    audioFeedback.playTick();
+    await cancelBroadcast(broadcastOpId);
+  }, [broadcastOpId, cancelBroadcast]);
+
+  // Report how the background broadcast ended, then release the button.
+  useEffect(() => {
+    if (!broadcastOp || isActiveStatus(broadcastOp.status)) return;
+    setBroadcastOpId(null);
+    const held = broadcastOp.elapsed_seconds != null ? ` after ${Math.round(broadcastOp.elapsed_seconds)} s` : '';
+    if (broadcastOp.status === 'success') {
+      addToast({ type: 'success', title: 'Broadcast complete', message: `Held${held}`, duration: 3000 });
+    } else if (broadcastOp.status === 'cancelled') {
+      addToast({ type: 'info', title: 'Broadcast stopped', message: `Cancelled${held}`, duration: 3000 });
+    } else {
+      addToast({ type: 'error', title: 'Broadcast ended', message: broadcastOp.error ?? broadcastOp.status, duration: 4000 });
+    }
+  }, [broadcastOp, addToast]);
 
   const handleSave = useCallback((): void => {
     saveRate();
@@ -170,15 +199,26 @@ const RateTuner = ({ className = '' }: RateTunerProps) => {
           >
             <RotateCcw className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => { void handleBroadcast(); }}
-            disabled={isBroadcasting}
-            onMouseEnter={() => audioFeedback.playTick()}
-            className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-cyan-400 transition-colors disabled:opacity-50"
-            title="Broadcast these dials"
-          >
-            <Play className="w-4 h-4" />
-          </button>
+          {isBroadcasting && broadcastOpId ? (
+            <button
+              onClick={() => { void handleStopBroadcast(); }}
+              onMouseEnter={() => audioFeedback.playTick()}
+              className="p-1.5 rounded-lg hover:bg-gray-700 text-cyan-400 hover:text-red-400 transition-colors"
+              title="Stop the running broadcast"
+            >
+              <Square className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => { void handleBroadcast(); }}
+              disabled={isBroadcasting}
+              onMouseEnter={() => audioFeedback.playTick()}
+              className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-cyan-400 transition-colors disabled:opacity-50"
+              title="Broadcast these dials"
+            >
+              <Play className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={handleSave}
             onMouseEnter={() => audioFeedback.playTick()}

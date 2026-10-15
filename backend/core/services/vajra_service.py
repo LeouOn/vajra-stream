@@ -5,6 +5,7 @@ Exposes existing Vajra.Stream functionality through web APIs
 
 import asyncio
 import json
+import logging
 import os
 import sys
 import threading
@@ -12,6 +13,10 @@ import time
 from datetime import datetime
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
+
+SESSION_INTERRUPT_REASON = "server shut down while this session was running"
 
 # Add parent directory to path to import existing modules
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
@@ -145,6 +150,9 @@ class VajraStreamService:
 
         # Background broadcast loop for live radionics + scalar data
         self._broadcast_task: asyncio.Task | None = None
+
+        # Sessions started with ``end_after_seconds`` end themselves on this timer.
+        self._session_timers: dict[str, asyncio.Task] = {}
 
         # Direct-playback stop control (see stop_playback / _start_playback_thread).
         # _playback_epoch is bumped by every Stop, so a playback worker that was
@@ -481,8 +489,23 @@ class VajraStreamService:
         print(f"Session created: {session_id} - {config.name}")
         return session_id
 
-    async def start_session(self, session_id: str) -> bool:
-        """Start a blessing session"""
+    async def start_session(
+        self,
+        session_id: str,
+        *,
+        operation_kind: str = "audio",
+        operation_title: str | None = None,
+        end_after_seconds: float | None = None,
+    ) -> bool:
+        """Start a blessing session.
+
+        The running session is recorded as one ledger operation
+        (``operation_kind``: ``audio`` by default, ``broadcast`` for sigil
+        broadcasts) from start to its measured end: ``stop_session`` ends it
+        ``success``; the ledger cancel route stops the audio and ends it
+        ``cancelled``. With ``end_after_seconds`` the session stops itself
+        after that long; otherwise it runs until stopped.
+        """
         if session_id not in self.active_sessions:
             print(f"Session not found: {session_id}")
             return False
@@ -492,18 +515,28 @@ class VajraStreamService:
         session["start_time"] = time.time()
 
         print(f"Starting session: {session_id}")
+        op_id = self._begin_session_operation(session, kind=operation_kind, title=operation_title)
 
-        # Generate and play audio
-        audio_data = await self.generate_prayer_bowl_audio(session["config"].audio_config)
-        session["audio_data"] = audio_data
+        try:
+            # Generate and play audio
+            audio_data = await self.generate_prayer_bowl_audio(session["config"].audio_config)
+            session["audio_data"] = audio_data
 
-        # Broadcast if hardware enabled
-        if session["config"].hardware_enabled:
-            await self.broadcast_audio(audio_data)
+            # Broadcast if hardware enabled
+            if session["config"].hardware_enabled:
+                await self.broadcast_audio(audio_data)
 
-        # Generate visuals if enabled
-        if session["config"].visuals_enabled:
-            session["visual_data"] = await self._generate_visuals(audio_data)
+            # Generate visuals if enabled
+            if session["config"].visuals_enabled:
+                session["visual_data"] = await self._generate_visuals(audio_data)
+        except Exception as exc:
+            self._end_session_operation(session, "error", error=f"{type(exc).__name__}: {exc}")
+            raise
+
+        if op_id is not None and end_after_seconds is not None and end_after_seconds > 0:
+            self._session_timers[session_id] = asyncio.create_task(
+                self._end_session_after(session_id, float(end_after_seconds))
+            )
 
         from modules.interfaces import BroadcastStarted, SessionStarted
 
@@ -671,15 +704,27 @@ class VajraStreamService:
             except Exception as e:
                 print(f"Error in broadcast loop: {e}")
 
-    async def stop_session(self, session_id: str) -> bool:
-        """Stop a blessing session"""
+    async def stop_session(self, session_id: str, *, outcome: str = "success") -> bool:
+        """Stop a blessing session.
+
+        ``outcome`` is how its ledger operation ends: ``success`` for a normal
+        stop, ``cancelled`` when the ledger cancel route stopped it.
+        """
         if session_id not in self.active_sessions:
             print(f"Session not found: {session_id}")
             return False
 
+        timer = self._session_timers.pop(session_id, None)
+        if timer is not None and timer is not asyncio.current_task():
+            try:
+                timer.cancel()
+            except RuntimeError:  # its event loop is already closed
+                pass
+
         session = self.active_sessions[session_id]
         session["status"] = "stopped"
         session["end_time"] = time.time()
+        self._end_session_operation(session, outcome)
 
         from modules.interfaces import SessionStopped
 
@@ -703,6 +748,93 @@ class VajraStreamService:
 
         print(f"Session stopped: {session_id}")
         return True
+
+    # -- operations ledger (spec contract W2-3) ------------------------------
+
+    def _begin_session_operation(self, session: dict, *, kind: str, title: str | None) -> str | None:
+        """Record a starting session as a running ledger operation; ``None`` if the ledger is unavailable."""
+        config = session["config"]
+        session_id = session["id"]
+        try:
+            from core import operations
+
+            existing = session.get("operation_id")
+            current = operations.get_operation(existing) if existing else None
+            if current is not None and current["status"] in operations.ACTIVE_STATUSES:
+                return existing  # started again while running: one session, one operation
+            op = operations.create_operation(
+                kind,
+                title or f"Session: {config.name}",
+                params={
+                    "session_id": session_id,
+                    "name": config.name,
+                    "intention": config.intention,
+                    "frequency_hz": config.audio_config.frequency,
+                    "duration_seconds": config.duration,
+                    "hardware_enabled": config.hardware_enabled,
+                },
+            )
+            operations.start_operation(op["id"])
+        except Exception:
+            logger.warning("operations ledger unavailable; session %s not recorded", session_id, exc_info=True)
+            return None
+        session["operation_id"] = op["id"]
+        operations.register_op_cancel(op["id"], lambda _op_id: self._cancel_session(session_id))
+        return op["id"]
+
+    def _end_session_operation(self, session: dict, outcome: str, *, error: str | None = None) -> None:
+        """Close a session's ledger operation as ``success`` / ``cancelled`` / ``interrupted`` / ``error``."""
+        op_id = session.get("operation_id")
+        if not op_id:
+            return
+        try:
+            from core import operations
+
+            operations.unregister_op_cancel(op_id)
+            start = session.get("start_time")
+            result = {
+                "session_id": session.get("id"),
+                "runtime_seconds": round(time.time() - start, 3) if start else None,
+            }
+            if outcome == "cancelled":
+                operations.cancel_operation(op_id, result=result)
+            elif outcome == "interrupted":
+                operations.interrupt_operation(op_id, SESSION_INTERRUPT_REASON, result=result)
+            elif outcome == "error":
+                operations.fail_operation(op_id, error or "session failed", result=result)
+            else:
+                operations.complete_operation(op_id, result=result)
+        except Exception:
+            logger.info("session operation %s already ended or ledger unavailable", op_id, exc_info=True)
+
+    async def _cancel_session(self, session_id: str) -> None:
+        """Ledger cancel handler: cut the audio, then end the session as ``cancelled``."""
+        self.stop_playback()
+        await self.stop_session(session_id, outcome="cancelled")
+
+    async def _end_session_after(self, session_id: str, seconds: float) -> None:
+        try:
+            await asyncio.sleep(seconds)
+        except asyncio.CancelledError:
+            return
+        self._session_timers.pop(session_id, None)
+        if session_id in self.active_sessions:
+            await self.stop_session(session_id)
+
+    def interrupt_session_operations(self) -> int:
+        """Server shutdown: end every running session's operation as ``interrupted``. Returns how many."""
+        for timer in self._session_timers.values():
+            try:
+                timer.cancel()
+            except RuntimeError:  # its event loop is already closed
+                pass
+        self._session_timers.clear()
+        count = 0
+        for session in list(self.active_sessions.values()):
+            if session.get("status") == "running" and session.get("operation_id"):
+                self._end_session_operation(session, "interrupted")
+                count += 1
+        return count
 
     def _load_history(self):
         """Load session history from JSON file, restoring data across restarts."""
