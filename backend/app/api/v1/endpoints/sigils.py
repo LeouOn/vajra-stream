@@ -7,7 +7,6 @@ import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.core.services.mops_engine import mops_engine
 from backend.core.services.sigil_service import sigil_service
 from backend.core.services.vajra_service import vajra_service
 
@@ -35,9 +34,6 @@ class ExtractSigilRequest(BaseModel):
 async def forge_sigil(payload: ForgeRequest):
     """Generate a sigil from an intention text (SVG + AI Prompt)"""
     try:
-        # Increment MOPS for divination/forging operations
-        mops_engine.record_event("divination", 1)  # Forge operation acts as divination-strength focus
-
         result = await sigil_service.forge_sigil(payload.intention, payload.kamea)
         return {"status": "success", "sigil": result}
     except Exception as e:
@@ -48,9 +44,6 @@ async def forge_sigil(payload: ForgeRequest):
 async def broadcast_sigil(payload: BroadcastRequest):
     """Broadcast the energetic vibration of a forged sigil"""
     try:
-        # Increment tuning events
-        mops_engine.record_event("tuning", 1)
-
         # Trigger broadcast through vajra_service
         session_id = await vajra_service.create_session(
             name=f"Sigil Broadcast: {payload.intention[:30]}",

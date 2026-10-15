@@ -104,7 +104,6 @@ class BroadcastResponse(BaseModel):
     lon: float | None = None
     frequency_hz: float
     duration_seconds: float
-    scalar_mops: float
     chakras_activated: list[str]
     meridians_activated: list[str]
     dedication: str
@@ -112,6 +111,8 @@ class BroadcastResponse(BaseModel):
     solfeggio_names: list[str] | None = None
     crystal_output: dict | None = None
     scalar_output: dict | None = None
+    # Ledger id of the scalar-radionics broadcast operation (GET /api/v1/operations/{id}).
+    operation_id: str | None = None
 
 
 class RitualBroadcastResponse(BaseModel):
@@ -259,9 +260,6 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
 
         duration = request.duration_minutes * 60
 
-        # Estimate scalar MOPS from actual broadcast
-        estimated_mops = 17.73 * request.scalar_intensity
-
         # Get activated systems
         chakras_activated = (
             ["muladhara", "svadhisthana", "manipura", "anahata", "vishuddha", "ajna", "sahasrara"]
@@ -300,7 +298,6 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             lon=target_lon,
             frequency_hz=frequency_hz,
             duration_seconds=duration,
-            scalar_mops=estimated_mops,
             chakras_activated=chakras_activated,
             meridians_activated=meridians_activated,
             dedication=dedication,
@@ -308,6 +305,7 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             solfeggio_names=result.get("solfeggio_names") if radionics_service else None,
             crystal_output=crystal_result,
             scalar_output=scalar_result,
+            operation_id=(scalar_result or {}).get("operation_id"),
         )
 
     except Exception as e:
@@ -1358,7 +1356,6 @@ async def get_broadcast_status(session_id: str):
             "state": "active",
             "progress_percent": 75,
             "estimated_time_remaining_seconds": 120,
-            "current_mops": 17.73,
             "thermal_status": "optimal",
         }
 

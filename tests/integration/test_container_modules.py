@@ -10,7 +10,8 @@ class TestScalarWaves:
         result = scalar.generate("qrng", 1000, 1.0)
         assert result["count"] > 0
         assert result["method"] == "qrng"
-        assert "mops" in result
+        assert "mops" not in result  # MOPS retired 2026-10-14
+        assert result["generation_time"] >= 0
 
     def test_thermal_status(self, fresh_container):
         scalar = fresh_container.scalar_waves
@@ -82,7 +83,7 @@ class TestEventBus:
             event_id="test-123",
             method="qrng",
             count=1000,
-            mops=1.5,
+            generation_seconds=0.01,
         )
         fresh_container.event_bus.publish(event)
 

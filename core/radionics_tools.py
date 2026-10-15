@@ -264,7 +264,8 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
             "name": "generate_scalar_waves",
             "description": "Generate scalar wave values using one of five methods: "
             "qrng (quantum-random), lorenz (chaotic attractor), rossler (chaotic attractor), "
-            "ca (cellular automata), or hybrid (combined). Returns MOPS (million operations per second) metric.",
+            "ca (cellular automata), or hybrid (combined). "
+            "Returns the number of values generated and the measured generation time in seconds.",
             "parameters": {
                 "type": "object",
                 "properties": {

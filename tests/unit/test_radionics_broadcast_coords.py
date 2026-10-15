@@ -51,7 +51,7 @@ def test_resolve_target_coordinates_honesty_rules() -> None:
 def test_broadcast_healing_emits_resolved_coordinates() -> None:
     event_bus = MagicMock()
     service = RadionicsService(event_bus=event_bus)
-    service.broadcaster.broadcast_to_targets = MagicMock(return_value={"status": "completed", "mops": 15.0})
+    service.broadcaster.broadcast_to_targets = MagicMock(return_value={"status": "completed", "values_generated": 1000})
 
     # Broadcast to a known location
     result = service.broadcast_healing(
@@ -79,7 +79,7 @@ def test_broadcast_healing_emits_resolved_coordinates() -> None:
 def test_broadcast_healing_explicit_coordinates_override() -> None:
     event_bus = MagicMock()
     service = RadionicsService(event_bus=event_bus)
-    service.broadcaster.broadcast_to_targets = MagicMock(return_value={"status": "completed", "mops": 15.0})
+    service.broadcaster.broadcast_to_targets = MagicMock(return_value={"status": "completed", "values_generated": 1000})
 
     # Pass explicit custom coordinates
     result = service.broadcast_healing(

@@ -229,4 +229,4 @@ def test_broadcast_to_targets_with_explicit_frequency_preserves_value(
 
     assert results["config"]["frequency"] == 440.0
     assert broadcaster.total_broadcasts == 1
-    assert broadcaster.total_operations == 0  # no scalar ops when duration == 0
+    assert broadcaster.total_values_generated == 0  # no scalar values when scalar_gen is disabled

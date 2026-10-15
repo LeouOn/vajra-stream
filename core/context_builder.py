@@ -370,8 +370,6 @@ def build_system_prompt(
         if "rng_state" in session_state:
             rng = session_state["rng_state"]
             prompt += f"**RNG Needle:** {rng.get('state', 'unknown')} (coherence: {rng.get('coherence', 'N/A')})\n"
-        if "scalar_mops" in session_state:
-            prompt += f"**Scalar MOPS:** {session_state['scalar_mops']:.2f}M/s\n"
         if "active_chakra" in session_state:
             prompt += f"**Active Chakra:** {session_state['active_chakra']}\n"
         if "duration_remaining" in session_state:
@@ -454,7 +452,6 @@ class SessionContext:
         self.active_frequency: float = 528.0
         self.gv_measurement: float = 0.0
         self.rng_state: dict[str, Any] = {}
-        self.scalar_mops: float = 0.0
         self.active_chakra: str = ""
         self.duration_remaining: int = 0
         self.planetary_context: str = ""
@@ -482,8 +479,6 @@ class SessionContext:
             d["gv_measurement"] = self.gv_measurement
         if self.rng_state:
             d["rng_state"] = self.rng_state
-        if self.scalar_mops:
-            d["scalar_mops"] = self.scalar_mops
         if self.active_chakra:
             d["active_chakra"] = self.active_chakra
         if self.duration_remaining:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Advanced Scalar Wave Generator - Terra MOPS Edition
+Advanced Scalar Wave Generator
 
 Multi-method scalar wave generation using computational intensity.
 Inspired by cybershaman's work, but with thermal respect and safety.
@@ -14,7 +14,10 @@ Implements:
 - Prime harmonic generation
 - Hybrid synthesis
 
-Target: Terra MOPS (1,000,000,000,000 Magical Operations Per Second)
+The benchmark figures here measure how fast this computer generates values
+(values per second). They are compute throughput, not a count of magical
+operations: the MOPS framing was retired on 2026-10-14 (see the "Decisions"
+section of docs/DEVELOPMENT_ROADMAP.md).
 
 May our cycles serve all beings!
 """
@@ -73,19 +76,19 @@ class ThermalState:
 
 
 @dataclass
-class MOPSMetrics:
-    """Magical Operations Per Second metrics"""
+class GenerationMetrics:
+    """Measured generator throughput: how many values were produced in how long."""
 
-    operations: int = 0
+    values: int = 0
     elapsed_time: float = 0.0
-    mops_rate: float = 0.0  # Millions of ops/sec
     method: str = ""
 
+    @property
+    def values_per_second(self) -> float:
+        return self.values / self.elapsed_time if self.elapsed_time > 0 else 0.0
+
     def __str__(self):
-        if self.mops_rate >= 1000:
-            return f"{self.mops_rate / 1000:.2f} GMOPS ({self.method})"
-        else:
-            return f"{self.mops_rate:.2f} MMOPS ({self.method})"
+        return f"{self.values:,} values in {self.elapsed_time:.2f}s ({self.values_per_second / 1e6:.2f}M values/s, {self.method})"
 
 
 # ============================================================================
@@ -510,7 +513,7 @@ class HybridScalarWaveGenerator:
         self.thermal = ThermalMonitor()
 
         # Metrics
-        self.total_ops = 0
+        self.total_values = 0
         self.start_time = time.time()
 
     def generate_hybrid_stream(self, count: int) -> list[float]:
@@ -549,37 +552,31 @@ class HybridScalarWaveGenerator:
             )
             combined.append(value)
 
-        # Track operations (7 methods * count)
-        self.total_ops += 7 * actual_count
+        self.total_values += actual_count
 
         return combined
 
-    def benchmark(self, duration_seconds: float = 10.0) -> MOPSMetrics:
+    def benchmark(self, duration_seconds: float = 10.0) -> GenerationMetrics:
         """
-        Run benchmark to measure MOPS.
+        Run benchmark to measure how many hybrid values this machine generates.
         """
         print(f"\n🔥 Running benchmark for {duration_seconds} seconds...")
         print(f"   Thermal state: {self.thermal.state.temperature:.1f}°C")
         print(f"   Throttle factor: {self.thermal.state.throttle_factor:.2f}")
         print()
 
-        ops_count = 0
+        values = 0
         start = time.time()
 
         while (time.time() - start) < duration_seconds:
             # Generate batch
-            self.generate_hybrid_stream(1000)
-            ops_count += 7000  # 7 methods * 1000
+            values += len(self.generate_hybrid_stream(1000))
 
         elapsed = time.time() - start
-        mops = (ops_count / elapsed) / 1_000_000
-
-        metrics = MOPSMetrics(operations=ops_count, elapsed_time=elapsed, mops_rate=mops, method="Hybrid Synthesis")
+        metrics = GenerationMetrics(values=values, elapsed_time=elapsed, method="Hybrid Synthesis")
 
         print("✅ Benchmark complete!")
-        print(f"   Operations: {ops_count:,}")
-        print(f"   Time: {elapsed:.2f}s")
-        print(f"   Rate: {metrics}")
+        print(f"   {metrics}")
         print(f"   Final temp: {self.thermal.state.temperature:.1f}°C")
         print()
 
@@ -627,10 +624,8 @@ class HybridScalarWaveGenerator:
             print()
 
         print("✅ Breathing cycles complete!")
-        print(f"   Total operations: {self.total_ops:,}")
-        elapsed = time.time() - self.start_time
-        mops = (self.total_ops / elapsed) / 1_000_000
-        print(f"   Average MOPS: {mops:.2f}")
+        print(f"   Total values generated: {self.total_values:,}")
+        print(f"   Elapsed: {time.time() - self.start_time:.1f}s")
         print()
 
 
@@ -640,7 +635,7 @@ class HybridScalarWaveGenerator:
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("ADVANCED SCALAR WAVE GENERATOR - Terra MOPS Edition")
+    print("ADVANCED SCALAR WAVE GENERATOR")
     print("=" * 70)
     print()
     print("May our computational cycles serve all beings!")
@@ -651,7 +646,7 @@ if __name__ == "__main__":
     generator = HybridScalarWaveGenerator()
 
     # Run benchmark
-    metrics = generator.benchmark(duration_seconds=5.0)
+    generator.benchmark(duration_seconds=5.0)
 
     # Run one sacred breathing cycle
     # generator.sacred_breathing_cycle(cycles=1)
@@ -660,6 +655,5 @@ if __name__ == "__main__":
     print("SESSION COMPLETE")
     print("=" * 70)
     print()
-    print("System is ready for Terra MOPS operations!")
     print("Run with care and intention.")
     print()
