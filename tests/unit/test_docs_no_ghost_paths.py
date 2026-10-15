@@ -74,6 +74,10 @@ GHOST_REFERENCES: list[tuple[str, str]] = [
     ("PROJECT_STRUCTURE.md", "radionics_analysis.py"),
     ("PROJECT_STRUCTURE.md", "vajra_stream_ui.py"),
     ("PROJECT_STRUCTURE.md", "create_test_populations.py"),
+    # --- MOPS engine and endpoint retired 2026-10-14 (DEVELOPMENT_ROADMAP.md,
+    # "Decisions"); replaced by the operations ledger ---
+    ("PROJECT_STRUCTURE.md", "mops.py"),
+    ("PROJECT_STRUCTURE.md", "mops_engine.py"),
 ]
 
 

@@ -46,7 +46,7 @@ backend/
 │   │   ├── healing_dialogue.py   # Healing dialogue system (NEW)
 │   │   ├── llm.py                # LLM provider endpoints
 │   │   ├── locations.py          # Astrology locations CRUD
-│   │   ├── mops.py               # MOPS (Multi-Operator System)
+│   │   ├── operations.py         # Operations ledger (real, timed operations)
 │   │   ├── operator.py           # Operator tools (Saka Dawa, etc.)
 │   │   ├── outlook.py            # Outlook generation
 │   │   ├── personal_healing.py   # Personal healing
@@ -245,7 +245,7 @@ frontend/src/routes/
 ├── Practice/          # Core practice routes (blessings, healing, astrology, visualization)
 ├── Sanctuary/         # Healing dialogue sanctuary with 5-phase container UI
 ├── Buddhas/           # 88-Buddha recitation practice
-├── Operations/        # Radionics, scalar waves, MOPS, ritual engine
+├── Operations/        # Radionics, scalar waves, ritual engine
 └── Settings/          # Configuration, TTS settings, provider management
 ```
 

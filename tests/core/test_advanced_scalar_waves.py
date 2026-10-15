@@ -45,7 +45,8 @@ def test_module_imports_and_public_surface():
 
     # Dataclasses
     assert asw.ThermalState is not None
-    assert asw.MOPSMetrics is not None
+    assert asw.GenerationMetrics is not None
+    assert not hasattr(asw, "MOPSMetrics")  # retired 2026-10-14
 
     # Public classes (one of each method + the hybrid + thermal monitor)
     for cls_name in (

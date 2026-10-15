@@ -87,7 +87,7 @@ All routes are mounted under `/api/v1` in `backend/app/api/v1/api.py` (32 router
 ### Sessions & Audio
 - `sessions` - `create`, `start`, `stop`, `history`
 - `audio` - playback control, device enumeration
-- `mops` - Mantras-Of-Power-Score tracking
+- `operations` - operations ledger: real operations with a start, measured duration and outcome (`/operations`, `/operations/summary`, `/operations/{id}`). Replaces MOPS, retired 2026-10-14 (see DEVELOPMENT_ROADMAP.md, "Decisions")
 
 ### Practices (9 practices, identical lifecycle)
 - `practices/list` - enumerate all loaded practices
@@ -172,7 +172,6 @@ One singleton connection at `ws://localhost:8008/ws`. The frontend `useWebSocket
 
 ### Slow-data broadcasts (10 s loop replacing HTTP polling)
 - `CURRENT_ASTROLOGY` - current planetary positions
-- `MOPS_AVERAGES` - running mantra power averages
 - `JOURNEY_STATUS` - character-journey progress
 
 ### Ritual & journey lifecycle

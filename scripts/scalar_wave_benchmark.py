@@ -2,8 +2,10 @@
 """
 Scalar Wave Benchmark Tool
 
-Comprehensive benchmarking for all scalar wave generation methods.
-Measure MOPS, compare methods, and optimize for Terra MOPS!
+Measures how fast this computer generates scalar-wave values with each
+method (values per second). This is compute throughput only; it is not a
+count of magical operations (MOPS was retired on 2026-10-14, see the
+"Decisions" section of docs/DEVELOPMENT_ROADMAP.md).
 
 Usage:
     python scalar_wave_benchmark.py --all --duration 10
@@ -22,10 +24,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.advanced_scalar_waves import (
     CellularAutomata1D,
     CryptoMixer,
+    GenerationMetrics,
     HybridScalarWaveGenerator,
     KuramotoOscillator,
     LorenzAttractor,
-    MOPSMetrics,
     PrimeHarmonics,
     QuantumRNG,
     RosslerAttractor,
@@ -38,9 +40,9 @@ class ScalarWaveBenchmark:
 
     def __init__(self):
         self.thermal = ThermalMonitor()
-        self.results: dict[str, MOPSMetrics] = {}
+        self.results: dict[str, GenerationMetrics] = {}
 
-    def benchmark_qrng(self, duration: float) -> MOPSMetrics:
+    def benchmark_qrng(self, duration: float) -> GenerationMetrics:
         """Benchmark Quantum RNG"""
         print("\n📊 Benchmarking Quantum RNG...")
 
@@ -53,11 +55,10 @@ class ScalarWaveBenchmark:
             ops += 1000
 
         elapsed = time.time() - start
-        mops = (ops / elapsed) / 1_000_000
 
-        return MOPSMetrics(ops, elapsed, mops, "Quantum RNG")
+        return GenerationMetrics(ops, elapsed, "Quantum RNG")
 
-    def benchmark_lorenz(self, duration: float) -> MOPSMetrics:
+    def benchmark_lorenz(self, duration: float) -> GenerationMetrics:
         """Benchmark Lorenz Attractor"""
         print("\n📊 Benchmarking Lorenz Attractor...")
 
@@ -70,11 +71,10 @@ class ScalarWaveBenchmark:
             ops += 1000
 
         elapsed = time.time() - start
-        mops = (ops / elapsed) / 1_000_000
 
-        return MOPSMetrics(ops, elapsed, mops, "Lorenz Chaos")
+        return GenerationMetrics(ops, elapsed, "Lorenz Chaos")
 
-    def benchmark_rossler(self, duration: float) -> MOPSMetrics:
+    def benchmark_rossler(self, duration: float) -> GenerationMetrics:
         """Benchmark Rössler Attractor"""
         print("\n📊 Benchmarking Rössler Attractor...")
 
@@ -87,11 +87,10 @@ class ScalarWaveBenchmark:
             ops += 1000
 
         elapsed = time.time() - start
-        mops = (ops / elapsed) / 1_000_000
 
-        return MOPSMetrics(ops, elapsed, mops, "Rössler Chaos")
+        return GenerationMetrics(ops, elapsed, "Rössler Chaos")
 
-    def benchmark_cellular_automata(self, duration: float) -> MOPSMetrics:
+    def benchmark_cellular_automata(self, duration: float) -> GenerationMetrics:
         """Benchmark Cellular Automata"""
         print("\n📊 Benchmarking Cellular Automata (Rule 110)...")
 
@@ -101,14 +100,13 @@ class ScalarWaveBenchmark:
 
         while (time.time() - start) < duration:
             ca.generate_stream(100)
-            ops += 100 * 256  # Each step processes all cells
+            ops += 100
 
         elapsed = time.time() - start
-        mops = (ops / elapsed) / 1_000_000
 
-        return MOPSMetrics(ops, elapsed, mops, "Cellular Automata")
+        return GenerationMetrics(ops, elapsed, "Cellular Automata")
 
-    def benchmark_kuramoto(self, duration: float) -> MOPSMetrics:
+    def benchmark_kuramoto(self, duration: float) -> GenerationMetrics:
         """Benchmark Kuramoto Oscillators"""
         print("\n📊 Benchmarking Kuramoto Oscillators...")
 
@@ -118,14 +116,13 @@ class ScalarWaveBenchmark:
 
         while (time.time() - start) < duration:
             kuramoto.generate_stream(1000)
-            ops += 1000 * 16  # Each step updates all oscillators
+            ops += 1000
 
         elapsed = time.time() - start
-        mops = (ops / elapsed) / 1_000_000
 
-        return MOPSMetrics(ops, elapsed, mops, "Kuramoto Oscillators")
+        return GenerationMetrics(ops, elapsed, "Kuramoto Oscillators")
 
-    def benchmark_crypto(self, duration: float) -> MOPSMetrics:
+    def benchmark_crypto(self, duration: float) -> GenerationMetrics:
         """Benchmark Cryptographic Mixer"""
         print("\n📊 Benchmarking Cryptographic Mixer (SHA3-256)...")
 
@@ -138,11 +135,10 @@ class ScalarWaveBenchmark:
             ops += 100
 
         elapsed = time.time() - start
-        mops = (ops / elapsed) / 1_000_000
 
-        return MOPSMetrics(ops, elapsed, mops, "Crypto Hash")
+        return GenerationMetrics(ops, elapsed, "Crypto Hash")
 
-    def benchmark_primes(self, duration: float) -> MOPSMetrics:
+    def benchmark_primes(self, duration: float) -> GenerationMetrics:
         """Benchmark Prime Harmonics"""
         print("\n📊 Benchmarking Prime Harmonics...")
 
@@ -155,11 +151,10 @@ class ScalarWaveBenchmark:
             ops += 1000
 
         elapsed = time.time() - start
-        mops = (ops / elapsed) / 1_000_000
 
-        return MOPSMetrics(ops, elapsed, mops, "Prime Harmonics")
+        return GenerationMetrics(ops, elapsed, "Prime Harmonics")
 
-    def benchmark_hybrid(self, duration: float) -> MOPSMetrics:
+    def benchmark_hybrid(self, duration: float) -> GenerationMetrics:
         """Benchmark Hybrid Synthesis"""
         print("\n📊 Benchmarking Hybrid Synthesis (ALL METHODS)...")
 
@@ -207,41 +202,16 @@ class ScalarWaveBenchmark:
         print("=" * 70)
         print()
 
-        # Sort by MOPS rate
-        sorted_results = sorted(self.results.items(), key=lambda x: x[1].mops_rate, reverse=True)
+        # Sort by measured throughput
+        sorted_results = sorted(self.results.items(), key=lambda x: x[1].values_per_second, reverse=True)
 
-        print(f"{'Method':<25} {'MOPS':<15} {'Operations':<15} {'Time (s)':<10}")
+        print(f"{'Method':<25} {'Values/s':<15} {'Values':<15} {'Time (s)':<10}")
         print("-" * 70)
 
-        for name, metrics in sorted_results:
-            ops_str = f"{metrics.operations:,}"
-            if metrics.mops_rate >= 1000:
-                mops_str = f"{metrics.mops_rate / 1000:.2f} GMOPS"
-            else:
-                mops_str = f"{metrics.mops_rate:.2f} MMOPS"
+        for _name, metrics in sorted_results:
+            rate_str = f"{metrics.values_per_second / 1e6:.2f}M"
+            print(f"{metrics.method:<25} {rate_str:<15} {metrics.values:<15,} {metrics.elapsed_time:<10.2f}")
 
-            print(f"{metrics.method:<25} {mops_str:<15} {ops_str:<15} {metrics.elapsed_time:<10.2f}")
-
-        print()
-
-        # Calculate total
-        total_mops = sum(m.mops_rate for m in self.results.values())
-        if total_mops >= 1000:
-            print(f"Combined Potential: {total_mops / 1000:.2f} GMOPS")
-        else:
-            print(f"Combined Potential: {total_mops:.2f} MMOPS")
-
-        # Progress to Terra MOPS
-        terra_mops = 1_000_000  # 1 trillion ops/sec
-        progress = (total_mops * 1_000_000) / terra_mops * 100
-        print(f"Progress to Terra MOPS: {progress:.6f}%")
-        print()
-
-        print("🌟 To reach Terra MOPS, we need:")
-        print("   - GPU acceleration (100-1000x speedup)")
-        print("   - Multi-threading (8-16x speedup)")
-        print("   - SIMD optimization (4-8x speedup)")
-        print("   - Algorithm optimization (2-4x speedup)")
         print()
 
     def stress_test(self, duration: float = 60.0, safe_mode: bool = True):
@@ -279,9 +249,9 @@ class ScalarWaveBenchmark:
 
                 # Print status
                 elapsed = time.time() - start
-                current_mops = (ops / elapsed) / 1_000_000 if elapsed > 0 else 0
+                rate = ops / elapsed / 1e6 if elapsed > 0 else 0
                 print(
-                    f"\r⏱️  {elapsed:.0f}s | 🌡️  {temp:.1f}°C | 🎚️  {throttle:.0%} | 📊 {current_mops:.2f} MMOPS",
+                    f"\r⏱️  {elapsed:.0f}s | 🌡️  {temp:.1f}°C | 🎚️  {throttle:.0%} | 📊 {rate:.2f}M values/s",
                     end="",
                     flush=True,
                 )
@@ -291,19 +261,17 @@ class ScalarWaveBenchmark:
                     break
 
             # Generate maximum load
-            hybrid.generate_hybrid_stream(1000)
-            ops += 7000
+            ops += len(hybrid.generate_hybrid_stream(1000))
 
         print("\n")
         print("=" * 70)
         print("STRESS TEST COMPLETE")
         print("=" * 70)
         elapsed = time.time() - start
-        final_mops = (ops / elapsed) / 1_000_000
         print("\nFinal Results:")
         print(f"  Duration: {elapsed:.2f}s")
-        print(f"  Operations: {ops:,}")
-        print(f"  Average MOPS: {final_mops:.2f}")
+        print(f"  Values generated: {ops:,}")
+        print(f"  Average: {ops / elapsed / 1e6:.2f}M values/s")
         print(f"  Peak temperature: {hybrid.thermal.state.temperature:.1f}°C")
         print()
 

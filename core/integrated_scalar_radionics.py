@@ -5,8 +5,13 @@ Integrated Scalar-Radionics Broadcaster
 Combines advanced scalar wave generation with radionics broadcasting
 for maximum healing power. Integrates with all Vajra Stream systems.
 
+Every call to ``broadcast_to_targets`` is recorded in the operations ledger
+(``core/operations.py``, kind ``broadcast``) with its real start, measured
+duration and outcome. That record replaces the retired MOPS throughput
+figure: a broadcast is one operation that takes real time.
+
 Features:
-- Terra MOPS scalar wave generation
+- Scalar wave generation (hybrid RNG / chaotic streams)
 - Multi-target radionics broadcasting
 - Energetic anatomy integration
 - Real-time visualization
@@ -14,10 +19,14 @@ Features:
 - Harmonic frequency selection
 """
 
+import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     from core.advanced_scalar_waves import HybridScalarWaveGenerator
@@ -73,7 +82,7 @@ class IntegratedScalarRadionicsBroadcaster:
     """Combined scalar-wave + radionics broadcasting engine.
 
     Integrates :class:`~core.advanced_scalar_waves.HybridScalarWaveGenerator`
-    for MOPS-scale scalar wave generation with :class:`~core.compassionate_blessings.BlessingDatabase`
+    for scalar wave generation with :class:`~core.compassionate_blessings.BlessingDatabase`
     for targeted blessing allocation, and optional :class:`~core.energetic_anatomy.EnergeticAnatomyDatabase`
     for meridian/chakra-aware broadcasts.
 
@@ -117,7 +126,7 @@ class IntegratedScalarRadionicsBroadcaster:
 
         # Statistics
         self.total_broadcasts = 0
-        self.total_operations = 0
+        self.total_values_generated = 0
         self.total_targets_blessed = 0
 
     def encode_intention(self, intention: IntentionType) -> int:
@@ -151,7 +160,35 @@ class IntegratedScalarRadionicsBroadcaster:
     def broadcast_to_targets(self, config: BroadcastConfiguration) -> dict:
         """
         Perform integrated scalar-radionics broadcast to targets.
+
+        The broadcast is recorded in the operations ledger as one
+        ``broadcast`` operation: started when the work begins, completed
+        (or failed) when it ends, with the measured elapsed time. The
+        ledger id is returned as ``results["operation_id"]`` (``None`` if
+        the ledger was unavailable; a ledger fault never stops a broadcast).
         """
+        frequency = config.frequency_hz or self.select_frequency(config.intention)
+        op_id = _ledger_begin(config, frequency)
+        try:
+            results = self._run_broadcast(config)
+        except Exception as exc:
+            _ledger_end(op_id, error=str(exc))
+            raise
+        _ledger_end(
+            op_id,
+            result={
+                "values_generated": results["values_generated"],
+                "targets_blessed": results["targets_blessed"],
+                "meridians_activated": results["meridians_activated"],
+                "chakras_activated": results["chakras_activated"],
+                "crystal_status": (results.get("crystal_output") or {}).get("status"),
+            },
+        )
+        results["operation_id"] = op_id
+        return results
+
+    def _run_broadcast(self, config: BroadcastConfiguration) -> dict:
+        """The broadcast itself; see :meth:`broadcast_to_targets`."""
         print("\n" + "=" * 70)
         print("INTEGRATED SCALAR-RADIONICS BROADCAST")
         print("=" * 70)
@@ -167,8 +204,7 @@ class IntegratedScalarRadionicsBroadcaster:
                 "frequency": config.frequency_hz or self.select_frequency(config.intention),
                 "mantra": config.mantra,
             },
-            "operations": 0,
-            "mops": 0.0,
+            "values_generated": 0,
             "targets_blessed": 0,
             "meridians_activated": 0,
             "chakras_activated": 0,
@@ -245,13 +281,13 @@ class IntegratedScalarRadionicsBroadcaster:
             print()
 
             self.encode_intention(config.intention)
-            ops_count = 0
+            values_count = 0
             start_time = time.time()
 
             if config.breathing_pattern:
                 # Sacred breathing pattern
                 print("🌬️  Using sacred breathing pattern...")
-                self._breathing_broadcast(config, results)
+                values_count = self._breathing_broadcast(config)
             else:
                 # Continuous broadcast. Guard against zero/negative durations
                 # (used by smoke tests) to avoid ZeroDivisionError in the
@@ -259,24 +295,23 @@ class IntegratedScalarRadionicsBroadcaster:
                 # the code path works.
                 if config.duration_seconds <= 0:
                     stream = self.scalar_gen.generate_hybrid_stream(int(1000 * config.scalar_intensity))
-                    ops_count = len(stream) * 7
+                    values_count = len(stream)
                 else:
                     while (time.time() - start_time) < config.duration_seconds:
                         # Generate based on intensity
                         batch_size = int(1000 * config.scalar_intensity)
                         stream = self.scalar_gen.generate_hybrid_stream(batch_size)
 
-                        ops_count += len(stream) * 7  # 7 methods
+                        values_count += len(stream)
 
                         # Show progress every 5 seconds
                         elapsed = time.time() - start_time
                         if int(elapsed) % 5 == 0:
-                            mops = (ops_count / elapsed) / 1_000_000
                             progress = elapsed / config.duration_seconds
                             temp = self.scalar_gen.thermal.state.temperature
                             print(
                                 f"\r⏱️  {elapsed:.0f}s/{config.duration_seconds:.0f}s | "
-                                f"📊 {mops:.2f} MMOPS | "
+                                f"📊 {values_count:,} values | "
                                 f"🌡️  {temp:.1f}°C | "
                                 f"{'█' * int(progress * 20)}{' ' * (20 - int(progress * 20))} {progress:.0%}",
                                 end="",
@@ -284,14 +319,12 @@ class IntegratedScalarRadionicsBroadcaster:
                             )
 
             elapsed = time.time() - start_time
-            results["operations"] = ops_count
-            results["mops"] = (ops_count / elapsed) / 1_000_000
+            results["values_generated"] = values_count
 
             print()
             print()
             print("✅ Scalar wave generation complete!")
-            print(f"   Operations: {ops_count:,}")
-            print(f"   Average MOPS: {results['mops']:.2f}")
+            print(f"   Values generated: {values_count:,} in {elapsed:.1f}s")
             print()
 
         # Record session if we have blessing database
@@ -313,7 +346,7 @@ class IntegratedScalarRadionicsBroadcaster:
                     session_id=session_id,
                     mantra_type=config.mantra,
                     mantras_count=108,
-                    notes=f"Scalar-enhanced broadcast at {results['mops']:.2f} MMOPS",
+                    notes=f"Scalar-radionics broadcast ({config.intention.value})",
                 )
 
             print(f"✅ Blessed {len(targets)} targets")
@@ -321,7 +354,7 @@ class IntegratedScalarRadionicsBroadcaster:
 
         # Update statistics
         self.total_broadcasts += 1
-        self.total_operations += results["operations"]
+        self.total_values_generated += results["values_generated"]
         self.total_targets_blessed += results["targets_blessed"]
 
         # Final summary
@@ -330,8 +363,7 @@ class IntegratedScalarRadionicsBroadcaster:
         print("=" * 70)
         print()
         print(f"Intention: {config.intention.value}")
-        print(f"Operations: {results['operations']:,}")
-        print(f"MOPS: {results['mops']:.2f}")
+        print(f"Values generated: {results['values_generated']:,}")
         print(f"Targets: {results['targets_blessed']}")
         if results["meridians_activated"]:
             print(f"Meridians: {results['meridians_activated']} activated")
@@ -346,27 +378,27 @@ class IntegratedScalarRadionicsBroadcaster:
         results["crystal_output"] = crystal_result
         return results
 
-    def _breathing_broadcast(self, config: BroadcastConfiguration, results: dict):
-        """Broadcast using sacred breathing pattern"""
+    def _breathing_broadcast(self, config: BroadcastConfiguration) -> int:
+        """Broadcast using sacred breathing pattern; returns the number of values generated."""
         print("  Inhale phase (33s) - building field...")
         start = time.time()
-        ops = 0
+        values = 0
         while (time.time() - start) < 33:
             progress = (time.time() - start) / 33.0
             batch = int(1000 * progress * config.scalar_intensity)
             stream = self.scalar_gen.generate_hybrid_stream(max(10, batch))
-            ops += len(stream) * 7
+            values += len(stream)
 
-        print(f"  ✓ Inhale complete ({ops:,} operations)")
+        print(f"  ✓ Inhale complete ({values:,} values)")
 
         print("  Hold phase (27s) - maximum intensity...")
         start = time.time()
         while (time.time() - start) < 27:
             batch = int(1000 * config.scalar_intensity)
             stream = self.scalar_gen.generate_hybrid_stream(batch)
-            ops += len(stream) * 7
+            values += len(stream)
 
-        print(f"  ✓ Hold complete ({ops:,} operations)")
+        print(f"  ✓ Hold complete ({values:,} values)")
 
         print("  Exhale phase (33s) - releasing field...")
         start = time.time()
@@ -374,15 +406,15 @@ class IntegratedScalarRadionicsBroadcaster:
             progress = 1.0 - ((time.time() - start) / 33.0)
             batch = int(1000 * progress * config.scalar_intensity)
             stream = self.scalar_gen.generate_hybrid_stream(max(10, batch))
-            ops += len(stream) * 7
+            values += len(stream)
 
-        print(f"  ✓ Exhale complete ({ops:,} operations)")
+        print(f"  ✓ Exhale complete ({values:,} values)")
 
         print("  Rest phase (12s) - integration...")
         time.sleep(12)
 
-        results["operations"] = ops
         print("  ✓ Breathing cycle complete")
+        return values
 
     def healing_protocol(self, target_name: str, duration_minutes: int = 10):
         """
@@ -463,12 +495,54 @@ class IntegratedScalarRadionicsBroadcaster:
         print("=" * 70)
         print()
         print(f"Total Broadcasts: {self.total_broadcasts}")
-        print(f"Total Operations: {self.total_operations:,}")
+        print(f"Total Values Generated: {self.total_values_generated:,}")
         print(f"Total Targets Blessed: {self.total_targets_blessed}")
-        if self.total_broadcasts > 0:
-            avg_ops = self.total_operations / self.total_broadcasts
-            print(f"Average Ops/Broadcast: {avg_ops:,}")
         print()
+
+
+# ============================================================================
+# OPERATIONS LEDGER
+# ============================================================================
+
+
+def _ledger_begin(config: BroadcastConfiguration, frequency_hz: float) -> str | None:
+    """Create and start a ``broadcast`` ledger operation; ``None`` if the ledger is unavailable."""
+    try:
+        from core import operations
+
+        op = operations.create_operation(
+            "broadcast",
+            f"Scalar-radionics broadcast: {config.intention.value}",
+            params={
+                "intention": config.intention.value,
+                "target_count": config.target_count,
+                "requested_duration_seconds": config.duration_seconds,
+                "scalar_intensity": config.scalar_intensity,
+                "frequency_hz": frequency_hz,
+                "mantra": config.mantra,
+                "breathing_pattern": config.breathing_pattern,
+            },
+        )
+        operations.start_operation(op["id"])
+        return op["id"]
+    except Exception:
+        logger.warning("operations ledger unavailable; broadcast not recorded", exc_info=True)
+        return None
+
+
+def _ledger_end(op_id: str | None, *, result: dict[str, Any] | None = None, error: str | None = None) -> None:
+    """Complete (or fail, when ``error`` is given) a ledger operation started by :func:`_ledger_begin`."""
+    if op_id is None:
+        return
+    try:
+        from core import operations
+
+        if error is not None:
+            operations.fail_operation(op_id, error)
+        else:
+            operations.complete_operation(op_id, result=result)
+    except Exception:
+        logger.warning("could not close ledger operation %s", op_id, exc_info=True)
 
 
 # ============================================================================

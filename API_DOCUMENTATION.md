@@ -578,76 +578,49 @@ Get current planetary hour.
 
 ### Generate Scalar Waves
 
-Generate Terra MOPS scalar wave patterns.
+Generate scalar wave values (RNG / chaotic streams). Returns how many values
+were generated and the measured generation time; the values themselves are
+not returned.
 
 **Endpoint:** `POST /api/v1/scalar/generate`
 
 **Request Body:**
 ```json
 {
-  "frequency": 7.83,
-  "duration": 60,
-  "amplitude": 0.8,
-  "pattern": "schumann",
-  "intention": "Healing and balance"
+  "method": "hybrid",
+  "count": 10000,
+  "intensity": 1.0
 }
 ```
+
+`method` is one of `qrng`, `lorenz`, `rossler`, `ca`, `hybrid`
+(`GET /api/v1/scalar/methods` lists them).
 
 **Response:**
 ```json
 {
   "status": "success",
-  "message": "Scalar wave generation started",
-  "wave_id": "sw_xyz789",
-  "frequency": 7.83,
-  "duration": 60,
-  "pattern": "schumann"
+  "method": "hybrid",
+  "count": 10000,
+  "generation_time": 0.41,
+  "thermal_status": {"temperature": 52.0, "throttle_factor": 1.0, "load": 0.3},
+  "statistics": {"mean": 0, "median": 0, "stdev": 0, "min": 0, "max": 0}
 }
 ```
 
-### Scalar Wave Breathing Cycle
+Other routes: `GET /api/v1/scalar/thermal-status`, `GET /api/v1/scalar/methods`.
 
-Generate breathing rhythm scalar waves.
+### Retired: MOPS
 
-**Endpoint:** `POST /api/v1/scalar/breathing-cycle`
-
-**Request Body:**
-```json
-{
-  "inhale_seconds": 4,
-  "hold_seconds": 7,
-  "exhale_seconds": 8,
-  "cycles": 10
-}
-```
-
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Breathing cycle initiated",
-  "total_duration": 190,
-  "cycles": 10
-}
-```
-
-### Benchmark Scalar Waves
-
-Run scalar wave performance benchmark.
-
-**Endpoint:** `POST /api/v1/scalar/benchmark`
-
-**Response:**
-```json
-{
-  "status": "success",
-  "benchmark_results": {
-    "generation_time_ms": 45.2,
-    "samples_per_second": 44100,
-    "efficiency": 0.95
-  }
-}
-```
+`/api/v1/mops/current`, `/api/v1/mops/history`, `/api/v1/scalar/benchmark`,
+`/api/v1/scalar/breathing-cycle` and `/api/v1/scalar/mops-metrics` were
+removed on 2026-10-14 and now return `404`. MOPS ("magical operations per
+second") was a per-second rate built from hard-coded constants; a magical
+operation takes real time, so a rate overstates what happens. Real work is
+recorded in the operations ledger instead (`GET /api/v1/operations`,
+`GET /api/v1/operations/summary`): each operation has a start, a measured
+duration and a completion record. See the "Decisions" section of
+[docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md).
 
 ---
 
@@ -683,7 +656,9 @@ Calculate radionics rate for intention.
 
 ### Broadcast Radionics Rate
 
-Broadcast radionics rate through crystal hardware.
+Broadcast radionics rate through crystal hardware. The scalar-radionics part
+of the broadcast is recorded in the operations ledger as one `broadcast`
+operation; its id is returned as `operation_id`.
 
 **Endpoint:** `POST /api/v1/radionics/broadcast`
 

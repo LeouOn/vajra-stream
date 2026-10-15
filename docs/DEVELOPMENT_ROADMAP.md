@@ -78,10 +78,11 @@ individual reviews catching each case.
 2. **Frontend:** a single `<Reading value provenance>` primitive renders the
    label consistently. A draw reads as "drawn" and is never shown as a meter.
 3. **Known offenders to migrate** (verified 2026-10-14):
-   - `backend/core/services/mops_engine.py:114-117`: MOPS adds hard-coded
-     constants (17.73M ops/s whenever scalar is active, 120/s per crystal).
-     This is exactly the "ops per second" counter the spec rules out.
-     Retire it in favour of real operations (see Decisions).
+   - ~~MOPS~~ **Done (2026-10-15).** The MOPS engine added hard-coded
+     constants (17.73M ops/s whenever scalar was active, 120/s per crystal),
+     exactly the "ops per second" counter the spec rules out. It is deleted
+     with its routes and every `mops` field; scalar-radionics broadcasts are
+     recorded in the operations ledger, and the UI shows ledger facts.
    - `backend/core/services/vajra_service.py:638`: the broadcast "rate" is
      `freq % 100 + random.uniform(-2, 2)`, which is jitter presented as a
      reading.

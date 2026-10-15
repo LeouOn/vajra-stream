@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - (Current cleanup work on `fix/cleanup-after-evaluation` branch)
+- Scalar-radionics broadcasts are recorded in the operations ledger (`kind: broadcast`) with their real start and measured duration; `/api/v1/radionics/broadcast` returns the `operation_id`.
+
+### Removed
+- MOPS ("magical operations per second"): `backend/core/services/mops_engine.py`, `/api/v1/mops/*`, `/api/v1/scalar/benchmark`, `/api/v1/scalar/breathing-cycle`, `/api/v1/scalar/mops-metrics`, and every `scalar_mops` / `mops` field. The figure was a rate built from hard-coded constants, and a magical operation takes real time. The UI now shows operations-ledger facts instead (completed, time held, active). See the "Decisions" section of `docs/DEVELOPMENT_ROADMAP.md`.
 
 ## [0.7.0] - 2026-06-20
 

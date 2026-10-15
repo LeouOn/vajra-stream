@@ -97,7 +97,7 @@ class ScalarWavesGenerated(DomainEvent):
 
     method: str
     count: int
-    mops: float
+    generation_seconds: float
 
 
 @dataclass

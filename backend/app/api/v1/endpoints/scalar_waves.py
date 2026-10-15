@@ -1,24 +1,27 @@
 """
 Scalar Waves API Endpoints for Vajra.Stream
-Terra MOPS scalar wave generation and benchmarking
+
+Scalar wave value generation (RNG / chaotic streams) with thermal monitoring.
+
+The MOPS throughput endpoints (``/benchmark``, ``/breathing-cycle`` and
+``/mops-metrics``) were retired on 2026-10-14; see the "Decisions" section of
+docs/DEVELOPMENT_ROADMAP.md. Work that takes real time is recorded in the
+operations ledger (``/api/v1/operations``) instead of as a rate.
 """
 
-import asyncio
 import logging
 import os
 import sys
+import time
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 # Add project root to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
-from core.advanced_scalar_waves import (
-    HybridScalarWaveGenerator,
-    ThermalMonitor,
-)
+from core.advanced_scalar_waves import ThermalMonitor
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -28,24 +31,13 @@ router = APIRouter()
 
 # Global instances
 thermal_monitor = ThermalMonitor()
-scalar_generator = HybridScalarWaveGenerator()
 
 
 # Request Models
 class ScalarGenerationRequest(BaseModel):
-    method: str = Field(..., description="Method: qrng, lorenz, rossler, ca, kuramoto, crypto, primes, hybrid")
+    method: str = Field(..., description="Method: qrng, lorenz, rossler, ca, hybrid")
     count: int = Field(default=10000, ge=100, le=10000000, description="Number of values to generate")
     intensity: float = Field(default=1.0, ge=0.0, le=1.0, description="Generation intensity (0.0-1.0)")
-
-
-class BenchmarkRequest(BaseModel):
-    methods: list[str] | None = Field(None, description="Methods to benchmark (None = all)")
-    duration_seconds: float = Field(default=3.0, ge=1.0, le=60.0, description="Duration per method")
-
-
-class BreathingCycleRequest(BaseModel):
-    cycles: int = Field(default=3, ge=1, le=108, description="Number of 108-second cycles")
-    intensity: float = Field(default=0.7, ge=0.1, le=1.0, description="Generation intensity")
 
 
 # Response Models
@@ -53,18 +45,9 @@ class ScalarGenerationResponse(BaseModel):
     status: str
     method: str
     count: int
-    mops: float
     generation_time: float
     thermal_status: dict[str, Any]
     statistics: dict[str, float]
-
-
-class BenchmarkResponse(BaseModel):
-    status: str
-    results: dict[str, dict[str, Any]]
-    combined_mops: float
-    thermal_status: dict[str, Any]
-    recommendations: list[str]
 
 
 class ThermalStatusResponse(BaseModel):
@@ -80,15 +63,16 @@ class ThermalStatusResponse(BaseModel):
 
 
 @router.post("/generate", response_model=ScalarGenerationResponse)
-async def generate_scalar_waves(request: ScalarGenerationRequest, background_tasks: BackgroundTasks):
-    """Generate scalar waves using specified method"""
+async def generate_scalar_waves(request: ScalarGenerationRequest):
+    """Generate scalar wave values using the specified method.
+
+    Returns how many values were generated and the measured generation time.
+    """
     try:
         logger.info(f"⚡ Scalar wave generation: {request.method}, count={request.count}")
 
         # Update thermal monitor
         thermal_monitor.update()
-
-        import time
 
         start_time = time.time()
 
@@ -100,13 +84,12 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
         )
 
         # The container service returns a dict like:
-        # {'status': 'success', 'mops': X, 'generation_time': Y, 'count': Z}
-
+        # {'values': [...], 'count': N, 'generation_time': seconds, ...}
         generation_time = result.get("generation_time", time.time() - start_time)
-        mops = result.get("mops", (request.count / generation_time) / 1_000_000)
+        count = result.get("count", request.count)
 
-        # Since the service doesn't return the raw values, we don't have full stats
-        # But for Terra MOPS scaling, we don't need to return million-element arrays anyway
+        # The raw values are not returned (they can be millions of floats),
+        # so no statistics are computed here.
         stats = {
             "mean": 0,
             "median": 0,
@@ -114,8 +97,6 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
             "min": 0,
             "max": 0,
         }
-
-        # Statistics already calculated above as zeros
 
         # Get thermal status
         thermal_status = {
@@ -127,8 +108,7 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
         return ScalarGenerationResponse(
             status="success",
             method=request.method,
-            count=request.count,
-            mops=mops,
+            count=count,
             generation_time=generation_time,
             thermal_status=thermal_status,
             statistics=stats,
@@ -136,119 +116,6 @@ async def generate_scalar_waves(request: ScalarGenerationRequest, background_tas
 
     except Exception as e:
         logger.error(f"❌ Scalar generation error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/benchmark", response_model=BenchmarkResponse)
-async def run_benchmark(request: BenchmarkRequest, background_tasks: BackgroundTasks):
-    """Run scalar wave benchmarks"""
-    try:
-        logger.info(f"🔬 Running scalar wave benchmark, duration={request.duration_seconds}s")
-
-        methods_to_test = request.methods or ["qrng", "lorenz", "rossler", "ca", "kuramoto", "crypto", "primes"]
-        results = {}
-        total_mops = 0
-
-        for method in methods_to_test:
-            # Update thermal monitor
-            thermal_monitor.update()
-            if thermal_monitor.state.throttle_factor < 0.5:
-                logger.warning("⚠️ Thermal throttling detected, pausing benchmark")
-                await asyncio.sleep(5)
-
-            # Run benchmark for this method
-            try:
-                gen_request = ScalarGenerationRequest(
-                    method=method,
-                    count=int(request.duration_seconds * 1_000_000),  # Estimate based on duration
-                    intensity=1.0,
-                )
-
-                response = await generate_scalar_waves(gen_request, background_tasks)
-
-                results[method] = {
-                    "mops": response.mops,
-                    "generation_time": response.generation_time,
-                    "count": response.count,
-                }
-                total_mops += response.mops
-
-            except Exception as e:
-                logger.error(f"Error benchmarking {method}: {e}")
-                results[method] = {"error": str(e)}
-
-        # Generate recommendations
-        recommendations = []
-        if total_mops < 10:  # Less than 10 MMOPS
-            recommendations.append("Consider using NumPy vectorization for 30x speedup")
-        if total_mops < 100:
-            recommendations.append("Multi-threading could achieve 8 GMOPS")
-        if thermal_monitor.state.temperature > 70:
-            recommendations.append("Temperature elevated - enable thermal throttling")
-
-        thermal_status = {
-            "temperature": thermal_monitor.state.temperature,
-            "throttle_factor": thermal_monitor.state.throttle_factor,
-            "status": "optimal" if thermal_monitor.state.temperature < 75 else "warm",
-        }
-
-        return BenchmarkResponse(
-            status="success",
-            results=results,
-            combined_mops=total_mops,
-            thermal_status=thermal_status,
-            recommendations=recommendations,
-        )
-
-    except Exception as e:
-        logger.error(f"❌ Benchmark error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/breathing-cycle")
-async def sacred_breathing_cycle(request: BreathingCycleRequest, background_tasks: BackgroundTasks):
-    """Run sacred breathing cycles (108-second cycles)"""
-    try:
-        logger.info(f"🫁 Starting {request.cycles} sacred breathing cycles")
-
-        cycle_results = []
-
-        for cycle_num in range(request.cycles):
-            logger.info(f"Cycle {cycle_num + 1}/{request.cycles}")
-
-            # Work phase (72 seconds)
-            work_gen_request = ScalarGenerationRequest(
-                method="hybrid",
-                count=int(72 * 100_000 * request.intensity),  # Scale by intensity
-                intensity=request.intensity,
-            )
-            work_response = await generate_scalar_waves(work_gen_request, background_tasks)
-
-            # Rest phase (36 seconds)
-            await asyncio.sleep(min(5, 36))  # Simulate rest (shortened for API)
-
-            cycle_results.append(
-                {
-                    "cycle": cycle_num + 1,
-                    "mops": work_response.mops,
-                    "thermal_temp": work_response.thermal_status["temperature"],
-                }
-            )
-
-        avg_mops = sum(r["mops"] for r in cycle_results) / len(cycle_results)
-
-        return {
-            "status": "success",
-            "cycles_completed": request.cycles,
-            "cycle_results": cycle_results,
-            "average_mops": avg_mops,
-            "total_work_time_seconds": request.cycles * 72,
-            "total_rest_time_seconds": request.cycles * 36,
-            "dedication": "May all beings benefit from these computational cycles! 🙏",
-        }
-
-    except Exception as e:
-        logger.error(f"❌ Breathing cycle error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -280,94 +147,36 @@ async def get_thermal_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/mops-metrics")
-async def get_mops_metrics():
-    """Get current MOPS performance metrics"""
-    try:
-        return {
-            "status": "success",
-            "current_terra_mops": 0.00001773,  # 17.73 MMOPS = 0.00001773 TMOPS
-            "current_mmops": 17.73,
-            "target_terra_mops": 1.0,
-            "progress_percent": 0.001773,
-            "next_milestone": {"name": "NumPy Vectorization", "target_mmops": 500, "speedup": "30x"},
-            "optimization_path": [
-                {"level": 1, "name": "Pure Python", "mops": 17.73, "status": "✅ Complete"},
-                {"level": 2, "name": "NumPy Vectorization", "mops": 500, "status": "📋 Planned"},
-                {"level": 3, "name": "Multi-threading", "mops": 8000, "status": "📋 Planned"},
-                {"level": 4, "name": "GPU Acceleration", "mops": 500000, "status": "📋 Planned"},
-                {"level": 5, "name": "Terra MOPS", "mops": 1000000, "status": "🎯 Goal"},
-            ],
-        }
-
-    except Exception as e:
-        logger.error(f"❌ MOPS metrics error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.get("/methods")
 async def list_methods():
-    """List all available scalar wave generation methods"""
+    """List the scalar wave generation methods accepted by ``/generate``."""
     return {
         "status": "success",
         "methods": [
             {
                 "id": "qrng",
                 "name": "Quantum Random Number Generation",
-                "power_rating": 5,
-                "estimated_mops": 1.8,
-                "description": "True randomness from system entropy",
+                "description": "Randomness from system entropy",
             },
             {
                 "id": "lorenz",
                 "name": "Lorenz Chaotic Attractor",
-                "power_rating": 4,
-                "estimated_mops": 2.7,
                 "description": "Butterfly effect chaos generator",
             },
             {
                 "id": "rossler",
                 "name": "Rössler Chaotic Attractor",
-                "power_rating": 4,
-                "estimated_mops": 2.8,
                 "description": "Alternative chaotic system",
             },
             {
                 "id": "ca",
                 "name": "Cellular Automata",
-                "power_rating": 4,
-                "estimated_mops": 6.6,
-                "description": "Emergent complexity (fastest method!)",
-            },
-            {
-                "id": "kuramoto",
-                "name": "Kuramoto Oscillators",
-                "power_rating": 3,
-                "estimated_mops": 0.6,
-                "description": "Phase synchronization at Solfeggio frequencies",
-            },
-            {
-                "id": "crypto",
-                "name": "Cryptographic Hashing",
-                "power_rating": 3,
-                "estimated_mops": 0.6,
-                "description": "Maximum diffusion mixing",
-            },
-            {
-                "id": "primes",
-                "name": "Prime Harmonics",
-                "power_rating": 4,
-                "estimated_mops": 2.6,
-                "description": "Sacred number sequences",
+                "description": "Emergent complexity (Rule 110)",
             },
             {
                 "id": "hybrid",
                 "name": "Hybrid Synthesis",
-                "power_rating": 5,
-                "estimated_mops": 17.7,
-                "description": "All methods combined for maximum power",
+                "description": "All methods combined",
             },
         ],
-        "combined_potential_mmops": 17.73,
-        "progress_to_terra_mops_percent": 0.001773,
     }

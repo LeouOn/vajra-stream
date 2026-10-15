@@ -24,9 +24,9 @@ describe('BroadcastPanel — direct frequency override + preset wiring', () => {
         solfeggio_names: ['Schumann Base', 'Mi (Transformation)', 'La (Connection)'],
         frequency_source: 'radionics_rate',
         amplitude: 0.85,
-        scalar_mops: 14.18,
+        operation_id: 'op-123',
         crystal_output: { status: 'completed' },
-        scalar_output: { status: 'active', mops: 14.18 },
+        scalar_output: { status: 'active', values_generated: 1000, operation_id: 'op-123' },
       }),
     } as Response);
   });

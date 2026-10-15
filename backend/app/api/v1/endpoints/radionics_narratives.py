@@ -26,7 +26,6 @@ class RadionicsContext(BaseModel):
     location: str | None = None
     chakra: str | None = None
     intention_type: str | None = None
-    scalar_mops: float | None = None
 
 
 class NarrativeRequest(BaseModel):
@@ -160,16 +159,13 @@ If planetary energy is provided, describe how {planet} energy supports letting g
 {frequency_context}
 {planet_context}
 {location_context}
-{scalar_context}
 
 Include:
 - Clarity of intention and what wishes to manifest
 - Aligned action/growth supported by {frequency_hz}Hz frequency
 - Trust in the process
 
-Length: 2-3 paragraphs. Forward-looking and empowering.
-
-The scalar wave intensity of {scalar_mops} MOPS amplifies the manifestation if provided.""",
+Length: 2-3 paragraphs. Forward-looking and empowering.""",
     },
 }
 
@@ -189,7 +185,6 @@ def _build_radionics_context(ctx: RadionicsContext | None) -> dict:
         "location": ctx.location if ctx else None,
         "chakra": ctx.chakra if ctx else None,
         "intention_type": ctx.intention_type if ctx else None,
-        "scalar_mops": ctx.scalar_mops if ctx else 17.73,
     }
 
     # Build context strings for prompts
@@ -207,16 +202,12 @@ def _build_radionics_context(ctx: RadionicsContext | None) -> dict:
         f"Sacred energy from {context['location']} is amplifying this intention." if context["location"] else ""
     )
     chakra_ctx = f"The {context['chakra']} chakra is being activated and balanced." if context["chakra"] else ""
-    scalar_ctx = (
-        f"Scalar waves at {context['scalar_mops']} MOPS are creating a healing field." if context["scalar_mops"] else ""
-    )
 
     return {
         "frequency_context": freq_ctx,
         "planet_context": planet_ctx,
         "location_context": location_ctx,
         "chakra_context": chakra_ctx,
-        "scalar_context": scalar_ctx,
         **context,
     }
 
@@ -244,11 +235,9 @@ async def generate_narrative(request: NarrativeRequest):
             planet_context=ctx_dict.get("planet_context", ""),
             location_context=ctx_dict.get("location_context", ""),
             chakra_context=ctx_dict.get("chakra_context", ""),
-            scalar_context=ctx_dict.get("scalar_context", ""),
             frequency_hz=ctx_dict.get("frequency_hz", 528),
             planet=ctx_dict.get("planet", ""),
             chakra=ctx_dict.get("chakra", ""),
-            scalar_mops=ctx_dict.get("scalar_mops", 17.73),
         )
 
         try:
@@ -299,7 +288,6 @@ async def generate_narrative(request: NarrativeRequest):
                 "planet_frequency": ctx_dict.get("planet_frequency"),
                 "location": ctx_dict.get("location"),
                 "chakra": ctx_dict.get("chakra"),
-                "scalar_mops": ctx_dict.get("scalar_mops"),
             },
         }
     except HTTPException:
@@ -458,7 +446,6 @@ async def generate_global_intention_narrative(request: EnhancedNarrativeRequest)
             location=matched_data["location"],
             chakra=matched_data["chakra"],
             intention_type=matched_data.get("intention", "peace"),
-            scalar_mops=17.73,
         )
 
         # Create narrative request with radionics context
@@ -482,7 +469,6 @@ async def generate_global_intention_narrative(request: EnhancedNarrativeRequest)
                 "location": matched_data["location"],
                 "chakra": matched_data["chakra"],
                 "intention_type": matched_data.get("intention", "peace"),
-                "scalar_mops": 17.73,
                 "broadcast_recommendation": f"Broadcast at {solfeggio_freq}Hz combined with {matched_data['planet']} planetary frequency ({matched_data['frequency']}Hz)",
             },
         }

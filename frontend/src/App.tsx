@@ -1,21 +1,7 @@
-import { apiUrl } from './utils/api';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
-
-/** MOPS throughput windows (matches MainLayout.MopsData structural shape). */
-interface MopsWindow {
-  [window: string]: number;
-}
-
-interface MopsData {
-  scalar_pulses?: MopsWindow;
-  mantras?: MopsWindow;
-  crystals?: MopsWindow;
-  divination?: MopsWindow;
-  tuning?: MopsWindow;
-}
 
 // Ant Design
 import { ConfigProvider, theme, Result } from 'antd';
@@ -38,26 +24,8 @@ import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
 
 function AppContent(): React.ReactElement {
-  const [mopsData, setMopsData] = useState<MopsData | null>(null);
   const location = useLocation();
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
-
-  useEffect(() => {
-    const fetchMops = async (): Promise<void> => {
-      try {
-        const res = await fetch(apiUrl('/mops/current'));
-        if (res.ok) {
-          const data = await res.json();
-          setMopsData(data.mops as MopsData);
-        }
-      } catch {
-        // Ignore connectivity warnings
-      }
-    };
-    fetchMops();
-    const interval = setInterval(fetchMops, 15000);
-    return () => clearInterval(interval);
-  }, []);
 
   const {
     isConnected,
@@ -114,7 +82,6 @@ function AppContent(): React.ReactElement {
       generateAudio={async (): Promise<void> => { await generateAudio(); }}
       playAudio={async (): Promise<void> => { await playAudio(); }}
       stopAudio={(): void => { void stopAudio(); }}
-      mopsData={mopsData}
     >
       <Routes>
         <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />

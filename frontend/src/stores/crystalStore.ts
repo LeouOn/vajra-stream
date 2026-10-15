@@ -22,7 +22,8 @@ export interface RadionicsBroadcastResult {
   solfeggio_names: string[];
   frequency_source: string;
   amplitude: number;
-  scalar_mops: number;
+  /** Ledger id of the scalar-radionics broadcast operation, when recorded. */
+  operation_id?: string | null;
   crystal_output?: { status: string; error?: string } | null;
   scalar_output?: Record<string, unknown> | null;
 }
