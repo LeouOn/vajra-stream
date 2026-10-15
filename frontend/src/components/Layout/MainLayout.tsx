@@ -1,8 +1,10 @@
 /**
  * MainLayout — top-level layout for all /visualizers, /operations, etc.
  * routes. Renders the header (brand + status badge + nav menu),
- * the children content area, and the footer (MOPS readout +
- * play/pause control + volume + mode).
+ * the children content area, and the footer (operations-ledger summary +
+ * play/pause control + volume + mode). The footer used to show MOPS
+ * throughput; that was retired on 2026-10-14 in favour of real, timed
+ * operations (docs/DEVELOPMENT_ROADMAP.md, "Decisions").
  *
  * The nav menu reads from lib/routes.ts (ROUTES registry) so the
  * menu and the <Route> declarations in App.jsx share one source
@@ -19,23 +21,20 @@ import { ROUTES, DEFAULT_ROUTE } from '../../lib/routes';
 import { useAudioActivity } from '../../stores/audioActivityStore';
 import AudioManager from '../UI/AudioManager';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import {
+  fetchOperationsSummary,
+  formatOperationsSummary,
+  startOfLocalDayIso,
+} from '../../lib/operationsSummary';
+import type { OperationsSummary } from '../../types/operations';
 
 // Ant Design
 import { Layout, Menu, Button, Space, Badge, Drawer } from 'antd';
 
 const { Header, Content, Footer } = Layout;
 
-interface MopsWindow {
-  [window: string]: number;
-}
-
-interface MopsData {
-  scalar_pulses?: MopsWindow;
-  mantras?: MopsWindow;
-  crystals?: MopsWindow;
-  divination?: MopsWindow;
-  tuning?: MopsWindow;
-}
+/** How often the footer refreshes today's ledger summary. */
+const LEDGER_POLL_MS = 30_000;
 
 interface Props {
   children: React.ReactNode;
@@ -47,7 +46,6 @@ interface Props {
   generateAudio: () => Promise<void>;
   playAudio: () => Promise<void>;
   stopAudio: () => void;
-  mopsData: MopsData | null;
 }
 
 const MainLayoutComponent: React.FC<Props> = ({
@@ -60,13 +58,28 @@ const MainLayoutComponent: React.FC<Props> = ({
   generateAudio,
   playAudio,
   stopAudio,
-  mopsData,
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
   const { idleReflectionCount } = useWebSocketStable();
+
+  // Today's operations ledger (undefined = loading, null = unreachable).
+  const [ledger, setLedger] = useState<OperationsSummary | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async (): Promise<void> => {
+      const summary = await fetchOperationsSummary(startOfLocalDayIso());
+      if (!cancelled) setLedger(summary);
+    };
+    void load();
+    const interval = setInterval(() => void load(), LEDGER_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -194,29 +207,27 @@ const MainLayoutComponent: React.FC<Props> = ({
           <span style={{ color: COLORS.primary, fontWeight: 'bold', marginRight: '16px' }}>
             Vajra.Stream - Sacred Technology Platform
           </span>
-          {mopsData ? (
+          {ledger ? (
             <>
-              {/* Desktop: full MOPS readout */}
+              {/* Desktop: today's ledger facts */}
               <span
                 className="hidden md:inline"
                 style={{ color: COLORS.secondary, fontFamily: 'monospace' }}
+                title="Operations ledger: real operations with measured durations"
               >
-                MOPS: Scalar {(mopsData.scalar_pulses?.["1s"] / 1000000 || 0).toFixed(2)}M/s |
-                Mantra {Math.round(mopsData.mantras?.["10s"] ?? 0)}/s |
-                Crystals {Math.round(mopsData.crystals?.["10s"] ?? 0)}/s |
-                Divination {mopsData.divination?.["60s"] ?? 0}/s
+                {formatOperationsSummary(ledger)}
               </span>
-              {/* Mobile: compact badge */}
+              {/* Mobile: compact */}
               <span
                 className="md:hidden"
                 style={{ fontSize: 10, color: COLORS.secondary, fontFamily: 'monospace' }}
               >
-                MOPS: {((mopsData.scalar_pulses?.["1s"] / 1000000) || 0).toFixed(2)}M/s
+                {ledger.completed} done today{ledger.active > 0 ? ` · ${ledger.active} active` : ''}
               </span>
             </>
           ) : (
             <span style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 11 }}>
-              MOPS: connecting…
+              {ledger === undefined ? 'Ledger: connecting…' : 'Ledger: unavailable'}
             </span>
           )}
         </div>

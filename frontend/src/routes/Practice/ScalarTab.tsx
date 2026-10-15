@@ -5,9 +5,9 @@
  * floating glassmorphism panels that turn the canvas into a sacred instrument:
  *
  *   ┌─────────────────────────┐   ┌──────────────────────┐
- *   │ MOPS readout (top-left) │   │ Intention (top-right) │
- *   │ scalar / mantras /      │   │ input + Send Blessing │
- *   │ crystals / divination   │   │ + element badge       │
+ *   │ Ledger (top-left):      │   │ Intention (top-right) │
+ *   │ ops completed / held /  │   │ input + Send Blessing │
+ *   │ active + carrier Hz     │   │ + element badge       │
  *   └─────────────────────────┘   └──────────────────────┘
  *                       ┌──────────────────────┐
  *                       │  Living Mandala ✦    │   ← canvas breathes here
@@ -19,7 +19,8 @@
  *
  * Event wiring (cross-system reactivity):
  *   - Journey poll (5s)        → setElementMood(element) recolors the palette
- *   - MOPS poll (2s)           → drives the top-left readout
+ *   - Ledger poll (30s)        → today's operations summary, top-left
+ *                                (replaces the retired MOPS readout)
  *   - crystalStatus active ──→ triggerCrystalLayer (translucent band + ripple)
  *   - new blessing session  ──→ triggerBlessingRipple + merit particles
  *   - healing session       ──→ setHealingMood(true) for 30s (slower, deeper)
@@ -40,6 +41,8 @@ import ScalarWaveVisualizer, {
 } from '../../components/2D/ScalarWaveVisualizer';
 import { useAudioStore } from '../../stores/audioStore';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
+import { fetchOperationsSummary, formatHeld, startOfLocalDayIso } from '../../lib/operationsSummary';
+import type { OperationsSummary } from '../../types/operations';
 
 // ─── Element display (local copy — mirrors JourneyCard's map so this tab
 //     stays self-contained and doesn't reach into another component's guts).
@@ -78,21 +81,6 @@ const FREQ_PRESETS: Array<{ label: string; freq: number; sub: string }> = [
   { label: 'Solfeggio', freq: 432.0, sub: 'Universal tuning' },
 ];
 
-// ─── MOPS payload shapes (see backend/app/api/v1/endpoints/mops.py) ──────
-interface MopsWindow {
-  '1s'?: number;
-  '10s'?: number;
-  '60s'?: number;
-  '5m'?: number;
-}
-interface MopsAverages {
-  scalar_pulses?: MopsWindow;
-  mantras?: MopsWindow;
-  crystals?: MopsWindow;
-  divination?: MopsWindow;
-  tuning?: MopsWindow;
-}
-
 // ─── Journey payload shape (see /api/v1/operator/journey/status) ─────────
 interface JourneyCharacter {
   element?: string;
@@ -118,21 +106,8 @@ function isSessionLike(v: unknown): v is SessionLike {
   return typeof v === 'object' && v !== null;
 }
 
-// ─── Formatting helpers ───────────────────────────────────────────────────
-function formatRate(n: number | undefined, digits = 2): string {
-  if (n == null || !isFinite(n)) return '0.00';
-  const abs = Math.abs(n);
-  if (abs >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-  if (abs >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-  if (abs >= 1e3) return (n / 1e3).toFixed(2) + 'k';
-  return n.toFixed(digits);
-}
-
-function pickWindow(w: MopsWindow | undefined): number {
-  // Prefer the 60s rolling average for a calm, stable readout; fall back
-  // through shorter windows so we always show something.
-  return w?.['60s'] ?? w?.['10s'] ?? w?.['1s'] ?? w?.['5m'] ?? 0;
-}
+/** How often the ledger panel refreshes today's summary. */
+const LEDGER_POLL_MS = 30_000;
 
 // ─── Shared glass panel style (matches the UI overhaul's header/footer) ───
 // rgba(20,10,30,0.7) + blur(12px) — the established vajra glassmorphism token.
@@ -164,26 +139,25 @@ export default function ScalarTab(): React.ReactElement {
   const stopAudio = useAudioStore((s) => s.stopAudio);
 
   // ── websocket: scalar / crystal / sessions / link / slow-data ──────
-  // mopsAverages + journeyStatus come from the backend's 10s slow-data
-  // broadcast (MOPS_AVERAGES / JOURNEY_STATUS) and replace HTTP polling.
+  // journeyStatus comes from the backend's 10s slow-data broadcast
+  // (JOURNEY_STATUS) and replaces HTTP polling.
   const {
     scalarStatus,
     crystalStatus,
     sessions,
     isConnected,
-    mopsAverages,
     journeyStatus,
   } = useWebSocketStable();
 
   // ── local UI state ─────────────────────────────────────────────────
-  // MOPS + journey derive from the WebSocket slow-data broadcasts. The
-  // *Fallback states are seeded by a one-shot HTTP fetch on mount so the
-  // UI isn't blank while waiting for the first 10s WS push.
-  const [mopsFallback, setMopsFallback] = useState<MopsAverages | null>(null);
+  // Journey derives from the WebSocket slow-data broadcast. The fallback
+  // state is seeded by a one-shot HTTP fetch on mount so the UI isn't
+  // blank while waiting for the first 10s WS push.
   const [journeyFallback, setJourneyFallback] = useState<JourneyStatus | null>(null);
-  const mopsWs = mopsAverages as MopsAverages | null;
+  // Today's operations ledger (undefined = loading, null = unreachable).
+  // Replaces the retired MOPS readout (docs/DEVELOPMENT_ROADMAP.md, "Decisions").
+  const [ledger, setLedger] = useState<OperationsSummary | null | undefined>(undefined);
   const journeyWs = journeyStatus as JourneyStatus | null;
-  const mops = mopsWs ?? mopsFallback;
   const journey =
     journeyWs?.active
       ? journeyWs
@@ -202,27 +176,19 @@ export default function ScalarTab(): React.ReactElement {
   elementKeyRef.current = elementKey;
 
   // ───────────────────────────────────────────────────────────────────
-  // EFFECT: one-shot initial MOPS fetch (fallback while waiting for the
-  // first 10s WS push). Subsequent updates arrive via WebSocket.
+  // EFFECT: today's operations-ledger summary (polled; best-effort).
   // ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    const fetchOnce = async () => {
-      try {
-        const res = await fetch(apiUrl('/mops/current'));
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          status?: string;
-          mops?: MopsAverages;
-        };
-        if (!cancelled && data.mops) setMopsFallback(data.mops);
-      } catch {
-        /* silent — telemetry is best-effort */
-      }
+    const load = async () => {
+      const summary = await fetchOperationsSummary(startOfLocalDayIso());
+      if (!cancelled) setLedger(summary);
     };
-    fetchOnce();
+    void load();
+    const interval = setInterval(() => void load(), LEDGER_POLL_MS);
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, []);
 
@@ -361,10 +327,6 @@ export default function ScalarTab(): React.ReactElement {
 
   // ── derived display values ─────────────────────────────────────────
   const scalarRate = scalarStatus?.rate ?? 0;
-  const scalarPulses = pickWindow(mops?.scalar_pulses);
-  const mantras = pickWindow(mops?.mantras);
-  const crystals = pickWindow(mops?.crystals);
-  const divination = pickWindow(mops?.divination);
 
   const statusTone =
     audioStatus === 'error'
@@ -407,14 +369,15 @@ export default function ScalarTab(): React.ReactElement {
         }}
       />
 
-      {/* ── Top-left: MOPS readout ──────────────────────────────────── */}
+      {/* ── Top-left: today's operations ledger ─────────────────────── */}
       <div
         className={`absolute top-3 left-3 z-20 w-[230px] p-3.5 ${GLASS_PANEL}`}
         style={{ animation: 'scalarFadeIn 0.8s ease-out' }}
+        title="Operations ledger: real operations with measured durations"
       >
         <div className="flex items-center justify-between mb-2.5">
           <span className="text-[11px] font-semibold tracking-[0.22em] text-purple-200/90 uppercase">
-            MOPS
+            Ledger · today
           </span>
           <span
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
@@ -433,30 +396,32 @@ export default function ScalarTab(): React.ReactElement {
         </div>
 
         <div className="space-y-1.5">
-          <ReadoutRow
-            label="Scalar"
-            value={formatRate(scalarPulses)}
-            unit="/s"
-            accent="text-cyan-300"
-          />
-          <ReadoutRow
-            label="Mantras"
-            value={formatRate(mantras, 1)}
-            unit="/s"
-            accent="text-amber-300"
-          />
-          <ReadoutRow
-            label="Crystals"
-            value={formatRate(crystals)}
-            unit="/s"
-            accent="text-yellow-200"
-          />
-          <ReadoutRow
-            label="Divination"
-            value={formatRate(divination)}
-            unit="/hr"
-            accent="text-fuchsia-300"
-          />
+          {ledger ? (
+            <>
+              <ReadoutRow
+                label="Completed"
+                value={String(ledger.completed)}
+                unit={ledger.completed === 1 ? 'op' : 'ops'}
+                accent="text-cyan-300"
+              />
+              <ReadoutRow
+                label="Held"
+                value={formatHeld(ledger.seconds_held)}
+                unit=""
+                accent="text-amber-300"
+              />
+              <ReadoutRow
+                label="Active"
+                value={String(ledger.active)}
+                unit={ledger.active === 1 ? 'op' : 'ops'}
+                accent="text-fuchsia-300"
+              />
+            </>
+          ) : (
+            <div className="text-[10px] text-purple-300/50">
+              {ledger === undefined ? 'Loading ledger…' : 'Ledger unavailable'}
+            </div>
+          )}
           <div className="pt-1.5 mt-1.5 border-t border-purple-400/10">
             <ReadoutRow
               label="Carrier λ"
