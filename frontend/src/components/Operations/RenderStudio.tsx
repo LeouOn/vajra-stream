@@ -50,6 +50,7 @@ interface RenderView {
   height: number | null;
   seed: number | null;
   sha256: string | null;
+  backendSeconds: number | null;
   queuePosition: number | null;
   referenceId: string | null;
 }
@@ -72,6 +73,7 @@ function readRender(op: Operation): RenderView {
     height: num(r.height),
     seed: num(r.seed) ?? num(p.seed),
     sha256: str(r.sha256),
+    backendSeconds: num(r.backend_execution_seconds),
     queuePosition: num(r.queue_position),
     referenceId: str(p.reference_id),
   };
@@ -203,6 +205,11 @@ function JobCard({
             </span>
           )}
           <span>{describeTiming(op, now)}</span>
+          {view.backendSeconds !== null && (
+            <span data-testid="render-backend-seconds">
+              {`${formatDuration(view.backendSeconds)} executing on the render backend (its own timestamps)`}
+            </span>
+          )}
           {view.sha256 && <span>sha256 {view.sha256.slice(0, 16)}…</span>}
         </div>
       )}

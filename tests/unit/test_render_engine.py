@@ -710,3 +710,39 @@ def test_settings_expose_render_config():
 
     assert Settings.model_fields["RENDER_TIMEOUT_SECONDS"].default == 1800
     assert Settings.model_fields["COMFYUI_BASE_URL"].default == "http://127.0.0.1:8188"
+
+
+# -- backend execution time (live-render finding, 2026-10-15) ---------------
+
+
+def test_backend_execution_seconds_from_comfyui_history():
+    from backend.core.services.render.worker import backend_execution_seconds
+
+    # Shape and values taken from a real ComfyUI 0.39.0 history entry.
+    history = {
+        "status": {
+            "status_str": "success",
+            "messages": [
+                ["execution_start", {"prompt_id": "p", "timestamp": 1792051740485}],
+                ["execution_cached", {"nodes": [], "prompt_id": "p", "timestamp": 1792051740485}],
+                ["execution_success", {"prompt_id": "p", "timestamp": 1792051900318}],
+            ],
+        }
+    }
+    assert backend_execution_seconds(history) == 159.833
+
+
+@pytest.mark.parametrize(
+    "history",
+    [
+        {},
+        {"status": {}},
+        {"status": {"messages": [["execution_start", {"timestamp": 10}]]}},
+        {"status": {"messages": [["execution_start", {"timestamp": 20}], ["execution_success", {"timestamp": 10}]]}},
+        {"status": {"messages": ["garbage", ["execution_success"]]}},
+    ],
+)
+def test_backend_execution_seconds_absent_or_malformed(history):
+    from backend.core.services.render.worker import backend_execution_seconds
+
+    assert backend_execution_seconds(history) is None

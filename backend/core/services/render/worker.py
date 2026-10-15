@@ -313,9 +313,35 @@ class RenderWorker:
             "artifact_path": str(rel),
             "sidecar_path": str(sidecar_rel),
         }
+        execution = backend_execution_seconds(job.history)
+        if execution is not None:
+            final["backend_execution_seconds"] = execution
         if reference:
             final["reference_sha256"] = reference.get("reference_sha256")
         return final
+
+
+def backend_execution_seconds(history: dict[str, Any]) -> float | None:
+    """Seconds the backend itself spent executing the job, from its own timestamps.
+
+    The ledger's ``elapsed_seconds`` is wall clock from our start to our
+    completion record, so it also counts queue waiting and, after a restart
+    re-attach, the time the server was down. ComfyUI's history carries
+    ``execution_start``/``execution_success`` timestamps (ms) in
+    ``status.messages``; their difference is the render itself. ``None``
+    when the backend did not report them.
+    """
+    messages = (history.get("status") or {}).get("messages") or []
+    stamps: dict[str, float] = {}
+    for message in messages:
+        if isinstance(message, list | tuple) and len(message) == 2 and isinstance(message[1], dict):
+            stamp = message[1].get("timestamp")
+            if isinstance(stamp, int | float):
+                stamps[str(message[0])] = float(stamp)
+    start, end = stamps.get("execution_start"), stamps.get("execution_success")
+    if start is None or end is None or end < start:
+        return None
+    return round((end - start) / 1000.0, 3)
 
 
 _worker: RenderWorker | None = None

@@ -62,6 +62,12 @@ export interface RenderResult {
   seed?: number;
   sha256?: string;
   artifact_path?: string;
+  /**
+   * Seconds the backend itself spent executing (from its own timestamps).
+   * Unlike the ledger's elapsed_seconds, this excludes queue waiting and any
+   * server downtime before a restart re-attach.
+   */
+  backend_execution_seconds?: number;
   /** sha256 of the reference image, when the job used one. */
   reference_sha256?: string;
   /** Present only while queued/running. */

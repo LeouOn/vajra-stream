@@ -266,6 +266,7 @@ describe('RenderStudio', () => {
             height: 2340,
             seed: 4242,
             sha256: 'abcdef0123456789abcdef',
+            backend_execution_seconds: 141.2,
           },
         }),
       );
@@ -275,6 +276,8 @@ describe('RenderStudio', () => {
     const facts = card().querySelector('[data-testid="render-facts"]')?.textContent ?? '';
     expect(facts).toContain('1080×2340 px (measured from the PNG)');
     expect(facts).toContain('took 2m 27s (measured)');
+    // The backend's own execution time is shown alongside the ledger's wall clock.
+    expect(card().querySelector('[data-testid="render-backend-seconds"]')?.textContent).toContain('executing on the render backend');
     expect(card().querySelector('[data-testid="render-seed"]')?.textContent).toBe('seed 4242 (drawn)');
     expect(card().querySelector('button')).toBeNull(); // no cancel once finished
   });
