@@ -15,26 +15,31 @@
 import React from 'react';
 import { stripThinking } from '../../utils/thinkStrip';
 
-export const RichMarkdownRenderer = ({ content }) => {
+interface MarkdownList {
+  type: 'ul' | 'ol';
+  items: string[];
+}
+
+export const RichMarkdownRenderer = ({ content }: { content: string }) => {
   if (!content) return null;
 
   const { clean, reasoning } = stripThinking(content);
   if (!clean && !reasoning) return null;
 
   const lines = clean.split('\n');
-  const elements = [];
-  let currentList = null; // { type: 'ul' | 'ol', items: [] }
+  const elements: React.ReactNode[] = [];
+  let currentList: MarkdownList | null = null;
   let inCodeBlock = false;
-  let codeBlockLines = [];
+  let codeBlockLines: string[] = [];
   let codeBlockLang = '';
 
-  const flushList = (key) => {
+  const flushList = (key: number) => {
     if (currentList) {
       const Tag = currentList.type;
       const listKey = `list-${key}`;
       elements.push(
         <Tag key={listKey} className={currentList.type === 'ul' ? 'list-disc pl-5 space-y-1.5 my-2.5' : 'list-decimal pl-5 space-y-1.5 my-2.5'}>
-          {currentList.items.map((item, idx) => (
+          {currentList.items.map((item: string, idx: number) => (
             <li key={idx} className="text-gray-200 text-sm leading-relaxed">
               {renderInlineStyles(item)}
             </li>
@@ -45,8 +50,8 @@ export const RichMarkdownRenderer = ({ content }) => {
     }
   };
 
-  const renderInlineStyles = (lineText) => {
-    let parts = [lineText];
+  const renderInlineStyles = (lineText: string): React.ReactNode[] => {
+    let parts: React.ReactNode[] = [lineText];
 
     // Bold: **text**
     parts = parts.flatMap(part => {

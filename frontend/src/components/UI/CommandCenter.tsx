@@ -31,6 +31,8 @@ import { createLogger } from '../../utils/logger';
 import SakaDawaBanner from './SakaDawaBanner';
 import WorkingsStrip from '../CommandCenter/WorkingsStrip';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
+import type { ToolCall as WidgetToolCall, ZoomItem } from '../CommandCenter/RenderMessageWidgets';
+import type { CrystalStatus, SakaDawaResult, ScalarStatus } from '../../types';
 import { RichMarkdownRenderer } from '../CommandCenter/RichMarkdownRenderer';
 import { quickCommands, createOperatorActions } from '../CommandCenter/constants';
 import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
@@ -59,13 +61,33 @@ function formatWorkingSummary(data: Record<string, unknown>): string {
 
 // ─── Types ──────────────────────────────────────────────────────────
 
-/** A single tool-call result from the chat API. */
-interface ToolCall {
-  tool_name: string;
+/**
+ * A single tool-call result from the chat API. `result` is typed as the
+ * superset the widget renderer reads (see RenderMessageWidgets.ToolCall).
+ */
+interface ToolCall extends WidgetToolCall {
   arguments: Record<string, unknown>;
-  status: string;
-  result?: unknown;
   error?: string | null;
+}
+
+/** One row in the tool-execution log (LogsCard). */
+interface ToolLogEntry {
+  timestamp: string;
+  type: string;
+  message: string;
+  status?: string;
+}
+
+type LogTab = 'tools' | 'debug';
+
+interface CommandCenterProps {
+  isConnected: boolean;
+  isPlaying: boolean;
+  frequency: number;
+  crystalStatus: CrystalStatus;
+  scalarStatus: ScalarStatus;
+  sessions: Record<string, unknown>;
+  sakaDawa: SakaDawaResult | null;
 }
 
 /** Per-message debug telemetry returned by /api/v1/llm/chat (debug_mode=true). */
@@ -198,8 +220,8 @@ export default function CommandCenter({
   scalarStatus,
   sessions,
   sakaDawa
-}) {
-  const [activeZoomItem, setActiveZoomItem] = useState<unknown>(null);
+}: CommandCenterProps) {
+  const [activeZoomItem, setActiveZoomItem] = useState<ZoomItem | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -213,7 +235,7 @@ export default function CommandCenter({
   const cancelledRef = useRef(false);
   const jobIdRef = useRef<string | null>(null);
   const waitRejectRef = useRef<((err: Error) => void) | null>(null);
-  const [toolLogs, setToolLogs] = useState([
+  const [toolLogs, setToolLogs] = useState<ToolLogEntry[]>([
     {
       timestamp: new Date().toLocaleTimeString(),
       type: 'system',
@@ -228,7 +250,7 @@ export default function CommandCenter({
   const [selectedModel, setSelectedModel] = useState('auto');
   const [debugMode, setDebugMode] = useState(true);
   const [debugPayload, setDebugPayload] = useState<DebugInfo | Record<string, unknown> | null>(null);
-  const [activeLogTab, setActiveLogTab] = useState('tools');
+  const [activeLogTab, setActiveLogTab] = useState<LogTab>('tools');
 
   const [availableModelList, setAvailableModelList] = useState<AvailableModelMeta[]>([]);
   const [modelPricing, setModelPricing] = useState<Record<string, ModelPricing>>({});
@@ -238,10 +260,10 @@ export default function CommandCenter({
   const [lastError, setLastError] = useState<string | null>(null);
   
   useEffect(() => {
-    const doFetch = async (lat, lon) => {
+    const doFetch = async (lat: number | null, lon: number | null) => {
       try {
         const d = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
+        const pad = (n: number) => String(n).padStart(2, '0');
         const localTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         
         const params = new URLSearchParams();
@@ -1203,7 +1225,7 @@ export default function CommandCenter({
               onChange={(val: string) => { setSelectedModel(val); audioFeedback.playClick(); }}
               style={{ minWidth: 160, fontSize: '11px' }}
               className="font-mono"
-              styles={{ popup: { minWidth: 260 } }}
+              styles={{ popup: { root: { minWidth: 260 } } }}
               placeholder="Select model..."
               showSearch
               optionFilterProp="label"
@@ -1298,7 +1320,7 @@ export default function CommandCenter({
           toolLogs={toolLogs}
           debugPayload={debugPayload}
           logEndRef={logEndRef}
-          onTabChange={setActiveLogTab}
+          onTabChange={(key) => setActiveLogTab(key === 'debug' ? 'debug' : 'tools')}
           onClearLogs={() => setToolLogs([])}
           onResetDebug={() => setDebugPayload(null)}
         />
