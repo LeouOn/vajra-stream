@@ -173,3 +173,49 @@ def test_advance_after_completion_returns_complete_status(journey: CharacterJour
     assert "message" in extra
     # No new stage appended
     assert len(journey.stage_results) == 6
+
+
+# ─── Regression: JOURNEY_* events from a worker thread ─────────────────────
+
+
+@pytest.mark.unit
+async def test_advance_from_worker_thread_schedules_journey_broadcasts(
+    journey: CharacterJourney, character: FakeCharacter, monkeypatch
+):
+    """Autonomous advances run in ``asyncio.to_thread``; their JOURNEY_* events must
+    still reach the WebSocket manager (via the main loop recorded by set_main_loop)."""
+    import asyncio
+    import threading
+    import types
+
+    import core.character_journey as cj
+    from backend.websocket.connection_manager import stable_connection_manager_v2 as manager
+
+    sent: list[tuple[dict[str, Any], int]] = []
+
+    async def fake_broadcast(message: dict[str, Any]) -> None:
+        sent.append((message, threading.get_ident()))
+
+    monkeypatch.setattr(manager, "broadcast", fake_broadcast)
+    monkeypatch.setattr(manager, "main_loop", asyncio.get_running_loop())
+    # Skip the 4 x 0.5 s pauses between ritual phases.
+    monkeypatch.setattr(cj, "time", types.SimpleNamespace(sleep=lambda _s: None, time=cj.time.time))
+
+    journey.begin(character)
+    await asyncio.to_thread(journey.advance)
+    for _ in range(200):
+        if len(sent) >= 2:
+            break
+        await asyncio.sleep(0.005)
+
+    assert [m["type"] for m, _ in sent] == ["JOURNEY_STAGE_STARTED", "JOURNEY_STAGE_COMPLETED"]
+    assert sent[0][0]["data"]["name"] == "The Awakening"
+    assert {tid for _, tid in sent} == {threading.get_ident()}  # sent on the main loop, not the worker
+
+
+@pytest.mark.unit
+def test_broadcast_without_a_running_loop_is_a_quiet_no_op(journey: CharacterJourney, monkeypatch):
+    from backend.websocket.connection_manager import stable_connection_manager_v2 as manager
+
+    monkeypatch.setattr(manager, "main_loop", None)
+    assert journey._broadcast_ws("JOURNEY_STAGE_STARTED", {}) is False
