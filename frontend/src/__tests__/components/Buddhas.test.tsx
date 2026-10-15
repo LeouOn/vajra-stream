@@ -158,7 +158,7 @@ describe('DedicationText', () => {
   it('the refresh button is rendered and clickable', () => {
     const onRefresh = vi.fn();
     renderNode(<DedicationText onRefresh={onRefresh} />);
-    const btn = container.querySelector('button[aria-label="Draw another dedication"]');
+    const btn = container.querySelector<HTMLButtonElement>('button[aria-label="Draw another dedication"]');
     expect(btn).not.toBeNull();
     act(() => { btn!.click(); });
     expect(onRefresh).toHaveBeenCalledTimes(1);
@@ -211,7 +211,7 @@ describe('SessionHistory', () => {
     localStorage.setItem('vajra-buddha-sessions', JSON.stringify(sessions));
     renderNode(<SessionHistory buddhaStatus={null} />);
     // The clear button is the second extra control (danger text button).
-    const dangerBtn = container.querySelector('button.ant-btn-dangerous');
+    const dangerBtn = container.querySelector<HTMLButtonElement>('button.ant-btn-dangerous');
     expect(dangerBtn).not.toBeNull();
     act(() => { dangerBtn!.click(); });
     // Popconfirm opens — find the "Clear" confirm button in the popover.

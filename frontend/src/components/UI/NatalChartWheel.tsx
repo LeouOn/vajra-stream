@@ -66,6 +66,8 @@ interface SignSegmentProps {
   ascLon: number;
 }
 
+const ELEMENT_FILL: Record<string, string> = ELEMENT_COLORS;
+
 function SignSegment({ signIndex, ascLon }: SignSegmentProps) {
   const startLon = signIndex * 30;
   const endLon = (signIndex + 1) * 30;
@@ -74,7 +76,7 @@ function SignSegment({ signIndex, ascLon }: SignSegmentProps) {
   const midAngle = toSvgAngle(startLon + 15, ascLon);
   const midLabel = polarToXY(CENTER, CENTER, (ZODIAC_R_OUTER + ZODIAC_R_INNER) / 2, midAngle) as PointXY;
   const element = SIGN_ELEMENT[signIndex];
-  const fill = ELEMENT_COLORS[element];
+  const fill = ELEMENT_FILL[element];
 
   return (
     <g>
@@ -333,7 +335,7 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
   const chart = useMemo<ChartData | null>(() => {
     if (!data || typeof data === 'string') {
       try {
-        return typeof data === 'string' ? (JSON.parse(data) as ChartData) : (data as ChartData);
+        return typeof data === 'string' ? (JSON.parse(data) as ChartData) : null;
       } catch {
         return null;
       }

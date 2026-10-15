@@ -33,6 +33,8 @@ export interface WSConnectionStatus extends WSMessageBase {
   type: 'connection_status';
   status: string;
   connection_id?: string;
+  message?: string;
+  timestamp?: number;
 }
 
 export interface WSHeartbeat extends WSMessageBase {
@@ -61,9 +63,130 @@ export interface WSScalarWave extends WSMessageBase {
   data: { active: boolean };
 }
 
+/**
+ * Error frames. The backend sends BOTH lowercase `error`
+ * (connection_manager.py: bad JSON / handler failure) and uppercase `ERROR`
+ * (session-start failures) with the same `{ message }` shape.
+ */
 export interface WSError extends WSMessageBase {
-  type: 'error';
+  type: 'error' | 'ERROR';
   message: string;
+}
+
+/** connection_manager.py send_safe_realtime_data — loop failure notice. */
+export interface WSSystemError extends WSMessageBase {
+  type: 'system_error';
+  message?: string;
+  error?: string;
+  timestamp?: number;
+}
+
+/** connection_manager.py _handle_update_settings — settings-change ack. */
+export interface WSSettingsUpdated extends WSMessageBase {
+  type: 'settings_updated';
+  message?: string;
+}
+
+/** connection_manager.py _handle_start_session — informational lifecycle event. */
+export interface WSSessionStarted extends WSMessageBase {
+  type: 'SESSION_STARTED';
+  session_id: string;
+  intention: string;
+  timestamp?: number;
+}
+
+/** Keep-alive frames: `pong` answers the client ping; `ping` is server-initiated (main.py). */
+export interface WSKeepAlive extends WSMessageBase {
+  type: 'ping' | 'pong';
+  timestamp?: number;
+}
+
+/**
+ * BUDDHA_RECITATION_STARTED — core/buddha_recitation_loop.py start(). Unlike
+ * the other recitation events this is NOT a full `get_status()` projection.
+ */
+export interface WSBuddhaRecitationStarted extends WSMessageBase {
+  type: 'BUDDHA_RECITATION_STARTED';
+  data: { intention: string; total_buddhas: number };
+  timestamp?: number;
+}
+
+/** BUDDHA_NAME_RECITED / BUDDHA_RECITATION_STOPPED carry `get_status()`. */
+export interface WSBuddhaRecitationEvent extends WSMessageBase {
+  type: 'BUDDHA_NAME_RECITED' | 'BUDDHA_RECITATION_STOPPED';
+  data: RecitationStatus;
+  timestamp?: number;
+}
+
+/** core/ritual_engine.py _broadcast_ws — record/status dicts. */
+export interface WSRitualEvent extends WSMessageBase {
+  type: 'RITUAL_ENGINE_STATUS' | 'RITUAL_PHASE' | 'RITUAL_COMPLETED' | 'PLANETARY_HOUR_SHIFT';
+  data: Record<string, unknown>;
+  timestamp?: number;
+}
+
+/** core/character_journey.py _broadcast_ws — informational only. */
+export interface WSJourneyEvent extends WSMessageBase {
+  type: 'JOURNEY_STAGE_STARTED' | 'JOURNEY_STAGE_COMPLETED' | 'JOURNEY_COMPLETED';
+  data: Record<string, unknown>;
+  timestamp?: number;
+}
+
+/** modules/radionics.py broadcast_healing — singing-bowl broadcast notice. */
+export interface HealingBroadcastPayload {
+  target?: string;
+  location?: string;
+  lat?: number | null;
+  lon?: number | null;
+  frequency_hz?: number;
+  frequencies?: number[];
+  duration_minutes?: number;
+  audio_muted?: boolean;
+}
+
+export interface WSHealingBroadcastStarted extends WSMessageBase {
+  type: 'HEALING_BROADCAST_STARTED';
+  data?: HealingBroadcastPayload;
+  timestamp?: number;
+}
+
+/** backend/app/main.py — operations ledger pushes the full Operation (validated by the store). */
+export interface WSOperationUpdate extends WSMessageBase {
+  type: 'operation_update';
+  data?: unknown;
+}
+
+/**
+ * Async chat progress — backend/app/api/v1/endpoints/llm.py `_push()` spreads
+ * the event fields next to `type` and `job_id` (e.g. `tool`, `args`, `result`,
+ * `error`, `response`). `chat_cancelled` IS emitted there (on cancel/timeout
+ * paths), even though scripts/audit_ws_contract.py does not list it.
+ */
+export interface WSChatProgress extends WSMessageBase {
+  type:
+    | 'chat_started'
+    | 'chat_tool_start'
+    | 'chat_tool_complete'
+    | 'chat_tool_error'
+    | 'chat_complete'
+    | 'chat_error'
+    | 'chat_cancelled';
+  job_id: string;
+  [key: string]: unknown;
+}
+
+/** outlook.py background loop / idle reflection engine. */
+export interface IdleReflectionPayload {
+  intention?: string;
+  genre?: string;
+  timestamp?: string;
+  narrative_preview?: string;
+  stats?: Record<string, unknown>;
+}
+
+export interface WSIdleReflection extends WSMessageBase {
+  type: 'IDLE_REFLECTION' | 'BACKGROUND_GENERATION';
+  data?: IdleReflectionPayload;
 }
 
 export interface WSBuddhaRecitationUpdate extends WSMessageBase {
@@ -96,12 +219,25 @@ export interface WSProviderHealth extends WSMessageBase {
  *
  * Backend: `core/usage_tracker.py` (broadcast on every call settlement).
  */
+export interface LLMUsageSummaryPayload {
+  total_calls?: number | null;
+  total_cost_usd?: number | null;
+  calls_today?: number | null;
+  cost_today?: number | null;
+  daily_cost_usd?: number | null;
+  daily_cost_cap?: number | null;
+  over_cap?: boolean | null;
+  remaining_balance?: number | null;
+  provider_stats?: Record<string, unknown> | null;
+}
+
+/**
+ * Backend: `backend/app/main.py` `_broadcast_usage` — the counters are nested
+ * under `data` (they were once read from the top level, which always gave 0).
+ */
 export interface WSLLMUsageUpdate extends WSMessageBase {
   type: 'LLM_USAGE_UPDATE';
-  total_calls: number;
-  total_cost_usd: number;
-  calls_today: number;
-  cost_today: number;
+  data: LLMUsageSummaryPayload;
   timestamp?: number;
 }
 
@@ -129,6 +265,10 @@ export interface WSPracticeStopped extends WSMessageBase {
   timestamp: number;
 }
 
+/**
+ * Every message the `useWebSocketStable` switch handles, discriminated on
+ * `type`. Frames with any other `type` fall to the switch's `default:`.
+ */
 export type WSMessage =
   | WSRealtimeData
   | WSAudioSpectrum
@@ -149,7 +289,18 @@ export type WSMessage =
   | WSPracticeCompleted
   | WSPracticeStopped
   | WSError
-  | WSMessageBase;
+  | WSSystemError
+  | WSSettingsUpdated
+  | WSSessionStarted
+  | WSKeepAlive
+  | WSBuddhaRecitationStarted
+  | WSBuddhaRecitationEvent
+  | WSRitualEvent
+  | WSJourneyEvent
+  | WSHealingBroadcastStarted
+  | WSOperationUpdate
+  | WSChatProgress
+  | WSIdleReflection;
 
 // ---------------------------------------------------------------------------
 // Status types

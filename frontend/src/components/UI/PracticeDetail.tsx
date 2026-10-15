@@ -663,6 +663,8 @@ export default function PracticeDetail({
   }
 
   // -- Not found ------------------------------------------------------------
+  const deityViz = id ? getDeityVisualization(id) : undefined;
+
   if (!practice) {
     return (
       <div className="flex-1 h-full flex items-center justify-center p-6">
@@ -767,10 +769,10 @@ export default function PracticeDetail({
             </Paragraph>
           </div>
 
-          {getDeityVisualization(id) && (
+          {deityViz && (
             <div className="flex flex-col items-center gap-4 mb-6">
-              <SadhanaVisualization deity={getDeityVisualization(id)!} size={260} practicePhase={running ? 'reciting' : 'idle'} />
-              <FiveBuddhaMandala activeFamily={getDeityVisualization(id)?.buddhaFamily} size={360} showLabels />
+              <SadhanaVisualization deity={deityViz} size={260} practicePhase={running ? 'reciting' : 'idle'} />
+              <FiveBuddhaMandala activeFamily={deityViz.buddhaFamily} size={360} showLabels />
             </div>
           )}
 
