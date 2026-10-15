@@ -245,8 +245,9 @@ def list_operations(
     status: str | None = None,
     working_id: str | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """Newest first."""
+    """Newest first. ``offset`` skips that many matches (for paging past ``limit``)."""
     clauses, values = [], []
     for column, value in (("kind", kind), ("status", status), ("working_id", working_id)):
         if value is not None:
@@ -254,9 +255,11 @@ def list_operations(
             values.append(value)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     limit = max(1, min(int(limit), 500))
+    offset = max(0, int(offset))
     with _connect() as conn:
         rows = conn.execute(
-            f"SELECT * FROM operations {where} ORDER BY created_at DESC LIMIT ?", (*values, limit)
+            f"SELECT * FROM operations {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (*values, limit, offset),
         ).fetchall()
     return [_row_to_dict(row) for row in rows]
 

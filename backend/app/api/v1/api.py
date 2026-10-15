@@ -10,6 +10,7 @@ from backend.app.api.v1.endpoints import blessings as blessings_endpoint
 from backend.app.api.v1.endpoints import dharma_tales as dharma_tales_endpoint
 from backend.app.api.v1.endpoints import divination as divination_endpoint
 from backend.app.api.v1.endpoints import extraction as extraction_endpoint
+from backend.app.api.v1.endpoints import gallery as gallery_endpoint
 from backend.app.api.v1.endpoints import healing_dialogue as healing_dialogue_endpoint
 from backend.app.api.v1.endpoints import image_generation as image_generation_endpoint
 from backend.app.api.v1.endpoints import knowledge as knowledge_endpoint
@@ -67,6 +68,7 @@ api_router.include_router(time_cycles_endpoint.router, tags=["time-cycles"])
 api_router.include_router(operator_endpoint.router, prefix="/operator", tags=["operator"])
 api_router.include_router(operations_endpoint.router)
 api_router.include_router(render_endpoint.router)
+api_router.include_router(gallery_endpoint.router)
 api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["outlook"])
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])
