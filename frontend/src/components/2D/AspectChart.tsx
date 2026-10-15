@@ -142,6 +142,20 @@ function calculateAspects(positions: Record<string, PlanetPosition>): Aspect[] {
   return aspects.sort((a, b) => a.orb - b.orb);
 }
 
+/**
+ * "House N: ..." lines for the astrologer prompt, numeric houses first and
+ * planets without a house ('?') last. Keys are strings: a '?' key used to be
+ * looked up as `byHouse[Number('?')]` (undefined), so any planet without a
+ * house made the whole "Ask the astrologer" request throw.
+ */
+export function formatHouseLines(byHouse: Record<string, string[]>): string {
+  const order = (h: string): number => (Number.isFinite(Number(h)) ? Number(h) : Number.MAX_SAFE_INTEGER);
+  return Object.keys(byHouse)
+    .sort((a, b) => order(a) - order(b))
+    .map(h => `  House ${h}: ${byHouse[h].join(', ')}`)
+    .join('\n');
+}
+
 export default function AspectChart({ positions, size = 420 }: AspectChartProps) {
   const [visibleAspects, setVisibleAspects] = useState<Set<AspectType>>(
     new Set(['conjunction', 'opposition', 'trine', 'square', 'sextile'])
@@ -162,14 +176,14 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
 
       const elementCount: Record<string, number> = { Fire: 0, Earth: 0, Air: 0, Water: 0 };
       const modalityCount: Record<string, number> = { Cardinal: 0, Fixed: 0, Mutable: 0 };
-      const planetsByHouse: Record<number, Array<string>> = {};
+      const planetsByHouse: Record<string, string[]> = {};
       const dignityList: string[] = [];
 
       const planetLines = planetNames.map(n => {
         const p = positions[n];
         const sign = p.sign || '?';
         const deg = p.degree?.toFixed(1) || '?';
-        const house = p.house || '?';
+        const house = p.house ? String(p.house) : '?';
         const ret = p.retrograde ? ' ℞ (retrograde)' : '';
         const glyph = PLANET_GLYPHS[n] || n[0].toUpperCase();
         if (SIGN_ELEMENT[sign]) elementCount[SIGN_ELEMENT[sign]]++;
@@ -186,10 +200,7 @@ export default function AspectChart({ positions, size = 420 }: AspectChartProps)
       const mcSign = positions.midheaven?.sign || 'Unknown';
       const mcDeg = positions.midheaven?.degree?.toFixed(1) || '?';
 
-      const houseLines = Object.keys(planetsByHouse)
-        .sort((a, b) => Number(a) - Number(b))
-        .map(h => `  House ${h}: ${planetsByHouse[Number(h)].join(', ')}`)
-        .join('\n');
+      const houseLines = formatHouseLines(planetsByHouse);
 
       const aspectLines = aspects
         .sort((a, b) => a.orb - b.orb)
@@ -262,7 +273,11 @@ Keep your response between 400–800 words unless the question demands more dept
           || data.text;
         const finalText = text || 'The astrologer returned no text. Please try rephrasing your question.';
         setLlmResponse(finalText);
-        setLlmHistory(prev => [...prev, { role: 'user', content: q }, { role: 'assistant', content: finalText }].slice(-20));
+        setLlmHistory(prev => [
+          ...prev,
+          { role: 'user' as const, content: q },
+          { role: 'assistant' as const, content: finalText },
+        ].slice(-20));
         setLlmQuestion('');
       } else {
         const errBody = await res.text().catch(() => '');
