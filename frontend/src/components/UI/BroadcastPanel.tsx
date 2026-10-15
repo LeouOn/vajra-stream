@@ -16,6 +16,7 @@ import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
 import { apiUrl } from '../../utils/api';
 import { useCrystalStore } from '../../stores/crystalStore';
+import { isActiveStatus, useOperationsStore } from '../../stores/operationsStore';
 import { useRateStore } from '../../stores/rateStore';
 import { nudgeCarrierFrequency } from '../../lib/stickPlate';
 import ProvenanceTag from './ProvenanceTag';
@@ -64,6 +65,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
   const { isPlaying, frequency, updateSettings } = useAudioStore();
   const broadcastCrystal = useCrystalStore((s) => s.broadcastCrystal);
+  const cancelBroadcast = useCrystalStore((s) => s.cancelBroadcast);
   const boardRevision = useRateStore((s) => s.boardRevision);
   const loadedWorkingId = useRateStore((s) => s.loadedWorkingId);
 
@@ -87,7 +89,13 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [latestSigil, setLatestSigil] = useState<Sigil | null>(null);
   const [sigilIntention, setSigilIntention] = useState<string>('');
   const [isForging, setIsForging] = useState<boolean>(false);
-  const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
+  // The rate broadcast runs in the background as a ledger operation; the
+  // request only starts it, and its status comes from the operations store.
+  const [isStarting, setIsStarting] = useState<boolean>(false);
+  const [broadcastOpId, setBroadcastOpId] = useState<string | null>(null);
+  const broadcastOp = useOperationsStore((s) => (broadcastOpId ? s.byId[broadcastOpId] : undefined));
+  const isBroadcasting =
+    isStarting || (broadcastOpId !== null && (!broadcastOp || isActiveStatus(broadcastOp.status)));
   
   // Track populations/targets
   const [populations, setPopulations] = useState<Population[]>([]);
@@ -167,7 +175,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
 
   const startRateBroadcast = async () => {
     if (isBroadcasting) return;
-    setIsBroadcasting(true);
+    setIsStarting(true);
     const targets = populations
       .filter((p) => p.is_active)
       .map((p) => String(p.name || p.id));
@@ -178,23 +186,34 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       targets.length ? targets : ['all beings'],
       currentRateValues(),
     );
+    setIsStarting(false);
     if (result) {
+      setBroadcastOpId(result.operation_id ?? null);
       audioFeedback.playSuccess();
     } else {
       audioFeedback.playError();
-      setIsBroadcasting(false);
     }
   };
 
   const stopRateBroadcast = async () => {
-    try {
-      await fetch(apiUrl('/radionics/stop'), { method: 'POST' });
-    } catch {
-      /* local stop still applies */
+    if (broadcastOpId) {
+      // Ends the operation (`cancelled`); the backend also stops its audio.
+      await cancelBroadcast(broadcastOpId);
+    } else {
+      try {
+        await fetch(apiUrl('/radionics/stop'), { method: 'POST' });
+      } catch {
+        /* nothing more to stop locally */
+      }
     }
-    setIsBroadcasting(false);
+    setBroadcastOpId(null);
     audioFeedback.playTick();
   };
+
+  // The broadcast ended on its own (or elsewhere, e.g. the Ledger): release the buttons.
+  useEffect(() => {
+    if (broadcastOp && !isActiveStatus(broadcastOp.status)) setBroadcastOpId(null);
+  }, [broadcastOp]);
 
   // Adjust Radionics sliders
   const handleDimensionChange = (key: keyof Dimensions, val: number | string) => {
