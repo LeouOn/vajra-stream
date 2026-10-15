@@ -594,3 +594,166 @@ describe('AstrologyExtractionPanel — results fetch race and unmount', () => {
     expect(addToastSpy).not.toHaveBeenCalled();
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Sweep setup → launch → completion journeys (WS-E regressions).
+ * Drives the real Setup controls (location Select, date mode, picker)
+ * and asserts on the POST /astrology/extract body and Results title.
+ * ------------------------------------------------------------------ */
+describe('AstrologyExtractionPanel — sweep setup and completion', () => {
+  const SWEEP_RUN_ID = 99;
+  const LOCATION = { id: 1, name: 'Bodh Gaya', lat: 24.6959, lon: 84.9914 };
+
+  function mockSweepBackend() {
+    mockFetchByUrl((url) => {
+      const results = url.match(/\/astrology\/runs\/(\d+)\/results/);
+      if (results) {
+        return { ok: true, status: 200, text: async () => `# Run ${results[1]} MD` };
+      }
+      if (url.includes(`/astrology/runs/${SWEEP_RUN_ID}`)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: SWEEP_RUN_ID, status: 'done', total_tuples: 4, completed_tuples: 4 }),
+        };
+      }
+      if (url.includes('/astrology/runs')) {
+        return { ok: true, status: 200, json: async () => envelopeWith([RUN_7]) };
+      }
+      if (url.includes('/astrology/extract')) {
+        return { ok: true, status: 200, json: async () => ({ run_id: SWEEP_RUN_ID }) };
+      }
+      if (url.includes('/astrology/locations')) {
+        return { ok: true, status: 200, json: async () => [LOCATION] };
+      }
+      return { ok: true, status: 200, json: async () => ({}), text: async () => '' };
+    });
+  }
+
+  async function selectLocation(name: string) {
+    const selector = container.querySelector('.ant-select');
+    if (!selector) throw new Error('location select not found');
+    await act(async () => {
+      selector.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    const findOption = () =>
+      Array.from(document.querySelectorAll('.ant-select-item-option')).find(
+        (o) => (o.textContent ?? '').trim() === name,
+      );
+    await waitForCond(() => !!findOption());
+    await act(async () => {
+      findOption()?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  async function clickByText(label: string) {
+    const el = Array.from(container.querySelectorAll('button, label')).find(
+      (b) => (b.textContent ?? '').trim() === label,
+    );
+    if (!el) throw new Error(`clickable not found: ${label}`);
+    await act(async () => {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Regression: a finished sweep must not clobber a run picked via
+   * Replay → View. The panel passed SweepTab a fresh `onComplete` on
+   * every render, and SweepTab's polling effect depends on it, so each
+   * parent re-render re-polled the finished sweep, saw "done", and
+   * called onComplete(sweepRunId) again — the View click (itself a
+   * parent re-render) ended up showing the sweep's results instead.
+   * ---------------------------------------------------------------- */
+  it('keeps the Replay-selected run after a sweep has completed', async () => {
+    mockSweepBackend();
+    renderPanel();
+    await flushAsync();
+
+    // Setup: one location × weekly dates → 4 tuples.
+    await selectLocation(LOCATION.name);
+    await clickByText('Weekly');
+
+    // Sweep: launch and let the poll observe "done".
+    await clickTab('Sweep');
+    await clickByText('Launch Sweep');
+    await waitForCond(() =>
+      fetchSpy.mock.calls.some((c) => fetchUrlOf(c).includes('/astrology/extract')),
+    );
+    await waitForCond(() => (container.textContent ?? '').includes('done'));
+
+    // Replay → View run 7.
+    await clickTab('Replay');
+    await waitForCond(() => tableRows().length === 1);
+    await clickViewForRow(7);
+    await waitForCond(() =>
+      fetchSpy.mock.calls.some((c) => fetchUrlOf(c).includes('/astrology/runs/7/results')),
+    );
+
+    // Let any re-poll of the finished sweep (and its results fetch) settle.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    await flushAsync();
+
+    expect(container.textContent).toContain('Run 7 Results');
+    expect(container.textContent).toContain('# Run 7 MD');
+    expect(container.textContent).not.toContain(`Run ${SWEEP_RUN_ID} Results`);
+  });
+
+  /* ---------------------------------------------------------------- *
+   * Regression (WS-E): "Explicit Dates" rendered a RangePicker with a
+   * `multiple` prop RangePicker does not support, so "Pick specific
+   * dates" could only ever yield a [start, end] pair — two tuples per
+   * location, never the dates in between or a third date. It is now a
+   * multi-select DatePicker: every picked date becomes a tuple.
+   * ---------------------------------------------------------------- */
+  it('turns every date picked in Explicit Dates mode into a sweep tuple', async () => {
+    mockSweepBackend();
+    renderPanel();
+    await flushAsync();
+
+    await selectLocation(LOCATION.name);
+
+    // Default date mode is Explicit Dates: a multi-date picker, not a range.
+    expect(container.querySelector('.ant-picker-range')).toBeNull();
+    const picker = container.querySelector('.ant-picker-multiple');
+    expect(picker).not.toBeNull();
+
+    // Open the calendar and pick three distinct in-month days.
+    await act(async () => {
+      picker?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      picker?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const dayCell = (day: string) =>
+      Array.from(document.querySelectorAll('.ant-picker-cell-in-view')).find(
+        (td) => (td.textContent ?? '').trim() === day,
+      );
+    await waitForCond(() => !!dayCell('10'));
+    for (const day of ['10', '12', '14']) {
+      await act(async () => {
+        dayCell(day)?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+    }
+    // Close the popup (click outside) — the picker commits its value then.
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      container.querySelector<HTMLInputElement>('.ant-picker-multiple input')?.blur();
+    });
+    await flushAsync();
+
+    await clickTab('Sweep');
+    await clickByText('Launch Sweep');
+    await waitForCond(() =>
+      fetchSpy.mock.calls.some((c) => fetchUrlOf(c).includes('/astrology/extract')),
+    );
+    const extractCall = fetchSpy.mock.calls.find((c) => fetchUrlOf(c).includes('/astrology/extract'));
+    const body = JSON.parse(String((extractCall?.[1] as RequestInit | undefined)?.body));
+    expect(body.tuples).toHaveLength(3);
+    for (const t of body.tuples) {
+      expect(t.lat).toBe(LOCATION.lat);
+      expect(t.lon).toBe(LOCATION.lon);
+    }
+    const days = body.tuples.map((t: { date_iso: string }) => new Date(t.date_iso).getDate()).sort();
+    expect(days).toEqual([10, 12, 14]);
+  });
+});
