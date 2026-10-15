@@ -11,7 +11,7 @@
  * of truth. Adding a new route means adding one entry to ROUTES
  * and one component mapping in App.jsx.
  */
-import React, { useEffect, useState, KeyboardEvent } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PlayCircle, PauseCircle, Menu as MenuIcon } from 'lucide-react';
 import { ToastContainer } from '../UI/Toast';

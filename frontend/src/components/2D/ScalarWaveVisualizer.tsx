@@ -271,7 +271,9 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarVizProps>(
         const t = phase;
         const mode = activeMode;
         const rate = scalarRef.current?.rate;
-        const coherence = scalarRef.current?.coherence ?? 0.85;
+        // Decorative glow strength. The scalar status carries no "coherence"
+        // reading (only active + rate), so this was always the 0.85 fallback.
+        const glow = 0.85;
 
         // Smooth hue transition toward target
         currentHueRef.current += (targetHueRef.current - currentHueRef.current) * 0.05;
@@ -331,7 +333,7 @@ const ScalarWaveVisualizer = forwardRef<ScalarVizAPI, ScalarVizProps>(
             ctx.beginPath();
 
             ctx.shadowBlur = 18;
-            ctx.shadowColor = hsl(layerHue, 85, 55, 0.6 * coherence);
+            ctx.shadowColor = hsl(layerHue, 85, 55, 0.6 * glow);
             ctx.strokeStyle = hsl(layerHue, 80, 60, 0.85);
             ctx.lineWidth = l.width * (mode === 'living' ? breath : 1);
 

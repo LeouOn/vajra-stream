@@ -195,7 +195,7 @@ export default function SadhanaVisualization({
             {deity.bodyColorName} · {deity.mudra}
           </div>
           <div className="text-[9px] font-mono text-gray-600 mt-1">
-            {deity.bijā_ || deity.bijaRomaji} · {deity.frequencyHz} Hz · {deity.element}
+            {deity.bijaRomaji} · {deity.frequencyHz} Hz · {deity.element}
           </div>
         </div>
       )}

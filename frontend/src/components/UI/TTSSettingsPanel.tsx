@@ -188,7 +188,7 @@ export default function TTSSettingsPanel({ onConfigChange, compact = false }: TT
   const qwenModels = config.qwen?.models || {};
   const gpuInfo = config.gpu || { gpu_available: false, backend: 'cpu', devices: [] };
 
-  const rateOptions = {
+  const rateOptions: Record<string, string> = {
     '-50%': 'Very Slow', '-35%': 'Slow (Sacred)', '-25%': 'Moderate (Sutra)',
     '-10%': 'Slightly Slow', '+0%': 'Normal', '+20%': 'Fast',
   };
