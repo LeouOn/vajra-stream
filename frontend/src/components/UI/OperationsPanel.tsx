@@ -84,6 +84,7 @@ interface ComposerStep {
 }
 
 type DivinationSystem = 'tarot' | 'iching' | 'geomancy';
+const DIVINATION_SYSTEMS: readonly DivinationSystem[] = ['tarot', 'iching', 'geomancy'];
 type SubTab = 'divination' | 'composer' | 'prayer_wheel' | 'dharani' | 'chakra' | 'time_cycles';
 
 interface ChakraSelection {
@@ -457,7 +458,7 @@ export default function OperationsPanel() {
         <div className="space-y-6">
           <div className="flex justify-between items-center bg-gray-950/40 p-4 rounded-xl border border-white/5">
             <div className="flex gap-2">
-              {['tarot', 'iching', 'geomancy'].map(system => (
+              {DIVINATION_SYSTEMS.map(system => (
                 <button
                   key={system}
                   onClick={() => { setDivinationSystem(system); audioFeedback.playClick(); }}
@@ -642,7 +643,7 @@ export default function OperationsPanel() {
                         <h5 className="text-sm font-semibold text-white mt-0.5">{ichingResult.relating.name}</h5>
                         <p className="text-xs text-gray-300 mt-1">{ichingResult.relating.meaning}</p>
                         <div className="text-[10px] bg-purple-950/40 text-purple-300 border border-purple-500/20 px-2.5 py-1 rounded mt-2.5 font-mono">
-                          CHANGING LINES: {ichingResult.changing_lines.join(', ')}
+                          CHANGING LINES: {(ichingResult.changing_lines ?? []).join(', ')}
                         </div>
                       </div>
                     )}
@@ -721,7 +722,7 @@ export default function OperationsPanel() {
                         {['Fire','Water','Air','Earth'].map(elem => {
                           const geo = geoBalance.geomancy_elements?.[elem] || 0;
                           const west = geoBalance.western_elements?.[elem] || 0;
-                          const colors = {Fire:'text-rose-400',Water:'text-blue-400',Air:'text-cyan-400',Earth:'text-amber-400'};
+                          const colors: Record<string, string> = {Fire:'text-rose-400',Water:'text-blue-400',Air:'text-cyan-400',Earth:'text-amber-400'};
                           return (
                             <div key={elem} className="text-center">
                               <div className={`text-xs font-bold ${colors[elem]}`}>{elem}</div>
@@ -737,9 +738,9 @@ export default function OperationsPanel() {
                       </div>
                       <div className="flex items-center justify-between text-xs border-t border-white/5 pt-3">
                         <span className="text-gray-400">Harmony: <span className={
-                          geoBalance.harmony_score > 0.7 ? 'text-green-400' :
-                          geoBalance.harmony_score > 0.4 ? 'text-yellow-400' : 'text-red-400'
-                        }>{Math.round(geoBalance.harmony_score * 100)}% {geoBalance.harmony_quality}</span></span>
+                          (geoBalance.harmony_score ?? 0) > 0.7 ? 'text-green-400' :
+                          (geoBalance.harmony_score ?? 0) > 0.4 ? 'text-yellow-400' : 'text-red-400'
+                        }>{Math.round((geoBalance.harmony_score ?? 0) * 100)}% {geoBalance.harmony_quality}</span></span>
                         <span className="text-gray-500">Judge: <span className="text-white font-bold">{geoBalance.judge?.name}</span> — {geoBalance.judge?.meaning?.slice(0,40)}</span>
                       </div>
                     </div>

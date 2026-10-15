@@ -73,6 +73,8 @@ export interface UseWebSocketStableReturn {
   lastUsageUpdateAt: number | null;
   idleReflectionCount: number;
   lastIdleReflection: { intention: string; genre: string; timestamp: string; narrative_preview: string } | null;
+  /** Date.now() of the last JOURNEY_* event — a cue to refetch /operator/journey/status. */
+  lastJourneyEventAt: number | null;
   error: string | null;
   startSession: (config: Record<string, unknown>) => Promise<ApiResponse>;
   stopSession: (sessionId: string) => Promise<ApiResponse>;
@@ -132,6 +134,8 @@ interface WsSnapshot {
   lastUsageUpdateAt: number | null;
   idleReflectionCount: number;
   lastIdleReflection: { intention: string; genre: string; timestamp: string; narrative_preview: string } | null;
+  /** Date.now() of the last JOURNEY_* event — a cue to refetch /operator/journey/status. */
+  lastJourneyEventAt: number | null;
   error: string | null;
 }
 
@@ -157,6 +161,7 @@ function _initialSnapshot(): WsSnapshot {
     lastUsageUpdateAt: null,
     idleReflectionCount: 0,
     lastIdleReflection: null,
+    lastJourneyEventAt: null,
     error: null,
   };
 }
@@ -403,16 +408,20 @@ function _connect(url: string = _url): void {
           case 'PLANETARY_HOUR_SHIFT':
             console.log('Planetary hour shift:', data.data);
             break;
-          // Backend: core/character_journey.py:175,266,255 — journey lifecycle events.
-          // Informational only; no journey state lives in this hook.
+          // Backend: core/character_journey.py advance() — journey lifecycle events.
+          // The payloads are partial, so no journey state lives in this hook;
+          // the timestamp tells consumers (JourneyCard) to refetch the status.
           case 'JOURNEY_STAGE_STARTED':
             console.log('Journey stage started:', data.data);
+            _updateSnapshot({ lastJourneyEventAt: Date.now() });
             break;
           case 'JOURNEY_STAGE_COMPLETED':
             console.log('Journey stage completed:', data.data);
+            _updateSnapshot({ lastJourneyEventAt: Date.now() });
             break;
           case 'JOURNEY_COMPLETED':
             console.log('Journey completed:', data.data);
+            _updateSnapshot({ lastJourneyEventAt: Date.now() });
             break;
           // Backend: modules/radionics.py — healing broadcast (singing bowls).
           // Toast so users aren't surprised by the prayer-bowl audio, and so a
@@ -780,6 +789,7 @@ export const useWebSocketStable = (wsUrl: string | null = null): UseWebSocketSta
     lastUsageUpdateAt: snapshot.lastUsageUpdateAt,
     idleReflectionCount: snapshot.idleReflectionCount,
     lastIdleReflection: snapshot.lastIdleReflection,
+    lastJourneyEventAt: snapshot.lastJourneyEventAt,
     error: snapshot.error,
     startSession,
     stopSession,

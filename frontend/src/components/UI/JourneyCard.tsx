@@ -123,20 +123,16 @@ const ELEMENT_COLORS: Record<string, string> = {
 };
 
 export default function JourneyCard() {
-  // WebSocket slow-data broadcast replaces HTTP polling for journey status.
-  const { journeyStatus, isConnected } = useWebSocketStable();
+  // The JOURNEY_STATUS slow-data broadcast this card once read (`journeyStatus`)
+  // no longer exists in the hook or the backend, so the card never updated
+  // live. The JOURNEY_* lifecycle events carry partial payloads; they bump
+  // `lastJourneyEventAt`, and the card refetches the full status on each.
+  const { lastJourneyEventAt, isConnected } = useWebSocketStable();
   const [journey, setJourney] = useState<JourneyStatus | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [hasInitialFetch, setHasInitialFetch] = useState(false);
-
-  // Sync from WS (primary source of truth for journey status).
-  useEffect(() => {
-    const fromWs = journeyStatus as JourneyStatus | null;
-    if (!fromWs) return; // No WS data yet — keep current/fallback.
-    setJourney(fromWs.active ? fromWs : null);
-  }, [journeyStatus]);
 
   // HTTP recovery fetch — runs once on mount + whenever the WS reconnects
   // after being disconnected. This fixes the post-restart stale "6/6 complete"
@@ -172,6 +168,13 @@ export default function JourneyCard() {
       fetchStatus();
     }
   }, [isConnected, fetchStatus]);
+
+  // Refetch whenever the backend reports journey progress over WS.
+  useEffect(() => {
+    if (lastJourneyEventAt !== null) {
+      fetchStatus();
+    }
+  }, [lastJourneyEventAt, fetchStatus]);
 
   const handleAdvance = async () => {
     setAdvancing(true);
@@ -397,15 +400,13 @@ export default function JourneyCard() {
             {/* Stat Bars */}
             {charData.stats && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {(Object.entries(STAT_META) as [StatKey, typeof STAT_META[StatKey]]).map(([key, meta]) => {
+                {(Object.entries(STAT_META) as Array<[StatKey, (typeof STAT_META)[StatKey]]>).map(([key, meta]) => {
                   const val = charData.stats?.[key] || 0;
                   const Icon = meta.icon;
                   // Dharmic meaning for this stat from the journey API. Falls
                   // back to undefined on older payloads — the bar + value
-                  // render exactly as before in that case. The `as StatKey`
-                  // assertion re-asserts the literal-union type after the
-                  // upstream Object.entries cast widens `key` to `any`.
-                  const meaning = journey.stat_meanings?.[key as StatKey];
+                  // render exactly as before in that case.
+                  const meaning = journey.stat_meanings?.[key];
                   // Shared stat row: label/value header, the progress bar, and
                   // an italic dharmic subtitle (only when a meaning exists).
                   const statContent = (
