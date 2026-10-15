@@ -47,6 +47,7 @@ Synthesizes specific sound frequencies designed to create standing longitudinal 
     -   **Schumann Resonance:** `7.83 Hz` (fundamental earth frequency).
     -   **Solfeggio Fones:** `396 Hz` (liberating guilt), `417 Hz` (facilitating change), `528 Hz` (transformation/DNA repair), `639 Hz` (relationships), `741 Hz` (expression/solutions), `852 Hz` (intuition), `963 Hz` (crown connection).
     -   **Planetary Frequencies:** Earth Year (Om: `136.1 Hz`), Moon (Synodic: `210.42 Hz`), Sun (`126.22 Hz`).
+-   **No MOPS:** the old "magical operations per second" readout was retired on 2026-10-14. It was a rate built from hard-coded constants, and a magical operation takes real time. Each scalar-radionics broadcast is now recorded in the operations ledger with its real start and measured duration (see the "Decisions" section of [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)).
 
 ---
 
