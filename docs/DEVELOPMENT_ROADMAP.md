@@ -117,8 +117,17 @@ individual reviews catching each case.
    [the spec](specs/2026-10-14-operations-and-local-render.md). Built:
    reference images, folio witness renders that return immediately and fill
    in the folio when done, sigils through the engine, and the launcher
-   configured via `COMFYUI_LAUNCHER`. Still open: a live end-to-end render
-   on the real GPU.
+   configured via `COMFYUI_LAUNCHER`. **Verified live on 2026-10-15** on the
+   AMD Radeon 8060S (ComfyUI 0.39.0, Qwen-Image 2.1 Turbo):
+   - a cold 1024² render through the engine took 77.2 s;
+   - a 2432×1280 render through `POST /render/jobs` took 159.8 s, with the
+     seed recorded as chosen;
+   - the backend was killed mid-render, and on restart it re-attached to
+     the ComfyUI prompt and collected the result;
+   - the PNG's sha256 matched the ledger, and the image route served it.
+   - The run showed that the ledger's elapsed time includes downtime after
+     a re-attach, so each result now also stores
+     `backend_execution_seconds`.
 7. **Follow-ups found along the way:**
    - ~~`/radionics/broadcast` blocks the event loop~~ **Done.** Broadcasts
      run in a capped worker pool, return immediately, and can be cancelled
