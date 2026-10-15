@@ -1,4 +1,4 @@
-"""Operations ledger API — read-only views of real, timed operations.
+"""Operations ledger API — views of real, timed operations, and cancel.
 
 Operations are created by the services that perform them (render jobs,
 broadcasts, workings); see core/operations.py. Live changes are pushed over
@@ -40,3 +40,20 @@ async def get_operation(op_id: str) -> dict[str, Any]:
     if op is None:
         raise HTTPException(status_code=404, detail="operation not found")
     return op
+
+
+@router.post("/{op_id}/cancel")
+async def cancel_operation(op_id: str) -> dict[str, Any]:
+    """Stop an active operation (spec contract W2-3).
+
+    ``200 {"operation"}`` once it has ended (normally ``cancelled``, with the
+    measured elapsed time); ``404`` for an unknown id; ``409`` when it is
+    already finished or nothing in this process can stop its kind.
+    """
+    try:
+        op = await operations.request_cancel(op_id)
+    except operations.OperationNotFound:
+        raise HTTPException(status_code=404, detail="operation not found") from None
+    except operations.OperationNotCancellable as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    return {"operation": op}

@@ -33,6 +33,31 @@ template_dir = Path(__file__).parent.parent.parent.parent / "templates"
 templates = Jinja2Templates(directory=str(template_dir))
 
 
+def register_cancel_handlers() -> None:
+    """Wire ``POST /api/v1/operations/{id}/cancel`` to services that manage operations by kind.
+
+    Broadcasts and audio sessions register a cancel per operation while
+    they run (see core/integrated_scalar_radionics.py, vajra_service.py);
+    render jobs go through the render queue's own cancel, which
+    ``/render/jobs/{id}/cancel`` keeps exposing as an alias.
+    """
+    from backend.core.services.render import jobs as render_jobs
+    from core import operations
+
+    async def cancel_render(op_id: str) -> None:
+        # cancel_job is async and records ``cancelled`` itself. It raises
+        # JobNotFound (a LookupError) or JobNotCancellable (a RuntimeError);
+        # caught by base class so a renamed subclass still maps to 404 / 409.
+        try:
+            await render_jobs.cancel_job(op_id)
+        except LookupError as exc:
+            raise operations.OperationNotFound(str(exc)) from exc
+        except RuntimeError as exc:
+            raise operations.OperationNotCancellable(str(exc)) from exc
+
+    operations.register_cancel_handler("render", cancel_render)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -94,6 +119,13 @@ async def lifespan(app: FastAPI):
 
     async def _warmup() -> None:
         """Non-blocking init. Each block is independent; failures are logged."""
+
+        try:
+            register_cancel_handlers()
+            logger.info("Operation cancel handlers registered")
+        except Exception as e:
+            logger.error(f"Failed to register operation cancel handlers: {e}")
+            logger.error(traceback.format_exc())
 
         try:
             from backend.core.orchestrator_bridge import orchestrator_bridge
@@ -273,6 +305,26 @@ async def lifespan(app: FastAPI):
 
     # ---- SHUTDOWN ---------------------------------------------------------
     logger.info("Vajra.Stream API shutting down...")
+
+    # Stop timed work this process owns, while WS clients can still see the
+    # updates: scalar broadcasts stop at their next tick and, like running
+    # audio/sigil sessions, are recorded ``interrupted`` (not left running).
+    try:
+        from core.integrated_scalar_radionics import shutdown_broadcasts
+
+        stopped = await asyncio.to_thread(shutdown_broadcasts)
+        if stopped:
+            logger.info(f"Stopped {stopped} running broadcast(s) for shutdown")
+    except Exception as e:
+        logger.error(f"Failed to stop running broadcasts: {e}")
+    try:
+        from backend.core.services.vajra_service import vajra_service
+
+        ended = vajra_service.interrupt_session_operations()
+        if ended:
+            logger.info(f"Recorded {ended} running session(s) as interrupted")
+    except Exception as e:
+        logger.error(f"Failed to record running sessions as interrupted: {e}")
 
     listener = getattr(app.state, "operation_listener", None)
     if listener is not None:
