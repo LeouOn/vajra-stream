@@ -135,3 +135,55 @@ workstream's files. Shared files (`useWebSocketStable.ts`, `App.tsx`,
   `COMFYUI_LAUNCHER`.
 - Delete the stale SD 1.5 `comfy_workflow.json`.
 - Reference-image conditioning (`/upload/image`), as the garden harness does.
+
+---
+
+## Wave 2 (2026-10-15)
+
+Workstreams A–E are merged (PR #19). Wave 2 builds on that, with the same rules
+as before: own your files, keep edits to shared files small and additive.
+
+### Contract W2-1: reference images (F implements, G consumes)
+
+- `POST /api/v1/render/references` (multipart, field `image`; png/jpeg/webp,
+  ≤ 20 MB) returns `201 {"reference_id", "sha256", "filename", "width", "height"}`.
+  Stored under `generated/renders/references/<sha256>.<ext>`, so the same
+  file is never stored twice. The original upload is never modified.
+- `GET /api/v1/render/references/{reference_id}` returns the stored image.
+- `RenderJobRequest` gains optional `reference_id`. When it is set, the
+  adapter uploads the file to ComfyUI `/upload/image` and wires `LoadImage`
+  into `TextEncodeQwenImage21` (`vae` + `images.image_1`), as in the garden
+  harness. `params.reference_id` and `result.reference_sha256` are recorded.
+
+### Contract W2-2: witness renders linked to folios (F implements, G consumes)
+
+- `POST /api/v1/operator/workings/{id}/witness` (and its `/manifest` alias)
+  takes optional JSON `{"backend": "local" | "hosted"}`. `local` (the default
+  when `/render/health` is reachable) submits a render job with
+  `working_id=<id>`, `purpose="witness"` and the folio's image prompt. It
+  returns `202 {"working_id", "operation": Operation}` straight away, with
+  no blocking. `hosted` keeps today's synchronous OpenRouter path unchanged.
+- When that render job succeeds, the folio's `witness` becomes
+  `{"status": "ok", "source": "local-render", "operation_id", "image_url", "seed", "seed_provenance", "width", "height", "prompt"}`.
+  When it fails: `{"status": "error", "operation_id", "error"}`. This is
+  written by an operations listener (`core.operations.add_listener`), so the
+  folio is updated even if no browser is open.
+- To show progress, the UI reads `GET /operations?working_id=<id>&kind=render`.
+
+### Contract W2-3: cancellable background operations (H implements, G consumes)
+
+- `core.operations.register_cancel_handler(kind, fn)` and
+  `POST /api/v1/operations/{id}/cancel` return `200 {"operation"}`. They
+  return `404` for an unknown id, and `409 {"detail"}` when the operation is
+  already finished or its kind has no cancel handler. Render jobs register
+  their existing cancel through this handler too; `/render/jobs/{id}/cancel`
+  stays as an alias.
+- `POST /api/v1/radionics/broadcast` no longer blocks. It validates the
+  request, creates the `broadcast` operation, runs the scalar loop in a
+  worker thread, and returns straight away with the same fields as before.
+  `operation_id` is set; fields that only exist after the run are null.
+  Cancelling stops the loop at its next tick and records `cancelled` with
+  the measured elapsed time.
+- `vajra_service` sessions and sigil broadcasts that run for a duration are
+  recorded as `broadcast`/`audio` operations (start → measured end).
+
