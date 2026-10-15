@@ -1,16 +1,16 @@
 """Local render API — render jobs are operations (``kind="render"``).
 
-Contract: docs/specs/2026-10-14-operations-and-local-render.md ("Render contract").
-Listing is ``GET /operations?kind=render``; progress arrives over the WebSocket
-as ``operation_update``.
+Contract: docs/specs/2026-10-14-operations-and-local-render.md ("Render contract",
+"Contract W2-1: reference images"). Listing is ``GET /operations?kind=render``;
+progress arrives over the WebSocket as ``operation_update``.
 """
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from backend.core.services.render import jobs
+from backend.core.services.render import jobs, references
 from backend.core.services.render.base import PRESETS
 
 router = APIRouter(prefix="/render", tags=["render"])
@@ -42,6 +42,27 @@ async def cancel_render_job(op_id: str) -> dict[str, Any]:
     except jobs.JobNotCancellable as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
     return {"operation": op}
+
+
+@router.post("/references", status_code=201)
+async def upload_reference(image: UploadFile = File(...)) -> dict[str, Any]:
+    """Store a PNG / JPEG / WebP (<= 20 MB) to condition renders; identical files are stored once."""
+    data = await image.read(references.MAX_REFERENCE_BYTES + 1)
+    try:
+        return references.store_reference(data)
+    except references.ReferenceTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from None
+    except references.InvalidReference as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from None
+
+
+@router.get("/references/{reference_id}")
+async def get_reference(reference_id: str) -> FileResponse:
+    path = references.find_reference(reference_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="reference not found")
+    media_type = references.MEDIA_TYPES[path.suffix.lstrip(".")]
+    return FileResponse(path, media_type=media_type, filename=path.name)
 
 
 @router.get("/health")

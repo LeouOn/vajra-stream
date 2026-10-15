@@ -1,105 +1,75 @@
 @echo off
-title Vajra.Stream - Headless ComfyUI API Launcher
-color 0B
+setlocal EnableExtensions
+title Vajra.Stream - ComfyUI launcher
 
-echo ====================================================================
-echo   🔱 Vajra.Stream — Headless ComfyUI API Service Launcher 🔱
-echo ====================================================================
-echo.
-echo This script starts ComfyUI as an isolated API microservice.
-echo It enables --api-only mode to skip the Electron frontend browser
-echo window, saving RAM/VRAM for Vajra.Stream sigil generation.
-echo.
+REM ===================================================================
+REM  Starts the ComfyUI install that backs the local render engine
+REM  (backend/core/services/render/, /api/v1/render/*).
+REM
+REM  Vajra.Stream never starts ComfyUI by itself: a Qwen-Image 2.1 load
+REM  puts tens of GB on the GPU, so it only runs when you ask for it.
+REM
+REM  Configure the launcher once, either as an environment variable or
+REM  as a line in the project's .env:
+REM
+REM      COMFYUI_LAUNCHER=D:\ComfyUI\Start-Qwen-ComfyUI.bat
+REM
+REM  The launcher owns every ComfyUI flag (listen address, port, GPU
+REM  options). This script passes none: older versions passed
+REM  --api-only, which ComfyUI does not have, and it crashed on start.
+REM ===================================================================
 
-REM Define paths
-set "DESKTOP_PATH=C:\Users\Y\AppData\Local\Programs\ComfyUI"
-set "PORTABLE_PATH_1=C:\ComfyUI_windows_portable"
-set "PORTABLE_PATH_2=..\ComfyUI_windows_portable"
+set "PROJECT_ROOT=%~dp0.."
 
-REM Auto-detect installation type
-if exist "%DESKTOP_PATH%\resources\ComfyUI\main.py" (
-    set "COMFY_TYPE=desktop"
-    set "RUN_DIR=%DESKTOP_PATH%\resources\ComfyUI"
-    set "RUNNER=..\uv\win\uv.exe run main.py"
-    echo [OK] Detected ComfyUI Desktop Installation in AppData.
-    goto :select_hardware
+REM Environment wins; otherwise read COMFYUI_LAUNCHER / COMFYUI_BASE_URL from .env.
+if exist "%PROJECT_ROOT%\.env" (
+    for /f "usebackq eol=# tokens=1,* delims==" %%A in ("%PROJECT_ROOT%\.env") do (
+        if /i "%%A"=="COMFYUI_LAUNCHER" if not defined COMFYUI_LAUNCHER set "COMFYUI_LAUNCHER=%%~B"
+        if /i "%%A"=="COMFYUI_BASE_URL" if not defined COMFYUI_BASE_URL set "COMFYUI_BASE_URL=%%~B"
+    )
 )
+if not defined COMFYUI_BASE_URL set "COMFYUI_BASE_URL=http://127.0.0.1:8188"
 
-if exist "%PORTABLE_PATH_1%\ComfyUI\main.py" (
-    set "COMFY_TYPE=portable"
-    set "RUN_DIR=%PORTABLE_PATH_1%"
-    set "RUNNER=.\python_embeded\python.exe -s ComfyUI\main.py"
-    echo [OK] Detected ComfyUI Portable Installation at C:\ComfyUI_windows_portable.
-    goto :select_hardware
-)
+if not defined COMFYUI_LAUNCHER goto :no_launcher
+if not exist "%COMFYUI_LAUNCHER%" goto :missing_launcher
 
-if exist "%PORTABLE_PATH_2%\ComfyUI\main.py" (
-    set "COMFY_TYPE=portable"
-    set "RUN_DIR=%PORTABLE_PATH_2%"
-    set "RUNNER=.\python_embeded\python.exe -s ComfyUI\main.py"
-    echo [OK] Detected ComfyUI Portable Installation in adjacent directory.
-    goto :select_hardware
-)
-
-echo [WARNING] Could not auto-detect ComfyUI main directory.
+echo Starting ComfyUI with: %COMFYUI_LAUNCHER%
 echo.
-echo [1] Use ComfyUI Desktop (AppData default path)
-echo [2] Use ComfyUI Portable (Specify custom path)
+echo Once it is up, check:
+echo   ComfyUI itself:      %COMFYUI_BASE_URL%/system_stats
+echo   Vajra.Stream view:   http://localhost:8008/api/v1/render/health
 echo.
-set /p path_choice="Select installation type [1-2]: "
-
-if "%path_choice%"=="1" (
-    set "COMFY_TYPE=desktop"
-    set "RUN_DIR=%DESKTOP_PATH%\resources\ComfyUI"
-    set "RUNNER=..\uv\win\uv.exe run main.py"
-) else (
-    set /p custom_path="Enter full path to ComfyUI folder (e.g. D:\ComfyUI): "
-    set "COMFY_TYPE=portable"
-    set "RUN_DIR=%custom_path%"
-    set "RUNNER=.\python_embeded\python.exe -s ComfyUI\main.py"
-)
-
-:select_hardware
-echo.
-echo ====================================================================
-echo   SELECT GPU/HARDWARE RUNTIME FLAGS
-echo ====================================================================
-echo [1] Standard GPU mode (Nvidia / Default AMD ROCm)
-echo [2] AMD GPU (with --directml flag for DirectML versions)
-echo [3] AMD/Low-VRAM (Disable smart memory - fixes out-of-memory errors)
-echo [4] CPU Only mode (Slower fallback)
-echo.
-set /p hw_choice="Choose option [1-4]: "
-
-set "FLAGS=--api-only --listen 127.0.0.1 --port 8188"
-
-if "%hw_choice%"=="2" (
-    set "FLAGS=%FLAGS% --directml"
-)
-if "%hw_choice%"=="3" (
-    set "FLAGS=%FLAGS% --disable-smart-memory"
-)
-if "%hw_choice%"=="4" (
-    set "FLAGS=%FLAGS% --cpu"
-)
-
-echo.
-echo ====================================================================
-echo   LAUNCHING HEADLESS COMFYUI API SERVER
-echo ====================================================================
-echo Directory: %RUN_DIR%
-echo Executing: %RUNNER% %FLAGS%
-echo.
-
-cd /d "%RUN_DIR%"
-if "%COMFY_TYPE%"=="desktop" (
-    ..\uv\win\uv.exe run main.py %FLAGS%
-) else (
-    .\python_embeded\python.exe -s ComfyUI\main.py %FLAGS%
-)
-
-if %ERRORLEVEL% neq 0 (
+for %%F in ("%COMFYUI_LAUNCHER%") do pushd "%%~dpF"
+call "%COMFYUI_LAUNCHER%"
+set "RC=%ERRORLEVEL%"
+popd
+if not "%RC%"=="0" (
     echo.
-    echo [ERROR] Launch failed. Check if python environments or dependencies are set up.
+    echo [ERROR] The ComfyUI launcher exited with code %RC%.
 )
-pause
+exit /b %RC%
+
+:missing_launcher
+echo [ERROR] COMFYUI_LAUNCHER points to a file that does not exist:
+echo         %COMFYUI_LAUNCHER%
+echo.
+goto :instructions
+
+:no_launcher
+echo [INFO] COMFYUI_LAUNCHER is not set, so there is nothing to start.
+echo.
+
+:instructions
+echo To let this script start ComfyUI, set COMFYUI_LAUNCHER to the script
+echo that starts your ComfyUI install, as an environment variable or in .env:
+echo.
+echo     COMFYUI_LAUNCHER=D:\ComfyUI\Start-Qwen-ComfyUI.bat
+echo.
+echo Or start ComfyUI yourself. Vajra.Stream expects it at
+echo     COMFYUI_BASE_URL=%COMFYUI_BASE_URL%
+echo with the Qwen-Image 2.1 Turbo models installed.
+echo.
+echo Health checks:
+echo   ComfyUI itself:      %COMFYUI_BASE_URL%/system_stats
+echo   Vajra.Stream view:   http://localhost:8008/api/v1/render/health
+exit /b 1

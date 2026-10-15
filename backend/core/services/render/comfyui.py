@@ -7,6 +7,7 @@ Lanczos scaling when the export size differs from the generated size.
 
 HTTP surface used (ComfyUI's own API, nothing added):
 
+* ``POST /upload/image`` (multipart ``image``) for a reference image copy -> ``{"name", "subfolder"}``
 * ``POST /prompt`` ``{"prompt": graph, "client_id": job_id}`` -> ``prompt_id``
 * ``GET /history/<prompt_id>`` until the entry appears
 * ``GET /view?filename=..&subfolder=..&type=..`` for the PNG
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import mimetypes
 import time
 from typing import Any
 
@@ -35,6 +37,7 @@ from backend.core.services.render.base import (
 
 BACKEND_NAME = "comfyui-qwen-image-2.1"
 OUTPUT_NODE = "10"
+REFERENCE_NODE = "13"
 SIGMAS = "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0.0"
 UNET_NAME = "qwen_image_2.1_turbo_bf16.safetensors"
 CLIP_NAME = "qwen3vl_8b_bf16.safetensors"
@@ -53,8 +56,14 @@ def build_graph(
     export_height: int,
     seed: int,
     prefix: str,
+    reference_image: str | None = None,
 ) -> dict[str, Any]:
-    """ComfyUI API-format graph for one Qwen-Image 2.1 Turbo render."""
+    """ComfyUI API-format graph for one Qwen-Image 2.1 Turbo render.
+
+    ``reference_image`` is the name ComfyUI gave an uploaded reference (``/upload/image``);
+    it is loaded with ``LoadImage`` and fed to the text encoder as visual conditioning
+    (``vae`` + ``images.image_1``), exactly as the garden harness does.
+    """
     graph: dict[str, Any] = {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": UNET_NAME, "weight_dtype": "default"}},
         "2": {
@@ -99,6 +108,9 @@ def build_graph(
             },
         }
         graph[OUTPUT_NODE]["inputs"]["images"] = ["12", 0]
+    if reference_image:
+        graph[REFERENCE_NODE] = {"class_type": "LoadImage", "inputs": {"image": reference_image}}
+        graph["4"]["inputs"].update({"vae": ["3", 0], "images.image_1": [REFERENCE_NODE, 0]})
     return graph
 
 
@@ -187,6 +199,7 @@ class ComfyUIQwenImage21Adapter:
             spec.export_height,
             spec.seed,
             prefix=f"vajra-render/{spec.job_id}",
+            reference_image=spec.reference_image,
         )
 
     # -- HTTP plumbing -----------------------------------------------------
@@ -236,6 +249,24 @@ class ComfyUIQwenImage21Adapter:
         return "absent", None
 
     # -- RenderBackend -----------------------------------------------------
+
+    async def upload_reference(self, data: bytes, filename: str) -> str:
+        """Upload a *copy* of a reference image into ComfyUI's input folder; the original is untouched.
+
+        ComfyUI de-duplicates identical content under the same name, and may rename on a clash,
+        so the name it returns (not ``filename``) is what ``LoadImage`` must use.
+        """
+        async with self._client() as client:
+            body = await self._json(
+                client,
+                "POST",
+                "/upload/image",
+                files={"image": (filename, data, mimetypes.guess_type(filename)[0] or "application/octet-stream")},
+                data={"type": "input"},
+            )
+        if not isinstance(body, dict) or not body.get("name"):
+            raise RenderError(f"ComfyUI /upload/image returned no name: {json.dumps(body)[:500]}")
+        return "/".join(str(part) for part in (body.get("subfolder") or "", body["name"]) if part)
 
     async def submit(self, spec: RenderSpec) -> str:
         async with self._client() as client:

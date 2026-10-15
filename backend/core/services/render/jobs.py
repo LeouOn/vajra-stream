@@ -105,6 +105,7 @@ class RenderJobRequest(BaseModel):
     backend: str = DEFAULT_BACKEND
     working_id: str | None = Field(None, max_length=200)
     purpose: Literal["free", "witness", "sigil"] = "free"
+    reference_id: str | None = Field(None, description="sha256 from POST /render/references")
 
     @field_validator("prompt")
     @classmethod
@@ -126,6 +127,20 @@ class RenderJobRequest(BaseModel):
     def _known_backend(cls, value: str) -> str:
         if value not in BACKENDS:
             raise ValueError(f"unknown backend {value!r}; available: {sorted(BACKENDS)}")
+        return value
+
+    @field_validator("reference_id")
+    @classmethod
+    def _stored_reference(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from backend.core.services.render import references
+
+        value = value.strip().lower()
+        if not references.is_reference_id(value):
+            raise ValueError("reference_id must be the sha256 returned by POST /render/references")
+        if references.find_reference(value) is None:
+            raise ValueError(f"unknown reference_id {value!r}; upload it with POST /render/references")
         return value
 
     @model_validator(mode="after")
@@ -165,6 +180,7 @@ def normalize_request(request: RenderJobRequest) -> tuple[dict[str, Any], dict[s
         "backend": request.backend,
         "working_id": request.working_id,
         "purpose": request.purpose,
+        "reference_id": request.reference_id,
     }
     return params, {"seed": seed_provenance}
 
