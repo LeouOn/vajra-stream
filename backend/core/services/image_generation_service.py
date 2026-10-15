@@ -478,6 +478,7 @@ class ImageGenerationService:
         size: str = "1024x1024",
         quality: str = "standard",
         n: int = 1,
+        caption_facts: list[dict[str, str]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Generate an image and return a dict with image_data_url + metadata.
@@ -489,6 +490,10 @@ class ImageGenerationService:
             size: OpenRouter: "1024x1024" (default), "1792x1024", "1024x1792".
             quality: "standard" (default) or "hd".
             n: Number of images. Default 1, max per config.
+            caption_facts: Real values to caption the image with
+                (``[{"label", "value", "provenance"}]``, see core/image_prompts.py).
+                Echoed in the result and written to a ``<image>.json`` sidecar
+                beside the saved file; never sent to the provider.
             **kwargs: Provider-specific args:
                 - aspect_ratio: MiniMax only, e.g. "1:1", "16:9", "4:3"
                 - subject_reference: MiniMax only, URL of reference image
@@ -557,6 +562,8 @@ class ImageGenerationService:
         if cached and cached[0] > now:
             result = dict(cached[1].__dict__)
             result["cached"] = True
+            if caption_facts:
+                result["caption_facts"] = list(caption_facts)
             return result
 
         # Call provider — 2 tries, only on technical (retryable) failure
@@ -599,8 +606,10 @@ class ImageGenerationService:
         self._cache[cache_key] = (now + cfg["cache_ttl_seconds"], result)
 
         saved_path = self._save_image(result.image_data_url, full_prompt)
+        if saved_path and caption_facts:
+            self._write_caption_sidecar(saved_path, full_prompt, result, caption_facts)
 
-        return {
+        response: dict[str, Any] = {
             "image_data_url": result.image_data_url,
             "model": result.model,
             "cost_usd": result.cost_usd,
@@ -610,6 +619,9 @@ class ImageGenerationService:
             "prompt_tokens": validation["estimated_tokens"],
             "image_file_path": saved_path,
         }
+        if caption_facts:
+            response["caption_facts"] = list(caption_facts)
+        return response
 
     # ── Internals ──────────────────────────────────────────────────────
 
@@ -647,6 +659,31 @@ class ImageGenerationService:
         except OSError as exc:
             logger.warning("Could not save image to %s: %s", out_dir, exc)
             return None
+
+    @staticmethod
+    def _write_caption_sidecar(
+        image_path: str, prompt: str, result: ProviderResult, caption_facts: list[dict[str, str]]
+    ) -> None:
+        """``<image>.json`` beside a saved image: the prompt sent and the facts to caption it with."""
+        sidecar = Path(image_path).with_suffix(".json")
+        try:
+            sidecar.write_text(
+                json.dumps(
+                    {
+                        "image": Path(image_path).name,
+                        "prompt": prompt,
+                        "model": result.model,
+                        "provider": result.provider,
+                        "caption_facts": list(caption_facts),
+                        "saved_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            logger.warning("Could not write caption sidecar %s: %s", sidecar, exc)
 
     @staticmethod
     def _cache_key(

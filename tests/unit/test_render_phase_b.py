@@ -367,6 +367,7 @@ def test_witness_hosted_is_unchanged_and_skips_the_health_probe(operator_client,
         "cost_usd": 0.01,
         "provider_used": None,
         "prompt": folio["image_prompt"],
+        "caption_facts": working.witness_caption_facts(folio),
     }
     assert body["manifestation"] == body["witness"]
     assert "witness_fallback" not in body
@@ -401,6 +402,7 @@ async def test_listener_writes_ok_witness_when_the_render_succeeds(fake):
         "width": 1024,
         "height": 1024,
         "prompt": folio["image_prompt"],
+        "caption_facts": working.witness_caption_facts(folio),
     }
     assert saved["witness"] == expected
     assert saved["manifestation"] == expected

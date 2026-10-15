@@ -279,6 +279,7 @@ class RenderWorker:
             "preset": params.get("preset"),
             "purpose": params.get("purpose"),
             "working_id": params.get("working_id"),
+            "caption_facts": params.get("caption_facts") or [],
             "generate": {"width": spec.width, "height": spec.height},
             "export": {"width": spec.export_width, "height": spec.export_height},
             "measured": {"width": measured[0], "height": measured[1]},

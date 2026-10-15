@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from core import image_prompts
 from core.auspicious_timing import check_auspicious_window, check_saka_dawa
 from core.context_builder import search_rates
 from core.radionics_engine import SignatureCalculator
@@ -278,13 +279,53 @@ def update_working_rates(working_id: str, rate_values: list[int]) -> dict[str, A
     return folio
 
 
+def _folio_moon(folio: dict[str, Any]) -> dict[str, Any] | None:
+    """The moon computed at the folio's ``sealed_at`` (Swiss Ephemeris), or ``None``."""
+    return image_prompts.moon_at(folio.get("sealed_at"))
+
+
+def _saka_block(folio: dict[str, Any]) -> dict[str, Any]:
+    saka = folio.get("saka_dawa")
+    return saka if isinstance(saka, dict) else {}
+
+
 def witness_prompt(folio: dict[str, Any]) -> str:
-    """The folio's image prompt (rebuilt from intention/target for folios sealed without one)."""
-    return folio.get("image_prompt") or _image_prompt(
+    """The folio's witness image prompt, always rebuilt from its facts.
+
+    A stored ``image_prompt`` is not reused: folios sealed before
+    :mod:`core.image_prompts` stored prompts with dates and a "full moon"
+    taken from a future festival, which models paint as text and false sky.
+    """
+    hour = folio.get("hour_stamp") if isinstance(folio.get("hour_stamp"), dict) else {}
+    return _image_prompt(
         str(folio.get("intention") or ""),
         str(folio.get("target") or "all beings"),
-        (folio.get("saka_dawa") or {}).get("saka_dawa_duchen") if isinstance(folio.get("saka_dawa"), dict) else None,
+        moon=_folio_moon(folio),
+        moon_phase_name=hour.get("moon_phase"),
+        saka_dawa=_saka_block(folio),
     )
+
+
+def witness_caption_facts(folio: dict[str, Any]) -> list[dict[str, str]]:
+    """The real values a witness image is captioned with (never painted into it)."""
+    facts: list[dict[str, str]] = []
+    if folio.get("sealed_at"):
+        facts.append(image_prompts.caption_fact("Sealed", folio["sealed_at"], "record"))
+    moon = _folio_moon(folio)
+    hour = folio.get("hour_stamp") if isinstance(folio.get("hour_stamp"), dict) else {}
+    if moon is not None:
+        facts.append(image_prompts.moon_caption_fact(moon, "Moon at sealing"))
+    elif hour.get("moon_phase"):
+        facts.append(image_prompts.caption_fact("Moon phase", hour["moon_phase"], "computed"))
+    if hour.get("planetary_hour"):
+        facts.append(image_prompts.caption_fact("Planetary hour", hour["planetary_hour"], "computed"))
+    saka = _saka_block(folio)
+    if saka.get("saka_dawa_duchen"):
+        facts.append(image_prompts.caption_fact("Saka Dawa Duchen", saka["saka_dawa_duchen"], "computed"))
+    multiplier = int(saka.get("multiplier") or 1)
+    if multiplier > 1:
+        facts.append(image_prompts.caption_fact("Merit multiplier", f"×{multiplier:,}", "computed"))
+    return facts
 
 
 def submit_witness_render(working_id: str) -> dict[str, Any] | None:
@@ -300,7 +341,14 @@ def submit_witness_render(working_id: str) -> dict[str, Any] | None:
     from backend.core.services.render.jobs import RenderJobRequest, submit_job
 
     install_witness_listener()
-    op = submit_job(RenderJobRequest(prompt=witness_prompt(folio), working_id=working_id, purpose="witness"))
+    op = submit_job(
+        RenderJobRequest(
+            prompt=witness_prompt(folio),
+            working_id=working_id,
+            purpose="witness",
+            caption_facts=witness_caption_facts(folio),
+        )
+    )
     return {"working_id": working_id, "operation": op}
 
 
@@ -323,6 +371,7 @@ def witness_block_for(op: dict[str, Any]) -> dict[str, Any] | None:
             "width": result.get("width"),
             "height": result.get("height"),
             "prompt": params.get("prompt"),
+            "caption_facts": params.get("caption_facts") or [],
         }
     if op.get("status") == "error":
         return {"status": "error", "operation_id": op["id"], "error": op.get("error") or "render failed"}
@@ -390,6 +439,7 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
         return {"error": "working_not_found", "working_id": working_id}
 
     prompt = witness_prompt(folio)
+    facts = witness_caption_facts(folio)
     try:
         from backend.core.llm_agent.tools import generate_image
 
@@ -401,6 +451,7 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
             "cost_usd": img.get("cost_usd"),
             "provider_used": img.get("provider_used"),
             "prompt": prompt,
+            "caption_facts": facts,
         }
         folio["witness"] = visual
         folio["manifestation"] = visual
@@ -443,10 +494,12 @@ def video_prompt_for(folio: dict[str, Any]) -> str:
     target = str(folio.get("target") or "all beings")
     charge = str(folio.get("spoken_charge") or "")
     still = str(folio.get("image_prompt") or "")
-    return (
+    # Video models paint numbers as text just like image models ("Merit ×100,000").
+    return image_prompts.finalize_image_prompt(
         f"{still} Slow cinematic push-in, seamless loop, prayer-bowl glow, "
-        f"dedication of merit for {target}. {charge} Theme: {intention}."
-    )[:1800]
+        f"dedication of merit for {target}. {charge} Theme: {intention}.",
+        max_chars=1800,
+    )
 
 
 def record_video(working_id: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -463,13 +516,37 @@ def record_video(working_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     return folio
 
 
-def _image_prompt(intention: str, target: str, duchen: str | None) -> str:
-    moon = f" Pale full moon for Saka Dawa Duchen {duchen}." if duchen else ""
-    return (
+def _image_prompt(
+    intention: str,
+    target: str,
+    *,
+    moon: dict[str, Any] | None = None,
+    moon_phase_name: str | None = None,
+    saka_dawa: dict[str, Any] | None = None,
+) -> str:
+    """The witness image prompt: imagery only, the moon as computed at the sitting.
+
+    The moon comes from ``moon`` (computed at ``sealed_at``), else from the
+    folio's stamped phase name, else it is left out. Saka Dawa is named only
+    when the sitting fell in it; its date belongs in the caption, not here.
+    """
+    if moon is not None:
+        sky = image_prompts.moon_imagery(moon["illumination"], moon.get("waxing"))
+    else:
+        sky = image_prompts.moon_imagery_from_phase_name(moon_phase_name)
+    saka = saka_dawa or {}
+    if saka.get("is_duchen"):
+        season = " Saka Dawa Duchen offerings: rows of butter lamps and white scarves."
+    elif saka.get("is_saka_dawa"):
+        season = " The Saka Dawa month: butter lamps glowing in the dusk."
+    else:
+        season = ""
+    sky_line = f" In the sky, {sky}." if sky else ""
+    return image_prompts.finalize_image_prompt(
         f"Manifestation still of the fulfilled intention: {intention[:200]}. "
         f"Dedicated to {target}. Sacred cinematic lighting, brass singing bowls "
-        f"at the edge of frame, amber and indigo, photographic, no readable text, "
-        f"no real people.{moon}"
+        f"at the edge of frame, amber and indigo, photographic, no real people."
+        f"{sky_line}{season}"
     )
 
 
@@ -540,7 +617,7 @@ def run_working(
             "planetary_hour": timing.planetary_hour,
             "recommended_approach": timing.recommended_approach,
         },
-        "image_prompt": _image_prompt(intention, target, saka.get("saka_dawa_duchen")),
+        "image_prompt": "",  # filled in below from the sealed facts (witness_prompt)
         "spoken_charge": _spoken_charge(intention, target, int(saka.get("multiplier") or 1)),
         "broadcast": None,
         "source": source or "command-center",
@@ -551,6 +628,7 @@ def run_working(
         },
         "divination": divination,
     }
+    folio["image_prompt"] = witness_prompt(folio)
 
     if broadcast:
         try:
