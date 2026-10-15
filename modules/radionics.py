@@ -19,7 +19,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import logging
 
-from core.integrated_scalar_radionics import BroadcastConfiguration, IntegratedScalarRadionicsBroadcaster, IntentionType
+from core.integrated_scalar_radionics import (
+    BroadcastConfiguration,
+    BroadcastStop,
+    IntegratedScalarRadionicsBroadcaster,
+    IntentionType,
+    stop_crystal_audio,
+)
 from core.rate_to_audio import map_rate_to_carriers
 from core.situation_geometry import resolve_target_coordinates
 from modules.interfaces import EventBus, HealingBroadcastStarted, RadionicsBroadcaster
@@ -69,6 +75,9 @@ class RadionicsService(RadionicsBroadcaster):
         location: str | None = None,
         lat: float | None = None,
         lon: float | None = None,
+        *,
+        operation_id: str | None = None,
+        stop: BroadcastStop | None = None,
     ) -> dict[str, Any]:
         """Broadcast healing to target.
 
@@ -79,7 +88,13 @@ class RadionicsService(RadionicsBroadcaster):
 
         The crystal service (if available) plays the prayer bowl audio
         through the hardware grid. The integrated broadcaster generates
-        scalar waves in parallel.
+        scalar waves in parallel; the audio is stopped when the scalar run
+        ends (completed, cancelled or interrupted).
+
+        ``operation_id`` / ``stop`` are passed to
+        :meth:`~core.integrated_scalar_radionics.IntegratedScalarRadionicsBroadcaster.broadcast_to_targets`
+        when a caller runs this in the background and owns the ledger
+        operation (``POST /radionics/broadcast``).
         """
         session_id = str(uuid.uuid4())
 
@@ -129,6 +144,7 @@ class RadionicsService(RadionicsBroadcaster):
             frequency_hz=freq_list[1] if len(freq_list) > 1 else frequency_hz,
             mantra="Om Mani Padme Hum",
             use_chakras=True,
+            play_crystal=False,  # this service plays the audio itself, honouring the mute
         )
 
         # Notify the UI FIRST so users aren't surprised by the singing bowls
@@ -182,12 +198,17 @@ class RadionicsService(RadionicsBroadcaster):
             except Exception as e:
                 crystal_result = {"status": "failed", "error": str(e)}
 
-        # Invoke scalar-radionics broadcaster for scalar wave generation
+        # Invoke scalar-radionics broadcaster for scalar wave generation.
+        # The audio above is a non-blocking loop, so it is stopped when the
+        # scalar run ends rather than left looping.
         scalar_result = None
         try:
-            scalar_result = self.broadcaster.broadcast_to_targets(config)
+            scalar_result = self.broadcaster.broadcast_to_targets(config, operation_id=operation_id, stop=stop)
         except Exception as e:
             scalar_result = {"status": "failed", "error": str(e)}
+        finally:
+            if (crystal_result or {}).get("status") == "completed":
+                stop_crystal_audio()
 
         return {
             "session_id": session_id,
@@ -270,6 +291,7 @@ class RadionicsService(RadionicsBroadcaster):
             mantra="Namo Amitabha Buddha",
             use_chakras=True,
             use_meridians=True,
+            play_crystal=False,  # played (blocking) by this service just below
         )
 
         # Crystal service
