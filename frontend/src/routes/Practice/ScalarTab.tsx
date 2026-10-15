@@ -41,8 +41,8 @@ import ScalarWaveVisualizer, {
 } from '../../components/2D/ScalarWaveVisualizer';
 import { useAudioStore } from '../../stores/audioStore';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
-import { fetchOperationsSummary, formatHeld, startOfLocalDayIso } from '../../lib/operationsSummary';
-import type { OperationsSummary } from '../../types/operations';
+import { formatHeld } from '../../lib/operationsSummary';
+import { useTodaySummary } from '../../stores/operationsStore';
 
 // ─── Element display (local copy — mirrors JourneyCard's map so this tab
 //     stays self-contained and doesn't reach into another component's guts).
@@ -106,9 +106,6 @@ function isSessionLike(v: unknown): v is SessionLike {
   return typeof v === 'object' && v !== null;
 }
 
-/** How often the ledger panel refreshes today's summary. */
-const LEDGER_POLL_MS = 30_000;
-
 // ─── Shared glass panel style (matches the UI overhaul's header/footer) ───
 // rgba(20,10,30,0.7) + blur(12px) — the established vajra glassmorphism token.
 const GLASS_PANEL =
@@ -156,7 +153,8 @@ export default function ScalarTab(): React.ReactElement {
   const [journeyFallback, setJourneyFallback] = useState<JourneyStatus | null>(null);
   // Today's operations ledger (undefined = loading, null = unreachable).
   // Replaces the retired MOPS readout (docs/DEVELOPMENT_ROADMAP.md, "Decisions").
-  const [ledger, setLedger] = useState<OperationsSummary | null | undefined>(undefined);
+  // Shared with the footer through the operations store's single poller.
+  const ledger = useTodaySummary();
   const journeyWs = journeyStatus as JourneyStatus | null;
   const journey =
     journeyWs?.active
@@ -174,23 +172,6 @@ export default function ScalarTab(): React.ReactElement {
   // ── refs to read latest values inside stable callbacks ─────────────
   const elementKeyRef = useRef(elementKey);
   elementKeyRef.current = elementKey;
-
-  // ───────────────────────────────────────────────────────────────────
-  // EFFECT: today's operations-ledger summary (polled; best-effort).
-  // ───────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const summary = await fetchOperationsSummary(startOfLocalDayIso());
-      if (!cancelled) setLedger(summary);
-    };
-    void load();
-    const interval = setInterval(() => void load(), LEDGER_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
 
   // ───────────────────────────────────────────────────────────────────
   // EFFECT: one-shot initial journey fetch (fallback while waiting for

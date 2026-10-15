@@ -21,20 +21,13 @@ import { ROUTES, DEFAULT_ROUTE } from '../../lib/routes';
 import { useAudioActivity } from '../../stores/audioActivityStore';
 import AudioManager from '../UI/AudioManager';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
-import {
-  fetchOperationsSummary,
-  formatOperationsSummary,
-  startOfLocalDayIso,
-} from '../../lib/operationsSummary';
-import type { OperationsSummary } from '../../types/operations';
+import { formatOperationsSummary } from '../../lib/operationsSummary';
+import { useTodaySummary } from '../../stores/operationsStore';
 
 // Ant Design
 import { Layout, Menu, Button, Space, Badge, Drawer } from 'antd';
 
 const { Header, Content, Footer } = Layout;
-
-/** How often the footer refreshes today's ledger summary. */
-const LEDGER_POLL_MS = 30_000;
 
 interface Props {
   children: React.ReactNode;
@@ -65,21 +58,9 @@ const MainLayoutComponent: React.FC<Props> = ({
   const activeTab = location.pathname.split('/')[1] || DEFAULT_ROUTE;
   const { idleReflectionCount } = useWebSocketStable();
 
-  // Today's operations ledger (undefined = loading, null = unreachable).
-  const [ledger, setLedger] = useState<OperationsSummary | null | undefined>(undefined);
-  useEffect(() => {
-    let cancelled = false;
-    const load = async (): Promise<void> => {
-      const summary = await fetchOperationsSummary(startOfLocalDayIso());
-      if (!cancelled) setLedger(summary);
-    };
-    void load();
-    const interval = setInterval(() => void load(), LEDGER_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
+  // Today's operations ledger (undefined = loading, null = unreachable),
+  // from the store's shared poller.
+  const ledger = useTodaySummary();
 
   // Keyboard shortcuts
   useEffect(() => {
