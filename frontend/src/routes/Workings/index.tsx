@@ -30,7 +30,10 @@ interface WorkingSummary {
 
 export default function WorkingsPage(): React.ReactElement {
   const [items, setItems] = useState<WorkingSummary[]>([]);
-  const [openId, setOpenId] = useState<string | null>(null);
+  // `/workings?open=<working_id>` opens that folio (linked from the operations ledger).
+  const [openId, setOpenId] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('open'),
+  );
   const [folio, setFolio] = useState<WorkingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
