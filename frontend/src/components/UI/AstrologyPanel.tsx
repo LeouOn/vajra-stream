@@ -9,6 +9,7 @@ import {
 import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
+import { formatMoonIllumination } from '../../lib/moonIllumination';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import VedicPanchanga from './VedicPanchanga';
@@ -782,9 +783,7 @@ export default function AstrologyPanel() {
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">MOON ILLUMINATION</span>
                           <span className="text-sm font-bold text-cyan-400 block mt-1">
-                            {activeData?.moon_phase?.illumination != null
-                              ? `${((activeData.moon_phase.illumination <= 1 ? activeData.moon_phase.illumination * 100 : activeData.moon_phase.illumination)).toFixed(1)}%`
-                              : '—'}
+                            {formatMoonIllumination(activeData?.moon_phase?.illumination)}
                           </span>
                         </Card>
                       </Col>
