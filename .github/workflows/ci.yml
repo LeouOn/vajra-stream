@@ -71,3 +71,10 @@ jobs:
 
       - name: Frontend unit tests
         run: npm test
+
+      - name: TypeScript error ratchet
+        # vite build does not type-check; fail if tsc errors exceed .tsc-baseline.
+        run: npm run typecheck
+
+      - name: Frontend production build
+        run: npm run build
