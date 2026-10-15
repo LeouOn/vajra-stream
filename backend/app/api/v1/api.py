@@ -25,6 +25,7 @@ from backend.app.api.v1.endpoints import practices as practices_endpoint
 from backend.app.api.v1.endpoints import prayer_wheel as prayer_wheel_endpoint
 from backend.app.api.v1.endpoints import radionics as radionics_endpoint
 from backend.app.api.v1.endpoints import radionics_narratives as radionics_narratives_endpoint
+from backend.app.api.v1.endpoints import render as render_endpoint
 from backend.app.api.v1.endpoints import ritual_engine as ritual_engine_endpoint
 from backend.app.api.v1.endpoints import rng_attunement as rng_endpoint
 from backend.app.api.v1.endpoints import scalar_waves as scalar_endpoint
@@ -67,6 +68,7 @@ api_router.include_router(prayer_wheel_endpoint.router, tags=["prayer-wheel"])
 api_router.include_router(time_cycles_endpoint.router, tags=["time-cycles"])
 api_router.include_router(operator_endpoint.router, prefix="/operator", tags=["operator"])
 api_router.include_router(operations_endpoint.router)
+api_router.include_router(render_endpoint.router)
 api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["outlook"])
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])
