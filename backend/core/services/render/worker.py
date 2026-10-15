@@ -11,6 +11,7 @@ deliberately left ``running`` so the next start can re-attach to it.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import hashlib
 import json
 import logging
@@ -18,7 +19,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from backend.core.services.render import jobs
+from backend.core.services.render import jobs, references
 from backend.core.services.render.base import (
     BackendJob,
     RenderBackend,
@@ -32,6 +33,22 @@ from core import operations
 logger = logging.getLogger(__name__)
 
 IDLE_RECHECK_SECONDS = 30.0
+
+
+def install_result_listeners() -> None:
+    """Register the ledger listeners that deliver finished renders to their consumers.
+
+    Today that is the folio witness writer (``core.working.apply_witness_render``,
+    spec Contract W2-2). Installed when the worker starts, before it re-attaches
+    or drains anything, so no completion is missed; ``add_listener`` ignores
+    duplicates, so calling this again is harmless.
+    """
+    try:
+        from core.working import install_witness_listener
+
+        install_witness_listener()
+    except Exception:
+        logger.exception("render worker: could not install the witness listener")
 
 
 class RenderWorker:
@@ -60,6 +77,7 @@ class RenderWorker:
         """Recover, then drain forever. Cancel the task to stop."""
         self._loop = asyncio.get_running_loop()
         self._wake = asyncio.Event()
+        install_result_listeners()
         try:
             await self.recover()
         except Exception:
@@ -140,6 +158,23 @@ class RenderWorker:
     def _timeout(self) -> float:
         return self._timeout_seconds if self._timeout_seconds is not None else jobs.render_timeout_seconds()
 
+    @staticmethod
+    async def _reference_fields(
+        backend: RenderBackend, op: dict[str, Any], reference_id: str, reattach: bool
+    ) -> dict[str, Any]:
+        """Upload a copy of the job's reference image, or on re-attach reuse the recorded upload."""
+        if reattach:
+            prior = op.get("result") or {}
+            if not prior.get("reference_image"):
+                raise RenderError(f"cannot re-attach: the upload of reference {reference_id} was not recorded")
+            return {"reference_sha256": prior.get("reference_sha256"), "reference_image": prior["reference_image"]}
+        try:
+            data, filename = references.load_reference(reference_id)
+        except references.InvalidReference as exc:
+            raise RenderError(str(exc)) from exc
+        uploaded = await backend.upload_reference(data, f"vajra-reference-{filename}")
+        return {"reference_sha256": hashlib.sha256(data).hexdigest(), "reference_image": uploaded}
+
     async def _execute(self, op: dict[str, Any], prompt_id: str | None) -> None:
         op_id = op["id"]
         self.current_op_id = op_id
@@ -149,10 +184,15 @@ class RenderWorker:
             params = op.get("params") or {}
             backend = jobs.get_backend(params.get("backend", jobs.DEFAULT_BACKEND))
             spec = RenderSpec.from_params(op_id, params)
+            reference: dict[str, Any] = {}
+            if params.get("reference_id"):
+                reference = await self._reference_fields(backend, op, params["reference_id"], prompt_id is not None)
+                spec = dataclasses.replace(spec, reference_image=reference["reference_image"])
+                result.update(reference)
             graph = backend.build_graph(spec)
             if prompt_id is None:
                 prompt_id = await backend.submit(spec)
-                result = {"backend_prompt_id": prompt_id, "queue_position": None}
+                result = {"backend_prompt_id": prompt_id, "queue_position": None, **reference}
                 try:
                     operations.update_operation_result(op_id, result)
                 except operations.OperationError:
@@ -179,7 +219,7 @@ class RenderWorker:
                 raise RenderError(
                     f"expected a {spec.export_width}x{spec.export_height} PNG, backend returned {width}x{height}"
                 )
-            final = self._write_artifacts(op, spec, graph, job, backend, (width, height))
+            final = self._write_artifacts(op, spec, graph, job, backend, (width, height), reference)
             try:
                 operations.complete_operation(op_id, final)
             except operations.OperationError:
@@ -217,6 +257,7 @@ class RenderWorker:
         job: BackendJob,
         backend: RenderBackend,
         measured: tuple[int, int],
+        reference: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         rel = jobs.artifact_relpath(op)
         png_path = jobs.artifact_base() / rel
@@ -241,6 +282,15 @@ class RenderWorker:
             "generate": {"width": spec.width, "height": spec.height},
             "export": {"width": spec.export_width, "height": spec.export_height},
             "measured": {"width": measured[0], "height": measured[1]},
+            "reference": (
+                {
+                    "reference_id": params.get("reference_id"),
+                    "sha256": reference.get("reference_sha256"),
+                    "backend_image": reference.get("reference_image"),
+                }
+                if reference
+                else None
+            ),
             "sha256": digest,
             "bytes": len(job.image),
             "image": str(rel),
@@ -253,7 +303,7 @@ class RenderWorker:
         (jobs.artifact_base() / sidecar_rel).write_text(
             json.dumps(sidecar, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-        return {
+        final: dict[str, Any] = {
             "backend_prompt_id": job.prompt_id,
             "image_url": f"/api/v1/render/jobs/{op['id']}/image",
             "width": measured[0],
@@ -263,6 +313,9 @@ class RenderWorker:
             "artifact_path": str(rel),
             "sidecar_path": str(sidecar_rel),
         }
+        if reference:
+            final["reference_sha256"] = reference.get("reference_sha256")
+        return final
 
 
 _worker: RenderWorker | None = None

@@ -66,6 +66,8 @@ class FakeComfy:
         self.submit_reply: tuple[int, Any] | None = None
         self.exec_error: dict[str, Any] | None = None
         self.down = False
+        self.uploads: list[bytes] = []  # raw multipart bodies sent to /upload/image
+        self.upload_subfolder = ""
 
     def _queue_item(self, number: int, pid: str) -> list[Any]:
         return [number, pid, {}, {}, ["10"]]
@@ -97,6 +99,11 @@ class FakeComfy:
             raise httpx.ConnectError("[WinError 10061] connection refused", request=request)
         method, path = request.method, request.url.path
         self.calls.append((method, path))
+        if method == "POST" and path == "/upload/image":
+            content = request.read()
+            self.uploads.append(content)
+            name = f"vajra-reference-upload-{len(self.uploads)}.png"
+            return httpx.Response(200, json={"name": name, "subfolder": self.upload_subfolder, "type": "input"})
         body = json.loads(request.content) if request.content else None
         if method == "POST" and path == "/prompt":
             if self.submit_reply is not None:
@@ -160,6 +167,10 @@ def isolated(tmp_path, monkeypatch):
     # Any accidental use of the settings-driven adapter must fail loudly, not reach 127.0.0.1:8188.
     monkeypatch.setitem(jobs.BACKENDS, BACKEND_NAME, lambda: pytest.fail("real ComfyUI adapter used in a test"))
     yield tmp_path
+    # RenderWorker.run() installs the folio witness listener; keep it from leaking into other tests.
+    from core.working import witness_listener
+
+    operations.remove_listener(witness_listener)
 
 
 @pytest.fixture
@@ -292,6 +303,7 @@ def test_normalized_params_echo_request():
         "backend": BACKEND_NAME,
         "working_id": "w9",
         "purpose": "free",
+        "reference_id": None,
     }
     custom, _ = jobs.normalize_request(RenderJobRequest(prompt="x", width=512, height=768, seed=1))
     assert (custom["preset"], custom["width"], custom["height"], custom["generate_width"]) == (None, 512, 768, 512)

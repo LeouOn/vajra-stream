@@ -1,11 +1,13 @@
 """Local render engine: render jobs are operations (``kind="render"``) run one at a time.
 
-Contract: docs/specs/2026-10-14-operations-and-local-render.md ("Render contract").
+Contract: docs/specs/2026-10-14-operations-and-local-render.md ("Render contract", W2-1, W2-2).
 
 * :mod:`.base` — presets, :class:`RenderSpec`, the :class:`RenderBackend` protocol, PNG checks
 * :mod:`.comfyui` — ComfyUI + Qwen-Image 2.1 Turbo adapter (graph ported from the DataForge garden)
 * :mod:`.jobs` — request validation, submit / cancel, artifact paths, backend registry
-* :mod:`.worker` — the single asyncio worker started from ``backend/app/main.py``
+* :mod:`.references` — content-addressed reference images (header-sniffed PNG / JPEG / WebP)
+* :mod:`.worker` — the single asyncio worker started from ``backend/app/main.py``; on start it
+  installs the folio witness listener (``core.working.apply_witness_render``)
 """
 
 from backend.core.services.render.base import PRESETS, Preset, RenderBackend, RenderError, RenderSpec

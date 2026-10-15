@@ -77,6 +77,8 @@ class RenderSpec:
     height: int
     export_width: int
     export_height: int
+    # Backend-side name of an uploaded reference image (``upload_reference``), or None.
+    reference_image: str | None = None
 
     @classmethod
     def from_params(cls, job_id: str, params: dict[str, Any]) -> RenderSpec:
@@ -114,6 +116,10 @@ class RenderBackend(Protocol):
 
     def build_graph(self, spec: RenderSpec) -> dict[str, Any]:
         """The exact request the backend will execute (stored in the sidecar)."""
+        ...
+
+    async def upload_reference(self, data: bytes, filename: str) -> str:
+        """Copy a reference image to the backend; return the name to use as ``RenderSpec.reference_image``."""
         ...
 
     async def submit(self, spec: RenderSpec) -> str:
