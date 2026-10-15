@@ -55,7 +55,7 @@ All paths are under `/api/v1`. A render job **is** an operation (`kind="render"`
   "prompt": "string, required, non-empty",
   "preset": "square-1024 | desktop-19-10 | desktop-19-9 | s25",  // or width+height
   "width": 1024, "height": 1024,      // multiples of 32, 256..2560; ignored if preset given
-  "seed": 123,                         // optional, 0..2^63-1; omitted -> drawn, provenance.seed = "draw"
+  "seed": 123,                         // optional, 0..2^53-1 (JS-safe, so it round-trips exactly); omitted -> drawn, provenance.seed = "draw"
   "backend": "comfyui-qwen-image-2.1", // default; the only one in v1
   "working_id": "optional folio id to link",
   "purpose": "free | witness | sigil"  // default "free"
