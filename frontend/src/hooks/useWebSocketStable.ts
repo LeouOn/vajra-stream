@@ -30,19 +30,18 @@ import { useOperationsStore } from '../stores/operationsStore';
 import { update as updateChatProgress } from './chatProgress';
 import type {
   WSMessage,
+  WSMessageBase,
   CrystalStatus,
   ScalarStatus,
   WSConnectionState,
   ApiResponse,
   RecitationStatus,
+  RNGReading,
   SakaDawaResult,
   ProviderHealthStatus,
   PracticeStatus,
-  WSPracticeStarted,
-  WSPracticeRecited,
-  WSPracticeCompleted,
-  WSPracticeStopped,
   WSLLMUsageUpdate,
+  WSBuddhaRecitationStarted,
 } from '../types';
 
 export interface LLMUsageUpdate {
@@ -63,7 +62,7 @@ export interface UseWebSocketStableReturn {
   crystalStatus: CrystalStatus;
   scalarStatus: ScalarStatus;
   connectionStats: Record<string, unknown>;
-  rngData: Record<string, unknown> | null;
+  rngData: RNGReading | null;
   buddhaStatus: RecitationStatus | null;
   sakaDawa: SakaDawaResult | null;
   ritualStatus: Record<string, unknown> | null;
@@ -122,7 +121,7 @@ interface WsSnapshot {
   crystalStatus: CrystalStatus;
   scalarStatus: ScalarStatus;
   connectionStats: Record<string, unknown>;
-  rngData: Record<string, unknown> | null;
+  rngData: RNGReading | null;
   buddhaStatus: RecitationStatus | null;
   sakaDawa: SakaDawaResult | null;
   ritualStatus: Record<string, unknown> | null;
@@ -219,6 +218,29 @@ function _stopHeartbeat(): void {
     clearInterval(_heartbeatInterval);
     _heartbeatInterval = null;
   }
+}
+
+/**
+ * BUDDHA_RECITATION_STARTED carries only `{ intention, total_buddhas }`, not a
+ * full `get_status()` projection. The backend's start() resets its state to a
+ * fresh RecitationState, so mirror that here: a zeroed, running status. (It
+ * used to be stored as-is, leaving `running` undefined until the first name.)
+ */
+export function buddhaStatusOnStart(started: WSBuddhaRecitationStarted['data']): RecitationStatus {
+  return {
+    running: true,
+    intention: started.intention ?? '',
+    current_index: 0,
+    current_cycle: 0,
+    total_recited: 0,
+    mala_count: 0,
+    dedications: 0,
+    total_buddhas: started.total_buddhas ?? 0,
+    current_buddha: {},
+    progress_pct: 0,
+    started_at: new Date().toISOString(),
+    last_recited_at: '',
+  };
 }
 
 /**
@@ -337,9 +359,9 @@ function _connect(url: string = _url): void {
           case 'connection_status':
             _updateSnapshot({ connectionStatus: data.status as WSConnectionState });
             if (data.connection_id) {
-  console.log('Connection ID:', data.connection_id);
-  _activeConnectionId = data.connection_id;
-}
+              console.log('Connection ID:', data.connection_id);
+              _activeConnectionId = data.connection_id;
+            }
             break;
           case 'heartbeat':
             if (data.active_connections !== undefined) {
@@ -355,16 +377,19 @@ function _connect(url: string = _url): void {
             _updateSnapshot({ rngData: data.data });
             break;
           case 'BUDDHA_RECITATION_UPDATE':
-            _updateSnapshot({ buddhaStatus: data.data as RecitationStatus });
+            _updateSnapshot({ buddhaStatus: data.data });
             break;
-          // Backend: core/buddha_recitation_loop.py:196,425,267 — lifecycle events for
-          // the 88-Buddhas recitation. Same payload shape as BUDDHA_RECITATION_UPDATE;
-          // wire them to the same setter so the UI updates regardless of which fires.
+          // Backend: core/buddha_recitation_loop.py — lifecycle events for the
+          // 88-Buddhas recitation. NAME_RECITED / STOPPED carry the same
+          // get_status() projection as BUDDHA_RECITATION_UPDATE; STARTED carries
+          // only { intention, total_buddhas } and starts a fresh, zeroed status.
           // (Restored after remediation Task 24 regressively deleted these branches.)
           case 'BUDDHA_RECITATION_STARTED':
+            _updateSnapshot({ buddhaStatus: buddhaStatusOnStart(data.data) });
+            break;
           case 'BUDDHA_NAME_RECITED':
           case 'BUDDHA_RECITATION_STOPPED':
-            _updateSnapshot({ buddhaStatus: data.data as RecitationStatus });
+            _updateSnapshot({ buddhaStatus: data.data });
             break;
           // Backend: core/ritual_engine.py:759,297,317,337,348,368,617 — ritual engine
           // lifecycle + planetary-hour shift. RITUAL_ENGINE_STATUS/RITUAL_PHASE/
@@ -393,7 +418,7 @@ function _connect(url: string = _url): void {
           // Toast so users aren't surprised by the prayer-bowl audio, and so a
           // muted broadcast still shows what was suppressed.
           case 'HEALING_BROADCAST_STARTED': {
-            const b = (data as { data?: Record<string, unknown> }).data ?? {};
+            const b = data.data ?? {};
             const freq = b.frequency_hz ?? b.frequencies?.[1] ?? '?';
             const target = b.target ?? 'the field';
             const muted = !!b.audio_muted;
@@ -426,11 +451,11 @@ function _connect(url: string = _url): void {
             useOperationsStore.getState().ingest((data as { data?: unknown }).data);
             break;
           case 'SAKA_DAWA_CHECK':
-            _updateSnapshot({ sakaDawa: data.data as SakaDawaResult });
+            _updateSnapshot({ sakaDawa: data.data });
             break;
           case 'PROVIDER_HEALTH':
             _updateSnapshot({
-              providerHealth: (data as { statuses?: ProviderHealthStatus[] }).statuses || [],
+              providerHealth: data.statuses || [],
               lastProviderHealthUpdate: Date.now(),
             });
             break;
@@ -438,7 +463,8 @@ function _connect(url: string = _url): void {
           // and on a periodic aggregate tick. Drives the live cost badge and
           // "calls today" counter on UsageDashboard.
           case 'LLM_USAGE_UPDATE': {
-            const payload = data as WSLLMUsageUpdate;
+            // Counters are nested under `data` (backend/app/main.py _broadcast_usage).
+            const payload: WSLLMUsageUpdate['data'] = data.data ?? {};
             _updateSnapshot({
               usageUpdate: {
                 total_calls: payload.total_calls ?? 0,
@@ -458,14 +484,14 @@ function _connect(url: string = _url): void {
           case 'chat_complete':
           case 'chat_error':
           case 'chat_cancelled':
-            updateChatProgress((data as { job_id?: string }).job_id as string, data as unknown as Record<string, unknown>);
+            updateChatProgress(data.job_id, data);
             break;
           // Backend: core/practice_engine.py:_broadcast_ws — multi-practice
           // recitation lifecycle (Tara / Zhunti / Medicine Buddha / etc.).
           // PRACTICE_RECITED carries the same shape as PRACTICE_STARTED's
           // status projection, so all four branches fold into one setter.
           case 'PRACTICE_STARTED': {
-            const started = (data as WSPracticeStarted).data;
+            const started = data.data;
             _updateSnapshot({
               practices: {
                 ..._snapshot.practices,
@@ -489,7 +515,7 @@ function _connect(url: string = _url): void {
             break;
           }
           case 'PRACTICE_RECITED': {
-            const recited = (data as WSPracticeRecited).data;
+            const recited = data.data;
             _updateSnapshot({
               practices: {
                 ..._snapshot.practices,
@@ -499,7 +525,7 @@ function _connect(url: string = _url): void {
             break;
           }
           case 'PRACTICE_COMPLETED': {
-            const done = (data as WSPracticeCompleted).data;
+            const done = data.data;
             _updateSnapshot({
               practices: {
                 ..._snapshot.practices,
@@ -518,7 +544,7 @@ function _connect(url: string = _url): void {
             break;
           }
           case 'PRACTICE_STOPPED': {
-            const stopped = (data as WSPracticeStopped).data;
+            const stopped = data.data;
             _updateSnapshot({
               practices: {
                 ..._snapshot.practices,
@@ -540,7 +566,7 @@ function _connect(url: string = _url): void {
             break;
           case 'IDLE_REFLECTION':
           case 'BACKGROUND_GENERATION': {
-            const reflection = (data as { data?: { intention?: string; genre?: string; timestamp?: string; narrative_preview?: string } }).data;
+            const reflection = data.data;
             _updateSnapshot({
               idleReflectionCount: _snapshot.idleReflectionCount + 1,
               lastIdleReflection: {
@@ -579,7 +605,7 @@ function _connect(url: string = _url): void {
             _updateSnapshot({ error: data.message || 'System error occurred' });
             break;
           default:
-            console.log('Unknown WebSocket message type:', data.type);
+            console.log('Unknown WebSocket message type:', (data as WSMessageBase).type);
         }
       } catch (err) {
         console.error('Error parsing WebSocket message:', err);
