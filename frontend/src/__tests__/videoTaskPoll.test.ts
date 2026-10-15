@@ -24,7 +24,9 @@ describe('pollVideoTask', () => {
 
   it('polls until done, then stops and reports once', async () => {
     const statuses = ['queued', 'running', 'done'];
-    const fetchMock = vi.fn(async () => jsonResponse({ task_id: 't1', status: statuses.shift() ?? 'done' }));
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
+      jsonResponse({ task_id: 't1', status: statuses.shift() ?? 'done' }),
+    );
     vi.stubGlobal('fetch', fetchMock);
     const onStatus = vi.fn();
     const onFinish = vi.fn();

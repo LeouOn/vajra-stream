@@ -282,7 +282,7 @@ const GrimoirePanel: React.FC = () => {
               </div>
             </div>
 
-            {details.desc && (
+            {Boolean(details.desc) && (
               <div className="bg-purple-950/20 p-3.5 rounded-lg border border-purple-500/20">
                 <span className="text-[10px] font-mono text-purple-300 uppercase block font-bold mb-1">
                   👁️ Symbolism & Archetypal Imagery
@@ -351,7 +351,7 @@ const GrimoirePanel: React.FC = () => {
         {/* ================= MANTRAS & SUTRAS VIEW ================= */}
         {(category === 'mantras' || category === 'sutras') && (
           <div className="space-y-4 text-xs">
-            {details.sanskrit && (
+            {Boolean(details.sanskrit) && (
               <div className="bg-white/5 p-3.5 rounded-lg border border-white/5">
                 <span className="text-[10px] font-mono text-amber-300 uppercase block font-bold mb-1">
                   Sanskrit / Devanagari Script
@@ -359,7 +359,7 @@ const GrimoirePanel: React.FC = () => {
                 <p className="text-white text-sm font-serif">{String(details.sanskrit)}</p>
               </div>
             )}
-            {details.passage && (
+            {Boolean(details.passage) && (
               <div className="bg-purple-950/20 p-4 rounded-lg border border-purple-500/20 space-y-2">
                 <span className="text-[10px] font-mono text-purple-300 uppercase block font-bold">
                   📜 Sacred Passage Excerpt
@@ -369,7 +369,7 @@ const GrimoirePanel: React.FC = () => {
                 </p>
               </div>
             )}
-            {details.context && (
+            {Boolean(details.context) && (
               <div className="bg-white/5 p-3 rounded-lg border border-white/5">
                 <span className="text-[10px] font-mono text-gray-400 uppercase block font-bold mb-1">Context & Commentary</span>
                 <p className="text-gray-300 text-[11px] leading-relaxed">{String(details.context)}</p>

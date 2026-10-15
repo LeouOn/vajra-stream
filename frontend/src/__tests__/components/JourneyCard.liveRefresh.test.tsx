@@ -11,6 +11,10 @@
 import React, { act } from 'react';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
+// Imported statically: the hook only touches the WebSocket global when the
+// card mounts, after beforeAll has stubbed it (and a dynamic import of the
+// antd-heavy card can exceed the test timeout under a parallel run).
+import JourneyCard from '../../components/UI/JourneyCard';
 
 class FakeWebSocket {
   static readonly CONNECTING = 0;
@@ -65,7 +69,6 @@ afterAll(() => {
 
 describe('JourneyCard live refresh', () => {
   it('refetches /operator/journey/status on JOURNEY_* events', async () => {
-    const { default: JourneyCard } = await import('../../components/UI/JourneyCard');
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -83,5 +86,5 @@ describe('JourneyCard live refresh', () => {
 
     await act(async () => ws?.push({ type: 'JOURNEY_COMPLETED', data: { total_stages: 6, total_blessings: 18, character: {} } }));
     expect(statusFetches()).toBe(afterMount + 2);
-  });
+  }, 15_000);
 });

@@ -25,7 +25,7 @@ import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { useAmbientBowl } from '../../hooks/useAmbientBowl';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
-import type { RecitationStatus } from '../../../types';
+import type { RecitationStatus } from '../../types';
 import IntentionEditor from './IntentionEditor';
 import DedicationText from './DedicationText';
 import SessionHistory from './SessionHistory';
