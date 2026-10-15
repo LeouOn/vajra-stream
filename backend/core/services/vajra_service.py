@@ -75,6 +75,39 @@ except ImportError:
 ENHANCED_MODE = AstrologicalCalculator is not None
 print(f"Service running with Astrological Calculations: {AstrologicalCalculator is not None}")
 
+DEFAULT_SESSION_FREQUENCY = 528.0
+
+
+def session_rate(frequency: float) -> float:
+    """The radionics rate shown for a session: its carrier frequency mod 100.
+
+    Deterministic from the session's real carrier frequency (provenance
+    ``computed``). It used to carry ``random.uniform(-2, 2)`` jitter, which
+    made a constant look like a fluctuating reading.
+    """
+    return round(float(frequency) % 100, 2)
+
+
+def rate_broadcast_message(session: dict) -> dict:
+    """Build the ``RADIONICS_RATE_BROADCAST`` WebSocket message for a session.
+
+    Shape: ``{"type", "data": {"rate", "session_id", "frequency", "provenance"},
+    "timestamp"}``. ``provenance`` is additive; existing consumers read
+    ``data.rate`` only.
+    """
+    cfg = session.get("config")
+    freq = getattr(getattr(cfg, "audio_config", None), "frequency", DEFAULT_SESSION_FREQUENCY)
+    return {
+        "type": "RADIONICS_RATE_BROADCAST",
+        "data": {
+            "rate": session_rate(freq),
+            "session_id": session.get("id"),
+            "frequency": freq,
+            "provenance": {"rate": "computed"},
+        },
+        "timestamp": time.time(),
+    }
+
 
 class VajraStreamService:
     """Main service wrapper for Vajra.Stream functionality"""
@@ -523,10 +556,9 @@ class VajraStreamService:
 
     async def _broadcast_loop(self):
         """Periodically emit RADIONICS_RATE_BROADCAST and SCALAR_WAVE_ACTIVE to WebSocket clients, and publish RNGReadingEvent."""
-        import random
         import uuid
 
-        from backend.core.services.rng_attunement_service import get_rng_service
+        from backend.core.services.rng_attunement_service import get_rng_service, reading_provenance
         from modules.interfaces import RNGReadingEvent
 
         idle_count = 0
@@ -592,6 +624,7 @@ class VajraStreamService:
                                         "needle_state": latest_reading.needle_state,
                                         "trend": latest_reading.trend,
                                         "quality": latest_reading.quality,
+                                        "provenance": reading_provenance(),
                                     },
                                     "timestamp": time.time(),
                                 }
@@ -633,20 +666,7 @@ class VajraStreamService:
 
                 # Emit RADIONICS_RATE_BROADCAST for each running session
                 for session in running:
-                    cfg = session.get("config")
-                    freq = getattr(getattr(cfg, "audio_config", None), "frequency", 528.0)
-                    rate = round((freq % 100) + random.uniform(-2, 2), 2)
-                    await stable_connection_manager_v2.broadcast(
-                        {
-                            "type": "RADIONICS_RATE_BROADCAST",
-                            "data": {
-                                "rate": rate,
-                                "session_id": session["id"],
-                                "frequency": freq,
-                            },
-                            "timestamp": time.time(),
-                        }
-                    )
+                    await stable_connection_manager_v2.broadcast(rate_broadcast_message(session))
 
             except Exception as e:
                 print(f"Error in broadcast loop: {e}")
