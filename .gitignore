@@ -130,3 +130,6 @@ scratch/
 # Generated ritual output (private)
 ritual_output.md
 *.ritual.md
+
+# Claude Code agent worktrees (local only)
+.claude/worktrees/

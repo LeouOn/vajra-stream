@@ -44,6 +44,7 @@ ALLOWED: dict[str, str] = {
     "core/radionics_engine.py": "draw: GV, potency and dial draws (stick-pad analog); outputs carry provenance",
     "backend/core/services/rng_attunement_service.py": "draw: e-meter needle draws; readings carry provenance",
     "backend/core/services/true_rng_provider.py": "draw: entropy source behind the attunement draws (offline fallback)",
+    "backend/core/services/render/jobs.py": "draw: render seed when none is chosen; recorded as provenance seed=draw",
     "backend/core/services/divination_service.py": "draw: tarot / I Ching / geomancy casts, divination by nature",
     "backend/app/api/v1/endpoints/divination.py": "draw: geomancy mother figures, divination by nature",
     "core/ritual_generator.py": "draw: tarot, hexagram and geomancy picks for the ritual text",
