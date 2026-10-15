@@ -8,10 +8,12 @@ Solfeggio carriers, a spoken charge, and a non-blocking broadcast.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import threading
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -416,6 +418,90 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
         folio["saved"] = False
         folio["save_error"] = str(exc)[:200]
     return folio
+
+
+async def local_render_health() -> dict[str, Any]:
+    """``/render/health`` of the default local backend; never raises."""
+    from backend.core.services.render import jobs
+
+    try:
+        return await jobs.get_backend(jobs.DEFAULT_BACKEND).health()
+    except Exception as exc:  # health never raises, but the backend lookup could
+        return {"reachable": False, "detail": str(exc) or type(exc).__name__}
+
+
+@dataclass(frozen=True)
+class WitnessOutcome:
+    """What :func:`forge_witness` did: queued a local render, or ran the hosted path."""
+
+    queued: bool
+    # queued: ``{"working_id", "operation"}``; hosted: the updated folio
+    # (plus ``witness_fallback`` when local was preferred but unreachable).
+    body: dict[str, Any]
+
+
+async def forge_witness(working_id: str, backend: str | None = None) -> WitnessOutcome | None:
+    """Witness image for a folio, preferring the local render engine (spec Contract W2-2).
+
+    The one policy behind both ``POST /operator/workings/{id}/witness`` and the
+    ``forge_witness`` LLM tools, so they cannot drift:
+
+    - ``backend="local"`` queues a render job and returns at once (``queued``).
+    - ``backend="hosted"`` runs the synchronous hosted generator in a worker
+      thread, so the event loop is never blocked.
+    - ``backend=None`` renders locally when the engine is reachable, else
+      falls back to hosted and says so in ``body["witness_fallback"]``.
+
+    Returns ``None`` if the folio does not exist.
+    """
+    if load_working(working_id) is None:
+        return None
+    fallback = None
+    if backend is None:
+        health = await local_render_health()
+        if health.get("reachable"):
+            backend = "local"
+        else:
+            backend = "hosted"
+            fallback = {
+                "requested": "local",
+                "used": "hosted",
+                "reason": f"local render backend unreachable: {health.get('detail') or 'no detail'}",
+            }
+    if backend == "local":
+        submitted = submit_witness_render(working_id)
+        return None if submitted is None else WitnessOutcome(queued=True, body=submitted)
+    folio = await asyncio.to_thread(attach_witness_image, working_id)
+    if fallback is not None:
+        folio["witness_fallback"] = fallback
+    return WitnessOutcome(queued=False, body=folio)
+
+
+async def forge_witness_for_tool(working_id: str) -> dict[str, Any]:
+    """:func:`forge_witness` shaped for an LLM tool result.
+
+    A queued local render answers with its ``operation_id`` (the folio's
+    ``witness`` is written when the render finishes); the hosted path answers
+    with the updated folio, as it always has.
+    """
+    outcome = await forge_witness(working_id)
+    if outcome is None:
+        return {"error": "working_not_found", "working_id": working_id}
+    if not outcome.queued:
+        return outcome.body
+    op = outcome.body["operation"]
+    return {
+        "working_id": working_id,
+        "status": "queued",
+        "backend": "local",
+        "operation_id": op["id"],
+        "operation": op,
+        "message": (
+            "Witness render queued on the local engine. It takes a few minutes; "
+            "the folio's witness is filled in when the render finishes "
+            f"(track it with operation {op['id']})."
+        ),
+    }
 
 
 def charge_audio_path(working_id: str) -> Path:

@@ -7,6 +7,7 @@ drawing). Supports intention charging, sigil activation, and
 persistent storage with metadata tracking.
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -257,7 +258,14 @@ class SigilService:
         return {"ai_image": await self._generate_sync_image(prompt), "ai_image_render": None}
 
     async def _generate_sync_image(self, prompt: str) -> str | None:
-        """Providers that return an image in one request (A1111 SD, OpenAI, OpenRouter)."""
+        """Providers that return an image in one request (A1111 SD, OpenAI, OpenRouter).
+
+        Their HTTP calls block for up to a minute, so they run in a worker thread.
+        """
+        return await asyncio.to_thread(self._request_image, prompt)
+
+    def _request_image(self, prompt: str) -> str | None:
+        """Blocking body of :meth:`_generate_sync_image`."""
         if self.image_provider == "local":
             try:
                 # Direct SD text2img endpoint call
