@@ -13,6 +13,9 @@
  *
  * Actions: "Render witness locally" (primary) or "Paint with hosted model".
  *
+ * The image carries no numbers; its `caption_facts` (moon at sealing, Saka
+ * Dawa date, ...) are shown under it with their provenance.
+ *
  * @component
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,6 +39,7 @@ import {
 import { useNow } from '../../hooks/useNow';
 import { WitnessPlate } from '../CommandCenter/WorkingInstrument';
 import OperationStatusTag from '../Operations/OperationStatusTag';
+import ImageCaptionFacts from '../UI/ImageCaptionFacts';
 import type { Operation } from '../../types/operations';
 import type { WorkingResult, ZoomItem } from '../CommandCenter/RenderMessageWidgets';
 
@@ -95,6 +99,7 @@ function PersistedWitness({
           <span data-testid="witness-seed">{seedLabel(num(witness.seed) ?? 0, witnessSeedProvenance(witness))}</span>
         )}
       </div>
+      <ImageCaptionFacts facts={witness.caption_facts} />
     </WitnessPlate>
   );
 }
@@ -155,6 +160,7 @@ function LiveWitnessRender({
           className="w-full max-h-64 object-contain rounded-lg"
         />
       )}
+      {op.status === 'success' && <ImageCaptionFacts facts={op.params?.caption_facts} />}
       {!active && (
         <div className="flex flex-col gap-0.5 font-mono text-[10px] text-amber-200/70">
           {op.status === 'success' && size && <span>{size}</span>}

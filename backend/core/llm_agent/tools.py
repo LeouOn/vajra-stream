@@ -1756,10 +1756,17 @@ def generate_image(
         RuntimeError: If image generation is disabled, daily cap reached,
             rate-limited, or the provider call fails.
         ValueError: If prompt exceeds the configured token budget.
+
+    The prompt is passed through ``core.image_prompts.finalize_image_prompt``:
+    degrees, percentages, dates, house numbers and other digits are stripped
+    and a "no lettering, no numerals" suffix is added, because image models
+    paint such values as garbled text. Real values belong in the UI caption.
     """
     from backend.app.api.v1.endpoints.image_generation import get_service
     from backend.core.services.image_generation_service import ImageGenerationService
+    from core.image_prompts import finalize_image_prompt
 
+    prompt = finalize_image_prompt(prompt)
     service: ImageGenerationService = get_service()
 
     import asyncio
@@ -1806,7 +1813,10 @@ async def _AGENT_DISPATCH(
     subject_reference: str | None = None,
 ) -> dict[str, Any]:
     from backend.app.api.v1.endpoints.image_generation import get_service
+    from core.image_prompts import finalize_image_prompt
 
+    # Backstop for LLM-written prompts: no numerals, degrees, dates or lettering reach the model.
+    prompt = finalize_image_prompt(prompt)
     service = get_service()
     cfg = service.config
 
@@ -2899,7 +2909,11 @@ def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
                         "type": "string",
                         "description": (
                             "Image description. 30-60 words is ideal; max 1000 tokens. "
-                            "Be specific about subject, style, lighting, and mood."
+                            "Be specific about subject, style, lighting, and mood. "
+                            "Imagery only: no numbers, degrees, percentages, dates, house numbers, "
+                            "headings, glyphs or words to be written in the picture (image models "
+                            "paint them as garbled text; they are stripped). Say 'a thin waning "
+                            "crescent moon', not 'Moon 12% illuminated'."
                         ),
                     },
                     "aspect_ratio": {

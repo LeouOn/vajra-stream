@@ -34,6 +34,8 @@ export interface WitnessBlock {
   prompt?: string;
   model?: string;
   error?: string;
+  /** Real values captioned beside the image (see lib/captionFacts.ts); validated on display. */
+  caption_facts?: unknown;
 }
 
 export type WitnessReply =

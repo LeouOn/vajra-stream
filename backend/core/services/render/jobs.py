@@ -94,6 +94,14 @@ def image_file(op: dict[str, Any]) -> Path | None:
 # -- requests ----------------------------------------------------------------
 
 
+class CaptionFact(BaseModel):
+    """A real value shown *beside* the image, never painted into it (see core/image_prompts.py)."""
+
+    label: str = Field(..., min_length=1, max_length=80)
+    value: str = Field(..., max_length=300)
+    provenance: Literal["record", "computed", "draw", "decorative"]
+
+
 class RenderJobRequest(BaseModel):
     """``POST /render/jobs`` body (docs/specs/2026-10-14-operations-and-local-render.md)."""
 
@@ -106,6 +114,9 @@ class RenderJobRequest(BaseModel):
     working_id: str | None = Field(None, max_length=200)
     purpose: Literal["free", "witness", "sigil"] = "free"
     reference_id: str | None = Field(None, description="sha256 from POST /render/references")
+    caption_facts: list[CaptionFact] | None = Field(
+        None, max_length=24, description="computed/record facts the UI captions the image with"
+    )
 
     @field_validator("prompt")
     @classmethod
@@ -182,6 +193,8 @@ def normalize_request(request: RenderJobRequest) -> tuple[dict[str, Any], dict[s
         "purpose": request.purpose,
         "reference_id": request.reference_id,
     }
+    if request.caption_facts:
+        params["caption_facts"] = [fact.model_dump() for fact in request.caption_facts]
     return params, {"seed": seed_provenance}
 
 

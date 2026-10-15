@@ -13,10 +13,13 @@ import logging
 import os
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import requests
+
+from core.image_prompts import caption_fact, finalize_image_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,20 @@ KAMEAS = {
         "grid": [[11, 24, 7, 20, 3], [4, 12, 25, 8, 16], [17, 5, 13, 21, 9], [10, 18, 1, 14, 22], [23, 6, 19, 2, 15]],
     },
 }
+
+
+def sigil_image_prompt(intention: str) -> str:
+    """The AI image prompt for a sigil: imagery only, no runes, numerals or lettering.
+
+    The intention is the sigil's subject, but its words are not to be painted;
+    the real values (intention, kamea, forge time) are the image's caption_facts.
+    """
+    return finalize_image_prompt(
+        f"Abstract esoteric cyber-sigil embodying the intention: {intention[:300]}. "
+        "Sacred geometry grid, glowing cyan and magenta linework, crystalline core structure, "
+        "orgone layers, a high-tech cyberdeck dashboard element, digital art, dark background, "
+        "highly detailed render"
+    )
 
 
 class SigilService:
@@ -228,7 +245,7 @@ class SigilService:
         coords = self.text_to_coordinates(intention, kamea_name)
         return self.render_svg_from_coords(coords, kamea_name)
 
-    def _submit_render(self, prompt: str) -> dict[str, Any]:
+    def _submit_render(self, prompt: str, caption_facts: list[dict[str, str]] | None = None) -> dict[str, Any]:
         """Queue the sigil image on the local render engine (ComfyUI, ``purpose="sigil"``); never blocks.
 
         The render takes minutes, so the forge returns the queued operation instead
@@ -237,23 +254,25 @@ class SigilService:
         from backend.core.services.render.jobs import RenderJobRequest, submit_job
 
         try:
-            op = submit_job(RenderJobRequest(prompt=prompt, purpose="sigil"))
+            op = submit_job(RenderJobRequest(prompt=prompt, purpose="sigil", caption_facts=caption_facts or None))
         except Exception as e:
             logger.warning(f"Local render submission for sigil failed: {e}")
             return {"operation_id": None, "status": "error", "error": str(e)[:300]}
         return {"operation_id": op["id"], "status": op["status"]}
 
-    async def generate_ai_image(self, intention: str) -> dict[str, Any]:
+    async def generate_ai_image(
+        self, intention: str, caption_facts: list[dict[str, str]] | None = None
+    ) -> dict[str, Any]:
         """AI image for a sigil, by ``IMAGE_PROVIDER``.
 
         Returns ``{"ai_image": data URI or None, "ai_image_render": queued render or None}``.
         ``comfyui`` queues a local render job (``ai_image_render`` = ``{"operation_id", "status"}``);
         the other providers answer synchronously with a data URI, or None if unconfigured/failed.
         """
-        prompt = f"Abstract esoteric cyber-sigil, representing intention: '{intention}', sacred geometry grid, glowing cyan and magenta runes, orgone sandwiches, crystalline core structure, high-tech cyberdeck dashboard element, digital art, dark background, 8k render"
+        prompt = sigil_image_prompt(intention)
 
         if self.image_provider == "comfyui":
-            return {"ai_image": None, "ai_image_render": self._submit_render(prompt)}
+            return {"ai_image": None, "ai_image_render": self._submit_render(prompt, caption_facts)}
         return {"ai_image": await self._generate_sync_image(prompt), "ai_image_render": None}
 
     async def _generate_sync_image(self, prompt: str) -> str | None:
@@ -328,10 +347,20 @@ class SigilService:
         svg_content = self.generate_kamea_svg(intention, kamea_name)
 
         # Save signature log
-        sigil_id = f"sigil_{int(time.time())}"
+        forged_at = time.time()
+        sigil_id = f"sigil_{int(forged_at)}"
+
+        # The real values travel beside the image as captions, never painted into it.
+        caption_facts = [
+            caption_fact("Intention", intention[:300], "record"),
+            caption_fact("Kamea", kamea_name, "record"),
+            caption_fact(
+                "Forged", datetime.fromtimestamp(forged_at, timezone.utc).isoformat(timespec="seconds"), "record"
+            ),
+        ]
 
         # AI image if configured: inline for hosted providers, a queued render job for comfyui
-        ai = await self.generate_ai_image(intention)
+        ai = await self.generate_ai_image(intention, caption_facts)
 
         # Save to disk
         sigil_data = {
@@ -343,7 +372,8 @@ class SigilService:
             "ai_image": ai["ai_image"],
             # {"operation_id", "status"} of the local render job, or None (see generate_ai_image)
             "ai_image_render": ai["ai_image_render"],
-            "timestamp": time.time(),
+            "caption_facts": caption_facts,
+            "timestamp": forged_at,
         }
 
         try:

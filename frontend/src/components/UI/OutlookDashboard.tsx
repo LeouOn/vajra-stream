@@ -48,6 +48,7 @@ import { getDeityFromEntityText } from '../../lib/deityVisualizations';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { apiUrl } from '../../utils/api';
+import ImageCaptionFacts from './ImageCaptionFacts';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { featuredFallbackChoices, type FeaturedModelChoice } from '../../lib/featuredModels';
 
@@ -337,6 +338,10 @@ export default function OutlookDashboard() {
     provider_used?: string;
     revised_prompt?: string | null;
     cached?: boolean;
+    /** The imagery-only prompt the server sent (no chart numbers). */
+    prompt?: string;
+    /** Real values captioned under the image (moon at chart time, ...). */
+    caption_facts?: unknown;
   } | null>(null);
 
   const [videoGenLoading, setVideoGenLoading] = useState<boolean>(false);
@@ -758,14 +763,21 @@ export default function OutlookDashboard() {
     setIllustrationLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const narrativeText = narrativePlainText(currentNarrative);
-      const excerpt = narrativeText.slice(0, 600);
-      const genre = currentNarrative.genre || 'spiritual';
-      const prompt = `Illustration for a "${genre}" blessing transmission: ${excerpt}`;
-      const res = await fetch(apiUrl('/images/generate'), {
+      // The server builds an imagery-only prompt (chart numbers, headings and
+      // glyphs stripped) and returns the real values as caption_facts.
+      const storedId = Number(currentNarrative.id);
+      const chartTime = currentNarrative.date_generated;
+      const payload: Record<string, unknown> = Number.isInteger(storedId) && storedId > 0
+        ? { narrative_id: storedId }
+        : {
+            narrative: narrativePlainText(currentNarrative),
+            genre: currentNarrative.genre || 'healing',
+            date: typeof chartTime === 'string' ? chartTime : undefined,
+          };
+      const res = await fetch(apiUrl('/outlook/illustration'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, n: 1 }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1862,6 +1874,7 @@ export default function OutlookDashboard() {
                             alt={illustration.revised_prompt || 'Generated illustration'}
                             style={{ width: '100%', borderRadius: 8 }}
                           />
+                          <ImageCaptionFacts facts={illustration.caption_facts} />
                           {illustration.revised_prompt && (
                             <Paragraph
                               type="secondary"
