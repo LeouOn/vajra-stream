@@ -113,11 +113,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function renderLedger(): Promise<void> {
+async function renderLedger(path = '/operations/ledger'): Promise<void> {
   await act(async () => {
     root.render(
       <ConfigProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[path]}>
           <OperationsLedger />
         </MemoryRouter>
       </ConfigProvider>,
@@ -299,5 +299,47 @@ describe('OperationsLedger', () => {
         'This operation is no longer in the ledger.',
       );
     });
+  });
+});
+
+describe('OperationsLedger ?op= deep link (from the Gallery)', () => {
+  it('marks the linked row', async () => {
+    await renderLedger('/operations/ledger?op=e');
+    expect(row('error').dataset.focused).toBe('true');
+    expect(container.querySelectorAll('[data-focused]')).toHaveLength(1);
+  });
+
+  it('fetches a linked operation that is not in the listed page', async () => {
+    const older = op({ id: 'old', title: 'an older render', status: 'success', created_at: '2026-09-01T00:00:00+00:00' });
+    fetchSpy.mockImplementation((url: string) => {
+      const body = url.startsWith('/api/v1/operations/summary')
+        ? SUMMARY
+        : url === '/api/v1/operations/old'
+          ? older
+          : { operations: OPS, count: OPS.length };
+      return Promise.resolve({ ok: true, status: 200, json: async () => body } as Response);
+    });
+    await renderLedger('/operations/ledger?op=old');
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(fetchSpy.mock.calls.map((c) => String(c[0]))).toContain('/api/v1/operations/old');
+    expect(container.querySelector<HTMLElement>('[data-focused]')?.textContent).toContain('an older render');
+  });
+
+  it('says so when the linked operation is gone', async () => {
+    fetchSpy.mockImplementation((url: string) => {
+      if (url === '/api/v1/operations/gone') {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ detail: 'operation not found' }),
+        } as Response);
+      }
+      const body = url.startsWith('/api/v1/operations/summary') ? SUMMARY : { operations: OPS, count: OPS.length };
+      return Promise.resolve({ ok: true, status: 200, json: async () => body } as Response);
+    });
+    await renderLedger('/operations/ledger?op=gone');
+    expect(container.querySelector('[data-testid="ledger-focus-error"]')?.textContent).toContain('gone');
   });
 });

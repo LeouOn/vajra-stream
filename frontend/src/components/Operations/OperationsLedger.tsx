@@ -13,8 +13,8 @@
  * @component
  * @route /operations/ledger
  */
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Button, Select, Tag } from 'antd';
 import { RefreshCw, Square } from 'lucide-react';
 import { isActiveStatus, selectOperations, useOperationsStore } from '../../stores/operationsStore';
@@ -27,8 +27,12 @@ const KINDS: OperationKind[] = ['render', 'broadcast', 'working', 'audio', 'tts'
 const STATUSES: OperationStatus[] = ['queued', 'running', 'success', 'error', 'cancelled', 'interrupted'];
 const ALL = 'all';
 
-function LedgerRow({ op, now }: { op: Operation; now: number }): React.ReactElement {
+function LedgerRow({ op, now, focused = false }: { op: Operation; now: number; focused?: boolean }): React.ReactElement {
   const cancelOperation = useOperationsStore((s) => s.cancelOperation);
+  const rowRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView?.({ block: 'center' });
+  }, [focused]);
   const [cancelling, setCancelling] = useState(false);
   const [cancelNote, setCancelNote] = useState<{ text: string; tone: 'calm' | 'error' } | null>(null);
   const showError = op.error && (op.status === 'error' || op.status === 'interrupted' || op.status === 'cancelled');
@@ -53,9 +57,13 @@ function LedgerRow({ op, now }: { op: Operation; now: number }): React.ReactElem
 
   return (
     <li
+      ref={rowRef}
       data-testid="ledger-row"
       data-status={op.status}
-      className="rounded-lg border border-white/10 bg-gray-900/50 px-4 py-3 flex flex-col gap-1"
+      data-focused={focused || undefined}
+      className={`rounded-lg border bg-gray-900/50 px-4 py-3 flex flex-col gap-1 ${
+        focused ? 'border-purple-400/70 ring-1 ring-purple-400/50' : 'border-white/10'
+      }`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <Tag style={{ marginInlineEnd: 0 }}>{op.kind}</Tag>
@@ -108,6 +116,28 @@ export default function OperationsLedger(): React.ReactElement {
   const summary = useOperationsStore((s) => s.summary);
   const fetchOperations = useOperationsStore((s) => s.fetchOperations);
   const fetchSummary = useOperationsStore((s) => s.fetchSummary);
+  const fetchOperation = useOperationsStore((s) => s.fetchOperation);
+
+  // `/operations/ledger?op=<id>` (linked from the Gallery) marks that row and
+  // fetches it if it is older than the listed page.
+  const [searchParams] = useSearchParams();
+  const focusId = searchParams.get('op');
+  const focusKnown = focusId ? Boolean(byId[focusId]) : true;
+  const [focusError, setFocusError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusId || focusKnown) return;
+    let cancelled = false;
+    fetchOperation(focusId)
+      .then(() => {
+        if (!cancelled) setFocusError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setFocusError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [focusId, focusKnown, fetchOperation]);
 
   const [kind, setKind] = useState<OperationKind | typeof ALL>(ALL);
   const [status, setStatus] = useState<OperationStatus | typeof ALL>(ALL);
@@ -219,6 +249,12 @@ export default function OperationsLedger(): React.ReactElement {
         </Button>
       </div>
 
+      {focusId && focusError && (
+        <div className="text-xs text-amber-300" role="alert" data-testid="ledger-focus-error">
+          Could not find the linked operation {focusId}: {focusError}
+        </div>
+      )}
+
       {listError && (
         <div className="text-xs text-amber-300" role="alert">
           Could not load the ledger: {listError}
@@ -232,7 +268,7 @@ export default function OperationsLedger(): React.ReactElement {
       ) : (
         <ul className="flex flex-col gap-2 list-none p-0 m-0">
           {operations.map((op) => (
-            <LedgerRow key={op.id} op={op} now={now} />
+            <LedgerRow key={op.id} op={op} now={now} focused={op.id === focusId} />
           ))}
         </ul>
       )}

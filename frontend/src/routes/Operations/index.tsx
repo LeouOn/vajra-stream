@@ -19,6 +19,7 @@
  *   /operations/broadcast   → broadcast tab
  *   /operations/ledger      → operations ledger (real, timed operations)
  *   /operations/render      → local render studio (render jobs are operations)
+ *   /operations/gallery     → every image made: local renders, hosted saves, folio witnesses
  *   Unknown/legacy :tab     → falls back to the default tab.
  *
  * @component
@@ -33,8 +34,9 @@ import RateTuner from '../../components/UI/RateTuner';
 import WorldEmanation from '../../components/3D/WorldEmanation';
 import OperationsLedger from '../../components/Operations/OperationsLedger';
 import RenderStudio from '../../components/Operations/RenderStudio';
+import Gallery from '../../components/Operations/Gallery';
 
-const TAB_KEYS = ['operations', 'broadcast', 'rates', 'ledger', 'render'] as const;
+const TAB_KEYS = ['operations', 'broadcast', 'rates', 'ledger', 'render', 'gallery'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const DEFAULT_TAB: TabKey = 'operations';
@@ -98,6 +100,15 @@ export default function OperationsPage(): React.ReactElement {
       children: (
         <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-4 md:p-6">
           <RenderStudio />
+        </div>
+      ),
+    },
+    {
+      key: 'gallery',
+      label: 'Gallery',
+      children: (
+        <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-4 md:p-6">
+          <Gallery />
         </div>
       ),
     },
