@@ -63,8 +63,13 @@ vitality".
 - [x] "Aura Field Coherence %" (`Math.sin + Math.random`, pinned to about 88%
       while audio played) became "Field Presence", which is driven only by
       audio and session state.
-- [ ] Burn down the tsc baseline, starting with `AstrologyPanel.tsx` (90),
-      `useWebSocketStable.ts` (31) and `AstrologyExtractionPanel.tsx` (31).
+- [x] Burn down the tsc baseline: 304 → 153 (2026-10-15). `AstrologyPanel.tsx`
+      and `AstrologyExtractionPanel.tsx` are clean. The work also fixed four
+      user-visible bugs: sweep results overriding the Replay selection, an
+      "explicit dates" picker that only allowed two dates, moon illumination
+      under 1% shown 100× too high, and "Invalid Date" on failure.
+- [ ] Continue the tsc burn-down (`useWebSocketStable.ts`, `CommandCenter.tsx`,
+      `OutlookDashboard.tsx` are the largest remaining).
 - [ ] Recreate `.venv` on Python 3.13. Local venvs are 3.14, but
       `.python-version` pins 3.13 and 3.14 is documented as unsupported.
 
@@ -83,17 +88,35 @@ individual reviews catching each case.
      exactly the "ops per second" counter the spec rules out. It is deleted
      with its routes and every `mops` field; scalar-radionics broadcasts are
      recorded in the operations ledger, and the UI shows ledger facts.
-   - `backend/core/services/vajra_service.py:638`: the broadcast "rate" is
-     `freq % 100 + random.uniform(-2, 2)`, which is jitter presented as a
-     reading.
-   - `core/radionics_engine.py:297+`: the GV draw is legitimate as a draw.
-     Label it as one, including in the LLM tool output, which currently
-     attaches verdicts such as "Excellent".
-   - `rng_attunement_service.py` e-meter needle, and
-     `BroadcastPanel.tsx:260` random carrier-direction nudge.
-4. **Guard test:** in the same spirit as `test_no_new_ruff_suppressions.py`,
-   fail CI when `Math.random` / `np.random` feeds a displayed value outside
-   an allow-list of decorative components.
+   - ~~Rate jitter, GV verdicts, e-meter, potency %, carrier nudge~~
+     **Done (2026-10-15).** The rate broadcast is computed with no jitter.
+     GV, potency and attunement readings carry `provenance` and read as
+     draws, both in the UI ("drawn") and in what the LLM is told: "Drawn GV
+     812, in the stick-pad tradition this reads as…", never a diagnosis. The
+     no-analysis fallback rate is flagged as a fallback, and the carrier
+     nudge follows the hand.
+4. ~~**Guard test**~~ **Done (2026-10-15).**
+   `tests/unit/test_no_unlabeled_randomness.py` and
+   `frontend/src/__tests__/no-unlabeled-math-random.test.ts` fail on any
+   randomness outside a reviewed allow-list. Each entry is labeled draw,
+   content, decorative, timing or id.
+5. **Operations ledger** **Done (2026-10-15).** `core/operations.py`
+   (schema v7), `/api/v1/operations`, live `operation_update` events, and
+   the Operations → Ledger tab. A real operation has a start, a measured
+   duration and a completion record.
+6. **Local render** **Engine and UI done (2026-10-15).** The Qwen-Image 2.1
+   adapter runs behind ComfyUI; see
+   [the spec](specs/2026-10-14-operations-and-local-render.md). Remaining
+   work (Phase B): sigils and the folio witness image use it, the launcher
+   is fixed, reference images are supported, and a live end-to-end render is
+   verified.
+7. **Follow-ups found along the way:**
+   - `/radionics/broadcast` blocks the event loop for the whole broadcast
+     duration, because a sync loop runs inside an async route.
+   - Sigil and `vajra_service` sessions are not yet recorded as ledger
+     operations.
+   - `MainLayout`/`ScalarTab` poll `/operations/summary` themselves; fold
+     this into `operationsStore`.
 
 ## Phase 3: Consolidate
 
