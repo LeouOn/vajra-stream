@@ -10,7 +10,6 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 # The request models live with the service that consumes them, so the service
 # layer never imports this API module (Phase 3 layering).
 from backend.core.services.session_models import SessionConfig
-
 from core.provenance import COMPUTED, RECORD
 
 # Setup logging
