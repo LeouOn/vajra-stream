@@ -474,6 +474,12 @@ def overlay_caption_fact(plan: dict[str, Any]) -> dict[str, str]:
 # -- the scene prompt --------------------------------------------------------------------
 
 
+# For a devotional painting (no horizon to draw the computed sky against).
+EMPTY_BACKGROUND_CLAUSE = (
+    "The background sky is clear and empty: no moon, no stars, no planets and no celestial bodies."
+)
+
+
 def empty_sky_clause(period: str | None) -> str:
     """Prompt words for a scene whose sky is left empty for the computed sky to be drawn on."""
     kind = {"day": "daytime ", "twilight": "twilight ", "night": "night "}.get(period or "", "")

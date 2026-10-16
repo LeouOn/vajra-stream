@@ -428,6 +428,7 @@ def illustration_request_facts(
     The prompt carries imagery only (core/image_prompts.py); the chart time and
     the moon computed for it travel beside the image as caption facts.
     """
+    from core import iconography
     from core.image_prompts import caption_fact, moon_at, moon_caption_fact, outlook_illustration_prompt
 
     moon = moon_at(chart_time) if chart_time else None
@@ -438,7 +439,13 @@ def illustration_request_facts(
         facts.append(caption_fact("Chart time", chart_time, "record"))
     if moon is not None:
         facts.append(moon_caption_fact(moon, "Moon at chart time"))
-    return outlook_illustration_prompt(narrative, genre, moon), facts
+    # Conservative: only a narrative naming exactly one curated deity gets its iconography.
+    deity = iconography.named_deity_in_text(narrative)
+    clause = None
+    if deity is not None:
+        clause = iconography.ref_prompt_clause(deity)
+        facts.extend(iconography.deity_caption_facts(deity.entry, deity.form))
+    return outlook_illustration_prompt(narrative, genre, moon, deity_clause=clause), facts
 
 
 @router.post("/illustration", summary="Illustrate a narrative (imagery only; real values as captions)")

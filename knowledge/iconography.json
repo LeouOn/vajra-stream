@@ -1,0 +1,980 @@
+{
+  "schema_version": 1,
+  "description": "Curated deity iconography for image prompts and captions (core/iconography.py). Only well-established attributes from the standard references listed under 'sources' are recorded. A field that the references do not settle is null (never guessed); lineage variants are recorded as separate forms or in 'notes'. Sources are cited at the level of the work, not the page.",
+  "ornament_sets": {
+    "sambhogakaya": "the silks and jewel ornaments of the enjoyment body, with a jewelled crown",
+    "nirmanakaya": "the patched robes of a fully ordained monk, with no crown or jewellery",
+    "bodhisattva_east_asian": "a jewelled bodhisattva crown, necklaces and flowing silk garments"
+  },
+  "art_styles": {
+    "tibetan_thangka": "Traditional Tibetan thangka-style devotional painting",
+    "east_asian_devotional": "Traditional East Asian Buddhist devotional painting"
+  },
+  "sources": {
+    "beer_encyclopedia": {
+      "citation": "Robert Beer, The Encyclopedia of Tibetan Symbols and Motifs (Boston: Shambhala, 1999)",
+      "short": "Beer, Encyclopedia of Tibetan Symbols and Motifs (1999)"
+    },
+    "beer_handbook": {
+      "citation": "Robert Beer, The Handbook of Tibetan Buddhist Symbols (Boston: Shambhala, 2003)",
+      "short": "Beer, Handbook of Tibetan Buddhist Symbols (2003)"
+    },
+    "har": {
+      "citation": "Himalayan Art Resources (himalayanart.org), deity iconography outlines",
+      "short": "Himalayan Art Resources (himalayanart.org)"
+    },
+    "bhattacharyya": {
+      "citation": "Benoytosh Bhattacharyya, The Indian Buddhist Iconography (1924; 2nd ed. 1958)",
+      "short": "Bhattacharyya, Indian Buddhist Iconography"
+    },
+    "sadhana_tara": {
+      "citation": "Standard Green Tara and White Tara sadhana visualisations (Tibetan traditions)",
+      "short": "standard Tara sadhanas"
+    },
+    "sadhana_medicine_buddha": {
+      "citation": "Standard Medicine Buddha sadhana visualisations (Tibetan traditions)",
+      "short": "standard Medicine Buddha sadhanas"
+    },
+    "sadhana_vajrasattva": {
+      "citation": "Standard Vajrasattva purification sadhana visualisations (Tibetan traditions)",
+      "short": "standard Vajrasattva sadhanas"
+    },
+    "sadhana_chenrezig": {
+      "citation": "Standard four-armed Chenrezig sadhana visualisations (Tibetan traditions)",
+      "short": "standard Chenrezig sadhanas"
+    },
+    "taisho_1076": {
+      "citation": "Cundi Dharani Sutra (Qi juzhi fomu suoshuo Zhunti tuoluoni jing), Taisho no. 1076, tr. Amoghavajra: description of the eighteen-armed image",
+      "short": "Cundi Dharani Sutra (Taisho 1076)"
+    },
+    "thirty_two_marks": {
+      "citation": "The thirty-two major marks of a Buddha (dvatrimsad-varalaksana), as listed in Mahayana sutras and the iconographic references above",
+      "short": "the thirty-two marks of a Buddha"
+    }
+  },
+  "deities": [
+    {
+      "id": "shakyamuni",
+      "kind": "buddha",
+      "names": {
+        "english": "Shakyamuni Buddha",
+        "sanskrit": "Śākyamuni",
+        "tibetan": "Shakya Thubpa (shākya thub pa)",
+        "chinese": "釋迦牟尼佛 Shìjiāmóunífó"
+      },
+      "aliases": [
+        "Shakyamuni",
+        "Sakyamuni",
+        "Buddha Shakyamuni",
+        "Shakyamuni Buddha",
+        "Gautama Buddha",
+        "Shakya Thubpa",
+        "釋迦牟尼佛",
+        "释迦牟尼佛"
+      ],
+      "practice_ids": [],
+      "art_style": "tibetan_thangka",
+      "default_form": "earth_touching",
+      "forms": [
+        {
+          "id": "earth_touching",
+          "label": "Shakyamuni Buddha touching the earth",
+          "aliases": [],
+          "descriptor": "the Buddha",
+          "body_colour": "golden",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a lotus and moon disc",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "reaching down over the right knee",
+              "mudra": "the earth-touching gesture (bhumisparsha mudra), fingertips touching the ground",
+              "holds": null
+            },
+            {
+              "hand": "left",
+              "position": "resting in the lap",
+              "mudra": "the meditation gesture (dhyana mudra)",
+              "holds": "an alms bowl"
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha), the curl between the brows (urna) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "The throne is frequently a lion throne beneath the lotus; the moon disc is the usual Tibetan seat and is kept here."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "har",
+        "thirty_two_marks"
+      ],
+      "notes": null
+    },
+    {
+      "id": "buddha_generic",
+      "kind": "buddha",
+      "generic": true,
+      "names": {
+        "english": "A Buddha (generic form)",
+        "sanskrit": null,
+        "tibetan": null,
+        "chinese": null
+      },
+      "aliases": [
+        "88 Buddhas",
+        "88_buddhas",
+        "Eighty-Eight Buddhas",
+        "The 88 Buddhas",
+        "Bashiba Fo",
+        "八十八佛",
+        "53 Buddhas",
+        "Fifty-Three Buddhas",
+        "35 Buddhas",
+        "Thirty-Five Buddhas",
+        "Thirty-Five Confession Buddhas",
+        "35 Confession Buddhas"
+      ],
+      "practice_ids": [
+        "88_buddhas"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "generic",
+      "individual_iconography": null,
+      "individual_iconography_note": "The 88 Buddhas of the Chinese repentance liturgy (the 53 Buddhas of the past and the 35 Confession Buddhas) are invoked by name; the liturgy gives them no individual bodily iconography, so no per-Buddha colour, mudra or attribute is recorded. The element, chakra and quality fields in knowledge/eighty_eight_buddhas.json are this app's correspondences, not iconography. (Tibetan art does depict the 35 Confession Buddhas individually, after a visionary system attributed to Tsongkhapa; that set is not curated here.) Images use the generic Buddha form below.",
+      "forms": [
+        {
+          "id": "generic",
+          "label": "a Buddha in meditation",
+          "aliases": [],
+          "descriptor": "a Buddha",
+          "body_colour": "golden",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in meditation in the full lotus (vajra) posture",
+          "seat": "a lotus",
+          "hands": [
+            {
+              "hand": "both",
+              "position": "resting in the lap",
+              "mudra": "the meditation gesture (dhyana mudra)",
+              "holds": null
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha), the curl between the brows (urna) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "A generic depiction: the golden colour and the marks are the common marks of any Buddha; the meditation gesture is a neutral choice, not an attribute of any particular Buddha."
+        }
+      ],
+      "sources": [
+        "thirty_two_marks",
+        "beer_encyclopedia"
+      ],
+      "notes": null
+    },
+    {
+      "id": "avalokiteshvara",
+      "kind": "bodhisattva",
+      "names": {
+        "english": "Avalokiteshvara",
+        "sanskrit": "Avalokiteśvara",
+        "tibetan": "Chenrezig (spyan ras gzigs)",
+        "chinese": "觀世音菩薩 Guānshìyīn Púsà"
+      },
+      "aliases": [
+        "Avalokiteshvara",
+        "Avalokitesvara",
+        "Avalokiteśvara",
+        "Chenrezig",
+        "Chenresig",
+        "Chenrezi",
+        "Guanyin",
+        "Guan Yin",
+        "Kuan Yin",
+        "Kwan Yin",
+        "Guanshiyin",
+        "Kannon",
+        "觀音",
+        "观音",
+        "觀世音菩薩",
+        "观世音菩萨",
+        "觀音菩薩",
+        "观音菩萨"
+      ],
+      "practice_ids": [
+        "avalokiteshvara"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "four_armed",
+      "forms": [
+        {
+          "id": "four_armed",
+          "label": "Four-armed Avalokiteshvara (Chenrezig)",
+          "aliases": [
+            "Four-armed Avalokiteshvara",
+            "Four-armed Chenrezig",
+            "Chenrezig Chak Zhipa",
+            "Shadakshari",
+            "Sadaksari Lokesvara",
+            "Shadakshari Lokeshvara",
+            "四臂觀音",
+            "四臂观音"
+          ],
+          "descriptor": "a peaceful bodhisattva",
+          "body_colour": "white",
+          "faces": 1,
+          "arms": 4,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a moon disc on a lotus",
+          "hands": [
+            {
+              "hand": "principal pair",
+              "position": "at the heart",
+              "mudra": "the gesture of joined palms (anjali mudra)",
+              "holds": "a wish-fulfilling jewel"
+            },
+            {
+              "hand": "upper right",
+              "position": "raised at the shoulder",
+              "mudra": null,
+              "holds": "a crystal mala (rosary)"
+            },
+            {
+              "hand": "upper left",
+              "position": "raised at the shoulder",
+              "mudra": null,
+              "holds": "the stem of a white lotus blossoming beside the shoulder"
+            }
+          ],
+          "other_hands": null,
+          "features": "an antelope skin draped over the left shoulder",
+          "ornaments": "sambhogakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "The most widely depicted Tibetan form of Chenrezig, the deity of the six-syllable mantra."
+        },
+        {
+          "id": "thousand_armed",
+          "label": "Eleven-faced, thousand-armed Avalokiteshvara",
+          "aliases": [
+            "Thousand-armed Avalokiteshvara",
+            "Thousand-armed Chenrezig",
+            "Eleven-faced Avalokiteshvara",
+            "Eleven-faced Chenrezig",
+            "Thousand-armed Guanyin",
+            "Thousand-armed Thousand-eyed Guanyin",
+            "Ekadashamukha",
+            "Sahasrabhuja Avalokiteshvara",
+            "Chenrezig Chaktong Chentong",
+            "千手觀音",
+            "千手观音",
+            "千手千眼觀音",
+            "千手千眼观音"
+          ],
+          "descriptor": "a peaceful bodhisattva",
+          "body_colour": "white",
+          "faces": 11,
+          "arms": 1000,
+          "eyes": null,
+          "posture": "standing upright",
+          "seat": "a moon disc on a lotus",
+          "hands": [
+            {
+              "hand": "principal pair",
+              "position": "at the heart",
+              "mudra": "the gesture of joined palms (anjali mudra)",
+              "holds": "a wish-fulfilling jewel"
+            },
+            {
+              "hand": "right",
+              "position": null,
+              "mudra": null,
+              "holds": "a crystal mala (rosary)"
+            },
+            {
+              "hand": "right",
+              "position": null,
+              "mudra": null,
+              "holds": "a dharma wheel"
+            },
+            {
+              "hand": "right",
+              "position": "lowered",
+              "mudra": "the boon-granting gesture (varada mudra)",
+              "holds": null
+            },
+            {
+              "hand": "left",
+              "position": null,
+              "mudra": null,
+              "holds": "a lotus flower"
+            },
+            {
+              "hand": "left",
+              "position": null,
+              "mudra": null,
+              "holds": "a bow and arrow"
+            },
+            {
+              "hand": "left",
+              "position": null,
+              "mudra": null,
+              "holds": "a water vase"
+            }
+          ],
+          "other_hands": "the remaining arms spread behind in a circular aureole, an eye in the palm of each hand",
+          "features": "the faces stacked in tiers, peaceful faces below, a wrathful dark face near the top and the red face of Amitabha Buddha at the summit",
+          "ornaments": "sambhogakaya",
+          "ornament_details": null,
+          "halo": "the circle of a thousand arms forms the aureole",
+          "notes": "Tibetan form after the Gelongma Palmo (Bhikshuni Lakshmi) lineage: eight principal arms. The colours of the individual faces in the tiers differ between lineages and are left out (null). The East Asian thousand-armed Guanyin, with forty-two principal hands and a different list of implements, is not curated here; the repo's practice text mixes elements of both."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har",
+        "sadhana_chenrezig"
+      ],
+      "notes": "The avalokiteshvara practice visualises the thousand-armed form; the default form for images is the four-armed Chenrezig."
+    },
+    {
+      "id": "green_tara",
+      "kind": "female_buddha",
+      "names": {
+        "english": "Green Tara",
+        "sanskrit": "Śyāmatārā",
+        "tibetan": "Drolma Jang (sgrol ljang)",
+        "chinese": "綠度母 Lǜ Dùmǔ"
+      },
+      "aliases": [
+        "Green Tara",
+        "Green Tārā",
+        "Syamatara",
+        "Shyamatara",
+        "Śyāmatārā",
+        "Doljang",
+        "Drolma Jang",
+        "Green Drolma",
+        "绿度母",
+        "綠度母"
+      ],
+      "practice_ids": [
+        "green_tara"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "Green Tara",
+          "aliases": [],
+          "descriptor": "a youthful, gently smiling female deity",
+          "body_colour": "green",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated with the left leg drawn in and the right leg extended, the right foot resting on a small lotus",
+          "seat": "a moon disc on a lotus",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "resting on the right knee, palm facing outward",
+              "mudra": "the boon-granting gesture of supreme giving (varada mudra)",
+              "holds": null
+            },
+            {
+              "hand": "left",
+              "position": "at the heart",
+              "mudra": "the refuge-granting gesture, thumb and ring finger joined and three fingers raised",
+              "holds": "the stem of a blue utpala lotus blossoming beside the left shoulder"
+            }
+          ],
+          "other_hands": null,
+          "features": null,
+          "ornaments": "sambhogakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "Many paintings give the right hand a second utpala stem as well. Some texts name the left-hand gesture abhaya (fearlessness) rather than the refuge or three-jewels gesture; the hand shape is the same."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har",
+        "sadhana_tara"
+      ],
+      "notes": null
+    },
+    {
+      "id": "white_tara",
+      "kind": "female_buddha",
+      "names": {
+        "english": "White Tara",
+        "sanskrit": "Sitatārā",
+        "tibetan": "Drolkar (sgrol dkar)",
+        "chinese": "白度母 Bái Dùmǔ"
+      },
+      "aliases": [
+        "White Tara",
+        "White Tārā",
+        "Sitatara",
+        "Sitatārā",
+        "Drolkar",
+        "Dolkar",
+        "White Drolma",
+        "白度母"
+      ],
+      "practice_ids": [
+        "white_tara"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "White Tara",
+          "aliases": [],
+          "descriptor": "a youthful, serene female deity",
+          "body_colour": "white",
+          "faces": 1,
+          "arms": 2,
+          "eyes": 7,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a moon disc on a lotus",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "resting on the right knee, palm facing outward",
+              "mudra": "the boon-granting gesture of supreme giving (varada mudra)",
+              "holds": null
+            },
+            {
+              "hand": "left",
+              "position": "at the heart",
+              "mudra": "the refuge-granting gesture, thumb and ring finger joined and three fingers raised",
+              "holds": "the stem of a white utpala lotus blossoming beside the left shoulder"
+            }
+          ],
+          "other_hands": null,
+          "features": "seven eyes: a third eye on the forehead and an eye in each palm and on the sole of each foot",
+          "ornaments": "sambhogakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "The utpala often carries three blossoms (bud, half-open, full bloom), and a full moon disc often stands behind her back."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har",
+        "sadhana_tara"
+      ],
+      "notes": null
+    },
+    {
+      "id": "medicine_buddha",
+      "kind": "buddha",
+      "names": {
+        "english": "Medicine Buddha",
+        "sanskrit": "Bhaiṣajyaguru Vaiḍūryaprabhārāja",
+        "tibetan": "Sangye Menla (sangs rgyas sman bla)",
+        "chinese": "藥師佛 Yàoshīfó"
+      },
+      "aliases": [
+        "Medicine Buddha",
+        "Bhaisajyaguru",
+        "Bhaishajyaguru",
+        "Bhaiṣajyaguru",
+        "Menla",
+        "Sangye Menla",
+        "Medicine Guru",
+        "Yaoshi Fo",
+        "Yaoshifo",
+        "Yakushi",
+        "藥師佛",
+        "药师佛"
+      ],
+      "practice_ids": [
+        "medicine_buddha"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "Medicine Buddha",
+          "aliases": [],
+          "descriptor": "the Buddha",
+          "body_colour": "deep lapis lazuli blue",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a lotus and moon disc",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "resting over the right knee, palm facing outward",
+              "mudra": "the boon-granting gesture of supreme giving (varada mudra)",
+              "holds": "a stem of the myrobalan (arura) medicinal plant"
+            },
+            {
+              "hand": "left",
+              "position": "resting in the lap",
+              "mudra": "the meditation gesture (dhyana mudra)",
+              "holds": "an alms bowl filled with medicinal nectar"
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "Tibetan form. East Asian images (Yakushi) commonly hold a medicine jar instead; that form is not curated here."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "har",
+        "sadhana_medicine_buddha"
+      ],
+      "notes": null
+    },
+    {
+      "id": "amitabha",
+      "kind": "buddha",
+      "names": {
+        "english": "Amitabha Buddha",
+        "sanskrit": "Amitābha",
+        "tibetan": "Opame ('od dpag med)",
+        "chinese": "阿彌陀佛 Āmítuófó"
+      },
+      "aliases": [
+        "Amitabha",
+        "Amitābha",
+        "Amitabha Buddha",
+        "Amida",
+        "Amida Butsu",
+        "Amituofo",
+        "Opame",
+        "Opagme",
+        "Öpame",
+        "阿彌陀佛",
+        "阿弥陀佛"
+      ],
+      "practice_ids": [
+        "amitabha"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "Amitabha Buddha",
+          "aliases": [],
+          "descriptor": "the Buddha",
+          "body_colour": "red",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a lotus and moon disc",
+          "hands": [
+            {
+              "hand": "both",
+              "position": "resting in the lap",
+              "mudra": "the meditation gesture (dhyana mudra)",
+              "holds": "an alms bowl"
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "Tibetan form; his throne is traditionally supported by peacocks. Amitayus (crowned, holding a long-life vase) and the standing East Asian welcoming forms are distinct and not curated here."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "har"
+      ],
+      "notes": null
+    },
+    {
+      "id": "vajrasattva",
+      "kind": "buddha",
+      "names": {
+        "english": "Vajrasattva",
+        "sanskrit": "Vajrasattva",
+        "tibetan": "Dorje Sempa (rdo rje sems dpa')",
+        "chinese": "金剛薩埵 Jīngāng Sàduǒ"
+      },
+      "aliases": [
+        "Vajrasattva",
+        "Dorje Sempa",
+        "Dorje Sempa Vajrasattva",
+        "金剛薩埵",
+        "金刚萨埵"
+      ],
+      "practice_ids": [
+        "vajrasattva"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "solitary",
+      "forms": [
+        {
+          "id": "solitary",
+          "label": "Vajrasattva",
+          "aliases": [],
+          "descriptor": "a peaceful deity",
+          "body_colour": "white",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a moon disc on a lotus",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "at the heart",
+              "mudra": null,
+              "holds": "a golden vajra"
+            },
+            {
+              "hand": "left",
+              "position": "resting at the left hip",
+              "mudra": null,
+              "holds": "a bell"
+            }
+          ],
+          "other_hands": null,
+          "features": null,
+          "ornaments": "sambhogakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "The solitary form. A form in union with a consort is also practised; it is not used for images here."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "har",
+        "sadhana_vajrasattva"
+      ],
+      "notes": null
+    },
+    {
+      "id": "manjushri",
+      "kind": "bodhisattva",
+      "names": {
+        "english": "Manjushri",
+        "sanskrit": "Mañjuśrī",
+        "tibetan": "Jampelyang ('jam dpal dbyangs)",
+        "chinese": "文殊菩薩 Wénshū Púsà"
+      },
+      "aliases": [
+        "Manjushri",
+        "Manjusri",
+        "Mañjuśrī",
+        "Manjughosha",
+        "Jampelyang",
+        "Jampal Yang",
+        "Wenshu",
+        "Monju",
+        "文殊菩薩",
+        "文殊菩萨"
+      ],
+      "practice_ids": [],
+      "art_style": "tibetan_thangka",
+      "default_form": "sword_and_book",
+      "forms": [
+        {
+          "id": "sword_and_book",
+          "label": "Manjushri with the sword and the book",
+          "aliases": [],
+          "descriptor": "a youthful bodhisattva",
+          "body_colour": "golden orange-yellow",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a moon disc on a lotus",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "raised above the head",
+              "mudra": null,
+              "holds": "a flaming sword of wisdom"
+            },
+            {
+              "hand": "left",
+              "position": "at the heart",
+              "mudra": null,
+              "holds": "the stem of a blue utpala lotus that supports a wrapped scripture beside the left shoulder"
+            }
+          ],
+          "other_hands": null,
+          "features": null,
+          "ornaments": "sambhogakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "The most common Tibetan form; many other forms of Manjushri exist."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har"
+      ],
+      "notes": null
+    },
+    {
+      "id": "prajnaparamita",
+      "kind": "female_buddha",
+      "names": {
+        "english": "Prajnaparamita",
+        "sanskrit": "Prajñāpāramitā",
+        "tibetan": "Yum Chenmo (yum chen mo)",
+        "chinese": "般若佛母 Bōrě Fómǔ"
+      },
+      "aliases": [
+        "Prajnaparamita",
+        "Prajñāpāramitā",
+        "Yum Chenmo",
+        "Heart Sutra",
+        "heart_sutra",
+        "般若佛母"
+      ],
+      "practice_ids": [
+        "heart_sutra"
+      ],
+      "art_style": "tibetan_thangka",
+      "default_form": "four_armed",
+      "forms": [
+        {
+          "id": "four_armed",
+          "label": "Four-armed Prajnaparamita",
+          "aliases": [
+            "Four-armed Prajnaparamita"
+          ],
+          "descriptor": "a serene female wisdom deity",
+          "body_colour": "golden yellow",
+          "faces": 1,
+          "arms": 4,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a moon disc on a lotus",
+          "hands": [
+            {
+              "hand": "principal pair",
+              "position": null,
+              "mudra": null,
+              "holds": null
+            },
+            {
+              "hand": "upper right",
+              "position": "raised",
+              "mudra": null,
+              "holds": "a vajra"
+            },
+            {
+              "hand": "upper left",
+              "position": "raised",
+              "mudra": null,
+              "holds": "a wrapped palm-leaf scripture of the Perfection of Wisdom"
+            }
+          ],
+          "other_hands": null,
+          "features": null,
+          "ornaments": "sambhogakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "The gesture of the principal pair of hands differs by lineage (teaching gesture at the heart, or meditation gesture in the lap), so it is left null and not prompted. The heart_sutra practice also offers Avalokiteshvara, the sutra's speaker, as an alternative focus."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "har",
+        "bhattacharyya"
+      ],
+      "notes": null
+    },
+    {
+      "id": "cundi",
+      "kind": "female_buddha",
+      "names": {
+        "english": "Cundi Buddha Mother (Zhunti)",
+        "sanskrit": "Cundī",
+        "tibetan": null,
+        "chinese": "准提佛母 Zhǔntí Fómǔ"
+      },
+      "aliases": [
+        "Cundi",
+        "Cundī",
+        "Cunda",
+        "Chundi",
+        "Chunti",
+        "Zhunti",
+        "Zhunti Buddha Mother",
+        "Cundi Buddha Mother",
+        "Cundi Bodhisattva",
+        "Cundi Bhagavati",
+        "Cundī Bhagavatī",
+        "Juntei",
+        "准提",
+        "准提佛母",
+        "準提佛母",
+        "准提菩萨",
+        "準提菩薩"
+      ],
+      "practice_ids": [
+        "zhunti"
+      ],
+      "art_style": "east_asian_devotional",
+      "default_form": "eighteen_armed",
+      "forms": [
+        {
+          "id": "eighteen_armed",
+          "label": "Eighteen-armed Cundi",
+          "aliases": [
+            "Eighteen-armed Cundi",
+            "18-armed Cundi"
+          ],
+          "descriptor": "a compassionate female deity",
+          "body_colour": "yellowish white",
+          "faces": 1,
+          "arms": 18,
+          "eyes": 3,
+          "posture": "seated in the full lotus posture",
+          "seat": "a lotus",
+          "hands": [
+            {
+              "hand": "principal pair",
+              "position": "at the heart",
+              "mudra": "the teaching gesture",
+              "holds": null
+            },
+            {
+              "hand": "right (second)",
+              "position": null,
+              "mudra": "the gesture of fearlessness (abhaya mudra)",
+              "holds": null
+            },
+            {
+              "hand": "right (third)",
+              "position": null,
+              "mudra": null,
+              "holds": "a sword"
+            },
+            {
+              "hand": "right (fourth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a string of prayer beads"
+            },
+            {
+              "hand": "right (fifth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a citron fruit (bijapuraka)"
+            },
+            {
+              "hand": "right (sixth)",
+              "position": null,
+              "mudra": null,
+              "holds": "an axe"
+            },
+            {
+              "hand": "right (seventh)",
+              "position": null,
+              "mudra": null,
+              "holds": "a hook"
+            },
+            {
+              "hand": "right (eighth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a vajra"
+            },
+            {
+              "hand": "right (ninth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a jewel garland"
+            },
+            {
+              "hand": "left (second)",
+              "position": null,
+              "mudra": null,
+              "holds": "a wish-fulfilling jewel banner"
+            },
+            {
+              "hand": "left (third)",
+              "position": null,
+              "mudra": null,
+              "holds": "an open lotus"
+            },
+            {
+              "hand": "left (fourth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a water flask"
+            },
+            {
+              "hand": "left (fifth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a lasso"
+            },
+            {
+              "hand": "left (sixth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a wheel"
+            },
+            {
+              "hand": "left (seventh)",
+              "position": null,
+              "mudra": null,
+              "holds": "a conch shell"
+            },
+            {
+              "hand": "left (eighth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a treasure vase"
+            },
+            {
+              "hand": "left (ninth)",
+              "position": null,
+              "mudra": null,
+              "holds": "a scripture of the Perfection of Wisdom"
+            }
+          ],
+          "other_hands": null,
+          "features": "three eyes, the third on the forehead",
+          "ornaments": "bodhisattva_east_asian",
+          "ornament_details": null,
+          "halo": "a round halo of light",
+          "notes": "The eighteen-armed form of East Asian Buddhism, following the image described in the Cundi Dharani Sutra (Taisho 1076). Published descriptions disagree on which side the fearlessness gesture is on; the list follows the sutra as commonly quoted. The Indian Sadhanamala describes a four-armed form and the Nispannayogavali a twenty-six-armed one (Bhattacharyya); neither is curated here. No Tibetan name is recorded because none is established in the sources consulted."
+        }
+      ],
+      "sources": [
+        "taisho_1076",
+        "bhattacharyya"
+      ],
+      "notes": null
+    }
+  ]
+}

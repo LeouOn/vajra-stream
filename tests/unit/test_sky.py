@@ -339,3 +339,38 @@ def test_gallery_lists_and_serves_the_composite(render_root):
     assert res.status_code == 200 and res.headers["content-type"] == "image/png"
     assert client.get(f"/api/v1/gallery/sky/{plain['id']}/image").status_code == 404
     assert client.get("/api/v1/gallery/sky/nope/image").status_code == 404
+
+
+def test_composite_witness_with_a_skip_reason_keeps_the_scene(render_root):
+    op = finished_render(render_root)
+    block = {"status": "ok", "image_url": op["result"]["image_url"], "width": 256, "height": 256, "caption_facts": []}
+    out = sky_composite.composite_witness(block, op, fake_sky(), skip_reason="no horizon")
+    assert out["image_url"] == block["image_url"]
+    assert out["sky"]["composited"] is False and out["sky"]["reason"] == "no horizon"
+    assert out["caption_facts"] == [{"label": "Sky overlay", "value": "not drawn: no horizon", "provenance": "record"}]
+    composite, _ = sky_composite.composite_paths(jobs.image_file(op))
+    assert not composite.exists()
+
+
+def test_a_deity_witness_is_not_composited(render_root, monkeypatch):
+    monkeypatch.setattr(working, "WORKINGS_DIR", render_root / "workings")
+    (render_root / "workings").mkdir()
+    folio = working.run_working("May all beings find refuge", broadcast=False, deity="green_tara")
+    assert "low horizon" not in folio["image_prompt"]
+    assert sky.EMPTY_BACKGROUND_CLAUSE in folio["image_prompt"]
+
+    op = operations.create_operation(
+        "render", "w", params={"purpose": "witness", "prompt": "p", "working_id": folio["working_id"]}
+    )
+    operations.start_operation(op["id"])
+    rel = jobs.artifact_relpath(op)
+    (render_root / rel).parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (256, 256), (20, 30, 60)).save(render_root / rel, format="PNG")
+    done = operations.complete_operation(
+        op["id"], {"image_url": f"/api/v1/render/jobs/{op['id']}/image", "artifact_path": str(rel)}
+    )
+    assert working.apply_witness_render(done) is True
+    witness = working.load_working(folio["working_id"])["witness"]
+    assert witness["image_url"] == f"/api/v1/render/jobs/{op['id']}/image"
+    assert witness["sky"]["composited"] is False
+    assert "devotional painting" in witness["sky"]["reason"]

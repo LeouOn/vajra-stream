@@ -229,14 +229,21 @@ def _not_drawn(block: dict[str, Any], record: dict[str, Any], reason: str) -> di
     return {**block, "caption_facts": facts, "sky": {**record, "composited": False, "reason": reason}}
 
 
-def composite_witness(block: dict[str, Any], op: dict[str, Any], computed: dict[str, Any] | None) -> dict[str, Any]:
+def composite_witness(
+    block: dict[str, Any],
+    op: dict[str, Any],
+    computed: dict[str, Any] | None,
+    *,
+    skip_reason: str | None = None,
+) -> dict[str, Any]:
     """The witness ``block`` of a finished render with the true sky drawn on, or why it is not.
 
     ``computed`` is :func:`core.sky.compute_sky` for the folio (``None``: the
     ephemeris is unavailable, so the scene is kept as it is and the caption
     says the sky could not be computed). The rendered scene file is never
     modified; the composite is written beside it and ``image_url`` points at
-    it, with the scene still at ``scene_image_url``.
+    it, with the scene still at ``scene_image_url``. A ``skip_reason`` keeps
+    the scene as it is (the computed sky stays in the caption facts).
     """
     record: dict[str, Any] = {"method": SKY_METHOD}
     if computed is None:
@@ -244,6 +251,8 @@ def composite_witness(block: dict[str, Any], op: dict[str, Any], computed: dict[
         if not any(f.get("label") == "Sky at sealing" for f in facts):
             facts.append(unavailable_fact())
         return {**block, "caption_facts": facts, "sky": {**record, "computed": False, "composited": False}}
+    if skip_reason:
+        return _not_drawn(block, {**record, **computed}, skip_reason)
 
     # The render engine owns where its PNG lives; core may not import backend at module level.
     from backend.core.services.render.jobs import image_file

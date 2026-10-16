@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core import image_prompts, sky
+from core import iconography, image_prompts, sky
 from core.auspicious_timing import check_auspicious_window, check_saka_dawa
 from core.context_builder import search_rates
 from core.provenance import COMPUTED, DRAW, RECORD, with_provenance
@@ -43,6 +43,7 @@ FOLIO_PROVENANCE: dict[str, str] = {
     "hour_stamp": COMPUTED,
     "broadcast": RECORD,
     "divination": DRAW,
+    "deity": RECORD,
 }
 
 # Dials set by hand (PATCH /workings/{id}) are recorded as entered.
@@ -358,7 +359,14 @@ def witness_prompt(folio: dict[str, Any]) -> str:
         str(folio.get("target") or "all beings"),
         sky_period=computed["period"] if computed else None,
         saka_dawa=_saka_block(folio),
+        deity_clause=_deity_clause(folio),
     )
+
+
+def _deity_clause(folio: dict[str, Any]) -> str:
+    """The curated iconography clause for the folio's deity (core/iconography.py), or ""."""
+    ref = iconography.folio_deity(folio)
+    return iconography.ref_prompt_clause(ref) if ref is not None else ""
 
 
 def witness_caption_facts(folio: dict[str, Any]) -> list[dict[str, str]]:
@@ -383,6 +391,9 @@ def witness_caption_facts(folio: dict[str, Any]) -> list[dict[str, str]]:
     multiplier = int(saka.get("multiplier") or 1)
     if multiplier > 1:
         facts.append(image_prompts.caption_fact("Merit multiplier", f"×{multiplier:,}", "computed"))
+    deity = iconography.folio_deity(folio)
+    if deity is not None:
+        facts.extend(iconography.deity_caption_facts(deity.entry, deity.form))
     return facts
 
 
@@ -405,9 +416,21 @@ def submit_witness_render(working_id: str) -> dict[str, Any] | None:
             working_id=working_id,
             purpose="witness",
             caption_facts=witness_caption_facts(folio),
+            reference_id=_deity_reference_id(folio),
         )
     )
     return {"working_id": working_id, "operation": op}
+
+
+def _deity_reference_id(folio: dict[str, Any]) -> str | None:
+    """The user's thangka reference image for the folio's deity, if one is set."""
+    ref = iconography.folio_deity(folio)
+    if ref is None:
+        return None
+    # Function-level: the render engine lives in backend (core must not import it at module level).
+    from backend.core.services.render.deity_references import reference_for
+
+    return reference_for(ref.id)
 
 
 def witness_block_for(op: dict[str, Any]) -> dict[str, Any] | None:
@@ -472,7 +495,9 @@ def apply_witness_render(op: dict[str, Any]) -> bool:
             # Draw the true sky onto the empty-sky scene (deterministic, so a repeat stays a no-op).
             from core.sky_composite import composite_witness
 
-            block = composite_witness(block, op, _folio_sky(folio))
+            # A deity's devotional painting has no horizon: its sky stays in the caption.
+            no_horizon = "the witness is a devotional painting of a deity" if folio.get("deity") else None
+            block = composite_witness(block, op, _folio_sky(folio), skip_reason=no_horizon)
         if current == block:
             return False
         folio["witness"] = block
@@ -671,6 +696,7 @@ def _image_prompt(
     *,
     sky_period: str | None = None,
     saka_dawa: dict[str, Any] | None = None,
+    deity_clause: str = "",
 ) -> str:
     """The witness image prompt: imagery only, under an empty sky.
 
@@ -679,6 +705,10 @@ def _image_prompt(
     is drawn onto the render afterwards (:func:`apply_witness_render`,
     core/sky_composite.py). Saka Dawa is named only when the sitting fell in
     it; its date belongs in the caption, not here.
+    A ``deity_clause`` (core/iconography.py) makes the still a devotional
+    painting of that deity, the clause first so clipping never cuts it. A
+    devotional painting has no horizon to draw the sky against, so its
+    background is simply left empty and the sky goes in the caption only.
     """
     sky_line = f" {sky.empty_sky_clause(sky_period)}"
     saka = saka_dawa or {}
@@ -688,6 +718,12 @@ def _image_prompt(
         season = " The Saka Dawa month: butter lamps glowing in the dusk."
     else:
         season = ""
+    if deity_clause:
+        return image_prompts.finalize_image_prompt(
+            f"{deity_clause} Offered for the intention: {intention[:200]}. Dedicated to {target}. "
+            f"{sky.EMPTY_BACKGROUND_CLAUSE}{season}",
+            max_chars=iconography.DEITY_PROMPT_MAX_CHARS,
+        )
     return image_prompts.finalize_image_prompt(
         f"Manifestation still of the fulfilled intention: {intention[:200]}. "
         f"Dedicated to {target}. Sacred cinematic lighting, brass singing bowls "
@@ -715,8 +751,18 @@ def run_working(
     planetary_hour: str | None = None,
     moon_phase: str | None = None,
     divination: dict[str, Any] | None = None,
+    deity: str | None = None,
 ) -> dict[str, Any]:
-    """Seal one working and optionally start a non-blocking broadcast."""
+    """Seal one working and optionally start a non-blocking broadcast.
+
+    ``deity`` (an id, alias or form alias from ``knowledge/iconography.json``,
+    e.g. ``green_tara`` or ``thousand-armed Chenrezig``) is sealed on the folio
+    and paints its witness with that deity's curated iconography. An unknown
+    deity raises ``ValueError`` before anything is sealed.
+    """
+    deity_ref = iconography.resolve(deity) if deity and deity.strip() else None
+    if deity and deity.strip() and deity_ref is None:
+        raise ValueError(f"unknown deity {deity!r}; see knowledge/iconography.json")
     intention = (intention or "").strip() or "May all beings be free from suffering"
     target = (target or "all beings").strip() or "all beings"
     duration_minutes = max(1, min(int(duration_minutes or 5), 30))
@@ -773,6 +819,7 @@ def run_working(
             "moon_phase": moon_phase,
         },
         "divination": divination,
+        "deity": deity_ref.record() if deity_ref is not None else None,
         "provenance": dict(FOLIO_PROVENANCE),
     }
     folio["image_prompt"] = witness_prompt(folio)
