@@ -223,19 +223,20 @@ def test_gv_meter_returns_value_in_zero_to_thousand_range():
 
 @pytest.mark.unit
 def test_gv_meter_interpret_gv_buckets_are_documented():
-    """The interpretation string matches the documented bucket labels."""
+    """The reading names the value as drawn and the documented band."""
     meter = GeneralVitalityMeter()
     cases = [
-        (1000.0, "Excellent"),
-        (800.0, "Excellent"),
-        (700.0, "Good"),
-        (500.0, "Moderate"),
-        (300.0, "Low"),
-        (100.0, "Very Low"),
+        (1000.0, "reads as very high vitality"),
+        (800.0, "reads as very high vitality"),
+        (700.0, "reads as high vitality"),
+        (500.0, "reads as balanced vitality"),
+        (300.0, "reads as low vitality"),
+        (100.0, "reads as very low vitality"),
     ]
-    for gv, expected_prefix in cases:
+    for gv, expected in cases:
         interp = meter.interpret_gv(gv)
-        assert expected_prefix in interp, f"GV={gv} -> {interp!r} (expected to contain {expected_prefix!r})"
+        assert interp.startswith(f"Drawn GV {gv:.0f}"), interp
+        assert expected in interp, f"GV={gv} -> {interp!r} (expected to contain {expected!r})"
 
 
 @pytest.mark.unit

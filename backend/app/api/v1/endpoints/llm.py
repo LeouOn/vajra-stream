@@ -659,9 +659,11 @@ async def execute_tool_locally(name: str, args: dict) -> Any:
             model=args.get("model") or NEMOTRON_FREE_MODEL_ID,
         )
     elif name == "forge_witness":
-        from core.working import attach_witness_image
+        # Same policy as POST /operator/workings/{id}/witness: local render when
+        # reachable (returns the queued operation id), else hosted off the loop.
+        from core.working import forge_witness_for_tool
 
-        return attach_witness_image(str(args.get("working_id") or ""))
+        return await forge_witness_for_tool(str(args.get("working_id") or ""))
     elif name == "check_auspicious_timing":
         from core.auspicious_timing import check_auspicious_window
 
@@ -863,7 +865,7 @@ async def run_rule_based_fallback(query: str) -> ChatResponse:
             )
             response_text = (
                 f"🔮 **RNG Attunement Session Created**\n\n"
-                f"The random number generator is now capturing local quantum fluctuations.\n"
+                f"The session now draws random values for e-meter style readings (draws, not measurements).\n"
                 f"- **Session ID**: `{res.get('session_id')}`\n"
                 f"- Tone Arm Baseline calibrated to 5.0."
             )

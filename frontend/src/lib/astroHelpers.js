@@ -122,8 +122,19 @@ export function natalDisplayName(name) {
   return isHouseCusp(name) ? `Natal Cusp ${houseLabel(name)}` : `Natal ${name}`;
 }
 
+/**
+ * Narrow an export payload to the selected charts and field keys.
+ *
+ * @param {{ charts?: Array<{ id: unknown, [key: string]: unknown }>, [key: string]: unknown }} payload
+ * @param {Set<unknown>} selectedChartIds
+ * @param {Set<string>} selectedFieldKeys
+ * @param {Array<{ key: string }>} topLevelFields
+ * @param {Array<{ key: string }>} fieldGroups
+ * @returns {{ charts: Array<{ id: unknown, [key: string]: unknown }>, [key: string]: unknown }}
+ */
 export function applyFieldSelection(payload, selectedChartIds, selectedFieldKeys, topLevelFields, fieldGroups) {
   const filteredCharts = (payload.charts || []).filter((c) => selectedChartIds.has(c.id));
+  /** @type {Record<string, unknown>} */
   const topLevel = {};
   for (const f of topLevelFields) {
     if (selectedFieldKeys.has(f.key) && payload[f.key] !== undefined) {
@@ -131,6 +142,7 @@ export function applyFieldSelection(payload, selectedChartIds, selectedFieldKeys
     }
   }
   const charts = filteredCharts.map((c) => {
+    /** @type {{ id: unknown, [key: string]: unknown }} */
     const out = { id: c.id };
     for (const f of fieldGroups) {
       if (selectedFieldKeys.has(f.key) && c[f.key] !== undefined) {

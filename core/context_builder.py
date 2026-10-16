@@ -31,12 +31,12 @@ You help users design and execute radionics sessions by:
 2. **Selecting rates** — recommend multi-dial radionics rates based on intention, knowledge base, and correspondences
 3. **Choosing frequencies** — select optimal carrier frequencies (Solfeggio, planetary, Schumann) for the intention
 4. **Recommending mantras** — suggest appropriate mantras from Buddhist, Hindu, and universal traditions
-5. **Interpreting feedback** — analyze RNG readings, GV measurements, and coherence to assess session effectiveness
+5. **Reading feedback** — read RNG and GV draws in the radionics tradition (they are divinatory draws, not measurements)
 6. **Designing protocols** — combine modalities (scalar waves, radionics, chakra balancing, audio) into coherent sessions
 
 ## Radionics Fundamentals
 - **Rates** are multi-dial numerical values (typically 2-3 dials, values 0-100) representing energy signatures
-- **General Vitality (GV)** is measured 0-1000: <200 very low, 200-400 low, 400-600 moderate, 600-800 good, 800-1000 excellent
+- **General Vitality (GV)** is drawn 0-1000 with an RNG, the digital stick pad. It is a divinatory draw, never a measurement or a diagnosis; say "the draw reads as ...". Traditional bands: <200 very low, 200-400 low, 400-600 balanced, 600-800 high, 800-1000 very high
 - **Broadcasting** transmits rates via scalar waves on a carrier frequency
 - **Signature rates** are derived from intention text via hash+gematria algorithms
 - **Balancing rates** are complementary/inverse rates that help restore equilibrium
@@ -366,12 +366,12 @@ def build_system_prompt(
             prompt += f"**Carrier Frequency:** {session_state['active_frequency']} Hz\n"
         if "gv_measurement" in session_state:
             gv = session_state["gv_measurement"]
-            prompt += f"**General Vitality:** {gv}/1000\n"
+            prompt += f"**General Vitality (drawn):** {gv}/1000\n"
         if "rng_state" in session_state:
             rng = session_state["rng_state"]
-            prompt += f"**RNG Needle:** {rng.get('state', 'unknown')} (coherence: {rng.get('coherence', 'N/A')})\n"
-        if "scalar_mops" in session_state:
-            prompt += f"**Scalar MOPS:** {session_state['scalar_mops']:.2f}M/s\n"
+            prompt += (
+                f"**RNG Needle (drawn):** {rng.get('state', 'unknown')} (coherence: {rng.get('coherence', 'N/A')})\n"
+            )
         if "active_chakra" in session_state:
             prompt += f"**Active Chakra:** {session_state['active_chakra']}\n"
         if "duration_remaining" in session_state:
@@ -454,7 +454,6 @@ class SessionContext:
         self.active_frequency: float = 528.0
         self.gv_measurement: float = 0.0
         self.rng_state: dict[str, Any] = {}
-        self.scalar_mops: float = 0.0
         self.active_chakra: str = ""
         self.duration_remaining: int = 0
         self.planetary_context: str = ""
@@ -482,8 +481,6 @@ class SessionContext:
             d["gv_measurement"] = self.gv_measurement
         if self.rng_state:
             d["rng_state"] = self.rng_state
-        if self.scalar_mops:
-            d["scalar_mops"] = self.scalar_mops
         if self.active_chakra:
             d["active_chakra"] = self.active_chakra
         if self.duration_remaining:

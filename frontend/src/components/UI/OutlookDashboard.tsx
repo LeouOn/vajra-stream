@@ -41,11 +41,14 @@ import {
   type SavedRitual,
 } from './outlook/outlookShared';
 import RitualVisualization from './RitualVisualization';
+import type { EpicChapter } from './EpicStoryViewer';
+import { pollVideoTask, type VideoTaskStatus } from '../../lib/videoTaskPoll';
 import SadhanaVisualization from './SadhanaVisualization';
 import { getDeityFromEntityText } from '../../lib/deityVisualizations';
 import { createLogger } from '../../utils/logger';
 import { useWebSocketStable } from '../../hooks/useWebSocketStable';
 import { apiUrl } from '../../utils/api';
+import ImageCaptionFacts from './ImageCaptionFacts';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { featuredFallbackChoices, type FeaturedModelChoice } from '../../lib/featuredModels';
 
@@ -143,13 +146,14 @@ interface CurrentNarrative {
   type?: string;
   genre?: string;
   narrative?: string;
-  narrative_parts?: string[] | string;
+  /** Epic outlooks: the chapter list (the generator and /history both send objects). */
+  narrative_parts?: EpicChapter[];
   astrology_used?: string;
   divination_used?: string;
   divination_raw?: DivinationRaw;
   entities_used?: string;
-  model_used?: string;
-  provider_used?: string;
+  model_used?: string | null;
+  provider_used?: string | null;
   [key: string]: unknown;
 }
 
@@ -162,6 +166,27 @@ interface OutlookModels {
 interface ModelSelectOption {
   value: string;
   label: string;
+}
+
+/** Validate an epic's stored chapter list (HistoryItem.content for type 'epic'). */
+function toEpicChapters(value: unknown): EpicChapter[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object')
+    .map((p, i) => ({
+      chapter: typeof p.chapter === 'number' ? p.chapter : i + 1,
+      title: typeof p.title === 'string' ? p.title : `Chapter ${i + 1}`,
+      content: typeof p.content === 'string' ? p.content : '',
+    }));
+}
+
+function toDivinationRaw(value: unknown): DivinationRaw | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as DivinationRaw) : undefined;
+}
+
+/** Plain text of a narrative, joining an epic's chapters when there is no single text. */
+function narrativePlainText(n: CurrentNarrative): string {
+  return n.narrative || (n.narrative_parts ?? []).map(p => p.content).join(' ');
 }
 
 type ResultTab = 'narrative' | 'affirmation';
@@ -313,18 +338,17 @@ export default function OutlookDashboard() {
     provider_used?: string;
     revised_prompt?: string | null;
     cached?: boolean;
+    /** The imagery-only prompt the server sent (no chart numbers). */
+    prompt?: string;
+    /** Real values captioned under the image (moon at chart time, ...). */
+    caption_facts?: unknown;
   } | null>(null);
 
   const [videoGenLoading, setVideoGenLoading] = useState<boolean>(false);
-  const [videoGenState, setVideoGenState] = useState<{
-    task_id?: string;
-    status?: string;
-    video_url?: string;
-    local_path?: string;
-    video_prompt?: string;
-    error?: string;
-  } | null>(null);
-  const [videoPollRef, setVideoPollRef] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [videoGenState, setVideoGenState] = useState<VideoTaskStatus | null>(null);
+  // stop() for the active video-status poll (cleared on finish and unmount).
+  const stopVideoPollRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopVideoPollRef.current?.(), []);
 
   // ─── Ritual Reveal State ─────────────────────────────────
   // Progressive section reveal — sections (I. Invocatio … V. Dedicatio)
@@ -719,10 +743,10 @@ export default function OutlookDashboard() {
       ...item,
       astrology_used: item.astrology_context,
       divination_used: item.divination_context,
-      divination_raw: item.divination_raw,
+      divination_raw: toDivinationRaw(item.divination_raw),
       entities_used: item.entities_invoked,
       narrative: item.type === 'epic' ? undefined : item.content,
-      narrative_parts: item.type === 'epic' ? item.content : undefined,
+      narrative_parts: item.type === 'epic' ? toEpicChapters(item.content) : undefined,
     };
     setCurrentNarrative(normalized);
   };
@@ -739,17 +763,21 @@ export default function OutlookDashboard() {
     setIllustrationLoading(true);
     audioFeedback.playTelemetry();
     try {
-      const narrativeText = currentNarrative.narrative
-        || (Array.isArray(currentNarrative.narrative_parts)
-            ? currentNarrative.narrative_parts.join(' ')
-            : String(currentNarrative.narrative_parts || ''));
-      const excerpt = narrativeText.slice(0, 600);
-      const genre = currentNarrative.genre || 'spiritual';
-      const prompt = `Illustration for a "${genre}" blessing transmission: ${excerpt}`;
-      const res = await fetch(apiUrl('/images/generate'), {
+      // The server builds an imagery-only prompt (chart numbers, headings and
+      // glyphs stripped) and returns the real values as caption_facts.
+      const storedId = Number(currentNarrative.id);
+      const chartTime = currentNarrative.date_generated;
+      const payload: Record<string, unknown> = Number.isInteger(storedId) && storedId > 0
+        ? { narrative_id: storedId }
+        : {
+            narrative: narrativePlainText(currentNarrative),
+            genre: currentNarrative.genre || 'healing',
+            date: typeof chartTime === 'string' ? chartTime : undefined,
+          };
+      const res = await fetch(apiUrl('/outlook/illustration'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, n: 1 }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
@@ -774,10 +802,7 @@ export default function OutlookDashboard() {
     setVideoGenState(null);
     audioFeedback.playTelemetry();
     try {
-      const narrativeText = currentNarrative.narrative
-        || (Array.isArray(currentNarrative.narrative_parts)
-            ? currentNarrative.narrative_parts.join(' ')
-            : String(currentNarrative.narrative_parts || ''));
+      const narrativeText = narrativePlainText(currentNarrative);
       const payload: Record<string, unknown> = {
         narrative: narrativeText.slice(0, 3000),
         genre: currentNarrative.genre || 'healing',
@@ -795,30 +820,17 @@ export default function OutlookDashboard() {
         const data = await res.json();
         setVideoGenState(data);
         message.success('Video task submitted. Polling for completion...');
-        const interval = window.setInterval(async () => {
-          try {
-            const sres = await fetch(apiUrl('/videos/status'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ task_id: data.task_id, model: data.model || 'MiniMax-H3' }),
-            });
-            if (sres.ok) {
-              const sdata = await sres.json();
-              setVideoGenState(sdata);
-              if (sdata.status === 'succeeded' || sdata.status === 'done' || sdata.status === 'failed') {
-                if (videoPollRef.current) {
-                  window.clearInterval(videoPollRef.current);
-                  setVideoPollRef(null);
-                }
-                if (sdata.status === 'failed') message.error(sdata.error || 'Video generation failed');
-                else message.success('Video generated!');
-              }
-            }
-          } catch {
-            // eslint-disable-next-line no-empty
-          }
-        }, 5000);
-        setVideoPollRef(interval);
+        stopVideoPollRef.current?.();
+        stopVideoPollRef.current = pollVideoTask({
+          taskId: data.task_id,
+          model: data.model || 'MiniMax-H3',
+          onStatus: setVideoGenState,
+          onFinish: (sdata) => {
+            stopVideoPollRef.current = null;
+            if (sdata.status === 'failed') message.error(sdata.error || 'Video generation failed');
+            else message.success('Video generated!');
+          },
+        });
       } else {
         const err = await res.json().catch(() => ({})) as { detail?: string };
         message.error(err.detail || 'Video generation failed (is it enabled in Settings?).');
@@ -1056,7 +1068,7 @@ export default function OutlookDashboard() {
             <Col>
               <Segmented
                 value={activeTab}
-                onChange={v => { setActiveTab(v); audioFeedback.playClick(); }}
+                onChange={(v: GeneratorTab) => { setActiveTab(v); audioFeedback.playClick(); }}
                 options={[
                   { label: <span><Sparkles className="w-3 h-3 inline mr-1" />Generator</span>, value: 'generator' },
                   { label: <span><Layers className="w-3 h-3 inline mr-1" />Universe</span>, value: 'universe' },
@@ -1375,7 +1387,7 @@ export default function OutlookDashboard() {
                   {isEpic && (
                     <Row align="middle" style={{ marginTop: 8 }}>
                       <Text style={{ fontSize: 12, marginRight: 8 }}>Stages:</Text>
-                      <InputNumber size="small" min={3} max={15} value={stages} onChange={setStages} />
+                      <InputNumber size="small" min={3} max={15} value={stages} onChange={(v) => { if (v != null) setStages(v); }} />
                     </Row>
                   )}
 
@@ -1488,12 +1500,12 @@ export default function OutlookDashboard() {
                      </Col>
                    </Row>
 
-                   {bgStats.total_generated > 0 && (
+                   {(bgStats.total_generated ?? 0) > 0 && (
                      <div style={{ background: 'rgba(139,92,246,0.05)', padding: 8, borderRadius: 6 }}>
                        <Text style={{ fontSize: 10 }} className="font-mono">
                          <Bell className="w-3 h-3 inline mr-1" />
                          Generated: {bgStats.total_generated} · Saved: {bgStats.total_saved}
-                         {bgStats.total_errors > 0 && ` · Errors: ${bgStats.total_errors}`}
+                         {(bgStats.total_errors ?? 0) > 0 && ` · Errors: ${bgStats.total_errors}`}
                        </Text>
                        {bgStats.last_generated_at && (
                          <div>
@@ -1574,7 +1586,7 @@ export default function OutlookDashboard() {
                         <Tabs
                           size="small"
                           activeKey={resultTab}
-                          onChange={setResultTab}
+                          onChange={(key) => setResultTab(key === 'affirmation' ? 'affirmation' : 'narrative')}
                           items={[
                             {
                               key: 'narrative',
@@ -1862,6 +1874,7 @@ export default function OutlookDashboard() {
                             alt={illustration.revised_prompt || 'Generated illustration'}
                             style={{ width: '100%', borderRadius: 8 }}
                           />
+                          <ImageCaptionFacts facts={illustration.caption_facts} />
                           {illustration.revised_prompt && (
                             <Paragraph
                               type="secondary"

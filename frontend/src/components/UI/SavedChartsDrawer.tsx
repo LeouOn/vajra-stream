@@ -115,7 +115,7 @@ export default function SavedChartsDrawer({
                   type="default" 
                   ghost 
                   icon={<Upload className="w-3.5 h-3.5" />} 
-                  onClick={() => { audioFeedback.playClick(); document.getElementById('import-file-input').click(); }}
+                  onClick={() => { audioFeedback.playClick(); document.getElementById('import-file-input')?.click(); }}
                 />
               </div>
             </Tooltip>

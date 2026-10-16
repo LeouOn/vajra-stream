@@ -159,19 +159,22 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "measure_general_vitality",
-            "description": "Measure General Vitality (GV) of a subject — the core energy/resonance metric in radionics. "
-            "Scale: 0-1000. Returns mean, median, std, min, max over multiple samples. "
-            "GV < 200 = very low, 200-400 = low, 400-600 = moderate, 600-800 = good, 800-1000 = excellent.",
+            "description": "Draw General Vitality (GV) for a subject — the core resonance reading in radionics. "
+            "GV is a DRAW: an RNG stands in for the stick pad or pendulum (a divinatory method). It is not a "
+            "measurement and must never be reported as a diagnosis. Scale: 0-1000. Returns mean, median, std, "
+            "min, max over several draws, plus a provenance map. Traditional reading bands: < 200 very low, "
+            "200-400 low, 400-600 balanced, 600-800 high, 800-1000 very high vitality. Phrase results as "
+            "'the draw reads as ...'.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "subject": {
                         "type": "string",
-                        "description": "What/who is being measured (person name, intention, condition).",
+                        "description": "Who or what the draw is for (person name, intention, condition).",
                     },
                     "samples": {
                         "type": "integer",
-                        "description": "Number of GV measurements to take. More samples = more stable reading.",
+                        "description": "Number of GV draws to average.",
                         "default": 10,
                     },
                 },
@@ -183,8 +186,9 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "find_balancing_rates",
-            "description": "Find rates that balance/heal a subject. Generates complementary (inverse) rates "
-            "based on the subject's signature rate. Returns top rates sorted by estimated potency.",
+            "description": "Find rates that balance/heal a subject. Inverts the subject's computed signature "
+            "rate and offsets each dial by a draw; each rate's potency is drawn (stick-pad analog), not "
+            "measured. Returns rates sorted by drawn potency, each with a provenance map.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -264,7 +268,8 @@ RADIONICS_TOOLS: list[dict[str, Any]] = [
             "name": "generate_scalar_waves",
             "description": "Generate scalar wave values using one of five methods: "
             "qrng (quantum-random), lorenz (chaotic attractor), rossler (chaotic attractor), "
-            "ca (cellular automata), or hybrid (combined). Returns MOPS (million operations per second) metric.",
+            "ca (cellular automata), or hybrid (combined). "
+            "Returns the number of values generated and the measured generation time in seconds.",
             "parameters": {
                 "type": "object",
                 "properties": {

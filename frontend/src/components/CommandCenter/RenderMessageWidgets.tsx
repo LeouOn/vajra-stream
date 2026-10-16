@@ -12,6 +12,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiUrl } from '../../utils/api';
 import WorkingInstrument, { WitnessPlate } from './WorkingInstrument';
+import WitnessSection from '../Workings/WitnessSection';
+import type { WitnessBlock } from '../../lib/witnessApi';
 
 // ---------------------------------------------------------------------------
 // Divination payload types
@@ -45,7 +47,8 @@ export interface IChingCast {
   primary?: IChingHexagram;
   relating?: IChingHexagram;
   has_changes?: boolean;
-  changing_lines: string[];
+  /** Indices of the changing lines (divination_service.cast_i_ching). */
+  changing_lines?: Array<number | string>;
 }
 
 /** A single geomantic figure (Judge / Witness / house figure). */
@@ -114,7 +117,7 @@ export interface ToolCall {
     primary?: IChingHexagram;
     relating?: IChingHexagram;
     has_changes?: boolean;
-    changing_lines?: string[];
+    changing_lines?: Array<number | string>;
     figures?: Record<string, GeomancyFigure | undefined>;
     houses?: Record<number, GeomancyFigure>;
     narrative?: string;
@@ -140,12 +143,8 @@ export interface ToolCall {
       is_saka_dawa?: boolean;
     };
     broadcast?: { status?: string; error?: string } | null;
-    witness?: {
-      status?: string;
-      image_data_url?: string;
-      error?: string;
-      model?: string;
-    };
+    /** Hosted (`image_data_url`) or local render (`image_url`, contract W2-2). */
+    witness?: WitnessBlock;
     spoken?: { status?: string; error?: string; audio_path?: string };
     video?: { status?: string; error?: string; task_id?: string };
     source?: string;
@@ -179,7 +178,6 @@ export function WorkingFolioCard({
   showRates?: boolean;
 }) {
   const [folio, setFolio] = useState<WorkingResult>(initial);
-  const [busy, setBusy] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [videoBusy, setVideoBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,7 +186,6 @@ export function WorkingFolioCard({
   const dials = (folio.rate_values || []).join(' · ');
   const duchen = folio.saka_dawa?.saka_dawa_duchen;
   const days = folio.saka_dawa?.days_until_duchen;
-  const witnessUrl = folio.witness?.image_data_url;
 
   const applyFolio = (data: unknown) => {
     if (data && typeof data === 'object') {
@@ -235,38 +232,12 @@ export function WorkingFolioCard({
     }
   };
 
-  const forgeWitness = async () => {
-    if (!folio.working_id || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(apiUrl(`/operator/workings/${folio.working_id}/manifest`), { method: 'POST' });
-      const data: unknown = await res.json();
-      if (!res.ok) {
-        setError('Manifestation image failed');
-        return;
-      }
-      applyFolio(data);
-    } catch {
-      setError('Manifestation image failed');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   useEffect(() => {
     if (!autoSpeak || !initial.working_id || initial.spoken?.status === 'ok') return;
     void speakCharge();
     // Speak once when a newly sealed working is shown in chat.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSpeak, initial.working_id]);
-
-  useEffect(() => {
-    if (!autoManifest || !initial.working_id || initial.witness?.image_data_url) return;
-    void forgeWitness();
-    // Manifestation image is the cheap default visual for a new working.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoManifest, initial.working_id]);
 
   return (
     <div data-testid="working-folio" className="bg-black/60 p-4 rounded-xl border border-amber-500/25 space-y-3">
@@ -295,23 +266,12 @@ export function WorkingFolioCard({
       {folio.broadcast?.status && (
         <p className="text-[10px] font-mono text-amber-400/80">Broadcast: {folio.broadcast.status}</p>
       )}
-      {witnessUrl && (
-        <WitnessPlate label="Manifestation still">
-          <img
-            src={witnessUrl}
-            alt="Manifestation image"
-            className="w-full max-h-64 object-contain rounded-lg cursor-zoom-in"
-            onClick={() => onZoomItemClick?.({
-              type: 'image',
-              title: folio.intention || 'Manifestation',
-              image_data_url: witnessUrl,
-            })}
-          />
-        </WitnessPlate>
-      )}
-      {folio.witness?.error && (
-        <p className="text-[11px] text-red-300">{folio.witness.error}</p>
-      )}
+      <WitnessSection
+        folio={folio}
+        onFolio={applyFolio}
+        onZoomItemClick={onZoomItemClick}
+        autoManifest={autoManifest}
+      />
       {error && <p className="text-[11px] text-red-300">{error}</p>}
       {folio.spoken?.status === 'ok' && folio.working_id && (
         <audio
@@ -336,14 +296,6 @@ export function WorkingFolioCard({
           className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
         >
           {speaking ? 'Speaking…' : 'Speak charge'}
-        </button>
-        <button
-          type="button"
-          onClick={() => { void forgeWitness(); }}
-          disabled={busy}
-          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
-        >
-          {busy ? 'Painting manifestation…' : witnessUrl ? 'Re-paint manifestation' : 'Manifestation image'}
         </button>
         <button
           type="button"
@@ -459,7 +411,7 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
                   })}
                   className="w-24 h-24 bg-gray-950 rounded-lg p-1 border border-white/5 flex items-center justify-center cursor-zoom-in hover:border-cyan-400 hover:scale-105 transition-all duration-300"
                 >
-                  <div dangerouslySetInnerHTML={{ __html: sigil.svg }} className="w-full h-full" />
+                  <div dangerouslySetInnerHTML={{ __html: sigil.svg ?? '' }} className="w-full h-full" />
                 </div>
                 {/* AI image if generated */}
                 {sigil.ai_image && (
@@ -524,11 +476,11 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
                   type: 'iching',
                   title: 'I Ching Hexagram',
                   svg: cast.svg,
-                  cast: cast as IChingCast
+                  cast,
                 })}
                 className="flex flex-col sm:flex-row gap-4 items-center cursor-zoom-in hover:bg-white/5 p-2 rounded-lg transition-all duration-300"
               >
-                <div dangerouslySetInnerHTML={{ __html: cast.svg }} className="divination-card-container w-full max-w-[200px]" />
+                <div dangerouslySetInnerHTML={{ __html: cast.svg ?? '' }} className="divination-card-container w-full max-w-[200px]" />
                 <div className="flex-1 text-xs space-y-1.5 text-gray-300">
                   <div>
                     <span className="font-bold text-white block">Primary: {cast.primary?.name}</span>
@@ -560,11 +512,11 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
                   type: 'geomancy',
                   title: 'Geomantic Shield',
                   svg: chart.svg,
-                  chart: chart as GeomancyChart
+                  chart,
                 })}
                 className="flex flex-col sm:flex-row gap-4 items-center cursor-zoom-in hover:bg-white/5 p-2 rounded-lg transition-all duration-300"
               >
-                <div dangerouslySetInnerHTML={{ __html: chart.svg }} className="w-full max-w-[240px]" />
+                <div dangerouslySetInnerHTML={{ __html: chart.svg ?? '' }} className="w-full max-w-[240px]" />
                 <div className="flex-1 text-xs space-y-2 text-gray-300">
                   <div>
                     <span className="font-bold text-white block">The Judge: {chart.figures?.Judge?.name}</span>
@@ -679,11 +631,12 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
         }
 
         if (tc.tool_name === 'generate_outlook' || tc.tool_name === 'generate_single_outlook' || tc.tool_name === 'generate_epic_outlook') {
-          const narrativeText = tc.result?.narrative;
-          if (!narrativeText) return null;
+          const outlook = tc.result;
+          const narrativeText = outlook?.narrative;
+          if (!outlook || !narrativeText) return null;
           const ctxBits = [
-            tc.result.genre,
-            tc.result.model_used || tc.result.provider_used,
+            outlook.genre,
+            outlook.model_used || outlook.provider_used,
           ].filter(Boolean);
           return (
             <div key={idx} className="bg-black/60 p-4 rounded-xl border border-cyan-500/25 space-y-3">
@@ -693,22 +646,22 @@ export const RenderMessageWidgets = ({ toolCalls, onZoomItemClick }: RenderMessa
                   <div className="text-[10px] text-gray-400 font-mono">{ctxBits.join(' · ')}</div>
                 )}
               </div>
-              {tc.result.astrology_used && (
+              {outlook.astrology_used && (
                 <div className="text-[11px] text-gray-300">
                   <span className="text-cyan-400/80 font-semibold">Astrology. </span>
-                  {tc.result.astrology_used.slice(0, 360)}
+                  {outlook.astrology_used.slice(0, 360)}
                 </div>
               )}
-              {tc.result.divination_used && (
+              {outlook.divination_used && (
                 <div className="text-[11px] text-gray-300">
                   <span className="text-amber-300/80 font-semibold">Oracle. </span>
-                  {tc.result.divination_used.slice(0, 360)}
+                  {outlook.divination_used.slice(0, 360)}
                 </div>
               )}
-              {tc.result.entities_used && (
+              {outlook.entities_used && (
                 <div className="text-[11px] text-gray-300">
                   <span className="text-purple-300/80 font-semibold">Entities. </span>
-                  {tc.result.entities_used.slice(0, 280)}
+                  {outlook.entities_used.slice(0, 280)}
                 </div>
               )}
               <div className="text-[13px] leading-relaxed text-gray-100 whitespace-pre-wrap max-h-[28rem] overflow-y-auto border-t border-white/5 pt-3">

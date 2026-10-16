@@ -5,8 +5,21 @@ Integrated Scalar-Radionics Broadcaster
 Combines advanced scalar wave generation with radionics broadcasting
 for maximum healing power. Integrates with all Vajra Stream systems.
 
+Every call to ``broadcast_to_targets`` is recorded in the operations ledger
+(``core/operations.py``, kind ``broadcast``) with its real start, measured
+duration and outcome. That record replaces the retired MOPS throughput
+figure: a broadcast is one operation that takes real time.
+
+Broadcasts are cancellable. Each run holds a :class:`BroadcastStop` that the
+scalar loop checks every tick; the ledger cancel route
+(``POST /api/v1/operations/{id}/cancel``) sets it and the run ends
+``cancelled`` with its measured elapsed time. :func:`start_background_broadcast`
+runs a broadcast on a small worker pool so HTTP callers return immediately,
+and :func:`shutdown_broadcasts` stops them all when the server shuts down
+(recorded ``interrupted``).
+
 Features:
-- Terra MOPS scalar wave generation
+- Scalar wave generation (hybrid RNG / chaotic streams)
 - Multi-target radionics broadcasting
 - Energetic anatomy integration
 - Real-time visualization
@@ -14,10 +27,52 @@ Features:
 - Harmonic frequency selection
 """
 
+import logging
+import threading
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Pause between scalar batches. Each batch is pure-Python work that holds the
+# GIL for tens of milliseconds; without a pause a broadcast thread would
+# starve the server's event loop. The pause is also where a stop request is
+# noticed (``BroadcastStop.wait`` returns early).
+TICK_PAUSE_SECONDS = 0.05
+
+# Clock for the broadcast loops (a module attribute so tests can speed it up).
+_clock = time.monotonic
+
+
+class BroadcastStop:
+    """Stop flag for one broadcast run, checked by the scalar loop every tick.
+
+    ``reason`` records who stopped it: ``"cancelled"`` (the operator, via the
+    ledger cancel route) or ``"shutdown"`` (the server is stopping). The
+    first request wins.
+    """
+
+    def __init__(self) -> None:
+        self._event = threading.Event()
+        self.reason: str | None = None
+
+    def request(self, reason: str = "cancelled") -> None:
+        if not self._event.is_set():
+            self.reason = reason
+            self._event.set()
+
+    def is_set(self) -> bool:
+        return self._event.is_set()
+
+    def wait(self, timeout: float) -> bool:
+        """Sleep up to ``timeout`` seconds; ``True`` as soon as a stop is requested."""
+        return self._event.wait(timeout)
+
 
 try:
     from core.advanced_scalar_waves import HybridScalarWaveGenerator
@@ -67,13 +122,17 @@ class BroadcastConfiguration:
     use_meridians: bool = False
     use_chakras: bool = False
     breathing_pattern: bool = False
+    # Start crystal (prayer-bowl) audio for the run when a crystal service is
+    # injected. Callers that already started the audio themselves (e.g.
+    # RadionicsService, which also honours the global mute) pass False.
+    play_crystal: bool = True
 
 
 class IntegratedScalarRadionicsBroadcaster:
     """Combined scalar-wave + radionics broadcasting engine.
 
     Integrates :class:`~core.advanced_scalar_waves.HybridScalarWaveGenerator`
-    for MOPS-scale scalar wave generation with :class:`~core.compassionate_blessings.BlessingDatabase`
+    for scalar wave generation with :class:`~core.compassionate_blessings.BlessingDatabase`
     for targeted blessing allocation, and optional :class:`~core.energetic_anatomy.EnergeticAnatomyDatabase`
     for meridian/chakra-aware broadcasts.
 
@@ -117,7 +176,7 @@ class IntegratedScalarRadionicsBroadcaster:
 
         # Statistics
         self.total_broadcasts = 0
-        self.total_operations = 0
+        self.total_values_generated = 0
         self.total_targets_blessed = 0
 
     def encode_intention(self, intention: IntentionType) -> int:
@@ -148,10 +207,56 @@ class IntegratedScalarRadionicsBroadcaster:
         }
         return frequency_map.get(intention, self.frequencies["healing_dna"])
 
-    def broadcast_to_targets(self, config: BroadcastConfiguration) -> dict:
+    def broadcast_to_targets(
+        self,
+        config: BroadcastConfiguration,
+        *,
+        operation_id: str | None = None,
+        stop: BroadcastStop | None = None,
+    ) -> dict:
         """
         Perform integrated scalar-radionics broadcast to targets.
+
+        The broadcast is recorded in the operations ledger as one
+        ``broadcast`` operation: started when the work begins, completed
+        (or failed) when it ends, with the measured elapsed time. The
+        ledger id is returned as ``results["operation_id"]`` (``None`` if
+        the ledger was unavailable; a ledger fault never stops a broadcast).
+        While it runs, the operation can be cancelled through the ledger;
+        the loop stops at its next tick and the operation ends ``cancelled``.
+
+        When ``operation_id`` is given, the caller owns that (already
+        started) operation and records its outcome — see
+        :func:`start_background_broadcast`; this method then only honours
+        ``stop``. ``results["stopped"]`` is the stop reason, or ``None`` when
+        the broadcast ran its full duration.
         """
+        stop = stop or BroadcastStop()
+        owns_op = operation_id is None
+        if owns_op:
+            frequency = config.frequency_hz or self.select_frequency(config.intention)
+            operation_id = _ledger_begin(config, frequency)
+            if operation_id is not None:
+                _track(operation_id, stop)
+        try:
+            try:
+                results = self._run_broadcast(config, stop)
+            except Exception as exc:
+                if owns_op:
+                    _ledger_end(operation_id, error=str(exc))
+                raise
+            results["operation_id"] = operation_id
+            results["stopped"] = stop.reason
+            if owns_op:
+                _ledger_end(operation_id, result=ledger_result(results), stop=stop)
+        finally:
+            if owns_op and operation_id is not None:
+                _untrack(operation_id)
+        return results
+
+    def _run_broadcast(self, config: BroadcastConfiguration, stop: BroadcastStop | None = None) -> dict:
+        """The broadcast itself; see :meth:`broadcast_to_targets`."""
+        stop = stop or BroadcastStop()
         print("\n" + "=" * 70)
         print("INTEGRATED SCALAR-RADIONICS BROADCAST")
         print("=" * 70)
@@ -167,8 +272,7 @@ class IntegratedScalarRadionicsBroadcaster:
                 "frequency": config.frequency_hz or self.select_frequency(config.intention),
                 "mantra": config.mantra,
             },
-            "operations": 0,
-            "mops": 0.0,
+            "values_generated": 0,
             "targets_blessed": 0,
             "meridians_activated": 0,
             "chakras_activated": 0,
@@ -203,8 +307,12 @@ class IntegratedScalarRadionicsBroadcaster:
         # Invoke crystal broadcaster for prayer bowl audio (if available).
         # This is the integration point that was previously missing —
         # the "Integrated" broadcaster never touched crystal hardware.
+        # The audio is started non-blocking (a looped excerpt) so the scalar
+        # loop below, which honours ``stop``, governs the duration; it is
+        # stopped again when the run ends (see the ``finally`` below).
         crystal_result = None
-        if self.crystal_service:
+        crystal_started = False
+        if self.crystal_service and config.play_crystal:
             carrier_freqs = [7.83, config.frequency_hz or self.select_frequency(config.intention)]
             try:
                 crystal_result = self.crystal_service.broadcast_intention(
@@ -214,12 +322,77 @@ class IntegratedScalarRadionicsBroadcaster:
                     hardware_level=2,
                     prayer_bowl_mode=True,
                     amplitude=0.15 + 0.35 * config.scalar_intensity,
+                    blocking=False,
                 )
+                crystal_started = (crystal_result or {}).get("status") == "completed"
                 print(f"🔔 Crystal broadcast: {crystal_result.get('status', 'unknown')}")
             except Exception as e:
                 crystal_result = {"status": "failed", "error": str(e)}
                 print(f"⚠️  Crystal broadcast failed: {e}")
             print()
+
+        try:
+            self._run_fields(config, stop, results)
+        finally:
+            if crystal_started:
+                stop_crystal_audio()
+
+        # Record session if we have blessing database
+        if self.blessing_db and targets:
+            print("📝 Recording blessing session...")
+            note = f"Integrated broadcast with {config.intention.value} intention"
+            if stop.reason:
+                note += f" (stopped early: {stop.reason})"
+            session_id = self.blessing_db.record_session(
+                mantra_type=config.mantra,
+                total_mantras=108,
+                total_rotations=1,
+                targets_blessed=len(targets),
+                allocation_method="Scalar-Radionics Broadcast",
+                notes=note,
+            )
+
+            # Dedicate to each target
+            for target in targets:
+                self.blessing_db.record_dedication(
+                    target_identifier=target.identifier,
+                    session_id=session_id,
+                    mantra_type=config.mantra,
+                    mantras_count=108,
+                    notes=f"Scalar-radionics broadcast ({config.intention.value})",
+                )
+
+            print(f"✅ Blessed {len(targets)} targets")
+            print()
+
+        # Update statistics
+        self.total_broadcasts += 1
+        self.total_values_generated += results["values_generated"]
+        self.total_targets_blessed += results["targets_blessed"]
+
+        # Final summary
+        print("=" * 70)
+        print("BROADCAST STOPPED" if stop.reason else "BROADCAST COMPLETE")
+        print("=" * 70)
+        print()
+        print(f"Intention: {config.intention.value}")
+        print(f"Values generated: {results['values_generated']:,}")
+        print(f"Targets: {results['targets_blessed']}")
+        if results["meridians_activated"]:
+            print(f"Meridians: {results['meridians_activated']} activated")
+        if results["chakras_activated"]:
+            print(f"Chakras: {results['chakras_activated']} activated")
+        print()
+        print("May all beings benefit from this transmission!")
+        print("Om Mani Padme Hum 🙏")
+        print()
+
+        results["end_time"] = datetime.now().isoformat()
+        results["crystal_output"] = crystal_result
+        return results
+
+    def _run_fields(self, config: BroadcastConfiguration, stop: BroadcastStop, results: dict) -> None:
+        """Meridians, chakras and the scalar field — the timed part of a run."""
 
         # Activate meridians if requested
         if config.use_meridians and self.anatomy_db:
@@ -245,13 +418,13 @@ class IntegratedScalarRadionicsBroadcaster:
             print()
 
             self.encode_intention(config.intention)
-            ops_count = 0
-            start_time = time.time()
+            values_count = 0
+            start_time = _clock()
 
             if config.breathing_pattern:
                 # Sacred breathing pattern
                 print("🌬️  Using sacred breathing pattern...")
-                self._breathing_broadcast(config, results)
+                values_count = self._breathing_broadcast(config, stop)
             else:
                 # Continuous broadcast. Guard against zero/negative durations
                 # (used by smoke tests) to avoid ZeroDivisionError in the
@@ -259,130 +432,87 @@ class IntegratedScalarRadionicsBroadcaster:
                 # the code path works.
                 if config.duration_seconds <= 0:
                     stream = self.scalar_gen.generate_hybrid_stream(int(1000 * config.scalar_intensity))
-                    ops_count = len(stream) * 7
+                    values_count = len(stream)
                 else:
-                    while (time.time() - start_time) < config.duration_seconds:
+                    while (_clock() - start_time) < config.duration_seconds and not stop.is_set():
                         # Generate based on intensity
                         batch_size = int(1000 * config.scalar_intensity)
                         stream = self.scalar_gen.generate_hybrid_stream(batch_size)
 
-                        ops_count += len(stream) * 7  # 7 methods
+                        values_count += len(stream)
 
                         # Show progress every 5 seconds
-                        elapsed = time.time() - start_time
+                        elapsed = _clock() - start_time
                         if int(elapsed) % 5 == 0:
-                            mops = (ops_count / elapsed) / 1_000_000
-                            progress = elapsed / config.duration_seconds
+                            progress = min(elapsed / config.duration_seconds, 1.0)
                             temp = self.scalar_gen.thermal.state.temperature
                             print(
                                 f"\r⏱️  {elapsed:.0f}s/{config.duration_seconds:.0f}s | "
-                                f"📊 {mops:.2f} MMOPS | "
+                                f"📊 {values_count:,} values | "
                                 f"🌡️  {temp:.1f}°C | "
                                 f"{'█' * int(progress * 20)}{' ' * (20 - int(progress * 20))} {progress:.0%}",
                                 end="",
                                 flush=True,
                             )
 
-            elapsed = time.time() - start_time
-            results["operations"] = ops_count
-            results["mops"] = (ops_count / elapsed) / 1_000_000
+                        # The tick: yield the GIL, and notice a stop request.
+                        if stop.wait(TICK_PAUSE_SECONDS):
+                            break
+
+            elapsed = _clock() - start_time
+            results["values_generated"] = values_count
 
             print()
             print()
-            print("✅ Scalar wave generation complete!")
-            print(f"   Operations: {ops_count:,}")
-            print(f"   Average MOPS: {results['mops']:.2f}")
+            if stop.reason:
+                print(f"⏹️  Scalar wave generation stopped ({stop.reason})")
+            else:
+                print("✅ Scalar wave generation complete!")
+            print(f"   Values generated: {values_count:,} in {elapsed:.1f}s")
             print()
 
-        # Record session if we have blessing database
-        if self.blessing_db and targets:
-            print("📝 Recording blessing session...")
-            session_id = self.blessing_db.record_session(
-                mantra_type=config.mantra,
-                total_mantras=108,
-                total_rotations=1,
-                targets_blessed=len(targets),
-                allocation_method="Scalar-Radionics Broadcast",
-                notes=f"Integrated broadcast with {config.intention.value} intention",
-            )
+    def _breathing_phase(self, stop: BroadcastStop, seconds: float, batch_for: Callable[[float], int]) -> int:
+        """One breathing phase: ``seconds`` of batches sized by ``batch_for(progress)``; stops early on ``stop``."""
+        start = _clock()
+        values = 0
+        while (_clock() - start) < seconds and not stop.is_set():
+            progress = (_clock() - start) / seconds
+            stream = self.scalar_gen.generate_hybrid_stream(batch_for(progress))
+            values += len(stream)
+            if stop.wait(TICK_PAUSE_SECONDS):
+                break
+        return values
 
-            # Dedicate to each target
-            for target in targets:
-                self.blessing_db.record_dedication(
-                    target_identifier=target.identifier,
-                    session_id=session_id,
-                    mantra_type=config.mantra,
-                    mantras_count=108,
-                    notes=f"Scalar-enhanced broadcast at {results['mops']:.2f} MMOPS",
-                )
+    def _breathing_broadcast(self, config: BroadcastConfiguration, stop: BroadcastStop | None = None) -> int:
+        """Broadcast using sacred breathing pattern; returns the number of values generated."""
+        stop = stop or BroadcastStop()
+        intensity = config.scalar_intensity
+        values = 0
 
-            print(f"✅ Blessed {len(targets)} targets")
-            print()
-
-        # Update statistics
-        self.total_broadcasts += 1
-        self.total_operations += results["operations"]
-        self.total_targets_blessed += results["targets_blessed"]
-
-        # Final summary
-        print("=" * 70)
-        print("BROADCAST COMPLETE")
-        print("=" * 70)
-        print()
-        print(f"Intention: {config.intention.value}")
-        print(f"Operations: {results['operations']:,}")
-        print(f"MOPS: {results['mops']:.2f}")
-        print(f"Targets: {results['targets_blessed']}")
-        if results["meridians_activated"]:
-            print(f"Meridians: {results['meridians_activated']} activated")
-        if results["chakras_activated"]:
-            print(f"Chakras: {results['chakras_activated']} activated")
-        print()
-        print("May all beings benefit from this transmission!")
-        print("Om Mani Padme Hum 🙏")
-        print()
-
-        results["end_time"] = datetime.now().isoformat()
-        results["crystal_output"] = crystal_result
-        return results
-
-    def _breathing_broadcast(self, config: BroadcastConfiguration, results: dict):
-        """Broadcast using sacred breathing pattern"""
         print("  Inhale phase (33s) - building field...")
-        start = time.time()
-        ops = 0
-        while (time.time() - start) < 33:
-            progress = (time.time() - start) / 33.0
-            batch = int(1000 * progress * config.scalar_intensity)
-            stream = self.scalar_gen.generate_hybrid_stream(max(10, batch))
-            ops += len(stream) * 7
-
-        print(f"  ✓ Inhale complete ({ops:,} operations)")
+        values += self._breathing_phase(stop, 33, lambda p: max(10, int(1000 * p * intensity)))
+        print(f"  ✓ Inhale complete ({values:,} values)")
+        if stop.is_set():
+            return values
 
         print("  Hold phase (27s) - maximum intensity...")
-        start = time.time()
-        while (time.time() - start) < 27:
-            batch = int(1000 * config.scalar_intensity)
-            stream = self.scalar_gen.generate_hybrid_stream(batch)
-            ops += len(stream) * 7
-
-        print(f"  ✓ Hold complete ({ops:,} operations)")
+        values += self._breathing_phase(stop, 27, lambda _p: int(1000 * intensity))
+        print(f"  ✓ Hold complete ({values:,} values)")
+        if stop.is_set():
+            return values
 
         print("  Exhale phase (33s) - releasing field...")
-        start = time.time()
-        while (time.time() - start) < 33:
-            progress = 1.0 - ((time.time() - start) / 33.0)
-            batch = int(1000 * progress * config.scalar_intensity)
-            stream = self.scalar_gen.generate_hybrid_stream(max(10, batch))
-            ops += len(stream) * 7
-
-        print(f"  ✓ Exhale complete ({ops:,} operations)")
+        values += self._breathing_phase(stop, 33, lambda p: max(10, int(1000 * (1.0 - p) * intensity)))
+        print(f"  ✓ Exhale complete ({values:,} values)")
+        if stop.is_set():
+            return values
 
         print("  Rest phase (12s) - integration...")
-        time.sleep(12)
+        if stop.wait(12):
+            return values
 
-        results["operations"] = ops
         print("  ✓ Breathing cycle complete")
+        return values
 
     def healing_protocol(self, target_name: str, duration_minutes: int = 10):
         """
@@ -463,12 +593,250 @@ class IntegratedScalarRadionicsBroadcaster:
         print("=" * 70)
         print()
         print(f"Total Broadcasts: {self.total_broadcasts}")
-        print(f"Total Operations: {self.total_operations:,}")
+        print(f"Total Values Generated: {self.total_values_generated:,}")
         print(f"Total Targets Blessed: {self.total_targets_blessed}")
-        if self.total_broadcasts > 0:
-            avg_ops = self.total_operations / self.total_broadcasts
-            print(f"Average Ops/Broadcast: {avg_ops:,}")
         print()
+
+
+# ============================================================================
+# OPERATIONS LEDGER
+# ============================================================================
+
+
+def _ledger_begin(config: BroadcastConfiguration, frequency_hz: float) -> str | None:
+    """Create and start a ``broadcast`` ledger operation; ``None`` if the ledger is unavailable."""
+    try:
+        from core import operations
+
+        op = operations.create_operation(
+            "broadcast",
+            f"Scalar-radionics broadcast: {config.intention.value}",
+            params={
+                "intention": config.intention.value,
+                "target_count": config.target_count,
+                "requested_duration_seconds": config.duration_seconds,
+                "scalar_intensity": config.scalar_intensity,
+                "frequency_hz": frequency_hz,
+                "mantra": config.mantra,
+                "breathing_pattern": config.breathing_pattern,
+            },
+        )
+        operations.start_operation(op["id"])
+        return op["id"]
+    except Exception:
+        logger.warning("operations ledger unavailable; broadcast not recorded", exc_info=True)
+        return None
+
+
+SHUTDOWN_REASON = "server shut down while this broadcast was running"
+
+
+def ledger_result(results: dict[str, Any]) -> dict[str, Any]:
+    """The ledger ``result`` for a scalar run (see :meth:`IntegratedScalarRadionicsBroadcaster.broadcast_to_targets`)."""
+    return {
+        "values_generated": results["values_generated"],
+        "targets_blessed": results["targets_blessed"],
+        "meridians_activated": results["meridians_activated"],
+        "chakras_activated": results["chakras_activated"],
+        "crystal_status": (results.get("crystal_output") or {}).get("status"),
+    }
+
+
+def _ledger_end(
+    op_id: str | None,
+    *,
+    result: dict[str, Any] | None = None,
+    error: str | None = None,
+    stop: BroadcastStop | None = None,
+) -> None:
+    """Close a ledger operation: ``cancelled`` / ``interrupted`` when ``stop`` was requested,
+    else ``error`` when ``error`` is given, else ``success``.
+
+    A cancel that did not settle in time is recorded by the cancel route
+    itself; the late transition here then fails and is ignored.
+    """
+    if op_id is None:
+        return
+    try:
+        from core import operations
+
+        if stop is not None and stop.reason == "shutdown":
+            operations.interrupt_operation(op_id, SHUTDOWN_REASON, result=result)
+        elif stop is not None and stop.reason is not None:
+            operations.cancel_operation(op_id, result=result)
+        elif error is not None:
+            operations.fail_operation(op_id, error, result=result)
+        else:
+            operations.complete_operation(op_id, result=result)
+    except Exception as exc:
+        from core.operations import OperationError
+
+        if isinstance(exc, OperationError):
+            logger.info("ledger operation %s already ended: %s", op_id, exc)
+        else:
+            logger.warning("could not close ledger operation %s", op_id, exc_info=True)
+
+
+def stop_crystal_audio() -> None:
+    """Stop the crystal-grid audio a broadcast started (same path as ``POST /radionics/stop``)."""
+    try:
+        from hardware.crystal_broadcaster import stop_playback
+
+        stop_playback()
+    except Exception:
+        logger.debug("could not stop crystal audio", exc_info=True)
+
+
+# ============================================================================
+# CANCELLATION AND BACKGROUND RUNS
+# ============================================================================
+
+# op id -> stop flag of every broadcast in flight in this process (queued or running).
+_active: dict[str, BroadcastStop] = {}
+_active_lock = threading.Lock()
+
+# Broadcasts started over HTTP run on this pool, never on the event loop.
+# Each run is a CPU-bound Python loop that holds the GIL for most of every
+# tick, so the pool is deliberately small: more concurrent runs would only
+# slow the server down. Further requests wait as ``queued`` operations (and
+# can be cancelled while they wait).
+MAX_CONCURRENT_BROADCASTS = 2
+_executor: ThreadPoolExecutor | None = None
+_executor_lock = threading.Lock()
+
+BackgroundWork = Callable[[str, BroadcastStop], dict[str, Any]]
+
+
+class BroadcastFailed(RuntimeError):
+    """Raised by background work to record ``error`` while keeping a partial ``result``."""
+
+    def __init__(self, message: str, result: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.result = result
+
+
+def _track(op_id: str, stop: BroadcastStop) -> None:
+    """Make ``op_id`` cancellable through the ledger (``POST /operations/{id}/cancel``)."""
+    with _active_lock:
+        _active[op_id] = stop
+    try:
+        from core import operations
+
+        operations.register_op_cancel(op_id, lambda _op_id: stop.request("cancelled"))
+    except Exception:
+        logger.warning("could not register cancel for broadcast %s", op_id, exc_info=True)
+
+
+def _untrack(op_id: str) -> None:
+    with _active_lock:
+        _active.pop(op_id, None)
+    try:
+        from core import operations
+
+        operations.unregister_op_cancel(op_id)
+    except Exception:
+        logger.debug("could not unregister cancel for broadcast %s", op_id, exc_info=True)
+
+
+def active_broadcasts() -> list[str]:
+    """Ids of the broadcast operations in flight in this process."""
+    with _active_lock:
+        return list(_active)
+
+
+def _get_executor() -> ThreadPoolExecutor:
+    global _executor
+    with _executor_lock:
+        if _executor is None:
+            _executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_BROADCASTS, thread_name_prefix="scalar-broadcast")
+        return _executor
+
+
+def start_background_broadcast(
+    title: str,
+    work: BackgroundWork,
+    *,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Create a ``broadcast`` operation and run ``work(op_id, stop)`` on the broadcast pool.
+
+    Returns the new operation straight away (``queued``; it moves to
+    ``running`` when a worker picks it up). ``work`` runs the broadcast —
+    typically :meth:`IntegratedScalarRadionicsBroadcaster.broadcast_to_targets`
+    with ``operation_id=op_id, stop=stop`` — and returns the ledger result.
+    The operation ends ``success``; ``cancelled`` when the ledger cancel
+    route stopped it; ``interrupted`` when the server shut down; ``error``
+    when ``work`` raised (:class:`BroadcastFailed` keeps a partial result).
+    """
+    from core import operations
+
+    op = operations.create_operation("broadcast", title, params=params)
+    op_id = op["id"]
+    stop = BroadcastStop()
+    _track(op_id, stop)
+    try:
+        _get_executor().submit(_run_background, op_id, stop, work)
+    except Exception as exc:
+        _untrack(op_id)
+        operations.fail_operation(op_id, f"could not start the broadcast worker: {exc}")
+        raise
+    return op
+
+
+def _run_background(op_id: str, stop: BroadcastStop, work: BackgroundWork) -> None:
+    from core import operations
+
+    try:
+        if stop.is_set():  # cancelled (or shut down) while it waited for a worker
+            _ledger_end(op_id, stop=stop)
+            return
+        try:
+            operations.start_operation(op_id)
+        except operations.OperationError:
+            return  # ended by the cancel route before it began
+        result: dict[str, Any] | None = None
+        error: str | None = None
+        try:
+            result = work(op_id, stop)
+        except BroadcastFailed as exc:
+            result, error = exc.result, str(exc)
+        except Exception as exc:
+            logger.exception("background broadcast %s failed", op_id)
+            error = f"{type(exc).__name__}: {exc}"
+        _ledger_end(op_id, result=result, error=error, stop=stop)
+    finally:
+        _untrack(op_id)
+
+
+def stop_all_broadcasts(reason: str = "shutdown") -> int:
+    """Request a stop on every broadcast in flight; returns how many were asked."""
+    with _active_lock:
+        stops = list(_active.values())
+    for stop in stops:
+        stop.request(reason)
+    return len(stops)
+
+
+def shutdown_broadcasts(timeout: float = 5.0) -> int:
+    """Stop every broadcast for server shutdown; each ends ``interrupted``. Returns how many were running.
+
+    Blocking (it waits up to ``timeout`` seconds for the loops to notice);
+    call it from a thread, e.g. ``await asyncio.to_thread(shutdown_broadcasts)``.
+    """
+    global _executor
+    count = stop_all_broadcasts("shutdown")
+    deadline = time.monotonic() + timeout
+    while active_broadcasts() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    with _executor_lock:
+        executor, _executor = _executor, None
+    if executor is not None:
+        executor.shutdown(wait=False, cancel_futures=True)
+    # Anything still listed never reached (or never left) its worker: record it honestly.
+    for op_id in active_broadcasts():
+        _ledger_end(op_id, stop=_active.get(op_id))
+        _untrack(op_id)
+    return count
 
 
 # ============================================================================

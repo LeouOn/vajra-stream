@@ -3,7 +3,7 @@
  *
  * Central hub for issuing text commands to the unified orchestrator.
  * Features a terminal-style input with command history, live WebSocket
- * status feed, MOPS throughput display, and quick-action buttons for
+ * status feed, operations-ledger context for the LLM, and quick-action buttons for
  * common radionics and blessing operations. The largest UI component
  * (~1300 lines) — serves as the primary interaction surface.
  *
@@ -23,12 +23,16 @@ import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
 import { resolveChatRoute } from '../../utils/chatRoute';
 import { FEATURED_MODEL_IDS, FEATURED_MODEL_LABELS } from '../../lib/featuredModels';
+import { fetchOperationsSummary, formatHeld, startOfLocalDayIso } from '../../lib/operationsSummary';
+import type { OperationsSummary } from '../../types/operations';
 import { useWebSocketStable as useWebSocket, getActiveConnectionId } from '../../hooks/useWebSocketStable';
 import { subscribe } from '../../hooks/chatProgress';
 import { createLogger } from '../../utils/logger';
 import SakaDawaBanner from './SakaDawaBanner';
 import WorkingsStrip from '../CommandCenter/WorkingsStrip';
 import { RenderMessageWidgets } from '../CommandCenter/RenderMessageWidgets';
+import type { ToolCall as WidgetToolCall, ZoomItem } from '../CommandCenter/RenderMessageWidgets';
+import type { CrystalStatus, SakaDawaResult, ScalarStatus } from '../../types';
 import { RichMarkdownRenderer } from '../CommandCenter/RichMarkdownRenderer';
 import { quickCommands, createOperatorActions } from '../CommandCenter/constants';
 import SystemMonitorsCard from '../CommandCenter/SystemMonitorsCard';
@@ -57,13 +61,33 @@ function formatWorkingSummary(data: Record<string, unknown>): string {
 
 // ─── Types ──────────────────────────────────────────────────────────
 
-/** A single tool-call result from the chat API. */
-interface ToolCall {
-  tool_name: string;
+/**
+ * A single tool-call result from the chat API. `result` is typed as the
+ * superset the widget renderer reads (see RenderMessageWidgets.ToolCall).
+ */
+interface ToolCall extends WidgetToolCall {
   arguments: Record<string, unknown>;
-  status: string;
-  result?: unknown;
   error?: string | null;
+}
+
+/** One row in the tool-execution log (LogsCard). */
+interface ToolLogEntry {
+  timestamp: string;
+  type: string;
+  message: string;
+  status?: string;
+}
+
+type LogTab = 'tools' | 'debug';
+
+interface CommandCenterProps {
+  isConnected: boolean;
+  isPlaying: boolean;
+  frequency: number;
+  crystalStatus: CrystalStatus;
+  scalarStatus: ScalarStatus;
+  sessions: Record<string, unknown>;
+  sakaDawa: SakaDawaResult | null;
 }
 
 /** Per-message debug telemetry returned by /api/v1/llm/chat (debug_mode=true). */
@@ -150,23 +174,6 @@ interface ProviderHealthResponse {
   message?: string;
 }
 
-/** MOPS throughput rolling-average window. */
-interface MopsWindow {
-  '1s'?: number;
-  '10s'?: number;
-  '60s'?: number;
-  '5m'?: number;
-}
-
-/** MOPS throughput averages (matches backend core/services/mops_engine.py). */
-interface MopsAverages {
-  scalar_pulses?: MopsWindow;
-  mantras?: MopsWindow;
-  crystals?: MopsWindow;
-  divination?: MopsWindow;
-  tuning?: MopsWindow;
-}
-
 /** Chakra entry from GET /api/v1/healing/chakra/all. */
 interface ChakraEntry {
   name?: string;
@@ -213,8 +220,8 @@ export default function CommandCenter({
   scalarStatus,
   sessions,
   sakaDawa
-}) {
-  const [activeZoomItem, setActiveZoomItem] = useState<unknown>(null);
+}: CommandCenterProps) {
+  const [activeZoomItem, setActiveZoomItem] = useState<ZoomItem | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -228,7 +235,7 @@ export default function CommandCenter({
   const cancelledRef = useRef(false);
   const jobIdRef = useRef<string | null>(null);
   const waitRejectRef = useRef<((err: Error) => void) | null>(null);
-  const [toolLogs, setToolLogs] = useState([
+  const [toolLogs, setToolLogs] = useState<ToolLogEntry[]>([
     {
       timestamp: new Date().toLocaleTimeString(),
       type: 'system',
@@ -243,20 +250,20 @@ export default function CommandCenter({
   const [selectedModel, setSelectedModel] = useState('auto');
   const [debugMode, setDebugMode] = useState(true);
   const [debugPayload, setDebugPayload] = useState<DebugInfo | Record<string, unknown> | null>(null);
-  const [activeLogTab, setActiveLogTab] = useState('tools');
+  const [activeLogTab, setActiveLogTab] = useState<LogTab>('tools');
 
   const [availableModelList, setAvailableModelList] = useState<AvailableModelMeta[]>([]);
   const [modelPricing, setModelPricing] = useState<Record<string, ModelPricing>>({});
   const [providerHealth, setProviderHealth] = useState<ProviderHealthEntry[]>([]);
   const [chakraData, setChakraData] = useState<ChakraEntry[] | null>(null);
-  const [mopsData, setMopsData] = useState<MopsAverages | null>(null);
+  const [ledgerSummary, setLedgerSummary] = useState<OperationsSummary | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   
   useEffect(() => {
-    const doFetch = async (lat, lon) => {
+    const doFetch = async (lat: number | null, lon: number | null) => {
       try {
         const d = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
+        const pad = (n: number) => String(n).padStart(2, '0');
         const localTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         
         const params = new URLSearchParams();
@@ -373,25 +380,17 @@ export default function CommandCenter({
 
   useEffect(() => {
     if (!includeHardware) {
-      setMopsData(null);
+      setLedgerSummary(null);
       return;
     }
     let cancelled = false;
-    const fetchMops = async () => {
-      try {
-        const res = await fetch(apiUrl('/mops/current'));
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled && data.mops) {
-            setMopsData(data.mops as MopsAverages);
-          }
-        }
-      } catch {
-        /* mops context is best-effort */
-      }
+    // Ledger context is best-effort: a null summary just omits the section.
+    const fetchLedger = async () => {
+      const summary = await fetchOperationsSummary(startOfLocalDayIso());
+      if (!cancelled) setLedgerSummary(summary);
     };
-    fetchMops();
-    const interval = setInterval(fetchMops, 10000);
+    fetchLedger();
+    const interval = setInterval(fetchLedger, 30000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [includeHardware]);
 
@@ -609,21 +608,18 @@ export default function CommandCenter({
     return lines.join('\n');
   }
 
-  function formatMopsContext(mops: MopsAverages): string {
-    const lines: string[] = ['⚙️ **System Metrics (MOPS Throughput):**'];
-    const categories: Array<[string, string, MopsWindow | undefined]> = [
-      ['Scalar Pulses', 'scalar_pulses', mops.scalar_pulses],
-      ['Mantras', 'mantras', mops.mantras],
-      ['Crystals', 'crystals', mops.crystals],
-      ['Divination', 'divination', mops.divination],
-      ['Tuning', 'tuning', mops.tuning],
+  function formatLedgerContext(summary: OperationsSummary): string {
+    const lines: string[] = [
+      '📜 **Operations Ledger (today, real operations with measured durations):**',
+      `- Completed: ${summary.completed} (${formatHeld(summary.seconds_held)} held in total)`,
+      `- Active now: ${summary.active}`,
     ];
-    for (const [label, , win] of categories) {
-      if (win) {
-        const rate = win['60s'] ?? win['10s'] ?? win['1s'] ?? 0;
-        lines.push(`- ${label}: ${rate.toFixed(2)}/s (60s avg)`);
-      }
-    }
+    const failed = (summary.by_status.error ?? 0) + (summary.by_status.interrupted ?? 0);
+    if (failed > 0) lines.push(`- Failed or interrupted: ${failed}`);
+    const kinds = Object.entries(summary.by_kind)
+      .map(([kind, n]) => `${kind} ${n}`)
+      .join(', ');
+    if (kinds) lines.push(`- By kind: ${kinds}`);
     return lines.join('\n');
   }
 
@@ -636,9 +632,8 @@ export default function CommandCenter({
     if (includeAnatomy && chakraData && chakraData.length > 0) {
       parts.push(formatChakraContext(chakraData));
     }
-    if (includeHardware && mopsData) {
-      const ctx = formatMopsContext(mopsData);
-      if (ctx) parts.push(ctx);
+    if (includeHardware && ledgerSummary) {
+      parts.push(formatLedgerContext(ledgerSummary));
     }
     return parts.length > 0 ? parts.join('\n\n---\n\n') : null;
   }
@@ -1218,7 +1213,7 @@ export default function CommandCenter({
             </Space>
             <Space size={4}>
               <Switch size="small" checked={includeHardware} onChange={(v) => { setIncludeHardware(v); audioFeedback.playClick(); }} />
-              <span className="text-gray-400 text-[11px]">⚙️ Metrics</span>
+              <span className="text-gray-400 text-[11px]">⚙️ Status &amp; Ledger</span>
             </Space>
           </Space>
 
@@ -1230,7 +1225,7 @@ export default function CommandCenter({
               onChange={(val: string) => { setSelectedModel(val); audioFeedback.playClick(); }}
               style={{ minWidth: 160, fontSize: '11px' }}
               className="font-mono"
-              styles={{ popup: { minWidth: 260 } }}
+              styles={{ popup: { root: { minWidth: 260 } } }}
               placeholder="Select model..."
               showSearch
               optionFilterProp="label"
@@ -1325,7 +1320,7 @@ export default function CommandCenter({
           toolLogs={toolLogs}
           debugPayload={debugPayload}
           logEndRef={logEndRef}
-          onTabChange={setActiveLogTab}
+          onTabChange={(key) => setActiveLogTab(key === 'debug' ? 'debug' : 'tools')}
           onClearLogs={() => setToolLogs([])}
           onResetDebug={() => setDebugPayload(null)}
         />

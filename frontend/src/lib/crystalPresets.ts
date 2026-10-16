@@ -15,13 +15,24 @@
 // Values are chosen so the snapped frequencies form consonant musical
 // intervals (no dissonance).
 
-import type { Dimensions } from '../components/UI/BroadcastPanel';
+/**
+ * The five broadcast dials (D1-D5). Structurally identical to BroadcastPanel's
+ * local `Dimensions`, which is not exported (importing it resolved to an
+ * error type, so `dims` was effectively untyped).
+ */
+export interface CrystalDimensions {
+  d1: number;
+  d2: number;
+  d3: number;
+  d4: number;
+  d5: number;
+}
 
 export interface CrystalPreset {
   id: string;
   label: string;
   icon: string;
-  dims: Dimensions;
+  dims: CrystalDimensions;
   description: string;
 }
 

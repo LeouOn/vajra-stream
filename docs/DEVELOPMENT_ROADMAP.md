@@ -63,8 +63,29 @@ vitality".
 - [x] "Aura Field Coherence %" (`Math.sin + Math.random`, pinned to about 88%
       while audio played) became "Field Presence", which is driven only by
       audio and session state.
-- [ ] Burn down the tsc baseline, starting with `AstrologyPanel.tsx` (90),
-      `useWebSocketStable.ts` (31) and `AstrologyExtractionPanel.tsx` (31).
+- [x] Burn down the tsc baseline: 304 → 153 (2026-10-15). `AstrologyPanel.tsx`
+      and `AstrologyExtractionPanel.tsx` are clean. The work also fixed four
+      user-visible bugs: sweep results overriding the Replay selection, an
+      "explicit dates" picker that only allowed two dates, moon illumination
+      under 1% shown 100× too high, and "Invalid Date" on failure.
+- [x] Second tsc pass: 153 → 23 (2026-10-15). It fixed more silent runtime
+      bugs:
+      - the LLM usage badge always read 0;
+      - recitation showed "stopped" right after starting;
+      - an Outlook video poll never stopped;
+      - the Astrology mandala threw on every frame while audio played;
+      - "Ask the astrologer" failed on planets without a house;
+      - the Scalar tab's journey never rendered.
+- [x] Finish the last 23: 23 → 0 (2026-10-15), with no casts or
+      suppressions. `.tsc-baseline` is 0 and the gate is a hard zero
+      (`--update` can no longer raise it). Bugs fixed along the way:
+      - "Strip PII" on the astrology copy buttons was inverted. The live
+        copy kept the observer's location while it said "PII stripped";
+      - the Astrocartography globe imported a hook that no longer exists
+        and threw away the positions it fetched;
+      - the scalar visualizer read a "coherence" that the status never
+        carries (it was always the fallback);
+      - the sadhana caption read a nonexistent field.
 - [ ] Recreate `.venv` on Python 3.13. Local venvs are 3.14, but
       `.python-version` pins 3.13 and 3.14 is documented as unsupported.
 
@@ -78,21 +99,69 @@ individual reviews catching each case.
 2. **Frontend:** a single `<Reading value provenance>` primitive renders the
    label consistently. A draw reads as "drawn" and is never shown as a meter.
 3. **Known offenders to migrate** (verified 2026-10-14):
-   - `backend/core/services/mops_engine.py:114-117`: MOPS adds hard-coded
-     constants (17.73M ops/s whenever scalar is active, 120/s per crystal).
-     This is exactly the "ops per second" counter the spec rules out.
-     Retire it in favour of real operations (see Decisions).
-   - `backend/core/services/vajra_service.py:638`: the broadcast "rate" is
-     `freq % 100 + random.uniform(-2, 2)`, which is jitter presented as a
-     reading.
-   - `core/radionics_engine.py:297+`: the GV draw is legitimate as a draw.
-     Label it as one, including in the LLM tool output, which currently
-     attaches verdicts such as "Excellent".
-   - `rng_attunement_service.py` e-meter needle, and
-     `BroadcastPanel.tsx:260` random carrier-direction nudge.
-4. **Guard test:** in the same spirit as `test_no_new_ruff_suppressions.py`,
-   fail CI when `Math.random` / `np.random` feeds a displayed value outside
-   an allow-list of decorative components.
+   - ~~MOPS~~ **Done (2026-10-15).** The MOPS engine added hard-coded
+     constants (17.73M ops/s whenever scalar was active, 120/s per crystal),
+     exactly the "ops per second" counter the spec rules out. It is deleted
+     with its routes and every `mops` field; scalar-radionics broadcasts are
+     recorded in the operations ledger, and the UI shows ledger facts.
+   - ~~Rate jitter, GV verdicts, e-meter, potency %, carrier nudge~~
+     **Done (2026-10-15).** The rate broadcast is computed with no jitter.
+     GV, potency and attunement readings carry `provenance` and read as
+     draws, both in the UI ("drawn") and in what the LLM is told: "Drawn GV
+     812, in the stick-pad tradition this reads as…", never a diagnosis. The
+     no-analysis fallback rate is flagged as a fallback, and the carrier
+     nudge follows the hand.
+4. ~~**Guard test**~~ **Done (2026-10-15).**
+   `tests/unit/test_no_unlabeled_randomness.py` and
+   `frontend/src/__tests__/no-unlabeled-math-random.test.ts` fail on any
+   randomness outside a reviewed allow-list. Each entry is labeled draw,
+   content, decorative, timing or id.
+5. **Operations ledger** **Done (2026-10-15).** `core/operations.py`
+   (schema v7), `/api/v1/operations`, live `operation_update` events, and
+   the Operations → Ledger tab. A real operation has a start, a measured
+   duration and a completion record.
+6. **Local render** **Done, except the live run (2026-10-15).** The Qwen-Image
+   2.1 adapter runs behind ComfyUI; see
+   [the spec](specs/2026-10-14-operations-and-local-render.md). Built:
+   reference images, folio witness renders that return immediately and fill
+   in the folio when done, sigils through the engine, and the launcher
+   configured via `COMFYUI_LAUNCHER`. **Verified live on 2026-10-15** on the
+   AMD Radeon 8060S (ComfyUI 0.39.0, Qwen-Image 2.1 Turbo):
+   - a cold 1024² render through the engine took 77.2 s;
+   - a 2432×1280 render through `POST /render/jobs` took 159.8 s, with the
+     seed recorded as chosen;
+   - the backend was killed mid-render, and on restart it re-attached to
+     the ComfyUI prompt and collected the result;
+   - the PNG's sha256 matched the ledger, and the image route served it.
+   - The run showed that the ledger's elapsed time includes downtime after
+     a re-attach, so each result now also stores
+     `backend_execution_seconds`.
+7. **Follow-ups found along the way:**
+   - ~~`/radionics/broadcast` blocks the event loop~~ **Done.** Broadcasts
+     run in a capped worker pool, return immediately, and can be cancelled
+     from the Ledger (`POST /operations/{id}/cancel`). Each broadcast and
+     session registers its own stop; render registers one per kind. See
+     [Cancel registries](specs/2026-10-14-operations-and-local-render.md#cancel-registries-as-built).
+   - ~~Sessions and sigil broadcasts are missing from the ledger~~ **Done.**
+   - ~~Summary polling duplicated~~ **Done.** One shared poller in
+     `operationsStore`.
+   - ~~Sigil UI ignores the local render~~ **Done (2026-10-15).** With
+     `IMAGE_PROVIDER=comfyui`, `BroadcastPanel` follows the forge's
+     `ai_image_render` operation through `operation_update` events. It
+     shows the status, the elapsed time, the finished image, any error and
+     a Cancel button.
+   - ~~The `forge_witness` LLM tool uses only the hosted path~~ **Done.**
+     The route and both tool registries share
+     `core.working.forge_witness`. It renders locally when the engine is
+     reachable, and the tools return the queued `operation_id`. Otherwise
+     it falls back to hosted and reports `witness_fallback`.
+   - ~~Autonomous journey advances emit no JOURNEY_* events~~ **Done.**
+     `StableConnectionManagerV2.schedule_broadcast` sends from worker
+     threads onto the recorded main loop.
+   - ~~The hosted witness path blocks the event loop~~ **Done.** It runs
+     in a worker thread. On the loop it had also failed every time:
+     `generate_image` returns a coroutine when a loop is running. The sigil
+     forge's synchronous providers now run in a thread as well.
 
 ## Phase 3: Consolidate
 

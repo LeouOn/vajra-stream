@@ -111,7 +111,11 @@ class HealingService:
     def get_available_modalities(self) -> list[dict[str, str]]:
         """Get list of available healing modalities"""
         return [
-            {"id": "scalar_waves", "name": "Scalar Wave Generation", "description": "Terra MOPS quantum healing waves"},
+            {
+                "id": "scalar_waves",
+                "name": "Scalar Wave Generation",
+                "description": "Scalar wave value generation (RNG and chaotic streams)",
+            },
             {
                 "id": "radionics",
                 "name": "Radionics Broadcasting",

@@ -69,7 +69,6 @@ def _popen(args, **kwargs):
 def print_banner():
     print("=" * 60)
     print("  Vajra.Stream - Sacred Technology for Healing & Liberation")
-    print("  Terra MOPS Scalar Wave Edition")
     print("=" * 60)
     print()
 

@@ -285,6 +285,43 @@ def _deterministic_geocoding(monkeypatch):
     )
 
 
+# ---------------------------------------------------------------------------
+# Image generation never writes into the real generated/images
+# ---------------------------------------------------------------------------
+# ImageGenerationService saves every successful generation to
+# DEFAULT_CONFIG["image_output_dir"] ("generated/images", cwd-relative). The
+# unit tests mock the provider with stub bytes, so every pytest run used to
+# drop six 15-24 byte fake "PNGs" into the user's gallery (158 had piled up
+# by 2026-10-15). Every service copies DEFAULT_CONFIG at construction, so
+# pointing the default at a session temp dir covers all of them.
+_TEST_IMAGE_DIR = tempfile.mkdtemp(prefix="vajra-test-images-")
+atexit.register(shutil.rmtree, _TEST_IMAGE_DIR, True)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_image_output_dir(monkeypatch):
+    import importlib.util
+
+    mod_name = "backend.core.services.image_generation_service"
+    if mod_name in sys.modules:
+        ig_mod = sys.modules[mod_name]
+    else:
+        ig_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "backend",
+            "core",
+            "services",
+            "image_generation_service.py",
+        )
+        spec = importlib.util.spec_from_file_location(mod_name, ig_path)
+        ig_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ig_mod)
+        # Same as the geocoding fixture: later imports must get THIS module object.
+        sys.modules[mod_name] = ig_mod
+
+    monkeypatch.setitem(ig_mod.DEFAULT_CONFIG, "image_output_dir", _TEST_IMAGE_DIR)
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "unit: fast isolated tests")
     config.addinivalue_line("markers", "integration: tests wiring multiple modules")

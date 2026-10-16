@@ -6,7 +6,13 @@ Provides REST API access to RNG attunement readings
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.core.services.rng_attunement_service import NeedleState, ReadingQuality, get_rng_service
+from backend.core.services.rng_attunement_service import (
+    ATTUNEMENT_DRAW_NOTE,
+    NeedleState,
+    ReadingQuality,
+    get_rng_service,
+    reading_provenance,
+)
 
 router = APIRouter(prefix="/rng-attunement", tags=["rng-attunement"])
 
@@ -30,7 +36,7 @@ class SessionResponse(BaseModel):
 
 
 class ReadingResponse(BaseModel):
-    """Single attunement reading"""
+    """Single attunement reading. Every value is a draw (see ``provenance``)."""
 
     timestamp: float
     raw_value: float
@@ -42,6 +48,10 @@ class ReadingResponse(BaseModel):
     coherence: float
     trend: float
     floating_needle_score: float
+    note: str = Field(default=ATTUNEMENT_DRAW_NOTE, description="Plain statement of what these values are")
+    provenance: dict[str, str] = Field(
+        default_factory=reading_provenance, description="Field name -> provenance (record/computed/draw/decorative)"
+    )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -75,6 +85,8 @@ class SessionSummaryResponse(BaseModel):
     needle_state_distribution: dict[str, int]
     quality_distribution: dict[str, int]
     is_active: bool
+    note: str | None = None
+    provenance: dict[str, str] | None = None
 
 
 class NeedleStateInfo(BaseModel):
@@ -100,9 +112,9 @@ async def create_session(request: CreateSessionRequest):
     This initializes a new session for generating attunement readings.
     Each session maintains its own baseline and history of readings.
 
-    **Purpose**: Similar to starting an E-meter session in auditing,
-    this begins tracking subtle energetic fluctuations that may be
-    influenced by consciousness, intention, or paranormal activity.
+    **Purpose**: Similar to starting an E-meter session in auditing.
+    Each reading in the session is a random draw, read in the e-meter
+    tradition as a divinatory method. Readings are not measurements.
     """
     service = get_rng_service()
 
@@ -118,10 +130,11 @@ async def get_reading(session_id: str):
     """
     Get a new attunement reading for a session
 
-    This generates a quantum-random reading that radionics practitioners
-    believe may be influenced by psychic or paranormal activity.
+    This draws a reading from the blended random source (ANU QRNG when
+    reachable). Every value is a draw; the response's ``provenance`` map
+    says so field by field.
 
-    **Interpretation Guide**:
+    **Traditional reading guide** (how the e-meter tradition reads a draw):
     - **Tone Arm** (0-10): Overall charge level. Ideally stays 2-6.
     - **Needle Position** (-100 to +100): Momentary fluctuations. Watch for patterns.
     - **Needle State**: Key indicator:
@@ -133,10 +146,10 @@ async def get_reading(session_id: str):
         - STUCK: No movement (neutral or blocked)
     - **Coherence** (0-1): Higher = more organized/patterned (vs chaotic)
     - **Entropy** (0-1): Higher = more random/chaotic
-    - **FN Score** (0-1): Likelihood of genuine Floating Needle (release indicator)
+    - **FN Score** (0-1): How closely the drawn needle matches a Floating Needle
 
-    **Similar to**: Scientology E-meter reads, galvanic skin response,
-    but based on RNG fluctuations rather than electrical resistance.
+    **Similar to**: E-meter reads, but from random draws rather than skin
+    resistance. Nothing here is measured.
     """
     service = get_rng_service()
 
@@ -166,7 +179,7 @@ async def get_session_summary(session_id: str):
 
     Provides aggregate data about the session including:
     - Total readings taken
-    - Number of floating needles detected
+    - Number of drawn floating needles
     - Average values
     - Distribution of needle states and quality
     """

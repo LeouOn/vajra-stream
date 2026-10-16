@@ -21,6 +21,7 @@ import { act } from 'react-dom/test-utils';
 import { MemoryRouter } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import type { FC } from 'react';
+import type { RecitationStatus } from '../../types';
 
 /* ------------------------------------------------------------------ *
  * Module-level mocks. `useWebSocketStable` is the canonical WS hook;
@@ -107,6 +108,26 @@ function renderNode(node: React.ReactNode) {
 /* ------------------------------------------------------------------ *
  * IntentionEditor
  * ------------------------------------------------------------------ */
+
+/** A complete RecitationStatus (the backend's idle shape) with overrides. */
+function recitationStatus(overrides: Partial<RecitationStatus> = {}): RecitationStatus {
+  return {
+    running: false,
+    intention: '',
+    current_index: 0,
+    current_cycle: 0,
+    total_recited: 0,
+    mala_count: 0,
+    dedications: 0,
+    total_buddhas: 88,
+    current_buddha: {},
+    progress_pct: 0,
+    started_at: '',
+    last_recited_at: '',
+    ...overrides,
+  };
+}
+
 describe('IntentionEditor', () => {
   it('renders the title and the default intention when none is stored', () => {
     renderNode(<IntentionEditor value="" onChange={() => {}} />);
@@ -158,7 +179,7 @@ describe('DedicationText', () => {
   it('the refresh button is rendered and clickable', () => {
     const onRefresh = vi.fn();
     renderNode(<DedicationText onRefresh={onRefresh} />);
-    const btn = container.querySelector('button[aria-label="Draw another dedication"]');
+    const btn = container.querySelector<HTMLButtonElement>('button[aria-label="Draw another dedication"]');
     expect(btn).not.toBeNull();
     act(() => { btn!.click(); });
     expect(onRefresh).toHaveBeenCalledTimes(1);
@@ -178,7 +199,7 @@ describe('SessionHistory', () => {
   });
 
   it('disables Record when buddhaStatus is not running', () => {
-    renderNode(<SessionHistory buddhaStatus={{ running: false }} />);
+    renderNode(<SessionHistory buddhaStatus={recitationStatus({ running: false })} />);
     const buttons = container.querySelectorAll('button');
     const recordBtn = Array.from(buttons).find((b) => b.textContent === 'Record');
     expect(recordBtn).toBeDefined();
@@ -211,7 +232,7 @@ describe('SessionHistory', () => {
     localStorage.setItem('vajra-buddha-sessions', JSON.stringify(sessions));
     renderNode(<SessionHistory buddhaStatus={null} />);
     // The clear button is the second extra control (danger text button).
-    const dangerBtn = container.querySelector('button.ant-btn-dangerous');
+    const dangerBtn = container.querySelector<HTMLButtonElement>('button.ant-btn-dangerous');
     expect(dangerBtn).not.toBeNull();
     act(() => { dangerBtn!.click(); });
     // Popconfirm opens — find the "Clear" confirm button in the popover.
@@ -245,7 +266,7 @@ describe('ShareExport', () => {
   it('copies a summary to the clipboard when clicked', async () => {
     renderNode(
       <ShareExport
-        buddhaStatus={{ total_recited: 88, mala_count: 1, current_cycle: 1 }}
+        buddhaStatus={recitationStatus({ total_recited: 88, mala_count: 1, current_cycle: 1 })}
         intention="test vow"
       />,
     );

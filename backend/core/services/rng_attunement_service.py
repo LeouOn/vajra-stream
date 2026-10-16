@@ -1,7 +1,12 @@
 """
 RNG Attunement Reading Service
-Inspired by Ken Ogger's Super Scio and E-meter technology
-Provides quantum-random readings that may be influenced by psychic/paranormal activity
+Inspired by Ken Ogger's Super Scio and E-meter technology.
+
+Produces e-meter style readings (tone arm, needle, floating-needle score) from
+random draws. Practitioners use these the way a pendulum or stick pad is used:
+as a divinatory method. Every value derived from the draw is labeled ``draw``
+(see ``reading_provenance``); nothing here measures a physical or mental
+quantity. See docs/DEVELOPMENT_ROADMAP.md, "the honest instrument".
 """
 
 import hashlib
@@ -15,6 +20,31 @@ from typing import Any
 import numpy as np
 
 from .true_rng_provider import get_true_rng
+
+# Provenance of every AttunementReading field. All values derive from the
+# random draw; the timestamp is the moment the draw was taken.
+READING_PROVENANCE: dict[str, str] = {
+    "timestamp": "record",
+    "raw_value": "draw",
+    "tone_arm": "draw",
+    "needle_position": "draw",
+    "needle_state": "draw",
+    "quality": "draw",
+    "entropy": "draw",
+    "coherence": "draw",
+    "trend": "draw",
+    "floating_needle_score": "draw",
+}
+
+ATTUNEMENT_DRAW_NOTE = (
+    "Attunement readings are random draws read in the e-meter tradition, a divinatory method. "
+    "They are not measurements."
+)
+
+
+def reading_provenance() -> dict[str, str]:
+    """A fresh copy of the provenance map for an attunement reading."""
+    return dict(READING_PROVENANCE)
 
 
 class NeedleState(str, Enum):
@@ -40,7 +70,7 @@ class ReadingQuality(str, Enum):
 
 @dataclass
 class AttunementReading:
-    """Single RNG attunement reading"""
+    """Single RNG attunement reading. Every value is a draw (see READING_PROVENANCE)."""
 
     timestamp: float
     raw_value: float  # Raw RNG value 0.0-1.0
@@ -52,6 +82,22 @@ class AttunementReading:
     coherence: float  # Measure of order/pattern
     trend: float  # Rising (+) or falling (-)
     floating_needle_score: float  # 0.0-1.0, higher = more likely FN
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize, with enum values as strings and a provenance map."""
+        return {
+            "timestamp": self.timestamp,
+            "raw_value": self.raw_value,
+            "tone_arm": self.tone_arm,
+            "needle_position": self.needle_position,
+            "needle_state": self.needle_state.value,
+            "quality": self.quality.value,
+            "entropy": self.entropy,
+            "coherence": self.coherence,
+            "trend": self.trend,
+            "floating_needle_score": self.floating_needle_score,
+            "provenance": reading_provenance(),
+        }
 
 
 @dataclass
@@ -81,8 +127,9 @@ class RNGAttunementService:
     """
     Service for generating RNG-based attunement readings
 
-    This system uses multiple entropy sources to generate random numbers
-    that practitioners believe may be influenced by consciousness/intention.
+    This system blends several entropy sources into one random draw per
+    reading. Practitioners read the draws as a divinatory method; the service
+    makes no claim that anything external influences them.
 
     Inspired by:
     - Ken Ogger's Super Scio E-meter concepts
@@ -111,11 +158,12 @@ class RNGAttunementService:
 
     def _generate_quantum_like_random(self) -> float:
         """
-        Generate quantum-like random number
+        Draw one value in [0.0, 1.0).
 
-        Uses true quantum entropy (ANU API) as the primary source (70%),
-        and combines it with local pseudo-random components and pool feedback
-        that radionics practitioners believe may be influenced by consciousness.
+        A weighted blend of four sources: the ANU quantum RNG (``secrets`` when
+        offline) at 70%, NumPy's PRNG at 10%, the clock's microsecond fraction
+        at 10%, and the mean of the last five pooled values at 10%. The pool
+        feedback adds mild autocorrelation between successive draws.
 
         Returns: Float between 0.0 and 1.0
         """
@@ -135,9 +183,8 @@ class RNGAttunementService:
         # Entropy pool contribution
         pool_sample = sum(list(self._entropy_pool)[-5:]) / 5.0 if self._entropy_pool else 0.5
 
-        # Combine with weighted average
-        # True Quantum entropy is heavily weighted (70%)
-        # This combination is where consciousness influence might occur
+        # Weighted blend of the four sources (weights sum to 1.0). The result
+        # is a draw; nothing here measures an external influence.
         combined = primary * 0.7 + secondary * 0.1 + time_component * 0.1 + pool_sample * 0.1
 
         # Add to entropy pool for feedback
@@ -309,10 +356,11 @@ class RNGAttunementService:
 
     def get_reading(self, session_id: str) -> AttunementReading | None:
         """
-        Get a new attunement reading for a session
+        Draw a new attunement reading for a session
 
-        This is the main method that generates readings which may be
-        influenced by psychic/paranormal activity according to radionics theory.
+        The raw value is a random draw; tone arm, needle, state, quality,
+        entropy, coherence and FN score are all derived from recent draws, so
+        each is itself a draw (see ``READING_PROVENANCE``).
 
         Args:
             session_id: The session to generate reading for
@@ -417,6 +465,16 @@ class RNGAttunementService:
                 quality.value: sum(1 for r in readings if r.quality == quality) for quality in ReadingQuality
             },
             "is_active": session.is_active,
+            "note": ATTUNEMENT_DRAW_NOTE,
+            "provenance": {
+                "total_readings": "record",
+                "floating_needle_count": "draw",
+                "avg_tone_arm": "draw",
+                "avg_coherence": "draw",
+                "avg_entropy": "draw",
+                "needle_state_distribution": "draw",
+                "quality_distribution": "draw",
+            },
         }
 
     def stop_session(self, session_id: str) -> bool:

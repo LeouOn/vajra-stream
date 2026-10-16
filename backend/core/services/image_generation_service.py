@@ -478,6 +478,7 @@ class ImageGenerationService:
         size: str = "1024x1024",
         quality: str = "standard",
         n: int = 1,
+        caption_facts: list[dict[str, str]] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Generate an image and return a dict with image_data_url + metadata.
@@ -489,6 +490,10 @@ class ImageGenerationService:
             size: OpenRouter: "1024x1024" (default), "1792x1024", "1024x1792".
             quality: "standard" (default) or "hd".
             n: Number of images. Default 1, max per config.
+            caption_facts: Real values to caption the image with
+                (``[{"label", "value", "provenance"}]``, see core/image_prompts.py).
+                Echoed in the result and written to a ``<image>.json`` sidecar
+                beside the saved file; never sent to the provider.
             **kwargs: Provider-specific args:
                 - aspect_ratio: MiniMax only, e.g. "1:1", "16:9", "4:3"
                 - subject_reference: MiniMax only, URL of reference image
@@ -557,6 +562,8 @@ class ImageGenerationService:
         if cached and cached[0] > now:
             result = dict(cached[1].__dict__)
             result["cached"] = True
+            if caption_facts:
+                result["caption_facts"] = list(caption_facts)
             return result
 
         # Call provider — 2 tries, only on technical (retryable) failure
@@ -598,9 +605,24 @@ class ImageGenerationService:
         self._hourly_calls.append(now)
         self._cache[cache_key] = (now + cfg["cache_ttl_seconds"], result)
 
-        saved_path = self._save_image(result.image_data_url, full_prompt)
+        saved_path = self._save_image(
+            result.image_data_url,
+            full_prompt,
+            metadata={
+                "prompt": prompt,
+                "full_prompt": full_prompt,
+                "provider": result.provider,
+                "model": result.model,
+                "size": size,
+                "quality": quality,
+                "aspect_ratio": kwargs.get("aspect_ratio"),
+                "revised_prompt": result.revised_prompt,
+                "cost_usd": result.cost_usd,
+                **({"caption_facts": list(caption_facts)} if caption_facts else {}),
+            },
+        )
 
-        return {
+        response: dict[str, Any] = {
             "image_data_url": result.image_data_url,
             "model": result.model,
             "cost_usd": result.cost_usd,
@@ -610,11 +632,23 @@ class ImageGenerationService:
             "prompt_tokens": validation["estimated_tokens"],
             "image_file_path": saved_path,
         }
+        if caption_facts:
+            response["caption_facts"] = list(caption_facts)
+        return response
 
     # ── Internals ──────────────────────────────────────────────────────
 
-    def _save_image(self, data_url: str, prompt: str) -> str | None:
+    def _save_image(self, data_url: str, prompt: str, metadata: dict[str, Any] | None = None) -> str | None:
         """Save a base64 data URL to the configured output directory.
+
+        Next to ``img_<ts>_<prompthash>.<ext>`` it writes ``img_<ts>_<prompthash>.json``,
+        a small sidecar recording what made the image (``metadata``: prompt,
+        provider, model, size, ...) plus ``created_at``, ``content_type``,
+        ``bytes`` and ``sha256`` of the saved file. A sidecar that cannot be
+        written is logged and does not undo the image save.
+
+        A relative ``image_output_dir`` resolves against the current working
+        directory; embedders that want a fixed location pass an absolute path.
 
         Returns the saved file path, or None if the image is a URL
         (not a data URL) or saving fails.
@@ -632,21 +666,37 @@ class ImageGenerationService:
         content_type = "image/png"
         if ":" in header:
             content_type = header.split(":", 1)[1]
-        ext = "png" if "png" in content_type else "jpg"
+        ext = "png" if "png" in content_type else "webp" if "webp" in content_type else "jpg"
 
         out_dir = Path(self._config["image_output_dir"])
         try:
             out_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = int(time.time())
+            now = time.time()
+            timestamp = int(now)
             prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:8]
             filename = f"img_{timestamp}_{prompt_hash}.{ext}"
             filepath = out_dir / filename
             filepath.write_bytes(img_bytes)
             logger.info("Saved image to %s", filepath)
-            return str(filepath)
         except OSError as exc:
             logger.warning("Could not save image to %s: %s", out_dir, exc)
             return None
+
+        sidecar = {
+            **(metadata or {"prompt": prompt}),
+            "filename": filename,
+            "content_type": content_type,
+            "bytes": len(img_bytes),
+            "sha256": hashlib.sha256(img_bytes).hexdigest(),
+            "created_at": datetime.fromtimestamp(now, tz=timezone.utc).isoformat(),
+        }
+        try:
+            filepath.with_suffix(".json").write_text(
+                json.dumps(sidecar, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            logger.warning("Saved %s but could not write its sidecar: %s", filepath, exc)
+        return str(filepath)
 
     @staticmethod
     def _cache_key(

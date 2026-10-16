@@ -16,8 +16,14 @@
  */
 import React from 'react';
 import { Modal } from 'antd';
+import type { ZoomItem } from './RenderMessageWidgets';
 
-export default function ZoomModal({ activeZoomItem, onClose }) {
+interface ZoomModalProps {
+  activeZoomItem: ZoomItem | null;
+  onClose: () => void;
+}
+
+export default function ZoomModal({ activeZoomItem, onClose }: ZoomModalProps) {
   return (
     <Modal
       open={!!activeZoomItem}
@@ -122,7 +128,7 @@ export default function ZoomModal({ activeZoomItem, onClose }) {
                       <p className="text-xs text-gray-300 mt-1">{activeZoomItem.cast.relating?.meaning}</p>
                     </div>
                     <div className="text-[10px] text-gray-400 font-mono">
-                      Changing Lines: {activeZoomItem.cast.changing_lines.join(', ')}
+                      Changing Lines: {(activeZoomItem.cast.changing_lines ?? []).join(', ')}
                     </div>
                   </div>
                 )}
@@ -163,7 +169,7 @@ export default function ZoomModal({ activeZoomItem, onClose }) {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px] max-h-32 overflow-y-auto pr-1">
                     {Array.from({ length: 12 }).map((_, idx) => {
                       const houseNum = idx + 1;
-                      const figure = activeZoomItem.chart.houses?.[houseNum];
+                      const figure = activeZoomItem.chart?.houses?.[houseNum];
                       if (!figure) return null;
                       return (
                         <div key={houseNum} className="p-1.5 bg-black/40 border border-white/5 rounded flex flex-col justify-between">

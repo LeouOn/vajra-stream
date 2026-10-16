@@ -19,7 +19,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from backend.core.orchestrator_bridge import orchestrator_bridge
 from core.context_builder import unwrap_rate_entries
-from core.integrated_scalar_radionics import IntegratedScalarRadionicsBroadcaster, IntentionType
+from core.integrated_scalar_radionics import (
+    BroadcastFailed,
+    BroadcastStop,
+    IntegratedScalarRadionicsBroadcaster,
+    IntentionType,
+    start_background_broadcast,
+)
 from core.schema import get_db_path
 
 # Setup logging
@@ -104,7 +110,6 @@ class BroadcastResponse(BaseModel):
     lon: float | None = None
     frequency_hz: float
     duration_seconds: float
-    scalar_mops: float
     chakras_activated: list[str]
     meridians_activated: list[str]
     dedication: str
@@ -112,6 +117,9 @@ class BroadcastResponse(BaseModel):
     solfeggio_names: list[str] | None = None
     crystal_output: dict | None = None
     scalar_output: dict | None = None
+    # Ledger id of the scalar-radionics broadcast operation (GET /api/v1/operations/{id}).
+    # The broadcast runs in the background; its result arrives on that operation.
+    operation_id: str | None = None
 
 
 class RitualBroadcastResponse(BaseModel):
@@ -165,7 +173,15 @@ class SutraRecitationResponse(BaseModel):
 
 @router.post("/broadcast", response_model=BroadcastResponse)
 async def start_broadcast(request: BroadcastRequest, background_tasks: BackgroundTasks):
-    """Start integrated scalar-radionics broadcast"""
+    """Start an integrated scalar-radionics broadcast; returns straight away.
+
+    The broadcast runs for ``duration_minutes`` on a worker thread as a
+    ``broadcast`` ledger operation (``operation_id``), so the event loop is
+    never held. Fields only known after the run (``frequencies``,
+    ``solfeggio_names``, ``crystal_output``, ``scalar_output``) are null here;
+    the operation's ``result`` holds the full response when it ends. Cancel
+    with ``POST /api/v1/operations/{operation_id}/cancel``.
+    """
     try:
         logger.info(f"📡 Starting broadcast: {request.intention} for {len(request.target_names)} targets")
 
@@ -225,42 +241,7 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             if resolved:
                 target_lat, target_lon = resolved
 
-        # Invoke the real RadionicsService (not the old mock).
-        # The service maps the intention to prayer bowl carrier frequencies,
-        # invokes the crystal broadcaster for audio, and the integrated
-        # scalar-radionics engine for scalar wave generation.
-        from container import container
-
-        radionics_service = getattr(container, "radionics", None)
-        crystal_result = None
-        scalar_result = None
-        actual_freqs = [7.83, frequency_hz]
-
-        if radionics_service:
-            try:
-                result = radionics_service.broadcast_healing(
-                    target_name=target_name,
-                    duration_minutes=request.duration_minutes,
-                    frequency_hz=frequency_hz,
-                    intensity=request.scalar_intensity,
-                    rate_values=request.rate_values,
-                    location=target_loc,
-                    lat=target_lat,
-                    lon=target_lon,
-                )
-                actual_freqs = result.get("frequencies", actual_freqs)
-                crystal_result = result.get("crystal_output")
-                scalar_result = result.get("scalar_output")
-                target_lat = result.get("lat", target_lat)
-                target_lon = result.get("lon", target_lon)
-                target_loc = result.get("location", target_loc)
-            except Exception as exc:
-                logger.warning(f"RadionicsService broadcast failed: {exc}")
-
         duration = request.duration_minutes * 60
-
-        # Estimate scalar MOPS from actual broadcast
-        estimated_mops = 17.73 * request.scalar_intensity
 
         # Get activated systems
         chakras_activated = (
@@ -290,8 +271,16 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
 
         dedication = f"May all beings benefit! Dedicated to {', '.join(request.target_names)}"
 
-        return BroadcastResponse(
-            status="success",
+        # The real RadionicsService (not the old mock) maps the intention to
+        # prayer bowl carrier frequencies, invokes the crystal broadcaster
+        # for audio, and the integrated scalar-radionics engine for scalar
+        # wave generation.
+        from container import container
+
+        radionics_service = getattr(container, "radionics", None)
+
+        base = BroadcastResponse(
+            status="started",
             session_id=session_id,
             intention=request.intention,
             targets=request.target_names,
@@ -300,15 +289,67 @@ async def start_broadcast(request: BroadcastRequest, background_tasks: Backgroun
             lon=target_lon,
             frequency_hz=frequency_hz,
             duration_seconds=duration,
-            scalar_mops=estimated_mops,
             chakras_activated=chakras_activated,
             meridians_activated=meridians_activated,
             dedication=dedication,
-            frequencies=actual_freqs,
-            solfeggio_names=result.get("solfeggio_names") if radionics_service else None,
-            crystal_output=crystal_result,
-            scalar_output=scalar_result,
         )
+
+        if not radionics_service:
+            # Nothing runs for a duration without the service: no operation.
+            return base.model_copy(update={"status": "success", "frequencies": [7.83, frequency_hz]})
+
+        def run(op_id: str, stop: BroadcastStop) -> dict:
+            """Worker thread: the timed broadcast. Its return value is the ledger result."""
+            result = radionics_service.broadcast_healing(
+                target_name=target_name,
+                duration_minutes=request.duration_minutes,
+                frequency_hz=frequency_hz,
+                intensity=request.scalar_intensity,
+                rate_values=request.rate_values,
+                location=target_loc,
+                lat=target_lat,
+                lon=target_lon,
+                operation_id=op_id,
+                stop=stop,
+            )
+            scalar_result = result.get("scalar_output") or {}
+            final = base.model_copy(
+                update={
+                    "status": stop.reason or "success",
+                    "location": result.get("location", target_loc),
+                    "lat": result.get("lat", target_lat),
+                    "lon": result.get("lon", target_lon),
+                    "frequencies": result.get("frequencies"),
+                    "solfeggio_names": result.get("solfeggio_names"),
+                    "crystal_output": result.get("crystal_output"),
+                    "scalar_output": scalar_result,
+                    "operation_id": op_id,
+                }
+            ).model_dump(mode="json")
+            if scalar_result.get("status") == "failed":
+                raise BroadcastFailed(scalar_result.get("error") or "scalar broadcast failed", final)
+            return final
+
+        # Runs on the broadcast worker pool; the request returns now. The
+        # outcome arrives as ``operation_update`` (GET /operations/{id}), and
+        # POST /operations/{id}/cancel stops it at its next tick.
+        op = start_background_broadcast(
+            f"Scalar-radionics broadcast: {request.intention}",
+            run,
+            params={
+                "session_id": session_id,
+                "intention": request.intention,
+                "targets": request.target_names,
+                "duration_seconds": duration,
+                "frequency_hz": frequency_hz,
+                "scalar_intensity": request.scalar_intensity,
+                "rate_values": request.rate_values,
+                "location": target_loc,
+                "lat": target_lat,
+                "lon": target_lon,
+            },
+        )
+        return base.model_copy(update={"operation_id": op["id"]})
 
     except Exception as e:
         logger.error(f"❌ Broadcast error: {e}")
@@ -1358,7 +1399,6 @@ async def get_broadcast_status(session_id: str):
             "state": "active",
             "progress_percent": 75,
             "estimated_time_remaining_seconds": 120,
-            "current_mops": 17.73,
             "thermal_status": "optimal",
         }
 

@@ -16,7 +16,7 @@
  *   `clean` is the content with all reasoning stripped (safe to render).
  *   `reasoning` is the extracted reasoning text, or `null` if none was found.
  */
-export function stripThinking(content) {
+export function stripThinking(content: unknown): { clean: string; reasoning: string | null } {
   if (typeof content !== 'string') {
     return { clean: '', reasoning: null };
   }

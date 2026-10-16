@@ -5,7 +5,7 @@
  * total, runs}) and its View action selects the run and opens Results.
  */
 import { apiUrl } from '../../utils/api';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Tabs,
   Card,
@@ -30,13 +30,14 @@ import {
   Statistic,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
+import type { Dayjs } from 'dayjs';
 import { Copy, Download, Compass, MapPin, Calendar, Sparkles, Settings2 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 const { TabPane } = Tabs;
 const { Text } = Typography;
 
 interface SelectOption {
-  value: string | number;
+  value: string;
   label: string;
 }
 
@@ -49,8 +50,9 @@ interface RunRecord {
   [key: string]: unknown;
 }
 
+/** Row from GET /astrology/locations (backend/app/api/v1/endpoints/locations.py). */
 interface AstroLocation {
-  id?: string | number;
+  id: string | number;
   name?: string;
   label?: string;
   lat?: number;
@@ -87,7 +89,13 @@ interface SweepTabProps {
   onComplete?: (runId: number | string) => void;
 }
 
-interface Props {}
+/** POST /astrology/extract and POST /astrology/runs/{id}/recompute. */
+interface RunStartedResponse {
+  run_id: number | string;
+  [key: string]: unknown;
+}
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 // 11 supported astrological systems with human-friendly labels
 const SYSTEM_OPTIONS: SelectOption[] = [
@@ -189,7 +197,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
     try {
       const r = await fetch(apiUrl(`/astrology/runs/${id}/recompute`), { method: 'POST' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
+      const data: RunStartedResponse = await r.json();
       addToast({ type: 'success', title: `Recompute started: run ${data.run_id}`, duration: 3 });
       if (onRecompute) onRecompute(data.run_id);
       fetchRuns();
@@ -385,10 +393,10 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
         }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
+      const data: RunStartedResponse = await r.json();
       setCurrentRunId(data.run_id);
-    } catch (e) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(errorMessage(e));
     } finally {
       setLaunching(false);
     }
@@ -405,14 +413,14 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
       try {
         const r = await fetch(apiUrl(`/astrology/runs/${currentRunId}`));
         if (r.ok) {
-          const data = await r.json();
-          setRunStatus(data.status);
+          const data: RunRecord = await r.json(); // GET /astrology/runs/{id} row
+          setRunStatus(data.status ?? null);
           setProgress({
             completed: data.completed_tuples || 0,
             total: data.total_tuples || 0,
           });
-          if (['done', 'partial', 'error'].includes(data.status)) {
-            clearInterval(pollRef.current);
+          if (['done', 'partial', 'error'].includes(data.status ?? '')) {
+            if (pollRef.current) clearInterval(pollRef.current);
             clearInterval(elapsedInterval);
             if (onComplete) onComplete(currentRunId);
           }
@@ -422,7 +430,7 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
     pollRef.current = setInterval(poll, 2000);
     poll();
     return () => {
-      clearInterval(pollRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
       clearInterval(elapsedInterval);
     };
   }, [currentRunId, onComplete]);
@@ -474,18 +482,18 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
 };
 
 const AstrologyExtractionPanel = () => {
-  const [locations, setLocations] = useState([]);
+  const [locations, setLocations] = useState<AstroLocation[]>([]);
   const [locationsLoading, setLocationsLoading] = useState(false);
-  const [locationsError, setLocationsError] = useState(null);
-  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+  const [selectedLocations, setSelectedLocations] = useState<(string | number)[]>([]);
 
-  const [dateMode, setDateMode] = useState('explicit');
-  const [explicitDates, setExplicitDates] = useState([]);
+  const [dateMode, setDateMode] = useState<string>('explicit');
+  const [explicitDates, setExplicitDates] = useState<Dayjs[]>([]);
   const [everyNDays, setEveryNDays] = useState(7);
   const [weeklyWeekday, setWeeklyWeekday] = useState(0); // 0 = Sunday
-  const [astroEvents, setAstroEvents] = useState([]);
+  const [astroEvents, setAstroEvents] = useState<string[]>([]);
 
-  const [systems, setSystems] = useState(['western', 'vedic', 'chinese']);
+  const [systems, setSystems] = useState<string[]>(['western', 'vedic', 'chinese']);
   const [houseSystem, setHouseSystem] = useState('placidus');
   const [sidereal, setSidereal] = useState(false);
 
@@ -503,7 +511,7 @@ const AstrologyExtractionPanel = () => {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
-        const data = await res.json();
+        const data: AstroLocation[] | { locations?: AstroLocation[] } | null = await res.json();
         if (!cancelled) {
           const list = Array.isArray(data)
             ? data
@@ -512,9 +520,9 @@ const AstrologyExtractionPanel = () => {
               : [];
           setLocations(list);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          setLocationsError(err?.message || 'Failed to load locations');
+          setLocationsError((err instanceof Error && err.message) || 'Failed to load locations');
         }
       } finally {
         if (!cancelled) {
@@ -537,16 +545,15 @@ const AstrologyExtractionPanel = () => {
     [locations],
   );
 
-  const setupState = useMemo(() => {
+  const setupState = useMemo((): SetupState => {
     const selectedLocs = selectedLocations
       .map((id) => locations.find((l) => (l.id ?? l.name) === id))
-      .filter(Boolean);
-    const dates = [];
+      .filter((l): l is AstroLocation => !!l);
+    const dates: string[] = [];
     if (dateMode === 'explicit' && explicitDates && explicitDates.length) {
       explicitDates.forEach((d) => {
-        const dt = d && (d.$d || d);
-        if (dt && !Number.isNaN(dt.getTime?.())) {
-          dates.push(new Date(dt).toISOString());
+        if (d && d.isValid()) {
+          dates.push(d.toDate().toISOString());
         }
       });
     } else if (dateMode === 'every_n_days' && everyNDays > 0) {
@@ -564,11 +571,12 @@ const AstrologyExtractionPanel = () => {
         dates.push(d.toISOString());
       }
     }
-    const tuples = [];
+    const tuples: SetupTuple[] = [];
     selectedLocs.forEach((loc) => {
-      if (typeof loc.lat !== 'number' || typeof loc.lon !== 'number') return;
+      const { lat, lon } = loc;
+      if (typeof lat !== 'number' || typeof lon !== 'number') return;
       dates.forEach((iso) => {
-        tuples.push({ date: iso, lat: loc.lat, lon: loc.lon });
+        tuples.push({ date: iso, lat, lon });
       });
     });
     return {
@@ -581,11 +589,15 @@ const AstrologyExtractionPanel = () => {
     };
   }, [locations, selectedLocations, dateMode, explicitDates, everyNDays, weeklyWeekday, systems, houseSystem, sidereal]);
 
-  const handleSweepComplete = (runId) => {
+  // Stable identity: SweepTab's polling effect depends on this callback. A
+  // fresh function each render re-ran that effect on every parent render,
+  // re-polling the finished sweep and re-selecting it — clobbering a run the
+  // user had just picked via Replay → View.
+  const handleSweepComplete = useCallback((runId: number | string) => {
     if (runId) {
       setCurrentRunId(runId);
     }
-  };
+  }, []);
 
   const handleReplayView = (id: number | string) => {
     setCurrentRunId(id);
@@ -596,7 +608,7 @@ const AstrologyExtractionPanel = () => {
     if (dateMode === 'explicit') {
       return (
         <Form.Item label="Pick specific dates" style={{ marginTop: 12 }}>
-          <DatePicker.RangePicker
+          <DatePicker
             multiple
             value={explicitDates}
             onChange={(vals) => setExplicitDates(vals || [])}
@@ -760,7 +772,7 @@ const AstrologyExtractionPanel = () => {
     </Space>
   );
 
-  const renderPlaceholder = (label) => (
+  const renderPlaceholder = (label: string) => (
     <div
       style={{
         padding: '48px 16px',

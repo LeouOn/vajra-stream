@@ -135,8 +135,10 @@ class Settings(BaseSettings):
     LLM_USAGE_TRACKING: str = "true"
     LLM_USAGE_LOG_PATH: str = "./logs/llm_usage.jsonl"
 
-    # ComfyUI (backend-only)
+    # ComfyUI (backend-only) — local render engine (backend/core/services/render/)
     COMFYUI_BASE_URL: str = "http://127.0.0.1:8188"
+    # Seconds a render job may wait for ComfyUI before it fails (cold model loads are slow).
+    RENDER_TIMEOUT_SECONDS: float = 1800.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

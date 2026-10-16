@@ -9,20 +9,29 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createLogger } from '../utils/logger';
 import { apiUrl } from '../utils/api';
+import { isOperation, useOperationsStore } from './operationsStore';
 
 const log = createLogger('crystalStore');
 
-/** Result from a radionics broadcast — includes derived prayer bowl frequencies. */
+/**
+ * Response of `POST /radionics/broadcast`. The broadcast now runs in the
+ * background: the call returns as soon as it has *started* (`status:
+ * 'started'`), with `operation_id` set. Fields only known after the run
+ * (`frequencies`, `solfeggio_names`, `crystal_output`, `scalar_output`) are
+ * null here; the finished operation's `result` holds them. Follow progress
+ * through `useOperationsStore` (`operation_update` over the WebSocket) and
+ * stop it with `cancelBroadcast(operation_id)`.
+ */
 export interface RadionicsBroadcastResult {
   session_id: string;
   status: string;
   intention: string;
   targets: string[];
-  frequencies: number[];
-  solfeggio_names: string[];
-  frequency_source: string;
-  amplitude: number;
-  scalar_mops: number;
+  duration_seconds?: number;
+  frequencies?: number[] | null;
+  solfeggio_names?: string[] | null;
+  /** Ledger id of the scalar-radionics broadcast operation; null only when nothing ran. */
+  operation_id?: string | null;
   crystal_output?: { status: string; error?: string } | null;
   scalar_output?: Record<string, unknown> | null;
 }
@@ -156,6 +165,13 @@ export interface CrystalState {
     rateValues?: number[],
     scalarIntensity?: number,
   ) => Promise<RadionicsBroadcastResult | null>;
+  /**
+   * `POST /operations/{id}/cancel` for a running broadcast. Resolves true once
+   * the operation has ended (normally `cancelled`); false if it had already
+   * finished or could not be cancelled. The ended operation is upserted into
+   * `useOperationsStore`.
+   */
+  cancelBroadcast: (operationId: string) => Promise<boolean>;
 }
 
 const SEVEN_CHAKRAS: ChakraName[] = [
@@ -475,11 +491,40 @@ export const useCrystalStore = create<CrystalState>()(
             body: JSON.stringify(body),
           });
           if (!response.ok) throw new Error(`Broadcast failed: HTTP ${response.status}`);
-          return await response.json() as RadionicsBroadcastResult;
+          const result = await response.json() as RadionicsBroadcastResult;
+          // The broadcast has only started; load its operation so the UI can
+          // show it running before the first `operation_update` push lands.
+          if (result.operation_id) {
+            useOperationsStore.getState().fetchOperation(result.operation_id).catch((err: unknown) => {
+              log.warn('Could not load broadcast operation:', err);
+            });
+          }
+          return result;
         } catch (error) {
           log.error('Crystal broadcast failed:', error);
           set({ error: error instanceof Error ? error.message : String(error) });
           return null;
+        }
+      },
+
+      cancelBroadcast: async (operationId) => {
+        const operations = useOperationsStore.getState();
+        try {
+          const response = await fetch(apiUrl(`/operations/${encodeURIComponent(operationId)}/cancel`), {
+            method: 'POST',
+          });
+          if (response.ok) {
+            const data = (await response.json()) as { operation?: unknown };
+            if (isOperation(data.operation)) operations.upsert(data.operation);
+            return true;
+          }
+          // 409: it finished on its own (or cannot be stopped); refresh what we show.
+          await operations.fetchOperation(operationId).catch(() => undefined);
+          return false;
+        } catch (error) {
+          log.error('Broadcast cancel failed:', error);
+          set({ error: error instanceof Error ? error.message : String(error) });
+          return false;
         }
       },
     }),

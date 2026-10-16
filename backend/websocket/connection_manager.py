@@ -35,6 +35,8 @@ class StableConnectionManagerV2:
         self.connection_timeout = 60  # Consider connection dead after 60 seconds
         self._connection_id_counter = 0
         self.main_loop: asyncio.AbstractEventLoop | None = None
+        # Strong refs to broadcast tasks created by schedule_broadcast (the loop keeps only weak ones).
+        self._pending_sends: set[asyncio.Task] = set()
         logger.info("Stable WebSocket Connection Manager V2 initialized")
 
     def set_main_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
@@ -45,6 +47,29 @@ class StableConnectionManagerV2:
         off the event loop.
         """
         self.main_loop = loop
+
+    def schedule_broadcast(self, message: dict) -> bool:
+        """Schedule :meth:`broadcast` from any thread, without waiting for it.
+
+        On the main loop's own thread this creates a task; from a worker thread
+        (e.g. a tool run via ``asyncio.to_thread``) it hands the send to the
+        recorded main loop with ``run_coroutine_threadsafe``. Returns False when
+        there is no running loop to send on (tests, CLI scripts).
+        """
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        loop = self.main_loop
+        if running is not None and (loop is None or running is loop):
+            task = running.create_task(self.broadcast(message))
+            self._pending_sends.add(task)
+            task.add_done_callback(self._pending_sends.discard)
+            return True
+        if loop is None or loop.is_closed() or not loop.is_running():
+            return False
+        asyncio.run_coroutine_threadsafe(self.broadcast(message), loop)
+        return True
 
     def _generate_connection_id(self) -> str:
         """Generate unique connection ID"""

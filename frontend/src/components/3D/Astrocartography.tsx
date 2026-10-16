@@ -4,7 +4,6 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { COLORS } from '../../lib/colors';
 import { createLogger } from '../../utils/logger';
-import { useWebSocket } from '../../hooks/useWebSocket';
 
 interface BirthLocation {
   lat: number;
@@ -86,25 +85,31 @@ export default function Astrocartography({
   const globeRef = useRef<THREE.Mesh>(null);
   const linesRef = useRef<THREE.Group>(null);
   const [rotation] = useState(0);
-  const { currentAstrology } = useWebSocket();
-  const astrologyData: Record<string, unknown> | null = currentAstrology as Record<string, unknown> | null;
+  // The old `useWebSocket` hook (and its `currentAstrology`) no longer exists,
+  // and the stable hook carries no astrology push, so the fetched positions are
+  // the only source. They used to be read and thrown away.
+  const [astrologyData, setAstrologyData] = useState<Record<string, unknown> | null>(null);
 
   // Fetch current astrological data on mount.
-  // Live updates now come from WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook)
-  // — the 60s HTTP polling interval has been removed; currentAstrology is the source of truth.
   useEffect(() => {
+    let cancelled = false;
     const fetchAstrologyData = async () => {
       try {
-        // Result populated by WebSocket CURRENT_ASTROLOGY broadcast (useWebSocket hook).
-        // Fetch is retained for immediate data on first mount before WS push arrives.
         const response = await fetch(apiUrl('/astrology/planetary-positions'));
-        await response.json();
+        if (!response.ok) return;
+        const data: unknown = await response.json();
+        if (!cancelled && typeof data === 'object' && data !== null) {
+          setAstrologyData({ ...data });
+        }
       } catch (error) {
         log.error('Failed to fetch astrology data:', error);
       }
     };
 
     fetchAstrologyData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Create Earth globe texture (simple for now, can be enhanced)

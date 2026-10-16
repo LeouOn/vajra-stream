@@ -8,18 +8,29 @@ Solfeggio carriers, a spoken charge, and a non-blocking broadcast.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import threading
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from core import image_prompts
 from core.auspicious_timing import check_auspicious_window, check_saka_dawa
 from core.context_builder import search_rates
 from core.radionics_engine import SignatureCalculator
 from core.rate_to_audio import map_rate_to_carriers
 
+logger = logging.getLogger(__name__)
+
 WORKINGS_DIR = Path(__file__).resolve().parent.parent / "generated" / "workings"
+
+# Serializes the witness listener's read-modify-write of a folio (it can fire from
+# the render worker while a request handler is also touching the same folio).
+_witness_lock = threading.Lock()
 
 _DIAL_NAMES = ("Physical", "Astral", "Mental", "Causal", "Spiritual")
 
@@ -189,7 +200,8 @@ def list_workings(limit: int = 20, *, include_hidden: bool = False) -> list[dict
             continue
         witness = data.get("witness") if isinstance(data.get("witness"), dict) else {}
         saka = data.get("saka_dawa") if isinstance(data.get("saka_dawa"), dict) else {}
-        has_image = bool(witness.get("image_data_url"))
+        # Hosted witnesses carry an inline data URL; local renders an image_url.
+        has_image = bool(witness.get("image_data_url") or witness.get("image_url"))
         out.append(
             {
                 "working_id": data.get("working_id"),
@@ -269,17 +281,167 @@ def update_working_rates(working_id: str, rate_values: list[int]) -> dict[str, A
     return folio
 
 
+def _folio_moon(folio: dict[str, Any]) -> dict[str, Any] | None:
+    """The moon computed at the folio's ``sealed_at`` (Swiss Ephemeris), or ``None``."""
+    return image_prompts.moon_at(folio.get("sealed_at"))
+
+
+def _saka_block(folio: dict[str, Any]) -> dict[str, Any]:
+    saka = folio.get("saka_dawa")
+    return saka if isinstance(saka, dict) else {}
+
+
+def witness_prompt(folio: dict[str, Any]) -> str:
+    """The folio's witness image prompt, always rebuilt from its facts.
+
+    A stored ``image_prompt`` is not reused: folios sealed before
+    :mod:`core.image_prompts` stored prompts with dates and a "full moon"
+    taken from a future festival, which models paint as text and false sky.
+    """
+    hour = folio.get("hour_stamp") if isinstance(folio.get("hour_stamp"), dict) else {}
+    return _image_prompt(
+        str(folio.get("intention") or ""),
+        str(folio.get("target") or "all beings"),
+        moon=_folio_moon(folio),
+        moon_phase_name=hour.get("moon_phase"),
+        saka_dawa=_saka_block(folio),
+    )
+
+
+def witness_caption_facts(folio: dict[str, Any]) -> list[dict[str, str]]:
+    """The real values a witness image is captioned with (never painted into it)."""
+    facts: list[dict[str, str]] = []
+    if folio.get("sealed_at"):
+        facts.append(image_prompts.caption_fact("Sealed", folio["sealed_at"], "record"))
+    moon = _folio_moon(folio)
+    hour = folio.get("hour_stamp") if isinstance(folio.get("hour_stamp"), dict) else {}
+    if moon is not None:
+        facts.append(image_prompts.moon_caption_fact(moon, "Moon at sealing"))
+    elif hour.get("moon_phase"):
+        facts.append(image_prompts.caption_fact("Moon phase", hour["moon_phase"], "computed"))
+    if hour.get("planetary_hour"):
+        facts.append(image_prompts.caption_fact("Planetary hour", hour["planetary_hour"], "computed"))
+    saka = _saka_block(folio)
+    if saka.get("saka_dawa_duchen"):
+        facts.append(image_prompts.caption_fact("Saka Dawa Duchen", saka["saka_dawa_duchen"], "computed"))
+    multiplier = int(saka.get("multiplier") or 1)
+    if multiplier > 1:
+        facts.append(image_prompts.caption_fact("Merit multiplier", f"×{multiplier:,}", "computed"))
+    return facts
+
+
+def submit_witness_render(working_id: str) -> dict[str, Any] | None:
+    """Queue a local render of the folio's witness (spec Contract W2-2); never blocks.
+
+    Returns ``{"working_id", "operation"}``, or ``None`` if the folio does not exist.
+    The folio itself is left untouched until the render finishes: then
+    :func:`apply_witness_render` (an operations listener) writes its ``witness``.
+    """
+    folio = load_working(working_id)
+    if folio is None:
+        return None
+    from backend.core.services.render.jobs import RenderJobRequest, submit_job
+
+    install_witness_listener()
+    op = submit_job(
+        RenderJobRequest(
+            prompt=witness_prompt(folio),
+            working_id=working_id,
+            purpose="witness",
+            caption_facts=witness_caption_facts(folio),
+        )
+    )
+    return {"working_id": working_id, "operation": op}
+
+
+def witness_block_for(op: dict[str, Any]) -> dict[str, Any] | None:
+    """The folio ``witness`` a finished witness render produces, or ``None`` if it produces none."""
+    if op.get("kind") != "render":
+        return None
+    params = op.get("params") or {}
+    if params.get("purpose") != "witness":
+        return None
+    if op.get("status") == "success":
+        result = op.get("result") or {}
+        return {
+            "status": "ok",
+            "source": "local-render",
+            "operation_id": op["id"],
+            "image_url": result.get("image_url"),
+            "seed": result.get("seed", params.get("seed")),
+            "seed_provenance": (op.get("provenance") or {}).get("seed"),
+            "width": result.get("width"),
+            "height": result.get("height"),
+            "prompt": params.get("prompt"),
+            "caption_facts": params.get("caption_facts") or [],
+        }
+    if op.get("status") == "error":
+        return {"status": "error", "operation_id": op["id"], "error": op.get("error") or "render failed"}
+    return None  # queued / running / cancelled leave the folio as it is
+
+
+def _superseded_by(current: Any, op: dict[str, Any]) -> bool:
+    """True if the folio already shows the outcome of a *newer* witness render than ``op``."""
+    if not isinstance(current, dict):
+        return False
+    other_id = current.get("operation_id")
+    if not other_id or other_id == op["id"]:
+        return False
+    from core import operations
+
+    other = operations.get_operation(str(other_id))
+    return other is not None and str(other.get("created_at")) > str(op.get("created_at"))
+
+
+def apply_witness_render(op: dict[str, Any]) -> bool:
+    """Operations listener: write a finished witness render into its folio. Returns True if written.
+
+    Idempotent (a repeat notification writes nothing), and an older render
+    finishing late never replaces a newer one's witness. Only the ``witness``
+    and ``manifestation`` keys of a freshly loaded folio are changed.
+    """
+    block = witness_block_for(op)
+    working_id = op.get("working_id") or (op.get("params") or {}).get("working_id")
+    if block is None or not working_id:
+        return False
+    with _witness_lock:
+        folio = load_working(str(working_id))
+        if folio is None:
+            logger.warning("witness render %s finished for missing folio %s", op.get("id"), working_id)
+            return False
+        current = folio.get("witness")
+        if current == block or _superseded_by(current, op):
+            return False
+        folio["witness"] = block
+        folio["manifestation"] = block
+        try:
+            _persist(folio, index=False)
+        except OSError:
+            logger.exception("could not write witness of render %s into folio %s", op.get("id"), working_id)
+            return False
+    return True
+
+
+def witness_listener(op: dict[str, Any]) -> None:
+    """The registered operations listener (``apply_witness_render`` without its return value)."""
+    apply_witness_render(op)
+
+
+def install_witness_listener() -> None:
+    """Register :func:`witness_listener` with the operations ledger (repeat calls are no-ops)."""
+    from core import operations
+
+    operations.add_listener(witness_listener)
+
+
 def attach_witness_image(working_id: str) -> dict[str, Any]:
     """Generate a witness image from the folio prompt and persist it."""
     folio = load_working(working_id)
     if folio is None:
         return {"error": "working_not_found", "working_id": working_id}
 
-    prompt = folio.get("image_prompt") or _image_prompt(
-        str(folio.get("intention") or ""),
-        str(folio.get("target") or "all beings"),
-        (folio.get("saka_dawa") or {}).get("saka_dawa_duchen") if isinstance(folio.get("saka_dawa"), dict) else None,
-    )
+    prompt = witness_prompt(folio)
+    facts = witness_caption_facts(folio)
     try:
         from backend.core.llm_agent.tools import generate_image
 
@@ -291,6 +453,7 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
             "cost_usd": img.get("cost_usd"),
             "provider_used": img.get("provider_used"),
             "prompt": prompt,
+            "caption_facts": facts,
         }
         folio["witness"] = visual
         folio["manifestation"] = visual
@@ -306,6 +469,90 @@ def attach_witness_image(working_id: str) -> dict[str, Any]:
         folio["saved"] = False
         folio["save_error"] = str(exc)[:200]
     return folio
+
+
+async def local_render_health() -> dict[str, Any]:
+    """``/render/health`` of the default local backend; never raises."""
+    from backend.core.services.render import jobs
+
+    try:
+        return await jobs.get_backend(jobs.DEFAULT_BACKEND).health()
+    except Exception as exc:  # health never raises, but the backend lookup could
+        return {"reachable": False, "detail": str(exc) or type(exc).__name__}
+
+
+@dataclass(frozen=True)
+class WitnessOutcome:
+    """What :func:`forge_witness` did: queued a local render, or ran the hosted path."""
+
+    queued: bool
+    # queued: ``{"working_id", "operation"}``; hosted: the updated folio
+    # (plus ``witness_fallback`` when local was preferred but unreachable).
+    body: dict[str, Any]
+
+
+async def forge_witness(working_id: str, backend: str | None = None) -> WitnessOutcome | None:
+    """Witness image for a folio, preferring the local render engine (spec Contract W2-2).
+
+    The one policy behind both ``POST /operator/workings/{id}/witness`` and the
+    ``forge_witness`` LLM tools, so they cannot drift:
+
+    - ``backend="local"`` queues a render job and returns at once (``queued``).
+    - ``backend="hosted"`` runs the synchronous hosted generator in a worker
+      thread, so the event loop is never blocked.
+    - ``backend=None`` renders locally when the engine is reachable, else
+      falls back to hosted and says so in ``body["witness_fallback"]``.
+
+    Returns ``None`` if the folio does not exist.
+    """
+    if load_working(working_id) is None:
+        return None
+    fallback = None
+    if backend is None:
+        health = await local_render_health()
+        if health.get("reachable"):
+            backend = "local"
+        else:
+            backend = "hosted"
+            fallback = {
+                "requested": "local",
+                "used": "hosted",
+                "reason": f"local render backend unreachable: {health.get('detail') or 'no detail'}",
+            }
+    if backend == "local":
+        submitted = submit_witness_render(working_id)
+        return None if submitted is None else WitnessOutcome(queued=True, body=submitted)
+    folio = await asyncio.to_thread(attach_witness_image, working_id)
+    if fallback is not None:
+        folio["witness_fallback"] = fallback
+    return WitnessOutcome(queued=False, body=folio)
+
+
+async def forge_witness_for_tool(working_id: str) -> dict[str, Any]:
+    """:func:`forge_witness` shaped for an LLM tool result.
+
+    A queued local render answers with its ``operation_id`` (the folio's
+    ``witness`` is written when the render finishes); the hosted path answers
+    with the updated folio, as it always has.
+    """
+    outcome = await forge_witness(working_id)
+    if outcome is None:
+        return {"error": "working_not_found", "working_id": working_id}
+    if not outcome.queued:
+        return outcome.body
+    op = outcome.body["operation"]
+    return {
+        "working_id": working_id,
+        "status": "queued",
+        "backend": "local",
+        "operation_id": op["id"],
+        "operation": op,
+        "message": (
+            "Witness render queued on the local engine. It takes a few minutes; "
+            "the folio's witness is filled in when the render finishes "
+            f"(track it with operation {op['id']})."
+        ),
+    }
 
 
 def charge_audio_path(working_id: str) -> Path:
@@ -333,10 +580,12 @@ def video_prompt_for(folio: dict[str, Any]) -> str:
     target = str(folio.get("target") or "all beings")
     charge = str(folio.get("spoken_charge") or "")
     still = str(folio.get("image_prompt") or "")
-    return (
+    # Video models paint numbers as text just like image models ("Merit ×100,000").
+    return image_prompts.finalize_image_prompt(
         f"{still} Slow cinematic push-in, seamless loop, prayer-bowl glow, "
-        f"dedication of merit for {target}. {charge} Theme: {intention}."
-    )[:1800]
+        f"dedication of merit for {target}. {charge} Theme: {intention}.",
+        max_chars=1800,
+    )
 
 
 def record_video(working_id: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -353,13 +602,37 @@ def record_video(working_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     return folio
 
 
-def _image_prompt(intention: str, target: str, duchen: str | None) -> str:
-    moon = f" Pale full moon for Saka Dawa Duchen {duchen}." if duchen else ""
-    return (
+def _image_prompt(
+    intention: str,
+    target: str,
+    *,
+    moon: dict[str, Any] | None = None,
+    moon_phase_name: str | None = None,
+    saka_dawa: dict[str, Any] | None = None,
+) -> str:
+    """The witness image prompt: imagery only, the moon as computed at the sitting.
+
+    The moon comes from ``moon`` (computed at ``sealed_at``), else from the
+    folio's stamped phase name, else it is left out. Saka Dawa is named only
+    when the sitting fell in it; its date belongs in the caption, not here.
+    """
+    if moon is not None:
+        sky = image_prompts.moon_imagery(moon["illumination"], moon.get("waxing"))
+    else:
+        sky = image_prompts.moon_imagery_from_phase_name(moon_phase_name)
+    saka = saka_dawa or {}
+    if saka.get("is_duchen"):
+        season = " Saka Dawa Duchen offerings: rows of butter lamps and white scarves."
+    elif saka.get("is_saka_dawa"):
+        season = " The Saka Dawa month: butter lamps glowing in the dusk."
+    else:
+        season = ""
+    sky_line = f" In the sky, {sky}." if sky else ""
+    return image_prompts.finalize_image_prompt(
         f"Manifestation still of the fulfilled intention: {intention[:200]}. "
         f"Dedicated to {target}. Sacred cinematic lighting, brass singing bowls "
-        f"at the edge of frame, amber and indigo, photographic, no readable text, "
-        f"no real people.{moon}"
+        f"at the edge of frame, amber and indigo, photographic, no real people."
+        f"{sky_line}{season}"
     )
 
 
@@ -430,7 +703,7 @@ def run_working(
             "planetary_hour": timing.planetary_hour,
             "recommended_approach": timing.recommended_approach,
         },
-        "image_prompt": _image_prompt(intention, target, saka.get("saka_dawa_duchen")),
+        "image_prompt": "",  # filled in below from the sealed facts (witness_prompt)
         "spoken_charge": _spoken_charge(intention, target, int(saka.get("multiplier") or 1)),
         "broadcast": None,
         "source": source or "command-center",
@@ -441,6 +714,7 @@ def run_working(
         },
         "divination": divination,
     }
+    folio["image_prompt"] = witness_prompt(folio)
 
     if broadcast:
         try:

@@ -8,7 +8,7 @@
  * @component
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Radio, Sliders, Play, Square, Gem, Shield, Target, Zap, Waves, Activity } from 'lucide-react';
+import { Radio, Sliders, Play, Square, Gem, Target, Zap, Activity } from 'lucide-react';
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
@@ -16,7 +16,11 @@ import RateDial from './RateDial';
 import { MiniGlobe } from '../3D/RadionicsGlobe';
 import { apiUrl } from '../../utils/api';
 import { useCrystalStore } from '../../stores/crystalStore';
+import { isActiveStatus, useOperationsStore } from '../../stores/operationsStore';
 import { useRateStore } from '../../stores/rateStore';
+import { nudgeCarrierFrequency } from '../../lib/stickPlate';
+import ProvenanceTag from './ProvenanceTag';
+import SigilRenderStatus, { type SigilRender } from './SigilRenderStatus';
 
 interface Dimensions {
   d1: number;
@@ -37,6 +41,8 @@ interface Sigil {
   kamea: string;
   svg: string;
   ai_image?: string | null;
+  /** Queued local render (IMAGE_PROVIDER=comfyui) instead of an inline `ai_image`. */
+  ai_image_render?: SigilRender | null;
   id: string | number;
   [key: string]: unknown;
 }
@@ -56,12 +62,17 @@ interface SessionEntry {
   [key: string]: unknown;
 }
 
+function isSessionEntry(value: unknown): value is SessionEntry {
+  return typeof value === 'object' && value !== null;
+}
+
 interface Props {}
 
 const BroadcastPanel: React.FC<Props> = (_props: Props) => {
-  const { sessions, scalarStatus, crystalStatus, stopSession } = useWebSocket();
-  const { isPlaying, frequency, updateSettings } = useAudioStore();
+  const { sessions } = useWebSocket();
+  const { frequency, updateSettings } = useAudioStore();
   const broadcastCrystal = useCrystalStore((s) => s.broadcastCrystal);
+  const cancelBroadcast = useCrystalStore((s) => s.cancelBroadcast);
   const boardRevision = useRateStore((s) => s.boardRevision);
   const loadedWorkingId = useRateStore((s) => s.loadedWorkingId);
 
@@ -85,14 +96,22 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   const [latestSigil, setLatestSigil] = useState<Sigil | null>(null);
   const [sigilIntention, setSigilIntention] = useState<string>('');
   const [isForging, setIsForging] = useState<boolean>(false);
-  const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
+  // The rate broadcast runs in the background as a ledger operation; the
+  // request only starts it, and its status comes from the operations store.
+  const [isStarting, setIsStarting] = useState<boolean>(false);
+  const [broadcastOpId, setBroadcastOpId] = useState<string | null>(null);
+  const broadcastOp = useOperationsStore((s) => (broadcastOpId ? s.byId[broadcastOpId] : undefined));
+  const isBroadcasting =
+    isStarting || (broadcastOpId !== null && (!broadcastOp || isActiveStatus(broadcastOp.status)));
   
   // Track populations/targets
   const [populations, setPopulations] = useState<Population[]>([]);
   
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  // Load target lock and populations on mount — do NOT auto-forge sigils
+  // Load target lock and populations on mount — do NOT auto-forge sigils.
+  // The node position is a draw: the stick-pad analog of an unknown point
+  // the practitioner finds by touch. It is labeled "drawn" in the plate UI.
   useEffect(() => {
     setTargetLock({
       x: 50 + Math.random() * 200,
@@ -163,7 +182,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
 
   const startRateBroadcast = async () => {
     if (isBroadcasting) return;
-    setIsBroadcasting(true);
+    setIsStarting(true);
     const targets = populations
       .filter((p) => p.is_active)
       .map((p) => String(p.name || p.id));
@@ -174,23 +193,34 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       targets.length ? targets : ['all beings'],
       currentRateValues(),
     );
+    setIsStarting(false);
     if (result) {
+      setBroadcastOpId(result.operation_id ?? null);
       audioFeedback.playSuccess();
     } else {
       audioFeedback.playError();
-      setIsBroadcasting(false);
     }
   };
 
   const stopRateBroadcast = async () => {
-    try {
-      await fetch(apiUrl('/radionics/stop'), { method: 'POST' });
-    } catch {
-      /* local stop still applies */
+    if (broadcastOpId) {
+      // Ends the operation (`cancelled`); the backend also stops its audio.
+      await cancelBroadcast(broadcastOpId);
+    } else {
+      try {
+        await fetch(apiUrl('/radionics/stop'), { method: 'POST' });
+      } catch {
+        /* nothing more to stop locally */
+      }
     }
-    setIsBroadcasting(false);
+    setBroadcastOpId(null);
     audioFeedback.playTick();
   };
+
+  // The broadcast ended on its own (or elsewhere, e.g. the Ledger): release the buttons.
+  useEffect(() => {
+    if (broadcastOp && !isActiveStatus(broadcastOp.status)) setBroadcastOpId(null);
+  }, [broadcastOp]);
 
   // Adjust Radionics sliders
   const handleDimensionChange = (key: keyof Dimensions, val: number | string) => {
@@ -224,6 +254,8 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    // Horizontal hand movement since the last rub event (0 on the first touch).
+    const moveDx = isRubbing ? x - rubPosition.x : 0;
     setRubPosition({ x, y });
 
     // Calculate proximity to target lock
@@ -254,11 +286,10 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       if (resonantLocked) {
         setResonantLocked(false);
       }
-      // Smooth frequency shift based on distance to target
-      const freqShift = (1 - dist / maxDist) * 20;
-      const currentFreq = frequency;
-      updateSettings({ frequency: Math.round(currentFreq + freqShift * (Math.random() > 0.5 ? 1 : -1)) });
-      // Play a rubbing friction sound
+      // Shift grows near the node; direction follows the hand (deterministic).
+      const nextFreq = nudgeCarrierFrequency(frequency, dist, maxDist, moveDx);
+      if (nextFreq !== frequency) updateSettings({ frequency: nextFreq });
+      // Play a rubbing friction sound (decorative throttle: ~30% of moves)
       if (Math.random() < 0.3) {
         audioFeedback.playType();
       }
@@ -277,8 +308,9 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
   };
 
   const coherence = calculateCoherence();
-  const activeSessions = (Object.values(sessions || {}) as SessionEntry[]).filter(s => s.status === 'running');
-  const activeSession = activeSessions[0];
+  const activeSessions = Object.values(sessions || {})
+    .filter(isSessionEntry)
+    .filter((s) => s.status === 'running');
 
   // Draw Radar Polygon coordinates
   const radarRadius = 60;
@@ -318,7 +350,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       {/* Broadcast Globe Visualization */}
       <div className="bg-gray-900/60 backdrop-blur-md rounded-xl border border-white/10 p-4 flex flex-col lg:flex-row items-center gap-4">
         <div className="flex-shrink-0">
-          <MiniGlobe isActive={Object.values(sessions || {}).some(s => s.status === 'running')} size="small" />
+          <MiniGlobe isActive={activeSessions.length > 0} size="small" />
         </div>
         <div className="flex-1 space-y-2 text-center lg:text-left">
           <h3 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 justify-center lg:justify-start">
@@ -326,16 +358,16 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             GLOBAL BROADCAST COVERAGE
           </h3>
           <p className="text-xs text-gray-400">
-            Active blessings radiating to {Object.values(sessions || {}).filter(s => s.status === 'running').length} target locations.
+            Active blessings radiating to {activeSessions.length} target locations.
             Each pulse represents coherent scalar-wave intention propagating through the planetary field.
           </p>
           <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
-            {Object.values(sessions || {}).filter(s => s.status === 'running').slice(0, 5).map(s => (
-              <span key={s.id} className="text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-500/20 px-2 py-0.5 rounded-full font-mono">
+            {activeSessions.slice(0, 5).map((s, i) => (
+              <span key={s.id ?? i} className="text-[10px] bg-cyan-950/60 text-cyan-300 border border-cyan-500/20 px-2 py-0.5 rounded-full font-mono">
                 {s.name || s.intention || 'Active Target'}
               </span>
             ))}
-            {Object.values(sessions || {}).filter(s => s.status === 'running').length === 0 && (
+            {activeSessions.length === 0 && (
               <span className="text-[10px] text-gray-500 italic">No active broadcast targets — start a session to see it on the globe</span>
             )}
           </div>
@@ -456,6 +488,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             </h3>
             <p className="text-xs text-gray-400">
               Drag your mouse across the pad. Subtle tactile resistance (friction) peaks when you cross the resonant node.
+              The node is placed by a draw, the stick-pad way; rubbing right raises the carrier, left lowers it.
             </p>
           </div>
 
@@ -500,8 +533,9 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             <div className="absolute bottom-2 left-3 text-[10px] font-mono text-gray-500 pointer-events-none">
               PAD POS: {Math.round(rubPosition.x)}, {Math.round(rubPosition.y)}
             </div>
-            <div className="absolute bottom-2 right-3 text-[10px] font-mono text-yellow-400 font-bold pointer-events-none">
-              FRICTION COEFFICIENT: {rubCoherence}%
+            <div className="absolute bottom-2 right-3 flex items-center gap-1.5 text-[10px] font-mono text-yellow-400 font-bold pointer-events-none">
+              <span>NEARNESS TO NODE: {rubCoherence}%</span>
+              <ProvenanceTag kind="draw" />
             </div>
           </div>
 
@@ -552,11 +586,13 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
                     <div dangerouslySetInnerHTML={{ __html: latestSigil.svg }} className="w-24 h-24" />
                   </div>
                   
-                  {/* Stable diffusion render */}
+                  {/* AI image: inline from a hosted provider, or a queued local render */}
                   <div className="flex-1 bg-black/60 rounded-xl border border-white/5 p-2 flex flex-col items-center justify-center min-h-[120px]">
                     <span className="text-[9px] font-mono text-gray-500 mb-1">AI RENDER</span>
                     {latestSigil.ai_image ? (
                       <img src={latestSigil.ai_image} alt="AI Sigil" className="w-24 h-24 rounded-lg object-cover" />
+                    ) : latestSigil.ai_image_render ? (
+                      <SigilRenderStatus render={latestSigil.ai_image_render} />
                     ) : (
                       <div className="text-[9px] text-gray-600 italic text-center p-2">
                         Offline Fallback Active (SVG Drawing only)

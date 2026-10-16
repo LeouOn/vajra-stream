@@ -226,7 +226,7 @@ const SacredGeometry: React.FC<Props> = ({
   // --- Platonic Solids ---
   const platonicSolids = useMemo(() => {
     const group = new THREE.Group();
-    const solids = [
+    const solids: Array<{ geo: THREE.BufferGeometry; pos: [number, number, number]; color: string }> = [
       { geo: new THREE.TetrahedronGeometry(1.2, 0), pos: [-2.5, 1.5, 0], color: theme.primary },
       { geo: new THREE.BoxGeometry(1.5, 1.5, 1.5), pos: [2.5, 1.5, 0], color: theme.secondary },
       { geo: new THREE.OctahedronGeometry(1.2, 0), pos: [-2.5, -1.5, 0], color: theme.accent },

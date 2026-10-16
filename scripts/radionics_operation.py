@@ -206,7 +206,7 @@ class RadionicsOperation:
             with_voice: Speak the intention
             continuous: Run continuously (ignores duration)
             with_analysis: Perform radionics rate analysis
-            with_gv_measurement: Measure General Vitality before/after
+            with_gv_measurement: Draw General Vitality before/after (stick-pad analog, a draw)
         """
         print("\n" + "🌟" * 35)
         print("🔮 RADIONICS BROADCASTING OPERATION INITIATED 🔮")
@@ -244,14 +244,14 @@ class RadionicsOperation:
             print(f"🔬 STEP {step_num}: RADIONICS ANALYSIS")
             print("-" * 70)
 
-            # Measure baseline General Vitality
+            # Draw baseline General Vitality (RNG as stick pad; a draw, not a measurement)
             if with_gv_measurement and self.gv_meter:
-                print("📊 Measuring baseline General Vitality...")
+                print("📊 Drawing baseline General Vitality (stick-pad analog)...")
                 gv_stats = self.gv_meter.measure_multiple(count=10, subject=intention)
                 baseline_gv = gv_stats["mean"]
                 interpretation = self.gv_meter.interpret_gv(baseline_gv)
-                print(f"   GV: {baseline_gv:.1f}")
-                print(f"   Status: {interpretation}\n")
+                print(f"   Drawn GV: {baseline_gv:.1f}")
+                print(f"   Reading: {interpretation}\n")
 
             # Perform rate analysis
             if with_analysis:
@@ -339,29 +339,29 @@ class RadionicsOperation:
             except KeyboardInterrupt:
                 pass
 
-        # Final GV measurement (if requested)
+        # Final GV draw (if requested)
         if with_gv_measurement and self.gv_meter and baseline_gv is not None:
             print("\n" + "=" * 70)
-            print("📊 FINAL GENERAL VITALITY MEASUREMENT")
+            print("📊 FINAL GENERAL VITALITY DRAW (stick-pad analog, not a measurement)")
             print("=" * 70)
 
             final_gv_stats = self.gv_meter.measure_multiple(count=10, subject=intention)
             final_gv = final_gv_stats["mean"]
             gv_change = final_gv - baseline_gv
 
-            print(f"\nBaseline GV: {baseline_gv:.1f}")
-            print(f"Final GV:    {final_gv:.1f}")
-            print(f"Change:      {gv_change:+.1f}")
+            print(f"\nBaseline drawn GV: {baseline_gv:.1f}")
+            print(f"Final drawn GV:    {final_gv:.1f}")
+            print(f"Change:            {gv_change:+.1f}")
 
             if gv_change > 20:
-                trend = "✓ IMPROVING - Vitality increased significantly"
+                trend = "↑ the draws read as rising"
             elif gv_change < -20:
-                trend = "⚠ DECLINING - Consider additional support"
+                trend = "↓ the draws read as falling"
             else:
-                trend = "→ STABLE - Maintaining current state"
+                trend = "→ the draws read as steady"
 
-            print(f"Trend:       {trend}")
-            print(f"\nFinal Status: {self.gv_meter.interpret_gv(final_gv)}")
+            print(f"Trend:             {trend}")
+            print(f"\nFinal reading: {self.gv_meter.interpret_gv(final_gv)}")
             print("=" * 70 + "\n")
 
         # End session
@@ -787,7 +787,9 @@ def main():
     parser.add_argument(
         "--with-analysis", action="store_true", help="Perform radionics rate analysis before broadcasting"
     )
-    parser.add_argument("--with-gv", action="store_true", help="Measure General Vitality before and after broadcasting")
+    parser.add_argument(
+        "--with-gv", action="store_true", help="Draw General Vitality (stick-pad analog) before and after broadcasting"
+    )
 
     # Time/location broadcasting
     parser.add_argument("--to-time", action="store_true", help="Broadcast to a specific time and place")

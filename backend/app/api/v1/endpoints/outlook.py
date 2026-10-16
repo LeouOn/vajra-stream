@@ -391,6 +391,97 @@ async def delete_history_item(narrative_id: int):
     return {"status": "success", "deleted": narrative_id}
 
 
+# ----------------- ILLUSTRATION (no painted numbers) -----------------
+
+
+class IllustrationRequest(BaseModel):
+    narrative_id: int | None = Field(default=None, description="Stored narrative to illustrate")
+    narrative: str | None = Field(default=None, max_length=50000, description="Inline narrative text")
+    genre: str | None = Field(default=None, max_length=60)
+    date: str | None = Field(default=None, description="ISO time of the narrative's chart, if known")
+
+
+def _narrative_plain_text(content: str) -> str:
+    """Epic narratives are stored as a JSON list of chapters; singles as plain text."""
+    text = (content or "").strip()
+    if text.startswith("["):
+        try:
+            parts = json.loads(text)
+        except ValueError:
+            return text
+        if isinstance(parts, list):
+            chunks = []
+            for part in parts:
+                if isinstance(part, dict):
+                    chunks.append(str(part.get("content") or part.get("text") or ""))
+                else:
+                    chunks.append(str(part))
+            return "\n\n".join(c for c in chunks if c)
+    return text
+
+
+def illustration_request_facts(
+    narrative: str, genre: str | None, chart_time: str | None, narrative_id: int | None = None
+) -> tuple[str, list[dict[str, str]]]:
+    """``(image prompt, caption_facts)`` for an Outlook illustration.
+
+    The prompt carries imagery only (core/image_prompts.py); the chart time and
+    the moon computed for it travel beside the image as caption facts.
+    """
+    from core.image_prompts import caption_fact, moon_at, moon_caption_fact, outlook_illustration_prompt
+
+    moon = moon_at(chart_time) if chart_time else None
+    facts: list[dict[str, str]] = []
+    if narrative_id is not None:
+        facts.append(caption_fact("Narrative", f"#{narrative_id}", "record"))
+    if chart_time:
+        facts.append(caption_fact("Chart time", chart_time, "record"))
+    if moon is not None:
+        facts.append(moon_caption_fact(moon, "Moon at chart time"))
+    return outlook_illustration_prompt(narrative, genre, moon), facts
+
+
+@router.post("/illustration", summary="Illustrate a narrative (imagery only; real values as captions)")
+async def generate_illustration(request: IllustrationRequest):
+    """Hosted image for an Outlook narrative.
+
+    Never sends the narrative's chart numbers, headings or glyphs to the image
+    model (they came back painted as "Moon (60% Illuminato)" and "I. Invocatio").
+    Returns the image result plus ``prompt`` and ``caption_facts``.
+    """
+    narrative = request.narrative or ""
+    genre = request.genre
+    chart_time = request.date
+    if request.narrative_id is not None:
+        try:
+            conn = get_db_connection()
+            row = conn.execute(
+                "SELECT content, genre, date_generated FROM outlook_narratives WHERE id = ?", (request.narrative_id,)
+            ).fetchone()
+            conn.close()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"DB error: {e}")
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"Narrative {request.narrative_id} not found")
+        narrative = _narrative_plain_text(row["content"] or "")
+        genre = genre or row["genre"]
+        chart_time = row["date_generated"] or chart_time
+    if len(narrative.strip()) < 20:
+        raise HTTPException(status_code=400, detail="Narrative too short to illustrate")
+
+    prompt, facts = illustration_request_facts(narrative, genre, chart_time, request.narrative_id)
+
+    from backend.app.api.v1.endpoints.image_generation import get_service
+
+    try:
+        result = await get_service().generate(prompt=prompt, n=1, caption_facts=facts)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {**result, "prompt": prompt, "caption_facts": facts}
+
+
 @router.get("/status", summary="Get Outlook Generator Status")
 async def get_status():
     """Return the status of the outlook generator subsystem."""

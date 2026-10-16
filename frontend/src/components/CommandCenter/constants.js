@@ -39,6 +39,7 @@ export const quickCommands = [
  * @param {Object}  deps.sessions      - active blessing-rotation sessions map.
  * @param {Object}  [deps.crystalStatus] - crystal broadcaster status object.
  * @param {Object}  [deps.scalarStatus]  - scalar array status object.
+ * @param {string}  [deps.currentInput]  - text currently typed in the command input.
  * @returns {Array} operator action definitions (key/label/icon/prompt/endpoint/body).
  */
 export function createOperatorActions({ frequency, isPlaying, sessions, crystalStatus, scalarStatus, currentInput }) {

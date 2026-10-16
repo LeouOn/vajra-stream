@@ -43,8 +43,11 @@ from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION: int = 6
+SCHEMA_VERSION: int = 7
 SCHEMA_DESCRIPTION: str = (
+    "v7: adds operations — the ledger of real, timed operations (renders, "
+    "broadcasts, workings): queued -> running -> success/error/cancelled/"
+    "interrupted with real start/finish times. Replaces MOPS throughput. "
     "v6: adds llm_generations and generated_visuals, written by "
     "scripts/radionics_operation.py (_save_llm_generation, _save_visual); "
     "they had no DDL so both writers failed with 'no such table', swallowed "
@@ -507,6 +510,38 @@ _TABLE_DDL: tuple[tuple[str, str], ...] = (
             value TEXT
         )
         """,
+    ),
+    (
+        "operations",
+        """
+        CREATE TABLE IF NOT EXISTS operations (
+            id              TEXT PRIMARY KEY,
+            kind            TEXT NOT NULL,
+            status          TEXT NOT NULL,
+            title           TEXT NOT NULL,
+            working_id      TEXT,
+            params          TEXT,
+            provenance      TEXT,
+            result          TEXT,
+            error           TEXT,
+            created_at      TEXT NOT NULL,
+            started_at      TEXT,
+            finished_at     TEXT,
+            elapsed_seconds REAL
+        )
+        """,
+    ),
+    (
+        "operations_idx_created",
+        "CREATE INDEX IF NOT EXISTS idx_operations_created ON operations (created_at DESC)",
+    ),
+    (
+        "operations_idx_status",
+        "CREATE INDEX IF NOT EXISTS idx_operations_status ON operations (status)",
+    ),
+    (
+        "operations_idx_working",
+        "CREATE INDEX IF NOT EXISTS idx_operations_working ON operations (working_id)",
     ),
 )
 

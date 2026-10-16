@@ -9,6 +9,7 @@ import {
 import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
+import { formatMoonIllumination } from '../../lib/moonIllumination';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import VedicPanchanga from './VedicPanchanga';
@@ -19,6 +20,25 @@ import SavedChartsDrawer from './SavedChartsDrawer';
 import NatalCalculator from './NatalCalculator';
 import NatalChartWheel from './NatalChartWheel';
 import ErrorBoundary from './ErrorBoundary';
+import type { ImportedChartsPayload } from './SavedChartsDrawer';
+import type {
+  AstrologySnapshot,
+  CurrentAstrologyResponse,
+  GeocodeResponse,
+  ImportChartsResponse,
+  RecalculateChartResponse,
+  SavedNatalChart,
+  WesternAspect,
+  WesternPositions,
+} from '../../types/astrology';
+
+/** Values NatalCalculator hands to `onSubmit` (kept in sync with its props). */
+type NatalCalculatorValues = Parameters<React.ComponentProps<typeof NatalCalculator>['onSubmit']>[0];
+
+type WuXing = 'Wood' | 'Fire' | 'Earth' | 'Metal' | 'Water';
+
+/** Narrow a caught value to a message without assuming it is an Error. */
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 // Tabbed sub-components — lazy-loaded to reduce initial bundle
 const TransitComparison = lazy(() => import('./TransitComparison'));
@@ -40,7 +60,7 @@ const LazyFallback = () => (
   </div>
 );
 
-const getOrdinalSuffix = (num) => {
+const getOrdinalSuffix = (num: number | null | undefined): string => {
   if (!num) return '';
   const s = ["th", "st", "nd", "rd"];
   const v = num % 100;
@@ -57,7 +77,7 @@ const PLANET_RINGS = [
   { name: 'Saturn', radius: 130, color: '#fb923c', size: 6 },
 ];
 
-function MiniOrrery({ positions }) {
+function MiniOrrery({ positions }: { positions?: WesternPositions | null }) {
   if (!positions) return null;
   return (
     <div className="relative" style={{ width: 280, height: 280 }}>
@@ -102,18 +122,18 @@ export default function AstrologyPanel() {
   const addToast = useUIStore((s) => s.addToast);
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
-  const [liveData, setLiveData] = useState(null);
-  const [customData, setCustomData] = useState(null);
+  const [liveData, setLiveData] = useState<AstrologySnapshot | null>(null);
+  const [customData, setCustomData] = useState<AstrologySnapshot | null>(null);
   const [isLiveMode, setIsLiveMode] = useState(true);
   const [activeSystem, setActiveSystem] = useState('all'); // all, western, vedic, chinese
 
   // Database-backed state
-  const [charts, setCharts] = useState([]);
-  const [activeChart, setActiveChart] = useState(null);
-  const [transitChart, setTransitChart] = useState(null);
-  const [subjectA, setSubjectA] = useState(null);
-  const [subjectB, setSubjectB] = useState(null);
-  const [editingChart, setEditingChart] = useState(null);
+  const [charts, setCharts] = useState<SavedNatalChart[]>([]);
+  const [activeChart, setActiveChart] = useState<SavedNatalChart | null>(null);
+  const [transitChart, setTransitChart] = useState<SavedNatalChart | null>(null);
+  const [subjectA, setSubjectA] = useState<SavedNatalChart | null>(null);
+  const [subjectB, setSubjectB] = useState<SavedNatalChart | null>(null);
+  const [editingChart, setEditingChart] = useState<SavedNatalChart | null>(null);
   
   // Navigation tabs: 'wheel' (Consolidated Charts), 'transits' (Transit aspect comparison), 'synastry' (Synastry matching)
   const [activeTab, setActiveTab] = useState('wheel');
@@ -136,7 +156,7 @@ export default function AstrologyPanel() {
     try {
       const response = await fetch(apiUrl('/astrology/charts'));
       if (response.ok) {
-        const data = await response.json();
+        const data: SavedNatalChart[] = await response.json();
         setCharts(data);
       }
     } catch (e) {
@@ -146,10 +166,10 @@ export default function AstrologyPanel() {
 
   const fetchLiveAstrology = async () => {
     if (!isLiveMode) return;
-    const doFetch = async (lat, lon) => {
+    const doFetch = async (lat: number | null, lon: number | null) => {
       try {
         const d = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
+        const pad = (n: number) => String(n).padStart(2, '0');
         const localTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         
         const params = new URLSearchParams();
@@ -161,7 +181,7 @@ export default function AstrologyPanel() {
         
         const response = await fetch(apiUrl(`/astrology/current?${params.toString()}`));
         if (response.ok) {
-          const result = await response.json();
+          const result: CurrentAstrologyResponse = await response.json();
           setLiveData(result.astrology);
         }
       } catch (e) {
@@ -208,17 +228,17 @@ export default function AstrologyPanel() {
   }, [charts, activeChart, isLiveMode]);
 
   // Helper: extract error detail from a failed fetch response
-  const _readError = async (response) => {
+  const _readError = async (response: Response): Promise<string> => {
     try {
-      const body = await response.json();
-      return body.detail || body.message || `HTTP ${response.status}`;
+      const body: { detail?: unknown; message?: unknown } = await response.json();
+      return String(body.detail || body.message || `HTTP ${response.status}`);
     } catch {
       return `HTTP ${response.status}: ${response.statusText}`;
     }
   };
 
   // Helper: compute and display a chart from raw birth data (city + time)
-  const _computeTemporaryChart = async (birthTimeIso, cityName) => {
+  const _computeTemporaryChart = async (birthTimeIso: string, cityName: string): Promise<AstrologySnapshot> => {
     // Resolve coordinates via geocode
     const geoResponse = await fetch(apiUrl('/astrology/geocode'), {
       method: 'POST',
@@ -229,7 +249,7 @@ export default function AstrologyPanel() {
       const err = await _readError(geoResponse);
       throw new Error(`Could not geocode "${cityName}": ${err}`);
     }
-    const geo = await geoResponse.json();
+    const geo: GeocodeResponse = await geoResponse.json();
 
     // Hit /current with resolved coordinates
     const params = new URLSearchParams({
@@ -242,12 +262,12 @@ export default function AstrologyPanel() {
       const err = await _readError(response);
       throw new Error(`Chart calculation failed: ${err}`);
     }
-    const result = await response.json();
+    const result: CurrentAstrologyResponse = await response.json();
     return result.astrology;
   };
 
   // Handle calculator submission
-  const handleCalculateSubmit = async (values) => {
+  const handleCalculateSubmit = async (values: NatalCalculatorValues) => {
     setLoading(true);
     setLoadingStatus('Geocoding city…');
     audioFeedback.playTelemetry();
@@ -267,7 +287,7 @@ export default function AstrologyPanel() {
           notes: values.notes || '',
         };
 
-        let savedChart = null;
+        let savedChart: SavedNatalChart | null = null;
         if (editingChart) {
           setLoadingStatus('Updating saved profile…');
           const response = await fetch(apiUrl(`/astrology/charts/${editingChart.id}`), {
@@ -325,7 +345,7 @@ export default function AstrologyPanel() {
       }
     } catch (err) {
       console.error(err);
-      addToast({ type: 'error', title: err.message || 'Error processing request', duration: 5 });
+      addToast({ type: 'error', title: (err instanceof Error && err.message) || 'Error processing request', duration: 5 });
       audioFeedback.playError();
     } finally {
       setLoading(false);
@@ -333,10 +353,10 @@ export default function AstrologyPanel() {
     }
   };
 
-  const loadNatalChart = (chart) => {
+  const loadNatalChart = (chart: SavedNatalChart) => {
     if (chart && chart.cached_chart_data) {
       try {
-        const parsed = JSON.parse(chart.cached_chart_data);
+        const parsed: AstrologySnapshot = JSON.parse(chart.cached_chart_data);
         setCustomData(parsed);
         setIsLiveMode(false);
         setActiveChart(chart);
@@ -350,14 +370,14 @@ export default function AstrologyPanel() {
     }
   };
 
-  const recalculateChart = async (id) => {
+  const recalculateChart = async (id: SavedNatalChart['id']) => {
     setLoading(true);
     try {
       const response = await fetch(apiUrl(`/astrology/charts/${id}/recalculate`), {
         method: 'POST'
       });
       if (response.ok) {
-        const result = await response.json();
+        const result: RecalculateChartResponse = await response.json();
         setCustomData(result.cached_chart_data);
         setIsLiveMode(false);
         const matched = charts.find(c => c.id === id);
@@ -371,7 +391,7 @@ export default function AstrologyPanel() {
     }
   };
 
-  const handleDeleteChart = async (id) => {
+  const handleDeleteChart = async (id: SavedNatalChart['id']) => {
     try {
       const response = await fetch(apiUrl(`/astrology/charts/${id}`), {
         method: 'DELETE'
@@ -408,7 +428,7 @@ export default function AstrologyPanel() {
     }
   };
 
-  const handleImportCharts = async (jsonData) => {
+  const handleImportCharts = async (jsonData: ImportedChartsPayload) => {
     try {
       const response = await fetch(apiUrl('/astrology/charts/import'), {
         method: 'POST',
@@ -416,7 +436,7 @@ export default function AstrologyPanel() {
         body: JSON.stringify(jsonData)
       });
       if (response.ok) {
-        const result = await response.json();
+        const result: ImportChartsResponse = await response.json();
         addToast({ type: 'success', title: `Successfully imported ${result.imported} profiles`, duration: 3 });
         fetchSavedCharts();
       } else {
@@ -437,7 +457,7 @@ export default function AstrologyPanel() {
       }
       try {
         const { formatLiveAstrologyMarkdown } = await import('../../lib/astrologyExport');
-        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: stripPii });
+        const markdown = formatLiveAstrologyMarkdown(liveData, { pii: !stripPii });
         await navigator.clipboard.writeText(markdown);
         addToast({
           type: 'success',
@@ -446,7 +466,7 @@ export default function AstrologyPanel() {
         });
       } catch (e) {
         console.error(e);
-        addToast({ type: 'error', title: 'Live astrology copy failed: ' + e.message, duration: 5 });
+        addToast({ type: 'error', title: 'Live astrology copy failed: ' + errorMessage(e), duration: 5 });
       }
       return;
     }
@@ -470,7 +490,7 @@ export default function AstrologyPanel() {
       const result = await response.json();
       const data = result.data || result;
       const { formatNatalChartMarkdown } = await import('../../lib/astrologyExport');
-      const markdown = formatNatalChartMarkdown(data, { pii: stripPii });
+      const markdown = formatNatalChartMarkdown(data, { pii: !stripPii });
       await navigator.clipboard.writeText(markdown);
       addToast({
         type: 'success',
@@ -479,7 +499,7 @@ export default function AstrologyPanel() {
       });
     } catch (e) {
       console.error(e);
-      addToast({ type: 'error', title: 'Natal chart copy failed: ' + e.message, duration: 5 });
+      addToast({ type: 'error', title: 'Natal chart copy failed: ' + errorMessage(e), duration: 5 });
     }
   };
 
@@ -524,6 +544,11 @@ export default function AstrologyPanel() {
     }
   };
 
+  // SynastryViewer hands back one of the `charts` we passed it (or undefined
+  // when cleared); resolve it by id so subject state keeps the full row type.
+  const findChart = (id: SavedNatalChart['id'] | undefined): SavedNatalChart | null =>
+    (id === undefined ? undefined : charts.find((c) => c.id === id)) ?? null;
+
   const handleResetToLive = () => {
     setIsLiveMode(true);
     setActiveChart(null);
@@ -533,15 +558,15 @@ export default function AstrologyPanel() {
 
   const activeData = isLiveMode ? liveData : customData;
 
-  const countWuXing = () => {
-    const counts = { Wood: 0, Fire: 0, Earth: 0, Metal: 0, Water: 0 };
+  const countWuXing = (): Record<WuXing, number> => {
+    const counts: Record<WuXing, number> = { Wood: 0, Fire: 0, Earth: 0, Metal: 0, Water: 0 };
     if (!activeData?.chinese?.bazi) return counts;
-    
-    const charMap = {
+
+    const charMap: Record<string, WuXing | undefined> = {
       '木': 'Wood', '火': 'Fire', '土': 'Earth', '金': 'Metal', '水': 'Water'
     };
-    
-    Object.values(activeData.chinese.bazi).forEach(val => {
+
+    Object.values(activeData.chinese.bazi).forEach((val: string) => {
       const match = val.match(/\(([^)]+)\)/);
       if (match && match[1]) {
         const elementsStr = match[1];
@@ -724,7 +749,9 @@ export default function AstrologyPanel() {
                       {isLiveMode ? '🪐 LIVE CELESTIAL CLOCKWORK' : `🔮 NATAL DETAILS: ${activeChart ? activeChart.name : 'CUSTOM'}`}
                     </h3>
                     <p className="text-xs text-gray-400 font-mono mb-4">
-                      Date & Time: {activeData ? new Date(activeData.datetime).toLocaleString() : 'Loading...'}
+                      Date & Time: {activeData
+                        ? (activeData.datetime ? new Date(activeData.datetime).toLocaleString() : '—')
+                        : 'Loading...'}
                     </p>
                     
                     <Row gutter={[12, 12]}>
@@ -756,9 +783,7 @@ export default function AstrologyPanel() {
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">MOON ILLUMINATION</span>
                           <span className="text-sm font-bold text-cyan-400 block mt-1">
-                            {activeData?.moon_phase?.illumination != null
-                              ? `${((activeData.moon_phase.illumination <= 1 ? activeData.moon_phase.illumination * 100 : activeData.moon_phase.illumination)).toFixed(1)}%`
-                              : '—'}
+                            {formatMoonIllumination(activeData?.moon_phase?.illumination)}
                           </span>
                         </Card>
                       </Col>
@@ -958,8 +983,8 @@ export default function AstrologyPanel() {
                     charts={charts} 
                     subjectA={subjectA} 
                     subjectB={subjectB} 
-                    onSetSubjectA={setSubjectA} 
-                    onSetSubjectB={setSubjectB} 
+                    onSetSubjectA={(c) => setSubjectA(findChart(c?.id))}
+                    onSetSubjectB={(c) => setSubjectB(findChart(c?.id))}
                   />
                 </Suspense>
               </ErrorBoundary>
@@ -979,7 +1004,15 @@ export default function AstrologyPanel() {
   );
 }
 
-const ASPECT_TYPES = [
+interface AspectType {
+  name: string;
+  angle: number;
+  orb: number;
+  color: string;
+  dash?: string;
+}
+
+const ASPECT_TYPES: AspectType[] = [
   { name: 'Conjunction', angle: 0, orb: 8, color: 'rgba(34,197,94,0.5)' },
   { name: 'Opposition', angle: 180, orb: 8, color: 'rgba(249,115,22,0.5)', dash: '4,4' },
   { name: 'Trine', angle: 120, orb: 8, color: 'rgba(59,130,246,0.5)' },
@@ -987,9 +1020,19 @@ const ASPECT_TYPES = [
   { name: 'Sextile', angle: 60, orb: 6, color: 'rgba(168,85,247,0.5)', dash: '2,2' },
 ];
 
-function calcAspects(positions) {
+/** An aspect line as drawn on the wheel. */
+interface WheelAspect {
+  planet1: string;
+  planet2: string;
+  aspect: string;
+  exactness: number;
+  color: string;
+  dash: string;
+}
+
+function calcAspects(positions: WesternPositions): WheelAspect[] {
   const names = Object.keys(positions).filter(n => n !== 'ascendant' && n !== 'midheaven');
-  const out = [];
+  const out: WheelAspect[] = [];
   for (let i = 0; i < names.length; i++) {
     for (let j = i + 1; j < names.length; j++) {
       let diff = Math.abs(positions[names[i]].longitude - positions[names[j]].longitude) % 360;
@@ -1007,10 +1050,15 @@ function calcAspects(positions) {
 }
 
 // Western Astrology Wheel Drawing Helper
-const WesternChartWheel = ({ positions, aspects: serverAspects }) => {
+interface WesternChartWheelProps {
+  positions?: WesternPositions;
+  aspects?: WesternAspect[];
+}
+
+const WesternChartWheel = ({ positions, aspects: serverAspects }: WesternChartWheelProps) => {
   if (!positions) return <div className="w-60 h-60 rounded-full border border-dashed border-gray-700 animate-pulse flex items-center justify-center text-xs text-gray-600">No positions calculated</div>;
 
-  const aspects = serverAspects?.length ? serverAspects.map(a => ({
+  const aspects: WheelAspect[] = serverAspects?.length ? serverAspects.map(a => ({
     planet1: a.planet1, planet2: a.planet2, aspect: a.aspect, exactness: a.exactness || 0.5,
     color: ASPECT_TYPES.find(t => t.name === a.aspect)?.color || 'rgba(255,255,255,0.15)',
     dash: ASPECT_TYPES.find(t => t.name === a.aspect)?.dash || 'none',
@@ -1024,14 +1072,14 @@ const WesternChartWheel = ({ positions, aspects: serverAspects }) => {
 
   const ascLon = positions.ascendant?.longitude || 0;
 
-  const getCoordinates = (lon, radius) => {
+  const getCoordinates = (lon: number, radius: number) => {
     const rad = ((lon - ascLon - 180) * Math.PI) / 180;
     const x = cx + radius * Math.cos(rad);
     const y = cy + radius * Math.sin(rad);
     return { x, y };
   };
 
-  const planetCoords = {};
+  const planetCoords: Record<string, { x: number; y: number }> = {};
   Object.entries(positions).forEach(([planet, info]) => {
     if (planet !== 'ascendant' && planet !== 'midheaven') {
       planetCoords[planet] = getCoordinates(info.longitude, innerR - 8);
@@ -1039,7 +1087,7 @@ const WesternChartWheel = ({ positions, aspects: serverAspects }) => {
   });
 
   const signGlyphs = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
-  const planetGlyphs = {
+  const planetGlyphs: Record<string, string> = {
     sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
     jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆', pluto: '♇',
     north_node: '☊',

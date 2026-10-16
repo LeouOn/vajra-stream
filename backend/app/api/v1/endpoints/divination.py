@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from backend.core.services.divination_service import SPREAD_POSITIONS, divination_service
 from backend.core.services.grimoire_service import grimoire_service
-from backend.core.services.mops_engine import mops_engine
 
 router = APIRouter(prefix="/divination", tags=["divination"])
 
@@ -30,9 +29,6 @@ class InterpretRequest(BaseModel):
 async def draw_tarot(payload: DrawTarotRequest):
     """Draw Tarot cards (1, 3, or 10 Celtic Cross)"""
     try:
-        # Increment MOPS for divination
-        mops_engine.record_event("divination", 500)
-
         cards = divination_service.draw_tarot(payload.count)
         return {
             "status": "success",
@@ -49,9 +45,6 @@ async def draw_tarot(payload: DrawTarotRequest):
 async def cast_iching():
     """Cast an I Ching hexagram (6 lines, primary + relating)"""
     try:
-        # Increment MOPS for divination
-        mops_engine.record_event("divination", 500)
-
         result = divination_service.cast_i_ching()
         return {"status": "success", "cast": result, "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
@@ -62,7 +55,6 @@ async def cast_iching():
 async def cast_geomancy():
     """Cast a Geomantic Shield Chart projected into the 12 Houses"""
     try:
-        mops_engine.record_event("divination", 500)
         result = divination_service.cast_geomancy()
         return {"status": "success", "chart": result, "timestamp": asyncio.get_event_loop().time()}
     except Exception as e:
@@ -74,7 +66,6 @@ async def geomancy_elemental_balance():
     """Cast a geomancy shield and compare its elemental balance with the current Western chart.
     Returns both elemental distributions and a harmony score."""
     try:
-        mops_engine.record_event("divination", 500)
         result = divination_service.cast_geomancy()
 
         # Compute elemental balance from geomantic figures
@@ -138,8 +129,6 @@ async def cast_astrological_geomancy():
     """Cast a Geomantic Shield where the Mothers are seeded by real planetary aspects
     instead of random numbers. The current transit aspects determine the initial figures."""
     try:
-        mops_engine.record_event("divination", 500)
-
         # Get current Western aspects
         aspects = []
         try:
@@ -261,7 +250,6 @@ async def generate_geomancy_talisman(intention: str = "protection and clarity", 
     """Generate a geomantic talisman — a sacred SVG combining a geomantic figure
     with a planetary kamea (magic square), charged with the user's intention."""
     try:
-        mops_engine.record_event("divination", 300)
         # Cast a shield to get the Judge figure
         result = divination_service.cast_geomancy()
         judge = result.get("figures", {}).get("Judge", {})

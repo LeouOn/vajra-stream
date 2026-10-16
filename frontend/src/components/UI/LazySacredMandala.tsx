@@ -10,17 +10,24 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
 
 interface LazySacredMandalaProps {
-  isPlaying?: boolean;
-  frequency?: number;
+  isPlaying: boolean;
+  frequency: number;
+  /** Live spectrum, if the caller has one. SacredMandala's frame loop reads
+   *  `audioSpectrum.length` whenever audio is playing, so it must be an array:
+   *  omitting it used to throw on every frame once playback started. */
+  audioSpectrum?: number[];
 }
 
-const LazySacredMandala: React.FC<LazySacredMandalaProps> = ({ isPlaying, frequency }) => {
+const NO_SPECTRUM: number[] = [];
+
+const LazySacredMandala: React.FC<LazySacredMandalaProps> = ({ isPlaying, frequency, audioSpectrum = NO_SPECTRUM }) => {
   return (
     <Canvas camera={{ position: [0, 0, 12], fov: 55 }}>
       <ambientLight intensity={0.4} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
       <Stars radius={100} depth={40} count={3000} factor={3} saturation={0.1} fade speed={0.6} />
       <SacredMandala
+        audioSpectrum={audioSpectrum}
         isPlaying={isPlaying}
         frequency={frequency}
         pattern="sri-yantra"

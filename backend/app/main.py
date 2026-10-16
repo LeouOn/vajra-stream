@@ -33,6 +33,31 @@ template_dir = Path(__file__).parent.parent.parent.parent / "templates"
 templates = Jinja2Templates(directory=str(template_dir))
 
 
+def register_cancel_handlers() -> None:
+    """Wire ``POST /api/v1/operations/{id}/cancel`` to services that manage operations by kind.
+
+    Broadcasts and audio sessions register a cancel per operation while
+    they run (see core/integrated_scalar_radionics.py, vajra_service.py);
+    render jobs go through the render queue's own cancel, which
+    ``/render/jobs/{id}/cancel`` keeps exposing as an alias.
+    """
+    from backend.core.services.render import jobs as render_jobs
+    from core import operations
+
+    async def cancel_render(op_id: str) -> None:
+        # cancel_job is async and records ``cancelled`` itself. It raises
+        # JobNotFound (a LookupError) or JobNotCancellable (a RuntimeError);
+        # caught by base class so a renamed subclass still maps to 404 / 409.
+        try:
+            await render_jobs.cancel_job(op_id)
+        except LookupError as exc:
+            raise operations.OperationNotFound(str(exc)) from exc
+        except RuntimeError as exc:
+            raise operations.OperationNotCancellable(str(exc)) from exc
+
+    operations.register_cancel_handler("render", cancel_render)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -62,13 +87,45 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize database schema: {e}")
         logger.error(traceback.format_exc())
 
+    # Operations ledger: anything left queued/running by a previous process is
+    # marked interrupted (never silently "still running"), and every state
+    # change is pushed to WebSocket clients as ``operation_update``. Render
+    # jobs are excluded: the render worker (started in warmup) re-attaches
+    # running ComfyUI jobs and resumes queued ones.
+    try:
+        from core import operations as _operations
+
+        interrupted = _operations.reconcile_interrupted(exclude_kinds=frozenset({"render"}))
+        if interrupted:
+            logger.info(f"Marked {interrupted} in-flight operation(s) from a previous run as interrupted")
+
+        loop = asyncio.get_running_loop()
+
+        def _broadcast_operation(op: dict) -> None:
+            message = {"type": "operation_update", "data": op}
+            loop.call_soon_threadsafe(lambda: loop.create_task(stable_connection_manager_v2.broadcast(message)))
+
+        _operations.add_listener(_broadcast_operation)
+        app.state.operation_listener = _broadcast_operation
+    except Exception as e:
+        logger.error(f"Failed to initialize operations ledger: {e}")
+        logger.error(traceback.format_exc())
+
     app.state.health_task = None
     app.state.streaming_task = None
+    app.state.render_task = None
 
     # ---- BACKGROUND WARMUP ------------------------------------------------
 
     async def _warmup() -> None:
         """Non-blocking init. Each block is independent; failures are logged."""
+
+        try:
+            register_cancel_handlers()
+            logger.info("Operation cancel handlers registered")
+        except Exception as e:
+            logger.error(f"Failed to register operation cancel handlers: {e}")
+            logger.error(traceback.format_exc())
 
         try:
             from backend.core.orchestrator_bridge import orchestrator_bridge
@@ -135,6 +192,17 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Failed to start health heartbeat: {e}")
                 logger.error(traceback.format_exc())
+
+        # Local render worker: one ComfyUI job at a time. Re-attaches render
+        # jobs left running by a previous process, then drains the queue.
+        try:
+            from backend.core.services.render.worker import get_render_worker
+
+            app.state.render_task = asyncio.create_task(get_render_worker().run())
+            logger.info("Render worker started")
+        except Exception as e:
+            logger.error(f"Failed to start render worker: {e}")
+            logger.error(traceback.format_exc())
 
         # Start real-time streaming with stable manager v2
         try:
@@ -238,6 +306,32 @@ async def lifespan(app: FastAPI):
     # ---- SHUTDOWN ---------------------------------------------------------
     logger.info("Vajra.Stream API shutting down...")
 
+    # Stop timed work this process owns, while WS clients can still see the
+    # updates: scalar broadcasts stop at their next tick and, like running
+    # audio/sigil sessions, are recorded ``interrupted`` (not left running).
+    try:
+        from core.integrated_scalar_radionics import shutdown_broadcasts
+
+        stopped = await asyncio.to_thread(shutdown_broadcasts)
+        if stopped:
+            logger.info(f"Stopped {stopped} running broadcast(s) for shutdown")
+    except Exception as e:
+        logger.error(f"Failed to stop running broadcasts: {e}")
+    try:
+        from backend.core.services.vajra_service import vajra_service
+
+        ended = vajra_service.interrupt_session_operations()
+        if ended:
+            logger.info(f"Recorded {ended} running session(s) as interrupted")
+    except Exception as e:
+        logger.error(f"Failed to record running sessions as interrupted: {e}")
+
+    listener = getattr(app.state, "operation_listener", None)
+    if listener is not None:
+        from core import operations as _operations
+
+        _operations.remove_listener(listener)
+
     # Cancel the warmup task first if it is still running so its
     # sub-tasks (health heartbeat, streaming) don't race the teardown.
     warmup_task.cancel()
@@ -301,6 +395,18 @@ async def lifespan(app: FastAPI):
             await health_task
         except asyncio.CancelledError:
             pass
+
+    # Stop the render worker. An in-flight job stays ``running`` on purpose:
+    # ComfyUI keeps executing it and the next start re-attaches.
+    render_task = getattr(app.state, "render_task", None)
+    if render_task:
+        render_task.cancel()
+        try:
+            await render_task
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.debug(f"Render worker ended with error during shutdown: {e}")
 
     streaming_task = getattr(app.state, "streaming_task", None)
     if streaming_task:

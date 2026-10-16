@@ -7,7 +7,6 @@ import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from backend.core.services.mops_engine import mops_engine
 from backend.core.services.sigil_service import sigil_service
 from backend.core.services.vajra_service import vajra_service
 
@@ -35,9 +34,6 @@ class ExtractSigilRequest(BaseModel):
 async def forge_sigil(payload: ForgeRequest):
     """Generate a sigil from an intention text (SVG + AI Prompt)"""
     try:
-        # Increment MOPS for divination/forging operations
-        mops_engine.record_event("divination", 1)  # Forge operation acts as divination-strength focus
-
         result = await sigil_service.forge_sigil(payload.intention, payload.kamea)
         return {"status": "success", "sigil": result}
     except Exception as e:
@@ -46,11 +42,13 @@ async def forge_sigil(payload: ForgeRequest):
 
 @router.post("/broadcast")
 async def broadcast_sigil(payload: BroadcastRequest):
-    """Broadcast the energetic vibration of a forged sigil"""
-    try:
-        # Increment tuning events
-        mops_engine.record_event("tuning", 1)
+    """Broadcast the energetic vibration of a forged sigil.
 
+    Recorded as a ``broadcast`` ledger operation (``operation_id``) that ends
+    by itself after ``duration_minutes``; cancel it with
+    ``POST /api/v1/operations/{operation_id}/cancel``.
+    """
+    try:
         # Trigger broadcast through vajra_service
         session_id = await vajra_service.create_session(
             name=f"Sigil Broadcast: {payload.intention[:30]}",
@@ -62,15 +60,22 @@ async def broadcast_sigil(payload: BroadcastRequest):
             visuals_enabled=True,
         )
 
-        # Start session
-        started = await vajra_service.start_session(session_id)
+        # Start session (one timed ledger operation, ended by its own timer)
+        started = await vajra_service.start_session(
+            session_id,
+            operation_kind="broadcast",
+            operation_title=f"Sigil broadcast: {payload.intention[:60]}",
+            end_after_seconds=payload.duration_minutes * 60 if payload.duration_minutes else None,
+        )
 
         if not started:
             raise HTTPException(status_code=500, detail="Failed to initiate scalar signal broadcast.")
 
+        session = vajra_service.active_sessions.get(session_id) or {}
         return {
             "status": "success",
             "session_id": session_id,
+            "operation_id": session.get("operation_id"),
             "message": f"Broadcast of sigil '{payload.intention[:30]}...' initiated at {payload.frequency_hz} Hz.",
         }
     except Exception as e:

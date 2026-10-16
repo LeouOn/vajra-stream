@@ -1,10 +1,10 @@
-const memStore = new Map();
+const memStore = new Map<string, string>();
 const localStoragePolyfill = {
-  getItem: (k) => (memStore.has(k) ? memStore.get(k) : null),
-  setItem: (k, v) => memStore.set(k, String(v)),
-  removeItem: (k) => memStore.delete(k),
+  getItem: (k: string): string | null => memStore.get(k) ?? null,
+  setItem: (k: string, v: unknown) => memStore.set(k, String(v)),
+  removeItem: (k: string) => memStore.delete(k),
   clear: () => memStore.clear(),
-  key: (i) => Array.from(memStore.keys())[i] || null,
+  key: (i: number) => Array.from(memStore.keys())[i] || null,
   get length() { return memStore.size; },
 };
 try { globalThis.localStorage = localStoragePolyfill; } catch {}
@@ -37,10 +37,11 @@ class MockAudioContext {
   close() { return Promise.resolve(); }
 }
 try {
-  globalThis.AudioContext = MockAudioContext;
+  // A partial stub, so it is installed untyped rather than as `typeof AudioContext`.
+  (globalThis as Record<string, unknown>).AudioContext = MockAudioContext;
   (globalThis as Record<string, unknown>).webkitAudioContext = MockAudioContext;
 } catch {}
 
 if (typeof HTMLCanvasElement !== 'undefined' && !HTMLCanvasElement.prototype.getContext) {
-  (HTMLCanvasElement.prototype as any).getContext = () => null;
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', { value: () => null, configurable: true, writable: true });
 }

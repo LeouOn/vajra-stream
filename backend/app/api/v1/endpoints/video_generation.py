@@ -30,6 +30,7 @@ from backend.core.services.video_generation_service import (
     MODEL_SPECS,
     VideoGenerationService,
 )
+from core.image_prompts import LLM_NO_TEXT_RULE, finalize_image_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +195,7 @@ GENRE_VIDEO_PRINCIPLES: dict[str, str] = {
     "healing": "Soft greens, lapis blue water light, gentle slow camera. Lotus imagery. Warm golden particles rising. Healing energy radiating outward in concentric rings. [Push in] slowly, then [Static shot] on a luminous center.",
     "victory": "Bold dynamic camera, golden-red light breaking through clouds. A figure standing triumphant on a summit. Crackling energy shields forming. [Pan right] across a battlefield dissolved into flowers, then [Tracking shot] of a banner unfurling.",
     "alchemist": "Cinematic close-ups of molten metal transforming in a crucible. Steam rising with flecks of gold. Color grading shifting from leaden grey to radiant gold. [Pedestal up] to reveal the Philosopher's Stone glowing.",
-    "dharani": "Sacred syllables materializing as luminous Sanskrit characters floating in dark space, rotating slowly. Mantric energy spiraling into a mandala pattern. [Static shot] on the mandala as it pulses with each syllable, then [Zoom out] to reveal the whole field.",
+    "dharani": "Sacred syllables materializing as luminous abstract light-forms (never legible letters) floating in dark space, rotating slowly. Mantric energy spiraling into a mandala pattern. [Static shot] on the mandala as it pulses with each syllable, then [Zoom out] to reveal the whole field.",
     "compassion": "Soft pink and rose-gold light, rose petals falling in slow motion. A heart-center opening like a lotus bloom. Compassion radiating as warm waves. [Push in] very slowly toward the heart of the light.",
     "wisdom": "Library of infinite scrolls dissolving into stars. An eye opening in the center of a book. Blue-white clarity light cutting through fog. [Pan left] across the scrolls, then [Tilt up] to a starfield of knowledge.",
     "protection": "Vajra (thunderbolt) geometry forming a crystalline shield around a central figure. Lightning fractals of protective energy. Deep blue and electric cyan. [Static shot] on the shield pulsing, then [Zoom out] to show the full protective dome.",
@@ -291,6 +292,7 @@ async def generate_from_narrative(
 5. Include: setting/scene, lighting, color palette, camera movement, motion/animation of elements, and mood.
 6. Ground the imagery in the narrative's actual content — don't invent unrelated scenes.
 7. The prompt should be vivid enough that someone who hasn't read the narrative can picture the scene.
+8. {LLM_NO_TEXT_RULE}
 
 ## NARRATIVE TO TRANSFORM
 {narrative_text[:3000]}
@@ -331,6 +333,8 @@ async def generate_from_narrative(
     video_prompt = video_prompt.strip()
     if not video_prompt or len(video_prompt) < 20:
         raise HTTPException(status_code=500, detail="LLM produced an empty video prompt")
+    # Backstop: whatever the LLM wrote, no degrees, percentages, dates or lettering reach the video model.
+    video_prompt = finalize_image_prompt(video_prompt, max_chars=1800)
 
     model = payload.get("model", service.config.get("default_model", "MiniMax-H3"))
     duration = payload.get("duration", service.config.get("default_duration", 5))

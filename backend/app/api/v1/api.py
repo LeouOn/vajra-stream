@@ -10,12 +10,13 @@ from backend.app.api.v1.endpoints import blessings as blessings_endpoint
 from backend.app.api.v1.endpoints import dharma_tales as dharma_tales_endpoint
 from backend.app.api.v1.endpoints import divination as divination_endpoint
 from backend.app.api.v1.endpoints import extraction as extraction_endpoint
+from backend.app.api.v1.endpoints import gallery as gallery_endpoint
 from backend.app.api.v1.endpoints import healing_dialogue as healing_dialogue_endpoint
 from backend.app.api.v1.endpoints import image_generation as image_generation_endpoint
 from backend.app.api.v1.endpoints import knowledge as knowledge_endpoint
 from backend.app.api.v1.endpoints import llm as llm_endpoint
 from backend.app.api.v1.endpoints import locations as locations_endpoint
-from backend.app.api.v1.endpoints import mops as mops_endpoint
+from backend.app.api.v1.endpoints import operations as operations_endpoint
 from backend.app.api.v1.endpoints import operator as operator_endpoint
 from backend.app.api.v1.endpoints import outlook as outlook_endpoint
 from backend.app.api.v1.endpoints import personal_healing as personal_healing_endpoint
@@ -24,6 +25,7 @@ from backend.app.api.v1.endpoints import practices as practices_endpoint
 from backend.app.api.v1.endpoints import prayer_wheel as prayer_wheel_endpoint
 from backend.app.api.v1.endpoints import radionics as radionics_endpoint
 from backend.app.api.v1.endpoints import radionics_narratives as radionics_narratives_endpoint
+from backend.app.api.v1.endpoints import render as render_endpoint
 from backend.app.api.v1.endpoints import ritual_engine as ritual_engine_endpoint
 from backend.app.api.v1.endpoints import rng_attunement as rng_endpoint
 from backend.app.api.v1.endpoints import scalar_waves as scalar_endpoint
@@ -43,7 +45,7 @@ api_router.include_router(locations_endpoint.router, prefix="/astrology/location
 api_router.include_router(extraction_endpoint.router, prefix="/astrology/extract", tags=["astrology-extraction"])
 api_router.include_router(extraction_endpoint.runs_router, prefix="/astrology", tags=["astrology-extraction-runs"])
 
-# Terra MOPS and Healing System routers
+# Scalar, radionics and healing system routers
 api_router.include_router(scalar_endpoint.router, prefix="/scalar", tags=["scalar-waves"])
 api_router.include_router(radionics_endpoint.router, prefix="/radionics", tags=["radionics"])
 api_router.include_router(radionics_narratives_endpoint.router, prefix="/radionics", tags=["radionics-narratives"])
@@ -59,12 +61,14 @@ api_router.include_router(personal_healing_endpoint.router, prefix="/healing", t
 api_router.include_router(healing_dialogue_endpoint.router, tags=["healing-dialogue"])
 api_router.include_router(llm_endpoint.router, tags=["llm"])
 api_router.include_router(knowledge_endpoint.router, tags=["knowledge"])
-api_router.include_router(mops_endpoint.router, tags=["mops"])
 api_router.include_router(sigils_endpoint.router, tags=["sigils"])
 api_router.include_router(divination_endpoint.router, tags=["divination"])
 api_router.include_router(prayer_wheel_endpoint.router, tags=["prayer-wheel"])
 api_router.include_router(time_cycles_endpoint.router, tags=["time-cycles"])
 api_router.include_router(operator_endpoint.router, prefix="/operator", tags=["operator"])
+api_router.include_router(operations_endpoint.router)
+api_router.include_router(render_endpoint.router)
+api_router.include_router(gallery_endpoint.router)
 api_router.include_router(outlook_endpoint.router, prefix="/outlook", tags=["outlook"])
 api_router.include_router(agent_suggestions_endpoint.router, tags=["agent_suggestions"])
 api_router.include_router(tts_endpoint.router, prefix="/tts", tags=["tts"])

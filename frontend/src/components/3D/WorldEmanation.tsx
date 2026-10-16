@@ -162,6 +162,26 @@ const PractitionerRipples: React.FC<{ origin: THREE.Vector3; isActive: boolean; 
   );
 };
 
+/**
+ * A THREE.Line drawn from `geometry`. JSX `<line>` is typed as the SVG
+ * element (React's intrinsic wins over R3F's), so the line is built here and
+ * mounted with `<primitive>`.
+ */
+const ThreeLine: React.FC<{ geometry: THREE.BufferGeometry; color: string; opacity: number; linewidth?: number }> = ({
+  geometry,
+  color,
+  opacity,
+  linewidth = 1,
+}) => {
+  const material = useMemo(
+    () => new THREE.LineBasicMaterial({ color, transparent: true, opacity, linewidth, depthWrite: false }),
+    [color, opacity, linewidth],
+  );
+  const line = useMemo(() => new THREE.Line(geometry, material), [geometry, material]);
+  useEffect(() => () => material.dispose(), [material]);
+  return <primitive object={line} />;
+};
+
 // Animated Bezier Blessing Arc
 const BlessingFlightArc: React.FC<{ start: THREE.Vector3; end: THREE.Vector3; label: string; tone?: string }> = ({
   start,
@@ -185,9 +205,7 @@ const BlessingFlightArc: React.FC<{ start: THREE.Vector3; end: THREE.Vector3; la
 
   return (
     <group>
-      <line geometry={geo}>
-        <lineBasicMaterial color={tone} transparent opacity={0.65} linewidth={2} depthWrite={false} />
-      </line>
+      <ThreeLine geometry={geo} color={tone} opacity={0.65} linewidth={2} />
       <mesh ref={pulseMesh}>
         <sphereGeometry args={[0.04, 12, 12]} />
         <meshBasicMaterial color={tone} />
@@ -216,9 +234,7 @@ const AspectLines: React.FC<{ planetPositions: Record<string, PlanetPosition> | 
         const curve = createArcCurve(latLonToVec3(lat1, lon1), latLonToVec3(lat2, lon2), 0.2);
         const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(30));
         return (
-          <line key={i} geometry={geo}>
-            <lineBasicMaterial color={ASPECT_COLORS[asp.aspect] || '#94a3b8'} transparent opacity={0.3} depthWrite={false} />
-          </line>
+          <ThreeLine key={i} geometry={geo} color={ASPECT_COLORS[asp.aspect] || '#94a3b8'} opacity={0.3} />
         );
       })}
     </group>

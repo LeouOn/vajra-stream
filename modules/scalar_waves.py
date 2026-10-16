@@ -72,13 +72,11 @@ class ScalarWaveService(ScalarWaveGenerator):
                 values = generator.generate(actual_count)
 
         generation_time = time.time() - start_time
-        mops = (actual_count / generation_time) / 1_000_000
 
         result = {
             "values": values,
             "count": len(values),
             "method": method,
-            "mops": mops,
             "generation_time": generation_time,
             "temperature": self.thermal_monitor.state.temperature,
             "throttle_factor": self.thermal_monitor.state.throttle_factor,
@@ -87,14 +85,18 @@ class ScalarWaveService(ScalarWaveGenerator):
         # Publish event
         if self.event_bus:
             event = ScalarWavesGenerated(
-                timestamp=datetime.now(), event_id=str(uuid.uuid4()), method=method, count=len(values), mops=mops
+                timestamp=datetime.now(),
+                event_id=str(uuid.uuid4()),
+                method=method,
+                count=len(values),
+                generation_seconds=generation_time,
             )
             self.event_bus.publish(event)
 
         return result
 
     def benchmark(self, duration: float = 3.0) -> dict[str, dict[str, float]]:
-        """Benchmark all methods"""
+        """Time one generation run per method (count and measured seconds)."""
         methods = ["qrng", "lorenz", "rossler", "ca"]
         results = {}
 
@@ -104,7 +106,6 @@ class ScalarWaveService(ScalarWaveGenerator):
                 count = int(duration * 2_000_000)  # Conservative estimate
                 result = self.generate(method, count, 1.0)
                 results[method] = {
-                    "mops": result["mops"],
                     "generation_time": result["generation_time"],
                     "count": result["count"],
                 }
