@@ -212,8 +212,17 @@ individual reviews catching each case.
 
 ## Phase 3: Consolidate
 
-- Merge the two LLM tool registries (`backend/core/llm_agent/tools.py`,
-  `core/radionics_tools.py`, about 100 tools in total) into one.
+- [x] Merge the two LLM tool registries (`backend/core/llm_agent/tools.py`,
+  `core/radionics_tools.py`, about 100 tools in total) into one
+  (2026-10-16). `core/tool_registry/` defines each of the 96 tools once
+  (name, schema, handler, surfaces, approval and timing flags). The chat
+  dispatcher, the radionics operator, `POST /operator/dispatch` and the
+  autonomous operator's approval path all read it; `core/radionics_tools.py`
+  and the `elif name == ...` dispatch chain in `llm.py` are gone. Handlers
+  live in `backend/core/llm_agent/tools.py`, and the registry resolves them
+  by name at call time, so `core` gains no import-time `backend` import.
+  `tests/unit/test_tool_registry_contract.py` snapshots the tool names on
+  each surface.
 - [x] Break the import cycles between `core` and `backend` and between `modules`
   and `backend`, and remove the production `sys.path.insert`s
   (2026-10-16). Measured with an ast import graph (module-level imports

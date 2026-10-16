@@ -31,6 +31,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from core import tool_registry
 from core.context_builder import (
     SessionContext,
     build_intention_analysis_prompt,
@@ -38,7 +39,6 @@ from core.context_builder import (
     search_rates,
 )
 from core.llm.usage import LLMUsageTracker, UsageRecord
-from core.radionics_tools import RADIONICS_TOOLS, get_tools_for_provider
 from core.rate_to_audio import map_rate_to_carriers
 from modules.interfaces import EventBus
 
@@ -118,10 +118,11 @@ class RateSuggestionGenerated:
 
 class ToolDispatcher:
     """
-    Dispatches LLM tool calls to actual container services.
+    Runs operator tool calls through the single tool registry.
 
-    Maps tool names to service methods, handling the impedance mismatch
-    between the LLM's function-calling format and the actual Python API.
+    The operator surface (``tool_registry.OPERATOR``) is what
+    ``RadionicsOperator.chat`` advertises and what ``POST /operator/dispatch``
+    accepts. Every outcome is a dict: a failure comes back as ``{"error": ...}``.
     """
 
     def __init__(self, container=None):
@@ -131,593 +132,22 @@ class ToolDispatcher:
         """Set the DI container for service access."""
         self._container = container
 
-    def dispatch(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        """Dispatch a tool call to the appropriate service and return the result."""
-
+    def dispatch(self, tool_name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
+        """Dispatch a tool call to its registry handler and return the result."""
         try:
-            # ---- 88 Buddhas & Saka Dawa (no container needed) ----
-            if tool_name == "get_random_buddha":
-                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-                svc = get_eighty_eight_buddhas()
-                category = arguments.get("category")
-                b = svc.random_buddha(category=category)
-                narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
-                return {
-                    "buddha": {
-                        "name_chinese": b.name_chinese,
-                        "name_pinyin": b.name_pinyin,
-                        "name_sanskrit": b.name_sanskrit,
-                        "category": b.category,
-                        "meaning": b.meaning,
-                        "realm": b.realm,
-                        "light": b.light,
-                    },
-                    "narrative": narrative.get("narrative", ""),
-                }
-
-            elif tool_name == "generate_buddha_narrative":
-                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-                svc = get_eighty_eight_buddhas()
-                result = svc.generate_buddha_narrative(
-                    buddha_name=arguments.get("buddha_name", ""),
-                    depth=arguments.get("depth", "contemplation"),
-                )
-                return result
-
-            elif tool_name == "get_88_buddhas_liturgy":
-                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-                svc = get_eighty_eight_buddhas()
-                return svc.get_confession_sequence()
-
-            elif tool_name == "recite_buddha_name":
-                buddha_name = arguments.get("buddha_name", "")
-                from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-                svc = get_eighty_eight_buddhas()
-                b = svc.get_buddha_by_name(buddha_name)
-                if not b:
-                    return {"error": f"Buddha not found: {buddha_name}"}
-                # Actually invoke the unified TTS provider so the recitation is
-                # played back in the active backend (Qwen3-TTS or Edge).
-                text = f"南無{b.name_chinese}" if not b.name_chinese.startswith("南無") else b.name_chinese
-                try:
-                    from core.tts_provider import get_tts_provider
-
-                    provider = get_tts_provider()
-                    project_id = arguments.get("project_id")
-                    if project_id is not None:
-                        provider.config.project_id = project_id
-                    role = arguments.get("role", "buddhist_chant")
-                    edge_v, qwen_s = provider._resolve_voice(
-                        arguments.get("voice"),
-                        role,
-                    )
-                    backend_id = provider.active_backend.value
-
-                    async def _do_speak():
-                        return await provider.speak(
-                            text=text,
-                            voice=arguments.get("voice"),
-                            rate="-30%",
-                            role=role,
-                        )
-
-                    try:
-                        running = asyncio.get_event_loop()  # noqa: F823
-                        if running.is_running():
-                            # Schedule the coroutine and immediately return
-                            # the metadata; the audio renders in the background.
-                            asyncio.ensure_future(_do_speak())
-                            path = None
-                        else:
-                            path = asyncio.run(_do_speak())
-                    except RuntimeError:
-                        path = asyncio.run(_do_speak())
-
-                    return {
-                        "buddha": b.name_chinese,
-                        "pinyin": b.name_pinyin,
-                        "text": text,
-                        "audio_path": path,
-                        "backend": backend_id,
-                        "speaker": qwen_s if backend_id == "qwen" else edge_v,
-                        "role": role,
-                        "message": f"Recited {b.name_chinese} ({b.name_pinyin}) via {backend_id}.",
-                    }
-                except Exception as e:
-                    return {
-                        "buddha": b.name_chinese,
-                        "pinyin": b.name_pinyin,
-                        "text": text,
-                        "error": str(e),
-                        "message": f"Could not play recitation of {b.name_chinese}: {e}",
-                    }
-
-            elif tool_name == "start_buddha_recitation":
-                from core.buddha_recitation_loop import get_recitation_loop
-
-                loop = get_recitation_loop()
-                if loop.state.running:
-                    return {"status": "already_running", "message": "Recitation loop already active."}
-                import asyncio
-
-                intention = arguments.get("intention", "愿一切众生离苦得乐")
-                interval = arguments.get("interval_seconds", 3.0)
-                mala_cycles = arguments.get("mala_cycles")
-                role = arguments.get("role", "buddhist_chant")
-                project_id = arguments.get("project_id")
-                voice = arguments.get("voice", "zh-CN-YunxiNeural")
-                try:
-                    running_loop = asyncio.get_event_loop()
-                    if running_loop.is_running():
-                        running_loop.create_task(
-                            loop.start(
-                                intention=intention,
-                                interval_seconds=interval,
-                                mala_cycles=mala_cycles,
-                                voice=voice,
-                                role=role,
-                                project_id=project_id,
-                            )
-                        )
-                    else:
-                        asyncio.run(
-                            loop.start(
-                                intention=intention,
-                                interval_seconds=interval,
-                                mala_cycles=mala_cycles,
-                                voice=voice,
-                                role=role,
-                                project_id=project_id,
-                            )
-                        )
-                except RuntimeError:
-                    asyncio.run(
-                        loop.start(
-                            intention=intention,
-                            interval_seconds=interval,
-                            mala_cycles=mala_cycles,
-                            voice=voice,
-                            role=role,
-                            project_id=project_id,
-                        )
-                    )
-                return loop.get_status()
-
-            elif tool_name == "stop_buddha_recitation":
-                from core.buddha_recitation_loop import get_recitation_loop
-
-                loop = get_recitation_loop()
-                # dispatch() is sync but always called from an async context;
-                # schedule the async stop() on the running loop.
-                try:
-                    asyncio.ensure_future(loop.stop())
-                except RuntimeError:
-                    pass
-                return loop.get_status()
-
-            elif tool_name == "get_buddha_recitation_status":
-                from core.buddha_recitation_loop import get_recitation_loop
-
-                loop = get_recitation_loop()
-                return loop.get_status()
-
-            elif tool_name == "check_saka_dawa":
-                from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
-
-                status = _check_saka_dawa()
-                if status.get("is_duchen"):
-                    suggested = (
-                        "Perform the Saka Dawa Blessing now — Duchen, the full moon "
-                        "of the 4th Tibetan month, multiplies merit 100,000×."
-                    )
-                elif status.get("is_saka_dawa"):
-                    suggested = (
-                        "Perform the Saka Dawa Blessing — the 4th Tibetan month "
-                        f"(from Losar {status.get('losar')}) is active."
-                    )
-                else:
-                    suggested = (
-                        "Prepare for Saka Dawa. Next Duchen is "
-                        f"{status.get('saka_dawa_duchen')} "
-                        f"({status.get('days_until_duchen')} days)."
-                    )
-                return {**status, "suggested_action": suggested}
-
-            # ---- Container-required guard ----
-            if self._container is None:
+            spec = tool_registry.get_spec(tool_name, tool_registry.OPERATOR)
+        except tool_registry.UnknownToolError:
+            return {"error": f"Unknown tool: {tool_name}"}
+        try:
+            if self._container is None and tool_registry.handler_accepts_container(spec):
                 return {"error": "No container set — services unavailable"}
-
-            # ---- Radionics ----
-            if tool_name == "broadcast_healing":
-                svc = self._container.radionics
-                return svc.broadcast_healing(
-                    target_name=arguments.get("target_name", ""),
-                    duration_minutes=arguments.get("duration_minutes", 10),
-                    frequency_hz=arguments.get("frequency_hz", 528.0),
-                    intensity=arguments.get("intensity", 0.8),
-                )
-
-            elif tool_name == "broadcast_liberation":
-                svc = self._container.radionics
-                return svc.broadcast_liberation(
-                    event_name=arguments.get("event_name", ""),
-                    souls_count=arguments.get("souls_count", 1000),
-                    duration_minutes=arguments.get("duration_minutes", 108),
-                )
-
-            elif tool_name == "get_available_intentions":
-                svc = self._container.radionics
-                return {"intentions": svc.get_available_intentions()}
-
-            elif tool_name == "get_sacred_frequencies":
-                svc = self._container.radionics
-                return svc.get_sacred_frequencies()
-
-            # ---- Rate Engine ----
-            elif tool_name == "text_to_rate":
-                from core.radionics_engine import SignatureCalculator
-
-                calc = SignatureCalculator()
-                rate = calc.text_to_rate(
-                    text=arguments.get("text", ""),
-                    num_dials=arguments.get("num_dials", 3),
-                    algorithm="mixed",
-                )
-                return rate.to_dict()
-
-            elif tool_name == "measure_general_vitality":
-                # Tool name kept for registry stability; this is a GV *draw*
-                # (RNG as stick pad), so the output says so field by field.
-                from core.radionics_engine import GV_DRAW_NOTE, GeneralVitalityMeter
-
-                meter = GeneralVitalityMeter()
-                stats = meter.measure_multiple(
-                    count=arguments.get("samples", 10),
-                    subject=arguments.get("subject", ""),
-                )
-                return {
-                    "subject": arguments.get("subject", ""),
-                    "method": "draw",
-                    "gv_mean": stats["mean"],
-                    "gv_median": stats["median"],
-                    "gv_std": stats["std"],
-                    "gv_min": stats["min"],
-                    "gv_max": stats["max"],
-                    "interpretation": meter.interpret_gv(stats["mean"]),
-                    "samples": arguments.get("samples", 10),
-                    "note": GV_DRAW_NOTE,
-                    "provenance": {
-                        "gv_mean": "draw",
-                        "gv_median": "draw",
-                        "gv_std": "draw",
-                        "gv_min": "draw",
-                        "gv_max": "draw",
-                        "interpretation": "draw",
-                    },
-                }
-
-            elif tool_name == "find_balancing_rates":
-                from core.radionics_engine import RadionicsAnalyzer
-
-                analyzer = RadionicsAnalyzer()
-                rates = analyzer.find_balancing_rates(
-                    subject=arguments.get("subject", ""),
-                    num_rates=arguments.get("num_rates", 5),
-                )
-                return {
-                    "subject": arguments.get("subject", ""),
-                    "method": "draw",
-                    "balancing_rates": [r.to_dict() for r in rates],
-                    "note": (
-                        "Dial values are the subject's signature inverted and offset by a draw; "
-                        "each potency is drawn (stick-pad analog), not measured."
-                    ),
-                    "provenance": {"balancing_rates": "draw"},
-                }
-
-            elif tool_name == "search_knowledge":
-                from core.knowledge_index import search_knowledge as kb_search
-
-                results = kb_search(
-                    query=arguments.get("query", ""),
-                    top_k=arguments.get("top_k", 5),
-                    category=arguments.get("category"),
-                )
-                return {"query": arguments.get("query", ""), "results": results, "count": len(results)}
-
-            elif tool_name == "web_search":
-                return self._dispatch_web_search(
-                    query=arguments.get("query", ""),
-                    top_k=arguments.get("top_k", 5),
-                )
-
-            elif tool_name == "web_fetch":
-                return self._dispatch_web_fetch(url=arguments.get("url", ""))
-
-            elif tool_name == "get_world_context":
-                from core.internet_context import compile_world_context, format_context_for_llm
-
-                ctx = compile_world_context()
-                return {
-                    "events_count": len(ctx.events),
-                    "disasters_count": len(ctx.disasters),
-                    "summary": ctx.summary,
-                    "planetary_hour": ctx.planetary_hour,
-                    "day_ruler": ctx.day_ruler,
-                    "context_text": format_context_for_llm(ctx),
-                }
-
-            elif tool_name == "search_rate_database":
-                results = search_rates(
-                    query=arguments.get("query", ""),
-                    category=arguments.get("category"),
-                )
-                return {"query": arguments.get("query", ""), "results": results, "count": len(results)}
-
-            # ---- Scalar Waves ----
-            elif tool_name == "generate_scalar_waves":
-                svc = self._container.scalar_waves
-                return svc.generate(
-                    method=arguments.get("method", "hybrid"),
-                    count=arguments.get("count", 10000),
-                    intensity=arguments.get("intensity", 1.0),
-                )
-
-            # ---- RNG ----
-            elif tool_name == "create_rng_session":
-                from backend.core.services.rng_attunement_service import get_rng_service
-
-                svc = get_rng_service()
-                session_id = svc.create_session(
-                    baseline_tone_arm=arguments.get("baseline_tone_arm", 5.0),
-                    sensitivity=arguments.get("sensitivity", 1.0),
-                )
-                return {"session_id": session_id, "status": "active"}
-
-            elif tool_name == "get_rng_reading":
-                from backend.core.services.rng_attunement_service import (
-                    ATTUNEMENT_DRAW_NOTE,
-                    get_rng_service,
-                    reading_provenance,
-                )
-
-                svc = get_rng_service()
-                reading = svc.get_reading(arguments["session_id"])
-                if reading is None:
-                    return {"error": "Session not found or inactive"}
-                return {
-                    "tone_arm": reading.tone_arm,
-                    "needle_position": reading.needle_position,
-                    "needle_state": reading.needle_state.name
-                    if hasattr(reading.needle_state, "name")
-                    else str(reading.needle_state),
-                    "floating_needle_score": reading.floating_needle_score,
-                    "coherence": reading.coherence,
-                    "entropy": reading.entropy,
-                    "note": ATTUNEMENT_DRAW_NOTE,
-                    "provenance": reading_provenance(),
-                }
-
-            elif tool_name == "get_rng_summary":
-                from backend.core.services.rng_attunement_service import get_rng_service
-
-                svc = get_rng_service()
-                return svc.get_session_summary(arguments["session_id"])
-
-            # ---- Anatomy ----
-            elif tool_name == "get_chakra_info":
-                svc = self._container.anatomy
-                return {"chakras": svc.get_chakra_info()}
-
-            elif tool_name == "get_meridian_info":
-                svc = self._container.anatomy
-                return {"meridians": svc.get_meridian_info()}
-
-            # ---- Healing ----
-            elif tool_name == "create_healing_session":
-                svc = self._container.healing
-                return svc.create_healing_session(
-                    target_name=arguments.get("target_name", ""),
-                    modalities=arguments.get("modalities"),
-                    duration_minutes=arguments.get("duration_minutes", 60),
-                    intention=arguments.get("intention", "complete healing"),
-                )
-
-            elif tool_name == "chakra_balancing_protocol":
-                svc = self._container.healing
-                return svc.chakra_balancing_protocol(
-                    target_name=arguments.get("target_name", ""),
-                    chakras=arguments.get("chakras"),
-                )
-
-            elif tool_name == "get_healing_modalities":
-                svc = self._container.healing
-                return {"modalities": svc.get_available_modalities()}
-
-            # ---- Astrology ----
-            elif tool_name == "get_planetary_positions":
-                svc = self._container.astrology
-                if svc is None:
-                    return {"error": "Astrology service not available"}
-                return svc.get_planetary_positions()
-
-            elif tool_name == "calculate_natal_chart":
-                svc = self._container.astrology
-                if svc is None:
-                    return {"error": "Astrology service not available"}
-                from datetime import datetime as dt
-
-                birth_date = dt.fromisoformat(arguments["birth_date"])
-                return svc.calculate_natal_chart(
-                    name=arguments.get("name"),
-                    birth_date=birth_date,
-                    latitude=arguments["latitude"],
-                    longitude=arguments["longitude"],
-                )
-
-            # ---- Audio ----
-            elif tool_name == "generate_audio":
-                svc = self._container.audio
-                freq = arguments.get("frequency_hz", 136.1)
-                duration = arguments.get("duration_seconds", 10)
-                mode = arguments.get("mode", "prayer_bowl")
-                return svc.generate_tone(
-                    frequency=freq,
-                    duration=duration,
-                    mode=mode,
-                )
-
-            # ---- Blessings ----
-            elif tool_name == "generate_blessing":
-                svc = self._container.blessings
-                return svc.generate_blessing(
-                    target_name=arguments.get("target_name", ""),
-                    intention=arguments.get("intention", "peace and happiness"),
-                    tradition=arguments.get("tradition", "universal"),
-                )
-
-            elif tool_name == "get_blessing_traditions":
-                svc = self._container.blessings
-                return {"traditions": svc.get_available_traditions()}
-
-            # ---- LLM Content ----
-            elif tool_name == "generate_prayer":
-                svc = self._container.llm
-                return svc.generate_prayer(
-                    intention=arguments.get("intention", "healing"),
-                    tradition=arguments.get("tradition", "universal"),
-                )
-
-            elif tool_name == "generate_teaching":
-                svc = self._container.llm
-                return svc.generate_teaching(
-                    topic=arguments.get("topic", "compassion"),
-                    tradition=arguments.get("tradition", "buddhist"),
-                    depth=arguments.get("length", "moderate"),
-                )
-
-            elif tool_name == "generate_meditation_script":
-                svc = self._container.llm
-                return svc.generate_meditation_script(
-                    meditation_type=arguments.get("meditation_type", "loving-kindness"),
-                    duration_minutes=arguments.get("duration_minutes", 20),
-                    experience_level=arguments.get("experience_level", "beginner"),
-                )
-
-            # ---- Agentic Timing & Journey ----
-            elif tool_name == "check_auspicious_timing":
-                from core.auspicious_timing import check_auspicious_window
-
-                window = check_auspicious_window(arguments.get("genre", "healing"))
-                return window.to_dict()
-
-            elif tool_name == "get_all_genre_windows":
-                from core.auspicious_timing import get_all_windows
-
-                return {"windows": get_all_windows()}
-
-            elif tool_name == "get_current_conditions":
-                from core.auspicious_timing import AuspiciousTiming
-
-                t = AuspiciousTiming()
-                return t.get_current_conditions()
-
-            elif tool_name == "generate_character":
-                return self._dispatch_operator("generate_character", {})
-
-            elif tool_name == "start_character_journey":
-                return self._dispatch_operator("start_character_journey", {})
-
-            elif tool_name == "advance_journey":
-                return self._dispatch_operator("advance_journey", {})
-
-            elif tool_name == "get_journey_status":
-                return self._dispatch_operator("get_journey_status", {})
-
-            elif tool_name == "run_full_journey":
-                return self._dispatch_operator("run_full_journey", {})
-
-            elif tool_name == "prepare_crystal_broadcast":
-                return self._dispatch_operator(
-                    "prepare_crystal_broadcast",
-                    {
-                        "intention": arguments.get("intention", ""),
-                        "duration_minutes": arguments.get("duration_minutes", 10),
-                    },
-                )
-
-            else:
-                return {"error": f"Unknown tool: {tool_name}"}
-
+            result: dict[str, Any] = tool_registry.call(
+                spec.name, arguments or {}, surface=tool_registry.OPERATOR, container=self._container
+            )
+            return result
         except Exception as e:
             logger.error(f"Tool dispatch error for {tool_name}: {e}")
             return {"error": str(e)}
-
-    def _dispatch_operator(self, method: str, args: dict) -> dict[str, Any]:
-        """Delegate to the RadionicsOperator's own methods for agentic operations."""
-        if self._container:
-            op = getattr(self._container, "operator", None)
-            if op and hasattr(op, method):
-                return getattr(op, method)(**args)
-        return {"error": f"Operator method {method} unavailable"}
-
-    def _dispatch_web_search(self, query: str, top_k: int = 5) -> dict[str, Any]:
-        """Search the web via DuckDuckGo (no API key needed)."""
-        try:
-            import urllib.parse
-            import urllib.request
-
-            url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
-            req = urllib.request.Request(url, headers={"User-Agent": "VajraStream/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                html = resp.read().decode("utf-8", errors="replace")
-
-            # Simple extraction of result snippets
-            results = []
-            import re
-
-            snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
-            for s in snippets[:top_k]:
-                clean = re.sub(r"<[^>]+>", "", s).strip()
-                if clean:
-                    results.append({"snippet": clean[:300]})
-
-            if not results:
-                # Fallback: return a note that web search requires network
-                results = [
-                    {
-                        "snippet": f"Web search for '{query}' — results unavailable (network issue or no results). Try using the local knowledge base via search_knowledge."
-                    }
-                ]
-
-            return {"query": query, "results": results, "count": len(results)}
-        except Exception as e:
-            return {"query": query, "results": [], "error": str(e)}
-
-    def _dispatch_web_fetch(self, url: str) -> dict[str, Any]:
-        """Fetch and read a web page."""
-        if not url:
-            return {"error": "No URL provided"}
-        try:
-            import urllib.request
-
-            req = urllib.request.Request(url, headers={"User-Agent": "VajraStream/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                content = resp.read().decode("utf-8", errors="replace")
-            # Strip HTML tags for a rough text extraction
-            import re
-
-            text = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL)
-            text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
-            text = re.sub(r"<[^>]+>", " ", text)
-            text = re.sub(r"\s+", " ", text).strip()
-            return {"url": url, "content": text[:3000], "length": len(text)}
-        except Exception as e:
-            return {"url": url, "error": str(e)}
 
 
 # ============================================================================
@@ -1130,12 +560,12 @@ conclude or shift intention."""
 
         self._refresh_astrology_context()
         system_prompt = build_system_prompt(self._session.to_dict())
-        tools = get_tools_for_provider(self._provider)
-
         try:
             if self._provider == "openai":
+                tools = tool_registry.schemas(tool_registry.OPERATOR, fmt="openai")
                 return self._chat_openai(message, system_prompt, tools, model_override=model_override)
             elif self._provider == "anthropic":
+                tools = tool_registry.schemas(tool_registry.OPERATOR, fmt="anthropic")
                 return self._chat_anthropic(message, system_prompt, tools, model_override=model_override)
             else:
                 # Local model — no tool calling, just text generation
@@ -1338,7 +768,7 @@ Write only the blessing text, no explanation."""
             "container_available": self._container is not None,
             "active_session": bool(self._session.intention),
             "session": self._session.to_dict(),
-            "tools_count": len(RADIONICS_TOOLS),
+            "tools_count": len(tool_registry.tool_names(tool_registry.OPERATOR)),
             "autonomous_mode": self._autonomous_active,
             "blessing_loop_active": getattr(self, "_blessing_loop_active", False),
             "journey_active": hasattr(self, "_active_journey") and self._active_journey is not None,
@@ -1570,13 +1000,21 @@ Write only the blessing text, no explanation."""
         if 0 <= index < len(self._autonomous_suggestions):
             suggestion = self._autonomous_suggestions.pop(index)
             action = suggestion.get("action")
-            # Execute the suggestion if it has actionable data
+            # Execute the suggestion if it has actionable data. Tools on the
+            # registry's AUTONOMOUS surface are approval-gated; this is the
+            # approval.
             if action == "broadcast_healing" and self._container:
                 suggestion["status"] = "executed"
-                self._container.radionics.broadcast_healing(
-                    target_name=suggestion.get("target", "World Event"),
-                    frequency_hz=suggestion.get("frequency", 528),
-                    duration_minutes=suggestion.get("duration_minutes", 30),
+                tool_registry.call(
+                    "broadcast_healing",
+                    {
+                        "target_name": suggestion.get("target", "World Event"),
+                        "frequency_hz": suggestion.get("frequency", 528),
+                        "duration_minutes": suggestion.get("duration_minutes", 30),
+                    },
+                    surface=tool_registry.AUTONOMOUS,
+                    container=self._container,
+                    approved=True,
                 )
             elif action == "character_journey":
                 if getattr(self, "_active_journey", None):

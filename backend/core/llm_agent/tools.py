@@ -1,11 +1,14 @@
 """
-LLM Agent Tool Calling Interface for Vajra Stream
+LLM tool handlers for Vajra Stream.
 
-Provides a standardized interface for LLM agents to interact with the Vajra Stream
-radionics system via tool calling (function calling).
+This module holds the one implementation of every LLM tool. The tools
+themselves (name, schema, surfaces, flags) are defined in
+:mod:`core.tool_registry`, whose specs point here by ``"module:function"``;
+call a tool through ``core.tool_registry.call``/``acall`` so argument
+normalization and surface checks apply.
 
-Each function is designed to be called by an LLM agent and returns structured data
-that can be used in the agent's responses.
+Handlers take keyword arguments. A handler that needs the DI container takes
+``container=None`` and falls back to the global container.
 
 Every tool runs IN-PROCESS against the backing service or endpoint function.
 Tools must not HTTP back into this same FastAPI process — the socket hop can
@@ -13,10 +16,12 @@ deadlock a saturated worker, couples tools to port 8008, and lets endpoint
 paths silently drift into 404 ghosts.
 """
 
+import asyncio
 import os
 import time
 from typing import Any
 
+from core import tool_registry
 from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
 
 # ============================================================================
@@ -49,12 +54,31 @@ def _dump(result: Any) -> Any:
     return result
 
 
+def _resolve_container(container: Any = None) -> Any:
+    """The caller's DI container, else the global one."""
+    if container is not None:
+        return container
+    from container import container as global_container
+
+    return global_container
+
+
+def _operator_call(container: Any, method: str, **kwargs: Any) -> Any:
+    """Delegate to the container's RadionicsOperator (agentic journey operations)."""
+    op = getattr(_resolve_container(container), "operator", None)
+    if op is not None and hasattr(op, method):
+        return getattr(op, method)(**kwargs)
+    return {"error": f"Operator method {method} unavailable"}
+
+
 # ============================================================================
 # RNG ATTUNEMENT TOOLS
 # ============================================================================
 
 
-def create_rng_session(baseline_tone_arm: float = 5.0, sensitivity: float = 1.0) -> dict[str, Any]:
+def create_rng_session(
+    baseline_tone_arm: float = 5.0, sensitivity: float = 1.0, session_id: str | None = None
+) -> dict[str, Any]:
     """
     Create a new RNG attunement session for monitoring psychoenergetic activity.
 
@@ -66,59 +90,54 @@ def create_rng_session(baseline_tone_arm: float = 5.0, sensitivity: float = 1.0)
     Args:
         baseline_tone_arm: Baseline setting (0-10), default 5.0
         sensitivity: Sensitivity multiplier (0.1-5.0), default 1.0
+        session_id: Optional session identifier
 
     Returns:
-        {"session_id": "rng_1234567890_abcdef12"}
+        {"session_id": "rng_1234567890_abcdef12", "status": "active"}
     """
     from backend.core.services.rng_attunement_service import get_rng_service
 
     service = get_rng_service()
-    session_id = service.create_session(baseline_tone_arm=baseline_tone_arm, sensitivity=sensitivity)
-    return {"session_id": session_id}
+    session_id = service.create_session(
+        session_id=session_id, baseline_tone_arm=baseline_tone_arm, sensitivity=sensitivity
+    )
+    return {"session_id": session_id, "status": "active"}
 
 
 def get_rng_reading(session_id: str) -> dict[str, Any]:
     """
     Get current RNG reading including needle state and floating needle score.
 
-    Use this for:
-    - Monitoring psychoenergetic activity
-    - Checking for floating needle (score > 0.6)
-    - Real-time feedback during practice
+    Every value is a draw (the RNG as stick pad), not a measurement; the
+    output says so in ``note`` and ``provenance``.
 
     Args:
         session_id: RNG session ID from create_rng_session
-
-    Returns:
-        {
-            "tone_arm": 5.2,
-            "needle_position": 15.3,
-            "needle_state": "rising",
-            "floating_needle_score": 0.73,
-            "coherence_index": 0.65,
-            "entropy": 0.82
-        }
     """
-    from backend.core.services.rng_attunement_service import get_rng_service
+    from backend.core.services.rng_attunement_service import (
+        ATTUNEMENT_DRAW_NOTE,
+        get_rng_service,
+        reading_provenance,
+    )
 
     service = get_rng_service()
     reading = service.get_reading(session_id)
-    if reading:
-        return {
-            "timestamp": reading.timestamp,
-            "raw_value": reading.raw_value,
-            "tone_arm": reading.tone_arm,
-            "needle_position": reading.needle_position,
-            "needle_state": reading.needle_state.value
-            if hasattr(reading.needle_state, "value")
-            else reading.needle_state,
-            "quality": reading.quality.value if hasattr(reading.quality, "value") else reading.quality,
-            "entropy": reading.entropy,
-            "coherence": reading.coherence,
-            "trend": reading.trend,
-            "floating_needle_score": reading.floating_needle_score,
-        }
-    return {}
+    if reading is None:
+        return {"error": "Session not found or inactive"}
+    return {
+        "timestamp": reading.timestamp,
+        "raw_value": reading.raw_value,
+        "tone_arm": reading.tone_arm,
+        "needle_position": reading.needle_position,
+        "needle_state": reading.needle_state.value if hasattr(reading.needle_state, "value") else reading.needle_state,
+        "quality": reading.quality.value if hasattr(reading.quality, "value") else reading.quality,
+        "entropy": reading.entropy,
+        "coherence": reading.coherence,
+        "trend": reading.trend,
+        "floating_needle_score": reading.floating_needle_score,
+        "note": ATTUNEMENT_DRAW_NOTE,
+        "provenance": reading_provenance(),
+    }
 
 
 def stop_rng_session(session_id: str) -> dict[str, Any]:
@@ -323,6 +342,7 @@ def create_blessing_slideshow(
     display_duration_ms: int = 2000,
     loop_mode: bool = True,
     rng_session_id: str | None = None,
+    dedication: str = "May all beings benefit",
 ) -> dict[str, Any]:
     """
     Create a blessing slideshow session for a directory of photos.
@@ -359,7 +379,7 @@ def create_blessing_slideshow(
         primary_mantra=MantraType(mantra),
         intentions=[IntentionType(i) for i in intentions],
         repetitions_per_photo=repetitions_per_photo,
-        dedication="May all beings benefit",
+        dedication=dedication,
     )
     session_id = service.create_session(
         directory_path=directory_path,
@@ -412,9 +432,9 @@ def stop_slideshow(session_id: str) -> dict[str, Any]:
 
 
 def create_population(
-    name: str,
-    category: str,
-    source_type: str,
+    name: str = "Untitled Population",
+    category: str = "custom",
+    source_type: str = "manual",
     description: str = "",
     directory_path: str | None = None,
     mantra_preference: str = "chenrezig",
@@ -626,6 +646,8 @@ def start_automation(
     continuous_mode: bool = True,
     only_active: bool = True,
     min_priority: int = 1,
+    mode: str = "round_robin",
+    auto_dedicate: bool = True,
 ) -> dict[str, Any]:
     """
     Start automated 24/7 rotation through populations.
@@ -650,11 +672,11 @@ def start_automation(
 
     scheduler = get_scheduler()
     config = SchedulerConfig(
-        mode=SchedulerMode("round_robin"),
+        mode=SchedulerMode(mode),
         duration_per_population=duration_per_population,
         transition_pause=transition_pause,
         link_rng=link_rng,
-        auto_dedicate=True,
+        auto_dedicate=auto_dedicate,
         continuous_mode=continuous_mode,
         only_active=only_active,
         min_priority=min_priority,
@@ -762,7 +784,7 @@ def resume_automation(session_id: str) -> dict[str, Any]:
 # ============================================================================
 
 
-def forge_sigil(intention: str, kamea: str = "saturn") -> dict[str, Any]:
+async def forge_sigil(intention: str, kamea: str = "saturn") -> dict[str, Any]:
     """
     Forge a magical visual sigil from an intention statement.
     Generates the planetary Kamea SVG plus an optional AI image: inline
@@ -775,7 +797,13 @@ def forge_sigil(intention: str, kamea: str = "saturn") -> dict[str, Any]:
     """
     from backend.core.services.sigil_service import sigil_service
 
-    return _dump(_run_async(sigil_service.forge_sigil(intention, kamea)))
+    return _dump(await sigil_service.forge_sigil(intention, kamea))
+
+
+# The divination tools return the raw cast: the Command Center widgets
+# (RenderMessageWidgets.tsx) read ``cards`` / the hexagram / the shield chart
+# straight off the tool result. ``question`` frames the draw for the model,
+# which interprets it in its reply.
 
 
 def cast_tarot_spread(count: int = 3, question: str = "") -> dict[str, Any]:
@@ -786,12 +814,9 @@ def cast_tarot_spread(count: int = 3, question: str = "") -> dict[str, Any]:
         count: Number of cards to draw (1, 3, or 10 for Celtic Cross)
         question: Question in focus for the Tarot oracle
     """
-    from backend.app.api.v1.endpoints.divination import DrawTarotRequest, draw_tarot
+    from backend.core.services.divination_service import divination_service
 
-    res = _dump(_run_async(draw_tarot(DrawTarotRequest(count=count))))
-    if question and "cards" in res:
-        res["interpretation"] = _interpret_divination("Tarot", question, res)
-    return res
+    return {"cards": divination_service.draw_tarot(count)}
 
 
 def cast_i_ching(question: str = "") -> dict[str, Any]:
@@ -802,12 +827,9 @@ def cast_i_ching(question: str = "") -> dict[str, Any]:
     Args:
         question: The situation or focus query for the hexagram
     """
-    from backend.app.api.v1.endpoints.divination import cast_iching
+    from backend.core.services.divination_service import divination_service
 
-    res = _dump(_run_async(cast_iching()))
-    if question and "cast" in res:
-        res["interpretation"] = _interpret_divination("I Ching", question, res)
-    return res
+    return divination_service.cast_i_ching()
 
 
 def cast_geomancy(question: str = "") -> dict[str, Any]:
@@ -818,28 +840,12 @@ def cast_geomancy(question: str = "") -> dict[str, Any]:
     Args:
         question: Query/trend-check focus
     """
-    from backend.app.api.v1.endpoints.divination import cast_geomancy as cast_geomancy_shield
+    from backend.core.services.divination_service import divination_service
 
-    res = _dump(_run_async(cast_geomancy_shield()))
-    if question and "chart" in res:
-        res["interpretation"] = _interpret_divination("Geomancy", question, res)
-    return res
+    return divination_service.cast_geomancy()
 
 
-def _interpret_divination(system: str, question: str, details: dict[str, Any]) -> str | None:
-    """RAG-grounded interpretation via the /interpret endpoint function (in-process)."""
-    from backend.app.api.v1.endpoints.divination import InterpretRequest, interpret_divination
-
-    try:
-        res = _dump(
-            _run_async(interpret_divination(InterpretRequest(system=system, question=question, details=details)))
-        )
-        return res.get("interpretation")
-    except Exception:
-        return None
-
-
-def search_grimoire_correspondences(query: str) -> list[dict[str, Any]]:
+def search_grimoire_correspondences(query: str = "") -> list[dict[str, Any]]:
     """
     Search the Grimoire library for herbs, stones, metals, planets, and rates that match.
 
@@ -852,7 +858,7 @@ def search_grimoire_correspondences(query: str) -> list[dict[str, Any]]:
     return grimoire_service.search(query)
 
 
-def get_planetary_hours_and_transits() -> dict[str, Any]:
+async def get_planetary_hours_and_transits() -> dict[str, Any]:
     """
     Retrieve current planetary hour, day ruler, auspicious timing guidelines, and transits.
     """
@@ -862,7 +868,7 @@ def get_planetary_hours_and_transits() -> dict[str, Any]:
     from backend.core.services.vajra_service import vajra_service
 
     now = datetime.datetime.now()
-    astro_data = _run_async(vajra_service._get_astrology_data())
+    astro_data = await vajra_service._get_astrology_data()
     hour_data = grimoire_service.get_planetary_hours(now.hour, now.weekday())
     return {"astrology": astro_data, "planetary_hour": hour_data, "timestamp": time.time()}
 
@@ -932,6 +938,7 @@ def generate_epic_outlook(
     character_ids: list[str] | None = None,
     excluded_forces: list[str] | None = None,
     include_dialogue: bool = False,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate a multi-stage epic narrative blessing cycle.
@@ -952,6 +959,7 @@ def generate_epic_outlook(
     if languages is None:
         languages = ["English"]
     from container import container
+    from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
 
     return container.outlook.generate_epic(
         lat=lat,
@@ -965,6 +973,7 @@ def generate_epic_outlook(
         character_ids=character_ids,
         excluded_forces=excluded_forces,
         include_dialogue=include_dialogue,
+        model=model or NEMOTRON_FREE_MODEL_ID,
     )
 
 
@@ -1175,7 +1184,7 @@ def get_narrative_loop_status() -> dict[str, Any]:
 
 
 # ============================================================================
-# 88 BUDDHAS & SAKA DAWA TOOLS (stubs — executed by llm.py's execute_tool_locally)
+# 88 BUDDHAS & SAKA DAWA TOOLS
 # ============================================================================
 
 
@@ -1200,7 +1209,7 @@ def get_random_buddha(category: str | None = None) -> dict[str, Any]:
     }
 
 
-def generate_buddha_narrative(buddha_name: str, depth: str = "contemplation") -> dict[str, Any]:
+def generate_buddha_narrative(buddha_name: str = "", depth: str = "contemplation") -> dict[str, Any]:
     """Generate a sacred narrative about a specific Buddha."""
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
 
@@ -1214,12 +1223,16 @@ def get_88_buddhas_liturgy() -> dict[str, Any]:
     return get_eighty_eight_buddhas().get_confession_sequence()
 
 
-def recite_buddha_name(buddha_name: str) -> dict[str, Any]:
-    """Recite a single Buddha name via the unified TTS provider.
+def recite_buddha_name(
+    buddha_name: str = "",
+    voice: str | None = None,
+    role: str = "buddhist_chant",
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    """Recite a single Buddha name through the unified TTS provider.
 
-    Delegates to ToolDispatcher (modules/radionics_operator.py) which routes
-    through core.tts_provider.get_tts_provider().speak(...). Falls back to a
-    descriptive payload when no container is available (e.g. in unit tests).
+    On a running event loop the audio renders in the background and
+    ``audio_path`` is ``None``; otherwise the call waits for the file.
     """
     from core.eighty_eight_buddhas import get_eighty_eight_buddhas
 
@@ -1227,83 +1240,104 @@ def recite_buddha_name(buddha_name: str) -> dict[str, Any]:
     b = svc.get_buddha_by_name(buddha_name)
     if not b:
         return {"error": f"Buddha not found: {buddha_name}"}
+    text = f"南無{b.name_chinese}" if not b.name_chinese.startswith("南無") else b.name_chinese
     try:
-        return _dispatch_via_container("recite_buddha_name", buddha_name=buddha_name)
-    except Exception as dispatch_err:
-        text = f"南無{b.name_chinese}" if not b.name_chinese.startswith("南無") else b.name_chinese
+        from core.tts_provider import get_tts_provider
+
+        provider = get_tts_provider()
+        if project_id is not None:
+            provider.config.project_id = project_id
+        edge_v, qwen_s = provider._resolve_voice(voice, role)
+        backend_id = provider.active_backend.value
+
+        async def _do_speak() -> str | None:
+            return await provider.speak(text=text, voice=voice, rate="-30%", role=role)
+
         try:
-            from core.tts_provider import get_tts_provider
+            running = asyncio.get_event_loop()
+            if running.is_running():
+                # Schedule the coroutine and return the metadata now; the
+                # audio renders in the background.
+                asyncio.ensure_future(_do_speak())
+                path = None
+            else:
+                path = asyncio.run(_do_speak())
+        except RuntimeError:
+            path = asyncio.run(_do_speak())
 
-            provider = get_tts_provider()
-            if provider:
-                import asyncio
-
-                try:
-                    running = asyncio.get_event_loop()
-                    if running.is_running():
-
-                        async def _speak() -> str | None:
-                            return await provider.speak(text=text, rate="-30%", role="buddhist_chant")
-
-                        asyncio.ensure_future(_speak())
-                        path = None
-                    else:
-                        path = asyncio.run(provider.speak(text=text, rate="-30%", role="buddhist_chant"))
-                except RuntimeError:
-                    path = asyncio.run(provider.speak(text=text, rate="-30%", role="buddhist_chant"))
-                return {
-                    "buddha": b.name_chinese,
-                    "pinyin": b.name_pinyin,
-                    "text": text,
-                    "audio_path": path,
-                    "message": f"Recited {b.name_chinese} ({b.name_pinyin}) via fallback TTS provider.",
-                }
-        except Exception as tts_err:
-            return {
-                "buddha": b.name_chinese,
-                "pinyin": b.name_pinyin,
-                "text": text,
-                "message": f"Could not play recitation of {b.name_chinese} (dispatch={dispatch_err}; tts={tts_err}).",
-                "error": str(tts_err),
-            }
         return {
             "buddha": b.name_chinese,
             "pinyin": b.name_pinyin,
             "text": text,
-            "message": f"TTS provider unavailable. Text: {text}",
+            "audio_path": path,
+            "backend": backend_id,
+            "speaker": qwen_s if backend_id == "qwen" else edge_v,
+            "role": role,
+            "message": f"Recited {b.name_chinese} ({b.name_pinyin}) via {backend_id}.",
+        }
+    except Exception as e:
+        return {
+            "buddha": b.name_chinese,
+            "pinyin": b.name_pinyin,
+            "text": text,
+            "error": str(e),
+            "message": f"Could not play recitation of {b.name_chinese}: {e}",
         }
 
 
 def start_buddha_recitation(
-    intention: str = "愿一切众生离苦得乐", interval_seconds: float = 3.0, mala_cycles: int | None = None
+    intention: str = "愿一切众生离苦得乐",
+    interval_seconds: float = 3.0,
+    mala_cycles: int | None = None,
+    voice: str = "zh-CN-YunxiNeural",
+    role: str = "buddhist_chant",
+    project_id: str | None = None,
 ) -> dict[str, Any]:
-    """Start continuous 88-Buddha recitation loop."""
-    import asyncio
-
+    """Start the continuous 88-Buddha recitation loop (on the running loop when there is one)."""
     from core.buddha_recitation_loop import get_recitation_loop
 
     loop = get_recitation_loop()
     if loop.state.running:
-        return {"status": "already_running"}
+        return {"status": "already_running", "message": "Recitation loop already active."}
+
+    def _start() -> Any:
+        return loop.start(
+            intention=intention,
+            interval_seconds=interval_seconds,
+            mala_cycles=mala_cycles,
+            voice=voice,
+            role=role,
+            project_id=project_id,
+        )
+
     try:
         running_loop = asyncio.get_event_loop()
         if running_loop.is_running():
-            running_loop.create_task(
-                loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles)
-            )
+            running_loop.create_task(_start())
         else:
-            asyncio.run(loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles))
+            asyncio.run(_start())
     except RuntimeError:
-        asyncio.run(loop.start(intention=intention, interval_seconds=interval_seconds, mala_cycles=mala_cycles))
+        asyncio.run(_start())
     return loop.get_status()
 
 
 def stop_buddha_recitation() -> dict[str, Any]:
-    """Stop active Buddha recitation loop."""
+    """Stop the active Buddha recitation loop.
+
+    The loop's task lives on the event loop that started it, so on a running
+    loop the stop is scheduled there (the returned status already reads
+    stopped); without one it completes before returning.
+    """
     from core.buddha_recitation_loop import get_recitation_loop
 
     loop = get_recitation_loop()
-    loop.stop()
+    try:
+        running_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(loop.stop())
+        return loop.get_status()
+    loop.state.running = False
+    running_loop.create_task(loop.stop())
     return loop.get_status()
 
 
@@ -1315,14 +1349,30 @@ def get_buddha_recitation_status() -> dict[str, Any]:
 
 
 def check_saka_dawa() -> dict[str, Any]:
-    """Check Saka Dawa holy month status (Losar-anchored 4th Tibetan month)."""
+    """Check Saka Dawa holy month status (Losar-anchored 4th Tibetan month) with a suggested action."""
     from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
 
-    return _check_saka_dawa()
+    status = _check_saka_dawa()
+    if status.get("is_duchen"):
+        suggested = (
+            "Perform the Saka Dawa Blessing now — Duchen, the full moon "
+            "of the 4th Tibetan month, multiplies merit 100,000×."
+        )
+    elif status.get("is_saka_dawa"):
+        suggested = (
+            f"Perform the Saka Dawa Blessing — the 4th Tibetan month (from Losar {status.get('losar')}) is active."
+        )
+    else:
+        suggested = (
+            "Prepare for Saka Dawa. Next Duchen is "
+            f"{status.get('saka_dawa_duchen')} "
+            f"({status.get('days_until_duchen')} days)."
+        )
+    return {**status, "suggested_action": suggested}
 
 
 def run_working(
-    intention: str,
+    intention: str = "",
     target: str = "all beings",
     broadcast: bool = True,
     duration_minutes: int = 5,
@@ -1338,7 +1388,7 @@ def run_working(
     )
 
 
-def forge_witness(working_id: str) -> dict[str, Any]:
+async def forge_witness(working_id: str = "") -> dict[str, Any]:
     """Witness image for an existing working folio, preferring the local render engine.
 
     Same policy as ``POST /operator/workings/{id}/witness``
@@ -1348,7 +1398,7 @@ def forge_witness(working_id: str) -> dict[str, Any]:
     """
     from core.working import forge_witness_for_tool
 
-    return _run_async(forge_witness_for_tool(working_id))
+    return await forge_witness_for_tool(str(working_id))
 
 
 def check_auspicious_timing(genre: str = "healing") -> dict[str, Any]:
@@ -1497,42 +1547,30 @@ def get_ritual_schedule(hours: int = 24) -> dict[str, Any]:
 
 
 def generate_character() -> dict[str, Any]:
-    """Generate an RNG-seeded character."""
+    """Generate an RNG-seeded character (no LLM call)."""
     from core.character_generator import CharacterGenerator
 
     return CharacterGenerator().generate(use_llm=False).to_dict()
 
 
-def start_character_journey() -> dict[str, Any]:
-    """Start a character journey arc."""
-    from container import container
-    from modules.radionics_operator import ToolDispatcher
-
-    return ToolDispatcher(container).dispatch("start_character_journey", {})
+def start_character_journey(*, container: Any = None) -> dict[str, Any]:
+    """Start a character journey arc on the container's operator."""
+    return _operator_call(container, "start_character_journey")
 
 
-def advance_journey() -> dict[str, Any]:
+def advance_journey(*, container: Any = None) -> dict[str, Any]:
     """Advance character journey by one stage."""
-    from container import container
-    from modules.radionics_operator import ToolDispatcher
-
-    return ToolDispatcher(container).dispatch("advance_journey", {})
+    return _operator_call(container, "advance_journey")
 
 
-def get_journey_status() -> dict[str, Any]:
+def get_journey_status(*, container: Any = None) -> dict[str, Any]:
     """Get current journey status."""
-    from container import container
-    from modules.radionics_operator import ToolDispatcher
-
-    return ToolDispatcher(container).dispatch("get_journey_status", {})
+    return _operator_call(container, "get_journey_status")
 
 
-def run_full_journey() -> dict[str, Any]:
+def run_full_journey(*, container: Any = None) -> dict[str, Any]:
     """Run full 6-stage journey."""
-    from container import container
-    from modules.radionics_operator import ToolDispatcher
-
-    return ToolDispatcher(container).dispatch("run_full_journey", {})
+    return _operator_call(container, "run_full_journey")
 
 
 # ============================================================================
@@ -1777,8 +1815,6 @@ def generate_image(
     prompt = finalize_image_prompt(prompt)
     service: ImageGenerationService = get_service()
 
-    import asyncio
-
     try:
         asyncio.get_running_loop()
         in_loop = True
@@ -1798,7 +1834,7 @@ def generate_image(
         )
 
     if in_loop:
-        return _AGENT_DISPATCH(
+        return generate_image_for_tool(
             prompt=prompt,
             provider=provider,
             model=model,
@@ -1811,8 +1847,8 @@ def generate_image(
     return asyncio.run(_call())
 
 
-async def _AGENT_DISPATCH(
-    prompt: str,
+async def generate_image_for_tool(
+    prompt: str = "",
     provider: str | None = None,
     model: str | None = None,
     size: str = "1024x1024",
@@ -1820,6 +1856,7 @@ async def _AGENT_DISPATCH(
     aspect_ratio: str | None = None,
     subject_reference: str | None = None,
 ) -> dict[str, Any]:
+    """The ``generate_image`` tool handler: honors the service's ``model_lock``."""
     from backend.app.api.v1.endpoints.image_generation import get_service
     from core.image_prompts import finalize_image_prompt
 
@@ -1854,24 +1891,23 @@ async def _AGENT_DISPATCH(
 
 
 # ============================================================================
-# RADIONICS / BROADCASTING / ASTROLOGY / AUDIO STUBS
-# (delegate to ToolDispatcher for unified dispatch)
+# RADIONICS / BROADCASTING / RATE ENGINE
+# ----------------------------------------------------------------------------
+# Container-backed tools take ``container`` (the operator passes its own; the
+# chat path uses the global one).
 # ============================================================================
 
 
-def _dispatch_via_container(tool_name: str, **args) -> dict[str, Any]:
-    """Helper: dispatch any tool through the container's ToolDispatcher."""
-    from container import container
-    from modules.radionics_operator import ToolDispatcher
-
-    return ToolDispatcher(container).dispatch(tool_name, args)
-
-
 def broadcast_healing(
-    target_name: str, duration_minutes: int = 10, frequency_hz: float = 528.0, intensity: float = 0.8
+    target_name: str = "",
+    duration_minutes: int = 10,
+    frequency_hz: float = 528.0,
+    intensity: float = 0.8,
+    *,
+    container: Any = None,
 ) -> dict[str, Any]:
-    return _dispatch_via_container(
-        "broadcast_healing",
+    """Broadcast healing scalar waves and radionics rates to a target."""
+    return _resolve_container(container).radionics.broadcast_healing(
         target_name=target_name,
         duration_minutes=duration_minutes,
         frequency_hz=frequency_hz,
@@ -1879,64 +1915,143 @@ def broadcast_healing(
     )
 
 
-def broadcast_liberation(event_name: str, souls_count: int = 1000, duration_minutes: int = 108) -> dict[str, Any]:
-    return _dispatch_via_container(
-        "broadcast_liberation", event_name=event_name, souls_count=souls_count, duration_minutes=duration_minutes
+def broadcast_liberation(
+    event_name: str = "", souls_count: int = 1000, duration_minutes: int = 108, *, container: Any = None
+) -> dict[str, Any]:
+    """Broadcast the liberation protocol for an event or population."""
+    return _resolve_container(container).radionics.broadcast_liberation(
+        event_name=event_name,
+        souls_count=souls_count,
+        duration_minutes=duration_minutes,
     )
 
 
-def get_available_intentions() -> dict[str, Any]:
-    return _dispatch_via_container("get_available_intentions")
+def prepare_crystal_broadcast(intention: str = "", duration_minutes: int = 10, *, container: Any = None) -> Any:
+    """Analyze an intention and prepare the crystal bowl broadcast configuration."""
+    return _operator_call(
+        container, "prepare_crystal_broadcast", intention=intention, duration_minutes=duration_minutes
+    )
 
 
-def get_sacred_frequencies() -> dict[str, Any]:
-    return _dispatch_via_container("get_sacred_frequencies")
+def get_available_intentions(*, container: Any = None) -> dict[str, Any]:
+    """List the radionics intention types."""
+    return {"intentions": _resolve_container(container).radionics.get_available_intentions()}
 
 
-def text_to_rate(text: str, num_dials: int = 3) -> dict[str, Any]:
-    return _dispatch_via_container("text_to_rate", text=text, num_dials=num_dials)
+def get_sacred_frequencies(*, container: Any = None) -> dict[str, Any]:
+    """List the sacred frequencies (Solfeggio, planetary, ...)."""
+    return _resolve_container(container).radionics.get_sacred_frequencies()
 
 
-def measure_general_vitality(subject: str, samples: int = 10) -> dict[str, Any]:
-    return _dispatch_via_container("measure_general_vitality", subject=subject, samples=samples)
+def text_to_rate(text: str = "", num_dials: int = 3) -> dict[str, Any]:
+    """Derive a radionics rate from text (deterministic signature)."""
+    from core.radionics_engine import SignatureCalculator
+
+    rate = SignatureCalculator().text_to_rate(text=text, num_dials=num_dials, algorithm="mixed")
+    return rate.to_dict()
 
 
-def find_balancing_rates(subject: str, num_rates: int = 5) -> dict[str, Any]:
-    return _dispatch_via_container("find_balancing_rates", subject=subject, num_rates=num_rates)
+def measure_general_vitality(subject: str = "", samples: int = 10) -> dict[str, Any]:
+    """A general-vitality DRAW for a subject.
+
+    The tool name is kept for registry stability; this is a GV *draw* (RNG as
+    stick pad), so the output says so field by field.
+    """
+    from core.radionics_engine import GV_DRAW_NOTE, GeneralVitalityMeter
+
+    meter = GeneralVitalityMeter()
+    stats = meter.measure_multiple(count=samples, subject=subject)
+    return {
+        "subject": subject,
+        "method": "draw",
+        "gv_mean": stats["mean"],
+        "gv_median": stats["median"],
+        "gv_std": stats["std"],
+        "gv_min": stats["min"],
+        "gv_max": stats["max"],
+        "interpretation": meter.interpret_gv(stats["mean"]),
+        "samples": samples,
+        "note": GV_DRAW_NOTE,
+        "provenance": {
+            "gv_mean": "draw",
+            "gv_median": "draw",
+            "gv_std": "draw",
+            "gv_min": "draw",
+            "gv_max": "draw",
+            "interpretation": "draw",
+        },
+    }
 
 
-def search_knowledge(query: str, top_k: int = 5, category: str | None = None) -> dict[str, Any]:
-    return _dispatch_via_container("search_knowledge", query=query, top_k=top_k, category=category)
+def find_balancing_rates(subject: str = "", num_rates: int = 5) -> dict[str, Any]:
+    """Balancing rates for a subject: its signature inverted and offset by a draw."""
+    from core.radionics_engine import RadionicsAnalyzer
+
+    rates = RadionicsAnalyzer().find_balancing_rates(subject=subject, num_rates=num_rates)
+    return {
+        "subject": subject,
+        "method": "draw",
+        "balancing_rates": [r.to_dict() for r in rates],
+        "note": (
+            "Dial values are the subject's signature inverted and offset by a draw; "
+            "each potency is drawn (stick-pad analog), not measured."
+        ),
+        "provenance": {"balancing_rates": "draw"},
+    }
 
 
-def search_rate_database(query: str, category: str | None = None) -> dict[str, Any]:
-    return _dispatch_via_container("search_rate_database", query=query, category=category)
+def search_knowledge(query: str = "", top_k: int = 5, category: str | None = None) -> dict[str, Any]:
+    """Search the local knowledge index."""
+    from core.knowledge_index import search_knowledge as kb_search
+
+    results = kb_search(query=query, top_k=top_k, category=category)
+    return {"query": query, "results": results, "count": len(results)}
 
 
-def generate_scalar_waves(method: str = "hybrid", count: int = 10000, intensity: float = 1.0) -> dict[str, Any]:
-    return _dispatch_via_container("generate_scalar_waves", method=method, count=count, intensity=intensity)
+def search_rate_database(query: str = "", category: str | None = None) -> dict[str, Any]:
+    """Search the radionics rate database."""
+    from core.context_builder import search_rates
+
+    results = search_rates(query=query, category=category)
+    return {"query": query, "results": results, "count": len(results)}
+
+
+def generate_scalar_waves(
+    method: str = "hybrid", count: int = 10000, intensity: float = 1.0, *, container: Any = None
+) -> dict[str, Any]:
+    """Generate scalar waves via the container's scalar-wave service."""
+    return _resolve_container(container).scalar_waves.generate(method=method, count=count, intensity=intensity)
 
 
 def get_rng_summary(session_id: str) -> dict[str, Any]:
-    return _dispatch_via_container("get_rng_summary", session_id=session_id)
+    """Summary of an RNG attunement session."""
+    from backend.core.services.rng_attunement_service import get_rng_service
+
+    return get_rng_service().get_session_summary(session_id)
 
 
-def get_chakra_info() -> dict[str, Any]:
-    return _dispatch_via_container("get_chakra_info")
+# ============================================================================
+# ANATOMY / HEALING / ASTROLOGY / AUDIO / BLESSINGS / LLM CONTENT
+# ============================================================================
 
 
-def get_meridian_info() -> dict[str, Any]:
-    return _dispatch_via_container("get_meridian_info")
+def get_chakra_info(*, container: Any = None) -> dict[str, Any]:
+    return {"chakras": _resolve_container(container).anatomy.get_chakra_info()}
+
+
+def get_meridian_info(*, container: Any = None) -> dict[str, Any]:
+    return {"meridians": _resolve_container(container).anatomy.get_meridian_info()}
 
 
 def create_healing_session(
-    target_name: str,
+    target_name: str = "",
     modalities: list[str] | None = None,
     duration_minutes: int = 60,
     intention: str = "complete healing",
+    *,
+    container: Any = None,
 ) -> dict[str, Any]:
-    return _dispatch_via_container(
-        "create_healing_session",
+    return _resolve_container(container).healing.create_healing_session(
         target_name=target_name,
         modalities=modalities,
         duration_minutes=duration_minutes,
@@ -1944,46 +2059,99 @@ def create_healing_session(
     )
 
 
-def chakra_balancing_protocol(target_name: str, chakras: list[str] | None = None) -> dict[str, Any]:
-    return _dispatch_via_container("chakra_balancing_protocol", target_name=target_name, chakras=chakras)
+def chakra_balancing_protocol(
+    target_name: str = "", chakras: list[str] | None = None, *, container: Any = None
+) -> dict[str, Any]:
+    return _resolve_container(container).healing.chakra_balancing_protocol(target_name=target_name, chakras=chakras)
 
 
-def get_healing_modalities() -> dict[str, Any]:
-    return _dispatch_via_container("get_healing_modalities")
+def get_healing_modalities(*, container: Any = None) -> dict[str, Any]:
+    return {"modalities": _resolve_container(container).healing.get_available_modalities()}
 
 
-def get_planetary_positions() -> dict[str, Any]:
-    return _dispatch_via_container("get_planetary_positions")
+def get_planetary_positions(*, container: Any = None) -> dict[str, Any]:
+    svc = _resolve_container(container).astrology
+    if svc is None:
+        return {"error": "Astrology service not available"}
+    return svc.get_planetary_positions()
 
 
 def calculate_natal_chart(
-    name: str = "", birth_date: str = "", latitude: float = 0, longitude: float = 0
+    birth_date: str,
+    latitude: float,
+    longitude: float,
+    name: str | None = None,
+    *,
+    container: Any = None,
 ) -> dict[str, Any]:
-    return _dispatch_via_container(
-        "calculate_natal_chart", name=name, birth_date=birth_date, latitude=latitude, longitude=longitude
+    from datetime import datetime
+
+    svc = _resolve_container(container).astrology
+    if svc is None:
+        return {"error": "Astrology service not available"}
+    return svc.calculate_natal_chart(
+        name=name,
+        birth_date=datetime.fromisoformat(birth_date),
+        latitude=latitude,
+        longitude=longitude,
     )
 
 
 def generate_audio(
-    frequency_hz: float = 136.1, duration_seconds: float = 10, mode: str = "prayer_bowl"
+    frequency_hz: float = 136.1,
+    duration_seconds: float = 10,
+    mode: str = "prayer_bowl",
+    *,
+    container: Any = None,
 ) -> dict[str, Any]:
-    return _dispatch_via_container("generate_audio", frequency_hz=frequency_hz, duration_seconds=duration_seconds)
-
-
-def generate_blessing(
-    target_name: str, intention: str = "peace and happiness", tradition: str = "universal"
-) -> dict[str, Any]:
-    return _dispatch_via_container(
-        "generate_blessing", target_name=target_name, intention=intention, tradition=tradition
+    """Generate a tone on the LLM-tool audio path (``modules/audio.py``, ADR 001)."""
+    return _resolve_container(container).audio.generate_tone(
+        frequency=frequency_hz, duration=duration_seconds, mode=mode
     )
 
 
-def get_blessing_traditions() -> dict[str, Any]:
-    return _dispatch_via_container("get_blessing_traditions")
+def generate_blessing(
+    target_name: str = "",
+    intention: str = "peace and happiness",
+    tradition: str = "universal",
+    *,
+    container: Any = None,
+) -> dict[str, Any]:
+    return _resolve_container(container).blessings.generate_blessing(
+        target_name=target_name, intention=intention, tradition=tradition
+    )
 
 
-def generate_prayer(intention: str, tradition: str = "universal") -> dict[str, Any]:
-    return _dispatch_via_container("generate_prayer", intention=intention, tradition=tradition)
+def get_blessing_traditions(*, container: Any = None) -> dict[str, Any]:
+    return {"traditions": _resolve_container(container).blessings.get_available_traditions()}
+
+
+def generate_prayer(intention: str = "healing", tradition: str = "universal", *, container: Any = None) -> Any:
+    return _resolve_container(container).llm.generate_prayer(intention=intention, tradition=tradition)
+
+
+def generate_teaching(
+    topic: str = "compassion",
+    length: str = "short",
+    tradition: str = "buddhist",
+    *,
+    container: Any = None,
+) -> Any:
+    return _resolve_container(container).llm.generate_teaching(topic=topic, tradition=tradition, depth=length)
+
+
+def generate_meditation_script(
+    meditation_type: str = "loving-kindness",
+    duration_minutes: int = 20,
+    experience_level: str = "beginner",
+    *,
+    container: Any = None,
+) -> Any:
+    return _resolve_container(container).llm.generate_meditation_script(
+        meditation_type=meditation_type,
+        duration_minutes=duration_minutes,
+        experience_level=experience_level,
+    )
 
 
 def speak_text(text: str, voice: str | None = None, role: str = "dharma_teaching") -> dict[str, Any]:
@@ -2028,44 +2196,94 @@ def speak_text(text: str, voice: str | None = None, role: str = "dharma_teaching
         return {"status": "error", "error": str(e)}
 
 
-def generate_teaching(topic: str, length: str = "short") -> dict[str, Any]:
-    return _dispatch_via_container("generate_teaching", topic=topic, length=length)
+# ============================================================================
+# WEB / WORLD CONTEXT / TIMING
+# ============================================================================
 
 
-def generate_meditation_script(
-    meditation_type: str, duration_minutes: int = 20, experience_level: str = "beginner"
-) -> dict[str, Any]:
-    return _dispatch_via_container(
-        "generate_meditation_script",
-        meditation_type=meditation_type,
-        duration_minutes=duration_minutes,
-        experience_level=experience_level,
-    )
+def web_search(query: str = "", top_k: int = 5) -> dict[str, Any]:
+    """Search the web via DuckDuckGo (no API key needed)."""
+    try:
+        import re
+        import urllib.parse
+        import urllib.request
+
+        url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "VajraStream/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+
+        results = []
+        snippets = re.findall(r'class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
+        for s in snippets[:top_k]:
+            clean = re.sub(r"<[^>]+>", "", s).strip()
+            if clean:
+                results.append({"snippet": clean[:300]})
+
+        if not results:
+            results = [
+                {
+                    "snippet": f"Web search for '{query}' — results unavailable (network issue or no results). Try using the local knowledge base via search_knowledge."
+                }
+            ]
+
+        return {"query": query, "results": results, "count": len(results)}
+    except Exception as e:
+        return {"query": query, "results": [], "error": str(e)}
 
 
-def web_search(query: str, top_k: int = 5) -> dict[str, Any]:
-    return _dispatch_via_container("web_search", query=query, top_k=top_k)
+def web_fetch(url: str = "") -> dict[str, Any]:
+    """Fetch a web page and return its text (first 3000 characters)."""
+    if not url:
+        return {"error": "No URL provided"}
+    try:
+        import re
+        import urllib.request
 
-
-def web_fetch(url: str) -> dict[str, Any]:
-    return _dispatch_via_container("web_fetch", url=url)
+        req = urllib.request.Request(url, headers={"User-Agent": "VajraStream/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content = resp.read().decode("utf-8", errors="replace")
+        text = re.sub(r"<script[^>]*>.*?</script>", "", content, flags=re.DOTALL)
+        text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return {"url": url, "content": text[:3000], "length": len(text)}
+    except Exception as e:
+        return {"url": url, "error": str(e)}
 
 
 def get_world_context() -> dict[str, Any]:
-    return _dispatch_via_container("get_world_context")
+    """Current world events, disasters and planetary hour, compiled for the model."""
+    from core.internet_context import compile_world_context, format_context_for_llm
+
+    ctx = compile_world_context()
+    return {
+        "events_count": len(ctx.events),
+        "disasters_count": len(ctx.disasters),
+        "summary": ctx.summary,
+        "planetary_hour": ctx.planetary_hour,
+        "day_ruler": ctx.day_ruler,
+        "context_text": format_context_for_llm(ctx),
+    }
 
 
 def get_all_genre_windows() -> dict[str, Any]:
-    return _dispatch_via_container("get_all_genre_windows")
+    from core.auspicious_timing import get_all_windows
+
+    return {"windows": get_all_windows()}
 
 
 def get_current_conditions() -> dict[str, Any]:
-    return _dispatch_via_container("get_current_conditions")
+    from core.auspicious_timing import AuspiciousTiming
+
+    return AuspiciousTiming().get_current_conditions()
 
 
 # ============================================================================
-# TOOL REGISTRY (for LLM agents)
+# AGENT SUGGESTIONS
 # ============================================================================
+
+
 def add_agent_suggestion(agent_id: str, intention: str, missing_tools: str, context: str) -> dict[str, Any]:
     """
     Log an intentional path or suggestion for a task the agent wanted to do but couldn't.
@@ -2086,978 +2304,27 @@ def add_agent_suggestion(agent_id: str, intention: str, missing_tools: str, cont
     )
 
 
-# Registry of all available tools
-TOOL_REGISTRY = {
-    "create_rng_session": create_rng_session,
-    "get_rng_reading": get_rng_reading,
-    "stop_rng_session": stop_rng_session,
-    "play_chakra_healing_audio": play_chakra_healing_audio,
-    "set_audio_frequency": set_audio_frequency,
-    "set_audio_modulation": set_audio_modulation,
-    "play_audio_preset": play_audio_preset,
-    "create_blessing_slideshow": create_blessing_slideshow,
-    "get_current_slide": get_current_slide,
-    "stop_slideshow": stop_slideshow,
-    "create_population": create_population,
-    "list_populations": list_populations,
-    "list_targets": list_populations,
-    "get_population_statistics": get_population_statistics,
-    "get_system_status": get_system_status,
-    "get_statistics": get_system_status,
-    "update_population": update_population,
-    "start_automation": start_automation,
-    "get_automation_status": get_automation_status,
-    "get_automation_stats": get_automation_stats,
-    "stop_automation": stop_automation,
-    "pause_automation": pause_automation,
-    "resume_automation": resume_automation,
-    "forge_sigil": forge_sigil,
-    "cast_tarot_spread": cast_tarot_spread,
-    "cast_i_ching": cast_i_ching,
-    "cast_geomancy": cast_geomancy,
-    "search_grimoire_correspondences": search_grimoire_correspondences,
-    "get_planetary_hours_and_transits": get_planetary_hours_and_transits,
-    "generate_single_outlook": generate_single_outlook,
-    "generate_epic_outlook": generate_epic_outlook,
-    "list_narrative_locations": list_narrative_locations,
-    "create_narrative_location": create_narrative_location,
-    "list_narrative_characters": list_narrative_characters,
-    "create_narrative_character": create_narrative_character,
-    "start_narrative_loop": start_narrative_loop,
-    "stop_narrative_loop": stop_narrative_loop,
-    "get_narrative_loop_status": get_narrative_loop_status,
-    "add_agent_suggestion": add_agent_suggestion,
-    # 88 Buddhas & Saka Dawa
-    "get_random_buddha": get_random_buddha,
-    "generate_buddha_narrative": generate_buddha_narrative,
-    "get_88_buddhas_liturgy": get_88_buddhas_liturgy,
-    "recite_buddha_name": recite_buddha_name,
-    "start_buddha_recitation": start_buddha_recitation,
-    "stop_buddha_recitation": stop_buddha_recitation,
-    "get_buddha_recitation_status": get_buddha_recitation_status,
-    "check_saka_dawa": check_saka_dawa,
-    "check_auspicious_timing": check_auspicious_timing,
-    "generate_character": generate_character,
-    "start_character_journey": start_character_journey,
-    "advance_journey": advance_journey,
-    "get_journey_status": get_journey_status,
-    "run_full_journey": run_full_journey,
-    # Radionics / Broadcasting / Astrology / Audio (via ToolDispatcher)
-    "broadcast_healing": broadcast_healing,
-    "broadcast_liberation": broadcast_liberation,
-    "get_available_intentions": get_available_intentions,
-    "get_sacred_frequencies": get_sacred_frequencies,
-    "text_to_rate": text_to_rate,
-    "measure_general_vitality": measure_general_vitality,
-    "find_balancing_rates": find_balancing_rates,
-    "search_knowledge": search_knowledge,
-    "search_rate_database": search_rate_database,
-    "generate_scalar_waves": generate_scalar_waves,
-    "get_rng_summary": get_rng_summary,
-    "get_chakra_info": get_chakra_info,
-    "get_meridian_info": get_meridian_info,
-    "create_healing_session": create_healing_session,
-    "chakra_balancing_protocol": chakra_balancing_protocol,
-    "get_healing_modalities": get_healing_modalities,
-    "get_planetary_positions": get_planetary_positions,
-    "calculate_natal_chart": calculate_natal_chart,
-    "generate_audio": generate_audio,
-    "generate_blessing": generate_blessing,
-    "get_blessing_traditions": get_blessing_traditions,
-    "generate_prayer": generate_prayer,
-    "speak_text": speak_text,
-    "generate_teaching": generate_teaching,
-    "generate_meditation_script": generate_meditation_script,
-    "web_search": web_search,
-    "web_fetch": web_fetch,
-    "get_world_context": get_world_context,
-    "get_all_genre_windows": get_all_genre_windows,
-    "get_current_conditions": get_current_conditions,
-    # Ritual engine
-    "get_ritual_status": get_ritual_status,
-    "start_ritual_engine": start_ritual_engine,
-    "stop_ritual_engine": stop_ritual_engine,
-    "trigger_ritual": trigger_ritual,
-    "list_practices": list_practices,
-    "get_ritual_schedule": get_ritual_schedule,
-    "generate_image": _AGENT_DISPATCH,
-    "run_working": run_working,
-    "forge_witness": forge_witness,
-    "get_celestial_night_sky": get_celestial_night_sky,
-    "get_dharani_text": get_dharani_text,
-    "get_auspicious_timing_details": get_auspicious_timing_details,
-    "get_active_world_crises": get_active_world_crises,
-    "trigger_living_ritual_broadcast": trigger_living_ritual_broadcast,
-}
+# ============================================================================
+# REGISTRY VIEWS
+# ----------------------------------------------------------------------------
+# Read-only views of ``core.tool_registry`` kept for existing importers. The
+# registry is the source; do not add tools here.
+# ============================================================================
 
+#: ``{name or alias: callable(**kwargs)}`` for every tool the chat dispatcher
+#: can execute. Calls go through ``core.tool_registry.call``.
+TOOL_REGISTRY = tool_registry.sync_callables(tool_registry.AGENT)
 
-# Single ordered allowlist sent to the chat model. TOOL_REGISTRY can still
-# execute other names if a model invents them; they are just not advertised.
-# Keep this list and ``_prioritize_tool_schemas`` in lockstep — there is no
-# second filter.
-ESSENTIAL_TOOL_ORDER: list[str] = [
-    "run_working",
-    "forge_witness",
-    "generate_single_outlook",
-    "generate_prayer",
-    "generate_image",
-    "generate_epic_outlook",
-    "generate_blessing",
-    "generate_teaching",
-    "forge_sigil",
-    "speak_text",
-    "cast_tarot_spread",
-    "cast_i_ching",
-    "cast_geomancy",
-    "search_grimoire_correspondences",
-    "search_knowledge",
-    "web_search",
-    "check_auspicious_timing",
-    "get_auspicious_timing_details",
-    "get_celestial_night_sky",
-    "get_dharani_text",
-    "get_active_world_crises",
-    "trigger_living_ritual_broadcast",
-    "check_saka_dawa",
-    "get_planetary_hours_and_transits",
-    "get_random_buddha",
-    "create_population",
-    "list_populations",
-    "update_population",
-    "get_population_statistics",
-    "get_system_status",
-    "start_automation",
-    "stop_automation",
-    "get_automation_status",
-    "play_chakra_healing_audio",
-]
-
+#: The advertised chat allowlist, in priority order.
+ESSENTIAL_TOOL_ORDER: list[str] = list(tool_registry.CHAT_ORDER)
 ESSENTIAL_TOOL_NAMES: set[str] = set(ESSENTIAL_TOOL_ORDER)
 
 
 def get_tool_schemas(essential_only: bool = True) -> list[dict[str, Any]]:
+    """Tool schemas (``name``/``description``/``parameters``).
+
+    ``essential_only=True``: the advertised chat allowlist, in priority order.
+    ``essential_only=False``: every tool the chat dispatcher can execute.
     """
-    Get JSON schemas for all available tools.
-
-    Merges RADIONICS_TOOLS (core radionics/broadcasting/astrology schemas)
-    with the llm_agent-specific tool schemas (slideshows, populations, narratives).
-
-    Returns schemas in OpenAI function calling format.
-    Can be used with Claude, GPT-4, or other LLMs that support tool calling.
-
-    Returns:
-        List of tool schemas
-    """
-    # Import RADIONICS_TOOLS for the full radionics/broadcasting/astrology domain
-    try:
-        from core.radionics_tools import RADIONICS_TOOLS as raw_schemas
-
-        _radionics_schemas = []
-        for s in raw_schemas:
-            if "type" in s and s["type"] == "function" and "function" in s:
-                _radionics_schemas.append(s["function"])
-            else:
-                _radionics_schemas.append(s)
-    except ImportError:
-        _radionics_schemas = []
-
-    # llm_agent-specific schemas (slideshows, populations, narratives, divination, etc.)
-    _agent_schemas = [
-        {
-            "name": "create_rng_session",
-            "description": "Create a new RNG attunement session for monitoring psychoenergetic activity during radionics practice",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "baseline_tone_arm": {
-                        "type": "number",
-                        "description": "Baseline tone arm setting (0-10), default 5.0",
-                    },
-                    "sensitivity": {"type": "number", "description": "Sensitivity multiplier (0.1-5.0), default 1.0"},
-                },
-            },
-        },
-        {
-            "name": "get_rng_reading",
-            "description": "Get current RNG reading to check for psychoenergetic activity. floating_needle_score > 0.6 indicates release/completion",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "RNG session ID from create_rng_session"}
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "create_blessing_slideshow",
-            "description": "Create a blessing slideshow for a directory of photos with mantras and intentions",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "directory_path": {"type": "string", "description": "Absolute path to directory containing photos"},
-                    "mantra": {
-                        "type": "string",
-                        "enum": [
-                            "chenrezig",
-                            "tara",
-                            "medicine_buddha",
-                            "vajrasattva",
-                            "manjushri",
-                            "amitabha",
-                            "universal",
-                        ],
-                        "description": "Mantra to use (default: chenrezig)",
-                    },
-                    "intentions": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                "love",
-                                "healing",
-                                "peace",
-                                "protection",
-                                "prosperity",
-                                "wisdom",
-                                "reunion",
-                                "safety",
-                                "liberation",
-                                "compassion",
-                                "clarity",
-                                "strength",
-                            ],
-                        },
-                        "description": "List of intentions to transmit",
-                    },
-                    "rng_session_id": {
-                        "type": "string",
-                        "description": "Optional RNG session ID to link for monitoring",
-                    },
-                },
-                "required": ["directory_path"],
-            },
-        },
-        {
-            "name": "create_population",
-            "description": "Create a new target population for automated blessings",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Clear, descriptive name for the population"},
-                    "category": {
-                        "type": "string",
-                        "enum": [
-                            "missing_persons",
-                            "refugees",
-                            "disaster_victims",
-                            "conflict_zones",
-                            "hospital_patients",
-                            "humanitarian_crisis",
-                            "memorial",
-                            "custom",
-                        ],
-                        "description": "Category of population",
-                    },
-                    "source_type": {
-                        "type": "string",
-                        "enum": ["local_directory", "manual"],
-                        "description": "Where photos come from",
-                    },
-                    "directory_path": {
-                        "type": "string",
-                        "description": "Path to photos (required for local_directory)",
-                    },
-                    "priority": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 10,
-                        "description": "Priority level (1-10, higher = more important)",
-                    },
-                },
-                "required": ["name", "category", "source_type"],
-            },
-        },
-        {
-            "name": "start_automation",
-            "description": "Start automated 24/7 rotation through all populations with fair time distribution",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "duration_per_population": {
-                        "type": "integer",
-                        "description": "Seconds to spend on each population (default 1800 = 30 min)",
-                    },
-                    "continuous_mode": {"type": "boolean", "description": "Loop indefinitely if true (default true)"},
-                    "link_rng": {"type": "boolean", "description": "Monitor RNG for each population (default true)"},
-                },
-            },
-        },
-        {
-            "name": "stop_automation",
-            "description": "Stop the currently running automated blessing rotation and return final statistics",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "Automation session ID from start_automation"},
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "pause_automation",
-            "description": "Pause the automated blessing rotation (can be resumed later)",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "Automation session ID from start_automation"},
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "resume_automation",
-            "description": "Resume a previously paused automated blessing rotation",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "Automation session ID from start_automation"},
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "get_automation_status",
-            "description": "Get current automation status for monitoring. Call every 5-10 seconds for UI updates",
-            "parameters": {
-                "type": "object",
-                "properties": {"session_id": {"type": "string", "description": "Automation session ID"}},
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "stop_rng_session",
-            "description": "Stop an active RNG attunement session and get final summary statistics",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "RNG session ID to stop"},
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "set_audio_frequency",
-            "description": "Directly tune the carrier frequency of the active audio broadcast. Use this to actively change frequencies based on RNG readings.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "freq_hz": {"type": "number", "description": "The frequency in Hz to play (e.g. 432.0, 528.0)"},
-                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"},
-                },
-                "required": ["freq_hz"],
-            },
-        },
-        {
-            "name": "set_audio_modulation",
-            "description": "Change the timbre and modulation of the active broadcast. Use this to increase or decrease the intensity/richness of the sound.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "harmonic_strength": {"type": "number", "description": "0.0 to 1.0, richness of overtones"},
-                    "modulation_depth": {"type": "number", "description": "0.0 to 1.0, depth of vibrato/tremolo"},
-                    "duration_s": {"type": "number", "description": "Duration to play in seconds, default 30.0"},
-                },
-                "required": ["harmonic_strength", "modulation_depth"],
-            },
-        },
-        {
-            "name": "play_audio_preset",
-            "description": "Play a specific predefined audio preset. Available presets: 'om-frequency', 'heart-chakra', 'earth-resonance', 'pure-sine'.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "preset_name": {"type": "string", "description": "Name of the preset to play"},
-                    "duration_s": {"type": "number", "description": "Duration in seconds, default 30.0"},
-                },
-                "required": ["preset_name"],
-            },
-        },
-        {
-            "name": "play_chakra_healing_audio",
-            "description": "Generate and play a Tibetan prayer bowl tone tuned to a specific chakra. Use this to calm the space.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "chakra_name": {"type": "string", "description": "Name of the chakra (e.g. root, sacral, heart)"},
-                    "duration": {"type": "number", "description": "Duration to play in seconds, default 30.0"},
-                },
-                "required": ["chakra_name"],
-            },
-        },
-        {
-            "name": "list_populations",
-            "description": "Get list of all populations with optional filtering",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "active_only": {"type": "boolean", "description": "Only return active populations"},
-                    "category": {"type": "string", "description": "Filter by specific category"},
-                },
-            },
-        },
-        {
-            "name": "get_population_statistics",
-            "description": "Get overall statistics across all populations including totals and categories",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "get_system_status",
-            "description": "Complete system snapshot — populations, automation, RNG, rituals, practices. Use when user asks for 'statistics', 'status', 'dashboard', or 'system overview'. Returns everything in one call.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "forge_sigil",
-            "description": (
-                "Create a graphical, neon-glowing vector sigil on a planetary magic square from an intention. "
-                "An AI image comes inline as ai_image, or, on the local render engine, as ai_image_render "
-                "{operation_id, status}: a queued render that finishes a few minutes later."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "intention": {
-                        "type": "string",
-                        "description": "Clear intention statement (e.g. 'protection and clarity')",
-                    },
-                    "kamea": {
-                        "type": "string",
-                        "enum": ["saturn", "jupiter", "mars"],
-                        "description": "Planetary grid context (default saturn)",
-                    },
-                },
-                "required": ["intention"],
-            },
-        },
-        {
-            "name": "cast_tarot_spread",
-            "description": "Draw Tarot cards with elemental, Hebrew, and planetary correspondences to answer a question.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "count": {
-                        "type": "integer",
-                        "description": "Number of cards to draw: 1 (single), 3 (past/present/future), or 10 (Celtic Cross)",
-                    },
-                    "question": {"type": "string", "description": "Focus question for oracle interpretation"},
-                },
-            },
-        },
-        {
-            "name": "cast_i_ching",
-            "description": "Cast I Ching hexagrams using traditional yarrow-stalk probabilities, listing primary and relating hexagram meanings.",
-            "parameters": {
-                "type": "object",
-                "properties": {"question": {"type": "string", "description": "The situation or query to interpret"}},
-            },
-        },
-        {
-            "name": "cast_geomancy",
-            "description": "Cast a full 16-figure Geomantic shield chart projected into the 12 astrological houses.",
-            "parameters": {
-                "type": "object",
-                "properties": {"question": {"type": "string", "description": "Query or context for the cast"}},
-            },
-        },
-        {
-            "name": "search_grimoire_correspondences",
-            "description": "Search the Grimoire database for herbs, minerals, metals, planets, chakras, and rates.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "The herb, stone, planet, rate, or symptom to lookup"}
-                },
-                "required": ["query"],
-            },
-        },
-        {
-            "name": "get_planetary_hours_and_transits",
-            "description": "Fetch current planetary hours timeline, daily rulers, and planetary transit aspects.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "generate_single_outlook",
-            "description": "Generate a single-pass sutra-style blessing and narrative outlook weaving astrology, divination, and realms. USE THIS TOOL when the user asks for: an outlook, a blessing, a sutra, a prayer, a healing story, a narrative blessing, or a generated prayer/affirmation for a group of people. The custom_context should reflect the user's stated intention. Do not call create_population repeatedly; if a population is needed, create it ONCE then call this tool.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "lat": {"type": "number", "description": "Target latitude"},
-                    "lon": {"type": "number", "description": "Target longitude"},
-                    "languages": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Languages to weave (English, Sanskrit, Tibetan, Chinese, Latin, Greek, Hebrew)",
-                    },
-                    "genre": {
-                        "type": "string",
-                        "enum": ["healing", "victory", "alchemist", "fun_parable", "dharani"],
-                        "description": "Blessing genre",
-                    },
-                    "custom_context": {"type": "string", "description": "Custom aspirations or intention text"},
-                    "realm_id": {"type": "string", "description": "Location or realm ID from list_narrative_locations"},
-                    "population_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Target population IDs",
-                    },
-                    "character_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Characters present in narrative",
-                    },
-                    "excluded_forces": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Negative forces to pacify",
-                    },
-                    "include_dialogue": {
-                        "type": "boolean",
-                        "description": "Whether to include active dialogue between characters",
-                    },
-                },
-            },
-        },
-        {
-            "name": "generate_epic_outlook",
-            "description": "Generate a multi-stage epic narrative blessing cycle over an extended arc.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "lat": {"type": "number", "description": "Target latitude"},
-                    "lon": {"type": "number", "description": "Target longitude"},
-                    "languages": {"type": "array", "items": {"type": "string"}, "description": "Languages to weave"},
-                    "genre": {
-                        "type": "string",
-                        "enum": ["healing", "victory", "alchemist", "fun_parable", "dharani"],
-                        "description": "Blessing genre",
-                    },
-                    "stages": {"type": "integer", "description": "Number of stages to generate (default 9)"},
-                    "custom_context": {"type": "string", "description": "Custom aspirations or intention text"},
-                    "realm_id": {"type": "string", "description": "Location or realm ID"},
-                    "population_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Target population IDs",
-                    },
-                    "character_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Characters present in narrative",
-                    },
-                    "excluded_forces": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Negative forces to pacify",
-                    },
-                    "include_dialogue": {
-                        "type": "boolean",
-                        "description": "Whether to include active dialogue between characters",
-                    },
-                },
-            },
-        },
-        {
-            "name": "list_narrative_locations",
-            "description": "List all active settings, earthly sacred sites, and metaphysical realms.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "create_narrative_location",
-            "description": "Define a new location or metaphysical realm setting for narrative blessings.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Name of location or realm"},
-                    "description": {"type": "string", "description": "Visionary description"},
-                    "location_type": {
-                        "type": "string",
-                        "enum": [
-                            "earthly_sacred",
-                            "metaphysical_realm",
-                            "cosmic_anchor",
-                            "historical_academy",
-                            "custom",
-                        ],
-                    },
-                    "source_type": {"type": "string", "enum": ["manual", "generated", "mythology", "geographic"]},
-                    "is_metaphysical": {"type": "boolean", "description": "Set True for metaphysical realms"},
-                    "latitude": {"type": "number", "description": "Latitude (for earthly location)"},
-                    "longitude": {"type": "number", "description": "Longitude (for earthly location)"},
-                    "celestial_coordinates": {"type": "string", "description": "Star coordinates (metaphysical only)"},
-                    "dimension_frequency": {
-                        "type": "number",
-                        "description": "Vibrational frequency in Hz (metaphysical only)",
-                    },
-                    "realm_governor": {"type": "string", "description": "Deity/guardian ruler"},
-                    "astrological_anchor": {"type": "string", "description": "Planetary line anchor"},
-                    "elemental_affinity": {"type": "string", "description": "Element (Fire, Water, etc.)"},
-                },
-                "required": ["name", "description", "location_type"],
-            },
-        },
-        {
-            "name": "list_narrative_characters",
-            "description": "List all active narrative character personalities and spiritual archetypes.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "create_narrative_character",
-            "description": "Create a new character archetype to weave into dialogue parables.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Character name"},
-                    "role": {
-                        "type": "string",
-                        "enum": ["master", "student", "alchemist", "hero", "deity", "guardian", "custom"],
-                    },
-                    "description": {"type": "string", "description": "Biography description"},
-                    "dialogue_style": {"type": "string", "description": "Description of speaking style (e.g. koans)"},
-                    "associated_realms": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Realm IDs frequented",
-                    },
-                    "mantra_preference": {"type": "string", "description": "Preferred mantra key"},
-                    "elemental_anchor": {"type": "string", "description": "Element key (space, fire, earth, etc.)"},
-                },
-                "required": ["name", "role", "description"],
-            },
-        },
-        {
-            "name": "start_narrative_loop",
-            "description": "Start continuous background narrative generation broadcasting on cycles.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "interval_minutes": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 1440,
-                        "description": "Minutes per cycle",
-                    },
-                    "lat": {"type": "number", "description": "Target latitude"},
-                    "lon": {"type": "number", "description": "Target longitude"},
-                    "languages": {"type": "array", "items": {"type": "string"}, "description": "Languages to weave"},
-                    "genre": {
-                        "type": "string",
-                        "enum": ["healing", "victory", "alchemist", "fun_parable", "dharani"],
-                        "description": "Blessing genre",
-                    },
-                    "custom_context": {"type": "string", "description": "Custom intentions"},
-                    "realm_id": {"type": "string", "description": "Realm ID"},
-                    "population_ids": {"type": "array", "items": {"type": "string"}, "description": "Population IDs"},
-                    "character_ids": {"type": "array", "items": {"type": "string"}, "description": "Character IDs"},
-                    "excluded_forces": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Negative forces to pacify",
-                    },
-                    "include_dialogue": {"type": "boolean", "description": "Include dialogue if True"},
-                },
-            },
-        },
-        {
-            "name": "stop_narrative_loop",
-            "description": "Stop the continuous background narrative loop.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "get_narrative_loop_status",
-            "description": "Check configuration and status of the continuous narrative broadcast loop.",
-            "parameters": {"type": "object", "properties": {}},
-        },
-        {
-            "name": "get_current_slide",
-            "description": "Get current slideshow photo details, progress, and overlay information.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "Slideshow session ID"},
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "stop_slideshow",
-            "description": "Stop an active blessing slideshow and get final statistics including photos blessed and mantras repeated.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "Slideshow session ID"},
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "update_population",
-            "description": "Update a target population's settings — priority, active status, urgency, etc.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "population_id": {"type": "string", "description": "Population ID to update"},
-                    "priority": {"type": "integer", "description": "Priority 1-10"},
-                    "is_urgent": {"type": "boolean", "description": "Whether urgent"},
-                    "is_active": {"type": "boolean", "description": "Whether active"},
-                },
-                "required": ["population_id"],
-            },
-        },
-        {
-            "name": "get_automation_stats",
-            "description": "Get complete automation statistics including history, totals, sessions completed, and populations processed.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "Automation session ID"},
-                },
-                "required": ["session_id"],
-            },
-        },
-        {
-            "name": "add_agent_suggestion",
-            "description": "Log an intentional path or suggestion for a task the agent wanted to do but couldn't because of missing capabilities or permissions.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string", "description": "Identifier for the current agent"},
-                    "intention": {"type": "string", "description": "What you intended to do"},
-                    "missing_tools": {"type": "string", "description": "The specific tools or capabilities you needed"},
-                    "context": {"type": "string", "description": "Why you wanted to do it"},
-                },
-                "required": ["agent_id", "intention", "missing_tools", "context"],
-            },
-        },
-        {
-            "name": "run_working",
-            "description": (
-                "Begin a complete radionics working: derive a 5-dial rate from the "
-                "intention, stamp Saka Dawa / Losar timing, map Solfeggio carriers, "
-                "and optionally start a prayer-bowl broadcast. USE THIS when the user "
-                "asks to begin a working, attune, broadcast a rate, charge an intention, "
-                "or do radionics — not for casual chat."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "intention": {
-                        "type": "string",
-                        "description": "The working's intention in the user's own words",
-                    },
-                    "target": {
-                        "type": "string",
-                        "description": "Who or what the working is for (default: all beings)",
-                    },
-                    "broadcast": {
-                        "type": "boolean",
-                        "description": "Start the prayer-bowl broadcast (default true)",
-                    },
-                    "duration_minutes": {
-                        "type": "integer",
-                        "description": "Broadcast duration in minutes, 1-30 (default 5)",
-                    },
-                },
-                "required": ["intention"],
-            },
-        },
-        {
-            "name": "forge_witness",
-            "description": (
-                "Generate a manifestation (witness) image for an already sealed working "
-                "and attach it to the folio. Cheaper than video. Pass working_id. "
-                "Uses the local render engine when it is up: that returns at once with "
-                "status 'queued' and an operation_id, and the image lands on the folio "
-                "a few minutes later. Otherwise a hosted image is attached immediately "
-                "(witness_fallback explains why local was not used)."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "working_id": {
-                        "type": "string",
-                        "description": "Id returned by run_working (wrk_…)",
-                    },
-                },
-                "required": ["working_id"],
-            },
-        },
-        {
-            "name": "speak_text",
-            "description": (
-                "Speak text through the TTS engine. Use after generating a "
-                "blessing, prayer, or teaching so it can be heard."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "Text to speak"},
-                    "voice": {"type": "string", "description": "Optional voice override"},
-                    "role": {
-                        "type": "string",
-                        "description": "Ritual role for voice selection (default dharma_teaching)",
-                    },
-                },
-                "required": ["text"],
-            },
-        },
-        {
-            "name": "generate_image",
-            "description": (
-                "Generate an image from a text prompt. The model and provider are "
-                "configured in Settings — the LLM should NOT choose them. When "
-                "model_lock is enabled (default), the configured default is always "
-                "used. When disabled (discretionary mode), the LLM may suggest a "
-                "model for the task, but the user's Settings still take precedence."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "prompt": {
-                        "type": "string",
-                        "description": (
-                            "Image description. 30-60 words is ideal; max 1000 tokens. "
-                            "Be specific about subject, style, lighting, and mood. "
-                            "Imagery only: no numbers, degrees, percentages, dates, house numbers, "
-                            "headings, glyphs or words to be written in the picture (image models "
-                            "paint them as garbled text; they are stripped). Say 'a thin waning "
-                            "crescent moon', not 'Moon 12% illuminated'."
-                        ),
-                    },
-                    "aspect_ratio": {
-                        "type": "string",
-                        "description": "Override the configured default aspect ratio (e.g. '1:1', '16:9', '9:16'). Only set if the user explicitly asks for a specific shape.",
-                    },
-                    "subject_reference": {
-                        "type": "string",
-                        "description": "MiniMax only: URL of reference image for character consistency",
-                    },
-                },
-                "required": ["prompt"],
-            },
-        },
-        {
-            "name": "get_celestial_night_sky",
-            "description": "Calculate topocentric celestial dome Alt/Az coordinates for 10 planets and 10 Vedic nakshatra stars, with Moon phase, illumination, and LST.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "latitude": {
-                        "type": "number",
-                        "description": "Observer latitude in degrees (default: San Francisco 37.7749)",
-                    },
-                    "longitude": {
-                        "type": "number",
-                        "description": "Observer longitude in degrees (default: San Francisco -122.4194)",
-                    },
-                    "timestamp": {
-                        "type": "number",
-                        "description": "Unix timestamp in seconds (optional, defaults to now)",
-                    },
-                },
-            },
-        },
-        {
-            "name": "get_dharani_text",
-            "description": "Retrieve complete unabbreviated sacred Dhāraṇī text (Sanskrit IAST, Chinese characters, English meaning, and recitation count). Supports Great Compassion (84 phrases), Śūraṅgama (5 assemblies), Sitātapatrā, Mahāpratisarā, Cundi, etc. Call with 'list' to browse directory.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "dharani_id_or_name": {
-                        "type": "string",
-                        "description": "Identifier or name of dhāraṇī (e.g. 'great_compassion_dharani', 'shurangama_mantra_full', 'sitatapatra_dharani', 'cundi_dharani', or 'list')",
-                    },
-                },
-            },
-        },
-        {
-            "name": "get_auspicious_timing_details",
-            "description": "Retrieve full 24-hour Auspicious Timing Wheel data including planetary hours, current ruler, day/night status, tithi, nakshatra, Saka Dawa multiplier, and ritual genre green windows.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "latitude": {"type": "number", "description": "Observer latitude in degrees"},
-                    "longitude": {"type": "number", "description": "Observer longitude in degrees"},
-                },
-            },
-        },
-        {
-            "name": "get_active_world_crises",
-            "description": "Fetch real-time global crises and natural disaster alerts from GDACS and ReliefWeb, including geographic coordinates, magnitude/severity, and recommended compassionate healing intention focus.",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-            },
-        },
-        {
-            "name": "trigger_living_ritual_broadcast",
-            "description": "Trigger a living ritual broadcast combining 6-section generated ritual liturgy, crystal bowl Solfeggio carriers, dedication, and optional TTS recitation.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "intention": {"type": "string", "description": "Sacred intention or dedication"},
-                    "target": {"type": "string", "description": "Target recipient or region (default 'all beings')"},
-                    "ritual_type": {
-                        "type": "string",
-                        "enum": [
-                            "healing",
-                            "victory",
-                            "wisdom",
-                            "purification",
-                            "compassion",
-                            "prosperity",
-                            "protection",
-                            "dedication_of_endeavors",
-                        ],
-                        "description": "Ritual genre or archetype",
-                    },
-                    "duration_minutes": {"type": "integer", "description": "Broadcast duration in minutes (default 5)"},
-                    "recite_with_tts": {"type": "boolean", "description": "Whether to recite the ritual aloud via TTS"},
-                },
-            },
-        },
-    ]
-
-    all_schemas = _radionics_schemas + _agent_schemas
-
-    seen: set[str] = set()
-    deduped: list[dict[str, Any]] = []
-    for s in all_schemas:
-        name = s.get("name", "")
-        if name in seen:
-            continue
-        seen.add(name)
-        deduped.append(s)
-
-    if essential_only:
-        deduped = [s for s in deduped if s.get("name", "") in ESSENTIAL_TOOL_NAMES]
-
-    return deduped
-
-
-# Example usage for LLM agents
-if __name__ == "__main__":
-    # Example: Complete automated workflow
-    print("Creating population...")
-    pop = create_population(
-        name="Test Population", category="custom", source_type="manual", description="Test population for demonstration"
-    )
-    print(f"Created: {pop['id']}")
-
-    print("\nListing all populations...")
-    pops = list_populations()
-    print(f"Total populations: {len(pops)}")
-
-    print("\nGetting statistics...")
-    stats = get_population_statistics()
-    print(f"Total blessings sent: {stats['total_blessings_sent']}")
-
-    # More examples would follow...
+    surface = tool_registry.CHAT if essential_only else tool_registry.AGENT
+    return tool_registry.schemas(surface)

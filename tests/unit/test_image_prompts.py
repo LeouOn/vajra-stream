@@ -394,7 +394,7 @@ async def test_llm_generate_image_tool_sanitizes_its_prompt(monkeypatch):
             return {"image_data_url": "data:image/png;base64,QQ=="}
 
     monkeypatch.setattr(image_generation, "get_service", lambda: FakeService())
-    await tools._AGENT_DISPATCH(prompt="Medicine Buddha, Moon 19.3° Scorpio (44% illuminated), House IV")
+    await tools.generate_image_for_tool(prompt="Medicine Buddha, Moon 19.3° Scorpio (44% illuminated), House IV")
     assert len(sent) == 1
     assert not NUMERIC.search(sent[0])
     assert sent[0].endswith(NO_TEXT_SUFFIX)

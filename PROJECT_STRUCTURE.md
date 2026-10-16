@@ -82,7 +82,7 @@ core/
 ├── astrology.py                   # Astrological services (111 KB — largest core file)
 ├── energetic_anatomy.py           # Chakra and meridian systems (56 KB)
 ├── blessing_narratives.py         # Blessing narrative generation (40 KB)
-├── radionics_tools.py             # Radionics tool functions (40 KB)
+├── tool_registry/                 # The single LLM tool registry (specs, schemas, dispatch)
 ├── outlook_generator.py           # Outlook generation (39 KB)
 ├── extraction.py                  # Astrology extraction pipeline (28 KB)
 ├── ritual_engine.py               # Autonomous ritual scheduler (28 KB)

@@ -78,6 +78,9 @@ GHOST_REFERENCES: list[tuple[str, str]] = [
     # "Decisions"); replaced by the operations ledger ---
     ("PROJECT_STRUCTURE.md", "mops.py"),
     ("PROJECT_STRUCTURE.md", "mops_engine.py"),
+    # --- The two LLM tool registries merged into core/tool_registry/ on
+    # 2026-10-16 (DEVELOPMENT_ROADMAP.md, Phase 3) ---
+    ("PROJECT_STRUCTURE.md", "radionics_tools.py"),
 ]
 
 
