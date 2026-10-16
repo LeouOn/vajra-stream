@@ -183,6 +183,12 @@ CI runs the same on `ubuntu-latest` with Python 3.11 (`.github/workflows/ci.yml`
   0/0 entries and 0/0 ignored codes. Do not add `ignore = [...]` lines.
 - **No `test_*.py` at `tests/` root.** `test_docs_no_ghost_paths.py` enforces
   it. Put every test under `unit/`, `integration/`, `e2e/`, `backend/`, or `core/`.
+- **Import layering.** `infrastructure`/`config` ← `core` ← `modules` ←
+  `backend`: no module-level import may point up that chain, no
+  module-level import cycles, and no `sys.path` edits in production
+  packages (`run.py` and file-run `scripts/` excepted).
+  `tests/unit/test_import_layering.py` enforces it with empty allow-lists.
+  If you must reach up, use a function-level import and comment why.
 - **No ghost documentation paths.** Several legacy `README.md`s contain
   HTML comments marking removed sections (`<!-- removed: ... ghost path per
   remediation-18 / Issue 5.8 -->`). If you add a doc link, make sure the

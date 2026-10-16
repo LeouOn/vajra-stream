@@ -167,9 +167,40 @@ individual reviews catching each case.
 
 - Merge the two LLM tool registries (`backend/core/llm_agent/tools.py`,
   `core/radionics_tools.py`, about 100 tools in total) into one.
-- Break the import cycles between `core` and `backend` and between `modules`
-  and `backend`, and remove the 14 production `sys.path.insert`s.
-- Finish ADR 002 step 3 (retire the `backend/app/config.py` shim).
+- [x] Break the import cycles between `core` and `backend` and between `modules`
+  and `backend`, and remove the production `sys.path.insert`s
+  (2026-10-16). Measured with an ast import graph (module-level imports
+  only; package `__init__` edges count): one 22-module cycle → none, and 6
+  module-level `core`/`modules` → `backend` imports → none. The cycle ran
+  service → API: `vajra_service` imported request models from the sessions
+  endpoint (moved to `backend/core/services/session_models.py`),
+  `autonomous_agent` imported the llm endpoint, and the `backend.core` /
+  `backend.core.services` `__init__`s eagerly imported `vajra_service`.
+  `core/outlook_generator.py` and `modules/outlook.py` now reach backend
+  services through commented function-level imports. The real count of
+  `sys.path` mutations was 25 in 21 files, not 14; all are gone. `run.py`
+  keeps its one (it is the entry point), the `scripts/` keep theirs (they
+  run as files), and `scripts/unified_orchestrator.py`, which the backend
+  also imports, now bootstraps only when run as a file.
+  `tests/unit/test_import_layering.py` fails on any new upward
+  module-level import, module-level cycle or production `sys.path` edit.
+  **Left:** 24 function-level import statements from `core`/`modules` into
+  `backend` remain (the last-resort form; they are not cycles at import
+  time). The biggest group is 7 broadcasts through
+  `backend.websocket.connection_manager` (ritual_engine, practice_engine,
+  buddha_recitation_loop, character_journey, modules/radionics), which want
+  a broadcast port in `infrastructure/`. The ones in `core/working.py`
+  → `llm_agent/tools.py` and `modules/radionics_operator.py` belong to the
+  tool-registry merge above. Also open: `hardware/hardware_manager.py` imports
+  `modules.interfaces` (a package-level `hardware` ↔ `modules` pair, not a
+  module cycle).
+- [x] Finish ADR 002 step 3 (retire the `backend/app/config.py` shim)
+  (2026-10-16). The shim is deleted. Env-driven settings live in
+  `config/backend_settings.py` and LLM provider settings in `config/llm.py`.
+  The test-suite DB isolation is now checked: conftest asserts the settings
+  module is not imported before it sets `DATABASE_URL`, and `sqlite3.connect`
+  refuses the live `vajra_stream.db` for the whole run
+  (`tests/unit/test_db_isolation.py`).
 - Continue splitting monoliths: `OutlookDashboard.tsx` (about 1,980 lines,
   55 `useState`) and `CommandCenter.tsx` (about 1,500 lines).
 
