@@ -16,7 +16,7 @@ here is the digital analog of the stick pad or pendulum. GV values, drawn
 potencies and drawn dial values are ``draw`` values, a divinatory method and
 never a measurement. Signature rates are ``computed`` (deterministic from the
 text). Every structure returned by this module says which is which through a
-``provenance`` mapping of field name to one of ``core.operations.PROVENANCE_KINDS``.
+``provenance`` mapping of field name to one of ``core.provenance.PROVENANCE_KINDS``.
 """
 
 import hashlib
@@ -29,10 +29,7 @@ from datetime import datetime
 
 import numpy as np
 
-# Provenance labels, mirrored from core.operations.PROVENANCE_KINDS. Kept as
-# literals so this engine stays importable without the operations ledger.
-DRAW = "draw"
-COMPUTED = "computed"
+from core.provenance import COMPUTED, DRAW
 
 # Every number in a GV statistics block derives from RNG draws.
 GV_STATS_PROVENANCE: dict[str, str] = {

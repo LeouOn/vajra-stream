@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.provenance import DRAW, RECORD
+
 # ─── Archetypal Tables ───────────────────────────────────────
 
 ELEMENTS = [
@@ -388,6 +390,10 @@ class CharacterSheet:
             "stats": self.stats,
             "generated_at": self.generated_at,
             "generator": self.generator,
+            # Stats are drawn (entropy pool or secrets), then element-boosted:
+            # a fiction character's attributes, never a measurement of anyone.
+            # The frequency follows the drawn element, so it is a draw too.
+            "provenance": {"stats": DRAW, "frequency": DRAW, "generated_at": RECORD},
         }
 
     def to_prompt_context(self) -> str:

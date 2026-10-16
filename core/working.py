@@ -21,10 +21,51 @@ from typing import Any
 from core import image_prompts
 from core.auspicious_timing import check_auspicious_window, check_saka_dawa
 from core.context_builder import search_rates
+from core.provenance import COMPUTED, DRAW, RECORD, with_provenance
 from core.radionics_engine import SignatureCalculator
 from core.rate_to_audio import map_rate_to_carriers
 
 logger = logging.getLogger(__name__)
+
+# A sealed folio is a record; the values sealed into it say how they were made.
+# The dials are computed from the intention's text (SignatureCalculator "mixed"),
+# the carriers from the dials, the calendar blocks from the sealing time, and a
+# divination cast attached at sealing is a draw.
+FOLIO_PROVENANCE: dict[str, str] = {
+    "sealed_at": RECORD,
+    "rate_values": COMPUTED,
+    "dials": COMPUTED,
+    "frequencies": COMPUTED,
+    "solfeggio_names": COMPUTED,
+    "amplitude": COMPUTED,
+    "saka_dawa": COMPUTED,
+    "timing": COMPUTED,
+    "hour_stamp": COMPUTED,
+    "broadcast": RECORD,
+    "divination": DRAW,
+}
+
+# Dials set by hand (PATCH /workings/{id}) are recorded as entered.
+HAND_SET_DIALS_PROVENANCE: dict[str, str] = {"rate_values": RECORD, "dials": RECORD}
+
+# The ledger row ``list_workings`` returns for each folio.
+FOLIO_SUMMARY_PROVENANCE: dict[str, str] = {
+    "sealed_at": RECORD,
+    "rate_values": COMPUTED,
+    "frequencies": COMPUTED,
+    "solfeggio_names": COMPUTED,
+    "saka_dawa_duchen": COMPUTED,
+    "saka_dawa_multiplier": COMPUTED,
+    "planetary_hour": COMPUTED,
+    "moon_phase": COMPUTED,
+}
+
+
+def _label_folio(folio: dict[str, Any]) -> dict[str, Any]:
+    """Attach the folio's provenance map (labels already stored on it win)."""
+    with_provenance(folio, FOLIO_PROVENANCE)
+    return folio
+
 
 WORKINGS_DIR = Path(__file__).resolve().parent.parent / "generated" / "workings"
 
@@ -177,7 +218,7 @@ def load_working(working_id: str) -> dict[str, Any] | None:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    return data if isinstance(data, dict) else None
+    return _label_folio(data) if isinstance(data, dict) else None
 
 
 def list_workings(limit: int = 20, *, include_hidden: bool = False) -> list[dict[str, Any]]:
@@ -202,6 +243,10 @@ def list_workings(limit: int = 20, *, include_hidden: bool = False) -> list[dict
         saka = data.get("saka_dawa") if isinstance(data.get("saka_dawa"), dict) else {}
         # Hosted witnesses carry an inline data URL; local renders an image_url.
         has_image = bool(witness.get("image_data_url") or witness.get("image_url"))
+        stored = data.get("provenance") if isinstance(data.get("provenance"), dict) else {}
+        row_provenance = dict(FOLIO_SUMMARY_PROVENANCE)
+        if stored.get("rate_values") in (RECORD, COMPUTED):
+            row_provenance["rate_values"] = stored["rate_values"]
         out.append(
             {
                 "working_id": data.get("working_id"),
@@ -220,6 +265,7 @@ def list_workings(limit: int = 20, *, include_hidden: bool = False) -> list[dict
                 "moon_phase": (data.get("hour_stamp") or {}).get("moon_phase"),
                 "saka_dawa_multiplier": saka.get("multiplier", 1),
                 "duplicate_of": data.get("duplicate_of"),
+                "provenance": row_provenance,
             }
         )
     return out
@@ -265,6 +311,7 @@ def update_working_rates(working_id: str, rate_values: list[int]) -> dict[str, A
         return folio
     carriers = map_rate_to_carriers(values)
     folio["rate_values"] = values
+    folio["provenance"] = {**(folio.get("provenance") or {}), **HAND_SET_DIALS_PROVENANCE}
     folio["dials"] = [
         {"name": _DIAL_NAMES[i] if i < len(_DIAL_NAMES) else f"D{i + 1}", "value": values[i]}
         for i in range(len(values))
@@ -663,7 +710,7 @@ def run_working(
 
     existing = find_recent_working(intention, target)
     if existing:
-        reused = dict(existing)
+        reused = _label_folio(dict(existing))
         reused["reused"] = True
         return reused
 
@@ -713,6 +760,7 @@ def run_working(
             "moon_phase": moon_phase,
         },
         "divination": divination,
+        "provenance": dict(FOLIO_PROVENANCE),
     }
     folio["image_prompt"] = witness_prompt(folio)
 

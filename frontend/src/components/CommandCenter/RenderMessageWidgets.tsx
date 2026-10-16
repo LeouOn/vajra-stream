@@ -14,6 +14,8 @@ import { apiUrl } from '../../utils/api';
 import WorkingInstrument, { WitnessPlate } from './WorkingInstrument';
 import WitnessSection from '../Workings/WitnessSection';
 import type { WitnessBlock } from '../../lib/witnessApi';
+import { fieldProvenance, type ProvenanceMap } from '../../lib/provenance';
+import Reading from '../UI/Reading';
 
 // ---------------------------------------------------------------------------
 // Divination payload types
@@ -150,6 +152,8 @@ export interface ToolCall {
     source?: string;
     chart_name?: string;
     hour_stamp?: { planetary_hour?: string | null; moon_phase?: string | null };
+    /** core/working.py FOLIO_PROVENANCE: field -> record/computed/draw. */
+    provenance?: ProvenanceMap;
   } | null;
 }
 
@@ -252,12 +256,22 @@ export function WorkingFolioCard({
         {showRates && (
         <div className="rounded-lg bg-amber-950/40 border border-amber-500/20 px-2 py-1.5">
           <div className="text-amber-400/70 uppercase tracking-wider text-[9px]">Dials</div>
-          <div className="font-mono text-amber-100">{dials || '—'}</div>
+          <Reading
+            value={dials || '—'}
+            provenance={fieldProvenance(folio.provenance, 'rate_values', 'computed')}
+            className="flex items-baseline gap-1"
+            valueClassName="font-mono text-amber-100"
+          />
         </div>
         )}
         <div className="rounded-lg bg-amber-950/40 border border-amber-500/20 px-2 py-1.5">
           <div className="text-amber-400/70 uppercase tracking-wider text-[9px]">Next Duchen</div>
-          <div className="text-amber-100">{duchen || '—'}{days != null ? ` · ${days}d` : ''}</div>
+          <Reading
+            value={`${duchen || '—'}${days != null ? ` · ${days}d` : ''}`}
+            provenance={fieldProvenance(folio.provenance, 'saka_dawa', 'computed')}
+            className="flex items-baseline gap-1"
+            valueClassName="text-amber-100"
+          />
         </div>
       </div>
       {folio.spoken_charge && (

@@ -19,7 +19,7 @@ import { useCrystalStore } from '../../stores/crystalStore';
 import { isActiveStatus, useOperationsStore } from '../../stores/operationsStore';
 import { useRateStore } from '../../stores/rateStore';
 import { nudgeCarrierFrequency } from '../../lib/stickPlate';
-import ProvenanceTag from './ProvenanceTag';
+import Reading from './Reading';
 import SigilRenderStatus, { type SigilRender } from './SigilRenderStatus';
 
 interface Dimensions {
@@ -533,30 +533,18 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
             <div className="absolute bottom-2 left-3 text-[10px] font-mono text-gray-500 pointer-events-none">
               PAD POS: {Math.round(rubPosition.x)}, {Math.round(rubPosition.y)}
             </div>
-            <div className="absolute bottom-2 right-3 flex items-center gap-1.5 text-[10px] font-mono text-yellow-400 font-bold pointer-events-none">
-              <span>NEARNESS TO NODE: {rubCoherence}%</span>
-              <ProvenanceTag kind="draw" />
+            <div className="absolute bottom-2 right-3 text-[10px] font-mono text-yellow-400 font-bold pointer-events-none">
+              <Reading label="NEARNESS TO NODE:" labelClassName="" value={rubCoherence} unit="%" provenance="draw" />
             </div>
           </div>
 
-          {/* Attunement indicators */}
-          <div className="space-y-3">
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-400">Stick Plate Resonance</span>
-              <span className={`font-bold font-mono ${resonantLocked ? 'text-yellow-400' : 'text-gray-400'}`}>
-                {resonantLocked ? 'CALIBRATED & LOCKED' : 'ALIGNING INDEX...'}
-              </span>
-            </div>
-            <div className="h-2 bg-gray-800 rounded-full overflow-hidden border border-white/5">
-              <div 
-                className={`h-full rounded-full transition-all duration-75 ${
-                  resonantLocked 
-                    ? 'bg-gradient-to-r from-yellow-500 to-amber-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]' 
-                    : 'bg-gradient-to-r from-purple-500 to-cyan-500'
-                }`}
-                style={{ width: `${rubCoherence}%` }}
-              />
-            </div>
+          {/* Plate status. The node is drawn, so nearness reads as drawn and
+              is never shown as a meter (no-draw-meters.test.ts). */}
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-400">Stick Plate</span>
+            <span className={`font-bold font-mono ${resonantLocked ? 'text-yellow-400' : 'text-gray-400'}`}>
+              {resonantLocked ? 'NODE FOUND' : 'SEEKING THE NODE...'}
+            </span>
           </div>
 
         </div>

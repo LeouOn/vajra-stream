@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from backend.core.services.divination_service import SPREAD_POSITIONS, divination_service
 from backend.core.services.grimoire_service import grimoire_service
+from core.provenance import COMPUTED, DRAW
 
 router = APIRouter(prefix="/divination", tags=["divination"])
 
@@ -36,6 +37,7 @@ async def draw_tarot(payload: DrawTarotRequest):
             "count": len(cards),
             "spread": [dict(p) for p in SPREAD_POSITIONS.get(payload.count, [])],
             "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"cards": DRAW},
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -46,7 +48,12 @@ async def cast_iching():
     """Cast an I Ching hexagram (6 lines, primary + relating)"""
     try:
         result = divination_service.cast_i_ching()
-        return {"status": "success", "cast": result, "timestamp": asyncio.get_event_loop().time()}
+        return {
+            "status": "success",
+            "cast": result,
+            "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"cast": DRAW},
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -56,7 +63,12 @@ async def cast_geomancy():
     """Cast a Geomantic Shield Chart projected into the 12 Houses"""
     try:
         result = divination_service.cast_geomancy()
-        return {"status": "success", "chart": result, "timestamp": asyncio.get_event_loop().time()}
+        return {
+            "status": "success",
+            "chart": result,
+            "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"chart": DRAW},
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -119,6 +131,16 @@ async def geomancy_elemental_balance():
             },
             "chart": result,
             "timestamp": asyncio.get_event_loop().time(),
+            # The harmony score compares a drawn shield with the computed sky,
+            # so it is a draw: read divinatorily, never as a measurement.
+            "provenance": {
+                "geomancy_elements": DRAW,
+                "western_elements": COMPUTED,
+                "harmony_score": DRAW,
+                "harmony_quality": DRAW,
+                "judge": DRAW,
+                "chart": DRAW,
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -221,6 +243,7 @@ async def cast_astrological_geomancy():
             "Niece 4",
         ]
         houses = {i + 1: resolved.get(house_order[i], {}) for i in range(12)}
+        shield_kind = COMPUTED if len(aspects) >= 4 else DRAW
 
         svg = divination_service._render_geomancy_shield_svg({k: v["pattern"] for k, v in resolved.items()})
 
@@ -240,6 +263,8 @@ async def cast_astrological_geomancy():
             "chart": {"figures": resolved, "houses": houses, "svg": svg},
             "geomancy_elements": geo_elements,
             "timestamp": asyncio.get_event_loop().time(),
+            # Mothers seeded from the sky are computed; any filled at random are drawn.
+            "provenance": {"chart": shield_kind, "geomancy_elements": shield_kind},
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

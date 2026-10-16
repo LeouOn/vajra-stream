@@ -10,6 +10,8 @@ import { WorkingFolioCard, type WorkingResult } from '../../components/CommandCe
 import { useRateStore } from '../../stores/rateStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import SittingsConstellation from '../../components/Workings/SittingsConstellation';
+import Reading from '../../components/UI/Reading';
+import { fieldProvenance, type ProvenanceMap } from '../../lib/provenance';
 
 interface WorkingSummary {
   working_id: string;
@@ -26,6 +28,8 @@ interface WorkingSummary {
   moon_phase?: string | null;
   saka_dawa_multiplier?: number | null;
   duplicate_of?: string | null;
+  /** core/working.py FOLIO_SUMMARY_PROVENANCE; hand-set dials read as records. */
+  provenance?: ProvenanceMap;
 }
 
 export default function WorkingsPage(): React.ReactElement {
@@ -239,7 +243,10 @@ export default function WorkingsPage(): React.ReactElement {
                 <div className="text-sm text-amber-50">{item.intention}</div>
                 {showRates && (
                   <div className="text-[10px] text-amber-300/60 font-mono mt-1">
-                    {(item.rate_values || []).join(' · ') || '—'}
+                    <Reading
+                      value={(item.rate_values || []).join(' · ') || '—'}
+                      provenance={fieldProvenance(item.provenance, 'rate_values', 'computed')}
+                    />
                     {item.has_witness ? ' · image' : ''}
                   </div>
                 )}

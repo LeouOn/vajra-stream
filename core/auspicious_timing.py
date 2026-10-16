@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from core.provenance import COMPUTED, with_provenance
+
 # ─── Genre ↔ Planetary Correspondences ───────────────────────
 
 GENRE_PLANETARY_HOURS = {
@@ -814,4 +816,16 @@ def check_saka_dawa(target_date: datetime | None = None) -> dict[str, Any]:
         )
     else:
         result.setdefault("message", "Saka Dawa date is unavailable for this year.")
+    # Every value here is computed from the Losar table and the date.
+    labeled = (
+        "is_saka_dawa",
+        "is_duchen",
+        "multiplier",
+        "losar",
+        "saka_dawa_duchen",
+        "days_until_duchen",
+        "saka_dawa_month_start",
+        "saka_dawa_month_end",
+    )
+    with_provenance(result, {key: COMPUTED for key in labeled if key in result})
     return result

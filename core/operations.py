@@ -37,6 +37,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
+from core.provenance import PROVENANCE_KINDS
 from core.schema import apply_schema, get_db_path
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,6 @@ KINDS = frozenset({"render", "broadcast", "working", "audio", "tts", "video", "o
 TERMINAL_STATUSES = frozenset({"success", "error", "cancelled", "interrupted"})
 ACTIVE_STATUSES = frozenset({"queued", "running"})
 STATUSES = TERMINAL_STATUSES | ACTIVE_STATUSES
-PROVENANCE_KINDS = frozenset({"record", "computed", "draw", "decorative"})
 
 _JSON_FIELDS = ("params", "provenance", "result")
 

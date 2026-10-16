@@ -11,7 +11,9 @@ import uuid
 from datetime import timezone
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from core.provenance import COMPUTED, DECORATIVE, RECORD, with_provenance
 
 # Module-level guarded import — `core.astrology` does an unguarded
 # ``import swisseph as swe`` at module load time, so a missing ``pyswisseph``
@@ -61,6 +63,19 @@ def init_db():
 init_db()
 
 
+def _snapshot_kind(astrology_data: dict, key: str) -> str:
+    """Provenance of one block of a ``vajra_service`` astrology snapshot.
+
+    The snapshot labels its own blocks (``computed``, or ``decorative`` for the
+    no-ephemeris placeholders). A block the snapshot lacks, which an endpoint
+    below replaces with a default, carries no information: ``decorative``.
+    """
+    if key not in astrology_data:
+        return DECORATIVE
+    labels = astrology_data.get("provenance")
+    return labels.get(key, COMPUTED) if isinstance(labels, dict) else COMPUTED
+
+
 def _get_aspect_influence(p1: str, p2: str, aspect: str) -> str:
     influences = {
         "conjunction": "Concentrated energy focus. Direct fusion of two principles.",
@@ -97,7 +112,18 @@ async def get_night_sky(
     if dt is None:
         dt = datetime.now(timezone.utc)
 
-    return calculate_night_sky(latitude=latitude, longitude=longitude, dt=dt)
+    sky = calculate_night_sky(latitude=latitude, longitude=longitude, dt=dt)
+    return with_provenance(
+        sky,
+        {
+            "observer": COMPUTED,
+            "moon": COMPUTED,
+            "planets": COMPUTED,
+            "visible_planets_count": COMPUTED,
+            "sacred_stars": COMPUTED,
+            "visible_stars_count": COMPUTED,
+        },
+    )
 
 
 @router.get("/current")
@@ -165,6 +191,7 @@ async def get_moon_phase():
             "moon_phase": moon_phase,
             "description": _get_moon_phase_description(moon_phase),
             "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"moon_phase": _snapshot_kind(astrology_data, "moon_phase")},
         }
     except Exception as e:
         logger.error(f"❌ Moon phase error: {e}")
@@ -186,6 +213,7 @@ async def get_planetary_positions():
             "status": "success",
             "planetary_positions": planetary_positions,
             "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"planetary_positions": _snapshot_kind(astrology_data, "planetary_positions")},
         }
     except Exception as e:
         logger.error(f"❌ Planetary positions error: {e}")
@@ -208,6 +236,7 @@ async def get_auspicious_times():
             "auspicious_times": auspicious_times,
             "description": "Recommended times for meditation and spiritual practices",
             "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"auspicious_times": _snapshot_kind(astrology_data, "auspicious_times")},
         }
     except Exception as e:
         logger.error(f"❌ Auspicious times error: {e}")
@@ -222,8 +251,9 @@ async def get_planetary_hours():
         from backend.core.services.vajra_service import vajra_service
 
         astrology_data = await vajra_service._get_astrology_data()
-        hours_data = astrology_data.get("planetary_hours", {})
-        return hours_data
+        hours_data = dict(astrology_data.get("planetary_hours") or {})
+        kind = _snapshot_kind(astrology_data, "planetary_hours")
+        return with_provenance(hours_data, {key: kind for key in hours_data if key != "provenance"})
     except Exception as e:
         logger.error(f"❌ Planetary hours error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -254,7 +284,19 @@ async def get_timing_wheel_endpoint(
                 target_dt = None
 
         wheel_data = get_timing_wheel(lat=latitude, lon=longitude, target_dt=target_dt)
-        return wheel_data
+        if not isinstance(wheel_data, dict):
+            return wheel_data
+        return with_provenance(
+            wheel_data,
+            {
+                "current_planetary_hour": COMPUTED,
+                "moon": COMPUTED,
+                "saka_dawa": COMPUTED,
+                "hourly_slices": COMPUTED,
+                "genre_windows": COMPUTED,
+                "next_optimal_windows": COMPUTED,
+            },
+        )
     except Exception as e:
         logger.error(f"❌ Timing wheel error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -268,7 +310,11 @@ async def get_western_astrology():
         from backend.core.services.vajra_service import vajra_service
 
         astrology_data = await vajra_service._get_astrology_data()
-        return {"status": "success", "western": astrology_data.get("western", {})}
+        return {
+            "status": "success",
+            "western": astrology_data.get("western", {}),
+            "provenance": {"western": _snapshot_kind(astrology_data, "western")},
+        }
     except Exception as e:
         logger.error(f"❌ Western astrology error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -282,7 +328,11 @@ async def get_indian_astrology():
         from backend.core.services.vajra_service import vajra_service
 
         astrology_data = await vajra_service._get_astrology_data()
-        return {"status": "success", "indian": astrology_data.get("indian", {})}
+        return {
+            "status": "success",
+            "indian": astrology_data.get("indian", {}),
+            "provenance": {"indian": _snapshot_kind(astrology_data, "indian")},
+        }
     except Exception as e:
         logger.error(f"❌ Indian astrology error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -296,7 +346,11 @@ async def get_chinese_astrology():
         from backend.core.services.vajra_service import vajra_service
 
         astrology_data = await vajra_service._get_astrology_data()
-        return {"status": "success", "chinese": astrology_data.get("chinese", {})}
+        return {
+            "status": "success",
+            "chinese": astrology_data.get("chinese", {}),
+            "provenance": {"chinese": _snapshot_kind(astrology_data, "chinese")},
+        }
     except Exception as e:
         logger.error(f"❌ Chinese astrology error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -337,7 +391,12 @@ async def get_zodiac_positions():
             "timestamp": asyncio.get_event_loop().time(),
         }
 
-        return {"status": "success", "zodiac_positions": res_positions}
+        # Missing ephemeris data falls back to "Aries 0°" above: a placeholder.
+        return {
+            "status": "success",
+            "zodiac_positions": res_positions,
+            "provenance": {"zodiac_positions": COMPUTED if positions else DECORATIVE},
+        }
     except Exception as e:
         logger.error(f"❌ Zodiac positions error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -392,6 +451,7 @@ async def get_current_transits(at: str | None = None):
             "transits": transits,
             "count": len(transits),
             "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"transits": COMPUTED, "count": COMPUTED},
         }
     except Exception as e:
         logger.error(f"❌ Planetary transits error: {e}")
@@ -407,6 +467,8 @@ async def get_elemental_balance():
 
         astrology_data = await vajra_service._get_astrology_data()
         western = astrology_data.get("western", {})
+        # The even 25/25/25/25 default is a placeholder, not a reading of the sky.
+        elements_kind = COMPUTED if "elements" in western else DECORATIVE
         elements = western.get("elements", {"Fire": 25, "Earth": 25, "Air": 25, "Water": 25})
 
         normalized_elements = {k.lower(): v for k, v in elements.items()}
@@ -422,6 +484,7 @@ async def get_elemental_balance():
             "dominant_element": dominant,
             "balance": balance,
             "timestamp": asyncio.get_event_loop().time(),
+            "provenance": {"elements": elements_kind, "dominant_element": elements_kind, "balance": elements_kind},
         }
     except Exception as e:
         logger.error(f"❌ Elemental balance error: {e}")
@@ -592,11 +655,23 @@ class SavedChartCreate(BaseModel):
     timezone: str | None = None
 
 
+def _saved_chart_provenance() -> dict[str, str]:
+    """A saved chart row: the birth data is a record, the cached chart is computed from it."""
+    return {
+        "birth_time_iso": RECORD,
+        "city": RECORD,
+        "created_at": RECORD,
+        "updated_at": RECORD,
+        "cached_chart_data": COMPUTED,
+    }
+
+
 class SavedChartResponse(SavedChartBase):
     id: int
     cached_chart_data: str | None = None
     created_at: str
     updated_at: str
+    provenance: dict[str, str] = Field(default_factory=_saved_chart_provenance)
 
 
 class RecalculateRequest(BaseModel):
@@ -1432,6 +1507,8 @@ async def compare_saved_charts(req: SavedChartsCompareRequest):
                 "description": harmony_desc,
                 "element_a": elem_a,
                 "element_b": elem_b,
+                # A fixed formula over the charts' aspects: computed, not a verdict.
+                "provenance": {"compatibility_score": COMPUTED, "harmony_count": COMPUTED, "tension_count": COMPUTED},
             }
 
         result["data"]["scoring"] = scoring

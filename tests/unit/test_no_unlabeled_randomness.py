@@ -48,11 +48,11 @@ ALLOWED: dict[str, str] = {
     "backend/core/services/divination_service.py": "draw: tarot / I Ching / geomancy casts, divination by nature",
     "backend/app/api/v1/endpoints/divination.py": "draw: geomancy mother figures, divination by nature",
     "core/ritual_generator.py": "draw: tarot, hexagram and geomancy picks for the ritual text",
+    "core/character_generator.py": "draw: fiction character stats carry provenance stats=draw; name picks are content",
     # --- content selection (which text or entity, not a reading) -----------
     "core/outlook_generator.py": "content: picks Buddha/yidam names and weighted realm/characters for the narrative",
     "core/blessing_narratives.py": "content: picks template phrases for blessing stories",
     "core/character_journey.py": "content: picks fallback template sentences",
-    "core/character_generator.py": "content: fiction character name/stats for the journey story",
     "core/dharma_tales.py": "content: picks theme/tradition/archetype for a tale",
     "core/eighty_eight_buddhas.py": "content: picks which Buddha to contemplate",
     "core/prayer_wheel.py": "content: picks a traditional aspiration prayer",

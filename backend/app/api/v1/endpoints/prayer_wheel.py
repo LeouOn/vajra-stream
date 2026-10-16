@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from container import container
+from core.provenance import COMPUTED, RECORD, with_provenance
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,9 @@ async def spin_wheel(request: SpinRequest):
         )
         if "error" in result:
             raise HTTPException(status_code=400, detail=result["error"])
-        return result
+        # Rotations and duration are what was requested and run; merit is a
+        # fixed formula over them (rotations x mantra length).
+        return with_provenance(result, {"rotations": RECORD, "duration": RECORD, "merit_generated": COMPUTED})
     except Exception as e:
         logger.error(f"Error spinning prayer wheel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
