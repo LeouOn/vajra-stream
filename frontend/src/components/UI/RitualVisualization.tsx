@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import type { Provenance } from '../../types/operations';
 import { formatPotency, potencyProvenance } from '../../lib/provenance';
-import ProvenanceTag from './ProvenanceTag';
+import Reading from './Reading';
 
 interface SigilCoord {
   x: number;
@@ -19,13 +19,15 @@ interface RateData {
 }
 
 function PotencyLine({ label, rate, className }: { label: string; rate: RateData & { potency: number }; className: string }) {
-  const kind = potencyProvenance(rate);
   return (
-    <div className={`flex items-center justify-center gap-1.5 text-[9px] font-mono text-gray-600 ${className}`}>
-      <span>
-        {label}: {formatPotency(rate.potency)}
-      </span>
-      <ProvenanceTag kind={kind} />
+    <div className={`flex items-center justify-center text-[9px] font-mono text-gray-600 ${className}`}>
+      <Reading
+        label={`${label}:`}
+        labelClassName=""
+        value={formatPotency(rate.potency)}
+        provenance={potencyProvenance(rate)}
+        className="inline-flex items-center gap-1.5"
+      />
     </div>
   );
 }

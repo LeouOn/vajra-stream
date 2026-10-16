@@ -3,7 +3,7 @@
  *
  * Polls /api/v1/operator/journey/status every 5s. When a journey is active,
  * renders the complete character profile (name, Chinese name, element, role,
- * stats with bars, sigil seed, frequency shifts) alongside the 6-stage
+ * drawn stats labeled "drawn", sigil seed, frequency shifts) alongside the 6-stage
  * progression tracker with per-stage blessing counts.
  *
  * Expanded from ~85 lines to full character sheet display.
@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { message, Tooltip } from 'antd';
+import type { ProvenanceMap } from '../../lib/provenance';
+import { fieldProvenance } from '../../lib/provenance';
+import Reading, { ReadingMeter } from './Reading';
 
 type StageKey = 'initiation' | 'training' | 'working' | 'overcoming' | 'utopia' | 'multiverse';
 type StatKey = 'vitality' | 'wisdom' | 'courage' | 'empathy' | 'focus' | 'resonance';
@@ -37,6 +40,8 @@ interface CharacterSheet {
   sigil_seed?: string;
   role_virtue?: string;
   backstory?: string;
+  /** core/character_generator.py: stats (and frequency) are drawn. */
+  provenance?: ProvenanceMap;
 }
 
 interface StageResult {
@@ -223,6 +228,8 @@ export default function JourneyCard() {
 
   // Character data is embedded in the journey status payload.
   const charData: CharacterSheet = journey?.character || {};
+  // The generator draws every stat; an older payload without labels is a draw too.
+  const statsProvenance = fieldProvenance(charData.provenance, 'stats', 'draw');
 
   // Show a placeholder while waiting for first fetch OR when journey is null
   // (was: returned null and the card disappeared entirely — see line 159 in
@@ -416,12 +423,12 @@ export default function JourneyCard() {
                           <Icon className={`w-2.5 h-2.5 ${meta.color}`} />
                           {meta.label}
                         </span>
-                        <span className={`text-[9px] font-bold font-mono ${meta.color}`}>{val}/10</span>
-                      </div>
-                      <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${meta.bg} transition-[width] duration-700 ease-out`}
-                          style={{ width: `${Math.min(100, val * 10)}%` }}
+                        {/* A drawn stat of a fiction character: shown as drawn, never as a bar. */}
+                        <Reading
+                          value={val}
+                          unit="/10"
+                          provenance={statsProvenance}
+                          valueClassName={`text-[9px] font-bold font-mono ${meta.color}`}
                         />
                       </div>
                       {meaning && (
@@ -517,15 +524,17 @@ export default function JourneyCard() {
                   <span className="text-xs font-medium" style={{ color }}>{stageName}</span>
                 )}
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1.5 overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700 ease-out"
-                  style={{
-                    width: `${progress}%`,
-                    background: `linear-gradient(90deg, ${color}80, ${color})`,
-                  }}
+              {/* Stages completed so far: a record. */}
+              <span className="mt-1.5 block">
+                <ReadingMeter
+                  percent={progress}
+                  provenance="record"
+                  label="Journey stages completed"
+                  className="h-1.5 bg-slate-800"
+                  fillClassName="transition-all duration-700 ease-out"
+                  fillStyle={{ background: `linear-gradient(90deg, ${color}80, ${color})` }}
                 />
-              </div>
+              </span>
               {/* Stage description */}
               <div className="text-[10px] text-slate-500 leading-relaxed mt-1">
                 {isComplete

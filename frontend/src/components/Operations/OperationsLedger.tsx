@@ -19,6 +19,7 @@ import { Button, Select, Tag } from 'antd';
 import { RefreshCw, Square } from 'lucide-react';
 import { isActiveStatus, selectOperations, useOperationsStore } from '../../stores/operationsStore';
 import { describeTiming, formatDuration } from '../../lib/operationFormat';
+import Reading from '../UI/Reading';
 import { useNow } from '../../hooks/useNow';
 import OperationStatusTag from './OperationStatusTag';
 import type { Operation, OperationKind, OperationStatus } from '../../types/operations';
@@ -90,9 +91,13 @@ function LedgerRow({ op, now, focused = false }: { op: Operation; now: number; f
           </Button>
         )}
       </div>
-      <div className="text-xs text-gray-400 font-mono" data-testid="ledger-timing">
-        {describeTiming(op, now)}
-      </div>
+      {/* Timing comes from the record; a running count is computed on this device. */}
+      <Reading
+        testId="ledger-timing"
+        value={describeTiming(op, now)}
+        provenance={op.status === 'running' ? 'computed' : 'record'}
+        className="flex items-baseline gap-1 text-xs text-gray-400 font-mono"
+      />
       {showError && (
         <div className="text-xs text-red-300 break-words" data-testid="ledger-error">
           {op.error}

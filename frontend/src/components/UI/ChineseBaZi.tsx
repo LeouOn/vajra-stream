@@ -2,6 +2,8 @@ import React from 'react';
 import { Card, Row, Col, Tag, Space } from 'antd';
 import { Sun, Moon, Calendar } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { Provenance } from '../../types/operations';
+import Reading, { ReadingMeter, isMeterProvenance } from './Reading';
 
 const WU_XING_COLORS: Record<string, string> = { Wood: '#10b981', Fire: '#ef4444', Earth: '#f59e0b', Metal: '#94a3b8', Water: '#3b82f6' };
 const WU_XING_ICONS: Record<string, string> = { Wood: '🌳', Fire: '🔥', Earth: '⛰️', Metal: '⚔️', Water: '💧' };
@@ -34,9 +36,11 @@ interface PillarDef {
 
 interface Props {
   chineseData?: ChineseData | null;
+  /** Provenance of the chinese block (computed; decorative for a placeholder). */
+  provenance?: Provenance;
 }
 
-const ChineseBaZi: React.FC<Props> = ({ chineseData }) => {
+const ChineseBaZi: React.FC<Props> = ({ chineseData, provenance = 'computed' }) => {
   if (!chineseData) return null;
   const bazi: Record<string, string> = chineseData.bazi || {};
   const lunar: ChineseLunarDate = chineseData.lunar_date || {};
@@ -151,10 +155,23 @@ const ChineseBaZi: React.FC<Props> = ({ chineseData }) => {
                 <div className="text-center">
                   <div className="text-xl mb-1">{WU_XING_ICONS[element]}</div>
                   <div className="text-[10px] font-bold" style={{ color }}>{element}</div>
-                  <div className="text-lg font-bold text-white">{count}</div>
-                  <div className="w-full bg-gray-800 rounded-full h-1.5 mt-1.5">
-                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-                  </div>
+                  <Reading
+                    value={count}
+                    provenance={provenance}
+                    className="inline-flex items-baseline justify-center gap-1"
+                    valueClassName="text-lg font-bold text-white"
+                  />
+                  {isMeterProvenance(provenance) && (
+                    <span className="mt-1.5 block">
+                      <ReadingMeter
+                        percent={pct}
+                        provenance={provenance}
+                        label={element}
+                        fillClassName="transition-all"
+                        fillStyle={{ backgroundColor: color }}
+                      />
+                    </span>
+                  )}
                   <div className="text-[9px] text-gray-500 mt-0.5">{pct}%</div>
                 </div>
               </Col>
