@@ -6,7 +6,7 @@
  *
  * @component
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Download, Volume2, Bell } from 'lucide-react';
 import { Card, Button, Row, Col, Space, Spin, Typography } from 'antd';
 import SadhanaVisualization from '../SadhanaVisualization';
@@ -32,6 +32,7 @@ interface RitualSummaryCardProps {
 export default function RitualSummaryCard({ narrative, fallbackGenre, media, onSave, onReplay }: RitualSummaryCardProps) {
   const { videoGenState, videoGenLoading, generateVideoFromNarrative } = media;
   const genre = narrative.genre || fallbackGenre;
+  const deity = useMemo(() => getDeityFromEntityText(narrative.entities_used), [narrative.entities_used]);
 
   return (
     <Card
@@ -65,10 +66,10 @@ export default function RitualSummaryCard({ narrative, fallbackGenre, media, onS
           <div><Text strong style={{ fontSize: 12 }}>{narrative.divination_raw?.sigil?.kamea || '—'}</Text></div>
         </Col>
       </Row>
-      {getDeityFromEntityText(narrative.entities_used as string) && (
+      {deity && (
         <div style={{ marginTop: 12 }} className="flex justify-center">
           <SadhanaVisualization
-            deity={getDeityFromEntityText(narrative.entities_used as string)!}
+            deity={deity}
             size={200}
             showLabels
             practicePhase="reciting"
