@@ -147,10 +147,16 @@ def test_api_unknown_place_is_a_400(client):
 
 
 def test_settings_router_is_registered_in_the_app():
+    # Through a real app: newer FastAPI keeps included routers nested, so
+    # api_router.routes no longer lists their paths.
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
     from backend.app.api.v1.api import api_router
 
-    paths = {getattr(r, "path", "") for r in api_router.routes}
-    assert "/settings/location" in paths
+    app = FastAPI()
+    app.include_router(api_router, prefix="/api/v1")
+    assert TestClient(app).get("/api/v1/settings/location").status_code == 200
 
 
 # -- workings remember where they were sealed ------------------------------------------
