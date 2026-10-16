@@ -68,6 +68,7 @@ const LEDGER = {
 
 type JobReply = Record<string, unknown>;
 let chatAsyncStatus = 200;
+let homeLocation: Record<string, unknown> | null = null;
 let jobReplies: JobReply[] = [];
 let nextJob = 0;
 
@@ -82,6 +83,9 @@ function route(url: string, init: RequestInit | undefined) {
   const p = apiPath(url);
   const method = (init?.method || 'GET').toUpperCase();
   if (p.startsWith('/astrology/current?')) return { body: { astrology: ASTRO } };
+  if (p === '/settings/location') {
+    return { body: { location: homeLocation, default: { latitude: 37.7749, longitude: -122.4194 }, display: null } };
+  }
   if (p === '/llm/models') {
     return { body: { status: 'success', available: { local: [], api: [], lm_studio: ['qwen-7b'] }, default_model: 'auto', lm_studio_connected: true } };
   }
@@ -177,6 +181,7 @@ if (typeof Element.prototype.scrollIntoView !== 'function') {
 
 beforeEach(() => {
   chatAsyncStatus = 200;
+  homeLocation = null;
   jobReplies = [COMPLETED];
   nextJob = 0;
   calls = installFetch(route).calls;
@@ -208,6 +213,7 @@ describe('CommandCenter — characterization', () => {
       '/llm/models/available',
       '/llm/providers/health',
       '/operations/summary',
+      '/settings/location',
     ]);
 
     expect(container.textContent).toContain('Vajra.Stream Command Center Ready');
@@ -224,6 +230,18 @@ describe('CommandCenter — characterization', () => {
 
     act(() => root.unmount());
     for (const id of ids) expect(clearIntervalSpy).toHaveBeenCalledWith(id);
+  });
+
+  it('reads the astrology context at the home location, rounded to one decimal', async () => {
+    homeLocation = { latitude: 27.717245, longitude: 85.323961, label: 'Kathmandu', source: 'browser' };
+    await mount();
+    await flush(10);
+    const astro = calls
+      .filter((c) => c.method === 'GET')
+      .map((c) => apiPath(c.url))
+      .filter((p) => p.startsWith('/astrology/current?'));
+    expect(astro[astro.length - 1]).toMatch(/&latitude=27.7&longitude=85.3$/);
+    expect(astro.join(' ')).not.toContain('27.717');
   });
 
   it('submits a command with the injected context and renders the completed reply', async () => {

@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from config.settings import DEFAULT_LATITUDE, DEFAULT_LONGITUDE
+from core.home_location import format_coords, public_coords
 from core.image_prompts import caption_fact, moon_phase_words
 from core.provenance import Provenance
 
@@ -241,7 +242,8 @@ def compute_sky(when: datetime | str | None, lat: float, lon: float) -> dict[str
             magnitude = float(swe.pheno_ut(jd, body)[4])
             planets.append({"name": name, "alt": _round(alt), "az": _round(az), "magnitude": _round(magnitude, 1)})
     except Exception as exc:  # an ephemeris failure must not break a witness
-        logger.warning("compute_sky(%s, %s, %s) failed: %s", at, lat, lon, exc)
+        # the observer's coordinates are personal data: not logged
+        logger.warning("compute_sky(%s) failed: %s", at, exc)
         return None
 
     return {
@@ -403,11 +405,45 @@ def observer_for(record: dict[str, Any] | None) -> tuple[float, float, str]:
     return float(DEFAULT_LATITUDE), float(DEFAULT_LONGITUDE), "default"
 
 
-def observer_fact(lat: float, lon: float, source: str) -> dict[str, str]:
-    """Where the sky was computed for; a default location says so."""
-    where = f"{lat:.4f}°, {lon:.4f}°"
+def observer_label(record: dict[str, Any] | None) -> str | None:
+    """The label of a folio's own ``location`` (``"Kathmandu"``), or ``None``."""
+    loc = (record or {}).get("location")
+    label = loc.get("label") if isinstance(loc, dict) else None
+    return str(label) if label else None
+
+
+def public_observer(lat: float, lon: float, source: str, label: str | None = None) -> dict[str, Any]:
+    """The ``observer`` block a sky record shows: coordinates rounded (location is personal data).
+
+    The sky is computed at full precision; only what is stored on the witness,
+    written beside the composite and shown in captions is rounded.
+    """
+    plat, plon = public_coords(lat, lon)
+    out: dict[str, Any] = {"lat": plat, "lon": plon, "source": source}
+    if label:
+        out["label"] = label
+    return out
+
+
+def public_sky(computed: dict[str, Any], source: str, label: str | None = None) -> dict[str, Any]:
+    """``computed`` with its observer rounded for display and its sidereal time coarsened.
+
+    The local sidereal time is the Greenwich one plus the observer's longitude,
+    so at full precision it would give the longitude back.
+    """
+    observer = computed["observer"]
+    out = dict(computed)
+    out["observer"] = public_observer(observer["lat"], observer["lon"], source, label)
+    out["local_sidereal_deg"] = round(float(computed["local_sidereal_deg"]), 1)
+    return out
+
+
+def observer_fact(lat: float, lon: float, source: str, label: str | None = None) -> dict[str, str]:
+    """Where the sky was computed for (label and rounded coordinates); a default location says so."""
+    where = format_coords(lat, lon)
     if source == "folio":
-        return _fact("Sky observer", f"{where} (the folio's location)", "record")
+        place = f"{label} ({where})" if label else where
+        return _fact("Sky observer", f"{place}, the folio's location", "record")
     return _fact("Sky observer", f"{where} (default location from config/settings.py; the folio has none)", "record")
 
 
