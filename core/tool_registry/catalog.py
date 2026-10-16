@@ -1402,6 +1402,20 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
                         "shakyamuni, manjushri, prajnaparamita, or 88_buddhas. Leave out if none was named."
                     ),
                 },
+                "location": {
+                    "type": "object",
+                    "description": (
+                        "Where the practitioner is sitting, ONLY if they explicitly said they are sealing it "
+                        "somewhere other than home: {latitude, longitude, label}. Normally leave this out; the "
+                        "user's saved home location is used. Not the place the working is for (that is target)."
+                    ),
+                    "properties": {
+                        "latitude": {"type": "number"},
+                        "longitude": {"type": "number"},
+                        "label": {"type": "string"},
+                    },
+                    "required": ["latitude", "longitude"],
+                },
             },
             "required": ["intention"],
         },

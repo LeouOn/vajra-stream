@@ -1377,11 +1377,14 @@ def run_working(
     broadcast: bool = True,
     duration_minutes: int = 5,
     deity: str | None = None,
+    location: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Seal one working: rates, Saka Dawa stamp, optional broadcast, optional deity.
 
     A deity the iconography data does not know is dropped (and said so in
-    ``deity_note``) rather than failing the whole working.
+    ``deity_note``) rather than failing the whole working. ``location`` is
+    normally omitted so the user's home location applies; one that is not a
+    valid ``{latitude, longitude}`` is dropped the same way (``location_note``).
     """
     from core import iconography
     from core.working import run_working as _run_working
@@ -1390,15 +1393,29 @@ def run_working(
     if deity and deity.strip() and iconography.resolve(deity) is None:
         note = f"unknown deity {deity!r} was not applied; known: {', '.join(d['id'] for d in iconography.deities())}"
         deity = None
+    location_note = None
+    if location is not None:
+        from core.home_location import normalize_location
+
+        try:
+            if not isinstance(location, dict):
+                raise ValueError("location must be an object with latitude and longitude")
+            location = normalize_location(location)
+        except ValueError as exc:
+            location_note = f"location was not applied ({exc}); the home location is used instead"
+            location = None
     folio = _run_working(
         intention=intention,
         target=target,
         broadcast=broadcast,
         duration_minutes=duration_minutes,
         deity=deity,
+        location=location,
     )
     if note:
         folio["deity_note"] = note
+    if location_note:
+        folio["location_note"] = location_note
     return folio
 
 
