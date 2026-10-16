@@ -163,10 +163,9 @@ def test_balancing_tool_output_is_labeled_a_draw(dispatcher):
 
 
 def test_gv_tool_description_does_not_promise_a_measurement():
-    from core.radionics_tools import RADIONICS_TOOLS
+    from core.tool_registry import get_spec
 
-    by_name = {t["function"]["name"]: t["function"] for t in RADIONICS_TOOLS}
-    desc = by_name["measure_general_vitality"]["description"]
+    desc = get_spec("measure_general_vitality").description
     assert "DRAW" in desc
     assert "not a measurement" in desc
     assert "excellent" not in desc.lower()
