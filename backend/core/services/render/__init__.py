@@ -6,6 +6,7 @@ Contract: docs/specs/2026-10-14-operations-and-local-render.md ("Render contract
 * :mod:`.comfyui` — ComfyUI + Qwen-Image 2.1 Turbo adapter (graph ported from the DataForge garden)
 * :mod:`.jobs` — request validation, submit / cancel, artifact paths, backend registry
 * :mod:`.references` — content-addressed reference images (header-sniffed PNG / JPEG / WebP)
+* :mod:`.deity_references` — a user thangka reference pinned per deity (used by witness renders)
 * :mod:`.worker` — the single asyncio worker started from ``backend/app/main.py``; on start it
   installs the folio witness listener (``core.working.apply_witness_render``)
 """

@@ -8,7 +8,7 @@ import {
   Sparkles, Compass, ArrowRight, Zap, Play, Check, 
   RefreshCw, Layers, Award, Shield, Cpu, HelpCircle, Settings
 } from 'lucide-react';
-import { Card, Tag, Input, Button } from 'antd';
+import { Card, Tag, Input, Button, Select } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { useAudioStore } from '../../stores/audioStore';
 import ChakraHealing from './ChakraHealing';
@@ -18,6 +18,7 @@ import TimeCycles from './TimeCycles';
 import ChakraBodyMap from '../2D/ChakraBodyMap';
 import PageHeader from './PageHeader';
 import { apiUrl } from '../../utils/api';
+import { ICONOGRAPHY_DEITY_OPTIONS } from '../../lib/iconographyDeities';
 import { WorkingFolioCard, type WorkingResult } from '../CommandCenter/RenderMessageWidgets';
 
 interface TarotCard {
@@ -146,6 +147,7 @@ export default function OperationsPanel() {
   const [isRitualRunning, setIsRitualRunning] = useState<boolean>(false);
   const [activeStepIndex, setActiveStepIndex] = useState<number>(-1);
   const [composerIntention, setComposerIntention] = useState<string>('');
+  const [composerDeity, setComposerDeity] = useState<string | undefined>(undefined);
   const [sealedWorking, setSealedWorking] = useState<WorkingResult | null>(null);
 
   const fetchAstrology = async (): Promise<{ hour?: string; moon?: string }> => {
@@ -358,6 +360,7 @@ export default function OperationsPanel() {
             planetary_hour: hourStamp.hour,
             moon_phase: hourStamp.moon,
             divination: Object.keys(divination).length ? divination : undefined,
+            deity: composerDeity,
           }),
         });
         if (!res.ok) throw new Error(`working ${res.status}`);
@@ -814,6 +817,16 @@ export default function OperationsPanel() {
             placeholder={question.trim() || 'Intention for this sitting (or use the Divination question)'}
             rows={2}
             className="bg-gray-950/60"
+          />
+          <Select
+            allowClear
+            value={composerDeity}
+            onChange={(value: string | undefined) => setComposerDeity(value)}
+            options={[...ICONOGRAPHY_DEITY_OPTIONS]}
+            placeholder="Deity for the witness (optional)"
+            aria-label="Deity for the witness"
+            data-testid="working-deity"
+            className="w-full md:w-96"
           />
 
           {/* Workflow Sequence Blocks */}
