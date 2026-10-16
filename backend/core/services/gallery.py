@@ -7,6 +7,10 @@ Images live in three stores; each item names its ``source``:
     bytes are ``generated/renders/YYYY-MM-DD/<op_id>.png``, served by
     ``GET /render/jobs/{id}/image``. Seed, its provenance and the measured size
     come from the ledger record, which mirrors the ``<op_id>.json`` sidecar.
+    A witness render with the true sky drawn on (``core/sky_composite.py``)
+    is listed as that composite, ``<op_id>.sky.png`` served by
+    ``GET /gallery/sky/{id}/image``, with the caption facts of its
+    ``<op_id>.sky.json``; the plain scene stays at ``scene_image_url``.
 ``hosted``
     Hosted-provider saves, ``img_<unix>_<prompthash>.<ext>`` in the image
     output directory, served by ``GET /gallery/hosted/{filename}``. Saves made
@@ -39,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.core.services.render import jobs, references
-from core import operations
+from core import operations, sky_composite
 
 logger = logging.getLogger(__name__)
 
@@ -246,8 +250,42 @@ def collect_renders(skipped: list[dict[str, str]]) -> list[dict[str, Any]]:
                 "reference_id": params.get("reference_id"),
             },
         }
-        items.append(_with_caption_facts(item, result, params))
+        items.append(_with_sky_composite(_with_caption_facts(item, result, params), path, skipped))
     return items
+
+
+def _with_sky_composite(item: dict[str, Any], scene: Path, skipped: list[dict[str, str]]) -> dict[str, Any]:
+    """Show a render's true-sky composite (if it has one) in place of its plain scene."""
+    sidecar = sky_composite.read_sidecar(scene)
+    if sidecar is None:
+        return item
+    op_id = item["links"]["operation_id"]
+    composite, _ = sky_composite.composite_paths(scene)
+    try:
+        checked = check_image_file(composite)
+    except (UnreadableImage, OSError) as exc:
+        _skip(skipped, "local-render", f"{op_id} (sky composite)", str(exc))
+        return item
+    item.update(
+        scene_image_url=item["image_url"],
+        image_url=sky_composite.composite_image_url(op_id),
+        media_type=checked.media_type,
+        bytes=checked.size,
+    )
+    if isinstance(sidecar.get("caption_facts"), list):
+        item["caption_facts"] = sidecar["caption_facts"]
+    return item
+
+
+def sky_composite_file(op_id: str) -> Path:
+    """The true-sky composite of a successful render, or :class:`GalleryNotFound`."""
+    op = operations.get_operation(op_id)
+    scene = jobs.image_file(op) if op is not None else None
+    if scene is None or sky_composite.read_sidecar(scene) is None:
+        raise GalleryNotFound(op_id)
+    composite, _ = sky_composite.composite_paths(scene)
+    check_image_file(composite)
+    return composite
 
 
 # -- hosted saves ------------------------------------------------------------------

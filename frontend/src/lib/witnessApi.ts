@@ -25,7 +25,12 @@ export interface WitnessBlock {
   status?: string;
   source?: string;
   operation_id?: string;
+  /** For a local render with the true sky drawn on, the composite; the plain scene is `scene_image_url`. */
   image_url?: string;
+  /** The rendered scene before the computed sky was composited onto it. */
+  scene_image_url?: string;
+  /** How the sky was computed and drawn (method, observer, camera, per-body status); see core/sky.py. */
+  sky?: unknown;
   image_data_url?: string;
   seed?: number;
   seed_provenance?: string;
