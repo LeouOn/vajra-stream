@@ -235,7 +235,6 @@ export default function CommandCenter({
       message: 'Quantum RNG & Attunement system online. Idle.'
     }
   ]);
-  const [auraCoherence, setAuraCoherence] = useState(35);
   const [astroData, setAstroData] = useState<Record<string, unknown> | null>(null);
   const [includeAstrology, setIncludeAstrology] = useState(true);
   const [includeAnatomy, setIncludeAnatomy] = useState(true);
@@ -417,20 +416,6 @@ export default function CommandCenter({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
-
-  // Dynamic Aura Coherence simulation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const active = isPlaying || Object.keys(sessions).length > 0;
-      setAuraCoherence(prev => {
-        const base = active ? 88 : 35;
-        const range = active ? 8 : 10;
-        const drift = base + Math.sin(Date.now() / 2000) * (range / 2) + Math.random() * (range / 2);
-        return Math.min(100, Math.max(0, Math.round(drift)));
-      });
-    }, 250);
-    return () => clearInterval(interval);
-  }, [isPlaying, sessions]);
 
   // Auto-scroll to bottom of messages and logs
   useEffect(() => {
@@ -1329,11 +1314,7 @@ export default function CommandCenter({
 
         {/* Status Monitors Card */}
         <SystemMonitorsCard
-          auraCoherence={auraCoherence}
-          isConnected={isConnected}
           isPlaying={isPlaying}
-          frequency={frequency}
-          crystalStatus={crystalStatus}
           scalarStatus={scalarStatus}
           sessions={sessions}
         />

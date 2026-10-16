@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { WS_URL, apiUrl } from '../utils/api';
 import { useBroadcastStore } from '../stores/broadcastStore';
+import { update as updateChatProgress } from './chatProgress';
 import type {
   WSMessage,
   CrystalStatus,
@@ -451,7 +452,7 @@ function _connect(url: string = _url): void {
           case 'chat_complete':
           case 'chat_error':
           case 'chat_cancelled':
-            import('./chatProgress').then((m) => m.update((data as { job_id?: string }).job_id as string, data as unknown as Record<string, unknown>));
+            updateChatProgress((data as { job_id?: string }).job_id as string, data as unknown as Record<string, unknown>);
             break;
           // Backend: core/practice_engine.py:_broadcast_ws — multi-practice
           // recitation lifecycle (Tara / Zhunti / Medicine Buddha / etc.).
