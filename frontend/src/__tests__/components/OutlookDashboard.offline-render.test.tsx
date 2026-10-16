@@ -7,7 +7,7 @@
  * child components received undefined or non-array props and called .map()
  * on them.
  *
- * The defensive `unwrap<T>` helper at L416 of OutlookDashboard.tsx accepts
+ * The defensive `unwrapList<T>` helper (outlook/useOutlookUniverse.ts) accepts
  * either bare arrays, {items: []} envelopes, or {data: []} envelopes —
  * but other useMemo factories in the same file (and in child components)
  * also need to be defensive. This test pins the offline-renders-clean
