@@ -28,7 +28,7 @@ async def test_autonomous_agent_event_reaction():
     # We will mock the chat_interaction response instead of executing the full LLM
     # We want to simulate the LLM deciding to call 'play_chakra_healing_audio'
 
-    with patch("backend.core.llm_agent.autonomous_agent.chat_interaction") as mock_chat:
+    with patch("backend.app.api.v1.endpoints.llm.chat_interaction") as mock_chat:
         # Create a mock response object
         mock_response = MagicMock()
         mock_response.response = "The energy is chaotic, I will play the heart chakra audio."
