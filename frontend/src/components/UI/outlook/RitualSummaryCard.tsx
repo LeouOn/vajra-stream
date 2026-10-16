@@ -11,6 +11,7 @@ import { Download, Volume2, Bell } from 'lucide-react';
 import { Card, Button, Row, Col, Space, Spin, Typography } from 'antd';
 import SadhanaVisualization from '../SadhanaVisualization';
 import RitualVisualization from '../RitualVisualization';
+import ProvenanceTag from '../ProvenanceTag';
 import { getDeityFromEntityText } from '../../../lib/deityVisualizations';
 import { GENRE_COLORS } from './outlookShared';
 import type { CurrentNarrative } from './outlookNarrative';
@@ -52,11 +53,11 @@ export default function RitualSummaryCard({ narrative, fallbackGenre, media, onS
           <div><Text strong style={{ fontSize: 12 }}>{narrative.model_used ? `${narrative.provider_used || 'unknown'}/${narrative.model_used}` : '—'}</Text></div>
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Text type="secondary" style={{ fontSize: 10 }}>Tarot</Text>
+          <Text type="secondary" style={{ fontSize: 10 }}>Tarot</Text> <ProvenanceTag kind="draw" />
           <div><Text strong style={{ fontSize: 12 }}>{narrative.divination_raw?.tarot?.name || '—'}</Text></div>
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Text type="secondary" style={{ fontSize: 10 }}>I Ching</Text>
+          <Text type="secondary" style={{ fontSize: 10 }}>I Ching</Text> <ProvenanceTag kind="draw" />
           <div><Text strong style={{ fontSize: 12 }}>{narrative.divination_raw?.iching?.name || '—'}</Text></div>
         </Col>
         <Col xs={24} sm={12} md={8}>
