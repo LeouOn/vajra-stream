@@ -48,6 +48,18 @@ async def get_hosted_image(filename: str) -> FileResponse:
     return FileResponse(path, media_type=checked.media_type, filename=path.name)
 
 
+@router.get("/sky/{op_id}/image")
+async def get_sky_composite_image(op_id: str) -> FileResponse:
+    """A witness render with the true sky drawn on (the plain scene stays at ``/render/jobs/{id}/image``)."""
+    try:
+        path = gallery.sky_composite_file(op_id)
+    except gallery.GalleryNotFound:
+        raise HTTPException(status_code=404, detail="no sky composite for this render") from None
+    except gallery.UnreadableImage as exc:
+        raise HTTPException(status_code=415, detail=f"not a servable image: {exc}") from None
+    return FileResponse(path, media_type="image/png", filename=path.name)
+
+
 @router.get("/witness/{working_id}/image")
 async def get_witness_image(working_id: str) -> Response:
     """The inline hosted witness of a folio, decoded (local witnesses are render jobs)."""

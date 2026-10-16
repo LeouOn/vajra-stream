@@ -1376,16 +1376,30 @@ def run_working(
     target: str = "all beings",
     broadcast: bool = True,
     duration_minutes: int = 5,
+    deity: str | None = None,
 ) -> dict[str, Any]:
-    """Seal one working: rates, Saka Dawa stamp, optional broadcast."""
+    """Seal one working: rates, Saka Dawa stamp, optional broadcast, optional deity.
+
+    A deity the iconography data does not know is dropped (and said so in
+    ``deity_note``) rather than failing the whole working.
+    """
+    from core import iconography
     from core.working import run_working as _run_working
 
-    return _run_working(
+    note = None
+    if deity and deity.strip() and iconography.resolve(deity) is None:
+        note = f"unknown deity {deity!r} was not applied; known: {', '.join(d['id'] for d in iconography.deities())}"
+        deity = None
+    folio = _run_working(
         intention=intention,
         target=target,
         broadcast=broadcast,
         duration_minutes=duration_minutes,
+        deity=deity,
     )
+    if note:
+        folio["deity_note"] = note
+    return folio
 
 
 async def forge_witness(working_id: str = "") -> dict[str, Any]:

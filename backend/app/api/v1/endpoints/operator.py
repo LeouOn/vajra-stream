@@ -9,7 +9,7 @@ from typing import Literal
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter()
 
@@ -714,6 +714,20 @@ class RunWorkingRequest(BaseModel):
     planetary_hour: str | None = Field(default=None, max_length=40)
     moon_phase: str | None = Field(default=None, max_length=80)
     divination: dict | None = None
+    deity: str | None = Field(
+        default=None, max_length=120, description="Deity id or alias from knowledge/iconography.json (GET /iconography)"
+    )
+
+    @field_validator("deity")
+    @classmethod
+    def _known_deity(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        from core import iconography
+
+        if iconography.resolve(value) is None:
+            raise ValueError(f"unknown deity {value!r}; GET /api/v1/iconography lists the known deities")
+        return value.strip()
 
 
 @router.post("/working", summary="Seal a radionics working from an intention")
@@ -732,6 +746,7 @@ async def run_working_endpoint(request: RunWorkingRequest):
             planetary_hour=request.planetary_hour,
             moon_phase=request.moon_phase,
             divination=request.divination,
+            deity=request.deity,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

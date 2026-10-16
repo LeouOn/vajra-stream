@@ -259,6 +259,27 @@ describe('WitnessSection on a working folio', () => {
     expect(q('witness-seed')?.textContent).toBe('seed 5 (chosen)');
   });
 
+  it('shows the true-sky composite, its sky caption facts and a link to the plain scene', async () => {
+    await renderFolio({
+      ...FOLIO,
+      witness: {
+        ...LOCAL_WITNESS,
+        image_url: '/api/v1/gallery/sky/op-7/image',
+        scene_image_url: '/api/v1/render/jobs/op-7/image',
+        caption_facts: [
+          { label: 'Moon in the sky', value: 'altitude 23.4°, azimuth 201.7° (SSW)', provenance: 'computed' },
+          { label: 'Sky overlay', value: 'Moon drawn at 5× apparent size', provenance: 'computed' },
+        ],
+      },
+    });
+    const plate = q('witness-plate');
+    expect(plate?.querySelector('img')?.getAttribute('src')).toBe('/api/v1/gallery/sky/op-7/image');
+    expect(q('witness-scene-link')?.querySelector('a')?.getAttribute('href')).toBe('/api/v1/render/jobs/op-7/image');
+    const caption = q('image-caption-facts')?.textContent ?? '';
+    expect(caption).toContain('Moon in the sky');
+    expect(caption).toContain('Moon drawn at 5× apparent size');
+  });
+
   it('shows a failed local render from the folio', async () => {
     await renderFolio({ ...FOLIO, witness: { status: 'error', operation_id: 'op-9', error: 'ComfyUI not reachable' } });
     expect(q('witness-error')?.textContent).toBe('Local witness render failed: ComfyUI not reachable');

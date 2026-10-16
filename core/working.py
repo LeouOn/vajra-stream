@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core import image_prompts
+from core import iconography, image_prompts, sky
 from core.auspicious_timing import check_auspicious_window, check_saka_dawa
 from core.context_builder import search_rates
 from core.provenance import COMPUTED, DRAW, RECORD, with_provenance
@@ -43,6 +43,7 @@ FOLIO_PROVENANCE: dict[str, str] = {
     "hour_stamp": COMPUTED,
     "broadcast": RECORD,
     "divination": DRAW,
+    "deity": RECORD,
 }
 
 # Dials set by hand (PATCH /workings/{id}) are recorded as entered.
@@ -328,9 +329,16 @@ def update_working_rates(working_id: str, rate_values: list[int]) -> dict[str, A
     return folio
 
 
-def _folio_moon(folio: dict[str, Any]) -> dict[str, Any] | None:
-    """The moon computed at the folio's ``sealed_at`` (Swiss Ephemeris), or ``None``."""
-    return image_prompts.moon_at(folio.get("sealed_at"))
+def _folio_sky(folio: dict[str, Any]) -> dict[str, Any] | None:
+    """The true sky at the folio's ``sealed_at`` and place (core/sky.py), or ``None``.
+
+    ``observer.source`` says whether the folio's own location or the default was used.
+    """
+    lat, lon, source = sky.observer_for(folio)
+    computed = sky.compute_sky(folio.get("sealed_at"), lat, lon)
+    if computed is not None:
+        computed["observer"]["source"] = source
+    return computed
 
 
 def _saka_block(folio: dict[str, Any]) -> dict[str, Any]:
@@ -345,14 +353,20 @@ def witness_prompt(folio: dict[str, Any]) -> str:
     :mod:`core.image_prompts` stored prompts with dates and a "full moon"
     taken from a future festival, which models paint as text and false sky.
     """
-    hour = folio.get("hour_stamp") if isinstance(folio.get("hour_stamp"), dict) else {}
+    computed = _folio_sky(folio)
     return _image_prompt(
         str(folio.get("intention") or ""),
         str(folio.get("target") or "all beings"),
-        moon=_folio_moon(folio),
-        moon_phase_name=hour.get("moon_phase"),
+        sky_period=computed["period"] if computed else None,
         saka_dawa=_saka_block(folio),
+        deity_clause=_deity_clause(folio),
     )
+
+
+def _deity_clause(folio: dict[str, Any]) -> str:
+    """The curated iconography clause for the folio's deity (core/iconography.py), or ""."""
+    ref = iconography.folio_deity(folio)
+    return iconography.ref_prompt_clause(ref) if ref is not None else ""
 
 
 def witness_caption_facts(folio: dict[str, Any]) -> list[dict[str, str]]:
@@ -360,12 +374,15 @@ def witness_caption_facts(folio: dict[str, Any]) -> list[dict[str, str]]:
     facts: list[dict[str, str]] = []
     if folio.get("sealed_at"):
         facts.append(image_prompts.caption_fact("Sealed", folio["sealed_at"], "record"))
-    moon = _folio_moon(folio)
+    computed = _folio_sky(folio)
     hour = folio.get("hour_stamp") if isinstance(folio.get("hour_stamp"), dict) else {}
-    if moon is not None:
-        facts.append(image_prompts.moon_caption_fact(moon, "Moon at sealing"))
-    elif hour.get("moon_phase"):
-        facts.append(image_prompts.caption_fact("Moon phase", hour["moon_phase"], "computed"))
+    if computed is not None:
+        facts.extend(sky.sky_caption_facts(computed))
+        facts.append(sky.observer_fact(**computed["observer"]))
+    else:
+        facts.append(sky.unavailable_fact())
+        if hour.get("moon_phase"):
+            facts.append(image_prompts.caption_fact("Moon phase", hour["moon_phase"], "computed"))
     if hour.get("planetary_hour"):
         facts.append(image_prompts.caption_fact("Planetary hour", hour["planetary_hour"], "computed"))
     saka = _saka_block(folio)
@@ -374,6 +391,9 @@ def witness_caption_facts(folio: dict[str, Any]) -> list[dict[str, str]]:
     multiplier = int(saka.get("multiplier") or 1)
     if multiplier > 1:
         facts.append(image_prompts.caption_fact("Merit multiplier", f"×{multiplier:,}", "computed"))
+    deity = iconography.folio_deity(folio)
+    if deity is not None:
+        facts.extend(iconography.deity_caption_facts(deity.entry, deity.form))
     return facts
 
 
@@ -396,9 +416,21 @@ def submit_witness_render(working_id: str) -> dict[str, Any] | None:
             working_id=working_id,
             purpose="witness",
             caption_facts=witness_caption_facts(folio),
+            reference_id=_deity_reference_id(folio),
         )
     )
     return {"working_id": working_id, "operation": op}
+
+
+def _deity_reference_id(folio: dict[str, Any]) -> str | None:
+    """The user's thangka reference image for the folio's deity, if one is set."""
+    ref = iconography.folio_deity(folio)
+    if ref is None:
+        return None
+    # Function-level: the render engine lives in backend (core must not import it at module level).
+    from backend.core.services.render.deity_references import reference_for
+
+    return reference_for(ref.id)
 
 
 def witness_block_for(op: dict[str, Any]) -> dict[str, Any] | None:
@@ -457,7 +489,16 @@ def apply_witness_render(op: dict[str, Any]) -> bool:
             logger.warning("witness render %s finished for missing folio %s", op.get("id"), working_id)
             return False
         current = folio.get("witness")
-        if current == block or _superseded_by(current, op):
+        if _superseded_by(current, op):
+            return False
+        if block.get("status") == "ok":
+            # Draw the true sky onto the empty-sky scene (deterministic, so a repeat stays a no-op).
+            from core.sky_composite import composite_witness
+
+            # A deity's devotional painting has no horizon: its sky stays in the caption.
+            no_horizon = "the witness is a devotional painting of a deity" if folio.get("deity") else None
+            block = composite_witness(block, op, _folio_sky(folio), skip_reason=no_horizon)
+        if current == block:
             return False
         folio["witness"] = block
         folio["manifestation"] = block
@@ -653,20 +694,23 @@ def _image_prompt(
     intention: str,
     target: str,
     *,
-    moon: dict[str, Any] | None = None,
-    moon_phase_name: str | None = None,
+    sky_period: str | None = None,
     saka_dawa: dict[str, Any] | None = None,
+    deity_clause: str = "",
 ) -> str:
-    """The witness image prompt: imagery only, the moon as computed at the sitting.
+    """The witness image prompt: imagery only, under an empty sky.
 
-    The moon comes from ``moon`` (computed at ``sealed_at``), else from the
-    folio's stamped phase name, else it is left out. Saka Dawa is named only
-    when the sitting fell in it; its date belongs in the caption, not here.
+    The model never paints the Moon or planets: the scene asks for a clear,
+    empty sky (day, twilight or night as computed at sealing) and the true sky
+    is drawn onto the render afterwards (:func:`apply_witness_render`,
+    core/sky_composite.py). Saka Dawa is named only when the sitting fell in
+    it; its date belongs in the caption, not here.
+    A ``deity_clause`` (core/iconography.py) makes the still a devotional
+    painting of that deity, the clause first so clipping never cuts it. A
+    devotional painting has no horizon to draw the sky against, so its
+    background is simply left empty and the sky goes in the caption only.
     """
-    if moon is not None:
-        sky = image_prompts.moon_imagery(moon["illumination"], moon.get("waxing"))
-    else:
-        sky = image_prompts.moon_imagery_from_phase_name(moon_phase_name)
+    sky_line = f" {sky.empty_sky_clause(sky_period)}"
     saka = saka_dawa or {}
     if saka.get("is_duchen"):
         season = " Saka Dawa Duchen offerings: rows of butter lamps and white scarves."
@@ -674,7 +718,12 @@ def _image_prompt(
         season = " The Saka Dawa month: butter lamps glowing in the dusk."
     else:
         season = ""
-    sky_line = f" In the sky, {sky}." if sky else ""
+    if deity_clause:
+        return image_prompts.finalize_image_prompt(
+            f"{deity_clause} Offered for the intention: {intention[:200]}. Dedicated to {target}. "
+            f"{sky.EMPTY_BACKGROUND_CLAUSE}{season}",
+            max_chars=iconography.DEITY_PROMPT_MAX_CHARS,
+        )
     return image_prompts.finalize_image_prompt(
         f"Manifestation still of the fulfilled intention: {intention[:200]}. "
         f"Dedicated to {target}. Sacred cinematic lighting, brass singing bowls "
@@ -702,8 +751,18 @@ def run_working(
     planetary_hour: str | None = None,
     moon_phase: str | None = None,
     divination: dict[str, Any] | None = None,
+    deity: str | None = None,
 ) -> dict[str, Any]:
-    """Seal one working and optionally start a non-blocking broadcast."""
+    """Seal one working and optionally start a non-blocking broadcast.
+
+    ``deity`` (an id, alias or form alias from ``knowledge/iconography.json``,
+    e.g. ``green_tara`` or ``thousand-armed Chenrezig``) is sealed on the folio
+    and paints its witness with that deity's curated iconography. An unknown
+    deity raises ``ValueError`` before anything is sealed.
+    """
+    deity_ref = iconography.resolve(deity) if deity and deity.strip() else None
+    if deity and deity.strip() and deity_ref is None:
+        raise ValueError(f"unknown deity {deity!r}; see knowledge/iconography.json")
     intention = (intention or "").strip() or "May all beings be free from suffering"
     target = (target or "all beings").strip() or "all beings"
     duration_minutes = max(1, min(int(duration_minutes or 5), 30))
@@ -760,6 +819,7 @@ def run_working(
             "moon_phase": moon_phase,
         },
         "divination": divination,
+        "deity": deity_ref.record() if deity_ref is not None else None,
         "provenance": dict(FOLIO_PROVENANCE),
     }
     folio["image_prompt"] = witness_prompt(folio)

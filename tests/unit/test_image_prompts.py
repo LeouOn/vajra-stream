@@ -213,19 +213,31 @@ def test_witness_prompt_rebuilds_instead_of_reusing_a_legacy_numeric_prompt():
     assert prompt.endswith(NO_TEXT_SUFFIX)
 
 
+_MOON_IMAGERY = re.compile(r"\b(?:crescent|gibbous|half moon|full moon|new moon|moonlit|moonlight)\b", re.I)
+
+
 @needs_ephemeris
-def test_witness_moon_is_the_moon_at_sealing_not_the_festival_full_moon():
+def test_witness_prompt_asks_for_an_empty_sky_not_a_painted_moon():
+    # The true sky is drawn onto the render afterwards (core/sky_composite.py).
     prompt = working.witness_prompt(LEGACY_FOLIO)
-    assert "full moon" not in prompt.lower()
-    assert "waxing crescent moon" in prompt
+    assert not _MOON_IMAGERY.search(prompt), prompt
+    assert "In the sky," not in prompt
+    assert "no moon, no stars, no planets" in prompt
+    # the kind of sky asked for is computed: at 05:00 PDT in San Francisco the Sun is 16° down, at 13:00 up
+    assert "clear, open night sky" in prompt
+    midday = working.witness_prompt({**LEGACY_FOLIO, "sealed_at": "2026-08-15T20:00:00+00:00"})
+    assert "clear, open daytime sky" in midday
 
 
-def test_witness_falls_back_to_the_stamped_phase_name(monkeypatch):
-    monkeypatch.setattr(image_prompts, "moon_at", lambda dt: None)
+def test_witness_prompt_never_paints_the_moon_even_from_a_stamped_phase_name(monkeypatch):
+    monkeypatch.setattr(working.sky, "compute_sky", lambda *a, **k: None)
     folio = {**LEGACY_FOLIO, "hour_stamp": {"moon_phase": "Waning Gibbous"}}
-    assert "a waning gibbous moon" in working.witness_prompt(folio)
-    folio = {**LEGACY_FOLIO, "hour_stamp": {}}
-    assert "moon" not in working.witness_prompt(folio).lower()
+    prompt = working.witness_prompt(folio)
+    assert not _MOON_IMAGERY.search(prompt), prompt
+    assert "clear, open sky" in prompt
+    facts = {f["label"]: f for f in working.witness_caption_facts(folio)}
+    assert facts["Moon phase"]["value"] == "Waning Gibbous"
+    assert facts["Sky at sealing"]["value"].startswith("could not be computed")
 
 
 def test_witness_names_saka_dawa_only_when_the_sitting_was_in_it():
@@ -299,7 +311,10 @@ async def test_witness_render_carries_caption_facts_to_sidecar_and_folio(render_
     assert done["status"] == "success", done["error"]
     sidecar = json.loads((render_env / done["result"]["sidecar_path"]).read_text(encoding="utf-8"))
     assert sidecar["caption_facts"] == facts
-    assert working.load_working(folio["working_id"])["witness"]["caption_facts"] == facts
+    # the folio's witness adds one fact: what the drawn sky overlay shows (or why there is none)
+    witness_facts = working.load_working(folio["working_id"])["witness"]["caption_facts"]
+    assert witness_facts[: len(facts)] == facts
+    assert [f["label"] for f in witness_facts[len(facts) :]] == ["Sky overlay"]
 
 
 def test_render_request_caption_facts_are_optional_and_validated():

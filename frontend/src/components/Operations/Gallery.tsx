@@ -154,6 +154,19 @@ function ItemDetail({ item }: { item: GalleryItem }): React.ReactElement {
       <a href={src} target="_blank" rel="noreferrer" className="block">
         <img src={src} alt={item.prompt ?? 'image'} className="w-full rounded border border-white/10" />
       </a>
+      {item.scene_image_url && (
+        <p className="text-xs text-gray-400 m-0 -mt-2" data-testid="gallery-scene-link">
+          The sky is computed and drawn onto the render.{' '}
+          <a
+            href={resolveBackendUrl(item.scene_image_url)}
+            target="_blank"
+            rel="noreferrer"
+            className="text-cyan-300 hover:text-cyan-200 underline-offset-2 hover:underline"
+          >
+            Rendered scene without it
+          </a>
+        </p>
+      )}
       <div>
         <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Prompt</div>
         {item.prompt ? (

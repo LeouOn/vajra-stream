@@ -14,7 +14,9 @@
  * Actions: "Render witness locally" (primary) or "Paint with hosted model".
  *
  * The image carries no numbers; its `caption_facts` (moon at sealing, Saka
- * Dawa date, ...) are shown under it with their provenance.
+ * Dawa date, ...) are shown under it with their provenance. A local render is
+ * painted with an empty sky and the computed sky (Moon phase and tilt, bright
+ * planets) is drawn onto it afterwards; the plain scene is linked.
  *
  * @component
  */
@@ -95,6 +97,19 @@ function PersistedWitness({
           {local ? 'local render' : `hosted model${witness.model ? ` · ${witness.model}` : ''}`}
         </span>
         {local && size && <span>{size}</span>}
+        {witness.scene_image_url && (
+          <span data-testid="witness-scene-link">
+            sky computed and drawn on ·{' '}
+            <a
+              href={resolveBackendUrl(witness.scene_image_url)}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-amber-100"
+            >
+              rendered scene without it
+            </a>
+          </span>
+        )}
         {local && num(witness.seed) !== null && (
           <span data-testid="witness-seed">{seedLabel(num(witness.seed) ?? 0, witnessSeedProvenance(witness))}</span>
         )}

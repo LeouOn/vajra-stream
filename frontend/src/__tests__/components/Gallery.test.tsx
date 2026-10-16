@@ -214,6 +214,25 @@ describe('Gallery', () => {
     );
   });
 
+  it('shows a true-sky witness composite and links the plain rendered scene', async () => {
+    respond = () => ({
+      status: 200,
+      body: pageOf([
+        {
+          ...RENDER,
+          image_url: '/api/v1/gallery/sky/op1/image',
+          scene_image_url: '/api/v1/render/jobs/op1/image',
+        },
+      ]),
+    });
+    await renderGallery();
+    expect(tiles()[0].querySelector('img')?.getAttribute('src')).toBe('/api/v1/gallery/sky/op1/image');
+    const detail = await openTile(0);
+    expect(detail.querySelector('[data-testid="gallery-scene-link"] a')?.getAttribute('href')).toBe(
+      '/api/v1/render/jobs/op1/image',
+    );
+  });
+
   it('says a pre-sidecar prompt was not recorded instead of inventing one', async () => {
     await renderGallery();
     const detail = await openTile(1);

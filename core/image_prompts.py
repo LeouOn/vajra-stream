@@ -276,18 +276,23 @@ def outlook_illustration_prompt(
     genre: str | None = None,
     moon: dict[str, Any] | None = None,
     excerpt_chars: int = 600,
+    deity_clause: str | None = None,
 ) -> str:
     """Image prompt for an Outlook narrative: genre imagery, a sanitized excerpt, the computed moon.
 
     The narrative is LLM prose full of chart data ("Sun at 26.5° Leo (House II)")
     and section headings ("I. Invocatio"); none of that reaches the image model.
+    A ``deity_clause`` (core/iconography.py) is placed at the centre of the scene.
     """
     genre_key = (genre or "healing").strip().lower()
     style = _GENRE_IMAGERY.get(genre_key, _GENRE_IMAGERY["healing"])
     excerpt = _clip(sanitize_image_text(narrative), excerpt_chars)
     parts = [f"Sacred painted illustration of a {genre_key.replace('_', ' ')} blessing: {style}."]
+    if deity_clause:
+        parts.append(f"At its centre: {deity_clause}")
     if moon is not None:
         parts.append(f"In the sky, {moon_imagery(moon['illumination'], moon.get('waxing'))}.")
     if excerpt:
         parts.append(f"Scene drawn from the blessing: {excerpt}")
-    return finalize_image_prompt(" ".join(parts))
+    # The deity clause gets its own budget so the excerpt and moon still fit after it.
+    return finalize_image_prompt(" ".join(parts), max_chars=DEFAULT_MAX_CHARS + len(deity_clause or ""))

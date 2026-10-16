@@ -47,6 +47,11 @@ export interface GalleryItem {
   media_type: string;
   bytes: number;
   image_url: string;
+  /**
+   * Witness renders with the true sky drawn on (core/sky_composite.py): `image_url` is the
+   * composite and this is the plain rendered scene. Absent otherwise.
+   */
+  scene_image_url?: string | null;
   /** Render purpose (`free` | `witness` | `sigil`), or `witness` for a folio's hosted witness. */
   purpose: string | null;
   links: GalleryLinks;

@@ -396,16 +396,25 @@ async def test_listener_writes_ok_witness_when_the_render_succeeds(fake):
         "status": "ok",
         "source": "local-render",
         "operation_id": op_id,
-        "image_url": f"/api/v1/render/jobs/{op_id}/image",
         "seed": done["params"]["seed"],
         "seed_provenance": "draw",
         "width": 1024,
         "height": 1024,
         "prompt": folio["image_prompt"],
-        "caption_facts": working.witness_caption_facts(folio),
     }
-    assert saved["witness"] == expected
-    assert saved["manifestation"] == expected
+    witness = saved["witness"]
+    assert {k: v for k, v in witness.items() if k in expected} == expected
+    assert saved["manifestation"] == witness
+    # The true sky is drawn onto the scene (core/sky_composite.py); the scene keeps its own URL.
+    facts = working.witness_caption_facts(folio)
+    assert witness["caption_facts"][: len(facts)] == facts
+    assert witness["caption_facts"][-1]["label"] == "Sky overlay"
+    if witness["sky"]["computed"]:
+        assert witness["image_url"] == f"/api/v1/gallery/sky/{op_id}/image"
+        assert witness["scene_image_url"] == f"/api/v1/render/jobs/{op_id}/image"
+        assert witness["sky"]["composited"] is True
+    else:
+        assert witness["image_url"] == f"/api/v1/render/jobs/{op_id}/image"
     assert saved["intention"] == folio["intention"]  # nothing else changed
     summary = next(w for w in working.list_workings() if w["working_id"] == folio["working_id"])
     assert summary["has_witness"] is True

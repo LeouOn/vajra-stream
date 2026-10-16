@@ -1393,6 +1393,15 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
                     "type": "integer",
                     "description": "Broadcast duration in minutes, 1-30 (default 5)",
                 },
+                "deity": {
+                    "type": "string",
+                    "description": (
+                        "Optional deity the working is offered through, painted in its witness with curated "
+                        "iconography: green_tara, white_tara, avalokiteshvara (four-armed; or "
+                        "'thousand-armed Avalokiteshvara'), medicine_buddha, amitabha, vajrasattva, cundi, "
+                        "shakyamuni, manjushri, prajnaparamita, or 88_buddhas. Leave out if none was named."
+                    ),
+                },
             },
             "required": ["intention"],
         },
