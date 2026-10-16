@@ -315,9 +315,11 @@ def _isolated_image_output_dir(monkeypatch):
         )
         spec = importlib.util.spec_from_file_location(mod_name, ig_path)
         ig_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(ig_mod)
         # Same as the geocoding fixture: later imports must get THIS module object.
+        # Register before exec: @dataclass resolves string annotations through
+        # sys.modules[cls.__module__] while the module body runs.
         sys.modules[mod_name] = ig_mod
+        spec.loader.exec_module(ig_mod)
 
     monkeypatch.setitem(ig_mod.DEFAULT_CONFIG, "image_output_dir", _TEST_IMAGE_DIR)
 
