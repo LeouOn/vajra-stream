@@ -354,7 +354,7 @@ function DeityDetailView({
           {names.english}
         </h2>
         <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
-          {entry.kind && <span className="capitalize">{entry.kind}</span>}
+          {entry.kind && <span className="capitalize">{entry.kind.replace(/_/g, ' ')}</span>}
           {generic && <span className="rounded border border-vajra-gold/40 px-1 text-vajra-gold">generic form</span>}
         </div>
       </header>
