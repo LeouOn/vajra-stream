@@ -3,15 +3,10 @@ Scalar Waves Module
 Adapter wrapping core.advanced_scalar_waves
 """
 
-import sys
 import time
 import uuid
 from datetime import datetime
-from pathlib import Path
 from typing import Any
-
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.advanced_scalar_waves import (
     CellularAutomata1D,

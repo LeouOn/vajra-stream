@@ -4,15 +4,10 @@ Web-based visualizations for browser viewing
 """
 
 import os
-import sys
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-
-# Add parent to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent))
 
 from container import container
 

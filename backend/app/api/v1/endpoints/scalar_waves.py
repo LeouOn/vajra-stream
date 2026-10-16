@@ -10,16 +10,11 @@ operations ledger (``/api/v1/operations``) instead of as a rate.
 """
 
 import logging
-import os
-import sys
 import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-
-# Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from core.advanced_scalar_waves import ThermalMonitor
 

@@ -3,11 +3,7 @@ Prayer Wheel Module - Adapter Wrapper
 Wraps core.prayer_wheel.PrayerWheel with EventBus integration
 """
 
-import sys
-from pathlib import Path
 from typing import Any
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.interfaces import EventBus
 

@@ -8,16 +8,11 @@ Integrates with:
 - core.integrated_scalar_radionics for scalar wave generation
 """
 
-import sys
+import logging
 import time
 import uuid
 from datetime import datetime
-from pathlib import Path
 from typing import Any
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import logging
 
 from core.integrated_scalar_radionics import (
     BroadcastConfiguration,

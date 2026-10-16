@@ -3,6 +3,8 @@ Vajra.Stream Crystal Broadcaster
 Level 2: Passive crystal grid
 Level 3: Amplified with bass shaker
 Enhanced with prayer bowl synthesis as default
+
+Interactive demo: from the project root, `python -m hardware.crystal_broadcaster`.
 """
 
 import numpy as np
@@ -15,12 +17,9 @@ except (ImportError, OSError) as e:
     print(f"Warning: sounddevice not available in crystal_broadcaster: {e}")
     sd = None
     SOUNDDEVICE_AVAILABLE = False
-import os
 import sys
 from datetime import datetime
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.audio_generator import ScalarWaveGenerator
 from core.enhanced_audio_generator import EnhancedAudioGenerator
 

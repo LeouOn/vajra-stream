@@ -7,7 +7,6 @@ import asyncio
 import json
 import logging
 import os
-import sys
 import threading
 import time
 from datetime import datetime
@@ -18,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 SESSION_INTERRUPT_REASON = "server shut down while this session was running"
 
-# Add parent directory to path to import existing modules
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
 
 # Try importing each module individually to make loading resilient
 try:

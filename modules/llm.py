@@ -5,11 +5,7 @@ AI-powered content generation (prayers, teachings, meditations, etc.).
 """
 
 import re
-import sys
-from pathlib import Path
 from typing import Any
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.interfaces import EventBus
 
