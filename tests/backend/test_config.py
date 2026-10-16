@@ -2,8 +2,8 @@
 
 import os
 
-import backend.app.config as config_module
-from backend.app.config import LLMConfig, get_llm_config
+import config.llm as config_module
+from config.llm import LLMConfig, get_llm_config
 
 
 def _clear_llm_env(monkeypatch):

@@ -113,7 +113,7 @@ class TestExecuteToolAliasResolution:
     async def test_execute_list_targets_uses_special_case(self):
         from backend.app.api.v1.endpoints import llm as llm_mod
 
-        with patch.object(llm_mod, "get_population_manager") as mock_pm:
+        with patch("backend.core.services.population_manager.get_population_manager") as mock_pm:
             mock_pm.return_value.get_all_populations.return_value = []
             result = await llm_mod.execute_tool_locally("list_populations", {})
             assert isinstance(result, list)

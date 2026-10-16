@@ -4,15 +4,10 @@ Blessing narrative generation and compassionate blessings
 """
 
 import logging
-import os
-import sys
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-
-# Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 try:
     from core.blessing_narratives import BlessingNarrativeGenerator

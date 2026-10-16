@@ -165,7 +165,7 @@ async def lifespan(app: FastAPI):
         # Start LLM health heartbeat
         if hasattr(app.state, "llm_registry") and len(app.state.llm_registry) > 0:
             try:
-                from backend.app.config import get_llm_config
+                from config.llm import get_llm_config
                 from core.llm.health import start_health_heartbeat
 
                 config = get_llm_config()

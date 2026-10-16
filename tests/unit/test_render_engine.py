@@ -706,7 +706,7 @@ def test_api_presets_and_health(client, fake):
 
 
 def test_settings_expose_render_config():
-    from backend.app.config import Settings
+    from config.backend_settings import BackendSettings as Settings
 
     assert Settings.model_fields["RENDER_TIMEOUT_SECONDS"].default == 1800
     assert Settings.model_fields["COMFYUI_BASE_URL"].default == "http://127.0.0.1:8188"

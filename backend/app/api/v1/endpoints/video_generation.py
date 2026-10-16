@@ -60,9 +60,9 @@ def _inject_fallback_keys(service: VideoGenerationService) -> None:
     if not service.config.get("minimax_api_key"):
         key = os.environ.get("MINIMAX_API_KEY", "")
         if not key:
-            from backend.app.config import settings
+            from config.backend_settings import backend_settings
 
-            key = getattr(settings, "MINIMAX_API_KEY", "")
+            key = getattr(backend_settings, "MINIMAX_API_KEY", "")
         if key:
             service.update_config({"minimax_api_key": key})
 

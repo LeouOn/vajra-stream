@@ -2,6 +2,10 @@
  * outlookShared.ts — presentation constants + helpers shared by the
  * extracted Outlook tab components (Generator / Universe / History).
  */
+import type { useUIStore } from '../../../stores/uiStore';
+
+/** The uiStore toast action the Outlook hooks report load failures with. */
+export type AddToast = ReturnType<typeof useUIStore.getState>['addToast'];
 
 export interface Realm {
   id: string | number;

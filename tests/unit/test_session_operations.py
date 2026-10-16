@@ -30,7 +30,7 @@ def isolated_ledger(tmp_path, monkeypatch):
     # try/except that leaves them None when it loses the circular-import race
     # (import order in a full run); pin the real classes.
     import backend.core.services.vajra_service as vajra_service_module
-    from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
+    from backend.core.services.session_models import AudioConfig, SessionConfig
 
     monkeypatch.setattr(vajra_service_module, "AudioConfig", AudioConfig)
     monkeypatch.setattr(vajra_service_module, "SessionConfig", SessionConfig)

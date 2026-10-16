@@ -25,6 +25,7 @@ from datetime import datetime
 from typing import Any
 
 from core.eighty_eight_buddhas import get_eighty_eight_buddhas
+from core.provenance import RECORD
 
 logger = logging.getLogger(__name__)
 
@@ -284,6 +285,21 @@ class BuddhaRecitationLoop:
             "speaker": self.state.speaker,
             "role": self.state.role,
             "project_id": self.state.project_id,
+            # Counts of names actually recited, and their timing: records.
+            "provenance": {
+                key: RECORD
+                for key in (
+                    "current_index",
+                    "current_cycle",
+                    "total_recited",
+                    "mala_count",
+                    "dedications",
+                    "total_buddhas",
+                    "progress_pct",
+                    "started_at",
+                    "last_recited_at",
+                )
+            },
         }
 
     # ─── TTS helpers ──────────────────────────────────────────────────────

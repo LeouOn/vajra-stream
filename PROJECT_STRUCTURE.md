@@ -62,7 +62,6 @@ backend/
 │   │   ├── time_cycles.py        # Time cycle operations
 │   │   ├── tts.py                # Text-to-speech
 │   │   └── visualization.py      # Visualization generation
-│   └── config.py                  # API configuration (shim for config/settings.py)
 ├── websocket/                     # WebSocket connection management
 │   └── connection_manager_stable_v2.py  # Canonical WebSocket manager
 ├── tests/                         # Backend integration tests
@@ -83,7 +82,7 @@ core/
 ├── astrology.py                   # Astrological services (111 KB — largest core file)
 ├── energetic_anatomy.py           # Chakra and meridian systems (56 KB)
 ├── blessing_narratives.py         # Blessing narrative generation (40 KB)
-├── radionics_tools.py             # Radionics tool functions (40 KB)
+├── tool_registry/                 # The single LLM tool registry (specs, schemas, dispatch)
 ├── outlook_generator.py           # Outlook generation (39 KB)
 ├── extraction.py                  # Astrology extraction pipeline (28 KB)
 ├── ritual_engine.py               # Autonomous ritual scheduler (28 KB)
@@ -305,7 +304,9 @@ Application configuration files.
 
 ```
 config/
-└── settings.py                    # Core settings (audio, hardware, paths)
+├── settings.py                    # Canonical constants (audio, hardware, paths) — ADR 002
+├── backend_settings.py            # Env-driven deployment settings (DATABASE_URL, CORS, API keys)
+└── llm.py                         # LLM provider config (LLM_* env vars)
 ```
 
 ## Knowledge (`knowledge/`)

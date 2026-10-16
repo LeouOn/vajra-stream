@@ -10,7 +10,7 @@
  * @component
  */
 import React from 'react';
-import ProvenanceTag from './ProvenanceTag';
+import Reading from './Reading';
 import { toCaptionFacts } from '../../lib/captionFacts';
 
 interface ImageCaptionFactsProps {
@@ -31,8 +31,8 @@ export default function ImageCaptionFacts({ facts, className = '' }: ImageCaptio
       {list.map((fact, i) => (
         <React.Fragment key={`${fact.label}-${i}`}>
           <dt className="text-gray-500">{fact.label}</dt>
-          <dd className="m-0 min-w-0 break-words text-gray-300" data-provenance={fact.provenance}>
-            {fact.value} <ProvenanceTag kind={fact.provenance} />
+          <dd className="m-0 min-w-0 break-words text-gray-300">
+            <Reading value={fact.value} provenance={fact.provenance} className="inline" />
           </dd>
         </React.Fragment>
       ))}

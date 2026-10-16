@@ -354,7 +354,9 @@ CI guard scripts: `scripts/audit_ws_contract.py`, `scripts/check_no_orphan_compo
 ### Canonical settings
 
 - `config/settings.py` - audio, hardware, prayer-bowl synthesis, paths, defaults. Imported by backend and by standalone scripts.
-- `backend/app/config.py` - shim that re-exports `config.settings`. New code imports from here so the backend never depends on the project root.
+- `config/backend_settings.py` - env-driven deployment settings (`backend_settings`: `DATABASE_URL`, CORS, provider API keys, ComfyUI). Built once at import; must not mirror any `config.settings` constant.
+- `config/llm.py` - `LLMConfig` / `get_llm_config()` for the `core/llm/` provider layer (`LLM_*` env vars).
+- The ADR-002 re-export shim `backend/app/config.py` was deleted on 2026-10-16 (ADR 002 step 3).
 
 See ADR-002 for the canonical-settings rationale.
 

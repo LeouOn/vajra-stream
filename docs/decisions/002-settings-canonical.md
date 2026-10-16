@@ -1,6 +1,6 @@
 # ADR 002: Settings System Canonical Selection
 
-- **Status:** Accepted (2026-06-18); Step 2 (shim) implemented 2026-06-18 by Wave 4 Task 27
+- **Status:** Accepted (2026-06-18); Step 2 (shim) implemented 2026-06-18 by Wave 4 Task 27; **Step 3 (shim deleted) implemented 2026-10-16** by Phase 3 workstream C (see the end of the Migration Plan)
 - **Deciders:** Wave 2 remediation
 - **References:** evaluation Issue 5.2; README "Configuration" section (lines 205–227); ADR 001
 - **Gates:** Blocks Wave 4 Task 27 (settings consolidation / shim deletion)
@@ -92,6 +92,13 @@ settings = Settings()
 After one release cycle with the shim in place (emitting a `DeprecationWarning` on import), `backend/app/config.py` is deleted entirely and the LLM provider config is moved to its own module. Task 27 owns this deletion; this ADR only records the decision.
 
 > **Status (updated 2026-06-18 by Wave 4 Task 27):** Step 2 is now implemented — `backend/app/config.py` is a re-export shim of `config.settings`, and the pydantic `Settings` class wraps the canonical constants. Step 3 (full deletion of the shim + relocation of `LLMConfig`/`get_llm_config` to their own module) is **deferred to the release after Task 27**. The regression guard `tests/unit/test_settings_shim.py` locks in the agreement between the shim and `config.settings` so the historical drift (e.g. `MAX_VOLUME` 0.5 vs 0.8) cannot recur during the deprecation window.
+
+> **Status (updated 2026-10-16, Phase 3 workstream C):** Step 3 is done. `backend/app/config.py` is deleted. What it still owned went to the `config/` layer, so `core/` can read it without importing `backend/`:
+>
+> - `config/backend_settings.py`: `BackendSettings` / `backend_settings` (env-driven `DATABASE_URL`, CORS, provider API keys, ComfyUI). The audio/hardware mirror fields were dropped, since nothing read them. Decision 3's compatibility wrapper is therefore gone.
+> - `config/llm.py`: `LLMConfig` / `get_llm_config()`, moved verbatim.
+>
+> Importers were migrated: `main.py` (`get_llm_config`); the agent_suggestions, locations, image_generation and video_generation endpoints; `render/jobs.py`; `vajra_service.py`; and `core/schema.get_db_path`. `tests/unit/test_settings_shim.py` is replaced by `tests/unit/test_backend_settings.py`, which fails if the shim returns or if `BackendSettings` re-declares any `config.settings` constant (the "Risk" above). `backend_settings` is still built once at import, so `tests/conftest.py` sets `DATABASE_URL` first. It now asserts that ordering and also blocks `sqlite3.connect` on the live DB (`tests/unit/test_db_isolation.py`).
 
 ## Alternatives Considered
 

@@ -1,6 +1,7 @@
 import atexit
 import os
 import shutil
+import sqlite3
 import sys
 import tempfile
 
@@ -17,27 +18,30 @@ from infrastructure.event_bus import EnhancedEventBus
 # `IntegratedScalarRadionicsBroadcaster()`, whose BlessingDatabase
 # initializes the schema. (outlook.py used to do this too; its import-time
 # init has since been removed.) `core.schema.get_db_path()` resolves
-# `settings.DATABASE_URL` (default `sqlite:///./vajra_stream.db`, i.e. the
+# `backend_settings.DATABASE_URL` (default `sqlite:///./vajra_stream.db`, i.e. the
 # live DB in the repo root), and endpoint modules build their db_path the
 # same way (agent_suggestions and locations among them). So merely
 # *importing* the backend during a test run migrates the real database —
 # which is how the live file acquired a v6 `_schema_version` row mid-cycle.
 #
 # Why the env var, set here, at conftest import time:
-#   `backend/app/config.py` builds `settings = Settings()` at *module import*
-#   time, and pydantic-settings resolves fields once, on construction. That
-#   object is frozen for the life of the process — later mutations of
-#   os.environ cannot move it. pytest imports tests/conftest.py before it
-#   imports any test module, so setting DATABASE_URL here is early enough to
-#   win that race for every backend import in the suite.
+#   `config/backend_settings.py` builds `backend_settings = BackendSettings()`
+#   at *module import* time, and pydantic-settings resolves fields once, on
+#   construction. That object is frozen for the life of the process — later
+#   mutations of os.environ cannot move it. pytest imports tests/conftest.py
+#   before it imports any test module, so setting DATABASE_URL here is early
+#   enough to win that race for every backend import in the suite. The assert
+#   just below makes that ordering a checked fact rather than an assumption.
+#   (Before ADR 002 step 3, 2026-10-16, the same object lived in the deleted
+#   `backend/app/config.py` shim.)
 #
 #   Note precisely what this does and does not do for
 #   `tests/integration/test_extraction.py`, whose own DATABASE_URL assignment
-#   (line 42) is silently ineffective in a full-suite run: tests/backend/
-#   test_config.py imports `backend.app.config` at module level and
-#   tests/backend is collected before tests/integration, so settings has
-#   already frozen by the time test_extraction.py is imported. In full-suite
-#   order the app therefore still uses the conftest temp DB set here — which
+#   (line 42) is silently ineffective in a full-suite run: test modules under
+#   tests/backend import the backend (and with it config.backend_settings) at
+#   module level and are collected before tests/integration, so the settings
+#   object has already frozen by the time test_extraction.py is imported. In
+#   full-suite order the app therefore still uses the conftest temp DB set here — which
 #   is the point: the live file is off limits either way. test_extraction.py
 #   only gets its own per-module DB when it is the first thing to import the
 #   backend (e.g. run on its own); this block does not restore that ordering.
@@ -52,7 +56,8 @@ from infrastructure.event_bus import EnhancedEventBus
 #   covered: callers that pass an explicit db path of their own —
 #   `BlessingDatabase(db_path=...)`, direct sqlite3.connect with a hardcoded
 #   path — and anything under scripts/; those bypass this override by
-#   construction.
+#   construction. They are caught instead by the sqlite3.connect guard
+#   installed below, which refuses to open the live file at all.
 #
 # The four slashes are required, not a typo: `get_db_path()` strips the
 # literal `sqlite:///` prefix and only keeps the remainder when the result is
@@ -66,17 +71,69 @@ from infrastructure.event_bus import EnhancedEventBus
 # `core.schema.get_db_path` to its own tmp_path, and the remainder were
 # verified by grep to only *mention* vajra_stream.db in comments. So no
 # opt-in escape hatch is offered; one would only weaken the guarantee.
+assert "config.backend_settings" not in sys.modules, (
+    "config.backend_settings was imported before tests/conftest.py set DATABASE_URL; "
+    "its frozen settings object would point the suite at the live vajra_stream.db"
+)
 _TEST_DB_DIR = tempfile.mkdtemp(prefix="vajra-test-db-")
 TEST_DB_PATH = os.path.join(_TEST_DB_DIR, "vajra_stream.db")
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
+
+# ---------------------------------------------------------------------------
+# Hard guard: sqlite3 refuses to open the live database during the suite
+# ---------------------------------------------------------------------------
+# DATABASE_URL only redirects code that asks core.schema / backend_settings
+# for a path. This closes the remaining gap (explicit db_path arguments,
+# hardcoded sqlite3.connect calls, SQLAlchemy engines): every connect goes
+# through sqlite3.connect or sqlite3.dbapi2.connect (SQLAlchemy's pysqlite
+# dialect uses the latter), and both raise if the target resolves to one of the
+# live files. tests/unit/test_db_isolation.py proves the guard is installed.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIVE_DB_PATHS = frozenset(
+    os.path.normcase(os.path.realpath(os.path.join(_REPO_ROOT, *parts)))
+    for parts in (("vajra_stream.db",), ("backend", "app", "vajra_stream.db"))
+)
+
+
+def is_live_db_path(database) -> bool:
+    """True when a sqlite3.connect() target resolves to a live repo database."""
+    if isinstance(database, bytes):
+        database = os.fsdecode(database)
+    if not isinstance(database, str | os.PathLike):
+        return False
+    target = os.fspath(database)
+    if target.startswith("file:"):
+        target = target[len("file:") :].split("?", 1)[0]
+        if target.startswith("///"):
+            target = target[2:]
+    if target in ("", ":memory:"):
+        return False
+    return os.path.normcase(os.path.realpath(target)) in LIVE_DB_PATHS
+
+
+_real_sqlite3_connect = sqlite3.connect
+
+
+def _guarded_sqlite3_connect(database, *args, **kwargs):
+    if is_live_db_path(database):
+        raise RuntimeError(
+            f"test suite tried to open the live database {database!r}; tests must use "
+            "core.schema.get_db_path() (the conftest temp DB) or a tmp_path"
+        )
+    return _real_sqlite3_connect(database, *args, **kwargs)
+
+
+_guarded_sqlite3_connect.__vajra_live_db_guard__ = True
+sqlite3.connect = _guarded_sqlite3_connect
+sqlite3.dbapi2.connect = _guarded_sqlite3_connect
 
 # ---------------------------------------------------------------------------
 # Provider API keys — neutralised at the source, before any Settings build
 # ---------------------------------------------------------------------------
 # Real credentials exist on this machine: .env carries ANTHROPIC_API_KEY,
 # OPENROUTER_API_KEY, ELEVENLABS_API_KEY and AZURE_SPEECH_KEY, and a
-# developer shell may export ZAI_API_KEY. `backend/app/config.py` constructs
-# `settings = Settings()` at module import, and pydantic-settings resolves
+# developer shell may export ZAI_API_KEY. `config/backend_settings.py`
+# constructs `backend_settings = BackendSettings()` at module import, and pydantic-settings resolves
 # real environment variables AHEAD of .env entries — so pinning these to ""
 # here, at conftest import time (which precedes every test-module import,
 # same race the DATABASE_URL block above wins), blanks the keys for every
@@ -300,24 +357,13 @@ atexit.register(shutil.rmtree, _TEST_IMAGE_DIR, True)
 
 @pytest.fixture(autouse=True)
 def _isolated_image_output_dir(monkeypatch):
-    import importlib.util
+    import importlib
 
-    mod_name = "backend.core.services.image_generation_service"
-    if mod_name in sys.modules:
-        ig_mod = sys.modules[mod_name]
-    else:
-        ig_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "backend",
-            "core",
-            "services",
-            "image_generation_service.py",
-        )
-        spec = importlib.util.spec_from_file_location(mod_name, ig_path)
-        ig_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(ig_mod)
-        # Same as the geocoding fixture: later imports must get THIS module object.
-        sys.modules[mod_name] = ig_mod
+    # A plain import: backend.core.services no longer imports vajra_service
+    # eagerly, so this loads only the service module. (The old spec-loader
+    # path executed the module before registering it in sys.modules, which
+    # breaks its @dataclass definitions whenever nothing had imported it yet.)
+    ig_mod = importlib.import_module("backend.core.services.image_generation_service")
 
     monkeypatch.setitem(ig_mod.DEFAULT_CONFIG, "image_output_dir", _TEST_IMAGE_DIR)
 

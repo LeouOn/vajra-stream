@@ -1,7 +1,6 @@
 import collections
 import logging
 
-from backend.app.api.v1.endpoints.llm import ChatMessage, ChatRequest, chat_interaction
 from infrastructure.event_bus import EnhancedEventBus
 
 # Import known events that we might want to react to
@@ -97,6 +96,13 @@ class AutonomousAgent:
                 user_prompt += "Notice: Coherence is VERY HIGH. The space is highly aligned. Consider generating a celebratory sigil or increasing harmonic strength.\n"
 
         user_prompt += "Please analyze this event and take concrete action using your audio tools or sigil generators if necessary."
+
+        # Function-level by design: this service must not import the API layer at
+        # module level. backend.app.api's package __init__ loads every endpoint,
+        # and endpoints/radionics -> orchestrator_bridge -> scripts.unified_orchestrator
+        # imports this module, so a module-level import here is an import cycle
+        # (Phase 3; tests/unit/test_import_layering.py).
+        from backend.app.api.v1.endpoints.llm import ChatMessage, ChatRequest, chat_interaction
 
         request = ChatRequest(
             messages=[ChatMessage(role="system", content=system_prompt), ChatMessage(role="user", content=user_prompt)],

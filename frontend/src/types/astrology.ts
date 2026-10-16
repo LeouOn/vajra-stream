@@ -16,6 +16,7 @@
  * keys, and on calculation failure `_get_astrology_data` returns `{}`.
  */
 import type { SavedChart } from '../components/UI/SavedChartsDrawer';
+import type { ProvenanceMap } from '../lib/provenance';
 
 /** One tropical body (or the ascendant / midheaven angle). */
 export interface WesternPosition {
@@ -147,6 +148,14 @@ export interface AstrologySnapshot {
   planetary_positions?: WesternPositions;
   auspicious_times?: Record<string, unknown>;
   timestamp?: number;
+  /**
+   * Block name -> provenance (`vajra_service.ASTROLOGY_PROVENANCE`): `computed`,
+   * or `decorative` for the no-ephemeris placeholders. Saved charts' cached
+   * data predates it; read it through `fieldProvenance(.., 'computed')`.
+   */
+  provenance?: ProvenanceMap;
+  /** True when the backend had no ephemeris and sent placeholders. */
+  fallback?: boolean;
 }
 
 /** `GET /astrology/current` */

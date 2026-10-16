@@ -148,6 +148,11 @@ def test_get_status_returns_documented_shape_when_idle():
 
     status = loop.get_status()
 
+    # Every count is a record of names actually recited (the honest instrument).
+    provenance = status.pop("provenance")
+    assert set(provenance.values()) == {"record"}
+    assert {"total_recited", "mala_count", "dedications", "progress_pct"} <= set(provenance)
+
     assert status == {
         "running": False,
         "intention": "",

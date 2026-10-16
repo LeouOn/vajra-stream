@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from 'antd';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStable';
 import ProvenanceTag from './ProvenanceTag';
 
@@ -110,10 +110,8 @@ export const AttunementChart: React.FC<Props> = (_props: Props) => {
               labelStyle={{ color: '#94a3b8', marginBottom: '4px' }}
             />
             <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }} />
-            
-            <ReferenceLine y={0.3} yAxisId="left" stroke="#ef4444" strokeDasharray="3 3" opacity={0.5} label={{ position: 'insideTopLeft', value: 'Low', fill: '#ef4444', fontSize: 10, opacity: 0.5 }} />
-            <ReferenceLine y={0.8} yAxisId="left" stroke="#22c55e" strokeDasharray="3 3" opacity={0.5} label={{ position: 'insideBottomLeft', value: 'High', fill: '#22c55e', fontSize: 10, opacity: 0.5 }} />
-            
+            {/* No "Low"/"High" threshold lines: a draw has no good or bad level. */}
+
             <Line 
               yAxisId="left"
               type="monotone" 

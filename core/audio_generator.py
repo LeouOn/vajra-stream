@@ -13,8 +13,8 @@ Dependencies:
                    without PortAudio (e.g. CI without libportaudio2 installed).
                    `ScalarWaveGenerator.play()` will raise a clear RuntimeError
                    if called without sounddevice available.
-    config.settings.PRAYER_BOWL_CONFIG — optional; falls back gracefully if config
-        module is not on sys.path.
+    config.settings.PRAYER_BOWL_CONFIG — required; the project root must be on
+        sys.path (run.py, uvicorn from the root, pytest and `python -m` all do).
 
 Exports:
     ScalarWaveGenerator — main synthesis class.
@@ -29,7 +29,6 @@ Typical usage:
 
 import logging
 import sys
-from pathlib import Path
 
 import numpy as np
 from scipy import signal
@@ -46,20 +45,7 @@ except (ImportError, OSError) as _sd_err:
     _SOUNDDEVICE_AVAILABLE = False
     _SOUNDDEVICE_IMPORT_ERROR = _sd_err
 
-try:
-    from config.settings import PRAYER_BOWL_CONFIG
-except ImportError:
-    import sys
-
-    sys.path.append(str(Path(__file__).parent.parent))
-    try:
-        from config.settings import PRAYER_BOWL_CONFIG
-    except ImportError:
-        # Fallback if config package is not found directly
-        import sys
-
-        sys.path.append(str(Path(__file__).parent.parent / "config"))
-        from settings import PRAYER_BOWL_CONFIG
+from config.settings import PRAYER_BOWL_CONFIG
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

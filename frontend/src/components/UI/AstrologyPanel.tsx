@@ -10,6 +10,9 @@ import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
 import { formatMoonIllumination } from '../../lib/moonIllumination';
+import { fieldProvenance } from '../../lib/provenance';
+import type { Provenance } from '../../types/operations';
+import Reading from './Reading';
 import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import VedicPanchanga from './VedicPanchanga';
@@ -557,6 +560,8 @@ export default function AstrologyPanel() {
   };
 
   const activeData = isLiveMode ? liveData : customData;
+  // Every block of a snapshot is computed; the backend marks placeholders decorative.
+  const kindOf = (block: string): Provenance => fieldProvenance(activeData?.provenance, block, 'computed');
 
   const countWuXing = (): Record<WuXing, number> => {
     const counts: Record<WuXing, number> = { Wood: 0, Fire: 0, Earth: 0, Metal: 0, Water: 0 };
@@ -758,33 +763,45 @@ export default function AstrologyPanel() {
                       <Col xs={12} sm={6}>
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">PLANETARY HOUR</span>
-                          <span className="text-sm font-bold text-yellow-400 block mt-1">
-                            {activeData?.planetary_hours?.current_planetary_hour || '—'}
-                          </span>
+                          <Reading
+                            value={activeData?.planetary_hours?.current_planetary_hour || '—'}
+                            provenance={kindOf('planetary_hours')}
+                            className="mt-1 flex items-baseline gap-1"
+                            valueClassName="text-sm font-bold text-yellow-400"
+                          />
                         </Card>
                       </Col>
                       <Col xs={12} sm={6}>
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">VEDIC TITHI</span>
-                          <span className="text-sm font-bold text-purple-400 block mt-1">
-                            {activeData?.indian?.panchanga?.tithi?.name || '—'}
-                          </span>
+                          <Reading
+                            value={activeData?.indian?.panchanga?.tithi?.name || '—'}
+                            provenance={kindOf('indian')}
+                            className="mt-1 flex items-baseline gap-1"
+                            valueClassName="text-sm font-bold text-purple-400"
+                          />
                         </Card>
                       </Col>
                       <Col xs={12} sm={6}>
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">BAZI YEAR PILLAR</span>
-                          <span className="text-sm font-bold text-emerald-400 block mt-1">
-                            {activeData?.chinese?.bazi?.year?.split(' ')[0] || '—'}
-                          </span>
+                          <Reading
+                            value={activeData?.chinese?.bazi?.year?.split(' ')[0] || '—'}
+                            provenance={kindOf('chinese')}
+                            className="mt-1 flex items-baseline gap-1"
+                            valueClassName="text-sm font-bold text-emerald-400"
+                          />
                         </Card>
                       </Col>
                       <Col xs={12} sm={6}>
                         <Card size="small" className="bg-gray-800/60 border-white/5" styles={{ body: { padding: '10px' } }}>
                           <span className="text-[9px] text-gray-500 font-mono block">MOON ILLUMINATION</span>
-                          <span className="text-sm font-bold text-cyan-400 block mt-1">
-                            {formatMoonIllumination(activeData?.moon_phase?.illumination)}
-                          </span>
+                          <Reading
+                            value={formatMoonIllumination(activeData?.moon_phase?.illumination)}
+                            provenance={kindOf('moon_phase')}
+                            className="mt-1 flex items-baseline gap-1"
+                            valueClassName="text-sm font-bold text-cyan-400"
+                          />
                         </Card>
                       </Col>
                     </Row>
@@ -814,21 +831,33 @@ export default function AstrologyPanel() {
                           <Card size="small" className="bg-purple-950/20 border-purple-500/20" styles={{ body: { padding: '12px' } }}>
                             <span className="text-[8px] font-mono text-amber-400 block">SUN SIGN</span>
                             <div className="text-base font-bold text-white mt-1">{activeData.western?.positions?.sun?.sign || 'Unknown'}</div>
-                            <span className="text-[10px] text-gray-400 font-mono">{activeData.western?.positions?.sun?.degree?.toFixed(2)}° · H{activeData.western?.positions?.sun?.house || '?'}</span>
+                            <Reading
+                              value={`${activeData.western?.positions?.sun?.degree?.toFixed(2) ?? '—'}° · H${activeData.western?.positions?.sun?.house || '?'}`}
+                              provenance={kindOf('western')}
+                              valueClassName="text-[10px] text-gray-400 font-mono"
+                            />
                           </Card>
                         </Col>
                         <Col xs={24} md={8}>
                           <Card size="small" className="bg-purple-950/20 border-purple-500/20" styles={{ body: { padding: '12px' } }}>
                             <span className="text-[8px] font-mono text-blue-300 block">MOON SIGN</span>
                             <div className="text-base font-bold text-white mt-1">{activeData.western?.positions?.moon?.sign || 'Unknown'}</div>
-                            <span className="text-[10px] text-gray-400 font-mono">{activeData.western?.positions?.moon?.degree?.toFixed(2)}° · H{activeData.western?.positions?.moon?.house || '?'}</span>
+                            <Reading
+                              value={`${activeData.western?.positions?.moon?.degree?.toFixed(2) ?? '—'}° · H${activeData.western?.positions?.moon?.house || '?'}`}
+                              provenance={kindOf('western')}
+                              valueClassName="text-[10px] text-gray-400 font-mono"
+                            />
                           </Card>
                         </Col>
                         <Col xs={24} md={8}>
                           <Card size="small" className="bg-purple-950/20 border-purple-500/20" styles={{ body: { padding: '12px' } }}>
                             <span className="text-[8px] font-mono text-cyan-400 block">ASCENDANT</span>
                             <div className="text-base font-bold text-white mt-1">{activeData.western?.positions?.ascendant?.sign || 'Unknown'}</div>
-                            <span className="text-[10px] text-gray-400 font-mono">{activeData.western?.positions?.ascendant?.degree?.toFixed(2)}° · H1 Cusp</span>
+                            <Reading
+                              value={`${activeData.western?.positions?.ascendant?.degree?.toFixed(2) ?? '—'}° · H1 Cusp`}
+                              provenance={kindOf('western')}
+                              valueClassName="text-[10px] text-gray-400 font-mono"
+                            />
                           </Card>
                         </Col>
                       </Row>
@@ -852,7 +881,7 @@ export default function AstrologyPanel() {
                                       {isRetrograde && <Tag color="red" className="text-[8px] leading-none">℞</Tag>}
                                     </Space>
                                     <Space size={4}>
-                                      <span className="text-slate-200">{pos.formatted}</span>
+                                      <Reading value={pos.formatted} provenance={kindOf('western')} valueClassName="text-slate-200" />
                                       {pos.house && <Tag className="text-[8px] font-mono" color="purple">H{pos.house}</Tag>}
                                     </Space>
                                   </div>
@@ -874,7 +903,13 @@ export default function AstrologyPanel() {
                                 return (
                                   <div key={elem}>
                                     <span className="text-[9px] text-gray-500 font-mono block leading-none">{elem.toUpperCase()}</span>
-                                    <span className={`font-bold mt-1.5 block ${color}`}>{weight} pts</span>
+                                    <Reading
+                                      value={weight}
+                                      unit=" pts"
+                                      provenance={kindOf('western')}
+                                      className="mt-1.5 flex items-baseline justify-center gap-1"
+                                      valueClassName={`font-bold ${color}`}
+                                    />
                                   </div>
                                 );
                               })}
@@ -910,7 +945,7 @@ export default function AstrologyPanel() {
 
                   {/* Vedic Astrology layout */}
                   {(activeSystem === 'all' || activeSystem === 'vedic') && (
-                    <VedicPanchanga indianData={activeData.indian} />
+                    <VedicPanchanga indianData={activeData.indian} provenance={kindOf('indian')} />
                   )}
 
                   {/* 3D Sacred Mandala planetary visualizer (lazy-loaded) */}
@@ -934,7 +969,7 @@ export default function AstrologyPanel() {
 
                   {/* Chinese Astrology layout */}
                   {(activeSystem === 'all' || activeSystem === 'chinese') && (
-                    <ChineseBaZi chineseData={activeData.chinese} />
+                    <ChineseBaZi chineseData={activeData.chinese} provenance={kindOf('chinese')} />
                   )}
                 </div>
               ) : (

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Card, Row, Col, Tag, Statistic, Space, Progress, Tooltip } from 'antd';
+import { Card, Row, Col, Tag, Statistic, Space, Tooltip } from 'antd';
 import { Moon, Star, Sun, Activity } from 'lucide-react';
+import type { Provenance } from '../../types/operations';
+import Reading, { ReadingMeter, isMeterProvenance } from './Reading';
 
 const RASHI_COLORS: Record<string, string> = {
   'Mesha': '#ef4444','Vrishabha':'#22c55e','Mithuna':'#a855f7',
@@ -48,6 +50,8 @@ interface IndianData {
 
 interface VedicPanchangaProps {
   indianData?: IndianData | null;
+  /** Provenance of the indian block (computed; decorative for a placeholder). */
+  provenance?: Provenance;
 }
 
 interface PanchangaRowItem {
@@ -59,7 +63,7 @@ interface PanchangaRowItem {
   symbol?: string;
 }
 
-export default function VedicPanchanga({ indianData }: VedicPanchangaProps) {
+export default function VedicPanchanga({ indianData, provenance = 'computed' }: VedicPanchangaProps) {
   // Render a clear empty state when payload is missing or empty so the user
   // knows the data is absent rather than seeing five "—" placeholder cards.
   // The backend fallback path (vajra_service._get_astrology_data) returns a
@@ -108,7 +112,7 @@ export default function VedicPanchanga({ indianData }: VedicPanchangaProps) {
                 <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">{label}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-white">{value}</span>
+                <Reading value={value} provenance={provenance} valueClassName="text-sm font-bold text-white" />
                 {symbol && <span className="text-sm">{symbol}</span>}
               </div>
               <div className="text-[9px] text-gray-500 mt-0.5">{sub}</div>
@@ -125,13 +129,15 @@ export default function VedicPanchanga({ indianData }: VedicPanchangaProps) {
             <span className="text-cyan-400 font-mono">{panchanga.nakshatra.name}</span>
             <span className="text-gray-600">Next: {Object.keys(NAKSHATRA_SYMBOLS)[(panchanga.nakshatra.number || 1) % 27]}</span>
           </div>
-          <Progress
-            percent={Math.round((panchanga.nakshatra.progress || 0) * 100)}
-            strokeColor={{ '0%': '#06b6d4', '100%': '#a855f7' }}
-            railColor="rgba(255,255,255,0.05)"
-            size="small"
-            showInfo={false}
-          />
+          {isMeterProvenance(provenance) && (
+            <ReadingMeter
+              percent={(panchanga.nakshatra.progress || 0) * 100}
+              provenance={provenance}
+              label="Nakshatra transit"
+              className="h-1.5 bg-white/5"
+              fillClassName="bg-gradient-to-r from-cyan-500 to-purple-500"
+            />
+          )}
         </div>
       )}
 
@@ -153,7 +159,12 @@ export default function VedicPanchanga({ indianData }: VedicPanchangaProps) {
                   <div className="text-xs font-bold" style={{ color: rashiColor }}>
                     {rashiName || '—'}
                   </div>
-                  <div className="text-[9px] text-gray-500 font-mono">{pos.degree?.toFixed(1)}°</div>
+                  <Reading
+                    value={pos.degree != null ? `${pos.degree.toFixed(1)}°` : '—'}
+                    provenance={provenance}
+                    className="inline-flex items-baseline justify-center gap-1"
+                    valueClassName="text-[9px] text-gray-500 font-mono"
+                  />
                 </div>
               </Tooltip>
             </Col>

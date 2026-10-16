@@ -80,9 +80,9 @@ def _inject_fallback_keys(service: ImageGenerationService) -> None:
     if not service.config.get("openrouter_api_key"):
         key = os.environ.get("OPENROUTER_API_KEY", "")
         if not key:
-            from backend.app.config import settings
+            from config.backend_settings import backend_settings
 
-            key = getattr(settings, "OPENROUTER_API_KEY", "")
+            key = getattr(backend_settings, "OPENROUTER_API_KEY", "")
         if key:
             fallbacks["openrouter_api_key"] = key
     if not service.config.get("minimax_api_key"):

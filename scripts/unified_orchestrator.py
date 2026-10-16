@@ -13,20 +13,17 @@ from typing import Any
 
 # from dataclasses import dataclass
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Script bootstrap. This file is both a CLI (`python scripts/unified_orchestrator.py`)
+# and a library module the backend imports (backend/core/orchestrator_bridge.py).
+# Only the CLI case needs the project root put on sys.path; when imported as
+# `scripts.unified_orchestrator` (or run with `python -m`) __package__ is set
+# and sys.path is left alone. tests/unit/test_import_layering.py enforces this.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from infrastructure.event_bus import EnhancedEventBus
-
-try:
-    import config.settings as settings
-except ImportError:
-    # Fallback if config package is not found directly
-    import sys
-
-    sys.path.append(str(Path(__file__).parent.parent / "config"))
-    import settings
+import config.settings as settings
 from backend.core.llm_agent.autonomous_agent import AutonomousAgent
+from infrastructure.event_bus import EnhancedEventBus
 from modules.audio import AudioService
 from modules.blessing_router import BlessingRouter, DeliveryMethod, TargetSpecification, TargetType
 from modules.crystal import CrystalService

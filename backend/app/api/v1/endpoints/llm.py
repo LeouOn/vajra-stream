@@ -24,10 +24,9 @@ from backend.app.api.v1.endpoints.agent_suggestions import (
     FailedToolCallSchema,
     log_failed_tool_call,
 )
-from backend.core.llm_agent.tools import TOOL_REGISTRY, get_tool_schemas
 from backend.core.services.blessing_scheduler import get_scheduler
-from backend.core.services.population_manager import get_population_manager
 from backend.core.services.rng_attunement_service import get_rng_service
+from core import tool_registry
 
 # New async LLM / context layer (Phase 1 — ProviderRegistry + ContextModule).
 from core.context import (
@@ -45,7 +44,6 @@ from core.llm.defaults import (
 )
 from core.llm.retry import retry_with_backoff
 from core.llm.usage import LLMUsageTracker, UsageRecord
-from core.situation_geometry import DEFAULT_LAT, DEFAULT_LNG
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -94,16 +92,9 @@ class ChatResponse(BaseModel):
     debug_info: dict | None = None
 
 
-# One sitting: do not re-mint these once a success is already on the job.
-_ALREADY_GENERATED = frozenset(
-    {
-        "generate_single_outlook",
-        "generate_prayer",
-        "generate_blessing",
-        "generate_epic_outlook",
-        "run_working",
-    }
-)
+# One sitting: do not re-mint these once a success is already on the job
+# (the registry's ``once_per_sitting`` flag).
+_ALREADY_GENERATED = tool_registry.once_per_sitting_names()
 
 
 def format_messages_for_llm(request_messages: list[ChatMessage], default_system_prompt: str):
@@ -134,70 +125,9 @@ def format_messages_for_llm(request_messages: list[ChatMessage], default_system_
     return full_system_prompt, chat_messages
 
 
-TOOL_NAME_ALIASES: dict[str, str] = {
-    "list_targets": "list_populations",
-    "show_targets": "list_populations",
-    "show_populations": "list_populations",
-    "get_targets": "list_populations",
-    "list_population": "list_populations",
-    "start_blessing": "start_automation",
-    "stop_blessing": "stop_automation",
-    "begin_session": "start_automation",
-    "get_session": "get_automation_status",
-    "session_status": "get_automation_status",
-    "list_session": "get_automation_stats",
-    "get_statistics": "get_system_status",
-    "broadcast_crystal": "broadcast_healing",
-    "set_scalar_frequency": "set_audio_frequency",
-    "set_rng_bias": "create_rng_session",
-    "calibrate_rng": "create_rng_session",
-    "set_crystal_intent": "broadcast_healing",
-    "get_night_sky": "get_celestial_night_sky",
-    "night_sky": "get_celestial_night_sky",
-    "celestial_sky": "get_celestial_night_sky",
-    "get_dharani": "get_dharani_text",
-    "dharani_text": "get_dharani_text",
-    "dharani": "get_dharani_text",
-    "timing_wheel": "get_auspicious_timing_details",
-    "get_timing_wheel": "get_auspicious_timing_details",
-    "world_crises": "get_active_world_crises",
-    "get_world_crises": "get_active_world_crises",
-    "active_crises": "get_active_world_crises",
-    "living_ritual": "trigger_living_ritual_broadcast",
-    "living_ritual_broadcast": "trigger_living_ritual_broadcast",
-}
-
-ARG_ALIASES: dict[str, str] = {
-    "intent": "custom_context",
-    "intention": "custom_context",
-    "focus": "custom_context",
-    "context": "custom_context",
-    "aspiration": "custom_context",
-    "topic": "custom_context",
-    "subject": "custom_context",
-    "target": "population_ids",
-    "targets": "population_ids",
-    "duration": "duration_minutes",
-    "minutes": "duration_minutes",
-    "time": "duration_minutes",
-    "voice": "edge_voice",
-    "speed": "rate",
-    "freq": "frequency",
-    "hz": "frequency",
-}
-
-
 def _resolve_tool_name(name: str) -> str:
-    return TOOL_NAME_ALIASES.get(name, name)
-
-
-def _normalize_args(args: dict) -> dict:
-    """Map LLM-emitted argument names to actual function parameter names."""
-
-    normalized = {}
-    for key, value in args.items():
-        normalized[ARG_ALIASES.get(key, key)] = value
-    return normalized
+    """Map a tool alias (``list_targets``, ``night_sky``, ...) to its registry name."""
+    return tool_registry.resolve_name(name)
 
 
 def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
@@ -278,474 +208,17 @@ def _parse_text_tool_calls(content: str) -> list[dict[str, Any]]:
 
 
 async def execute_tool_locally(name: str, args: dict) -> Any:
-    """Helper to execute a tool function from the tool registry"""
-    import asyncio
+    """Execute a chat tool call through the single tool registry.
 
-    if name not in TOOL_REGISTRY:
-        resolved = _resolve_tool_name(name)
-        if resolved in TOOL_REGISTRY:
-            name = resolved
-        else:
-            raise ValueError(f"Tool {name} not found in registry")
-
-    tool_func = TOOL_REGISTRY[name]
-    args = _normalize_args(args)
-    logger.info(f"🔧 Executing tool {name} with args: {args}")
-
-    # Special case: avoid self-HTTP calls by accessing services directly
-    # This prevents deadlocks when tools call back to the same server
-    if name == "list_populations":
-        pm = get_population_manager()
-        active_only = args.get("active_only", False)
-        category = args.get("category")
-        urgent_only = args.get("urgent_only", False)
-        pops = [p.to_dict() for p in pm.get_all_populations()]
-        if active_only:
-            pops = [p for p in pops if p.get("is_active")]
-        if category:
-            pops = [p for p in pops if p.get("category") == category]
-        if urgent_only:
-            pops = [p for p in pops if p.get("is_urgent")]
-        # Dedup by name so a seeded "California" × N ledger cannot flood
-        # the follow-up prompt (Nemotron then stutter-repeats the name).
-        unique: list[dict] = []
-        seen: set[str] = set()
-        for pop in pops:
-            name = str(pop.get("name") or pop.get("id") or "").strip()
-            key = name.lower()
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            unique.append(
-                {
-                    "id": pop.get("id"),
-                    "name": name,
-                    "category": pop.get("category"),
-                    "is_active": pop.get("is_active"),
-                    "is_urgent": pop.get("is_urgent"),
-                    "mantra_preference": pop.get("mantra_preference"),
-                    "intentions": (pop.get("intentions") or [])[:4],
-                }
-            )
-            if len(unique) >= 30:
-                break
-        return unique
-    elif name == "get_population_statistics":
-        pm = get_population_manager()
-        stats = pm.get_statistics()
-        return {
-            "total_populations": stats.get("total_populations", 0),
-            "active_populations": stats.get("active_populations", 0),
-            "total_blessings_sent": stats.get("total_blessings_sent", 0),
-            "total_mantras_repeated": stats.get("total_mantras_repeated", 0),
-        }
-    elif name == "create_population":
-        from backend.core.services.population_manager import PopulationCategory, SourceType
-
-        pm = get_population_manager()
-        cat_str = args.get("category", "custom")
-        src_str = args.get("source_type", "manual")
-        try:
-            category = PopulationCategory(cat_str) if isinstance(cat_str, str) else cat_str
-        except ValueError:
-            category = PopulationCategory.CUSTOM
-        try:
-            source_type = SourceType(src_str) if isinstance(src_str, str) else src_str
-        except ValueError:
-            source_type = SourceType.MANUAL
-        pop = pm.create_population(
-            name=args.get("name", "Untitled Population"),
-            description=args.get("description", ""),
-            category=category,
-            source_type=source_type,
-            directory_path=args.get("directory_path"),
-            mantra_preference=args.get("mantra_preference", "chenrezig"),
-            intentions=args.get("intentions", ["love", "healing", "peace"]),
-            priority=args.get("priority", 5),
-            is_urgent=args.get("is_urgent", False),
-        )
-        return pop.to_dict() if pop else None
-    elif name == "update_population":
-        pm = get_population_manager()
-        pop = pm.update_population(args.get("population_id"), **args)
-        return pop.to_dict() if pop else None
-    elif name == "start_automation":
-        from backend.core.services.blessing_scheduler import SchedulerConfig, SchedulerMode, get_scheduler
-
-        scheduler = get_scheduler()
-        config = SchedulerConfig(
-            mode=SchedulerMode(args.get("mode", "round_robin")),
-            duration_per_population=args.get("duration_per_population", 1800),
-            transition_pause=args.get("transition_pause", 30),
-            link_rng=args.get("link_rng", True),
-            auto_dedicate=args.get("auto_dedicate", True),
-            continuous_mode=args.get("continuous_mode", True),
-            only_active=args.get("only_active", True),
-            min_priority=args.get("min_priority", 1),
-        )
-        session_id = scheduler.start_automation(config=config)
-        session = scheduler.sessions.get(session_id)
-        queue_len = len(session.populations_queue) if session else 0
-        return {"session_id": session_id, "populations_in_queue": queue_len}
-    elif name == "stop_automation":
-        from backend.core.services.blessing_scheduler import get_scheduler
-
-        scheduler = get_scheduler()
-        result = scheduler.stop_automation(args.get("session_id"))
-        return result
-    elif name == "get_automation_status":
-        from backend.core.services.blessing_scheduler import get_scheduler
-
-        scheduler = get_scheduler()
-        status_info = scheduler.get_current_status(args.get("session_id"))
-        return status_info if status_info is not None else {}
-    elif name == "get_automation_stats":
-        from backend.core.services.blessing_scheduler import get_scheduler
-
-        scheduler = get_scheduler()
-        return scheduler.get_session_stats(args.get("session_id"))
-    elif name == "pause_automation":
-        from backend.core.services.blessing_scheduler import get_scheduler
-
-        scheduler = get_scheduler()
-        success = scheduler.pause_automation(args.get("session_id"))
-        return {
-            "success": success,
-            "message": "Automation paused successfully" if success else "Failed to pause automation",
-        }
-    elif name == "resume_automation":
-        from backend.core.services.blessing_scheduler import get_scheduler
-
-        scheduler = get_scheduler()
-        success = scheduler.resume_automation(args.get("session_id"))
-        return {
-            "success": success,
-            "message": "Automation resumed successfully" if success else "Failed to resume automation",
-        }
-    elif name == "create_rng_session":
-        from backend.core.services.rng_attunement_service import get_rng_service
-
-        service = get_rng_service()
-        session_id = service.create_session(
-            session_id=args.get("session_id"),
-            baseline_tone_arm=args.get("baseline_tone_arm", 5.0),
-            sensitivity=args.get("sensitivity", 1.0),
-        )
-        return {"session_id": session_id}
-    elif name == "get_rng_reading":
-        from backend.core.services.rng_attunement_service import get_rng_service
-
-        service = get_rng_service()
-        reading = service.get_reading(args.get("session_id"))
-        if reading:
-            return {
-                "timestamp": reading.timestamp,
-                "raw_value": reading.raw_value,
-                "tone_arm": reading.tone_arm,
-                "needle_position": reading.needle_position,
-                "needle_state": reading.needle_state.value
-                if hasattr(reading.needle_state, "value")
-                else reading.needle_state,
-                "quality": reading.quality.value if hasattr(reading.quality, "value") else reading.quality,
-                "entropy": reading.entropy,
-                "coherence": reading.coherence,
-                "trend": reading.trend,
-                "floating_needle_score": reading.floating_needle_score,
-            }
-        return {}
-    elif name == "stop_rng_session":
-        from backend.core.services.rng_attunement_service import get_rng_service
-
-        service = get_rng_service()
-        session_id = args.get("session_id")
-        summary = service.get_session_summary(session_id) or {}
-        service.stop_session(session_id)
-        return summary
-    elif name == "create_blessing_slideshow":
-        from backend.core.services.blessing_slideshow_service import (
-            IntentionSet,
-            IntentionType,
-            MantraType,
-            get_blessing_slideshow_service,
-        )
-
-        service = get_blessing_slideshow_service()
-        intentions = [IntentionType(i) for i in args.get("intentions", ["love", "healing", "peace"])]
-        intention_set = IntentionSet(
-            primary_mantra=MantraType(args.get("mantra", "chenrezig")),
-            intentions=intentions,
-            repetitions_per_photo=args.get("repetitions_per_photo", 108),
-            dedication=args.get("dedication", "May all beings benefit"),
-        )
-        session_id = service.create_session(
-            directory_path=args.get("directory_path"),
-            intention_set=intention_set,
-            loop_mode=args.get("loop_mode", True),
-            display_duration_ms=args.get("display_duration_ms", 2000),
-            rng_session_id=args.get("rng_session_id"),
-        )
-        session = service.sessions.get(session_id)
-        total_photos = len(session.photos) if session else 0
-        return {"session_id": session_id, "total_photos": total_photos}
-    elif name == "get_current_slide":
-        from backend.core.services.blessing_slideshow_service import get_blessing_slideshow_service
-
-        service = get_blessing_slideshow_service()
-        slide_info = service.get_current_slide(args.get("session_id"))
-        return slide_info if slide_info is not None else {}
-    elif name == "stop_slideshow":
-        from backend.core.services.blessing_slideshow_service import get_blessing_slideshow_service
-
-        service = get_blessing_slideshow_service()
-        stats = service.stop_session(args.get("session_id"))
-        return stats
-    elif name == "forge_sigil":
-        from backend.core.services.sigil_service import sigil_service
-
-        return await sigil_service.forge_sigil(args.get("intention"), args.get("kamea", "saturn"))
-    elif name == "cast_tarot_spread":
-        from backend.core.services.divination_service import divination_service
-
-        res = divination_service.draw_tarot(args.get("count", 3))
-        return {"cards": res}
-    elif name == "cast_i_ching":
-        from backend.core.services.divination_service import divination_service
-
-        return divination_service.cast_i_ching()
-    elif name == "cast_geomancy":
-        from backend.core.services.divination_service import divination_service
-
-        return divination_service.cast_geomancy()
-
-    elif name == "search_grimoire_correspondences":
-        from backend.core.services.grimoire_service import grimoire_service
-
-        return grimoire_service.search(args.get("query", ""))
-    elif name == "get_planetary_hours_and_transits":
-        import datetime
-
-        from backend.core.services.grimoire_service import grimoire_service
-        from backend.core.services.vajra_service import vajra_service
-
-        now = datetime.datetime.now()
-        astro_data = await vajra_service._get_astrology_data()
-        hour_data = grimoire_service.get_planetary_hours(now.hour, now.weekday())
-        return {"astrology": astro_data, "planetary_hour": hour_data, "timestamp": time.time()}
-    elif name == "get_random_buddha":
-        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-        svc = get_eighty_eight_buddhas()
-        category = args.get("category")
-        b = svc.random_buddha(category=category)
-        narrative = svc.generate_buddha_narrative(b.name_chinese, depth="contemplation")
-        return {
-            "buddha": {
-                "name_chinese": b.name_chinese,
-                "name_pinyin": b.name_pinyin,
-                "name_sanskrit": b.name_sanskrit,
-                "category": b.category,
-                "meaning": b.meaning,
-                "realm": b.realm,
-                "light": b.light,
-            },
-            "narrative": narrative.get("narrative", ""),
-        }
-    elif name == "generate_buddha_narrative":
-        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-        svc = get_eighty_eight_buddhas()
-        return svc.generate_buddha_narrative(
-            buddha_name=args.get("buddha_name", ""),
-            depth=args.get("depth", "contemplation"),
-        )
-    elif name == "get_88_buddhas_liturgy":
-        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-        svc = get_eighty_eight_buddhas()
-        return svc.get_confession_sequence()
-    elif name == "recite_buddha_name":
-        from core.eighty_eight_buddhas import get_eighty_eight_buddhas
-
-        svc = get_eighty_eight_buddhas()
-        b = svc.get_buddha_by_name(args.get("buddha_name", ""))
-        if not b:
-            return {"error": f"Buddha not found: {args.get('buddha_name')}"}
-        return {
-            "buddha": b.name_chinese,
-            "pinyin": b.name_pinyin,
-            "message": f"Recitation of {b.name_chinese} ({b.name_pinyin}) would play via Edge TTS.",
-        }
-    elif name == "start_buddha_recitation":
-        import asyncio
-
-        from core.buddha_recitation_loop import get_recitation_loop
-
-        loop = get_recitation_loop()
-        if loop.state.running:
-            return {"status": "already_running"}
-        intention = args.get("intention", "愿一切众生离苦得乐")
-        interval = args.get("interval_seconds", 3.0)
-        mala_cycles = args.get("mala_cycles")
-        try:
-            running_loop = asyncio.get_event_loop()
-            if running_loop.is_running():
-                running_loop.create_task(
-                    loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles)
-                )
-            else:
-                asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
-        except RuntimeError:
-            asyncio.run(loop.start(intention=intention, interval_seconds=interval, mala_cycles=mala_cycles))
-        return loop.get_status()
-    elif name == "stop_buddha_recitation":
-        from core.buddha_recitation_loop import get_recitation_loop
-
-        loop = get_recitation_loop()
-        await loop.stop()
-        return loop.get_status()
-    elif name == "get_buddha_recitation_status":
-        from core.buddha_recitation_loop import get_recitation_loop
-
-        return get_recitation_loop().get_status()
-    elif name == "check_saka_dawa":
-        from core.auspicious_timing import check_saka_dawa as _check_saka_dawa
-
-        return _check_saka_dawa()
-    elif name == "run_working":
-        from core.working import run_working as _run_working
-
-        return _run_working(
-            intention=args.get("intention", ""),
-            target=args.get("target") or "all beings",
-            broadcast=bool(args.get("broadcast", True)),
-            duration_minutes=int(args.get("duration_minutes") or 5),
-        )
-    elif name == "generate_single_outlook":
-        # Call the service directly. The HTTP tool used to POST back into
-        # this same FastAPI worker; generate_single blocked the event loop
-        # and the chat job's 25s wait_for then discarded the finished result.
-        from container import container
-
-        return await asyncio.to_thread(
-            container.outlook.generate_single,
-            lat=float(args.get("lat") or DEFAULT_LAT),
-            lon=float(args.get("lon") or DEFAULT_LNG),
-            languages=args.get("languages") or ["English"],
-            genre=args.get("genre") or "healing",
-            custom_context=args.get("custom_context"),
-            realm_id=args.get("realm_id"),
-            population_ids=args.get("population_ids"),
-            character_ids=args.get("character_ids"),
-            excluded_forces=args.get("excluded_forces"),
-            include_dialogue=bool(args.get("include_dialogue", False)),
-            model=args.get("model") or NEMOTRON_FREE_MODEL_ID,
-        )
-    elif name == "generate_epic_outlook":
-        from container import container
-
-        return await asyncio.to_thread(
-            container.outlook.generate_epic,
-            lat=float(args.get("lat") or DEFAULT_LAT),
-            lon=float(args.get("lon") or DEFAULT_LNG),
-            languages=args.get("languages") or ["English"],
-            genre=args.get("genre") or "alchemist",
-            stages=int(args.get("stages") or 9),
-            custom_context=args.get("custom_context"),
-            realm_id=args.get("realm_id"),
-            population_ids=args.get("population_ids"),
-            character_ids=args.get("character_ids"),
-            excluded_forces=args.get("excluded_forces"),
-            include_dialogue=bool(args.get("include_dialogue", False)),
-            model=args.get("model") or NEMOTRON_FREE_MODEL_ID,
-        )
-    elif name == "forge_witness":
-        # Same policy as POST /operator/workings/{id}/witness: local render when
-        # reachable (returns the queued operation id), else hosted off the loop.
-        from core.working import forge_witness_for_tool
-
-        return await forge_witness_for_tool(str(args.get("working_id") or ""))
-    elif name == "check_auspicious_timing":
-        from core.auspicious_timing import check_auspicious_window
-
-        return check_auspicious_window(args.get("genre", "healing")).to_dict()
-    elif name == "generate_character":
-        from core.character_generator import CharacterGenerator
-
-        gen = CharacterGenerator()
-        sheet = gen.generate(use_llm=False)
-        return sheet.to_dict()
-    elif name == "generate_image":
-        from backend.core.llm_agent.tools import _AGENT_DISPATCH
-
-        return await _AGENT_DISPATCH(
-            prompt=args.get("prompt", ""),
-            provider=args.get("provider"),
-            model=args.get("model"),
-            size=args.get("size", "1024x1024"),
-            quality=args.get("quality", "standard"),
-            aspect_ratio=args.get("aspect_ratio"),
-            subject_reference=args.get("subject_reference"),
-        )
-    elif (
-        name == "start_character_journey"
-        or name == "advance_journey"
-        or name == "get_journey_status"
-        or name == "run_full_journey"
-    ):
-        from container import container
-        from modules.radionics_operator import ToolDispatcher
-
-        disp = ToolDispatcher(container)
-        return disp.dispatch(name, args)
-    elif name == "get_celestial_night_sky":
-        from backend.core.llm_agent.tools import get_celestial_night_sky
-
-        return get_celestial_night_sky(
-            latitude=float(args.get("latitude") or args.get("lat") or DEFAULT_LAT),
-            longitude=float(args.get("longitude") or args.get("lon") or args.get("lng") or DEFAULT_LNG),
-            timestamp=float(args.get("timestamp")) if args.get("timestamp") is not None else None,
-        )
-    elif name == "get_dharani_text":
-        from backend.core.llm_agent.tools import get_dharani_text
-
-        return get_dharani_text(
-            dharani_id_or_name=str(
-                args.get("dharani_id_or_name") or args.get("dharani_id") or args.get("name") or args.get("id") or ""
-            )
-        )
-    elif name == "get_auspicious_timing_details":
-        from backend.core.llm_agent.tools import get_auspicious_timing_details
-
-        return get_auspicious_timing_details(
-            latitude=float(args.get("latitude") or args.get("lat") or DEFAULT_LAT),
-            longitude=float(args.get("longitude") or args.get("lon") or args.get("lng") or DEFAULT_LNG),
-        )
-    elif name == "get_active_world_crises":
-        from backend.core.llm_agent.tools import get_active_world_crises
-
-        return get_active_world_crises()
-    elif name == "trigger_living_ritual_broadcast":
-        from backend.core.llm_agent.tools import trigger_living_ritual_broadcast
-
-        return trigger_living_ritual_broadcast(
-            intention=str(args.get("intention") or "May all beings be free from suffering"),
-            target=str(args.get("target") or "all beings"),
-            ritual_type=str(args.get("ritual_type") or "healing"),
-            duration_minutes=int(args.get("duration_minutes") or 5),
-            recite_with_tts=bool(args.get("recite_with_tts", False)),
-        )
-    else:
-        # Fallback: call the tool function directly (detect if async or sync)
-        import asyncio as _asyncio
-        import inspect
-
-        if inspect.iscoroutinefunction(tool_func):
-            return await tool_func(**args)
-        # Run sync tool in a thread pool to avoid blocking the event loop
-        # (sync tools often make HTTP requests back to this server, which
-        # would deadlock if run on the event loop thread)
-        loop = _asyncio.get_running_loop()
-        return await loop.run_in_executor(None, lambda: tool_func(**args))
+    Resolves aliases, normalizes arguments against the tool's schema and runs
+    the handler on the loop or in a worker thread as its spec says.
+    """
+    try:
+        spec = tool_registry.get_spec(name, tool_registry.AGENT)
+    except tool_registry.UnknownToolError:
+        raise ValueError(f"Tool {name} not found in registry") from None
+    logger.info(f"🔧 Executing tool {spec.name} with args: {args}")
+    return await tool_registry.acall(spec.name, args, surface=tool_registry.AGENT)
 
 
 async def run_rule_based_fallback(query: str) -> ChatResponse:
@@ -1631,15 +1104,13 @@ async def _run_anthropic_tool_loop(
 
 
 def _prioritize_tool_schemas(schemas: list[dict], max_count: int) -> list[dict]:
-    """Return the single chat allowlist, in ESSENTIAL_TOOL_ORDER.
+    """Return the single chat allowlist, in ``tool_registry.CHAT_ORDER``.
 
-    ``get_tool_schemas(essential_only=True)`` already filters to the same
-    names. This only restores priority order and applies ``max_count``.
+    ``tool_registry.chat_tool_schemas()`` already filters to the same names.
+    This only restores priority order and applies ``max_count``.
     """
-    from backend.core.llm_agent.tools import ESSENTIAL_TOOL_ORDER
-
     by_name = {s.get("name"): s for s in schemas}
-    prioritized = [by_name[n] for n in ESSENTIAL_TOOL_ORDER if n in by_name]
+    prioritized = [by_name[n] for n in tool_registry.CHAT_ORDER if n in by_name]
     return prioritized[:max_count]
 
 
@@ -2030,7 +1501,9 @@ async def chat_compat(request: ChatRequest, http_request: Request):
         registry_choice = await _select_provider_via_registry(http_request, "auto")
         if registry_choice:
             provider_name = registry_choice
-    return await _chat_via_registry(http_request, request, provider_name, tool_schemas=get_tool_schemas())
+    return await _chat_via_registry(
+        http_request, request, provider_name, tool_schemas=tool_registry.chat_tool_schemas()
+    )
 
 
 @router.post("/chat/async")
@@ -3200,11 +2673,7 @@ def _now_iso() -> str:
 # (reasoning tokens, then the public reply). The previous 75s job budget
 # and 25s per-tool cap aborted the call while the model was still thinking.
 _CHAT_JOB_TIMEOUT = 240.0
-_DEFAULT_TOOL_TIMEOUT = 25.0
-_TOOL_TIMEOUTS: dict[str, float] = {
-    "generate_single_outlook": 200.0,
-    "generate_epic_outlook": 300.0,
-}
+_DEFAULT_TOOL_TIMEOUT = 25.0  # per tool call; a spec's ``timeout_s`` overrides it
 
 
 # ── Async chat support ──────────────────────────────────────────────
@@ -3237,7 +2706,7 @@ async def _run_chat_async(
         update_job(job_id, status="running", phase=f"tool:{name}")
         await _push("chat_tool_start", {"tool": name, "args": args})
         add_event(job_id, {"type": "tool_start", "tool": name, "args": args})
-        tool_timeout = _TOOL_TIMEOUTS.get(name, _DEFAULT_TOOL_TIMEOUT)
+        tool_timeout = tool_registry.timeout_for(name, _DEFAULT_TOOL_TIMEOUT)
         try:
             result = await asyncio.wait_for(execute_tool_locally(name, args), timeout=tool_timeout)
             await _push("chat_tool_complete", {"tool": name, "result": _safe_serialize(result)})
@@ -3270,7 +2739,7 @@ async def _run_chat_async(
                 http_request,
                 request,
                 provider_name,
-                tool_schemas=get_tool_schemas(),
+                tool_schemas=tool_registry.chat_tool_schemas(),
                 tool_executor=_tracking_execute,
             )
 
