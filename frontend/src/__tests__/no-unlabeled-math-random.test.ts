@@ -33,7 +33,7 @@ const ALLOWED: Record<string, [Kind, string]> = {
   'components/3D/TaraGreenLotus.tsx': ['decorative', 'floating particle positions and phases'],
   'utils/audioFeedback.ts': ['decorative', 'pitch variation of the UI tick sound'],
   'hooks/useWebSocketStable.ts': ['timing', 'reconnect backoff jitter; never displayed'],
-  'components/UI/OutlookDashboard.tsx': ['id', 'local ritual id suffix'],
+  'components/UI/outlook/savedRituals.ts': ['id', 'local ritual id suffix'],
   'components/UI/outlook/HistoryTab.tsx': ['id', 'local ritual id suffix'],
   'routes/Buddhas/SessionHistory.tsx': ['id', 'local session id suffix'],
   'stores/broadcastStore.ts': ['id', 'fallback broadcast event id suffix'],
