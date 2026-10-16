@@ -2,7 +2,8 @@
 the optional user thangka reference pinned to each deity.
 
 - ``GET /iconography`` -- every deity with its forms, sources and pinned reference
-- ``GET /iconography/{deity}`` -- one entry, its prompt clause and caption facts
+- ``GET /iconography/{deity}`` -- one entry, its prompt clause and caption facts, the
+  text of the ornament sets its forms name, and its pinned reference row
 - ``PUT /iconography/{deity}/reference`` -- pin an uploaded reference (``POST /render/references``)
 - ``DELETE /iconography/{deity}/reference`` -- unpin it (the image itself is kept)
 """
@@ -33,6 +34,8 @@ async def get_deity(deity: str, form: str | None = None) -> dict[str, Any]:
     ref = iconography.resolve(deity, form)
     if ref is None:
         raise HTTPException(status_code=404, detail=f"unknown deity or form: {deity!r} {form or ''}".strip())
+    ornament_sets = iconography.load_iconography().get("ornament_sets") or {}
+    used = {f.get("ornaments") for f in ref.entry["forms"]}
     return {
         "deity": ref.entry,
         "form": ref.form_id,
@@ -40,6 +43,10 @@ async def get_deity(deity: str, form: str | None = None) -> dict[str, Any]:
         "caption_facts": iconography.deity_caption_facts(ref.entry, ref.form),
         "sources": iconography.source_citations(ref.entry),
         "reference_id": deity_references.reference_for(ref.id),
+        # The forms store an ornament-set key ("sambhogakaya"); this is its text.
+        "ornament_sets": {key: text for key, text in ornament_sets.items() if key in used},
+        # The pinned row even when its image is gone ("available": false), so a UI can say so.
+        "reference": deity_references.all_references().get(ref.id),
     }
 
 
