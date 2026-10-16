@@ -127,7 +127,8 @@ export function useCommandChat({ env, astroData, selectedModel, availableModelLi
     return await waitForChatJob(jobId, { setChatPhase, addToolLog, cancelledRef, waitRejectRef });
   }
 
-  async function handleSendMessage(textToSend?: string) {
+  /** Send `textToSend` (or the input) after `history` — the current messages by default. */
+  async function handleSendMessage(textToSend?: string, history: ChatMessage[] = messages) {
     const text = textToSend || input;
     if (!text.trim()) return;
 
@@ -137,7 +138,7 @@ export function useCommandChat({ env, astroData, selectedModel, availableModelLi
     setLastError(null);
     audioFeedback.playTelemetry();
 
-    const priorMessages = messages;
+    const priorMessages = history;
     const userMsg: ChatMessage = { role: 'user', content: text };
     const newMessages = [...priorMessages, userMsg];
     setMessages(newMessages);
@@ -227,10 +228,15 @@ export function useCommandChat({ env, astroData, selectedModel, availableModelLi
     }
   }
 
-  /** Drop the error bubble at `index` and resend its text. */
+  /**
+   * Resend the turn that failed with the error bubble at `index`. The bubble
+   * and the user message it answered both leave the history (the resend adds
+   * the user message back), so the model never sees the error or a duplicate.
+   */
   function retryMessage(index: number, text: string) {
-    setMessages(prev => prev.filter((_, i) => i !== index));
-    handleSendMessage(text);
+    const failedTurn = messages[index - 1];
+    const turnIndex = failedTurn?.role === 'user' && failedTurn.content === text ? index - 1 : -1;
+    handleSendMessage(text, messages.filter((_, i) => i !== index && i !== turnIndex));
   }
 
   function handleCancelGeneration() {
