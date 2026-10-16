@@ -108,20 +108,26 @@ export default function OutlookDashboard() {
 
   // Seed defaults so first-time users don't see "Characters (0) /
   // Populations (0)". Seed characters are local-only (not persisted);
-  // populations are auto-selected from the backend's first 3.
-  const seededRef = useRef(false);
+  // populations are auto-selected from the backend's first 3. Each seeds
+  // once on its own: the characters usually land first, and a shared
+  // "seeded" flag used to stop the populations from ever being selected.
+  const charactersSeededRef = useRef(false);
   useEffect(() => {
-    if (seededRef.current) return;
+    if (charactersSeededRef.current) return;
+    charactersSeededRef.current = true;
     if (characters.length === 0) {
       setCharacters(DEFAULT_CHARACTERS);
     }
-    if (selectedPopIds.length === 0 && populations.length > 0) {
+  }, [characters.length]);
+
+  const populationsSeededRef = useRef(false);
+  useEffect(() => {
+    if (populationsSeededRef.current || populations.length === 0) return;
+    populationsSeededRef.current = true;
+    if (selectedPopIds.length === 0) {
       setSelectedPopIds(populations.slice(0, 3).map(p => p.id));
     }
-    if (characters.length > 0 || populations.length > 0) {
-      seededRef.current = true;
-    }
-  }, [characters.length, populations, selectedPopIds.length]);
+  }, [populations, selectedPopIds.length]);
 
   const { sections, revealedSections } = useRitualReveal(currentNarrative);
   const { narrativeSpeakRef, replayTTS } = useNarrativeTTS();

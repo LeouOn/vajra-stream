@@ -254,10 +254,8 @@ describe('OutlookDashboard — characterization', () => {
       custom_context: null,
       difficulty: 'moderate',
       realm_id: null,
-      // Pre-existing: the seed effect marks itself done once the local seed
-      // characters land, before /populations/ answers, so the "auto-select the
-      // first three populations" branch never runs. Pinned, not fixed.
-      population_ids: null,
+      // The first three populations are auto-selected once they load.
+      population_ids: [1, 2, 3],
       character_ids: null,
       excluded_forces: null,
       include_dialogue: false,

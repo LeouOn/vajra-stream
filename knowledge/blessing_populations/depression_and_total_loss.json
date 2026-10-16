@@ -1,0 +1,86 @@
+{
+  "description": "Beings in depression, grief and total loss - those for whom the floor has gone, held in Avalokiteshvara's great compassion",
+  "deity": "Avalokiteshvara (Chenrezig)",
+  "practice": "avalokiteshvara",
+  "frequency": [639, 7.83],
+  "note": "Blessings accompany care; they do not replace it. Anyone in danger of harming themselves should be connected with a person and a crisis line.",
+  "targets": [
+    {
+      "name": "Those Living with Depression",
+      "category": "mental_health",
+      "description": "Beings in the long grey weight of depression - the mornings that will not start, the joy that went quiet, the exhaustion no one else can see",
+      "priority": 10,
+      "intention": "May all beings living with depression feel the warmth of Avalokiteshvara's compassion reach them where they are, may the weight lift, may they find care that helps and people who stay",
+      "additional_data": {
+        "estimated_count": "About 280 million people live with depression worldwide",
+        "mantra": "Om Mani Padme Hum",
+        "data_sources": ["WHO Depressive disorder fact sheet (2023)"]
+      }
+    },
+    {
+      "name": "Those Who Have Lost Everything",
+      "category": "total_loss",
+      "description": "Beings whose home, livelihood, savings and the life they knew are gone at once - to fire, flood, earthquake, war, eviction or collapse - standing in the ashes of what was",
+      "priority": 10,
+      "intention": "May all who have lost everything be met with shelter, food and kind hands, may they find solid ground under their feet again, and may what cannot be taken from them - their life, their heart, their worth - be felt as whole",
+      "additional_data": {
+        "mantra": "Om Mani Padme Hum",
+        "quality": "refuge when every outer refuge is gone"
+      }
+    },
+    {
+      "name": "Those in Suicidal Despair",
+      "category": "mental_health",
+      "description": "Beings who tonight cannot see a way forward and are thinking of ending their life",
+      "priority": 10,
+      "intention": "May every being in suicidal despair be reached by one voice in time, may the pain ease enough to stay, and may they be carried through this night into a morning with help in it",
+      "additional_data": {
+        "estimated_count": "More than 700,000 people die by suicide each year",
+        "mantra": "Om Mani Padme Hum",
+        "data_sources": ["WHO Suicide fact sheet"]
+      }
+    },
+    {
+      "name": "The Newly Bereaved",
+      "category": "grief",
+      "description": "Beings who have just lost a child, partner, parent, friend or companion animal - the first days and months, when the world is unrecognisable",
+      "priority": 9,
+      "intention": "May all who grieve be held, may their love find a place to rest, and may those they lost go peacefully into the light of great compassion",
+      "additional_data": {
+        "mantra": "Om Mani Padme Hum"
+      }
+    },
+    {
+      "name": "Those Whose Losses Go Unseen",
+      "category": "grief",
+      "description": "Beings grieving losses others do not recognise - miscarriage, estrangement, a vocation or identity ended, a former life taken by illness, a home country left behind",
+      "priority": 9,
+      "intention": "May every unseen grief be witnessed, may no one carry loss alone or in silence, and may each find someone who understands",
+      "additional_data": {
+        "mantra": "Om Mani Padme Hum"
+      }
+    },
+    {
+      "name": "Those Forced from Home",
+      "category": "total_loss",
+      "description": "Beings driven from their homes by war, persecution, disaster or violence, who have lost land, belongings and community together",
+      "priority": 9,
+      "intention": "May all who have been forced from home find safety and welcome, may families be reunited, and may they build a home again in peace",
+      "additional_data": {
+        "estimated_count": "More than 120 million people forcibly displaced worldwide",
+        "mantra": "Om Mani Padme Hum",
+        "data_sources": ["UNHCR Global Trends (2024)"]
+      }
+    },
+    {
+      "name": "Those Who Sit with the Suffering",
+      "category": "caregivers",
+      "description": "Crisis-line volunteers, counsellors, nurses, chaplains, relief workers and the families who keep watch beside the depressed and the grieving",
+      "priority": 8,
+      "intention": "May all who sit with the suffering be steady, rested and supported, may their compassion not burn out, and may their care reach exactly where it is needed",
+      "additional_data": {
+        "mantra": "Om Mani Padme Hum"
+      }
+    }
+  ]
+}

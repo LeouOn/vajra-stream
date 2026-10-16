@@ -325,12 +325,12 @@ describe('CommandCenter — characterization', () => {
     expect(posts).toHaveLength(2);
     const retried = posts[1].body as { messages: Array<{ role: string; content: string }> };
     expect(retried.messages[retried.messages.length - 1]).toEqual({ role: 'user', content: 'this will fail' });
-    // Pre-existing (stale closure): Retry's filter is overwritten by the resend,
-    // which builds on the pre-filter list. The error bubble stays visible and is
-    // sent to the model along with a duplicate user turn. Pinned, not fixed.
-    expect(retried.messages.map((m) => m.role)).toEqual(['system', 'assistant', 'user', 'assistant', 'user']);
-    expect(retried.messages[3].content).toContain('Operator Error');
-    expect(allByText(container, '.markdown-container', 'Operator Error')).toHaveLength(1);
+    // The error bubble and the failed user turn leave the history: the model
+    // sees the welcome message and the one resent turn, nothing else.
+    expect(retried.messages.map((m) => m.role)).toEqual(['system', 'assistant', 'user']);
+    expect(retried.messages.some((m) => m.content.includes('Operator Error'))).toBe(false);
+    expect(allByText(container, '.markdown-container', 'Operator Error')).toHaveLength(0);
+    expect(allByText(container, '.markdown-container', 'this will fail')).toHaveLength(1);
     expect(container.textContent).toContain('The river is blessed.');
   });
 
