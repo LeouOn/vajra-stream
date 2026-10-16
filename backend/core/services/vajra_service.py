@@ -73,7 +73,7 @@ except ImportError:
     Level2CrystalBroadcaster, Level3CrystalBroadcaster = None, None
 
 try:
-    from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
+    from backend.core.services.session_models import AudioConfig, SessionConfig
 except ImportError:
     AudioConfig, SessionConfig = None, None
 
