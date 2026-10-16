@@ -24,12 +24,14 @@ import logging
 import math
 import re
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any
+
+from core.provenance import PROVENANCE_KINDS, Provenance
 
 logger = logging.getLogger(__name__)
 
-Provenance = Literal["record", "computed", "draw", "decorative"]
-PROVENANCES: frozenset[str] = frozenset({"record", "computed", "draw", "decorative"})
+# The shared vocabulary (core/provenance.py), re-exported under the names this module used.
+PROVENANCES: frozenset[str] = PROVENANCE_KINDS
 
 #: Appended to every generated image prompt. Contains no digits, so sanitizing is idempotent.
 NO_TEXT_SUFFIX = (
