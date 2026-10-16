@@ -8,17 +8,12 @@
  * a render operation's `params`, a sigil, or an Outlook illustration reply.
  */
 import type { Provenance } from '../types/operations';
+import { isProvenance } from './provenance';
 
 export interface CaptionFact {
   label: string;
   value: string;
   provenance: Provenance;
-}
-
-const PROVENANCES: readonly Provenance[] = ['record', 'computed', 'draw', 'decorative'];
-
-function isProvenance(v: unknown): v is Provenance {
-  return typeof v === 'string' && (PROVENANCES as readonly string[]).includes(v);
 }
 
 /** Read `caption_facts` from an untyped payload; malformed entries are dropped, never guessed. */
