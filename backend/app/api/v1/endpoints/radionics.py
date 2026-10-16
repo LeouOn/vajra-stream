@@ -7,15 +7,11 @@ import json
 import logging
 import os
 import sqlite3
-import sys
 import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
-
-# Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from backend.core.orchestrator_bridge import orchestrator_bridge
 from core.context_builder import unwrap_rate_entries

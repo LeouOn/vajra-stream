@@ -62,7 +62,6 @@ backend/
 │   │   ├── time_cycles.py        # Time cycle operations
 │   │   ├── tts.py                # Text-to-speech
 │   │   └── visualization.py      # Visualization generation
-│   └── config.py                  # API configuration (shim for config/settings.py)
 ├── websocket/                     # WebSocket connection management
 │   └── connection_manager_stable_v2.py  # Canonical WebSocket manager
 ├── tests/                         # Backend integration tests
@@ -305,7 +304,9 @@ Application configuration files.
 
 ```
 config/
-└── settings.py                    # Core settings (audio, hardware, paths)
+├── settings.py                    # Canonical constants (audio, hardware, paths) — ADR 002
+├── backend_settings.py            # Env-driven deployment settings (DATABASE_URL, CORS, API keys)
+└── llm.py                         # LLM provider config (LLM_* env vars)
 ```
 
 ## Knowledge (`knowledge/`)

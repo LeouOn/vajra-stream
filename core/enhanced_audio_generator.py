@@ -20,26 +20,11 @@ Typical usage:
 """
 
 import logging
-import sys
-from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
 
-try:
-    from config.settings import PRAYER_BOWL_CONFIG
-except ImportError:
-    import sys
-
-    sys.path.append(str(Path(__file__).parent.parent))
-    try:
-        from config.settings import PRAYER_BOWL_CONFIG
-    except ImportError:
-        # Fallback if config package is not found directly
-        import sys
-
-        sys.path.append(str(Path(__file__).parent.parent / "config"))
-        from settings import PRAYER_BOWL_CONFIG
+from config.settings import PRAYER_BOWL_CONFIG
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

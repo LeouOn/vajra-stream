@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 import backend.core.services.vajra_service as vajra_service_module
-from backend.app.api.v1.endpoints.sessions import AudioConfig
+from backend.core.services.session_models import AudioConfig
 from backend.core.services.vajra_service import VajraStreamService
 
 SAMPLE_RATE = 44100

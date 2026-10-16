@@ -4,16 +4,11 @@ Routes blessings to appropriate targets and channels
 """
 
 import re
-import sys
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
 from typing import Any, Protocol
-
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.blessings import BlessingService
 from modules.interfaces import DomainEvent, EventBus

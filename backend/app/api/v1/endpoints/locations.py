@@ -22,7 +22,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from backend.app.config import settings
+from config.backend_settings import backend_settings
 
 router = APIRouter()
 
@@ -50,7 +50,7 @@ def _get_project_root() -> Path:
 
 def get_db_connection():
     """Open a SQLite connection to the project DB with row-dict access."""
-    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
+    db_path = backend_settings.DATABASE_URL.replace("sqlite:///", "")
     if not os.path.isabs(db_path):
         db_path = str((_get_project_root() / db_path).resolve())
     conn = sqlite3.connect(db_path)

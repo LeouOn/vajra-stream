@@ -67,8 +67,11 @@ These are recorded as ADRs in `docs/decisions/`; respect them.
     `container.audio` and consumed by `RadionicsOperator` only. Different
     constructor signature, different engines.
   - Do **not** introduce a third class named `AudioService`.
-- **ADR 002 — Settings canonical.** `config/settings.py` is the single source;
-  `backend/app/config.py` is a shim.
+- **ADR 002 — Settings canonical.** `config/settings.py` is the single source
+  for tuning constants. Env-driven deployment settings are
+  `config/backend_settings.py` (`backend_settings`), LLM provider settings are
+  `config/llm.py` (`get_llm_config`). The old `backend/app/config.py` shim was
+  deleted (step 3, 2026-10-16); do not recreate it.
 - **ADR 003 — Orchestrator canonical.** `backend/core/orchestrator_bridge.py`
   is the single bridge into the legacy `container.py` DI graph.
 - **ADR 004 — Frontend URL strategy.** Always proxy-relative:
@@ -180,6 +183,12 @@ CI runs the same on `ubuntu-latest` with Python 3.11 (`.github/workflows/ci.yml`
   0/0 entries and 0/0 ignored codes. Do not add `ignore = [...]` lines.
 - **No `test_*.py` at `tests/` root.** `test_docs_no_ghost_paths.py` enforces
   it. Put every test under `unit/`, `integration/`, `e2e/`, `backend/`, or `core/`.
+- **Import layering.** `infrastructure`/`config` ← `core` ← `modules` ←
+  `backend`: no module-level import may point up that chain, no
+  module-level import cycles, and no `sys.path` edits in production
+  packages (`run.py` and file-run `scripts/` excepted).
+  `tests/unit/test_import_layering.py` enforces it with empty allow-lists.
+  If you must reach up, use a function-level import and comment why.
 - **No ghost documentation paths.** Several legacy `README.md`s contain
   HTML comments marking removed sections (`<!-- removed: ... ghost path per
   remediation-18 / Issue 5.8 -->`). If you add a doc link, make sure the

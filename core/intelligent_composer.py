@@ -3,14 +3,9 @@ Intelligent Audio Composer for Vajra.Stream
 Creates harmonic, beautiful compositions instead of cacophony
 """
 
-import os
-import sys
 from enum import Enum
 
 import numpy as np
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class HarmonicRelationship(Enum):

@@ -7,7 +7,6 @@ import asyncio
 import json
 import logging
 import os
-import sys
 import threading
 import time
 from datetime import datetime
@@ -40,12 +39,10 @@ ASTROLOGY_FALLBACK_PROVENANCE: dict[str, str] = {
 
 SESSION_INTERRUPT_REASON = "server shut down while this session was running"
 
-# Add parent directory to path to import existing modules
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
 
 # Try importing each module individually to make loading resilient
 try:
-    from backend.app.config import Settings
+    from config.backend_settings import BackendSettings as Settings
 except ImportError:
     Settings = None
 
@@ -95,7 +92,7 @@ except ImportError:
     Level2CrystalBroadcaster, Level3CrystalBroadcaster = None, None
 
 try:
-    from backend.app.api.v1.endpoints.sessions import AudioConfig, SessionConfig
+    from backend.core.services.session_models import AudioConfig, SessionConfig
 except ImportError:
     AudioConfig, SessionConfig = None, None
 

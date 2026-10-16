@@ -3,15 +3,10 @@ Crystal Service Module
 Wraps hardware crystal broadcaster functionality
 """
 
-import sys
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Any
-
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from hardware.crystal_broadcaster import Level2CrystalBroadcaster, Level3AmplifiedBroadcaster
 from modules.interfaces import DomainEvent, EventBus

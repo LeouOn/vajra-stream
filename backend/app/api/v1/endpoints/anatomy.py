@@ -6,14 +6,9 @@ Meridians, chakras, and energetic visualization
 import base64
 import io
 import logging
-import os
-import sys
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-
-# Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../../"))
 
 from core.energetic_anatomy import EnergeticAnatomyDatabase
 from core.meridian_visualization import MeridianVisualizer

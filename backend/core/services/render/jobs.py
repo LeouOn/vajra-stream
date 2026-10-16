@@ -41,9 +41,9 @@ RENDERS_DIR = PurePosixPath("generated/renders")
 
 
 def _comfyui_from_settings() -> RenderBackend:
-    from backend.app.config import settings
+    from config.backend_settings import backend_settings
 
-    return ComfyUIQwenImage21Adapter(settings.COMFYUI_BASE_URL)
+    return ComfyUIQwenImage21Adapter(backend_settings.COMFYUI_BASE_URL)
 
 
 # Name -> factory. Built fresh per use so a changed setting takes effect; tests swap entries.
@@ -59,9 +59,9 @@ def get_backend(name: str = DEFAULT_BACKEND) -> RenderBackend:
 
 
 def render_timeout_seconds() -> float:
-    from backend.app.config import settings
+    from config.backend_settings import backend_settings
 
-    return float(settings.RENDER_TIMEOUT_SECONDS)
+    return float(backend_settings.RENDER_TIMEOUT_SECONDS)
 
 
 # -- artifacts ---------------------------------------------------------------

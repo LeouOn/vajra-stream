@@ -6,13 +6,13 @@ from pathlib import Path
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from backend.app.config import settings
+from config.backend_settings import backend_settings
 
 router = APIRouter(tags=["agent_suggestions"])
 
 
 def get_db_path():
-    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
+    db_path = backend_settings.DATABASE_URL.replace("sqlite:///", "")
     if not os.path.isabs(db_path):
         project_root = Path(__file__).parent.parent.parent.parent.parent
         db_path = str((project_root / db_path).resolve())

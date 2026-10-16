@@ -83,15 +83,15 @@ def get_db_path(db_url: str | None = None) -> str:
     Honors ``settings.DATABASE_URL`` (``sqlite:///./vajra_stream.db`` style)
     when available, otherwise falls back to ``<project_root>/vajra_stream.db``.
 
-    The import of :mod:`backend.app.config` is deferred so this module can be
-    imported during cold-start paths (tests, scripts) without requiring the
-    full backend settings stack.
+    The import of :mod:`config.backend_settings` is deferred so importing this
+    module does not freeze the env-driven settings object: ``DATABASE_URL`` is
+    resolved the first time a path is actually needed (tests set it first).
     """
     if db_url is None:
         try:
-            from backend.app.config import settings  # type: ignore
+            from config.backend_settings import backend_settings
 
-            db_url = settings.DATABASE_URL
+            db_url = backend_settings.DATABASE_URL
         except Exception:
             db_url = "sqlite:///./vajra_stream.db"
 
