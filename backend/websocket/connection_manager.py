@@ -21,6 +21,8 @@ from typing import Any
 
 from fastapi import WebSocket
 
+from backend.websocket.message_provenance import annotate
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -196,7 +198,7 @@ class StableConnectionManagerV2:
 
         try:
             websocket = self.active_connections[connection_id]
-            await websocket.send_json(message)
+            await websocket.send_json(annotate(message))
             return True
         except Exception as e:
             logger.error(f"Error sending personal message to {connection_id}: {e}")
@@ -209,6 +211,8 @@ class StableConnectionManagerV2:
         if not self.active_connections:
             return
 
+        # Every message leaves with its provenance labels (message_provenance.py).
+        message = annotate(message)
         # Create a snapshot of connections to avoid dictionary changed size during iteration
         connections_snapshot = dict(self.active_connections)
         disconnected_clients = []
