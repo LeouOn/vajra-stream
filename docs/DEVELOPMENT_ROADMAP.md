@@ -172,6 +172,14 @@ individual reviews catching each case.
 - Finish ADR 002 step 3 (retire the `backend/app/config.py` shim).
 - Continue splitting monoliths: `OutlookDashboard.tsx` (about 1,980 lines,
   55 `useState`) and `CommandCenter.tsx` (about 1,500 lines).
+  **Done 2026-10-16:** `OutlookDashboard.tsx` went from 1,991 to 240 lines
+  (9 hooks and 10 section components under `components/UI/outlook/`) and
+  `CommandCenter.tsx` from 1,478 to 171 lines (6 hooks and 6 sections under
+  `components/CommandCenter/`). No new file is over 400 lines. Behavior is
+  pinned by characterization tests (`OutlookDashboard.flows.test.tsx`,
+  `CommandCenter.flows.test.tsx`) written before the split. Still over 400
+  lines: the earlier extractions `outlook/UniverseTab.tsx` (524) and
+  `CommandCenter/RenderMessageWidgets.tsx` (679).
 
 ## Phase 4: Deepen the practice
 
