@@ -26,7 +26,7 @@ commented function-level import) instead of adding an entry.
 from __future__ import annotations
 
 import ast
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -79,7 +79,7 @@ def _is_type_checking(test: ast.expr) -> bool:
     )
 
 
-def _module_level_nodes(body: list[ast.stmt]) -> Iterator[ast.stmt]:
+def _module_level_nodes(body: Sequence[ast.AST]) -> Iterator[ast.AST]:
     """Statements executed at import time: skips def bodies and TYPE_CHECKING blocks."""
     for node in body:
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -91,7 +91,7 @@ def _module_level_nodes(body: list[ast.stmt]) -> Iterator[ast.stmt]:
         for field in ("body", "orelse", "finalbody", "handlers"):
             children = getattr(node, field, None)
             if isinstance(children, list):
-                yield from _module_level_nodes([c for c in children if isinstance(c, ast.stmt | ast.excepthandler)])
+                yield from _module_level_nodes(children)
 
 
 def _resolve(name: str) -> str | None:
@@ -227,13 +227,12 @@ def _is_sys_path_mutation(node: ast.AST) -> bool:
     elif isinstance(node, ast.AugAssign):
         targets = [node.target]
     for target in targets:
-        if isinstance(target, ast.Subscript):
-            target = target.value
+        owner = target.value if isinstance(target, ast.Subscript) else target
         if (
-            isinstance(target, ast.Attribute)
-            and target.attr == "path"
-            and isinstance(target.value, ast.Name)
-            and target.value.id == "sys"
+            isinstance(owner, ast.Attribute)
+            and owner.attr == "path"
+            and isinstance(owner.value, ast.Name)
+            and owner.value.id == "sys"
         ):
             return True
     return False
@@ -254,10 +253,10 @@ def _unguarded_sys_path_lines(tree: ast.Module) -> list[int]:
             for child in node.orelse:
                 visit(child, guarded)
             return
-        if _is_sys_path_mutation(node) and not guarded:
+        if isinstance(node, ast.stmt | ast.expr) and _is_sys_path_mutation(node) and not guarded:
             lines.append(node.lineno)
-        for child in ast.iter_child_nodes(node):
-            visit(child, guarded)
+        for sub in ast.iter_child_nodes(node):
+            visit(sub, guarded)
 
     visit(tree, False)
     return sorted(set(lines))
