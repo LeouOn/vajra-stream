@@ -1,5 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { DHYANI_BUDDHAS, type DhyaniBuddha, type BuddhaFamily, type MandalaDirection } from '../../lib/deityVisualizations';
+import {
+  BUDDHA_FAMILY_VARIANT_NOTE,
+  DHYANI_BUDDHAS,
+  type BuddhaFamily,
+  type MandalaDirection,
+} from '../../lib/deityVisualizations';
+
+/*
+ * Names, colours, gestures, directions, elements, wisdoms and poisons all come
+ * from the five-family records in knowledge/iconography.json (via
+ * DHYANI_BUDDHAS); only the UI colour, seed syllable and layout are local.
+ */
 
 interface FiveBuddhaMandalaProps {
   activeFamily?: BuddhaFamily;
@@ -184,7 +195,7 @@ export default function FiveBuddhaMandala({
                     fill="#64748b"
                     opacity={0.5}
                   >
-                    {buddha.element} · {buddha.wisdom.split(' ')[0]}
+                    {capitalize(buddha.element)} · {buddha.wisdomShort}
                   </text>
                 </>
               )}
@@ -202,8 +213,13 @@ export default function FiveBuddhaMandala({
                   <div style={{ color: b.color }} className="font-bold">
                     {b.name} ({b.bijaRomaji})
                   </div>
-                  <div className="text-gray-400">{b.wisdom}</div>
+                  <div className="text-gray-400">{capitalize(b.wisdom)}</div>
                   <div className="text-[10px] text-gray-500 font-mono">{b.defilementPurified}</div>
+                  <div className="text-[10px] text-gray-500" data-testid="dhyani-iconography">
+                    {[b.bodyColour && `${capitalize(b.bodyColour)} body`, b.gesture, `emblem: ${b.emblem}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
                 </div>
               ))}
             </div>
@@ -212,14 +228,21 @@ export default function FiveBuddhaMandala({
               This practice belongs to the <span className="font-bold" style={{ color: DHYANI_BUDDHAS.find(b => b.family === activeFamily)?.color }}>{activeFamily}</span> family
             </div>
           ) : (
-            <div className="text-[10px] font-mono text-gray-600">
+            <div className="text-[10px] font-mono text-gray-600" title={BUDDHA_FAMILY_VARIANT_NOTE}>
               Hover over a Buddha to see their wisdom and defilement purified
+              <div className="text-[9px] text-gray-700 mt-0.5">
+                The common arrangement; some tantras exchange Vairocana and Akṣobhya.
+              </div>
             </div>
           )}
         </div>
       )}
     </div>
   );
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function getNextDirection(dir: MandalaDirection): MandalaDirection {

@@ -2,6 +2,7 @@ import React from 'react';
 import ProviderSettings from '../../components/Settings/ProviderSettings';
 import TTSSettingsPanel from '../../components/UI/TTSSettingsPanel';
 import VideoSettingsPanel from '../../components/Settings/VideoSettingsPanel';
+import HomeLocationSettings from '../../components/Settings/HomeLocationSettings';
 
 export default function SettingsPage(): React.ReactElement {
   return (
@@ -9,6 +10,7 @@ export default function SettingsPage(): React.ReactElement {
       <ProviderSettings />
       <TTSSettingsPanel />
       <VideoSettingsPanel />
+      <HomeLocationSettings />
     </div>
   );
 }
