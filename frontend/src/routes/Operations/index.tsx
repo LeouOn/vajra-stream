@@ -20,6 +20,7 @@
  *   /operations/ledger      → operations ledger (real, timed operations)
  *   /operations/render      → local render studio (render jobs are operations)
  *   /operations/gallery     → every image made: local renders, hosted saves, folio witnesses
+ *   /operations/iconography → curated deity iconography and each deity's pinned thangka reference
  *   Unknown/legacy :tab     → falls back to the default tab.
  *
  * @component
@@ -35,8 +36,9 @@ import WorldEmanation from '../../components/3D/WorldEmanation';
 import OperationsLedger from '../../components/Operations/OperationsLedger';
 import RenderStudio from '../../components/Operations/RenderStudio';
 import Gallery from '../../components/Operations/Gallery';
+import Iconography from '../../components/Operations/Iconography';
 
-const TAB_KEYS = ['operations', 'broadcast', 'rates', 'ledger', 'render', 'gallery'] as const;
+const TAB_KEYS = ['operations', 'broadcast', 'rates', 'ledger', 'render', 'gallery', 'iconography'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const DEFAULT_TAB: TabKey = 'operations';
@@ -109,6 +111,15 @@ export default function OperationsPage(): React.ReactElement {
       children: (
         <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-4 md:p-6">
           <Gallery />
+        </div>
+      ),
+    },
+    {
+      key: 'iconography',
+      label: 'Iconography',
+      children: (
+        <div style={{ height: PANE_HEIGHT }} className="overflow-y-auto p-4 md:p-6">
+          <Iconography />
         </div>
       ),
     },
