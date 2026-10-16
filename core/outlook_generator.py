@@ -10,9 +10,11 @@ produce context-rich, spiritually-grounded narratives.
 Dependencies:
     Optional (gracefully degraded): :class:`~core.astrology.AstrologyEngine`,
     :mod:`backend.core.services.divination_service`,
+    :mod:`backend.core.services.sigil_service`,
     :mod:`backend.core.services.character_manager`,
     :mod:`backend.core.services.location_manager`,
-    :mod:`backend.core.services.population_manager`.
+    :mod:`backend.core.services.population_manager`. The backend ones are
+    bound lazily on first construction (see ``_bind_backend_services``).
 
 Exports:
     OutlookGenerator — main narrative generation class.
@@ -28,16 +30,6 @@ from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
 
 # Attempt imports for local services, degraded gracefully if missing
 try:
-    from backend.core.services.divination_service import divination_service
-except ImportError:
-    divination_service = None
-
-try:
-    from backend.core.services.sigil_service import sigil_service
-except ImportError:
-    sigil_service = None
-
-try:
     from core.radionics_engine import RadionicsAnalyzer, SignatureCalculator
 except ImportError:
     RadionicsAnalyzer = None
@@ -48,14 +40,56 @@ try:
 except ImportError:
     AstrologyEngine = None
 
-try:
-    from backend.core.services.character_manager import get_character_manager
-    from backend.core.services.location_manager import get_location_manager
-    from backend.core.services.population_manager import get_population_manager
-except ImportError:
-    get_character_manager = None
-    get_location_manager = None
-    get_population_manager = None
+# Backend-owned services (divination, sigils, and the character / location /
+# population registries) live in backend/core/services/. core/ must not import
+# backend/ at module level (Phase 3 layering, enforced by
+# tests/unit/test_import_layering.py), so these names start as None and are
+# bound by _bind_backend_services() when an OutlookGenerator is constructed:
+# a documented function-level import. Each name stays None if its import
+# fails, exactly as the previous module-level ``try/except ImportError`` did.
+divination_service = None
+sigil_service = None
+get_character_manager = None
+get_location_manager = None
+get_population_manager = None
+
+
+def _bind_backend_services() -> None:
+    """Bind the optional backend services into this module's globals.
+
+    Only names that are still ``None`` are bound, so a caller that has already
+    set one (e.g. ``unittest.mock.patch``) keeps its value.
+    """
+    global divination_service, sigil_service
+    global get_character_manager, get_location_manager, get_population_manager
+
+    if divination_service is None:
+        try:
+            from backend.core.services.divination_service import divination_service as _divination
+        except ImportError:
+            _divination = None
+        divination_service = _divination
+
+    if sigil_service is None:
+        try:
+            from backend.core.services.sigil_service import sigil_service as _sigil
+        except ImportError:
+            _sigil = None
+        sigil_service = _sigil
+
+    if get_character_manager is None or get_location_manager is None or get_population_manager is None:
+        try:
+            from backend.core.services.character_manager import get_character_manager as _characters
+            from backend.core.services.location_manager import get_location_manager as _locations
+            from backend.core.services.population_manager import get_population_manager as _populations
+        except ImportError:
+            _characters = _locations = _populations = None
+        if get_character_manager is None:
+            get_character_manager = _characters
+        if get_location_manager is None:
+            get_location_manager = _locations
+        if get_population_manager is None:
+            get_population_manager = _populations
 
 
 class OutlookGenerator:
@@ -215,6 +249,7 @@ class OutlookGenerator:
     )
 
     def __init__(self, llm_integration=None):
+        _bind_backend_services()
         self.llm = llm_integration
         self.astro_engine = AstrologyEngine() if AstrologyEngine else None
         self.divination = divination_service

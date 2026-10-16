@@ -11,7 +11,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from backend.core.services.rng_attunement_service import get_rng_service
 from modules.interfaces import BlessingGenerated, EventBus
 
 logger = logging.getLogger(__name__)
@@ -251,6 +250,10 @@ class OutlookService:
 
         sensor_context = None
         try:
+            # Function-level by design: modules/ must not import backend/ at module
+            # level (Phase 3 layering, tests/unit/test_import_layering.py).
+            from backend.core.services.rng_attunement_service import get_rng_service
+
             rng = get_rng_service()
             sessions = rng.get_all_sessions()
             if sessions:
@@ -337,6 +340,10 @@ class OutlookService:
 
         sensor_context = None
         try:
+            # Function-level by design: modules/ must not import backend/ at module
+            # level (Phase 3 layering, tests/unit/test_import_layering.py).
+            from backend.core.services.rng_attunement_service import get_rng_service
+
             rng = get_rng_service()
             sessions = rng.get_all_sessions()
             if sessions:
