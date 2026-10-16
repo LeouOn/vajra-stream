@@ -92,7 +92,7 @@ frontend/src/components/UI/ChakraHealing.jsx:88,95,110                  │
 
 While locking the `container.audio` LLM-tool pathway in Wave 4 Task 26, an interface mismatch was observed between the LLM tool schema / dispatcher and `modules/audio.py:AudioService`:
 
-- `core/radionics_tools.py:484-506` declares the `generate_audio` tool with three parameters: `frequency_hz`, `duration_seconds`, and `mode` (enum: `prayer_bowl | sine`).
+- `core/radionics_tools.py:484-506` (since 2026-10-16 the `generate_audio` spec in `core/tool_registry/catalog.py`) declares the `generate_audio` tool with three parameters: `frequency_hz`, `duration_seconds`, and `mode` (enum: `prayer_bowl | sine`).
 - `modules/radionics_operator.py:510-519` dispatches it as `svc.generate_tone(frequency=..., duration=..., mode=mode)`.
 - `modules/audio.py:AudioService.generate_tone(self, frequency=432.0, duration=10.0, volume=0.5)` does **not** declare a `mode` parameter. A live tool call would raise `TypeError`.
 
