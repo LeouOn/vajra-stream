@@ -67,8 +67,11 @@ These are recorded as ADRs in `docs/decisions/`; respect them.
     `container.audio` and consumed by `RadionicsOperator` only. Different
     constructor signature, different engines.
   - Do **not** introduce a third class named `AudioService`.
-- **ADR 002 — Settings canonical.** `config/settings.py` is the single source;
-  `backend/app/config.py` is a shim.
+- **ADR 002 — Settings canonical.** `config/settings.py` is the single source
+  for tuning constants. Env-driven deployment settings are
+  `config/backend_settings.py` (`backend_settings`), LLM provider settings are
+  `config/llm.py` (`get_llm_config`). The old `backend/app/config.py` shim was
+  deleted (step 3, 2026-10-16); do not recreate it.
 - **ADR 003 — Orchestrator canonical.** `backend/core/orchestrator_bridge.py`
   is the single bridge into the legacy `container.py` DI graph.
 - **ADR 004 — Frontend URL strategy.** Always proxy-relative:

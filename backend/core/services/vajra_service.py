@@ -23,7 +23,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
 
 # Try importing each module individually to make loading resilient
 try:
-    from backend.app.config import Settings
+    from config.backend_settings import BackendSettings as Settings
 except ImportError:
     Settings = None
 

@@ -12,7 +12,7 @@ DB isolation
 ------------
 The tests use a fresh SQLite file under ``tests/integration/.pytest_tmp/`` (not the real
 ``vajra_stream.db``). When run alone, setting ``DATABASE_URL`` here redirects
-``backend.app.config.settings`` on first import. In a full test run,
+``config.backend_settings.backend_settings`` on first import. In a full test run,
 ``tests/conftest.py`` already redirects ``DATABASE_URL`` to a temp DB before any
 backend import, so the live ``vajra_stream.db`` is protected either way.
 """
@@ -25,7 +25,7 @@ import os
 # DB isolation: redirect DB when module is run in isolation
 # ---------------------------------------------------------------------------
 # Setting DATABASE_URL here takes effect only when this module is the first to
-# import backend.app.config (running it alone). In a full test run,
+# import config.backend_settings (running it alone). In a full test run,
 # tests/conftest.py already redirects DATABASE_URL to a temp DB before any
 # backend import, so the live vajra_stream.db is protected either way.
 _TMP_DB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".pytest_tmp")
