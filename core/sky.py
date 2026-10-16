@@ -435,7 +435,21 @@ def public_sky(computed: dict[str, Any], source: str, label: str | None = None) 
     out = dict(computed)
     out["observer"] = public_observer(observer["lat"], observer["lon"], source, label)
     out["local_sidereal_deg"] = round(float(computed["local_sidereal_deg"]), 1)
+    # Topocentric angles at 0.01° with the sealing time also locate the observer
+    # (0.01° of altitude is about 1 km); 0.1° matches the rounded coordinates.
+    out["sun"] = _coarse_angles(computed.get("sun"))
+    out["moon"] = _coarse_angles(computed.get("moon"))
+    out["planets"] = [_coarse_angles(p) for p in computed.get("planets") or []]
     return out
+
+
+_LOCATING_ANGLES = ("alt", "az", "parallactic_angle", "bright_limb_from_vertical")
+
+
+def _coarse_angles(body: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(body, dict):
+        return body
+    return {k: round(float(v), 1) if k in _LOCATING_ANGLES and v is not None else v for k, v in body.items()}
 
 
 def observer_fact(lat: float, lon: float, source: str, label: str | None = None) -> dict[str, str]:

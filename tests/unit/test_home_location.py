@@ -241,6 +241,21 @@ def test_public_sky_rounds_observer_and_sidereal_time():
     assert computed["observer"]["lat"] == 27.717245  # the input is not mutated
 
 
+def test_public_sky_coarsens_the_angles_that_locate_the_observer():
+    computed = {
+        "observer": {"lat": 27.717245, "lon": 85.323961},
+        "local_sidereal_deg": 1.0,
+        "sun": {"alt": -12.34, "az": 250.67},
+        "moon": {"alt": 18.26, "az": 201.04, "illumination": 36.4, "parallactic_angle": 30.55, "elongation": 73.21},
+        "planets": [{"name": "Venus", "alt": 5.55, "az": 240.13, "magnitude": -4.1}],
+    }
+    out = sky.public_sky(computed, "folio")
+    assert out["sun"] == {"alt": -12.3, "az": 250.7}
+    assert out["moon"]["alt"] == 18.3 and out["moon"]["parallactic_angle"] == 30.6
+    assert out["moon"]["elongation"] == 73.21  # geocentric: says nothing about the place
+    assert out["planets"] == [{"name": "Venus", "alt": 5.5, "az": 240.1, "magnitude": -4.1}]
+
+
 def test_witness_caption_facts_never_show_full_precision(workings_dir):
     pytest.importorskip("swisseph")
     folio = working.run_working("peace for the river", broadcast=False, location=KATHMANDU)
