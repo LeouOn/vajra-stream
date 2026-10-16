@@ -54,6 +54,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from core.provenance import RECORD
 from core.tts_provider import get_tts_provider
 
 logger = logging.getLogger(__name__)
@@ -196,6 +197,21 @@ class PracticeSession:
             "last_recited_at": self.last_recited_at,
             "elapsed_seconds": round(elapsed, 1),
             "progress_pct": round((self.total_recited / self.target_count) * 100, 1) if self.target_count else 0.0,
+            # Counts of recitations that happened, and their timing: records.
+            "provenance": {
+                key: RECORD
+                for key in (
+                    "target_count",
+                    "total_recited",
+                    "mala_count",
+                    "mala_rounds",
+                    "current_repetition",
+                    "started_at",
+                    "last_recited_at",
+                    "elapsed_seconds",
+                    "progress_pct",
+                )
+            },
         }
 
 

@@ -162,6 +162,7 @@ def test_character_sheet_defaults_and_to_dict_serialises_fields():
         "stats",
         "generated_at",
         "generator",
+        "provenance",
     }
     assert set(d.keys()) == expected_keys, (
         f"to_dict keys drift from contract.\n"
@@ -170,6 +171,8 @@ def test_character_sheet_defaults_and_to_dict_serialises_fields():
     )
     # Generator defaults to "rng"
     assert d["generator"] == "rng"
+    # The stats are drawn: they read as "drawn", never as a measurement.
+    assert d["provenance"]["stats"] == "draw"
 
 
 @pytest.mark.unit

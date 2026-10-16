@@ -14,7 +14,29 @@ from datetime import datetime
 
 import numpy as np
 
+from core.provenance import COMPUTED, DECORATIVE, with_provenance
+
 logger = logging.getLogger(__name__)
+
+# Every block of an astrology snapshot is computed from the Swiss Ephemeris
+# and the calendar tables for the requested time and place.
+ASTROLOGY_PROVENANCE: dict[str, str] = {
+    "western": COMPUTED,
+    "indian": COMPUTED,
+    "chinese": COMPUTED,
+    "planetary_hours": COMPUTED,
+    "moon_phase": COMPUTED,
+    "planetary_positions": COMPUTED,
+    "auspicious_times": COMPUTED,
+}
+
+# Without the astrology extras the service returns placeholders. They carry no
+# information about the sky, so they are labeled decorative (and ``fallback``).
+ASTROLOGY_FALLBACK_PROVENANCE: dict[str, str] = {
+    "moon_phase": DECORATIVE,
+    "planetary_positions": DECORATIVE,
+    "auspicious_times": DECORATIVE,
+}
 
 SESSION_INTERRUPT_REASON = "server shut down while this session was running"
 
@@ -916,14 +938,16 @@ class VajraStreamService:
                 data["auspicious_times"] = ser_auspicious
                 data["timestamp"] = time.time()
 
-                return data
+                return dict(with_provenance(data, ASTROLOGY_PROVENANCE))
             else:
-                # Fallback data
+                # Placeholder data: no ephemeris, so nothing here describes the sky.
                 return {
                     "moon_phase": {"phase_name": "waxing", "illumination": 50.0, "phase_angle": 90.0},
                     "planetary_positions": {"sun": {"formatted": "Aries 0.00°"}},
                     "auspicious_times": {"sunrise": "morning", "sunset": "evening"},
                     "timestamp": time.time(),
+                    "fallback": True,
+                    "provenance": dict(ASTROLOGY_FALLBACK_PROVENANCE),
                 }
         except Exception as e:
             print(f"Error getting astrology data: {e}")

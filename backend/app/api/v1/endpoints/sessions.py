@@ -8,11 +8,38 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
+from core.provenance import COMPUTED, RECORD
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# A session's configuration and timestamps are records of what was asked for
+# and when it ran; elapsed/remaining/progress are computed from them.
+SESSION_PROVENANCE: dict[str, str] = {
+    "status": RECORD,
+    "start_time": RECORD,
+    "end_time": RECORD,
+    "audio_frequency": RECORD,
+    "duration": RECORD,
+    "total_runtime": RECORD,
+    "elapsed_seconds": COMPUTED,
+    "remaining_seconds": COMPUTED,
+    "progress_percentage": COMPUTED,
+}
+
+# Aggregates over session records.
+STATISTICS_PROVENANCE: dict[str, str] = {
+    "total_sessions": COMPUTED,
+    "active_sessions": COMPUTED,
+    "running_sessions": COMPUTED,
+    "completed_sessions": COMPUTED,
+    "total_duration_hours": COMPUTED,
+    "average_frequency": COMPUTED,
+    "most_common_frequency": COMPUTED,
+}
 
 
 class AudioConfig(BaseModel):
@@ -177,6 +204,7 @@ async def get_session_status(session_id: str):
                     "hardware_enabled": session["config"].hardware_enabled,
                     "visuals_enabled": session["config"].visuals_enabled,
                     **duration_info,
+                    "provenance": dict(SESSION_PROVENANCE),
                 },
             }
         else:
@@ -211,6 +239,7 @@ async def get_all_sessions():
                 "astrology_enabled": session["config"].astrology_enabled,
                 "hardware_enabled": session["config"].hardware_enabled,
                 "visuals_enabled": session["config"].visuals_enabled,
+                "provenance": dict(SESSION_PROVENANCE),
             }
 
         return {"status": "success", "sessions": formatted_sessions, "count": len(formatted_sessions)}
@@ -243,6 +272,7 @@ async def get_session_history():
                     "total_runtime": session["end_time"] - session["start_time"]
                     if session["end_time"] and session["start_time"]
                     else 0,
+                    "provenance": dict(SESSION_PROVENANCE),
                 }
             )
 
@@ -287,6 +317,7 @@ async def get_session_statistics():
                 "most_common_frequency": max(set(all_frequencies), key=all_frequencies.count)
                 if all_frequencies
                 else 136.1,
+                "provenance": dict(STATISTICS_PROVENANCE),
             },
         }
     except Exception as e:
