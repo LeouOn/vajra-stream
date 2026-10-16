@@ -94,10 +94,57 @@ vitality".
 Make the honest-instrument rule structural, so it no longer depends on
 individual reviews catching each case.
 
-1. **Backend:** derived values carry a `provenance` field
-   (`record | computed | draw | decorative`) in API and WebSocket payloads.
-2. **Frontend:** a single `<Reading value provenance>` primitive renders the
-   label consistently. A draw reads as "drawn" and is never shown as a meter.
+1. ~~**Backend:** derived values carry a `provenance` field
+   (`record | computed | draw | decorative`) in API and WebSocket payloads.~~
+   **Done (2026-10-16).** One vocabulary in `core/provenance.py` (the
+   existing `{field: kind}` map shape; `core.operations`,
+   `core.image_prompts` and `core.radionics_engine` import it). Every
+   WebSocket message passes through `backend/websocket/message_provenance.py`
+   at the connection manager's single choke point, so producers cannot
+   forget the label; `tests/unit/test_ws_message_provenance.py` fails on any
+   emitted type the table does not classify. REST payloads the UI shows are
+   labeled at the source (see the inventory below). The astrology fallback
+   placeholders, which used to look like a real sky, now read as
+   `decorative` with `fallback: true`.
+2. ~~**Frontend:** a single `<Reading value provenance>` primitive renders the
+   label consistently. A draw reads as "drawn" and is never shown as a
+   meter.~~ **Done (2026-10-16).** `frontend/src/components/UI/Reading.tsx` builds on
+   `ProvenanceTag`. Its `ReadingMeter` accepts only `record | computed` in
+   its types and renders nothing for anything else at runtime.
+   `frontend/src/__tests__/no-draw-meters.test.ts` lists every raw bar with the
+   provenance of what it shows, from a kind type with no `draw`, and fails
+   if a file that labels a draw has a raw bar. Migrated: the Cosmic Clock
+   (`AstrologyPanel`, `VedicPanchanga`, `ChineseBaZi`), folios and the
+   Workings ledger, the Operations ledger timing, the stick plate (its bar
+   on a drawn node is gone), the journey character's stats (drawn, no
+   bars), image captions and potency lines. The attunement chart lost its
+   "Low/High" threshold lines.
+
+   **Provenance inventory (2026-10-16)**
+
+   | Surface | Values | Provenance |
+   |---|---|---|
+   | `GET /astrology/current` and its sub-routes, `/night-sky`, `/timing-wheel`, `/transits`, `/elements`, `/zodiac-positions` | positions, moon phase, nakshatra/tithi/yoga, BaZi, planetary hour, elements, aspects | computed (decorative when the ephemeris is missing) |
+   | `/astrology/charts*` rows, `/charts/compare` | birth data; cached chart; compatibility score | record; computed; computed |
+   | `/operator/working`, `/operator/workings*` (folios) | `sealed_at`, broadcast; dials, carriers, Saka Dawa, timing; divination | record; computed (record when set by hand); draw |
+   | `/operations*`, `operation_update` | status, timing, measured duration | record (params labeled by the op's own map, e.g. `seed: draw`) |
+   | `/divination/*` | tarot, I Ching, geomancy casts; geomancy harmony score | draw |
+   | `/operator/journey/*`, `JOURNEY_*` | character stats, element frequency | draw |
+   | `/rng-attunement/*`, `RNG_READING` | coherence, entropy, needle | draw |
+   | `/radionics/*` | GV, potency, balancing rates; signature rate | draw; computed |
+   | `RADIONICS_RATE_BROADCAST` | rate | computed |
+   | `/sessions/*`, `realtime_data`, `session_update`, `SCALAR_WAVE_ACTIVE` | status, timestamps, durations, counts; elapsed/progress, audio spectrum | record; computed |
+   | `/operator/saka-dawa`, `SAKA_DAWA_CHECK`, `PLANETARY_HOUR_SHIFT` | Saka Dawa status, hour, tithi, nakshatra | computed |
+   | Recitation, practice and prayer-wheel status, `BUDDHA_*`, `PRACTICE_*` | counts, malas, dedications, progress | record (prayer-wheel merit: computed) |
+   | `RITUAL_*` | merit multiplier, planetary hour; rituals today, narrative length | computed; record |
+   | `LLM_USAGE_UPDATE`, `PROVIDER_HEALTH`, `BACKGROUND_GENERATION` | calls, cost, health, stats | record |
+   | Image `caption_facts` | moon, sealing time, festival dates, seed | per fact (unchanged) |
+   | 3D globe rays, scalar-wave canvas, mandala particles | animation | decorative (frontend only) |
+
+   Still to label: the rest of `/astrology/*` (lots, midpoints, progressions,
+   astrocartography; computed by nature but unlabeled), and the Command
+   Center and Outlook displays, which are being split (Phase 3) and should
+   adopt `<Reading>` as they move.
 3. **Known offenders to migrate** (verified 2026-10-14):
    - ~~MOPS~~ **Done (2026-10-15).** The MOPS engine added hard-coded
      constants (17.73M ops/s whenever scalar was active, 120/s per crystal),
