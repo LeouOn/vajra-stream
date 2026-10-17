@@ -224,13 +224,17 @@ export const DEITY_VISUALIZATIONS: Record<string, DeityVisualization> = Object.f
 
 // -- the five Buddhas ---------------------------------------------------------------
 
-/** Presentation for the mandala: UI colour, seed syllable and animation frequency. */
-const DHYANI_PRESENTATION: Record<BuddhaFamily, { color: string; bija: string; bijaRomaji: string; frequencyHz: number }> = {
-  tathagata: { color: '#f8fafc', bija: 'अ', bijaRomaji: 'A', frequencyHz: 136.1 },
-  vajra: { color: '#1e40af', bija: 'हूँ', bijaRomaji: 'HUM', frequencyHz: 210.42 },
-  ratna: { color: '#fbbf24', bija: 'त्रा', bijaRomaji: 'TRA', frequencyHz: 183.58 },
-  padma: { color: '#dc143c', bija: 'ह्रीः', bijaRomaji: 'HRIH', frequencyHz: 126.22 },
-  karma: { color: '#22c55e', bija: 'हा', bijaRomaji: 'HA', frequencyHz: 289.0 },
+/**
+ * Presentation for the mandala: UI colour and animation frequency. The seed
+ * syllables are curated (knowledge/iconography.json buddha_families), not
+ * presentation: they come from each family's record.
+ */
+const DHYANI_PRESENTATION: Record<BuddhaFamily, { color: string; frequencyHz: number }> = {
+  tathagata: { color: '#f8fafc', frequencyHz: 136.1 },
+  vajra: { color: '#1e40af', frequencyHz: 210.42 },
+  ratna: { color: '#fbbf24', frequencyHz: 183.58 },
+  padma: { color: '#dc143c', frequencyHz: 126.22 },
+  karma: { color: '#22c55e', frequencyHz: 289.0 },
 };
 
 export interface DhyaniBuddha {
@@ -292,6 +296,8 @@ function buildDhyani(family: BuddhaFamily): DhyaniBuddha {
     wisdomShort: shortWisdom(record.wisdom),
     poison: record.poison,
     defilementPurified: `${capitalize(record.poison)} → ${record.wisdom}`,
+    bija: record.seed_syllable.devanagari,
+    bijaRomaji: record.seed_syllable.iast,
     ...DHYANI_PRESENTATION[family],
   };
 }

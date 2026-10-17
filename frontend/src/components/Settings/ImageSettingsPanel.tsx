@@ -234,7 +234,7 @@ export default function ImageSettingsPanel() {
     config.default_provider === 'minimax' ? models.minimax : models.openrouter;
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       {/* Header */}
       <Card size="small" loading={loading}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -261,7 +261,7 @@ export default function ImageSettingsPanel() {
       <Alert
         type="warning"
         showIcon
-        message="Provider integration not yet verified against live APIs"
+        title="Provider integration not yet verified against live APIs"
         description={
           <Paragraph style={{ margin: 0, fontSize: 12 }} type="secondary">
             The OpenRouter and MiniMax HTTP contracts (endpoint paths, request bodies,
@@ -312,7 +312,7 @@ export default function ImageSettingsPanel() {
 
       {/* Configuration */}
       <Card size="small" title="Configuration" loading={loading}>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Text strong>Enable Image Generation</Text>
             <Switch
@@ -449,7 +449,7 @@ export default function ImageSettingsPanel() {
           </Space>
         }
       >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
             This prefix is automatically prepended to every image prompt — both
             from the LLM chat tool and the Illustrate button. Use it to enforce a
@@ -541,11 +541,11 @@ export default function ImageSettingsPanel() {
 
       {/* API Keys */}
       <Card size="small" title="API Keys" loading={loading}>
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <Alert
             type="info"
             showIcon
-            message="Keys are stored in the local Vajra.Stream SQLite DB"
+            title="Keys are stored in the local Vajra.Stream SQLite DB"
             description={
               <Paragraph style={{ margin: 0, fontSize: 12 }} type="secondary">
                 Keys never leave this machine — they are sent directly to the
@@ -606,7 +606,7 @@ export default function ImageSettingsPanel() {
 
       {/* Prompt Validator Sandbox */}
       <Card size="small" title="Prompt Token Estimator">
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
             Paste a prompt to estimate tokens before sending it to the API.
             30-60 words is ideal; the configured cap is{' '}
@@ -631,7 +631,7 @@ export default function ImageSettingsPanel() {
               type={validation.ok ? 'success' : 'warning'}
               showIcon
               icon={validation.ok ? <CheckCircle2 size={14} /> : undefined}
-              message={
+              title={
                 validation.ok
                   ? `OK — estimated ${validation.estimated_tokens} tokens`
                   : validation.error

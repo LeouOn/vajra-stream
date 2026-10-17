@@ -278,7 +278,7 @@ export default function VideoSettingsPanel() {
     promptLength >= PROMPT_MIN && promptLength <= PROMPT_MAX && testPrompt.trim().length >= PROMPT_MIN;
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       {/* Header */}
       <Card size="small" loading={loading}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -299,7 +299,7 @@ export default function VideoSettingsPanel() {
 
       {/* Configuration */}
       <Card size="small" title="Configuration" loading={loading}>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <Text strong>Enable Video Generation</Text>
             <Switch
@@ -454,12 +454,12 @@ export default function VideoSettingsPanel() {
           </Space>
         }
       >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           {!config.enabled && (
             <Alert
               type="warning"
               showIcon
-              message="Video generation is disabled"
+              title="Video generation is disabled"
               description="Enable the toggle in Configuration above to submit test generations."
             />
           )}
@@ -508,7 +508,7 @@ export default function VideoSettingsPanel() {
               style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}
               styles={{ body: { padding: 12 } }}
             >
-              <Space direction="vertical" size={10} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                 <Space size={8} align="center">
                   <Text strong>Task:</Text>
                   <Text code style={{ fontSize: 11 }}>
@@ -541,18 +541,18 @@ export default function VideoSettingsPanel() {
                     type="error"
                     showIcon
                     icon={<AlertCircle size={14} />}
-                    message="Generation failed"
+                    title="Generation failed"
                     description={taskStatus.error ?? taskStatus.download_error ?? 'Unknown error'}
                   />
                 )}
 
                 {taskStatus.status === 'done' && (
-                  <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                     <Alert
                       type="success"
                       showIcon
                       icon={<CheckCircle2 size={14} />}
-                      message="Video ready"
+                      title="Video ready"
                       description={
                         taskStatus.local_path
                           ? `Saved to ${taskStatus.local_path} on the server.`
@@ -602,7 +602,7 @@ export default function VideoSettingsPanel() {
         cancelText="Cancel"
         okButtonProps={{ disabled: !config.enabled }}
       >
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           <Text>
             This will cost{' '}
             <Text strong style={{ color: '#fbbf24' }}>

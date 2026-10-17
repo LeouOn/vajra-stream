@@ -288,3 +288,10 @@ describe('DHYANI_BUDDHAS come from the five-family records', () => {
     expect(shortWisdom('wisdom')).toBe('wisdom');
   });
 });
+
+describe('five Buddha seed syllables', () => {
+  it('come from the curated registry (the common Tibetan set)', () => {
+    expect(DHYANI_BUDDHAS.map((b) => b.bijaRomaji)).toEqual(['OṂ', 'HŪṂ', 'TRAṂ', 'HRĪḤ', 'ĀḤ']);
+    expect(DHYANI_BUDDHAS.every((b) => b.bija.length > 0)).toBe(true);
+  });
+});

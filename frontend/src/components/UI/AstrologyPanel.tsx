@@ -9,6 +9,7 @@ import {
 import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
+import { fetchHomeLocation } from '../../lib/homeLocationApi';
 import { formatMoonIllumination } from '../../lib/moonIllumination';
 import { fieldProvenance } from '../../lib/provenance';
 import type { Provenance } from '../../types/operations';
@@ -153,6 +154,9 @@ export default function AstrologyPanel() {
 
   // Geolocation guard — stop retrying after user blocks permission
   const geoBlocked = useRef(false);
+  // The saved home location (Settings), looked up once per visit:
+  // undefined = not looked up yet, null = none saved.
+  const homeRef = useRef<{ lat: number; lon: number } | null | undefined>(undefined);
 
   // Load saved charts from database
   const fetchSavedCharts = async () => {
@@ -192,7 +196,17 @@ export default function AstrologyPanel() {
       }
     };
 
-    if (navigator.geolocation && !geoBlocked.current) {
+    if (homeRef.current === undefined) {
+      try {
+        const { location } = await fetchHomeLocation();
+        homeRef.current = location ? { lat: location.latitude, lon: location.longitude } : null;
+      } catch {
+        homeRef.current = null;
+      }
+    }
+    if (homeRef.current) {
+      doFetch(homeRef.current.lat, homeRef.current.lon);
+    } else if (navigator.geolocation && !geoBlocked.current) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           doFetch(position.coords.latitude, position.coords.longitude);
