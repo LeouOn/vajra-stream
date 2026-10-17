@@ -6,11 +6,12 @@ import HomeLocationSettings from '../../components/Settings/HomeLocationSettings
 
 export default function SettingsPage(): React.ReactElement {
   return (
-    <div className="flex-1 h-full overflow-y-auto p-6 space-y-6">
+    <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 space-y-6">
+      {/* Personal first: the long provider/TTS/video panels used to bury it. */}
+      <HomeLocationSettings />
       <ProviderSettings />
       <TTSSettingsPanel />
       <VideoSettingsPanel />
-      <HomeLocationSettings />
     </div>
   );
 }

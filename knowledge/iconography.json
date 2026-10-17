@@ -58,7 +58,7 @@
   },
   "buddha_families": {
     "description": "The five Buddha families (pancakula) of tantric Buddhism with the correspondences standard in Tibetan sources: the presiding Buddha (lord), his direction in the mandala, the element, the wisdom, the afflictive emotion (poison) that wisdom transforms, and the family emblem. A deity's 'buddha_family' names its family only where the references settle it, and is null otherwise.",
-    "variant_note": "This is the common arrangement (the Vajradhatu mandala; the peaceful Buddhas of the Bardo Thodol). In some tantras, notably the Guhyasamaja, Akshobhya presides at the centre and Vairocana sits in the east, and the Bardo Thodol gives Vairocana a blue body and Vajrasattva-Akshobhya a white one; the correspondences of the two families move with them. Lists of elements and poisons also vary between texts.",
+    "variant_note": "This is the common arrangement (the Vajradhatu mandala; the peaceful Buddhas of the Bardo Thodol). In some tantras, notably the Guhyasamaja, Akshobhya presides at the centre and Vairocana sits in the east, and the Bardo Thodol gives Vairocana a blue body and Vajrasattva-Akshobhya a white one; the correspondences of the two families move with them. Lists of elements and poisons also vary between texts. Seed syllables follow the common Tibetan set (OṂ, HŪṂ, TRAṂ, HRĪḤ, ĀḤ) and move with their Buddhas where Vairocana and Akshobhya trade places. Japanese Shingon uses other seeds: VAṂ for Mahāvairocana in the Vajradhātu mandala (A in the Garbhadhātu), HŪṂ, TRĀḤ, HRĪḤ and AḤ.",
     "sources": [
       "beer_encyclopedia",
       "beer_handbook",
@@ -73,7 +73,11 @@
         "element": "space",
         "wisdom": "wisdom of the dharmadhatu (the all-encompassing expanse)",
         "poison": "ignorance",
-        "emblem": "the eight-spoked wheel"
+        "emblem": "the eight-spoked wheel",
+        "seed_syllable": {
+          "iast": "OṂ",
+          "devanagari": "ॐ"
+        }
       },
       "vajra": {
         "name": "Vajra family",
@@ -82,7 +86,11 @@
         "element": "water",
         "wisdom": "mirror-like wisdom",
         "poison": "anger",
-        "emblem": "the vajra"
+        "emblem": "the vajra",
+        "seed_syllable": {
+          "iast": "HŪṂ",
+          "devanagari": "हूँ"
+        }
       },
       "ratna": {
         "name": "Jewel (Ratna) family",
@@ -91,7 +99,11 @@
         "element": "earth",
         "wisdom": "wisdom of equality",
         "poison": "pride",
-        "emblem": "the wish-fulfilling jewel"
+        "emblem": "the wish-fulfilling jewel",
+        "seed_syllable": {
+          "iast": "TRAṂ",
+          "devanagari": "त्रां"
+        }
       },
       "padma": {
         "name": "Lotus (Padma) family",
@@ -100,7 +112,11 @@
         "element": "fire",
         "wisdom": "discriminating wisdom",
         "poison": "desire",
-        "emblem": "the lotus"
+        "emblem": "the lotus",
+        "seed_syllable": {
+          "iast": "HRĪḤ",
+          "devanagari": "ह्रीः"
+        }
       },
       "karma": {
         "name": "Action (Karma) family",
@@ -109,7 +125,11 @@
         "element": "air",
         "wisdom": "all-accomplishing wisdom",
         "poison": "jealousy",
-        "emblem": "the crossed vajra (vishvavajra)"
+        "emblem": "the crossed vajra (vishvavajra)",
+        "seed_syllable": {
+          "iast": "ĀḤ",
+          "devanagari": "आः"
+        }
       }
     }
   },

@@ -781,7 +781,7 @@ export default function PracticeDetail({
             <Alert
               type="warning"
               showIcon
-              message="Working in offline mode"
+              title="Working in offline mode"
               description={error}
               closable
               onClose={() => setError(null)}

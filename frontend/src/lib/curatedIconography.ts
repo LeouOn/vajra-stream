@@ -61,6 +61,8 @@ export interface BuddhaFamilyRecord {
   wisdom: string;
   poison: string;
   emblem: string;
+  /** The family seed syllable (common Tibetan set; variants in the registry's variant_note). */
+  seed_syllable: { iast: string; devanagari: string };
 }
 
 interface IconographyData {

@@ -246,7 +246,7 @@ const ReplayTab: React.FC<ReplayTabProps> = ({ onView, onRecompute }) => {
 
   return (
     <Space orientation="vertical" className="w-full" size="middle">
-      {error && <Alert type="error" message="Failed to load runs" description={error} showIcon />}
+      {error && <Alert type="error" title="Failed to load runs" description={error} showIcon />}
       <Table<RunRecord>
         dataSource={runs}
         columns={columns}
@@ -323,7 +323,7 @@ const ResultsTab: React.FC<ResultsTabProps> = ({ currentRunId }) => {
     <Space orientation="vertical" className="w-full" size="middle">
       {!currentRunId && <Empty description="No run selected. Launch a sweep first." />}
       {loading && <Spin tip="Loading results..." />}
-      {error && <Alert type="error" message={error} showIcon />}
+      {error && <Alert type="error" title={error} showIcon />}
       {currentRunId && !loading && !error && (
         <Card
           title={`Run ${currentRunId} Results`}
@@ -474,7 +474,7 @@ const SweepTab: React.FC<SweepTabProps> = ({ setupState, onComplete }) => {
           >
             Launch Sweep
           </Button>
-          {error && <Alert type="error" message={error} />}
+          {error && <Alert type="error" title={error} />}
         </Space>
       </Card>
     </Space>
@@ -684,7 +684,7 @@ const AstrologyExtractionPanel = () => {
           <Alert
             type="error"
             showIcon
-            message="Could not load locations"
+            title="Could not load locations"
             description={locationsError}
             style={{ marginBottom: 12 }}
           />

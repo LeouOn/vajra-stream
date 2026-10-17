@@ -54,7 +54,7 @@ export function ErrorState({
         type="error"
         showIcon
         icon={<AlertTriangle className="w-5 h-5" />}
-        message={message}
+        title={message}
         description={description}
         action={
           onRetry ? (

@@ -124,7 +124,7 @@ export default function BackgroundServicesPanel() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Card size="small" loading={loading}>
         <Space size={10} align="center">
           <Radio size={18} className="text-cyan-400" />
@@ -142,7 +142,7 @@ export default function BackgroundServicesPanel() {
       <Alert
         type="info"
         showIcon
-        message="Why do I hear singing bowls?"
+        title="Why do I hear singing bowls?"
         description={
           <Paragraph style={{ margin: 0, fontSize: 12 }} type="secondary">
             The autonomous operator auto-starts character journeys when it finds an
@@ -206,7 +206,7 @@ export default function BackgroundServicesPanel() {
           </Space>
         }
       >
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           <div>
             <Text strong style={{ fontSize: 12 }}>What it does</Text>
             <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>
@@ -257,7 +257,7 @@ export default function BackgroundServicesPanel() {
           </Space>
         }
       >
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           <div>
             <Text strong style={{ fontSize: 12 }}>What it does</Text>
             <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 12 }}>

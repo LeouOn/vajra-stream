@@ -298,7 +298,7 @@ export default function PracticeSelector(): React.ReactElement {
             <Alert
               type="info"
               showIcon
-              message="Practice server offline"
+              title="Practice server offline"
               description={error}
               className="!bg-amber-500/10 !border-amber-500/30"
             />

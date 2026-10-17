@@ -114,6 +114,14 @@ def test_buddha_families_registry():
     assert iconography.buddha_families() == families
 
 
+def test_five_family_seed_syllables_are_the_tibetan_set():
+    families = DATA["buddha_families"]["families"]
+    seeds = {fid: fam["seed_syllable"]["iast"] for fid, fam in families.items()}
+    assert seeds == {"tathagata": "OṂ", "vajra": "HŪṂ", "ratna": "TRAṂ", "padma": "HRĪḤ", "karma": "ĀḤ"}
+    assert all(fam["seed_syllable"]["devanagari"] for fam in families.values())
+    assert "Shingon" in DATA["buddha_families"]["variant_note"]
+
+
 def test_every_entry_states_its_buddha_family_or_null():
     families = DATA["buddha_families"]["families"]
     for entry in DATA["deities"]:
