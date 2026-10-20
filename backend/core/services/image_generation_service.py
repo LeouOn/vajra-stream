@@ -31,6 +31,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -402,6 +403,21 @@ class ImageGenerationService:
         self._cache: dict[str, tuple[float, ProviderResult]] = {}
         self._daily_spend: dict[str, float] = {}
         self._hourly_calls: list[float] = []
+        # Makes the cost guard, the hourly prune, the cache lookup and the spend
+        # reservation one atomic step. See the block comment at that site, which
+        # is the accurate description of what the lock covers.
+        #
+        # A threading.Lock, not an asyncio.Lock, and not "no lock at all".
+        # Within a single event loop everything the lock covers is synchronous
+        # and separated by no await, so nothing can interleave there and no lock
+        # would be needed. This lock covers the case that actually bites:
+        # EnhancedEventBus.publish runs coroutine subscribers on WORKER-thread
+        # event loops when an event is published from a thread, so two callers
+        # can be on different loops at once. An asyncio.Lock binds to whichever
+        # loop first awaited it and would give no protection there. The lock is
+        # held only across synchronous code and never across the paid await, so
+        # it can never serialise network I/O.
+        self._spend_lock = threading.Lock()
 
     # ── Config ─────────────────────────────────────────────────────────
 
@@ -440,6 +456,49 @@ class ImageGenerationService:
         }
 
     # ── Cost tracking ──────────────────────────────────────────────────
+
+    def _reserve_spend(self, estimated_cost: float) -> tuple[str, float]:
+        """Reserve this call's estimated spend and return a release token.
+
+        Called AFTER the cache miss is known and BEFORE the paid provider
+        await. The reservation makes the budget look already-spent, so a
+        concurrent call is refused by the same guard that a sequential one
+        would be, instead of both passing the guard and both paying.
+
+        Returns the (day, timestamp) pair identifying this reservation, for
+        :meth:`_release_spend` or :meth:`_reconcile_spend`.
+        """
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        self._daily_spend[today] = self._daily_spend.get(today, 0.0) + estimated_cost
+        stamp = time.time()
+        self._hourly_calls.append(stamp)
+        return today, stamp
+
+    def _release_spend(self, estimated_cost: float, reservation: tuple[str, float]) -> None:
+        """Undo exactly the reservation identified by ``reservation``.
+
+        Used when the paid call produced nothing, so a failed generation costs
+        the caller no budget. The hourly stamp is removed by value so a
+        concurrent call's stamp is never disturbed.
+        """
+        day, stamp = reservation
+        if day in self._daily_spend:
+            self._daily_spend[day] = max(0.0, self._daily_spend[day] - estimated_cost)
+        try:
+            self._hourly_calls.remove(stamp)
+        except ValueError:
+            pass
+
+    def _reconcile_spend(self, estimated_cost: float, reservation: tuple[str, float], actual_cost: float) -> None:
+        """Settle a reservation at what the provider actually charged.
+
+        The provider's ``cost_usd`` is the authority, not our estimate, so the
+        estimate is adjusted by (actual - estimated). This must not simply ADD
+        the actual cost on top of the reservation, which would bill twice. The
+        hourly stamp is kept: the call did happen and did consume a slot.
+        """
+        day, _stamp = reservation
+        self._daily_spend[day] = self._daily_spend.get(day, 0.0) - estimated_cost + actual_cost
 
     def get_cost_stats(self) -> dict[str, Any]:
         now = time.time()
@@ -543,66 +602,103 @@ class ImageGenerationService:
         # Cost guard
         estimated_cost = MODEL_COST_USD.get(model_name, 0.05) * effective_n
 
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        projected = self._daily_spend.get(today, 0.0) + estimated_cost
-        if projected > cfg["daily_cost_cap_usd"]:
-            raise RuntimeError(
-                f"Request would breach daily cost cap (${projected:.4f} > ${cfg['daily_cost_cap_usd']:.4f})"
-            )
-
-        # Hourly guard
-        now = time.time()
-        self._hourly_calls = [t for t in self._hourly_calls if now - t < 3600]
-        if len(self._hourly_calls) >= cfg["max_per_hour"]:
-            raise RuntimeError(f"max_per_hour={cfg['max_per_hour']} reached; try again later")
-
-        # Cache lookup
-        cache_key = self._cache_key(full_prompt, provider_name, model_name, n, size, quality, kwargs)
-        cached = self._cache.get(cache_key)
-        if cached and cached[0] > now:
-            result = dict(cached[1].__dict__)
-            result["cached"] = True
-            if caption_facts:
-                result["caption_facts"] = list(caption_facts)
-            return result
-
-        # Call provider — 2 tries, only on technical (retryable) failure
-        provider_obj = self._get_provider(provider_name)
-        result: ProviderResult | None = None
-        last_error: Exception | None = None
-        for attempt in range(2):
-            try:
-                result = await provider_obj.generate(
-                    prompt=full_prompt,
-                    model=model_name,
-                    size=size,
-                    quality=quality,
-                    n=effective_n,
-                    **kwargs,
+        # Cost guard + hourly prune + cache lookup + spend reservation are ONE
+        # critical section.
+        #
+        # Why all four together: the reservation only protects the budget if the
+        # check that consulted it is atomic with it. Guarding only the
+        # reservation left the window open in two ways -- two threads could both
+        # pass the cap check and then both reserve; and the hourly prune
+        # REBINDS ``_hourly_calls`` to a filtered list, so a reservation appended
+        # to the old list just before the rebind was discarded, giving an
+        # admitted call no hourly slot. Everything between here and the
+        # reservation is synchronous, so on one event loop none of it can
+        # interleave; the lock covers the two-loops case.
+        #
+        # The paid provider ``await`` stays OUTSIDE the lock, so network I/O is
+        # never serialised. release/reconcile take the lock briefly afterwards.
+        with self._spend_lock:
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            projected = self._daily_spend.get(today, 0.0) + estimated_cost
+            if projected > cfg["daily_cost_cap_usd"]:
+                raise RuntimeError(
+                    f"Request would breach daily cost cap (${projected:.4f} > ${cfg['daily_cost_cap_usd']:.4f})"
                 )
-                break
-            except PermanentProviderError:
-                raise
-            except RetryableProviderError as exc:
-                last_error = exc
-                if attempt == 0:
-                    logger.warning("Image generation attempt 1 failed (retryable): %s", exc)
-                    continue
-            except Exception as exc:
-                last_error = exc
-                if attempt == 0 and not isinstance(exc, ValueError | RuntimeError):
-                    logger.warning("Image generation attempt 1 failed (unexpected): %s", exc)
-                    continue
-                raise RuntimeError(f"Image generation failed via {provider_name}: {exc}") from exc
 
-        if result is None:
-            raise RuntimeError(
-                f"Image generation failed after 2 tries via {provider_name}: {last_error}"
-            ) from last_error
+            # Hourly guard
+            now = time.time()
+            self._hourly_calls = [t for t in self._hourly_calls if now - t < 3600]
+            if len(self._hourly_calls) >= cfg["max_per_hour"]:
+                raise RuntimeError(f"max_per_hour={cfg['max_per_hour']} reached; try again later")
 
-        # Update state
-        self._daily_spend[today] = self._daily_spend.get(today, 0.0) + result.cost_usd
-        self._hourly_calls.append(now)
+            # Cache lookup
+            cache_key = self._cache_key(full_prompt, provider_name, model_name, n, size, quality, kwargs)
+            cached = self._cache.get(cache_key)
+            if cached and cached[0] > now:
+                result = dict(cached[1].__dict__)
+                result["cached"] = True
+                if caption_facts:
+                    result["caption_facts"] = list(caption_facts)
+                return result
+
+            # RESERVE the estimated cost BEFORE the paid await, while still
+            # holding the lock the guard was evaluated under. A cache hit has
+            # already returned above, so it reserves and records nothing.
+            reservation = self._reserve_spend(estimated_cost)
+
+        try:
+            # Call provider — 2 tries, only on technical (retryable) failure
+            provider_obj = self._get_provider(provider_name)
+            result: ProviderResult | None = None
+            last_error: Exception | None = None
+            for attempt in range(2):
+                try:
+                    result = await provider_obj.generate(
+                        prompt=full_prompt,
+                        model=model_name,
+                        size=size,
+                        quality=quality,
+                        n=effective_n,
+                        **kwargs,
+                    )
+                    break
+                except PermanentProviderError:
+                    raise
+                except RetryableProviderError as exc:
+                    last_error = exc
+                    if attempt == 0:
+                        logger.warning("Image generation attempt 1 failed (retryable): %s", exc)
+                        continue
+                except Exception as exc:
+                    last_error = exc
+                    if attempt == 0 and not isinstance(exc, ValueError | RuntimeError):
+                        logger.warning("Image generation attempt 1 failed (unexpected): %s", exc)
+                        continue
+                    raise RuntimeError(f"Image generation failed via {provider_name}: {exc}") from exc
+
+            if result is None:
+                raise RuntimeError(f"Image generation failed after 2 tries via {provider_name}: {last_error}") from (
+                    last_error
+                )
+        except Exception:
+            # Nothing was produced, so give the budget back. Both attempts were
+            # covered by the ONE reservation above, and a retry is not a second
+            # charge.
+            #
+            # CancelledError is deliberately NOT handled: since 3.8 it derives
+            # from BaseException, so it propagates past this except and KEEPS
+            # its reservation. A cancelled request may already have been billed
+            # by the provider, and refunding a call that was paid for would be
+            # the more expensive mistake.
+            with self._spend_lock:
+                self._release_spend(estimated_cost, reservation)
+            raise
+
+        # The provider's own cost is the authority: settle the reservation at
+        # what was actually charged rather than at what we guessed.
+        with self._spend_lock:
+            self._reconcile_spend(estimated_cost, reservation, result.cost_usd)
+
         self._cache[cache_key] = (now + cfg["cache_ttl_seconds"], result)
 
         saved_path = self._save_image(
