@@ -1,5 +1,6 @@
 import atexit
 import os
+import shlex
 import shutil
 import sqlite3
 import sys
@@ -12,17 +13,25 @@ from infrastructure.event_bus import EnhancedEventBus
 # ---------------------------------------------------------------------------
 # Test-suite DB isolation — the suite must NEVER touch vajra_stream.db
 # ---------------------------------------------------------------------------
-# Several backend modules trigger `core.schema.init_db()` at *import* time:
-# astrology.py and locations.py call their module-level `init_db()`,
-# agent_suggestions.py calls `init_tables()`, and radionics.py instantiates
-# `IntegratedScalarRadionicsBroadcaster()`, whose BlessingDatabase
-# initializes the schema. (outlook.py used to do this too; its import-time
-# init has since been removed.) `core.schema.get_db_path()` resolves
-# `backend_settings.DATABASE_URL` (default `sqlite:///./vajra_stream.db`, i.e. the
-# live DB in the repo root), and endpoint modules build their db_path the
-# same way (agent_suggestions and locations among them). So merely
-# *importing* the backend during a test run migrates the real database —
-# which is how the live file acquired a v6 `_schema_version` row mid-cycle.
+# Several backend modules used to trigger `core.schema.init_db()` at *import*
+# time: astrology.py and locations.py called their module-level `init_db()`,
+# agent_suggestions.py called `init_tables()`, and radionics.py instantiated
+# `IntegratedScalarRadionicsBroadcaster()`. That is no longer true: the
+# endpoint-owned initialization has been removed, and the application lifespan
+# in `backend/app/main.py` now owns opening and closing the central schema
+# connection. (outlook.py's import-time init was removed earlier still.)
+# The isolation below is therefore PREVENTIVE rather than a patch for a known
+# importer — it guarantees the property regardless of what any future module
+# does at import time.
+#
+# Why it still matters:
+#   `core.schema.get_db_path()` resolves `settings.DATABASE_URL` (default
+#   `sqlite:///./vajra_stream.db`, i.e. the live DB in the repo root), and
+#   endpoint modules build their db_path the same way. So if any import path
+#   reaches a schema call, merely *importing* the backend during a test run
+#   migrates the real database — which is how the live file acquired a v6
+#   `_schema_version` row mid-cycle, back when the callers above did exist. The
+#   tests must never be able to do that, so the env var is set unconditionally.
 #
 # Why the env var, set here, at conftest import time:
 #   `config/backend_settings.py` builds `backend_settings = BackendSettings()`
@@ -145,15 +154,11 @@ sqlite3.dbapi2.connect = _guarded_sqlite3_connect
 #
 # GEMINI_API_KEY/GOOGLE_API_KEY are read by no module in this repo but are
 # picked up automatically by the google-genai client library, so they are
-# pinned too. Beyond the seven named keys, two obvious siblings with real
-# credentials present are included: ZAI_API_KEY (may be present in a
-# developer shell; gates the z_ai provider in core/llm/bootstrap.py:79 and
-# core/llm/providers/z_ai.py:59) and AZURE_SPEECH_KEY (real value in .env;
-# gates AzureTTS in core/enhanced_tts.py:153 and backend Settings).
-# Also read by core/llm but holding no credential anywhere on this machine
-# (verified: absent from .env and the environment) and therefore NOT pinned:
-# MINIMAX_API_KEY, Z_AI_API_KEY, ANTHROPIC_AUTH_TOKEN — plus the LLM_-prefixed
-# variants (LLM_OPENAI_API_KEY etc.), none of which exist here.
+# pinned too. Real provider keys that may be exported in the developer/agent
+# environment or in .env are neutralized here: ANTHROPIC_API_KEY,
+# OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY, ELEVENLABS_API_KEY,
+# AZURE_SPEECH_KEY, MINIMAX_API_KEY, and both z_ai aliases (ZAI_API_KEY,
+# Z_AI_API_KEY).
 _PROVIDER_KEY_VARS = (
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
@@ -163,6 +168,8 @@ _PROVIDER_KEY_VARS = (
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
     "ZAI_API_KEY",
+    "Z_AI_API_KEY",
+    "MINIMAX_API_KEY",
     "AZURE_SPEECH_KEY",
 )
 for _provider_key_var in _PROVIDER_KEY_VARS:
@@ -175,6 +182,75 @@ def _cleanup_test_db_dir() -> None:
 
 
 atexit.register(_cleanup_test_db_dir)
+
+
+# ---------------------------------------------------------------------------
+# Session schema — lifespan parity for the scratch DB (order independence)
+# ---------------------------------------------------------------------------
+# Endpoint modules no longer initialize the schema at import time (item 5:
+# the app lifespan in backend/app/main.py owns that in production), and unit
+# tests never run a lifespan. Files like tests/unit/test_astrology.py expect
+# the tables to exist; before item 5 they were created as an import side
+# effect, afterwards only when some OTHER test file happened to create them
+# first in the process-wide scratch DB — i.e. the suite silently became
+# order-dependent. This fixture reproduces the lifespan's critical path
+# once per session, right after DATABASE_URL has been pinned above, so every
+# ordering sees the same schema.
+#
+# Safety gate: the resolved path must be a scratch DB — under the system
+# temp root (this conftest's temp dir) or inside a `.pytest_tmp` directory
+# (tests/integration/test_extraction.py redirects to its own scratch under
+# tests/integration/.pytest_tmp when it is the first to import the backend)
+# — and must NEVER be the live repo-root vajra_stream.db. Fail the session
+# loudly rather than initialize anything else.
+_LIVE_REPO_DB = os.path.realpath(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vajra_stream.db")
+)
+_LIVE_BACKEND_DB = os.path.realpath(
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "app", "vajra_stream.db")
+)
+_SESSION_SCRATCH_DIR = os.path.realpath(_TEST_DB_DIR)
+_EXTRACTION_SCRATCH_DIR = os.path.realpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "integration", ".pytest_tmp")
+)
+_ALLOWED_SCRATCH_ROOTS = (_SESSION_SCRATCH_DIR, _EXTRACTION_SCRATCH_DIR)
+
+
+def _is_scratch_db_path(path: str | None) -> bool:
+    """Validate that path resides strictly within the session temp DB dir or
+    the exact tests/integration/.pytest_tmp scratch dir, and never resolves
+    to a live repo database or through external symlinks.
+    """
+    if not isinstance(path, str) or not path.strip():
+        return False
+
+    abs_path = os.path.abspath(path)
+    real_path = os.path.realpath(path)
+
+    if real_path in (_LIVE_REPO_DB, _LIVE_BACKEND_DB):
+        return False
+
+    def _is_under(target: str, root: str) -> bool:
+        return target == root or target.startswith(root + os.sep)
+
+    real_allowed = any(_is_under(real_path, root) for root in _ALLOWED_SCRATCH_ROOTS)
+    abs_allowed = any(_is_under(abs_path, root) for root in _ALLOWED_SCRATCH_ROOTS)
+
+    return real_allowed and abs_allowed
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _session_scratch_schema():
+    """Initialize the schema once against the pinned scratch DB (lifespan parity)."""
+    from core.schema import get_db_path, init_db
+
+    db_path = get_db_path()
+    assert _is_scratch_db_path(db_path), (
+        f"Refusing session schema init: get_db_path() resolved to {db_path!r}, "
+        f"which is not a scratch DB (live DB is {_LIVE_REPO_DB!r})."
+    )
+    init_db(db_path).close()
+    yield
 
 
 @pytest.fixture
@@ -570,22 +646,506 @@ def _silence_pygame_audio(monkeypatch) -> None:
         monkeypatch.setattr(owner, attr, _make_audio_stub(name, result))
 
 
+def _leading_quoted_words(command: str) -> list[tuple[bool, str]]:
+    """Split like shlex.split, and flag each word as a plain shell assignment.
+
+    The name is historical and is kept stable because external review probes
+    extract this function by name; it reports the shell's
+    assignment-vs-command decision rather than merely "was the word quoted".
+
+    Returns one (is_assignment, dequoted_text, raw_text) triple per word, in
+    source order.
+
+    A leading word is an assignment only when the RAW text before the first
+    '=' is an entirely unquoted, unescaped identifier (^[A-Za-z_][A-Za-z0-9_]*$).
+    Anything else — a quote or a backslash anywhere in the name, an empty name,
+    a name starting with a digit, a non-ASCII name — is an ordinary command
+    name, which under POSIX sh / dash fails to resolve and never runs a player.
+    (bash is more permissive: it accepts 'A+=x' as an assignment, so that form
+    is a recorded known false negative, not claimed as 127. 'A[0]=x' is NOT:
+    in the shell assignment position it is a syntax error, so returning False
+    is correct there — only env, which applies no shell rule, accepts it.) The
+    VALUE after the first '=' is unconstrained: it may contain quotes and
+    escapes freely, because it never affects the word's classification. The
+    name is read from the RAW text on purpose — the shell decides
+    assignment-vs-command on the unexpanded word, so a quoted '"C=q"' is a
+    command name even though its dequoted text looks like an assignment.
+
+    Scope — the contract this function upholds:
+    True means THE PROGRAM REALLY LAUNCHES. It is a bounded recognizer, not a
+    full shell interpreter, and it answers the question by shell PARSING rules
+    (quote removal, which words are assignments, the nohup and env phases):
+    the program word must be a player basename, AND no prefix word may be one
+    whose evaluation can stop the launch. Its callers are the audio fallbacks
+    in core/enhanced_tts.py, which only ever run 'aplay {path}' or
+    'afplay {path}', so the supported forms are deliberately narrow and an
+    undecidable prefix passes through rather than being guessed at.
+
+    A prefix word is undecidable, and therefore passthrough, when its raw text
+    outside single quotes contains a backtick, '$(', or a '${...}' that is not
+    one of the forms that cannot fail: '${NAME}' and '${NAME:-lit}',
+    '${NAME-lit}', '${NAME:+lit}', '${NAME+lit}' where NAME is an identifier
+    and lit is a plain literal. Unbalanced '$(', '`' and '${' count too. So
+    '${X:?e}', '${}', '${X:=d}' and '${X:-$HOME}' pass through, while plain
+    '$NAME', '$1', '$?', '$$', a lone '$' and anything inside single quotes
+    stay supported. It is also passthrough when the word carries an UNQUOTED
+    shell metacharacter — ';', '&', '|', '<', '>', '(' or ')' — because a live
+    one restructures the command and the program word this helper inspected is
+    then not the program the shell runs. Quoting or escaping makes the same
+    character inert data, so 'A="x;y" aplay' and 'A=x\\; aplay' stay swallowed.
+    Note the two checks mask differently on purpose: an expansion inside DOUBLE
+    quotes is still live and is rejected, while a metacharacter inside double
+    quotes is data and is kept. A shell-level assignment naming a bash readonly
+    variable (UID, EUID, PPID, SHELLOPTS, BASHOPTS, BASH_VERSINFO) or PATH is
+    also passthrough, as is a PATH override in an env assignment, because env
+    applies it before looking the program up.
+
+    TRADE-OFF, stated plainly: passing these forms through means a player
+    command written with one of them is NOT swallowed, and could therefore play
+    for real in a test. No production caller uses these forms and no test does;
+    explicit audio in tests remains the VAJRA_TEST_AUDIO=1 opt-in. The
+    alternative - swallowing commands that provably cannot run - would mean
+    reporting success for something the shell refused to do. We choose the
+    direction that cannot lie about a player.
+
+    The alignment invariant below guarantees TOKEN AGREEMENT with shlex. It
+    says nothing about evaluation; the prefix checks above are what make True
+    mean the program launches.
+
+    Word boundaries and escape handling mirror shlex's own posix rules, NOT an
+    independent reading of POSIX sh:
+      * outside quotes, a backslash escapes ANY following character;
+      * inside double quotes, a backslash is special only before '"' and '\\',
+        and is otherwise a literal backslash;
+      * inside single quotes, a backslash is always literal and the next "'"
+        closes the word.
+    'dequoted_text' is the text shlex.split would produce for that word. The
+    caller checks it against the real tokens and fails safe on any mismatch, so
+    this function does not have to be provably correct — it only has to
+    DISAGREE detectably. Alignment is a verified invariant, not an argument.
+    """
+    ident_start = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+    ident_rest = ident_start + "0123456789"
+    words: list[tuple[bool, str]] = []
+    index, length = 0, len(command)
+    while index < length:
+        while index < length and command[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        start = index
+        quote = ""
+        dequoted: list[str] = []
+        while index < length:
+            char = command[index]
+            if quote:
+                if char == quote:
+                    quote = ""
+                elif char == "\\" and quote == '"' and index + 1 < length and command[index + 1] in '"\\':
+                    # shlex escapedquotes is '"' and NOTHING else, so inside
+                    # double quotes a backslash escapes ONLY '"' and '\'. A
+                    # backslash before a SINGLE quote is not an escape here: it
+                    # survives into the token, exactly as shlex leaves it.
+                    index += 1
+                    dequoted.append(command[index])
+                else:
+                    dequoted.append(char)
+            elif char in "'\"":
+                quote = char
+            elif char == "\\" and index + 1 < length:
+                # Outside quotes shlex escapes any following character.
+                index += 1
+                dequoted.append(command[index])
+            elif char.isspace():
+                break
+            else:
+                dequoted.append(char)
+            index += 1
+        name, separator, _value = command[start:index].partition("=")
+        words.append(
+            (
+                bool(separator)
+                and bool(name)
+                and name[0] in ident_start
+                and all(letter in ident_rest for letter in name),
+                "".join(dequoted),
+                command[start:index],
+            )
+        )
+    return words
+
+
+def _is_audio_player_command(command: str) -> bool:
+    """Check if command invokes an audio player (aplay/afplay/paplay/ffplay).
+
+    Recognizes:
+    - leading whitespace
+    - bare or absolute executable paths (/usr/bin/aplay, aplay)
+    - quoted executable paths ("/usr/bin/aplay", 'aplay')
+    - 'nohup' prefix (nohup aplay ...), including 'nohup env ...' and
+      'env [options/assignments] nohup aplay ...'. nohup may itself be
+      preceded by shell assignments, but no transparent form places a
+      NAME=VALUE token AFTER nohup; see the nohup note below.
+    - leading environment assignments with ASCII names (AUDIODEV=x aplay file.wav,
+      AUDIODEV=x nohup aplay)
+    - 'env' prefix ('env', '/usr/bin/env', '/bin/env' exactly) accepting ONLY:
+        * '--' (end of options; subsequent NAME=VALUE assignments are accepted)
+        * '-i', '--ignore-environment'
+        * '-u NAME', '--unset NAME', '--unset=NAME' with non-empty identifier NAME
+        * NAME=VALUE variable assignments
+      Any other option token starting with '-' (e.g. -S, --split-string, -a,
+      --argv0, -C, -0, combined flags like -iu, unknown options) causes the
+      command to pass through (returns False).
+      '--unset=' with an empty name is NOT accepted: GNU env exits 125 with
+      "cannot unset '': Invalid argument" and never runs the command.
+
+    Shell assignment rule (leading words only):
+    A leading word counts as an assignment only when its RAW text before the
+    first '=' is an entirely unquoted, unescaped identifier. So AUDIODEV=x,
+    AUDIODEV="x", AUDIODEV=\\x, A="foo bar" and _A=x are assignments, while
+    "AUDIODEV=x", AUDIO"DEV"=x, AUDIO\\DEV=x, 1A=x and =x are command names
+    and return False: under POSIX sh / dash such a name fails to resolve and
+    exits 127 without running a player. (bash, which is /bin/sh on many
+    systems, is more permissive — see the bash-extension gap below.) The
+    VALUE after the first '=' is unconstrained; only the name part is
+    inspected. This rule stops at the shell level: env receives the dequoted,
+    unescaped word in argv, so env AUDIO"DEV"=x and env "A=x" stay True.
+
+    Raw-split alignment invariant:
+    _leading_quoted_words re-scans the raw string so the shell's
+    assignment-vs-command decision can be made on unquoted text. Rather than
+    argue that its word boundaries match shlex.split, the dequoted text of
+    every raw word is compared against the real shlex tokens, and a mismatch
+    in either count or content makes the whole command return False. So any
+    future drift between the two splitters is caught at runtime and fails
+    safe. Escape handling inside quotes mirrors shlex's own posix rules
+    (outside quotes a backslash escapes anything; inside double quotes only
+    '"' and '\\' are escapable; inside single quotes a backslash is literal),
+    not POSIX sh rules, because shlex is the tokenizer actually in use here.
+
+    env phase boundary:
+    GNU env stops parsing at the first token that is neither an option nor a
+    NAME=VALUE assignment: that token is the command, and everything after it
+    belongs to the command. So options are honoured only BEFORE the first
+    assignment — 'env -i A=x aplay' runs aplay and returns True here — whereas
+    after an assignment a dash token is the command name and never resolves:
+    'env A=x -i aplay' exits 127 ("env: -i: No such file or directory"), no
+    player runs, and the helper returns False because swallowing it would
+    report success for a command whose program is not a player. The two
+    examples therefore differ: the first is True, the second is False.
+
+    Note on nohup and assignments:
+    In shell syntax ('sh -c'), 'nohup' does not parse assignments. A token like
+    'NAME=VALUE' following 'nohup' (as in 'nohup AUDIODEV=x aplay' or
+    'env nohup AUDIODEV=x aplay') is treated by nohup as the executable name,
+    failing with exit 127 without running the player; the helper returns False.
+    Assignments are honoured only when they sit BEFORE nohup — either as a
+    shell assignment ('AUDIODEV=x nohup aplay') or as arguments of an env that
+    precedes nohup ('env AUDIODEV=x nohup aplay') — or when env sits between
+    them and nohup ('nohup env AUDIODEV=x aplay'). So the allowed orderings are
+    A nohup [env A=x] and A [env A=x] nohup, never nohup A=x.
+
+    Known coverage gaps / false negatives (player still runs, helper returns False):
+    - UNSUPPORTED PREFIX SYNTAX, passes through. A prefix word carrying a
+      backtick, '$(', a '${...}' that is not a non-failing form, an unquoted
+      shell metacharacter (';' '&' '|' '<' '>' '(' ')'), or a name that is a
+      bash readonly variable or PATH, is not swallowed: the player may run
+      in a test. Ground-truthed and pinned; the leading edge of this class is
+      'A=${X:?e} aplay' and the trailing edge is 'RANDOM=1 aplay', which stays
+      swallowed. A quoted or escaped metacharacter is data, not an operator, so
+      'A="x;y" aplay' and 'A=x\\; aplay' are still swallowed.
+      The consequence is worth stating plainly: a player written as
+      'AUDIODEV=x; aplay f.wav' genuinely launches, and now passes through
+      unrecognised, so a player written that way is NOT swallowed and could
+      play for real in a test. No production caller and no test writes a prefix
+      this way; explicit audio in tests remains the VAJRA_TEST_AUDIO=1 opt-in.
+      This is the same bounded-recognizer trade-off as the glued operators
+      after the player word pinned above, and it goes the same way: on the rare
+      unrecognised form the guard declines to act rather than risk claiming it
+      stopped something it did not. See the Scope paragraph.
+    These are deliberately left unfixed and are pinned by tests so the gap is
+    recorded rather than implied:
+    - env option forms like 'env -S "aplay f"', 'env -S aplay f',
+      'env -C /tmp aplay', 'env --chdir=/tmp aplay', 'env -iu X aplay',
+      'env -v/--debug aplay', or 'env - aplay' pass through unintercepted
+      (player still runs).
+      NOTE: 'passthrough' here means NOT intercepted, not 'safe' — the player
+      still launches. The guard's only effect on these is that os.system is not
+      stubbed out, so the real player runs.
+    - 'nohup -- aplay' passes through unintercepted (player still runs).
+    - Compound commands where a player is preceded by another command
+      (e.g. 'echo y && aplay' or 'cat file | aplay') or subshell wrappers
+      like sh -c "aplay ..." pass through unintercepted (player still runs).
+    - Operators GLUED to the player word, a leading '!' and a leading '(' all
+      pass through, and the player really does run: shlex keeps the operator
+      inside one token, so the token is 'aplay;', 'aplay;echo', 'aplay&&echo',
+      'aplay&' or 'aplay|cat' rather than the bare player name, and '!' and '('
+      become their own leading tokens. Pinned and ground-truthed below. Not
+      fixed: splitting on shell operators is a full shell parser, which item 8
+      explicitly rules out.
+    - bash extension names in the assignment position: 'A+=x aplay' (append)
+      is accepted as an assignment by bash, which is /bin/sh on this machine,
+      so the player really does launch while the helper returns False. A POSIX
+      sh / dash rejects that name with 127, where the helper would be right.
+      'A[0]=x' is deliberately NOT listed here: in the shell assignment
+      position it is a syntax error and the program never runs, so False is
+      correct — see the correct-passthrough note above. env applies no shell
+      rule, so 'env A[0]=x aplay' and 'env A+=x aplay' DO launch and are gaps.
+
+    Not gaps (False is correct, because no player ever runs):
+    - '-u NAME' consumes NAME as the variable to unset, so a player-looking
+      token in that slot is never the command: 'env -iu aplay f.wav' unsets
+      'aplay' and then tries to run 'f.wav' (exit 127), and 'env -u aplay
+      f.wav' behaves the same. These look like the '-iu' gap above but are
+      the opposite case; they are pinned separately.
+
+    Compound commands (safe direction for silence guard):
+    A command is swallowed when its FIRST WHITESPACE-SEPARATED TOKEN, after
+    any supported prefix, is a player basename. An operator that follows the
+    player as a SEPARATE token is fine: 'aplay x && echo y' and 'aplay f | cat'
+    are swallowed because token 0 is the player. Operators GLUED to the player
+    word are NOT: shlex keeps 'aplay;', 'aplay&&echo', 'aplay&' and '(aplay' as
+    single tokens whose basename is not a player, so those pass through and the
+    player really does run - see the gap list above. Parse errors fall back to
+    passthrough (returns False).
+    """
+    if not isinstance(command, str) or not command.strip():
+        return False
+    try:
+        tokens = shlex.split(command)
+    except Exception:
+        return False
+    if not tokens:
+        return False
+
+    env_prefixes = {"env", "/usr/bin/env", "/bin/env"}
+    nohup_prefixes = {"nohup", "/usr/bin/nohup", "/bin/nohup"}
+
+    idx = 0
+    shell_blocked_names = frozenset({"UID", "EUID", "PPID", "SHELLOPTS", "BASHOPTS", "BASH_VERSINFO", "PATH"})
+    env_blocked_names = frozenset({"PATH"})
+
+    def _is_safe_expansion(inner: str) -> bool:
+        """True for ${NAME} and the default forms ${NAME:-lit} / ${NAME-lit} / ..."""
+        if not inner:
+            return False
+        end = 0
+        while end < len(inner) and inner[end].isascii() and (inner[end].isalnum() or inner[end] == "_"):
+            end += 1
+        name, rest = inner[:end], inner[end:]
+        if not name or not (name[0].isalpha() or name[0] == "_"):
+            return False
+        if not rest:
+            return True
+        for operator in (":-", ":+", "-", "+"):
+            if rest.startswith(operator):
+                literal = rest[len(operator) :]
+                return all(char.isascii() and (char.isalnum() or char in "_./:,@%+=-") for char in literal)
+        return False
+
+    def _expansions_are_safe(text: str) -> bool:
+        """Every ${...} in text is safe; an unbalanced one is not."""
+        index, length = 0, len(text)
+        while index < length:
+            if not text.startswith("${", index):
+                index += 1
+                continue
+            depth, cursor = 1, index + 2
+            while cursor < length:
+                if text.startswith("${", cursor):
+                    depth += 1
+                    cursor += 2
+                    continue
+                if text[cursor] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                cursor += 1
+            if cursor >= length:
+                return False
+            if not _is_safe_expansion(text[index + 2 : cursor]):
+                return False
+            index = cursor + 1
+        return True
+
+    def _prefix_can_launch(raw: str) -> bool:
+        """False when evaluating this prefix word can stop the program.
+
+        Mirrors the splitter's own escape rules to decide which characters are
+        live: single quotes mask everything, outside quotes a backslash escapes
+        the next character, and inside double quotes a backslash escapes only
+        '"' and '\\'. Rejects backticks, command and arithmetic substitution,
+        and any ${...} that is not a safe non-failing form.
+        """
+        # Two different masks are needed, because the shell rules differ.
+        # expansion_text keeps double-quoted content, so an expansion inside
+        # double quotes ("${X:?e}") is still seen; structural_text drops it,
+        # because a metacharacter inside double quotes is inert data, not an
+        # operator. Single-quoted content is literal for both, and a character
+        # escaped by a backslash is data for both.
+        expansion_text: list[str] = []
+        structural_text: list[str] = []
+        index, length = 0, len(raw)
+        quote = ""
+        while index < length:
+            char = raw[index]
+            if quote == "'":
+                if char == "'":
+                    quote = ""
+            elif quote == '"':
+                if char == '"':
+                    quote = ""
+                elif char == "\\" and index + 1 < length and raw[index + 1] in '"\\':
+                    index += 1
+                else:
+                    expansion_text.append(char)
+            elif char == "'":
+                quote = "'"
+            elif char == '"':
+                quote = '"'
+            elif char == "\\" and index + 1 < length:
+                index += 1
+            else:
+                expansion_text.append(char)
+                structural_text.append(char)
+            index += 1
+        # A LIVE shell metacharacter changes what the shell runs: ';' '&' '|'
+        # terminate or redirect the command and '(' ')' '<' '>' restructure it,
+        # so the program word this helper inspected is not the program the
+        # shell executes.
+        if any(char in "".join(structural_text) for char in ";&|<>()"):
+            return False
+        text = "".join(expansion_text)
+        if "`" in text or "$(" in text:
+            return False
+        return _expansions_are_safe(text)
+
+    # Initial environment assignments (NAME=VALUE) before nohup/env/command.
+    # The decision is made on the RAW word, because shlex.split has already
+    # thrown quoting and escaping away: only a word whose text before the
+    # first '=' is a plain unquoted identifier counts here. A quoted VALUE
+    # ('AUDIODEV="x"') passes; a quoted or escaped NAME does not. The env
+    # loops below deliberately do NOT apply this rule, because env receives
+    # the dequoted, unescaped word in argv and accepts "A=x" or AUDIO"DEV"=x.
+    leading_words = _leading_quoted_words(command)
+    # Fail-safe alignment invariant, checked rather than assumed: the raw split
+    # must reproduce exactly the shlex tokens, word for word. If it ever drifts,
+    # the classification is untrustworthy, so refuse the command outright. A
+    # desync can only lose a swallow, never invent one.
+    if len(leading_words) != len(tokens):
+        return False
+    for (_is_assignment, dequoted, _raw), token in zip(leading_words, tokens):
+        if dequoted != token:
+            return False
+    # A shell-level assignment word must also be one whose evaluation cannot
+    # stop the program, and must not name a variable the shell refuses to
+    # assign (bash readonly) or that changes program lookup (PATH).
+    while idx < len(tokens) and leading_words[idx][0]:
+        raw_word = leading_words[idx][2]
+        shell_name, _shell_sep, _shell_value = raw_word.partition("=")
+        if shell_name in shell_blocked_names or not _prefix_can_launch(raw_word):
+            return False
+        idx += 1
+
+    # Optional 'nohup' transparent prefix before env
+    if idx < len(tokens) and tokens[idx] in nohup_prefixes:
+        idx += 1
+        if idx < len(tokens) and tokens[idx].startswith("-"):
+            return False
+
+    # Optional 'env' prefix with strictly allowed options
+    if idx < len(tokens) and tokens[idx] in env_prefixes:
+        idx += 1
+        # GNU env stops parsing at the first token that is neither an option
+        # nor a NAME=VALUE assignment: that token is the command, and
+        # everything after it belongs to the command. Options are therefore
+        # honoured only BEFORE the first assignment ('env -i A=x aplay' runs
+        # aplay -> True). Once an assignment has been consumed, a later dash
+        # token is the command name rather than an option, so
+        # 'env A=x -i aplay' exits 127 ('env: -i: No such file or directory'),
+        # never runs a player, and is False here.
+        saw_assignment = False
+        while idx < len(tokens):
+            tok = tokens[idx]
+            if tok.startswith("-") and not saw_assignment:
+                if tok == "--":
+                    idx += 1
+                    # After '--', env stops option processing, but still processes NAME=VALUE
+                    while idx < len(tokens):
+                        name, sep, _ = tokens[idx].partition("=")
+                        if not (sep and name.isascii() and name.isidentifier()):
+                            break
+                        if name in env_blocked_names or not _prefix_can_launch(leading_words[idx][2]):
+                            return False
+                        idx += 1
+                    break
+                if tok in {"-i", "--ignore-environment"}:
+                    idx += 1
+                elif tok in {"-u", "--unset"}:
+                    idx += 1
+                    if idx >= len(tokens):
+                        return False
+                    name = tokens[idx]
+                    if not (name.isascii() and name.isidentifier()):
+                        return False
+                    idx += 1
+                elif tok.startswith("--unset="):
+                    name = tok[len("--unset=") :]
+                    if not (name.isascii() and name.isidentifier()):
+                        return False
+                    idx += 1
+                else:
+                    return False
+                continue
+            name, sep, _ = tok.partition("=")
+            if sep and name.isascii() and name.isidentifier():
+                # env applies the assignment before it looks the program up, so
+                # a PATH override or a fail-capable expansion in an env
+                # assignment word can stop the launch just as at shell level.
+                if name in env_blocked_names or not _prefix_can_launch(leading_words[idx][2]):
+                    return False
+                idx += 1
+                saw_assignment = True
+            else:
+                break
+
+    # Optional 'nohup' transparent prefix after env (e.g. 'env nohup aplay' or 'env AUDIODEV=x nohup aplay')
+    if idx < len(tokens) and tokens[idx] in nohup_prefixes:
+        idx += 1
+        if idx < len(tokens) and tokens[idx].startswith("-"):
+            return False
+
+    if idx >= len(tokens):
+        return False
+
+    # ------------------------------------------------------------------
+    # Evaluation-failing prefixes. Returning True promises the program really
+    # launches, so a prefix whose evaluation can stop it must pass through.
+    # These are nested rather than module-level on purpose: external review
+    # probes AST-extract only this function and _leading_quoted_words and give
+    # them a namespace of {shlex, os, re}, so a module-level helper would be a
+    # NameError under them.
+    # ------------------------------------------------------------------
+    exe = tokens[idx].rsplit("/", 1)[-1]
+    return exe in _AUDIO_PLAYER_COMMANDS
+
+
 def _guard_os_system_player(monkeypatch) -> None:
     """Swallow os.system player invocations; pass every other command through.
 
     os.system is patched on the shared os module object, so every
     ``import os`` + ``os.system(...)`` call site (all five _play_audio_file
-    methods among them) sees the guard while it is active. A command whose
-    first word is aplay/afplay/paplay/ffplay (basename, so an absolute
-    path like /usr/bin/aplay also counts) is recorded in _AUDIO_STUB_CALLS
-    and reported as success (0) without executing; everything else runs
-    through the original os.system. Restored per test by monkeypatch.
+    methods among them) sees the guard while it is active. A command invoking
+    aplay/afplay/paplay/ffplay (including bare names, absolute paths, quoted
+    paths, leading env assignments, or an env prefix) is recorded in
+    _AUDIO_STUB_CALLS and reported as success (0) without executing;
+    everything else runs through the original os.system. Restored per test
+    by monkeypatch.
     """
     original_system = os.system
 
     def _guarded_system(command: str) -> int:
-        tokens = command.split() if isinstance(command, str) else []
-        if tokens and tokens[0].rsplit("/", 1)[-1] in _AUDIO_PLAYER_COMMANDS:
+        if _is_audio_player_command(command):
             _AUDIO_STUB_CALLS.append(_describe_audio_call("os.system", (command,), {}))
             return 0
         return original_system(command)

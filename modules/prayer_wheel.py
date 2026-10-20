@@ -3,6 +3,7 @@ Prayer Wheel Module - Adapter Wrapper
 Wraps core.prayer_wheel.PrayerWheel with EventBus integration
 """
 
+import threading
 from typing import Any
 
 from modules.interfaces import EventBus
@@ -17,6 +18,7 @@ class PrayerWheelService:
     def __init__(self, event_bus: EventBus = None):
         self.event_bus = event_bus
         self._wheel = None
+        self._spin_threads: list[threading.Thread] = []
 
     @property
     def wheel(self):
@@ -39,13 +41,19 @@ class PrayerWheelService:
             # Map rotations and speed to a duration (e.g. 5 seconds for visual spin)
             duration = max(5, int(rotations * 0.1 / speed))
 
-            import threading
-
-            threading.Thread(
+            thread = threading.Thread(
                 target=self.wheel.spin,
                 args=(mantra,),
                 kwargs={"duration": duration, "with_audio": True, "with_voice": False},
-            ).start()
+                name="prayer-wheel-spin",
+                # The spin deliberately outlives the request that started it,
+                # so it must be a daemon: a non-daemon thread here makes the
+                # process (uvicorn shutdown, CLI script, pytest) block for the
+                # full duration after main() returns.
+                daemon=True,
+            )
+            thread.start()
+            self._track_spin(thread)
 
             return {
                 "status": "success",
@@ -56,6 +64,15 @@ class PrayerWheelService:
             }
         except Exception as e:
             return {"error": str(e)}
+
+    def _track_spin(self, thread: threading.Thread) -> None:
+        """Keep a handle on each background spin.
+
+        Without a reference the thread is unobservable and unjoinable. Finished
+        threads are dropped so repeated spins cannot pile up handles.
+        """
+        self._spin_threads = [t for t in self._spin_threads if t.is_alive()]
+        self._spin_threads.append(thread)
 
     def generate_prayer(self, intention: str = "peace", use_llm: bool = True, tradition: str = "universal") -> str:
         """Generate a prayer based on intention"""

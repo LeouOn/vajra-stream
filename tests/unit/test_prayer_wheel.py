@@ -47,6 +47,34 @@ class TestPrayerWheelService:
         assert result["rotations"] == 10
         assert result["duration"] == 5
 
+        # Join the background spin inside the patched clock, otherwise it is
+        # still sleeping on the real one after this test returns.
+        for spin_thread in list(svc._spin_threads):
+            spin_thread.join(timeout=5)
+            assert not spin_thread.is_alive()
+
+    @patch("time.sleep")
+    def test_spin_wheel_thread_does_not_block_shutdown(self, mock_sleep):
+        """A spin outlives its request, but must never hold the process open."""
+        svc = PrayerWheelService()
+        svc.wheel.audio = MagicMock()
+
+        result = svc.spin_wheel(mantra="Om Mani Padme Hum", rotations=10, speed=1.0)
+        assert result["status"] == "success"
+
+        assert len(svc._spin_threads) == 1
+        spin_thread = svc._spin_threads[0]
+        assert spin_thread.daemon is True
+
+        spin_thread.join(timeout=5)
+        assert not spin_thread.is_alive()
+
+        # A finished spin is dropped, so repeated spins cannot pile up handles.
+        svc.spin_wheel(mantra="Om Mani Padme Hum", rotations=10, speed=1.0)
+        assert len(svc._spin_threads) == 1
+        assert svc._spin_threads[0] is not spin_thread
+        svc._spin_threads[0].join(timeout=5)
+
     @patch("time.sleep")
     def test_continuous_spinning(self, mock_sleep):
         svc = PrayerWheelService()
@@ -56,7 +84,12 @@ class TestPrayerWheelService:
         assert result["status"] == "success"
         assert "session_id" in result
 
-        # Clean up threads
-        if hasattr(svc.wheel, "_active_spins"):
-            for s_id, info in list(svc.wheel._active_spins.items()):
-                info["stop_event"].set()
+        # Stop the background loop *and wait for it*. Setting the stop event
+        # alone leaves spin_loop calling spin() -- on the real time.sleep and
+        # the real audio object -- after this test has returned.
+        spins = list(getattr(svc.wheel, "_active_spins", {}).values())
+        assert spins
+        for info in spins:
+            info["stop_event"].set()
+            info["thread"].join(timeout=5)
+            assert not info["thread"].is_alive()

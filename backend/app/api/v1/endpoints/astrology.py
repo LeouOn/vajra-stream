@@ -59,8 +59,11 @@ def init_db():
     _core_init_db()
 
 
-# Initialize saved charts table
-init_db()
+# Schema initialization is owned by the application lifespan (see
+# backend/app/main.py critical path, which calls core.schema.init_db()).
+# This module used to call init_db() at import time, which made merely
+# importing the router migrate the database; the init_db() delegate above
+# remains for explicit callers.
 
 
 def _snapshot_kind(astrology_data: dict, key: str) -> str:

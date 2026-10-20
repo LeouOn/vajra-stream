@@ -65,11 +65,10 @@ def init_db():
     _core_init_db()
 
 
-# Initialize the DB on module load (idempotent — see core/schema.py).
-try:
-    init_db()
-except Exception as exc:  # noqa: BLE001
-    print(f"Error initializing astrology_locations database: {exc}")
+# Schema initialization is owned by the application lifespan (see
+# backend/app/main.py critical path, which calls core.schema.init_db());
+# importing this router no longer touches the database. The init_db()
+# delegate above remains for explicit callers.
 
 
 # ---------------------------------------------------------------------------

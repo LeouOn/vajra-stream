@@ -459,7 +459,7 @@ const AdvancedAstrologyPanel: React.FC<AdvancedAstrologyPanelProps> = ({ activeC
             <div className="mb-3 p-2 rounded-lg bg-amber-950/30 border border-amber-500/20 flex items-center gap-2">
               <MapPin className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
               <span className="text-[10px] text-amber-300 font-mono">
-                Using default natal data — select a chart in the wheel tab above to pre-fill.
+                Using default natal data — load a saved chart on Celestial Positions to pre-fill.
               </span>
             </div>
           )}

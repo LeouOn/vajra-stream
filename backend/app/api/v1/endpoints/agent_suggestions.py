@@ -25,8 +25,10 @@ def init_tables():
     _core_init_db()
 
 
-# Initialize tables when module loads
-init_tables()
+# Schema initialization is owned by the application lifespan (see
+# backend/app/main.py critical path, which calls core.schema.init_db());
+# importing this router no longer creates tables. The init_tables()
+# delegate above remains for explicit callers.
 
 
 class FailedToolCallSchema(BaseModel):

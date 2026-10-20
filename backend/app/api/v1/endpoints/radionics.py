@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 import uuid
 from datetime import datetime
 
@@ -30,8 +31,26 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Global instance
-broadcaster = IntegratedScalarRadionicsBroadcaster()
+# Deferred broadcaster construction. The module used to build a module-level
+# IntegratedScalarRadionicsBroadcaster() at import time; that constructs a
+# BlessingDatabase, which initializes the DB schema — so merely importing
+# this router migrated the database. Schema init is owned by the application
+# lifespan (backend/app/main.py critical path). get_broadcaster() constructs
+# the shared instance on first use, thread-safely, and reuses it across
+# requests. Nothing imports the old module-level `broadcaster` name (verified
+# by grep across backend/, core/, tests/, scripts/, modules/); it was removed
+# in favor of this getter — reported in the task handoff.
+_broadcaster_instance: IntegratedScalarRadionicsBroadcaster | None = None
+_broadcaster_lock = threading.Lock()
+
+
+def get_broadcaster() -> IntegratedScalarRadionicsBroadcaster:
+    """Return the shared broadcaster, constructing it on first use only."""
+    global _broadcaster_instance
+    with _broadcaster_lock:
+        if _broadcaster_instance is None:
+            _broadcaster_instance = IntegratedScalarRadionicsBroadcaster()
+        return _broadcaster_instance
 
 
 # Request Models

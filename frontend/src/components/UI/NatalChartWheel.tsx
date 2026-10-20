@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { Compass } from 'lucide-react';
+import type { AstrologySnapshot } from '../../types/astrology';
 import {
   SIGN_GLYPHS, SIGN_NAMES, SIGN_ELEMENT, ELEMENT_COLORS,
   signName, signElement, signElementColor,
   toSvgAngle, polarToXY, describeArc, planetGlyph, PLANET_GLYPHS,
+  collisionRings, sortAspectsByExactness,
 } from '../../lib/astroHelpers';
 
 interface PointXY {
@@ -32,12 +34,20 @@ interface CuspSet {
   [key: string]: unknown;
 }
 
+interface ChartAspect {
+  planet1?: string;
+  planet2?: string;
+  aspect?: string;
+  exactness?: number;
+}
+
 interface ChartWestern {
   dominant_element?: string;
   dominant_modality?: string;
   positions?: Record<string, PlanetPosition>;
   houses?: Record<string, HouseInfo>;
   cusps?: CuspSet;
+  aspects?: ChartAspect[];
   [key: string]: unknown;
 }
 
@@ -59,7 +69,21 @@ const ZODIAC_R_INNER = 170;
 const HOUSE_R_OUTER = 170;
 const HOUSE_R_INNER = 145;
 const PLANET_R = 130;
+const PLANET_RING_STEP = 12;
 const CENTER = 200;
+
+const ASPECT_LINE: Record<string, { color: string; dash?: string }> = {
+  Conjunction: { color: 'rgba(34,197,94,0.9)' },
+  Opposition: { color: 'rgba(249,115,22,0.9)', dash: '4 4' },
+  Trine: { color: 'rgba(59,130,246,0.9)' },
+  Square: { color: 'rgba(239,68,68,0.9)' },
+  Sextile: { color: 'rgba(168,85,247,0.85)', dash: '2 2' },
+};
+
+function planetRadius(ring: number): number {
+  const step = Number.isFinite(ring) ? Math.min(Math.max(ring, 0), 5) : 0;
+  return PLANET_R - step * PLANET_RING_STEP;
+}
 
 interface SignSegmentProps {
   signIndex: number;
@@ -246,7 +270,7 @@ interface PlanetMarkerProps {
 
 function PlanetMarker({ name, data, ascLon, index, color }: PlanetMarkerProps) {
   const angle = toSvgAngle(data.longitude, ascLon);
-  const r = PLANET_R - (index * 4);
+  const r = planetRadius(index);
   const pos = polarToXY(CENTER, CENTER, r, angle) as PointXY;
   const glyph = planetGlyph(name);
   const degText = `${Math.floor(data.degree || 0)}°`;
@@ -270,7 +294,7 @@ function PlanetMarker({ name, data, ascLon, index, color }: PlanetMarkerProps) {
           }}
         />
       )}
-      <circle cx={pos.x} cy={pos.y} r={7.5} fill="#0f172a" stroke={color} strokeWidth={1.5} />
+      <circle data-planet={name} cx={pos.x} cy={pos.y} r={7.5} fill="#0f172a" stroke={color} strokeWidth={1.5} />
       <text
         x={pos.x}
         y={pos.y + 0.5}
@@ -327,11 +351,13 @@ function Legend({ data }: LegendProps) {
 }
 
 interface NatalChartWheelProps {
-  data?: ChartData | string | null;
+  /** A live/saved snapshot, an exported chart object, or its JSON string. */
+  data?: AstrologySnapshot | ChartData | string | null;
   name?: string;
+  heading?: string;
 }
 
-export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
+export default function NatalChartWheel({ data, name, heading = 'Natal Chart Wheel' }: NatalChartWheelProps) {
   const chart = useMemo<ChartData | null>(() => {
     if (!data || typeof data === 'string') {
       try {
@@ -390,7 +416,7 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
       <div className="flex items-center justify-between">
         <div className="text-[10px] text-gray-500 font-mono uppercase tracking-wider font-bold flex items-center gap-1.5">
           <Compass className="w-3.5 h-3.5 text-amber-400" />
-          Natal Chart Wheel {name ? `— ${name}` : ''}
+          {heading} {name ? `— ${name}` : ''}
         </div>
         <div className="text-[9px] text-gray-600 font-mono">
           {planetEntries.length} bodies · {houses ? Object.keys(houses).length : 0} houses
@@ -448,20 +474,56 @@ export default function NatalChartWheel({ data, name }: NatalChartWheelProps) {
             />
           )}
 
-          {enrichedPlanets.map(([pname, info], idx) => {
-            const ringOffset = (idx % 3);
+          {(() => {
+            const rings = collisionRings(
+              enrichedPlanets.map(([pname, info]) => ({ name: pname, longitude: info.longitude })),
+            ) as Record<string, number>;
+            const aspects = sortAspectsByExactness(western.aspects).slice().reverse() as ChartAspect[];
             return (
-              <PlanetMarker
-                key={pname}
-                name={pname}
-                data={info}
-                ascLon={ascLon}
-                index={ringOffset}
-                total={enrichedPlanets.length}
-                color={PLANET_COLORS[pname] || '#94a3b8'}
-              />
+              <>
+                {aspects.map((asp, idx) => {
+                  const p1 = asp.planet1;
+                  const p2 = asp.planet2;
+                  if (!p1 || !p2 || !positions[p1] || !positions[p2]) return null;
+                  if (!Number.isFinite(positions[p1].longitude) || !Number.isFinite(positions[p2].longitude)) return null;
+                  const a1 = polarToXY(
+                    CENTER, CENTER, planetRadius(rings[p1] || 0), toSvgAngle(positions[p1].longitude, ascLon),
+                  ) as PointXY;
+                  const a2 = polarToXY(
+                    CENTER, CENTER, planetRadius(rings[p2] || 0), toSvgAngle(positions[p2].longitude, ascLon),
+                  ) as PointXY;
+                  const style = (asp.aspect && ASPECT_LINE[asp.aspect]) || { color: 'rgba(255,255,255,0.35)' };
+                  const exact = Number(asp.exactness);
+                  const opacity = Number.isFinite(exact) ? 0.25 + Math.min(1, Math.max(0, exact)) * 0.65 : 0.4;
+                  return (
+                    <line
+                      key={`${p1}-${p2}-${idx}`}
+                      data-aspect={`${p1}-${asp.aspect || 'aspect'}-${p2}`}
+                      x1={a1.x}
+                      y1={a1.y}
+                      x2={a2.x}
+                      y2={a2.y}
+                      stroke={style.color}
+                      strokeWidth={1.25}
+                      strokeOpacity={opacity}
+                      strokeDasharray={style.dash}
+                    />
+                  );
+                })}
+                {enrichedPlanets.map(([pname, info]) => (
+                  <PlanetMarker
+                    key={pname}
+                    name={pname}
+                    data={info}
+                    ascLon={ascLon}
+                    index={rings[pname] || 0}
+                    total={enrichedPlanets.length}
+                    color={PLANET_COLORS[pname] || '#94a3b8'}
+                  />
+                ))}
+              </>
             );
-          })}
+          })()}
         </svg>
       </div>
 

@@ -189,7 +189,14 @@ def _audio_play(hardware_level: int = 2) -> dict[str, Any]:
     if vajra_service.current_audio_data is None:
         return {"status": "error", "message": "No audio data available. Please generate audio first."}
     audio_length = len(vajra_service.current_audio_data)
-    _spawn(vajra_service.broadcast_audio(vajra_service.current_audio_data, hardware_level))
+    stop_epoch_floor = vajra_service.current_playback_epoch()
+    _spawn(
+        vajra_service.broadcast_audio(
+            vajra_service.current_audio_data,
+            hardware_level,
+            stop_epoch_floor=stop_epoch_floor,
+        )
+    )
     return {
         "status": "success",
         "message": "Audio playback started",

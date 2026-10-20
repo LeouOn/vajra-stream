@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -24,6 +25,16 @@ import urllib.request
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+
+# Auto-switch to repository virtual environment if running under an external/system interpreter
+if sys.prefix == sys.base_prefix and not os.environ.get("_VAJRA_REEXEC"):
+    _venv_py = SCRIPT_DIR / (".venv/Scripts/python.exe" if sys.platform == "win32" else ".venv/bin/python")
+    if _venv_py.exists() and Path(sys.executable).resolve() != _venv_py.resolve():
+        os.environ["_VAJRA_REEXEC"] = "1"
+        try:
+            os.execv(str(_venv_py), [str(_venv_py)] + sys.argv)
+        except OSError:
+            pass
 
 if sys.platform == "win32":
     try:

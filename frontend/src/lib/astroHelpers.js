@@ -234,3 +234,105 @@ export function toMarkdown(payload, selectedFieldKeys, topLevelFields, fieldGrou
   }
   return lines.join('\n');
 }
+
+const MAJOR_ASPECT_ORBS = {
+  conjunction: 8,
+  sextile: 6,
+  square: 8,
+  trine: 8,
+  opposition: 8,
+};
+
+export function sortAspectsByExactness(aspects) {
+  const list = Array.isArray(aspects) ? aspects.slice() : [];
+  return list.sort((a, b) => {
+    const ea = Number(a && a.exactness);
+    const eb = Number(b && b.exactness);
+    const na = Number.isFinite(ea) ? ea : Number.NEGATIVE_INFINITY;
+    const nb = Number.isFinite(eb) ? eb : Number.NEGATIVE_INFINITY;
+    return nb - na;
+  });
+}
+
+export function aspectOrbDegrees(aspect) {
+  if (!aspect || typeof aspect !== 'object') return null;
+  if (typeof aspect.orb === 'number' && Number.isFinite(aspect.orb)) return aspect.orb;
+  const max = MAJOR_ASPECT_ORBS[String(aspect.aspect || '').toLowerCase()];
+  const exact = Number(aspect.exactness);
+  if (max == null || !Number.isFinite(exact)) return null;
+  const clamped = Math.min(1, Math.max(0, exact));
+  return (1 - clamped) * max;
+}
+
+export function formatIllumination(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.min(100, Math.max(0, value));
+}
+
+function titleBody(name) {
+  return String(name || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function skyReadingLine(western, moonPhase) {
+  if (!western || typeof western !== 'object') return '';
+  const parts = [];
+  const balance = [western.dominant_modality, western.dominant_element]
+    .filter((part) => typeof part === 'string' && part.length > 0)
+    .join(' ');
+  if (balance) parts.push(balance);
+  const phase = moonPhase && typeof moonPhase.phase_name === 'string' ? moonPhase.phase_name : '';
+  if (phase) parts.push(`${phase} moon`);
+  const tightest = sortAspectsByExactness(western.aspects)[0];
+  if (tightest && tightest.planet1 && tightest.planet2 && tightest.aspect) {
+    const orb = aspectOrbDegrees(tightest);
+    const orbText = orb == null ? '' : ` (${orb.toFixed(1)}°)`;
+    parts.push(
+      `tightest ${titleBody(tightest.planet1)} ${tightest.aspect} ${titleBody(tightest.planet2)}${orbText}`,
+    );
+  }
+  return parts.join(' · ');
+}
+
+/**
+ * Radial stack index for chart bodies. Bodies farther apart than
+ * minSepDeg stay on ring 0. A cluster, including one that wraps past
+ * 0°, stacks 0, 1, 2… in longitude order so glyphs do not share a point.
+ */
+export function collisionRings(bodies, minSepDeg = 6) {
+  const clean = (Array.isArray(bodies) ? bodies : []).filter(
+    (body) => body && typeof body.name === 'string' && Number.isFinite(Number(body.longitude)),
+  );
+  const rings = {};
+  if (clean.length === 0) return rings;
+  const sep = Number(minSepDeg);
+  const sorted = [...clean].sort((a, b) => Number(a.longitude) - Number(b.longitude));
+  const clusters = [];
+  let current = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = Number(current[current.length - 1].longitude);
+    const lon = Number(sorted[i].longitude);
+    if (Number.isFinite(sep) && lon - prev <= sep) current.push(sorted[i]);
+    else {
+      clusters.push(current);
+      current = [sorted[i]];
+    }
+  }
+  clusters.push(current);
+  if (clusters.length > 1 && Number.isFinite(sep)) {
+    const first = clusters[0];
+    const last = clusters[clusters.length - 1];
+    const wrapGap = (Number(first[0].longitude) + 360) - Number(last[last.length - 1].longitude);
+    if (wrapGap <= sep) {
+      clusters[0] = last.concat(first);
+      clusters.pop();
+    }
+  }
+  for (const cluster of clusters) {
+    cluster.forEach((body, index) => {
+      rings[body.name] = index;
+    });
+  }
+  return rings;
+}

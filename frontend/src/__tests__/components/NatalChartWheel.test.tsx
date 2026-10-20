@@ -128,4 +128,60 @@ describe('NatalChartWheel — midheaven-asymmetry regression', () => {
     expect(thrown).toBeNull();
     expect(container.textContent).toMatch(/Chart wheel unavailable/);
   });
+
+  it('draws one aspect line for a major aspect between two bodies', () => {
+    const data = {
+      western: {
+        ...baseWestern,
+        positions: {
+          ...baseWestern.positions,
+          moon: { longitude: 100, sign: 'Cancer', degree: 10, formatted: 'Cancer 10.00°' },
+        },
+        aspects: [
+          { planet1: 'sun', planet2: 'moon', aspect: 'Trine', exactness: 0.8 },
+        ],
+      },
+    };
+    renderWheel(data);
+    expect(container.querySelectorAll('[data-aspect]')).toHaveLength(1);
+  });
+
+  it('places separated bodies on the same ring and stacks a conjunction', () => {
+    const separated = {
+      western: {
+        ...baseWestern,
+        positions: {
+          ascendant: baseWestern.positions.ascendant,
+          sun: { longitude: 10, sign: 'Aries', degree: 10, formatted: 'Aries 10.00°' },
+          moon: { longitude: 200, sign: 'Libra', degree: 20, formatted: 'Libra 20.00°' },
+        },
+      },
+    };
+    renderWheel(separated);
+    const sun = container.querySelector('[data-planet="sun"]');
+    const moon = container.querySelector('[data-planet="moon"]');
+    expect(sun).not.toBeNull();
+    expect(moon).not.toBeNull();
+    const radius = (el: Element) => {
+      const cx = Number(el.getAttribute('cx'));
+      const cy = Number(el.getAttribute('cy'));
+      return Math.hypot(cx - 200, cy - 200);
+    };
+    expect(Math.abs(radius(sun!) - radius(moon!))).toBeLessThan(1);
+
+    const conjunct = {
+      western: {
+        ...baseWestern,
+        positions: {
+          ascendant: baseWestern.positions.ascendant,
+          sun: { longitude: 10, sign: 'Aries', degree: 10, formatted: 'Aries 10.00°' },
+          mercury: { longitude: 12, sign: 'Aries', degree: 12, formatted: 'Aries 12.00°' },
+        },
+      },
+    };
+    renderWheel(conjunct);
+    const sun2 = container.querySelector('[data-planet="sun"]');
+    const mercury = container.querySelector('[data-planet="mercury"]');
+    expect(Math.abs(radius(sun2!) - radius(mercury!))).toBeGreaterThan(8);
+  });
 });

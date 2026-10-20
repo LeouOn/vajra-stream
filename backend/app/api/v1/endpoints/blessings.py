@@ -4,20 +4,19 @@ Blessing narrative generation and compassionate blessings
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-try:
-    from core.blessing_narratives import BlessingNarrativeGenerator
-    from core.compassionate_blessings import CompassionateBlessingGenerator
-
-    HAS_BLESSING_MODULES = True
-except ImportError:
-    HAS_BLESSING_MODULES = False
-    logger = logging.getLogger(__name__)
-    logger.warning("Blessing modules not available")
+# NOTE: the optional core generators (BlessingNarrativeGenerator /
+# CompassionateBlessingGenerator) were never importable under those names and
+# are not used by these endpoints — narratives are rendered from the
+# deterministic offline templates below. The old HAS_BLESSING_MODULES gate
+# raised 501 from inside the handler's try block, so the generic except
+# re-wrapped it: every request was effectively a 500 (detail "501: Blessing
+# modules not available"). The gate has been removed.
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -25,10 +24,49 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Global instances
-if HAS_BLESSING_MODULES:
-    narrative_generator = BlessingNarrativeGenerator()
-    compassionate_generator = CompassionateBlessingGenerator()
+# Supported narrative choices (mirrors the /traditions catalog). Requests
+# with other values are rejected with 422 listing these.
+SUPPORTED_TRADITIONS = ("universal", "buddhist", "tibetan", "zen", "yogic")
+SUPPORTED_LENGTHS = ("short", "medium", "long")
+
+# Mantra per tradition for /generate-narrative. "zen" keeps the Heart Sutra
+# mantra this endpoint already used; "yogic" mirrors the /traditions catalog.
+NARRATIVE_MANTRAS = {
+    "universal": "Om Shanti Shanti Shanti",
+    "buddhist": "Om Mani Padme Hum",
+    "tibetan": "Om Ah Hum Vajra Guru Padma Siddhi Hum",
+    "zen": "Gate Gate Paragate Parasamgate Bodhi Svaha",
+    "yogic": "Om Namah Shivaya",
+}
+
+
+def _utc_now_iso() -> str:
+    """Actual UTC generation time (module-level so tests can freeze it)."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _short_blessing(target_name: str, intention: str, mantra: str) -> str:
+    """Compact three-line form (length=short).
+
+    The intention is quoted ("With the intention of ...") rather than
+    asserted, so clause-shaped intentions stay grammatical and nothing in the
+    new wording claims the intention's outcome.
+    """
+    return (
+        f"May {target_name} be well, peaceful, and at ease.\n"
+        f"With the intention of {intention}, may this be of benefit to all.\n"
+        f"{mantra}"
+    )
+
+
+def _long_blessing(medium_text: str, target_name: str, intention: str) -> str:
+    """Medium form plus a closing reflection (length=long; intention quoted)."""
+    return (
+        f"{medium_text}\n\n"
+        f"In every moment and in every place,\n"
+        f"With the intention of {intention},\n"
+        f"May these wishes bring lasting benefit and peace to {target_name} and all beings."
+    )
 
 
 # Request Models
@@ -74,8 +112,21 @@ class BlessingResponse(BaseModel):
 async def generate_blessing_narrative(request: BlessingNarrativeRequest):
     """Generate a blessing narrative"""
     try:
-        if not HAS_BLESSING_MODULES:
-            raise HTTPException(status_code=501, detail="Blessing modules not available")
+        if request.tradition not in SUPPORTED_TRADITIONS:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Unsupported tradition: {request.tradition!r}. "
+                    f"Supported traditions: {', '.join(SUPPORTED_TRADITIONS)}."
+                ),
+            )
+        if request.length not in SUPPORTED_LENGTHS:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Unsupported length: {request.length!r}. " f"Supported lengths: {', '.join(SUPPORTED_LENGTHS)}."
+                ),
+            )
 
         logger.info(f"🙏 Generating blessing for {request.target_name}")
 
@@ -114,9 +165,40 @@ May ultimate realization be swiftly attained.
 
 Om Ah Hum Vajra Guru Padma Siddhi Hum
             """,
+            # needs content-owner review — new wording below (zen, yogic),
+            # and two tradition-label decisions: the Heart Sutra mantra is
+            # filed under "zen" (pre-existing choice of this endpoint) and
+            # "Om Namah Shivaya" under "yogic" (Shaiva-specific).
+            "zen": f"""
+Simply sitting, simply breathing,
+May {request.target_name} be present and at ease.
+Nothing to gain, nothing to lack.
+
+With the intention of {request.intention},
+May this moment hold all beings gently.
+
+Gate Gate Paragate Parasamgate Bodhi Svaha
+            """,
+            "yogic": f"""
+With palms joined in reverence,
+May {request.target_name} dwell in peace and clarity.
+May {request.target_name} be steady in heart and tranquil in mind.
+
+With the intention of {request.intention},
+May all beings everywhere know peace.
+
+Om Namah Shivaya
+            """,
         }
 
-        blessing_text = blessing_templates.get(request.tradition, blessing_templates["universal"])
+        medium_text = blessing_templates[request.tradition]
+        mantra = NARRATIVE_MANTRAS[request.tradition]
+        if request.length == "short":
+            blessing_text = _short_blessing(request.target_name, request.intention, mantra)
+        elif request.length == "long":
+            blessing_text = _long_blessing(medium_text, request.target_name, request.intention)
+        else:
+            blessing_text = medium_text
 
         dedication = None
         if request.include_dedication:
@@ -133,13 +215,6 @@ Where it has arisen, may it not decline,
 But ever increase, higher and higher.
             """
 
-        mantra = {
-            "universal": "Om Shanti Shanti Shanti",
-            "buddhist": "Om Mani Padme Hum",
-            "tibetan": "Om Ah Hum Vajra Guru Padma Siddhi Hum",
-            "zen": "Gate Gate Paragate Parasamgate Bodhi Svaha",
-        }.get(request.tradition, "Om")
-
         return BlessingResponse(
             status="success",
             blessing_text=blessing_text.strip(),
@@ -151,10 +226,12 @@ But ever increase, higher and higher.
                 "target_type": request.target_type,
                 "intention": request.intention,
                 "length": request.length,
-                "generated_at": "2025-11-16",
+                "generated_at": _utc_now_iso(),
             },
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Blessing generation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

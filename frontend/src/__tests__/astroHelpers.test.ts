@@ -16,6 +16,8 @@ import {
   toSvgAngle, polarToXY, describeArc,
   isHouseCusp, houseLabel, natalDisplayName,
   applyFieldSelection, toMarkdown,
+  sortAspectsByExactness, aspectOrbDegrees, skyReadingLine,
+  formatIllumination, collisionRings,
 } from '../lib/astroHelpers';
 
 describe('aspectCategory', () => {
@@ -475,5 +477,120 @@ describe('toMarkdown', () => {
     );
     expect(md).toContain('## NoCache');
     expect(md).not.toContain('**Western planets**');
+  });
+});
+
+describe('sortAspectsByExactness', () => {
+  it('orders tighter aspects first and does not mutate the input', () => {
+    const aspects = [
+      { planet1: 'mars', planet2: 'saturn', aspect: 'Square', exactness: 0.2 },
+      { planet1: 'sun', planet2: 'moon', aspect: 'Conjunction', exactness: 0.95 },
+      { planet1: 'venus', planet2: 'jupiter', aspect: 'Trine', exactness: 0.5 },
+    ];
+    const ranked = sortAspectsByExactness(aspects);
+    expect(ranked.map((a) => a.planet1)).toEqual(['sun', 'venus', 'mars']);
+    expect(aspects.map((a) => a.planet1)).toEqual(['mars', 'sun', 'venus']);
+  });
+
+  it('puts aspects with no exactness after ranked ones', () => {
+    const ranked = sortAspectsByExactness([
+      { planet1: 'sun', aspect: 'Trine' },
+      { planet1: 'moon', aspect: 'Sextile', exactness: 0.1 },
+    ]);
+    expect(ranked.map((a) => a.planet1)).toEqual(['moon', 'sun']);
+  });
+
+  it('returns an empty list for missing input', () => {
+    expect(sortAspectsByExactness(null)).toEqual([]);
+    expect(sortAspectsByExactness(undefined)).toEqual([]);
+  });
+});
+
+describe('aspectOrbDegrees', () => {
+  it('uses a numeric orb when the payload already has one', () => {
+    expect(aspectOrbDegrees({ aspect: 'Trine', exactness: 0.1, orb: 1.25 })).toBe(1.25);
+  });
+
+  it('recovers orb from exactness and the major-aspect allowance', () => {
+    expect(aspectOrbDegrees({ aspect: 'Conjunction', exactness: 1 })).toBeCloseTo(0);
+    expect(aspectOrbDegrees({ aspect: 'Sextile', exactness: 0 })).toBeCloseTo(6);
+    expect(aspectOrbDegrees({ aspect: 'Square', exactness: 0.5 })).toBeCloseTo(4);
+  });
+
+  it('returns null when the aspect type is unknown', () => {
+    expect(aspectOrbDegrees(null)).toBeNull();
+    expect(aspectOrbDegrees({ aspect: 'Quincunx', exactness: 0.5 })).toBeNull();
+  });
+});
+
+describe('formatIllumination', () => {
+  it('treats the API percent scale as percent, including values at or below 1', () => {
+    expect(formatIllumination(0)).toBe(0);
+    expect(formatIllumination(1)).toBe(1);
+    expect(formatIllumination(0.4)).toBe(0.4);
+    expect(formatIllumination(50)).toBe(50);
+    expect(formatIllumination(100)).toBe(100);
+  });
+
+  it('clamps out-of-range numbers and rejects non-numbers', () => {
+    expect(formatIllumination(140)).toBe(100);
+    expect(formatIllumination(-5)).toBe(0);
+    expect(formatIllumination(null)).toBeNull();
+    expect(formatIllumination('waxing')).toBeNull();
+  });
+});
+
+describe('skyReadingLine', () => {
+  it('joins element, moon, and the tightest aspect', () => {
+    const line = skyReadingLine(
+      {
+        dominant_element: 'Earth',
+        dominant_modality: 'Cardinal',
+        aspects: [
+          { planet1: 'mars', planet2: 'saturn', aspect: 'Square', exactness: 0.2 },
+          { planet1: 'sun', planet2: 'mercury', aspect: 'Conjunction', exactness: 0.95 },
+        ],
+      },
+      { phase_name: 'Waxing Crescent' },
+    );
+    expect(line).toBe('Cardinal Earth · Waxing Crescent moon · tightest Sun Conjunction Mercury (0.4°)');
+  });
+
+  it('omits clauses that are absent', () => {
+    expect(skyReadingLine(null, null)).toBe('');
+    expect(skyReadingLine({ dominant_element: 'Fire' }, {})).toBe('Fire');
+  });
+});
+
+describe('collisionRings', () => {
+  it('keeps widely separated bodies on ring 0', () => {
+    expect(collisionRings([
+      { name: 'sun', longitude: 10 },
+      { name: 'moon', longitude: 200 },
+    ])).toEqual({ sun: 0, moon: 0 });
+  });
+
+  it('stacks bodies that sit within the separation', () => {
+    expect(collisionRings([
+      { name: 'mercury', longitude: 12 },
+      { name: 'sun', longitude: 10 },
+      { name: 'venus', longitude: 15 },
+    ])).toEqual({ sun: 0, mercury: 1, venus: 2 });
+  });
+
+  it('treats longitude as circular', () => {
+    const rings = collisionRings([
+      { name: 'sun', longitude: 1 },
+      { name: 'moon', longitude: 359 },
+    ]);
+    expect(new Set(Object.values(rings))).toEqual(new Set([0, 1]));
+  });
+
+  it('ignores bodies without a finite longitude', () => {
+    expect(collisionRings([
+      { name: 'sun', longitude: 10 },
+      { name: 'moon', longitude: Number.NaN },
+      null,
+    ])).toEqual({ sun: 0 });
   });
 });

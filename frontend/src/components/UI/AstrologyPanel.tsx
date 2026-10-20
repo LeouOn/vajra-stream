@@ -1,11 +1,10 @@
 /**
  * Astrology Panel — Western, Vedic, and Chinese astrology display.
- * Handles saved natal charts, transit analysis, synastry comparison, and backup exports.
+ * Handles saved natal charts, transit analysis, synastry comparison,
+ * traditional techniques, and backup exports.
  */
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
-import {
-  Compass, Moon, Sun, Shield, Sparkles, RefreshCw, Calendar, MapPin, Clock, User, Heart, Info, ArrowRight, Download, Upload, Copy
-} from 'lucide-react';
+import { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import { Compass, Sun, RefreshCw, Copy } from 'lucide-react';
 import { Card, Row, Col, Tag, Button, Space, Segmented, Switch } from 'antd';
 import { audioFeedback } from '../../utils/audioFeedback';
 import { apiUrl } from '../../utils/api';
@@ -17,6 +16,10 @@ import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import VedicPanchanga from './VedicPanchanga';
 import ChineseBaZi from './ChineseBaZi';
+import {
+  sortAspectsByExactness,
+  skyReadingLine,
+} from '../../lib/astroHelpers';
 
 // Always-visible sub-components — imported eagerly
 import SavedChartsDrawer from './SavedChartsDrawer';
@@ -55,6 +58,7 @@ const AspectChart = lazy(() => import('../2D/AspectChart'));
 const LazyAstrologyExtractionPanel = lazy(() => import('./AstrologyExtractionPanel'));
 const AuspiciousTimingWheel = lazy(() => import('./AuspiciousTimingWheel'));
 const CelestialSkyDome = lazy(() => import('./CelestialSkyDome'));
+const AdvancedAstrologyPanel = lazy(() => import('./AdvancedAstrologyPanel'));
 
 // Fallback skeleton for lazy components
 const LazyFallback = () => (
@@ -62,63 +66,6 @@ const LazyFallback = () => (
     Loading component…
   </div>
 );
-
-const getOrdinalSuffix = (num: number | null | undefined): string => {
-  if (!num) return '';
-  const s = ["th", "st", "nd", "rd"];
-  const v = num % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
-};
-
-// Mini Solar System Orrery — CSS-only animated planet positions
-const PLANET_RINGS = [
-  { name: 'Mercury', radius: 28, color: '#b0b0b0', size: 3 },
-  { name: 'Venus', radius: 44, color: '#f472b6', size: 4 },
-  { name: 'Earth', radius: 60, color: '#22d3ee', size: 4 },
-  { name: 'Mars', radius: 78, color: '#ef4444', size: 3.5 },
-  { name: 'Jupiter', radius: 104, color: '#c084fc', size: 7 },
-  { name: 'Saturn', radius: 130, color: '#fb923c', size: 6 },
-];
-
-function MiniOrrery({ positions }: { positions?: WesternPositions | null }) {
-  if (!positions) return null;
-  return (
-    <div className="relative" style={{ width: 280, height: 280 }}>
-      {/* Sun center */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-300 to-orange-500 shadow-[0_0_30px_rgba(251,191,36,0.5)] z-10" />
-      
-      {PLANET_RINGS.map((ring) => {
-        const pos = positions?.[ring.name.toLowerCase()];
-        const absLon = pos?.longitude || 0;
-        const retrograde = pos?.retrograde || false;
-        const angleRad = (absLon - 90) * (Math.PI / 180);
-        const cx = 140;
-        const cy = 140;
-        const px = cx + ring.radius * Math.cos(angleRad);
-        const py = cy + ring.radius * Math.sin(angleRad);
-        
-        return (
-          <React.Fragment key={ring.name}>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/5"
-              style={{ width: ring.radius * 2, height: ring.radius * 2 }} />
-            <div className="absolute rounded-full transition-all duration-1000"
-              style={{
-                width: ring.size + (retrograde ? 1 : 0), height: ring.size + (retrograde ? 1 : 0),
-                backgroundColor: ring.color,
-                left: px - ring.size/2, top: py - ring.size/2,
-                boxShadow: `0 0 ${ring.size*2}px ${ring.color}80`,
-                opacity: retrograde ? 0.6 : 1,
-              }} />
-            <span className="absolute text-[7px] font-mono"
-              style={{ left: px + ring.size + 2, top: py - 4, color: retrograde ? '#fca5a5' : '#6b7280' }}>
-              {ring.name}{retrograde ? ' ℞' : ''}
-            </span>
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function AstrologyPanel() {
   const { isPlaying, frequency } = useAudioStore();
@@ -150,9 +97,14 @@ export default function AstrologyPanel() {
     is_saka_dawa?: boolean;
   } | null>(null);
   const [sealingHour, setSealingHour] = useState(false);
+  const [skyError, setSkyError] = useState<string | null>(null);
+  const [placeSource, setPlaceSource] = useState<'device' | 'default'>('default');
 
-  // Geolocation guard — stop retrying after user blocks permission
+  // Geolocation guard — stop retrying after user blocks permission.
+  // A successful fix is remembered so the 20s sky poll does not ask again.
   const geoBlocked = useRef(false);
+  const geoCoords = useRef<{ lat: number; lon: number } | null>(null);
+  const liveSeen = useRef(false);
 
   // Load saved charts from database
   const fetchSavedCharts = async () => {
@@ -167,45 +119,69 @@ export default function AstrologyPanel() {
     }
   };
 
-  const fetchLiveAstrology = async () => {
+  const fetchLiveAstrology = async (announce = false) => {
     if (!isLiveMode) return;
-    const doFetch = async (lat: number | null, lon: number | null) => {
+    const doFetch = async (lat: number | null, lon: number | null, fromDevice: boolean) => {
       try {
         const d = new Date();
         const pad = (n: number) => String(n).padStart(2, '0');
         const localTime = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-        
+
         const params = new URLSearchParams();
         params.append('datetime_str', localTime);
         if (lat !== null && lon !== null) {
           params.append('latitude', lat.toString());
           params.append('longitude', lon.toString());
         }
-        
+
         const response = await fetch(apiUrl(`/astrology/current?${params.toString()}`));
         if (response.ok) {
           const result: CurrentAstrologyResponse = await response.json();
-          setLiveData(result.astrology);
+          if (result?.astrology?.western) {
+            setLiveData(result.astrology);
+            setPlaceSource(fromDevice ? 'device' : 'default');
+            liveSeen.current = true;
+            setSkyError(null);
+            return;
+          }
+          const message = 'Ephemeris returned no western chart.';
+          if (!liveSeen.current) setSkyError(message);
+          else if (announce) addToast({ type: 'error', title: message, duration: 4 });
+          return;
         }
+        const message = `Sky request failed (HTTP ${response.status}).`;
+        if (!liveSeen.current) setSkyError(message);
+        else if (announce) addToast({ type: 'error', title: message, duration: 4 });
       } catch (e) {
         console.error("Error in live astrology fetch:", e);
+        const message = 'Could not reach the astrology service.';
+        if (!liveSeen.current) setSkyError(message);
+        else if (announce) addToast({ type: 'error', title: message, duration: 4 });
       }
     };
 
+    if (geoCoords.current) {
+      doFetch(geoCoords.current.lat, geoCoords.current.lon, true);
+      return;
+    }
     if (navigator.geolocation && !geoBlocked.current) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          doFetch(position.coords.latitude, position.coords.longitude);
+          geoCoords.current = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+          };
+          doFetch(position.coords.latitude, position.coords.longitude, true);
         },
         (err) => {
           // PERMISSION_DENIED = user blocked — stop retrying to avoid console spam
           if (err.code === 1) geoBlocked.current = true;
-          doFetch(null, null);
+          doFetch(null, null, false);
         },
         { timeout: 5000 }
       );
     } else {
-      doFetch(null, null);
+      doFetch(null, null, false);
     }
   };
 
@@ -563,29 +539,10 @@ export default function AstrologyPanel() {
   // Every block of a snapshot is computed; the backend marks placeholders decorative.
   const kindOf = (block: string): Provenance => fieldProvenance(activeData?.provenance, block, 'computed');
 
-  const countWuXing = (): Record<WuXing, number> => {
-    const counts: Record<WuXing, number> = { Wood: 0, Fire: 0, Earth: 0, Metal: 0, Water: 0 };
-    if (!activeData?.chinese?.bazi) return counts;
-
-    const charMap: Record<string, WuXing | undefined> = {
-      '木': 'Wood', '火': 'Fire', '土': 'Earth', '金': 'Metal', '水': 'Water'
-    };
-
-    Object.values(activeData.chinese.bazi).forEach((val: string) => {
-      const match = val.match(/\(([^)]+)\)/);
-      if (match && match[1]) {
-        const elementsStr = match[1];
-        for (let char of elementsStr) {
-          const engName = charMap[char];
-          if (engName) counts[engName]++;
-        }
-      }
-    });
-    
-    return counts;
-  };
-
-  const wuXingCounts = countWuXing();
+  const rankedAspects = sortAspectsByExactness(activeData?.western?.aspects).slice(0, 8);
+  const reading = skyReadingLine(activeData?.western, activeData?.moon_phase);
+  const dominantElement = activeData?.western?.dominant_element;
+  const place = activeData?.location;
 
   return (
     <div className="flex-1 h-full overflow-y-auto p-4 md:p-6 bg-transparent space-y-6">
@@ -593,13 +550,11 @@ export default function AstrologyPanel() {
       {/* Top Banner Header */}
       <div className="bg-gradient-to-r from-indigo-900/30 via-purple-900/30 to-cyan-900/30 rounded-xl p-5 border border-purple-500/20 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDE2OCw4NSwyNDcsMC4xKSIvPjwvc3ZnPg==')] opacity-30" />
-        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="relative flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.3)]">
-                <Compass className="w-5 h-5 text-white animate-spin" style={{ animationDuration: '12s' }} />
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.3)]">
+              <Compass className="w-5 h-5 text-white" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-white tracking-wide">Cosmic Clockwork</h2>
@@ -614,29 +569,13 @@ export default function AstrologyPanel() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            {['all','western','vedic','chinese'].map(sys => (
-              <Button
-                key={sys}
-                size="small"
-                shape="round"
-                type={activeSystem === sys ? 'primary' : 'default'}
-                onClick={() => setActiveSystem(sys)}
-                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}
-              >
-                {sys}
+            {isLiveMode ? (
+              <Tag color="green" className="font-mono text-[10px] mr-0">LIVE SKY</Tag>
+            ) : (
+              <Button size="small" onClick={handleResetToLive}>
+                Back to live sky
               </Button>
-            ))}
-            <Button
-              size="small"
-              shape="round"
-              type={isLiveMode ? 'primary' : 'default'}
-              danger={isLiveMode}
-              onClick={handleResetToLive}
-              style={{ fontSize: 10, fontWeight: 700 }}
-              className={isLiveMode ? 'animate-pulse' : ''}
-            >
-              🔴 LIVE
-            </Button>
+            )}
             <Button
               size="small"
               type="primary"
@@ -649,14 +588,8 @@ export default function AstrologyPanel() {
             </Button>
             <Button
               size="small"
-              icon={<Copy />}
+              icon={<Copy className="w-3 h-3" />}
               onClick={handleCopyForLLM}
-              className="text-[10px]"
-              style={{
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                border: 'none',
-                color: '#fff',
-              }}
             >
               Copy for LLM
             </Button>
@@ -664,7 +597,6 @@ export default function AstrologyPanel() {
               className="inline-flex items-center gap-1.5 text-[10px] font-mono text-slate-300 select-none"
               title="When ON, personal info (name, birth time, exact location) is stripped before copying."
             >
-              <span aria-hidden>🔒</span>
               <Switch
                 size="small"
                 checked={stripPii}
@@ -676,10 +608,23 @@ export default function AstrologyPanel() {
               size="small"
               shape="circle"
               type="text"
-              onClick={() => isLiveMode ? fetchLiveAstrology() : (activeChart ? loadNatalChart(activeChart) : fetchLiveAstrology())}
+              aria-label="Refresh chart"
+              onClick={() => isLiveMode ? fetchLiveAstrology(true) : (activeChart ? loadNatalChart(activeChart) : fetchLiveAstrology(true))}
               icon={<RefreshCw className={loading ? 'animate-spin' : ''} />}
             />
           </div>
+          </div>
+          <Segmented
+            size="small"
+            value={activeSystem}
+            onChange={(val) => { audioFeedback.playClick(); setActiveSystem(String(val)); }}
+            options={[
+              { value: 'all', label: 'All systems' },
+              { value: 'western', label: 'Western' },
+              { value: 'vedic', label: 'Vedic' },
+              { value: 'chinese', label: 'Chinese' },
+            ]}
+          />
         </div>
       </div>
 
@@ -705,7 +650,7 @@ export default function AstrologyPanel() {
         {/* Right Side: Main display container */}
         <div className="flex-1 w-full space-y-6">
           {/* Main Navigation tabs */}
-          <div className="flex justify-start">
+          <div className="max-w-full overflow-x-auto">
             <Segmented
               options={[
                 { value: 'wheel', label: 'Celestial Positions' },
@@ -713,11 +658,13 @@ export default function AstrologyPanel() {
                 { value: 'timing', label: 'Auspicious Timing' },
                 { value: 'transits', label: 'Transit-to-Natal' },
                 { value: 'synastry', label: 'Synastry (Compatibility)' },
+                { value: 'techniques', label: 'Techniques' },
                 { value: 'extraction', label: 'Extraction' }
               ]}
               value={activeTab}
               onChange={(val) => { audioFeedback.playTabChange(); setActiveTab(val); }}
               className="bg-black/40 border border-white/5 p-1 text-xs"
+              style={{ width: 'max-content' }}
             />
           </div>
 
@@ -740,7 +687,7 @@ export default function AstrologyPanel() {
                     <Row justify="space-between" align="top" style={{ marginBottom: 16 }}>
                       <Col>
                         <Tag color="purple" className="font-mono text-[9px]">
-                          {isLiveMode ? 'ACTIVE SYSTEM TRANSIT' : `NATAL PROJECTIONS: ${activeChart ? activeChart.name : 'CUSTOM'}`}
+                          {isLiveMode ? 'LIVE SKY' : `NATAL: ${activeChart ? activeChart.name : 'CUSTOM'}`}
                         </Tag>
                       </Col>
                       <Col>
@@ -751,12 +698,21 @@ export default function AstrologyPanel() {
                     </Row>
                     
                     <h3 className="text-xl font-bold text-white tracking-wide font-mono mb-1">
-                      {isLiveMode ? '🪐 LIVE CELESTIAL CLOCKWORK' : `🔮 NATAL DETAILS: ${activeChart ? activeChart.name : 'CUSTOM'}`}
+                      {isLiveMode ? 'Live celestial clockwork' : `Natal details: ${activeChart ? activeChart.name : 'Custom'}`}
                     </h3>
-                    <p className="text-xs text-gray-400 font-mono mb-4">
-                      Date & Time: {activeData
-                        ? (activeData.datetime ? new Date(activeData.datetime).toLocaleString() : '—')
-                        : 'Loading...'}
+                    <p className="text-xs text-gray-400 font-mono mb-1">
+                      Date & Time: {activeData?.datetime ? new Date(activeData.datetime).toLocaleString() : (skyError ? 'Unavailable' : 'Loading…')}
+                    </p>
+                    {place && Number.isFinite(Number(place.latitude)) && Number.isFinite(Number(place.longitude)) && (
+                      <p className="text-[11px] text-gray-500 font-mono mb-1">
+                        Place: {Number(place.latitude).toFixed(2)}, {Number(place.longitude).toFixed(2)}
+                        {isLiveMode
+                          ? (placeSource === 'device' ? ' · this device' : ' · default coordinates')
+                          : (activeChart?.city ? ` · ${activeChart.city}` : '')}
+                      </p>
+                    )}
+                    <p className="text-xs text-amber-200/90 font-mono mb-4" data-testid="sky-reading">
+                      {reading || 'Waiting for the ephemeris.'}
                     </p>
                     
                     <Row gutter={[12, 12]}>
@@ -821,7 +777,7 @@ export default function AstrologyPanel() {
                   {/* Western astrology layout */}
                   {(activeSystem === 'all' || activeSystem === 'western') && (
                     <Card
-                      title={<span className="text-cyan-400 font-mono text-xs tracking-wider uppercase"><Sun className="w-4 h-4 inline mr-2" />I. Western Tropical Astrology (Transit Wheel)</span>}
+                      title={<span className="text-cyan-400 font-mono text-xs tracking-wider uppercase"><Sun className="w-4 h-4 inline mr-2" />{isLiveMode ? 'I. Western Tropical — Live Sky' : 'I. Western Tropical — Natal'}</span>}
                       extra={<Tag color="purple" className="font-mono text-[9px]">TROPICAL / PLACIDUS HOUSES</Tag>}
                       className="bg-gray-900/80 border-purple-500/20"
                       styles={{ body: { padding: '20px' } }}
@@ -863,12 +819,14 @@ export default function AstrologyPanel() {
                       </Row>
 
                       <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
-                        <Col xs={24} xl={8}>
-                          <div className="flex flex-col items-center justify-center p-4 bg-black/55 border border-white/5 rounded-xl min-h-[350px]">
-                            <WesternChartWheel positions={activeData.western?.positions} aspects={activeData.western?.aspects} />
-                          </div>
+                        <Col xs={24} xl={10}>
+                          <NatalChartWheel
+                            data={activeData}
+                            name={isLiveMode ? 'Live sky' : (activeChart?.name || 'Chart')}
+                            heading={isLiveMode ? 'Tropical wheel' : 'Natal chart wheel'}
+                          />
                         </Col>
-                        <Col xs={24} xl={8}>
+                        <Col xs={24} xl={7}>
                           <div className="space-y-4 font-mono">
                             <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase mb-0">PLANETARY COORDINATES</h4>
                             <div className="grid grid-cols-1 gap-1.5 max-h-[300px] overflow-y-auto pr-1">
@@ -890,9 +848,9 @@ export default function AstrologyPanel() {
                             </div>
                           </div>
                         </Col>
-                        <Col xs={24} xl={8}>
+                        <Col xs={24} xl={7}>
                           <div className="space-y-4 font-mono">
-                            <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">ELEMENTS & ACTIVE ASPECTS</h4>
+                            <h4 className="text-[10px] font-bold text-gray-400 font-mono tracking-widest uppercase">ELEMENTS & TIGHTEST ASPECTS</h4>
                             <div className="grid grid-cols-4 gap-2 text-center text-xs bg-black/45 p-3 rounded-xl border border-white/5">
                               {Object.entries(activeData.western?.elements || {}).map(([elem, weight]) => {
                                 let color = 'text-gray-400';
@@ -900,8 +858,9 @@ export default function AstrologyPanel() {
                                 else if (elem === 'Earth') color = 'text-amber-400';
                                 else if (elem === 'Air') color = 'text-sky-400';
                                 else if (elem === 'Water') color = 'text-emerald-400';
+                                const dominant = elem === dominantElement;
                                 return (
-                                  <div key={elem}>
+                                  <div key={elem} className={dominant ? 'ring-1 ring-white/25 rounded-md' : ''}>
                                     <span className="text-[9px] text-gray-500 font-mono block leading-none">{elem.toUpperCase()}</span>
                                     <Reading
                                       value={weight}
@@ -914,17 +873,25 @@ export default function AstrologyPanel() {
                                 );
                               })}
                             </div>
-                            <div className="bg-black/45 border border-white/5 rounded-xl p-3 max-h-[195px] overflow-y-auto space-y-2">
-                              <span className="text-[9px] text-gray-500 font-mono block mb-1">ACTIVE CONFLUX ASPECTS</span>
-                              {activeData.western?.aspects && activeData.western.aspects.length > 0 ? (
-                                activeData.western.aspects.map((asp, idx) => (
-                                  <div key={idx} className="flex justify-between items-center text-[10px] p-2 bg-white/5 border border-white/5 rounded-lg">
-                                    <span className="font-medium text-gray-300">{asp.description}</span>
-                                    <Tag color={asp.aspect === 'Conjunction' || asp.aspect === 'Trine' || asp.aspect === 'Sextile' ? 'blue' : 'red'} className="font-mono text-[8px]">
-                                      {asp.aspect}
-                                    </Tag>
-                                  </div>
-                                ))
+                            <div className="bg-black/45 border border-white/5 rounded-xl p-3 max-h-[240px] overflow-y-auto space-y-2">
+                              <span className="text-[9px] text-gray-500 font-mono block mb-1">TIGHTEST ASPECTS</span>
+                              {rankedAspects.length > 0 ? (
+                                rankedAspects.map((asp, idx) => {
+                                  const exact = Number(asp.exactness);
+                                  const pct = Number.isFinite(exact) ? `${Math.round(exact * 100)}%` : '';
+                                  const label = asp.description || `${asp.planet1 || ''} ${asp.aspect || ''} ${asp.planet2 || ''}`.trim();
+                                  return (
+                                    <div key={`${asp.planet1}-${asp.planet2}-${idx}`} className="flex justify-between items-center gap-2 text-[10px] p-2 bg-white/5 border border-white/5 rounded-lg">
+                                      <span className="font-medium text-gray-300">{label}</span>
+                                      <Space size={4}>
+                                        {pct && <span className="text-gray-500 font-mono">{pct}</span>}
+                                        <Tag color={asp.aspect === 'Conjunction' || asp.aspect === 'Trine' || asp.aspect === 'Sextile' ? 'blue' : 'red'} className="font-mono text-[8px]">
+                                          {asp.aspect}
+                                        </Tag>
+                                      </Space>
+                                    </div>
+                                  );
+                                })
                               ) : (
                                 <div className="text-xs text-gray-500 italic py-2 text-center">No active aspects in orb</div>
                               )}
@@ -973,8 +940,8 @@ export default function AstrologyPanel() {
                   )}
                 </div>
               ) : (
-                <div className="bg-gray-900/60 p-8 border border-white/5 rounded-xl text-center italic text-gray-400 font-mono text-xs">
-                  Computing ephemeris coordinates from planetary databases...
+                <div className="bg-gray-900/60 p-8 border border-white/5 rounded-xl text-center text-gray-400 font-mono text-xs" data-testid="sky-status">
+                  {skyError || 'Computing ephemeris coordinates…'}
                 </div>
               )}
             </Space>
@@ -1026,6 +993,16 @@ export default function AstrologyPanel() {
             </div>
           )}
 
+          {activeTab === 'techniques' && (
+            <div key="techniques" className="animate-slide-up">
+              <ErrorBoundary fallbackTitle="Astrology techniques failed to load">
+                <Suspense fallback={<LazyFallback />}>
+                  <AdvancedAstrologyPanel activeChart={activeChart} />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
+          )}
+
           {activeTab === 'extraction' && (
             <div key="extraction" className="animate-slide-up">
               <Suspense fallback={<LazyFallback />}>
@@ -1038,211 +1015,3 @@ export default function AstrologyPanel() {
     </div>
   );
 }
-
-interface AspectType {
-  name: string;
-  angle: number;
-  orb: number;
-  color: string;
-  dash?: string;
-}
-
-const ASPECT_TYPES: AspectType[] = [
-  { name: 'Conjunction', angle: 0, orb: 8, color: 'rgba(34,197,94,0.5)' },
-  { name: 'Opposition', angle: 180, orb: 8, color: 'rgba(249,115,22,0.5)', dash: '4,4' },
-  { name: 'Trine', angle: 120, orb: 8, color: 'rgba(59,130,246,0.5)' },
-  { name: 'Square', angle: 90, orb: 8, color: 'rgba(239,68,68,0.5)' },
-  { name: 'Sextile', angle: 60, orb: 6, color: 'rgba(168,85,247,0.5)', dash: '2,2' },
-];
-
-/** An aspect line as drawn on the wheel. */
-interface WheelAspect {
-  planet1: string;
-  planet2: string;
-  aspect: string;
-  exactness: number;
-  color: string;
-  dash: string;
-}
-
-function calcAspects(positions: WesternPositions): WheelAspect[] {
-  const names = Object.keys(positions).filter(n => n !== 'ascendant' && n !== 'midheaven');
-  const out: WheelAspect[] = [];
-  for (let i = 0; i < names.length; i++) {
-    for (let j = i + 1; j < names.length; j++) {
-      let diff = Math.abs(positions[names[i]].longitude - positions[names[j]].longitude) % 360;
-      if (diff > 180) diff = 360 - diff;
-      for (const at of ASPECT_TYPES) {
-        const orb = Math.abs(diff - at.angle);
-        if (orb <= at.orb) {
-          out.push({ planet1: names[i], planet2: names[j], aspect: at.name, exactness: 1 - orb / at.orb, color: at.color, dash: at.dash || 'none' });
-          break;
-        }
-      }
-    }
-  }
-  return out;
-}
-
-// Western Astrology Wheel Drawing Helper
-interface WesternChartWheelProps {
-  positions?: WesternPositions;
-  aspects?: WesternAspect[];
-}
-
-const WesternChartWheel = ({ positions, aspects: serverAspects }: WesternChartWheelProps) => {
-  if (!positions) return <div className="w-60 h-60 rounded-full border border-dashed border-gray-700 animate-pulse flex items-center justify-center text-xs text-gray-600">No positions calculated</div>;
-
-  const aspects: WheelAspect[] = serverAspects?.length ? serverAspects.map(a => ({
-    planet1: a.planet1, planet2: a.planet2, aspect: a.aspect, exactness: a.exactness || 0.5,
-    color: ASPECT_TYPES.find(t => t.name === a.aspect)?.color || 'rgba(255,255,255,0.15)',
-    dash: ASPECT_TYPES.find(t => t.name === a.aspect)?.dash || 'none',
-  })).filter(a => a.planet1 && a.planet2) : calcAspects(positions);
-
-  const cx = 160;
-  const cy = 160;
-  const r = 130;
-  const midR = 105;
-  const innerR = 85;
-
-  const ascLon = positions.ascendant?.longitude || 0;
-
-  const getCoordinates = (lon: number, radius: number) => {
-    const rad = ((lon - ascLon - 180) * Math.PI) / 180;
-    const x = cx + radius * Math.cos(rad);
-    const y = cy + radius * Math.sin(rad);
-    return { x, y };
-  };
-
-  const planetCoords: Record<string, { x: number; y: number }> = {};
-  Object.entries(positions).forEach(([planet, info]) => {
-    if (planet !== 'ascendant' && planet !== 'midheaven') {
-      planetCoords[planet] = getCoordinates(info.longitude, innerR - 8);
-    }
-  });
-
-  const signGlyphs = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
-  const planetGlyphs: Record<string, string> = {
-    sun: '☉', moon: '☽', mercury: '☿', venus: '♀', mars: '♂',
-    jupiter: '♃', saturn: '♄', uranus: '♅', neptune: '♆', pluto: '♇',
-    north_node: '☊',
-  };
-
-  return (
-    <svg
-      viewBox="0 0 320 320"
-      width="100%"
-      style={{ maxWidth: 320 }}
-      className="select-none font-mono"
-    >
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
-      <circle cx={cx} cy={cy} r={midR} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
-      <circle cx={cx} cy={cy} r={innerR} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-
-      {/* Spokes */}
-      {Array.from({ length: 12 }).map((_, idx) => {
-        const deg = idx * 30;
-        const pInner = getCoordinates(deg, midR);
-        const pOuter = getCoordinates(deg, r);
-        return (
-          <line key={idx} x1={pInner.x} y1={pInner.y} x2={pOuter.x} y2={pOuter.y} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-        );
-      })}
-
-      {/* Signs glyphs */}
-      {Array.from({ length: 12 }).map((_, idx) => {
-        const deg = idx * 30 + 15;
-        const pGlyph = getCoordinates(deg, (midR + r) / 2);
-        const colors = ['#f87171', '#fbbf24', '#60a5fa', '#34d399'];
-        const color = colors[idx % 4];
-        return (
-          <text key={idx} x={pGlyph.x} y={pGlyph.y + 4} textAnchor="middle" fontSize="13px" fill={color} fontWeight="bold" className="font-sans">
-            {signGlyphs[idx]}
-          </text>
-        );
-      })}
-
-      {/* Aspects lines */}
-      {aspects.map((asp, idx) => {
-        const coord1 = planetCoords[asp.planet1];
-        const coord2 = planetCoords[asp.planet2];
-        if (!coord1 || !coord2) return null;
-
-        return (
-          <line key={idx} x1={coord1.x} y1={coord1.y} x2={coord2.x} y2={coord2.y} stroke={asp.color} strokeWidth={1 + (asp.exactness || 0.5) * 1.5} strokeDasharray={asp.dash || 'none'} />
-        );
-      })}
-
-      {/* ASC / DSC / MC / IC lines */}
-      {(() => {
-        const ascP = getCoordinates(ascLon, r);
-        const dscLon = ascLon + 180;
-        const dscP = getCoordinates(dscLon, r);
-        const mcLon = positions.midheaven?.longitude || (ascLon + 270);
-        const mcP = getCoordinates(mcLon, r);
-        const icLon = mcLon + 180;
-        const icP = getCoordinates(icLon, r);
-        return (
-          <>
-            <line x1={ascP.x} y1={ascP.y} x2={dscP.x} y2={dscP.y} stroke="rgba(253,224,71,0.3)" strokeWidth="1" strokeDasharray="6,3" />
-            <line x1={mcP.x} y1={mcP.y} x2={icP.x} y2={icP.y} stroke="rgba(253,224,71,0.2)" strokeWidth="1" strokeDasharray="6,3" />
-            <text x={ascP.x - 14} y={ascP.y + 3} fontSize="9" fill="rgba(253,224,71,0.6)" fontWeight="bold">ASC</text>
-            <text x={dscP.x + 4} y={dscP.y + 3} fontSize="9" fill="rgba(253,224,71,0.4)" fontWeight="bold">DSC</text>
-            <text x={mcP.x - 6} y={mcP.y - 6} fontSize="9" fill="rgba(253,224,71,0.4)" fontWeight="bold">MC</text>
-          </>
-        );
-      })()}
-
-      {/* Planet nodes */}
-      {Object.entries(positions).map(([planet, info]) => {
-        if (planet === 'ascendant' || planet === 'midheaven') return null;
-        const coord = planetCoords[planet];
-        if (!coord) return null;
-
-        const glyph = planetGlyphs[planet] || planet.substring(0, 2).toUpperCase();
-
-        let color = '#a855f7';
-        if (planet === 'sun') color = '#fbbf24';
-        else if (planet === 'moon') color = '#e2e8f0';
-        else if (planet === 'mercury') color = '#38bdf8';
-        else if (planet === 'venus') color = '#f472b6';
-        else if (planet === 'mars') color = '#f87171';
-        else if (planet === 'jupiter') color = '#c084fc';
-        else if (planet === 'saturn') color = '#fb923c';
-        else if (planet === 'uranus') color = '#2dd4bf';
-        else if (planet === 'neptune') color = '#818cf8';
-        else if (planet === 'pluto') color = '#94a3b8';
-        else if (planet === 'north_node') color = '#34d399';
-
-        return (
-          <g key={planet} className="group">
-            <circle cx={coord.x} cy={coord.y} r="8" fill="rgba(0, 0, 0, 0.7)" stroke={color} strokeWidth="1.2" className="cursor-help hover:scale-125 transition-transform duration-300" />
-            <text x={coord.x} y={coord.y + 3.5} textAnchor="middle" fontSize="9px" fill={color} fontWeight="bold" className="pointer-events-none select-none font-sans">
-              {glyph}
-            </text>
-            <title>{planet.toUpperCase()}: {info.formatted}</title>
-          </g>
-        );
-      })}
-
-      {/* Axes */}
-      <line x1={cx - r - 12} y1={cy} x2={cx + r + 12} y2={cy} stroke="rgba(6,182,212,0.4)" strokeWidth="1.5" strokeDasharray="3,3" />
-      {positions.midheaven && (() => {
-        const pMc = getCoordinates(positions.midheaven.longitude, r + 12);
-        const pIc = getCoordinates((positions.midheaven.longitude + 180) % 360, r + 12);
-        return (
-          <line x1={pMc.x} y1={pMc.y} x2={pIc.x} y2={pIc.y} stroke="rgba(6,182,212,0.4)" strokeWidth="1.5" strokeDasharray="3,3" />
-        );
-      })()}
-
-      <text x={cx - r - 20} y={cy + 4} fill="rgb(6,182,212)" fontSize="8px" fontWeight="bold" textAnchor="middle">ASC</text>
-      <text x={cx + r + 20} y={cy + 4} fill="rgb(6,182,212)" fontSize="8px" fontWeight="bold" textAnchor="middle">DSC</text>
-      {positions.midheaven && (() => {
-        const mcLabelCoord = getCoordinates(positions.midheaven.longitude, r + 18);
-        return (
-          <text x={mcLabelCoord.x} y={mcLabelCoord.y + 3} fill="rgb(6,182,212)" fontSize="8px" fontWeight="bold" textAnchor="middle">MC</text>
-        );
-      })()}
-    </svg>
-  );
-};
