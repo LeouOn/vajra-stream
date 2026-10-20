@@ -1,0 +1,1233 @@
+{
+  "schema": "vajra.astrology.golden_charts/v1",
+  "description": "Immutable reference charts for core.astrology.AstrologicalCalculator. The expected values are INDEPENDENT of the project: they were produced by astropy's BUILTIN ERFA ephemeris, using a derivation that shares no code with pyswisseph. Storing project-derived values here would make every assertion a tautology.",
+  "provenance": {
+    "audit_of_record": "docs/notes/w0-astrology-audit-accuracy.md",
+    "method": "Apparent geocentric position from astropy (builtin ERFA; solar_system_ephemeris not set to any downloadable set, iers.conf.auto_download=False), then transform_to(FK5(equinox=t)) to precess to the mean equinox OF DATE, then transform_to(GeocentricTrueEcliptic(equinox=t)) to obtain apparent geocentric ecliptic longitude of date - which is the quantity swe.calc_ut returns.",
+    "time_scale": "Instants are UTC. The project passes UT to swe.calc_ut/swe.houses, which apply Delta-T internally, so no manual Delta-T is applied anywhere in this fixture. C1 is the case where the distinction matters: J2000.0 is 12:00:00 TT, which is 11:58:55.8166 UT.",
+    "astropy_version": "8.0.1",
+    "erfa_version": "2.0.1.5",
+    "pyswisseph_version": "2.10.03",
+    "ephemeris": "builtin (ERFA/VSOP87/PLAN94). No JPL kernel is present offline.",
+    "asc_mc_derivation": "MC = the ecliptic point whose right ascension of date equals the local apparent sidereal time; RA(lambda) = atan2(sin(lambda) cos(eps_true), cos(lambda)) with eps_true = erfa.obl06(TT) + erfa.nut06a(TT) nutation in obliquity. Two solutions exist (MC and IC); the higher-altitude one is by definition the culminating point. ASC = the ecliptic point on the horizon whose azimuth lies in the eastern half (0,180), located by scanning astropy AltAz. Selecting by azimuth is essential: at high latitude 'altitude rises with longitude' selects the DESCENDANT.",
+    "tolerances_arcsec": {
+      "sun": 5,
+      "moon": 30,
+      "mercury": 90,
+      "venus": 90,
+      "mars": 90,
+      "jupiter": 90,
+      "saturn": 90,
+      "uranus": 90,
+      "neptune": 90,
+      "pluto": 90,
+      "ASC": 40,
+      "MC": 40
+    },
+    "tolerance_rationale": "Sun <= 5: both series are VSOP87-grade and Delta-T/aberration contribute well under 1\", so 5\" leaves headroom without being vacuous. Moon <= 30: the Moon is the hardest body and the two implementations truncate the lunar theory differently. Planets <= 90: Jupiter and Saturn reached 26-36\" in W0-B, so 90\" accommodates the outer-planet term truncation. ASC/MC <= 40: two separate nutation and sidereal-time chains; W0-B measured <= 21\".",
+    "known_limits": [
+      "Pluto is marked unverifiable: astropy builtin has no Pluto and no JPL kernel is available offline.",
+      "This is a CONSISTENCY cross-check between two independent analytic theories, not a proof of absolute accuracy. A systematic error shared by both would be invisible to it.",
+      "Lunar nodes have no independent offline reference and are therefore not given expected values; they are covered by self-consistency assertions instead."
+    ]
+  },
+  "corrections": {
+    "w0b_c1_to_c4_instant_offset": "The W0-B harness converted its four astropy-derived instants with datetime.fromisoformat(...).astimezone(UTC) on a NAIVE datetime, so Python applied the machine's local UTC offset ON EACH DATE - a shift that is DST-dependent, not a constant: C1 (2000-01-01, America/Los_Angeles PST, -08:00) was shifted +8 hours, while C2..C4 (March/April/June 2024, PDT, -07:00) were shifted +7 hours. The values stored in that note are mutually consistent (project and independent received the same wrong instant) so its deltas stand, but its C1..C4 INSTANTS are later than the labels it printed, by +8 h for C1 and +7 h for C2..C4. This fixture recomputes C1..C4 at the correct instants. C5..C10 were built with an explicit tzinfo=UTC in W0-B and are unaffected - see note_crosscheck.",
+    "note_crosscheck": [
+      {
+        "chart": "C1",
+        "body": "sun",
+        "note": 280.70798,
+        "here": 280.368165,
+        "delta_arcsec": -1223.334
+      },
+      {
+        "chart": "C1",
+        "body": "moon",
+        "note": 227.31408,
+        "here": 223.314861,
+        "delta_arcsec": -14397.1884
+      },
+      {
+        "chart": "C1",
+        "body": "mercury",
+        "note": 272.40725,
+        "here": 271.888201,
+        "delta_arcsec": -1868.5764
+      },
+      {
+        "chart": "C1",
+        "body": "venus",
+        "note": 241.96804,
+        "here": 241.564962,
+        "delta_arcsec": -1451.0808
+      },
+      {
+        "chart": "C1",
+        "body": "mars",
+        "note": 328.22223,
+        "here": 327.963669,
+        "delta_arcsec": -930.8196
+      },
+      {
+        "chart": "C1",
+        "body": "jupiter",
+        "note": 25.25959,
+        "here": 25.245817,
+        "delta_arcsec": -49.5828
+      },
+      {
+        "chart": "C1",
+        "body": "saturn",
+        "note": 40.39907,
+        "here": 40.405614,
+        "delta_arcsec": 23.5584
+      },
+      {
+        "chart": "C1",
+        "body": "uranus",
+        "note": 314.82481,
+        "here": 314.808004,
+        "delta_arcsec": -60.5016
+      },
+      {
+        "chart": "C1",
+        "body": "neptune",
+        "note": 303.20491,
+        "here": 303.193038,
+        "delta_arcsec": -42.7392
+      },
+      {
+        "chart": "C2",
+        "body": "sun",
+        "note": 0.28974,
+        "here": 0.0,
+        "delta_arcsec": -1043.064
+      },
+      {
+        "chart": "C2",
+        "body": "moon",
+        "note": 127.33901,
+        "here": 123.819225,
+        "delta_arcsec": -12671.226
+      },
+      {
+        "chart": "C2",
+        "body": "mercury",
+        "note": 17.86172,
+        "here": 17.441437,
+        "delta_arcsec": -1513.0188
+      },
+      {
+        "chart": "C2",
+        "body": "venus",
+        "note": 340.53257,
+        "here": 340.17176,
+        "delta_arcsec": -1298.916
+      },
+      {
+        "chart": "C2",
+        "body": "mars",
+        "note": 327.99888,
+        "here": 327.771985,
+        "delta_arcsec": -816.822
+      },
+      {
+        "chart": "C2",
+        "body": "jupiter",
+        "note": 44.94802,
+        "here": 44.889383,
+        "delta_arcsec": -211.0932
+      },
+      {
+        "chart": "C2",
+        "body": "saturn",
+        "note": 342.25182,
+        "here": 342.21731,
+        "delta_arcsec": -124.236
+      },
+      {
+        "chart": "C2",
+        "body": "uranus",
+        "note": 50.26477,
+        "here": 50.252632,
+        "delta_arcsec": -43.6968
+      },
+      {
+        "chart": "C2",
+        "body": "neptune",
+        "note": 357.47193,
+        "here": 357.460863,
+        "delta_arcsec": -39.8412
+      },
+      {
+        "chart": "C3",
+        "body": "sun",
+        "note": 90.27823,
+        "here": 90.0,
+        "delta_arcsec": -1001.628
+      },
+      {
+        "chart": "C3",
+        "body": "moon",
+        "note": 259.20962,
+        "here": 255.345137,
+        "delta_arcsec": -13912.1388
+      },
+      {
+        "chart": "C3",
+        "body": "mercury",
+        "note": 98.11005,
+        "here": 97.495504,
+        "delta_arcsec": -2212.3656
+      },
+      {
+        "chart": "C3",
+        "body": "venus",
+        "note": 94.78642,
+        "here": 94.428117,
+        "delta_arcsec": -1289.8908
+      },
+      {
+        "chart": "C3",
+        "body": "mars",
+        "note": 38.82229,
+        "here": 38.609062,
+        "delta_arcsec": -767.6208
+      },
+      {
+        "chart": "C3",
+        "body": "jupiter",
+        "note": 66.04928,
+        "here": 65.983854,
+        "delta_arcsec": -235.5336
+      },
+      {
+        "chart": "C3",
+        "body": "saturn",
+        "note": 349.35697,
+        "here": 349.352702,
+        "delta_arcsec": -15.3648
+      },
+      {
+        "chart": "C3",
+        "body": "uranus",
+        "note": 55.24922,
+        "here": 55.234626,
+        "delta_arcsec": -52.5384
+      },
+      {
+        "chart": "C3",
+        "body": "neptune",
+        "note": 359.89797,
+        "here": 359.896155,
+        "delta_arcsec": -6.534
+      },
+      {
+        "chart": "C4",
+        "body": "sun",
+        "note": 19.68716,
+        "here": 19.400482,
+        "delta_arcsec": -1032.0408
+      },
+      {
+        "chart": "C4",
+        "body": "moon",
+        "note": 23.76669,
+        "here": 19.400482,
+        "delta_arcsec": -15718.3488
+      },
+      {
+        "chart": "C4",
+        "body": "mercury",
+        "note": 24.60907,
+        "here": 24.797702,
+        "delta_arcsec": 679.0752
+      },
+      {
+        "chart": "C4",
+        "body": "venus",
+        "note": 4.80569,
+        "here": 4.445396,
+        "delta_arcsec": -1297.0584
+      },
+      {
+        "chart": "C4",
+        "body": "mars",
+        "note": 343.27671,
+        "here": 343.049955,
+        "delta_arcsec": -816.318
+      },
+      {
+        "chart": "C4",
+        "body": "jupiter",
+        "note": 49.11386,
+        "here": 49.049272,
+        "delta_arcsec": -232.5168
+      },
+      {
+        "chart": "C4",
+        "body": "saturn",
+        "note": 344.47838,
+        "here": 344.447023,
+        "delta_arcsec": -112.8852
+      },
+      {
+        "chart": "C4",
+        "body": "uranus",
+        "note": 51.18497,
+        "here": 51.169999,
+        "delta_arcsec": -53.8956
+      },
+      {
+        "chart": "C4",
+        "body": "neptune",
+        "note": 358.20116,
+        "here": 358.190701,
+        "delta_arcsec": -37.6524
+      },
+      {
+        "chart": "C5",
+        "body": "sun",
+        "note": 354.95353,
+        "here": 354.953531,
+        "delta_arcsec": 0.0036
+      },
+      {
+        "chart": "C5",
+        "body": "moon",
+        "note": 287.86348,
+        "here": 287.863482,
+        "delta_arcsec": 0.0072
+      },
+      {
+        "chart": "C5",
+        "body": "mercury",
+        "note": 13.16068,
+        "here": 13.160682,
+        "delta_arcsec": 0.0072
+      },
+      {
+        "chart": "C5",
+        "body": "venus",
+        "note": 22.2279,
+        "here": 22.2279,
+        "delta_arcsec": 0.0
+      },
+      {
+        "chart": "C5",
+        "body": "mars",
+        "note": 30.28459,
+        "here": 30.284591,
+        "delta_arcsec": 0.0036
+      },
+      {
+        "chart": "C5",
+        "body": "jupiter",
+        "note": 307.9377,
+        "here": 307.937703,
+        "delta_arcsec": 0.0108
+      },
+      {
+        "chart": "C5",
+        "body": "saturn",
+        "note": 238.06885,
+        "here": 238.06885,
+        "delta_arcsec": 0.0
+      },
+      {
+        "chart": "C5",
+        "body": "uranus",
+        "note": 257.97953,
+        "here": 257.979532,
+        "delta_arcsec": 0.0072
+      },
+      {
+        "chart": "C5",
+        "body": "neptune",
+        "note": 273.49789,
+        "here": 273.497894,
+        "delta_arcsec": 0.0144
+      },
+      {
+        "chart": "C6",
+        "body": "sun",
+        "note": 260.58852,
+        "here": 260.588524,
+        "delta_arcsec": 0.0144
+      },
+      {
+        "chart": "C6",
+        "body": "moon",
+        "note": 284.56046,
+        "here": 284.560456,
+        "delta_arcsec": -0.0144
+      },
+      {
+        "chart": "C6",
+        "body": "mercury",
+        "note": 249.6011,
+        "here": 249.601103,
+        "delta_arcsec": 0.0108
+      },
+      {
+        "chart": "C6",
+        "body": "venus",
+        "note": 307.61833,
+        "here": 307.618328,
+        "delta_arcsec": -0.0072
+      },
+      {
+        "chart": "C6",
+        "body": "mars",
+        "note": 284.62732,
+        "here": 284.627323,
+        "delta_arcsec": 0.0108
+      },
+      {
+        "chart": "C6",
+        "body": "jupiter",
+        "note": 287.13331,
+        "here": 287.133314,
+        "delta_arcsec": 0.0144
+      },
+      {
+        "chart": "C6",
+        "body": "saturn",
+        "note": 285.54714,
+        "here": 285.547144,
+        "delta_arcsec": 0.0144
+      },
+      {
+        "chart": "C6",
+        "body": "uranus",
+        "note": 257.32665,
+        "here": 257.326648,
+        "delta_arcsec": -0.0072
+      },
+      {
+        "chart": "C6",
+        "body": "neptune",
+        "note": 90.34835,
+        "here": 90.348353,
+        "delta_arcsec": 0.0108
+      },
+      {
+        "chart": "C7",
+        "body": "sun",
+        "note": 84.8385,
+        "here": 84.838499,
+        "delta_arcsec": -0.0036
+      },
+      {
+        "chart": "C7",
+        "body": "moon",
+        "note": 19.28653,
+        "here": 19.286527,
+        "delta_arcsec": -0.0108
+      },
+      {
+        "chart": "C7",
+        "body": "mercury",
+        "note": 104.48634,
+        "here": 104.486337,
+        "delta_arcsec": -0.0108
+      },
+      {
+        "chart": "C7",
+        "body": "venus",
+        "note": 67.21753,
+        "here": 67.217528,
+        "delta_arcsec": -0.0072
+      },
+      {
+        "chart": "C7",
+        "body": "mars",
+        "note": 352.15671,
+        "here": 352.15671,
+        "delta_arcsec": 0.0
+      },
+      {
+        "chart": "C7",
+        "body": "jupiter",
+        "note": 295.69507,
+        "here": 295.695074,
+        "delta_arcsec": 0.0144
+      },
+      {
+        "chart": "C7",
+        "body": "saturn",
+        "note": 300.991,
+        "here": 300.990998,
+        "delta_arcsec": -0.0072
+      },
+      {
+        "chart": "C7",
+        "body": "uranus",
+        "note": 39.2502,
+        "here": 39.250202,
+        "delta_arcsec": 0.0072
+      },
+      {
+        "chart": "C7",
+        "body": "neptune",
+        "note": 350.94484,
+        "here": 350.944838,
+        "delta_arcsec": -0.0072
+      },
+      {
+        "chart": "C8",
+        "body": "sun",
+        "note": 270.08321,
+        "here": 270.083214,
+        "delta_arcsec": 0.0144
+      },
+      {
+        "chart": "C8",
+        "body": "moon",
+        "note": 354.66291,
+        "here": 354.662907,
+        "delta_arcsec": -0.0108
+      },
+      {
+        "chart": "C8",
+        "body": "mercury",
+        "note": 270.85046,
+        "here": 270.850465,
+        "delta_arcsec": 0.018
+      },
+      {
+        "chart": "C8",
+        "body": "venus",
+        "note": 247.27207,
+        "here": 247.272066,
+        "delta_arcsec": -0.0144
+      },
+      {
+        "chart": "C8",
+        "body": "mars",
+        "note": 23.11635,
+        "here": 23.116355,
+        "delta_arcsec": 0.018
+      },
+      {
+        "chart": "C8",
+        "body": "jupiter",
+        "note": 300.42977,
+        "here": 300.429767,
+        "delta_arcsec": -0.0108
+      },
+      {
+        "chart": "C8",
+        "body": "saturn",
+        "note": 300.45487,
+        "here": 300.454869,
+        "delta_arcsec": -0.0036
+      },
+      {
+        "chart": "C8",
+        "body": "uranus",
+        "note": 36.96586,
+        "here": 36.965855,
+        "delta_arcsec": -0.018
+      },
+      {
+        "chart": "C8",
+        "body": "neptune",
+        "note": 348.30913,
+        "here": 348.309126,
+        "delta_arcsec": -0.0144
+      },
+      {
+        "chart": "C9",
+        "body": "sun",
+        "note": 0.58684,
+        "here": 0.586839,
+        "delta_arcsec": -0.0036
+      },
+      {
+        "chart": "C9",
+        "body": "moon",
+        "note": 320.70022,
+        "here": 320.700219,
+        "delta_arcsec": -0.0036
+      },
+      {
+        "chart": "C9",
+        "body": "mercury",
+        "note": 333.08326,
+        "here": 333.083259,
+        "delta_arcsec": -0.0036
+      },
+      {
+        "chart": "C9",
+        "body": "venus",
+        "note": 46.54603,
+        "here": 46.54603,
+        "delta_arcsec": 0.0
+      },
+      {
+        "chart": "C9",
+        "body": "mars",
+        "note": 293.00057,
+        "here": 293.000574,
+        "delta_arcsec": 0.0144
+      },
+      {
+        "chart": "C9",
+        "body": "jupiter",
+        "note": 292.85685,
+        "here": 292.856848,
+        "delta_arcsec": -0.0072
+      },
+      {
+        "chart": "C9",
+        "body": "saturn",
+        "note": 299.8914,
+        "here": 299.891396,
+        "delta_arcsec": -0.0144
+      },
+      {
+        "chart": "C9",
+        "body": "uranus",
+        "note": 34.58028,
+        "here": 34.580279,
+        "delta_arcsec": -0.0036
+      },
+      {
+        "chart": "C9",
+        "body": "neptune",
+        "note": 348.85796,
+        "here": 348.857965,
+        "delta_arcsec": 0.018
+      },
+      {
+        "chart": "C10",
+        "body": "sun",
+        "note": 102.14019,
+        "here": 102.140188,
+        "delta_arcsec": -0.0072
+      },
+      {
+        "chart": "C10",
+        "body": "moon",
+        "note": 241.19458,
+        "here": 241.19458,
+        "delta_arcsec": 0.0
+      },
+      {
+        "chart": "C10",
+        "body": "mercury",
+        "note": 104.14801,
+        "here": 104.148007,
+        "delta_arcsec": -0.0108
+      },
+      {
+        "chart": "C10",
+        "body": "venus",
+        "note": 71.11834,
+        "here": 71.118341,
+        "delta_arcsec": 0.0036
+      },
+      {
+        "chart": "C10",
+        "body": "mars",
+        "note": 24.36674,
+        "here": 24.366736,
+        "delta_arcsec": -0.0144
+      },
+      {
+        "chart": "C10",
+        "body": "jupiter",
+        "note": 110.05095,
+        "here": 110.050955,
+        "delta_arcsec": 0.018
+      },
+      {
+        "chart": "C10",
+        "body": "saturn",
+        "note": 292.78049,
+        "here": 292.780487,
+        "delta_arcsec": -0.0108
+      },
+      {
+        "chart": "C10",
+        "body": "uranus",
+        "note": 277.4213,
+        "here": 277.421297,
+        "delta_arcsec": -0.0108
+      },
+      {
+        "chart": "C10",
+        "body": "neptune",
+        "note": 283.21933,
+        "here": 283.219331,
+        "delta_arcsec": 0.0036
+      }
+    ]
+  },
+  "known_defects": {
+    "chiron_absent": "AstrologicalCalculator.get_planetary_positions returns 11 bodies, not 12: core/astrology.py calls swe.set_ephe_path('') and no .se1 files are present, so swe.calc_ut(jd, swe.CHIRON) raises \"SwissEph file 'seas_18.se1' not found\" and the surrounding `except Exception: pass` swallows it.",
+    "no_south_node": "Only north_node (swe.MEAN_NODE) is exposed. core/astrology.py contains no south node and no true node.",
+    "high_latitude_raises": "get_western_astrology hardcodes Placidus and does not check the return code; swe.houses raises for |lat| >= 67 degrees in both hemispheres and the exception propagates uncaught.",
+    "natal_chart_no_lunar_nodes": "backend/core/services/astrology_chart_service.py asks a Kerykeion subject for 'mean_node'/'true_node', but kerykeion 6.0.4 names them mean_north_lunar_node / true_north_lunar_node (and the south equivalents), so getattr(..., None) yields None and the chart is returned with no nodes and no error."
+  },
+  "charts": [
+    {
+      "id": "C1",
+      "name": "J2000.0 epoch",
+      "purpose": "Epoch is defined in TT (2000-01-01 12:00:00 TT = 11:58:55.8166 UT); forces the TT->UT conversion into the fixture instead of the reader's head.",
+      "published": "IAU 2000/2006 definition of J2000.0; analytic, no external source needed.",
+      "instant_utc": "2000-01-01T11:58:55.816000+00:00",
+      "location": null,
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 280.368165,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 223.314861,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 271.888201,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 241.564962,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 327.963669,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 25.245817,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 40.405614,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 314.808004,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 303.193038,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        }
+      }
+    },
+    {
+      "id": "C2",
+      "name": "2024 March equinox (Sun = 0 deg)",
+      "purpose": "Instant is solved from the independent theory, then checked against the published equinox time.",
+      "published": "IMCCE / USNO annual ephemerides, Meeus ch.27: 2024-03-20 03:06 UT.",
+      "instant_utc": "2024-03-20T03:06:24.240000+00:00",
+      "location": null,
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 0.0,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 123.819225,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 17.441437,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 340.17176,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 327.771985,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 44.889383,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 342.21731,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 50.252632,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 357.460863,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        }
+      }
+    },
+    {
+      "id": "C3",
+      "name": "2024 June solstice (Sun = 90 deg)",
+      "purpose": "Second instant check, 90 deg apart from C2.",
+      "published": "IMCCE / USNO annual ephemerides, Meeus ch.27: 2024-06-20 20:51 UT.",
+      "instant_utc": "2024-06-20T20:50:59.875000+00:00",
+      "location": null,
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 90.0,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 255.345137,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 97.495504,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 94.428117,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 38.609062,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 65.983854,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 349.352702,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 55.234626,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 359.896155,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        }
+      }
+    },
+    {
+      "id": "C4",
+      "name": "2024-04-08 new moon / total solar eclipse",
+      "purpose": "Sun-Moon conjunction: exercises the Moon at its most demanding (ELP truncation differs between the two theories).",
+      "published": "NASA Five Millennium Canon of Lunar Eclipses. NOTE that NASA's 'greatest eclipse' 18:17:16 UT is a DIFFERENT definition from geocentric conjunction; both are legitimate, do not conflate them.",
+      "instant_utc": "2024-04-08T18:20:55.351000+00:00",
+      "location": null,
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 19.400482,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 19.400482,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 24.797702,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 4.445396,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 343.049955,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 49.049272,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 344.447023,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 51.169999,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 358.190701,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        }
+      }
+    },
+    {
+      "id": "C5",
+      "name": "southern hemisphere",
+      "purpose": "Negative latitude; also the chart with the largest Uranus residual in W0-B.",
+      "published": "regression fixture (no published positions required).",
+      "instant_utc": "1985-03-15T14:30:00+00:00",
+      "location": {
+        "latitude": -54.8019,
+        "longitude": -68.3029
+      },
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 354.953531,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 287.863482,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 13.160682,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 22.2279,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 30.284591,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 307.937703,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 238.06885,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 257.979532,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 273.497894,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        },
+        "ASC": {
+          "longitude_of_date_deg": 35.145797,
+          "tolerance_arcsec": 40
+        },
+        "MC": {
+          "longitude_of_date_deg": 319.921018,
+          "tolerance_arcsec": 40
+        }
+      }
+    },
+    {
+      "id": "C6",
+      "name": "pre-1950 historical",
+      "purpose": "Pins historical zone handling: CET existed, no DST in 1901, and this is before UTC.",
+      "published": "regression fixture.",
+      "instant_utc": "1901-12-13T06:45:00+00:00",
+      "location": {
+        "latitude": 48.2082,
+        "longitude": 16.3738
+      },
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 260.588524,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 284.560456,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 249.601103,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 307.618328,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 284.627323,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 287.133314,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 285.547144,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 257.326648,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 90.348353,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        },
+        "ASC": {
+          "longitude_of_date_deg": 261.09503,
+          "tolerance_arcsec": 40
+        },
+        "MC": {
+          "longitude_of_date_deg": 200.450977,
+          "tolerance_arcsec": 40
+        }
+      }
+    },
+    {
+      "id": "C7",
+      "name": "high latitude that works (64 N)",
+      "purpose": "Just below the polar failure band; catches cusp-degeneracy regressions.",
+      "published": "regression fixture.",
+      "instant_utc": "2020-06-15T12:00:00+00:00",
+      "location": {
+        "latitude": 64.1466,
+        "longitude": -21.9426
+      },
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 84.838499,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 19.286527,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 104.486337,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 67.217528,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 352.15671,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 295.695074,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 300.990998,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 39.250202,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 350.944838,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        },
+        "ASC": {
+          "longitude_of_date_deg": 164.106692,
+          "tolerance_arcsec": 40
+        },
+        "MC": {
+          "longitude_of_date_deg": 64.264729,
+          "tolerance_arcsec": 40
+        }
+      }
+    },
+    {
+      "id": "C8",
+      "name": "high latitude that FAILS (70 N)",
+      "purpose": "EXPECTED FAILURE: Placidus/Koch raise above the polar circle. Positions are still recorded so the test can pin the boundary exactly.",
+      "published": "n/a - see known_defects.high_latitude_raises.",
+      "instant_utc": "2020-12-21T12:00:00+00:00",
+      "location": {
+        "latitude": 70.0,
+        "longitude": 30.0
+      },
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 270.083214,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 354.662907,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 270.850465,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 247.272066,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 23.116355,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 300.429767,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 300.454869,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 36.965855,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 348.309126,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        },
+        "ASC": {
+          "longitude_of_date_deg": 300.771934,
+          "tolerance_arcsec": 40
+        },
+        "MC": {
+          "longitude_of_date_deg": 118.402732,
+          "tolerance_arcsec": 40
+        }
+      }
+    },
+    {
+      "id": "C9",
+      "name": "equator",
+      "purpose": "Degenerate-latitude control.",
+      "published": "regression fixture.",
+      "instant_utc": "2020-03-20T18:00:00+00:00",
+      "location": {
+        "latitude": 0.0,
+        "longitude": 0.0
+      },
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 0.586839,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 320.700219,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 333.083259,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 46.54603,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 293.000574,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 292.856848,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 299.891396,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 34.580279,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 348.857965,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        },
+        "ASC": {
+          "longitude_of_date_deg": 178.602604,
+          "tolerance_arcsec": 40
+        },
+        "MC": {
+          "longitude_of_date_deg": 88.827387,
+          "tolerance_arcsec": 40
+        }
+      }
+    },
+    {
+      "id": "C10",
+      "name": "mid latitude 45 N",
+      "purpose": "Ordinary mid-latitude chart; the ASC residual is largest here.",
+      "published": "regression fixture.",
+      "instant_utc": "1990-07-04T09:00:00+00:00",
+      "location": {
+        "latitude": 45.0,
+        "longitude": 9.0
+      },
+      "expected": {
+        "sun": {
+          "longitude_of_date_deg": 102.140188,
+          "tolerance_arcsec": 5
+        },
+        "moon": {
+          "longitude_of_date_deg": 241.19458,
+          "tolerance_arcsec": 30
+        },
+        "mercury": {
+          "longitude_of_date_deg": 104.148007,
+          "tolerance_arcsec": 90
+        },
+        "venus": {
+          "longitude_of_date_deg": 71.118341,
+          "tolerance_arcsec": 90
+        },
+        "mars": {
+          "longitude_of_date_deg": 24.366736,
+          "tolerance_arcsec": 90
+        },
+        "jupiter": {
+          "longitude_of_date_deg": 110.050955,
+          "tolerance_arcsec": 90
+        },
+        "saturn": {
+          "longitude_of_date_deg": 292.780487,
+          "tolerance_arcsec": 90
+        },
+        "uranus": {
+          "longitude_of_date_deg": 277.421297,
+          "tolerance_arcsec": 90
+        },
+        "neptune": {
+          "longitude_of_date_deg": 283.219331,
+          "tolerance_arcsec": 90
+        },
+        "pluto": {
+          "unverifiable": "astropy builtin PLAN94 ephemeris has no Pluto and no JPL kernel exists offline; an independent value cannot be produced here"
+        },
+        "ASC": {
+          "longitude_of_date_deg": 161.877619,
+          "tolerance_arcsec": 40
+        },
+        "MC": {
+          "longitude_of_date_deg": 67.889848,
+          "tolerance_arcsec": 40
+        }
+      }
+    }
+  ]
+}
