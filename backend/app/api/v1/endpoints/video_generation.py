@@ -40,6 +40,45 @@ router = APIRouter(prefix="/videos", tags=["video-generation"])
 _service: VideoGenerationService | None = None
 
 
+def _select_video_params(
+    *, model: str, payload: dict[str, Any], config: dict[str, Any]
+) -> tuple[int | None, str | None, str | None]:
+    """Choose duration, resolution and ratio that the chosen model actually supports.
+
+    Precedence per parameter: the request's value if the model supports it; otherwise the
+    configured default if the model supports it; otherwise the model's first supported
+    value. Without this the endpoint could only ever submit the shipped default model:
+    the shipped ``default_resolution`` is ``720P``, which ONLY ``T2V-01`` accepts, so
+    asking for ``MiniMax-Hailuo-2.3`` or ``MiniMax-H3`` came back HTTP 400 from
+    ``_validate_within_specs`` before a single byte was spent.
+
+    An unknown model is left alone so ``submit_task`` raises the authoritative
+    ``VideoGenerationError``; this helper never invents error behaviour.
+    """
+    specs = MODEL_SPECS.get(model)
+    if specs is None:
+        return (
+            payload.get("duration", config.get("default_duration")),
+            payload.get("resolution", config.get("default_resolution")),
+            payload.get("ratio", config.get("default_ratio")),
+        )
+
+    def choose(requested: Any, configured: Any, supported: list[Any]) -> Any:
+        if not supported:
+            return None
+        if requested is not None and requested in supported:
+            return requested
+        if configured is not None and configured in supported:
+            return configured
+        return supported[0]
+
+    duration = choose(payload.get("duration"), config.get("default_duration"), specs.get("durations", []))
+    resolution = choose(payload.get("resolution"), config.get("default_resolution"), specs.get("resolutions", []))
+    ratios = specs.get("ratios") or []
+    ratio = choose(payload.get("ratio"), config.get("default_ratio"), ratios) if ratios else None
+    return duration, resolution, ratio
+
+
 def get_service() -> VideoGenerationService:
     """Lazy-init the service singleton. Pulls persisted config from DB.
 
@@ -336,26 +375,59 @@ async def generate_from_narrative(
     # Backstop: whatever the LLM wrote, no degrees, percentages, dates or lettering reach the video model.
     video_prompt = finalize_image_prompt(video_prompt, max_chars=1800)
 
-    model = payload.get("model", service.config.get("default_model", "MiniMax-H3"))
-    duration = payload.get("duration", service.config.get("default_duration", 5))
+    # payload.get("model", default) returns None/"" whenever the key is PRESENT but
+    # empty. submit_task would substitute the default internally, but the response, the
+    # watcher and the frontend (`data.model || 'MiniMax-H3'`) would all carry the empty
+    # value and poll the wrong api_version family. Resolve the EFFECTIVE model first.
+    model = payload.get("model") or service.config.get("default_model") or "T2V-01"
+    duration, resolution, ratio = _select_video_params(model=model, payload=payload, config=service.config)
 
     try:
         result = await service.submit_task(
             prompt=video_prompt,
             model=model,
             duration=duration,
+            resolution=resolution,
+            ratio=ratio,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    return {
-        "status": "success",
-        "video_prompt": video_prompt[:500],
-        "narrative_genre": genre,
-        **result,
-    }
+    # The paid MiniMax task now exists. From here on nothing may turn into an HTTP
+    # error: a raised response loses the task id, which orphans the generation and
+    # the spend with no way to poll it. Mirrors POST /api/v1/videos/generate, which
+    # returns {"status", "task_id", ...}.
+    task_id = result
+
+    # Server-side completion watcher — polls + downloads even if the browser tab
+    # navigates away, so paid MiniMax output always lands on disk at
+    # generated/videos/. Same as POST /videos/generate; without it a closed tab
+    # strands a video the learner already paid for.
+    asyncio.get_event_loop().create_task(_watch_video_task(service, task_id, model))
+
+    try:
+        return {
+            "status": "success",
+            "video_prompt": video_prompt[:500],
+            "narrative_genre": genre,
+            "task_id": task_id,
+            # The model actually submitted. poll_task builds a different URL per
+            # api_version (T2V-01 -> v1, MiniMax-H3 -> v2) and the frontend polls
+            # with `data.model || 'MiniMax-H3'`, so omitting this makes the client
+            # poll the wrong endpoint for the default T2V-01 task.
+            "model": model,
+        }
+    except Exception:
+        logger.warning(
+            "Could not assemble the /from-narrative response after submitting task %s; "
+            "returning the task id alone so the generation stays pollable",
+            task_id,
+            exc_info=True,
+        )
+        # Keep the model: without it the task is still unpolleable from the client.
+        return {"status": "success", "task_id": task_id, "model": model}
 
 
 @router.post("/generate")
