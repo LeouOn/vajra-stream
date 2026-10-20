@@ -2,11 +2,11 @@
 Divination Suite API Endpoints (Tarot, I Ching, Geomancy)
 """
 
-import asyncio
 import json
+import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.core.services.divination_service import SPREAD_POSITIONS, divination_service
@@ -36,7 +36,7 @@ async def draw_tarot(payload: DrawTarotRequest):
             "cards": cards,
             "count": len(cards),
             "spread": [dict(p) for p in SPREAD_POSITIONS.get(payload.count, [])],
-            "timestamp": asyncio.get_event_loop().time(),
+            "timestamp": time.time(),
             "provenance": {"cards": DRAW},
         }
     except Exception as e:
@@ -51,7 +51,7 @@ async def cast_iching():
         return {
             "status": "success",
             "cast": result,
-            "timestamp": asyncio.get_event_loop().time(),
+            "timestamp": time.time(),
             "provenance": {"cast": DRAW},
         }
     except Exception as e:
@@ -66,7 +66,7 @@ async def cast_geomancy():
         return {
             "status": "success",
             "chart": result,
-            "timestamp": asyncio.get_event_loop().time(),
+            "timestamp": time.time(),
             "provenance": {"chart": DRAW},
         }
     except Exception as e:
@@ -130,7 +130,7 @@ async def geomancy_elemental_balance():
                 "meaning": judge.get("meaning", ""),
             },
             "chart": result,
-            "timestamp": asyncio.get_event_loop().time(),
+            "timestamp": time.time(),
             # The harmony score compares a drawn shield with the computed sky,
             # so it is a draw: read divinatorily, never as a measurement.
             "provenance": {
@@ -262,7 +262,7 @@ async def cast_astrological_geomancy():
             ],
             "chart": {"figures": resolved, "houses": houses, "svg": svg},
             "geomancy_elements": geo_elements,
-            "timestamp": asyncio.get_event_loop().time(),
+            "timestamp": time.time(),
             # Mothers seeded from the sky are computed; any filled at random are drawn.
             "provenance": {"chart": shield_kind, "geomancy_elements": shield_kind},
         }
@@ -622,14 +622,30 @@ async def generate_geomancy_talisman(intention: str = "protection and clarity", 
             },
             "kamea": kamea,
             "intention": intention,
-            "timestamp": asyncio.get_event_loop().time(),
+            "timestamp": time.time(),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _iching_cast(details: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the I Ching cast, whichever key it arrived under.
+
+    The UI posts the cast as ``details.iching``; the LLM-tools path posts it
+    as ``details.cast``; a bare cast may also arrive as the details object
+    itself. All three are accepted so no frontend change is needed.
+    """
+    if not isinstance(details, dict):
+        return None
+    for key in ("cast", "iching"):
+        candidate = details.get(key)
+        if isinstance(candidate, dict):
+            return candidate
+    return details
+
+
 def _has_iching_data(details: dict[str, Any]) -> bool:
-    cast = details.get("cast") if isinstance(details.get("cast"), dict) else details
+    cast = _iching_cast(details)
     if not isinstance(cast, dict):
         return False
     primary = cast.get("primary")
@@ -715,7 +731,7 @@ def _build_interpretation_prompt(payload: InterpretRequest, rag_context: str = "
         # I Ching cast — surface the classical judgment (彖辞), image (象辞),
         # and changing-line texts so the LLM can ground its reading in the
         # actual hexagram commentary rather than a raw JSON dump.
-        cast = details.get("cast") if isinstance(details.get("cast"), dict) else details
+        cast = _iching_cast(details) or {}
         primary = cast.get("primary", {}) if isinstance(cast, dict) else {}
         relating = cast.get("relating", {}) if isinstance(cast, dict) else {}
         changing = cast.get("changing_lines", []) if isinstance(cast, dict) else []
@@ -795,8 +811,14 @@ def _build_interpretation_prompt(payload: InterpretRequest, rag_context: str = "
 
 
 @router.post("/interpret")
-async def interpret_divination(payload: InterpretRequest):
-    """Interpret divination readings using local/cloud LLM operator"""
+async def interpret_divination(payload: InterpretRequest, http_request: Request):
+    """Interpret divination readings using local/cloud LLM operator.
+
+    ``http_request`` is injected by FastAPI. ``chat_interaction`` is an alias
+    of ``chat_compat``, which needs the request to resolve the provider
+    registry off ``request.app.state``; calling it with one argument raised
+    TypeError and turned every interpretation into an HTTP 500.
+    """
     try:
         # RAG retrieval — ground the interpretation in uploaded/knowledge documents
         rag_context = ""
@@ -821,8 +843,8 @@ async def interpret_divination(payload: InterpretRequest):
 
         chat_req = ChatRequest(messages=[ChatMessage(role="user", content=prompt)], provider="auto")
 
-        response = await chat_interaction(chat_req)
-        return {"status": "success", "interpretation": response.response, "timestamp": asyncio.get_event_loop().time()}
+        response = await chat_interaction(chat_req, http_request)
+        return {"status": "success", "interpretation": response.response, "timestamp": time.time()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

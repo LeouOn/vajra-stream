@@ -17,11 +17,15 @@ class RNGReadingSpike(DomainEvent):
 
 
 @pytest.mark.asyncio
-async def test_autonomous_agent_event_reaction():
+async def test_autonomous_agent_event_reaction(monkeypatch: pytest.MonkeyPatch):
     """
     Test that the Autonomous Agent wakes up on a high priority event,
     reasons about it, and triggers the audio tool.
     """
+    # The agent calls a PAID LLM, so it is opt-in and OFF by default. This
+    # test exercises the reasoning path, so it opts in explicitly.
+    monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT", "1")
+
     bus = EnhancedEventBus()
     _agent = AutonomousAgent(event_bus=bus)
 

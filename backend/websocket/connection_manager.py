@@ -21,11 +21,21 @@ from typing import Any
 
 from fastapi import WebSocket
 
+from backend.websocket.json_safe import to_json_safe
 from backend.websocket.message_provenance import annotate
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# One "unserialisable message" error line per message type per 60 s.
+_UNSERIALISABLE_LOG_INTERVAL_SECONDS = 60.0
+
+
+def _now() -> float:
+    """Clock seam, so the log throttle can be tested with a fake clock."""
+    return time.time()
 
 
 class StableConnectionManagerV2:
@@ -39,6 +49,10 @@ class StableConnectionManagerV2:
         self.main_loop: asyncio.AbstractEventLoop | None = None
         # Strong refs to broadcast tasks created by schedule_broadcast (the loop keeps only weak ones).
         self._pending_sends: set[asyncio.Task] = set()
+        # Throttle for the "unserialisable message" log: one line per message
+        # type per 60 s, with a count of the ones suppressed in between, so a
+        # persistent producer bug cannot write ten lines a second.
+        self._unserialisable_log: dict[str, tuple[float, int]] = {}
         logger.info("Stable WebSocket Connection Manager V2 initialized")
 
     def set_main_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
@@ -196,6 +210,12 @@ class StableConnectionManagerV2:
             logger.warning(f"Attempted to send message to unknown connection: {connection_id}")
             return False
 
+        # An unserialisable payload is the caller's fault: the client is
+        # healthy and must NOT be evicted for it. A genuine send failure below
+        # still disconnects, as before.
+        if not self._is_serialisable(message):
+            return False
+
         try:
             websocket = self.active_connections[connection_id]
             await websocket.send_json(annotate(message))
@@ -206,6 +226,36 @@ class StableConnectionManagerV2:
             self.disconnect(connection_id)
             return False
 
+    def _log_unserialisable(self, message: Any, exc: Exception) -> None:
+        """Log an unserialisable message, at most one line per type per 60 s."""
+        mtype = message.get("type") if isinstance(message, dict) else type(message).__name__
+        now = _now()
+        last, suppressed = self._unserialisable_log.get(str(mtype), (0.0, 0))
+        if now - last < _UNSERIALISABLE_LOG_INTERVAL_SECONDS:
+            self._unserialisable_log[str(mtype)] = (last, suppressed + 1)
+            return
+        note = f" ({suppressed} similar suppressed)" if suppressed else ""
+        logger.error(
+            "Refusing to send unserialisable message of type %r: %s%s",
+            mtype,
+            exc,
+            note,
+        )
+        self._unserialisable_log[str(mtype)] = (now, 0)
+
+    def _is_serialisable(self, message: Any) -> bool:
+        """True if the message can be serialised; logs (throttled) if not.
+
+        A message that cannot be serialised is the CALLER's fault, not each
+        client's, so it is rejected once, before any client is touched.
+        """
+        try:
+            json.dumps(message, separators=(",", ":"), allow_nan=False)
+            return True
+        except (TypeError, ValueError) as e:
+            self._log_unserialisable(message, e)
+            return False
+
     async def broadcast(self, message: dict):
         """Broadcast message to all connected clients"""
         if not self.active_connections:
@@ -213,6 +263,13 @@ class StableConnectionManagerV2:
 
         # Every message leaves with its provenance labels (message_provenance.py).
         message = annotate(message)
+        # Validate the message ONCE, before any client is touched. A message
+        # that cannot be serialised is the CALLER's fault, not each client's:
+        # Starlette's send_json serialises inside the per-client call, so an
+        # unserialisable value used to raise in every client and disconnect
+        # EVERYONE. One error, no disconnects.
+        if not self._is_serialisable(message):
+            return
         # Create a snapshot of connections to avoid dictionary changed size during iteration
         connections_snapshot = dict(self.active_connections)
         disconnected_clients = []
@@ -289,14 +346,17 @@ class StableConnectionManagerV2:
                 logger.debug(f"Vajra service not available: {e}")
                 system_status["services"]["vajra_service"] = "unavailable"
 
-            # Send real-time data
+            # Send real-time data. The sessions carry a SessionConfig object,
+            # which is not JSON-serialisable: that used to make the strict
+            # pre-check reject the WHOLE frame, so with any session alive
+            # every realtime frame was dropped. Convert at the boundary.
             await self.broadcast(
                 {
                     "type": "realtime_data",
                     "timestamp": time.time(),
                     "audio_spectrum": spectrum,
-                    "active_sessions": sessions,
-                    "system_status": system_status,
+                    "active_sessions": to_json_safe(sessions),
+                    "system_status": to_json_safe(system_status),
                 }
             )
 

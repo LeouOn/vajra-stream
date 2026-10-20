@@ -130,8 +130,12 @@ def fresh_bridge():
         pass
 
 
-def test_shutdown_joins_crystal_thread_within_2s(fresh_bridge):
+def test_shutdown_joins_crystal_thread_within_2s(fresh_bridge, monkeypatch: pytest.MonkeyPatch):
     """``bridge.shutdown()`` must join the broadcast thread within 2 s."""
+    # The crystal broadcast on session start is opt-in and OFF by default (it
+    # plays real sound). This test exercises the thread-spawn and shutdown-join
+    # path, so it enables the feature explicitly.
+    monkeypatch.setenv("VAJRA_BRIDGE_CRYSTAL_ON_SESSION_START", "1")
     bridge, crystal = fresh_bridge
 
     # Spawn the daemon thread via the production code path.

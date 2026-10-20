@@ -503,7 +503,7 @@ class VajraStreamService:
                     )
                 )
             except Exception:
-                pass
+                logger.warning("failed to publish SessionCreated for session %s", session_id, exc_info=True)
 
         print(f"Session created: {session_id} - {config.name}")
         return session_id
@@ -563,7 +563,7 @@ class VajraStreamService:
             try:
                 self.event_bus.publish(SessionStarted(session_id=session_id, name=session["config"].name))
             except Exception:
-                pass
+                logger.warning("failed to publish SessionStarted for session %s", session_id, exc_info=True)
             try:
                 self.event_bus.publish(
                     BroadcastStarted(
@@ -573,7 +573,7 @@ class VajraStreamService:
                     )
                 )
             except Exception:
-                pass
+                logger.warning("failed to publish BroadcastStarted for session %s", session_id, exc_info=True)
 
         # Notify via WebSocket that broadcast started
         try:
@@ -758,7 +758,7 @@ class VajraStreamService:
                     )
                 )
             except Exception:
-                pass
+                logger.warning("failed to publish SessionStopped for session %s", session_id, exc_info=True)
 
         # Move to history
         self.session_history.append(session.copy())

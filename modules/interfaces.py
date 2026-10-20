@@ -3,8 +3,9 @@ Module Interfaces (Ports)
 Define clear contracts between modules
 """
 
-from dataclasses import dataclass
-from datetime import datetime
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Protocol
 
 # ============================================================================
@@ -12,12 +13,46 @@ from typing import Any, Protocol
 # ============================================================================
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DomainEvent:
-    """Base class for all domain events"""
+    """Base class for all domain events.
 
-    timestamp: datetime
-    event_id: str
+    ``timestamp`` and ``event_id`` are optional, so a subclass can be built
+    from only its OWN fields and every event still identifies itself.
+
+    ``kw_only`` keeps the base fields keyword-only, which is what allows the
+    subclasses to keep their own fields required AND positional (a plain
+    dataclass with defaults on the base would raise "non-default argument
+    follows default argument").
+
+    The explicit ``__init__`` below exists for one reason: ``@dataclass``
+    does not overwrite an ``__init__`` defined in the class body, so this one
+    survives. It accepts the two base fields POSITIONALLY as well as by
+    keyword, because callers outside this module subclass ``DomainEvent``
+    directly and call ``super().__init__(timestamp, event_id)`` positionally.
+    Both paths produce the same defaults: the dataclass field factories are
+    used when a dataclass subclass is built, and this ``__init__`` is used for
+    a direct ``DomainEvent(...)`` or a ``super().__init__`` call.
+
+    The default timestamp is timezone-aware UTC, but a caller-supplied
+    timestamp is stored as given and may be NAIVE: several call sites pass a
+    bare ``datetime.now()``, so a mixed tree exists today. The aware default
+    makes the majority case unambiguous; it is a default, NOT a guarantee that
+    every value is aware.
+
+    Consequently: do not compare, subtract or sort timestamps across call
+    sites without normalising first. A naive and an aware value raise
+    ``TypeError`` on comparison, and sorting a mixed list raises rather than
+    producing a stable order. One pre-existing consumer already sidesteps this
+    by comparing ISO strings instead -- ``EnhancedEventBus.replay_events``.
+    """
+
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+
+    def __init__(self, timestamp: datetime | None = None, event_id: str | None = None) -> None:
+        self.timestamp = timestamp if timestamp is not None else datetime.now(timezone.utc)
+        self.event_id = event_id if event_id is not None else str(uuid.uuid4())
 
 
 @dataclass
