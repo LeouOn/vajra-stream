@@ -125,8 +125,12 @@ async def practice_status(practice_id: str) -> dict:
             "status": "not_started",
             "practice_id": practice_id,
             "name": definition.name,
+            "count": 0,
         }
-    return status
+    # CD-4: the UI's live counter reads `count` (PracticeDetail.tsx) while the
+    # engine reports recitations as `total_recited` — expose both, additively;
+    # every existing engine key is passed through unchanged.
+    return {**status, "count": status.get("total_recited", 0)}
 
 
 @router.get("/status", summary="Get status of all known practice sessions")
