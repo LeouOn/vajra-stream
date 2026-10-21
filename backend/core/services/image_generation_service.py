@@ -34,8 +34,11 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -370,6 +373,234 @@ class MiniMaxProvider(ImageProvider):
 # ── Service ───────────────────────────────────────────────────────────
 
 
+# ── Spend budget ────────────────────────────────────────────────────────
+# Defined here rather than in a shared module so this file stays stdlib-only
+# and independently extractable (tests/unit/test_image_generation_service.py::
+# test_service_module_has_no_project_imports). backend/core/services/
+# spend_budget.py re-exports these three names and owns the process-wide
+# instance, which is what lets sigil and images share one dollar cap.
+#
+# The caps are IN-MEMORY and PER PROCESS. run.py starts one uvicorn process, so
+# today there is one budget; workers=N would give N processes and therefore N
+# independent budgets, multiplying every cap by N. Nothing here is persisted.
+
+#: Seconds in the rolling hourly window.
+_HOUR_SECONDS = 3600.0
+
+
+@dataclass(frozen=True)
+class Reservation:
+    """A hold on the budget, and the token that releases or settles it.
+
+    Attributes:
+        day: UTC day the reservation is charged to, ``YYYY-MM-DD``.
+        stamp: ``time.time()`` when the hourly slot was taken.
+        estimated_cost_usd: What was held. ``release`` gives this back;
+            ``reconcile`` adjusts by ``actual - estimated``.
+    """
+
+    day: str
+    stamp: float
+    estimated_cost_usd: float
+
+
+class BudgetView:
+    """The budget as seen from inside ``critical_section()``.
+
+    Every method here assumes the caller already holds the budget lock, which is
+    what lets a caller do its own cache lookup between the guard and the
+    reservation without releasing it.
+    """
+
+    __slots__ = ("_budget",)
+
+    def __init__(self, budget: SpendBudget) -> None:
+        self._budget = budget
+
+    @property
+    def day(self) -> str:
+        """The UTC day this view charges to, resolved once per section."""
+        return self._budget._today()
+
+    @property
+    def daily_spend_usd(self) -> float:
+        """Total reserved-or-settled spend for :attr:`day`."""
+        return self._budget._daily_spend.get(self.day, 0.0)
+
+    def prune(self, now: float) -> None:
+        """Drop hourly stamps older than the rolling window.
+
+        REBINDS the list. That is why it must share a critical section with
+        :meth:`reserve`: a concurrent append to the pre-rebind list would be
+        silently lost, granting an admitted call no hourly slot.
+        """
+        self._budget._hourly_calls = [t for t in self._budget._hourly_calls if now - t < _HOUR_SECONDS]
+
+    @property
+    def hourly_count(self) -> int:
+        return len(self._budget._hourly_calls)
+
+    def reserve(self, estimated_cost_usd: float) -> Reservation:
+        """Hold ``estimated_cost_usd`` and one hourly slot.
+
+        Raises:
+            RuntimeError: If the daily cap or the hourly limit would be
+                breached. The message is the byte-identical string the image
+                service has always raised, so its external behaviour is unchanged.
+        """
+        return self._budget._reserve_locked(estimated_cost_usd)
+
+
+class SpendBudget:
+    """A daily USD cap plus a per-hour call limit, shared across callers."""
+
+    def __init__(self, daily_cost_cap_usd: float, max_per_hour: int) -> None:
+        self._daily_cost_cap_usd = float(daily_cost_cap_usd)
+        self._max_per_hour = int(max_per_hour)
+        self._daily_spend: dict[str, float] = {}
+        self._hourly_calls: list[float] = []
+        self._lock = threading.Lock()
+
+    # -- limits ---------------------------------------------------------
+
+    def configure(self, daily_cost_cap_usd: float, max_per_hour: int) -> None:
+        """Replace the limits.
+
+        Called by ``ImageGenerationService`` when its config changes. Existing
+        reservations are NOT re-priced: the new limits apply to the next
+        reservation, so a cap lowered below money already committed will not
+        retroactively release it.
+        """
+        with self._lock:
+            self._daily_cost_cap_usd = float(daily_cost_cap_usd)
+            self._max_per_hour = int(max_per_hour)
+
+    @staticmethod
+    def _today() -> str:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # -- the critical section -------------------------------------------
+
+    @contextmanager
+    def critical_section(self) -> Iterator[BudgetView]:
+        """Hold the lock for a check + prune + reserve sequence.
+
+        The paid provider call must happen OUTSIDE this block; only the
+        synchronous budget bookkeeping belongs inside it.
+        """
+        with self._lock:
+            yield BudgetView(self)
+
+    def _reserve_locked(self, estimated_cost_usd: float) -> Reservation:
+        """Reserve while the caller already holds the lock."""
+        day = self._today()
+        daily = self._daily_spend.get(day, 0.0)
+        projected = daily + estimated_cost_usd
+        if projected > self._daily_cost_cap_usd:
+            raise RuntimeError(
+                f"Request would breach daily cost cap (${projected:.4f} > ${self._daily_cost_cap_usd:.4f})"
+            )
+
+        now = time.time()
+        self._hourly_calls = [t for t in self._hourly_calls if now - t < _HOUR_SECONDS]
+        if len(self._hourly_calls) >= self._max_per_hour:
+            raise RuntimeError(f"max_per_hour={self._max_per_hour} reached; try again later")
+
+        self._hourly_calls.append(now)
+        self._daily_spend[day] = projected
+        return Reservation(day=day, stamp=now, estimated_cost_usd=estimated_cost_usd)
+
+    # -- single-shot API ------------------------------------------------
+
+    def reserve(self, estimated_cost_usd: float) -> Reservation:
+        """Check and reserve in one step.
+
+        Raises:
+            RuntimeError: With the image service's historical message text when
+                the daily cap or hourly limit would be breached.
+        """
+        with self.critical_section() as view:
+            return view.reserve(estimated_cost_usd)
+
+    def try_reserve(self, estimated_cost_usd: float) -> Reservation | None:
+        """Reserve, or return ``None`` if refused.
+
+        For callers that must not raise across a boundary -- ``SigilService``
+        turns a refusal into a warning and a missing image rather than an error
+        into the sigil endpoint.
+        """
+        try:
+            return self.reserve(estimated_cost_usd)
+        except RuntimeError:
+            return None
+
+    def release(self, reservation: Reservation) -> None:
+        """Give back exactly one reservation.
+
+        Removes the estimated amount and that reservation's own hourly stamp by
+        value, so a concurrent call's stamp is never disturbed.
+        """
+        with self._lock:
+            day, stamp, cost = reservation.day, reservation.stamp, reservation.estimated_cost_usd
+            if day in self._daily_spend:
+                self._daily_spend[day] = max(0.0, self._daily_spend[day] - cost)
+            try:
+                self._hourly_calls.remove(stamp)
+            except ValueError:
+                # The hourly window may already have pruned this stamp; the day
+                # total is still corrected above, so a missing stamp is harmless.
+                pass
+
+    def reconcile(self, reservation: Reservation, actual_cost_usd: float) -> None:
+        """Settle a reservation at what the provider actually charged.
+
+        The provider's cost is the authority, so this ADJUSTS by
+        ``actual - estimated``. It must not add the actual cost on top of the
+        reservation, which would bill twice. The hourly stamp is kept: the call
+        happened and consumed a slot.
+
+        A non-finite or negative ``actual_cost_usd`` is treated as NOT REPORTED:
+        the estimate stays and one warning is logged. That matters because this
+        is a ledger, and a NaN total would poison it -- ``nan > cap`` is False,
+        so the daily cap would never trip again -- while a negative total would
+        hand free budget back. Both are caught here rather than trusted.
+
+        ``0.0`` IS honoured: a genuinely free call should settle to zero, and
+        the IMAGE providers may legitimately report it. Sigil is unaffected,
+        because its own reader (``_reported_cost_usd``) treats a reported zero
+        as "not reported" and never passes 0.0 here.
+
+        The day total is floored at 0.0, as ``release`` does, so a rounding
+        artefact can never leave the ledger negative.
+        """
+        with self._lock:
+            day = reservation.day
+            if not isfinite(actual_cost_usd) or actual_cost_usd < 0.0:
+                logger.warning(
+                    "SpendBudget.reconcile: ignoring a non-finite or negative actual cost "
+                    "(%r) for the %s reservation; keeping the estimate of $%.4f",
+                    actual_cost_usd,
+                    day,
+                    reservation.estimated_cost_usd,
+                )
+                actual = reservation.estimated_cost_usd
+            else:
+                actual = actual_cost_usd
+            self._daily_spend[day] = max(0.0, self._daily_spend.get(day, 0.0) - reservation.estimated_cost_usd + actual)
+
+    def stats(self) -> dict[str, Any]:
+        """Current spend, matching the keys ``get_cost_stats`` publishes."""
+        with self._lock:
+            now = time.time()
+            self._hourly_calls = [t for t in self._hourly_calls if now - t < _HOUR_SECONDS]
+            return {
+                "daily_spend_usd": self._daily_spend.get(self._today(), 0.0),
+                "daily_cost_cap_usd": self._daily_cost_cap_usd,
+                "hourly_calls": len(self._hourly_calls),
+                "max_per_hour": self._max_per_hour,
+            }
+
+
 class ImageGenerationService:
     """Provider-agnostic image generation service.
 
@@ -391,7 +622,7 @@ class ImageGenerationService:
         )
     """
 
-    def __init__(self, config: dict[str, Any] | None = None) -> None:
+    def __init__(self, config: dict[str, Any] | None = None, budget: SpendBudget | None = None) -> None:
         self._config: dict[str, Any] = dict(DEFAULT_CONFIG)
         if config:
             self._config.update(config)
@@ -399,25 +630,38 @@ class ImageGenerationService:
         # Provider instances (lazy-initialized)
         self._providers: dict[str, ImageProvider] = {}
 
-        # Cost & cache state (instance-local, reset on restart)
+        # Cache state (instance-local, reset on restart)
         self._cache: dict[str, tuple[float, ProviderResult]] = {}
-        self._daily_spend: dict[str, float] = {}
-        self._hourly_calls: list[float] = []
-        # Makes the cost guard, the hourly prune, the cache lookup and the spend
-        # reservation one atomic step. See the block comment at that site, which
-        # is the accurate description of what the lock covers.
-        #
-        # A threading.Lock, not an asyncio.Lock, and not "no lock at all".
-        # Within a single event loop everything the lock covers is synchronous
-        # and separated by no await, so nothing can interleave there and no lock
-        # would be needed. This lock covers the case that actually bites:
-        # EnhancedEventBus.publish runs coroutine subscribers on WORKER-thread
-        # event loops when an event is published from a thread, so two callers
-        # can be on different loops at once. An asyncio.Lock binds to whichever
-        # loop first awaited it and would give no protection there. The lock is
-        # held only across synchronous code and never across the paid await, so
-        # it can never serialise network I/O.
-        self._spend_lock = threading.Lock()
+
+        # Spend lives in a SpendBudget. With no budget injected this service
+        # builds its OWN, from its own config, so every caller -- notably each
+        # test -- gets an isolated ledger and nothing leaks between them. The
+        # endpoint injects the process-wide shared budget instead, which is what
+        # lets sigils and generated images draw on one cap. The limits are always
+        # this service's, pushed in below either way.
+        self._budget = (
+            budget
+            if budget is not None
+            else SpendBudget(
+                daily_cost_cap_usd=self._config["daily_cost_cap_usd"],
+                max_per_hour=self._config["max_per_hour"],
+            )
+        )
+        self._budget.configure(self._config["daily_cost_cap_usd"], self._config["max_per_hour"])
+
+        # Compatibility shims for the private attributes the existing tests read.
+        # They are properties, so the budget stays the single owner of the state.
+        self._spend_lock = self._budget._lock
+
+    @property
+    def _daily_spend(self) -> dict[str, float]:
+        """The budget's daily ledger, keyed by UTC day."""
+        return self._budget._daily_spend
+
+    @property
+    def _hourly_calls(self) -> list[float]:
+        """The budget's hourly stamps."""
+        return self._budget._hourly_calls
 
     # ── Config ─────────────────────────────────────────────────────────
 
@@ -430,6 +674,10 @@ class ImageGenerationService:
         if unknown:
             raise ValueError(f"unknown config key(s): {sorted(unknown)}")
         self._config.update(updates)
+        # The budget owns the ledger but this service owns the limits; push them
+        # so a Settings change applies to the very next reservation, including on
+        # the shared budget that sigils also spend from.
+        self._budget.configure(self._config["daily_cost_cap_usd"], self._config["max_per_hour"])
         return self.config
 
     # ── Validation ─────────────────────────────────────────────────────
@@ -457,58 +705,40 @@ class ImageGenerationService:
 
     # ── Cost tracking ──────────────────────────────────────────────────
 
-    def _reserve_spend(self, estimated_cost: float) -> tuple[str, float]:
-        """Reserve this call's estimated spend and return a release token.
+    def _reserve_spend(self, estimated_cost: float) -> Reservation:
+        """Reserve this call's estimated spend against the budget."""
+        return self._budget.reserve(estimated_cost)
 
-        Called AFTER the cache miss is known and BEFORE the paid provider
-        await. The reservation makes the budget look already-spent, so a
-        concurrent call is refused by the same guard that a sequential one
-        would be, instead of both passing the guard and both paying.
+    def _release_spend(self, reservation: Reservation) -> None:
+        """Undo exactly one reservation -- a failed call costs no budget."""
+        self._budget.release(reservation)
 
-        Returns the (day, timestamp) pair identifying this reservation, for
-        :meth:`_release_spend` or :meth:`_reconcile_spend`.
-        """
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        self._daily_spend[today] = self._daily_spend.get(today, 0.0) + estimated_cost
-        stamp = time.time()
-        self._hourly_calls.append(stamp)
-        return today, stamp
-
-    def _release_spend(self, estimated_cost: float, reservation: tuple[str, float]) -> None:
-        """Undo exactly the reservation identified by ``reservation``.
-
-        Used when the paid call produced nothing, so a failed generation costs
-        the caller no budget. The hourly stamp is removed by value so a
-        concurrent call's stamp is never disturbed.
-        """
-        day, stamp = reservation
-        if day in self._daily_spend:
-            self._daily_spend[day] = max(0.0, self._daily_spend[day] - estimated_cost)
-        try:
-            self._hourly_calls.remove(stamp)
-        except ValueError:
-            pass
-
-    def _reconcile_spend(self, estimated_cost: float, reservation: tuple[str, float], actual_cost: float) -> None:
-        """Settle a reservation at what the provider actually charged.
-
-        The provider's ``cost_usd`` is the authority, not our estimate, so the
-        estimate is adjusted by (actual - estimated). This must not simply ADD
-        the actual cost on top of the reservation, which would bill twice. The
-        hourly stamp is kept: the call did happen and did consume a slot.
-        """
-        day, _stamp = reservation
-        self._daily_spend[day] = self._daily_spend.get(day, 0.0) - estimated_cost + actual_cost
+    def _reconcile_spend(self, reservation: Reservation, actual_cost: float) -> None:
+        """Settle a reservation at the provider's actual cost, not our estimate."""
+        self._budget.reconcile(reservation, actual_cost)
 
     def get_cost_stats(self) -> dict[str, Any]:
-        now = time.time()
-        self._hourly_calls = [t for t in self._hourly_calls if now - t < 3600]
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        """Current spend, under the budget's lock.
+
+        Previously this pruned ``_hourly_calls`` by REBINDING the list outside
+        any lock, which could discard a stamp appended by a concurrent caller.
+        The prune now happens inside ``SpendBudget.stats()``, so that rebind is
+        covered by the same lock as everything else. Keys are unchanged.
+
+        The cap and the hourly limit are read from the BUDGET, not from this
+        service's config, because the budget is what ENFORCES them: with two
+        services on one shared budget the last ``configure()`` wins, and
+        publishing this service's config here could announce a limit that is not
+        the one in force. The budget is single-owner -- only the endpoint's
+        image service configures it -- so in the normal case this service's own
+        config and the enforced limit agree.
+        """
+        stats = self._budget.stats()
         return {
-            "daily_spend_usd": self._daily_spend.get(today, 0.0),
-            "daily_cost_cap_usd": self._config["daily_cost_cap_usd"],
-            "hourly_calls": len(self._hourly_calls),
-            "max_per_hour": self._config["max_per_hour"],
+            "daily_spend_usd": stats["daily_spend_usd"],
+            "daily_cost_cap_usd": stats["daily_cost_cap_usd"],
+            "hourly_calls": stats["hourly_calls"],
+            "max_per_hour": stats["max_per_hour"],
             "cache_entries": len(self._cache),
         }
 
@@ -617,9 +847,8 @@ class ImageGenerationService:
         #
         # The paid provider ``await`` stays OUTSIDE the lock, so network I/O is
         # never serialised. release/reconcile take the lock briefly afterwards.
-        with self._spend_lock:
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            projected = self._daily_spend.get(today, 0.0) + estimated_cost
+        with self._budget.critical_section() as budget_view:
+            projected = budget_view.daily_spend_usd + estimated_cost
             if projected > cfg["daily_cost_cap_usd"]:
                 raise RuntimeError(
                     f"Request would breach daily cost cap (${projected:.4f} > ${cfg['daily_cost_cap_usd']:.4f})"
@@ -627,8 +856,8 @@ class ImageGenerationService:
 
             # Hourly guard
             now = time.time()
-            self._hourly_calls = [t for t in self._hourly_calls if now - t < 3600]
-            if len(self._hourly_calls) >= cfg["max_per_hour"]:
+            budget_view.prune(now)
+            if budget_view.hourly_count >= cfg["max_per_hour"]:
                 raise RuntimeError(f"max_per_hour={cfg['max_per_hour']} reached; try again later")
 
             # Cache lookup
@@ -644,7 +873,7 @@ class ImageGenerationService:
             # RESERVE the estimated cost BEFORE the paid await, while still
             # holding the lock the guard was evaluated under. A cache hit has
             # already returned above, so it reserves and records nothing.
-            reservation = self._reserve_spend(estimated_cost)
+            reservation = budget_view.reserve(estimated_cost)
 
         try:
             # Call provider — 2 tries, only on technical (retryable) failure
@@ -690,14 +919,12 @@ class ImageGenerationService:
             # its reservation. A cancelled request may already have been billed
             # by the provider, and refunding a call that was paid for would be
             # the more expensive mistake.
-            with self._spend_lock:
-                self._release_spend(estimated_cost, reservation)
+            self._release_spend(reservation)
             raise
 
         # The provider's own cost is the authority: settle the reservation at
         # what was actually charged rather than at what we guessed.
-        with self._spend_lock:
-            self._reconcile_spend(estimated_cost, reservation, result.cost_usd)
+        self._reconcile_spend(reservation, result.cost_usd)
 
         self._cache[cache_key] = (now + cfg["cache_ttl_seconds"], result)
 

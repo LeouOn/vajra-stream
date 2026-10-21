@@ -22,6 +22,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.core.services.image_generation_service import ImageGenerationService
+from backend.core.services.spend_budget import shared_image_budget
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,14 @@ def get_service() -> ImageGenerationService:
     """
     global _service
     if _service is None:
-        _service = ImageGenerationService()
+        # The SHARED budget: images and sigils draw on one daily dollar cap. The
+        # limits stay the image service's own -- it pushes them in via
+        # update_config below, which _load_config_from_db and
+        # _inject_fallback_keys both go through, so the real configured values
+        # reach the shared budget before this call returns. Until then a sigil
+        # forged before any image request spends against the shared budget's
+        # placeholders, which are equal to ImageGenerationService.DEFAULT_CONFIG.
+        _service = ImageGenerationService(budget=shared_image_budget())
         _load_config_from_db(_service)
         _inject_fallback_keys(_service)
         _anchor_output_dir(_service)

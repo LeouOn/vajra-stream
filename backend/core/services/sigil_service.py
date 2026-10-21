@@ -19,7 +19,9 @@ from pathlib import Path
 from typing import Any
 
 import requests
+import urllib3.exceptions
 
+from backend.core.services.spend_budget import Reservation, shared_image_budget
 from core.image_prompts import caption_fact, finalize_image_prompt
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,103 @@ def sigil_image_prompt(intention: str) -> str:
         "orgone layers, a high-tech cyberdeck dashboard element, digital art, dark background, "
         "highly detailed render"
     )
+
+
+#: Cost ESTIMATES in USD for the two paid sigil image providers. These are
+#: estimates, not quotes -- check current pricing before trusting them, and note
+#: that neither provider is guaranteed to report what it actually charged.
+SIGIL_IMAGE_COST_ESTIMATE_USD: dict[str, float] = {
+    # OpenAI dall-e-3 at 1024x1024, standard quality, n=1, which is exactly what
+    # the openai branch below sends. Published list price was $0.040/image;
+    # estimate, check current pricing.
+    "openai": 0.040,
+    # OpenRouter: priced per model, and the openrouter branch sends NO size, so
+    # this is a deliberately conservative default for any
+    # OPENROUTER_IMAGE_MODEL rather than a quote for one model.
+    # estimate, check current pricing.
+    "openrouter": 0.05,
+}
+
+#: Used for a paid provider with no entry above, so a newly added one is never
+#: silently free.
+DEFAULT_IMAGE_COST_ESTIMATE_USD = 0.05
+
+
+def _exception_chain(exc: BaseException) -> list[BaseException]:
+    """Every exception reachable from ``exc``.
+
+    Walks ``__cause__``, ``__context__``, the exception arguments and any
+    ``reason`` attribute, because ``requests`` wraps the real cause: a DNS
+    failure arrives as
+    ``ConnectionError(MaxRetryError(..., reason=NewConnectionError(...)))``
+    and the interesting class is two levels down.
+    """
+    seen: list[BaseException] = []
+    pending: list[object] = [exc]
+    while pending:
+        item = pending.pop()
+        if not isinstance(item, BaseException) or any(item is known for known in seen):
+            continue
+        seen.append(item)
+        pending.append(item.__cause__)
+        pending.append(item.__context__)
+        pending.extend(arg for arg in item.args if isinstance(arg, BaseException))
+        pending.append(getattr(item, "reason", None))
+    return seen
+
+
+def _definitely_not_billed(exc: BaseException) -> bool:
+    """True only when the provider provably did NOT bill us.
+
+    RELEASE only for:
+      * ``requests.ConnectTimeout`` -- the connection was never established, so
+        no request was sent;
+      * a ``requests.ConnectionError`` whose cause chain contains
+        ``urllib3.exceptions.NewConnectionError`` or ``NameResolutionError``,
+        i.e. connection refused or DNS failure: nothing was sent.
+
+    EVERYTHING else KEEPS the reservation: ``ReadTimeout``,
+    ``ChunkedEncodingError``, ``SSLError``, ``ProxyError`` (both are
+    ``ConnectionError`` SUBCLASSES, so a naive ``except ConnectionError``
+    releases them, which is wrong: a TLS handshake failure or a proxy error can
+    happen after the request bytes were written), a ``ConnectionError`` wrapping
+    ``ProtocolError`` / ``RemoteDisconnected`` (a mid-response reset, again
+    after bytes were sent), and any exception we do not recognise.
+
+    Over-counting is the safe direction: a wrongly KEPT reservation costs the
+    user a little budget they may not have spent, while a wrongly RELEASED one
+    loses track of money that was already spent and lets the cap be exceeded.
+    """
+    if isinstance(exc, requests.ConnectTimeout):
+        return True
+    if isinstance(exc, requests.ConnectionError):
+        for item in _exception_chain(exc):
+            if isinstance(item, urllib3.exceptions.NewConnectionError | urllib3.exceptions.NameResolutionError):
+                return True
+    return False
+
+
+def _reported_cost_usd(payload: dict[str, Any]) -> float | None:
+    """The cost a provider response actually reported, or None.
+
+    Read defensively because the shape differs by provider: some return a top
+    level ``cost``, some nest it under ``usage``. Returns None rather than 0.0
+    when nothing is reported, so the caller keeps its estimate instead of
+    treating "no cost field" as "free".
+    """
+    if not isinstance(payload, dict):
+        return None
+    for key in ("cost", "cost_usd"):
+        value = payload.get(key)
+        if isinstance(value, int | float) and value > 0:
+            return float(value)
+    usage = payload.get("usage")
+    if isinstance(usage, dict):
+        for key in ("cost", "cost_usd", "total_cost"):
+            value = usage.get(key)
+            if isinstance(value, int | float) and value > 0:
+                return float(value)
+    return None
 
 
 class SigilService:
@@ -274,17 +373,40 @@ class SigilService:
 
         if self.image_provider == "comfyui":
             return {"ai_image": None, "ai_image_render": self._submit_render(prompt, caption_facts)}
-        return {"ai_image": await self._generate_sync_image(prompt), "ai_image_render": None}
 
-    async def _generate_sync_image(self, prompt: str) -> str | None:
+        image, skip_reason = await self._generate_sync_image(prompt)
+        result: dict[str, Any] = {"ai_image": image, "ai_image_render": None}
+        # Additive: existing keys and types are untouched, and the key appears
+        # ONLY when something was actually skipped, so nothing that reads
+        # ai_image / ai_image_render sees a new shape on the normal path.
+        if skip_reason is not None:
+            result["ai_image_skipped"] = skip_reason
+        return result
+
+    async def _generate_sync_image(self, prompt: str) -> tuple[str | None, str | None]:
         """Providers that return an image in one request (A1111 SD, OpenAI, OpenRouter).
 
         Their HTTP calls block for up to a minute, so they run in a worker thread.
+        Returns ``(image, skip_reason)``; see :meth:`_request_image`.
         """
         return await asyncio.to_thread(self._request_image, prompt)
 
-    def _request_image(self, prompt: str) -> str | None:
-        """Blocking body of :meth:`_generate_sync_image`."""
+    def _request_image(self, prompt: str) -> tuple[str | None, str | None]:
+        """Blocking body of :meth:`_generate_sync_image`.
+
+        Returns ``(image_data_uri, skip_reason)``. ``skip_reason`` is ``"budget"``
+        when the shared image budget refused the call; it is ``None`` otherwise.
+        The local and comfyui providers are free and reserve nothing at all.
+
+        A reservation is RELEASED only when the provider definitely did not bill:
+        a connection failure before the request was sent, or a non-2xx status from
+        the GENERATION request. Every other failure KEEPS the reservation at the
+        estimate and logs one warning, because the spend is genuinely uncertain:
+        a ReadTimeout means the request was transmitted and may have been billed,
+        a 2xx body we cannot parse means the image WAS generated, and a failed
+        image download means the generation itself succeeded. Refunding a call
+        that was paid for is the more expensive mistake.
+        """
         if self.image_provider == "local":
             try:
                 # Direct SD text2img endpoint call
@@ -304,11 +426,14 @@ class SigilService:
                     if "images" in res_json and len(res_json["images"]) > 0:
                         img_b64 = res_json["images"][0]
                         # Return base64 URI
-                        return f"data:image/png;base64,{img_b64}"
+                        return f"data:image/png;base64,{img_b64}", None
             except Exception as e:
                 logger.warning(f"Local Stable Diffusion generation failed or offline: {e}")
 
         elif self.image_provider == "openai" and self.openai_api_key:
+            reservation = self._reserve_image_budget("openai")
+            if reservation is None:
+                return None, "budget"
             try:
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.openai_api_key}"}
                 payload = {
@@ -321,33 +446,122 @@ class SigilService:
                 response = requests.post(
                     "https://api.openai.com/v1/images/generations", json=payload, headers=headers, timeout=60
                 )
-                if response.status_code == 200:
-                    res_json = response.json()
-                    img_b64 = res_json["data"][0]["b64_json"]
-                    return f"data:image/png;base64,{img_b64}"
             except Exception as e:
-                logger.error(f"OpenAI DALL-E generation failed: {e}")
+                # Release ONLY when the request provably never reached the
+                # provider. Everything else keeps the estimate.
+                if _definitely_not_billed(e):
+                    shared_image_budget().release(reservation)
+                    logger.error("OpenAI DALL-E generation failed: %s", e)
+                else:
+                    self._keep_reservation("openai", f"{type(e).__name__}: {e}")
+                    logger.error("OpenAI DALL-E generation failed: %s", e)
+                return None, None
+            if not (200 <= response.status_code < 300):
+                # The provider answered "no", so it did not bill us.
+                shared_image_budget().release(reservation)
+                logger.error("OpenAI DALL-E generation failed: HTTP %s", response.status_code)
+                return None, None
+            # 2xx: the generation happened and was billed, whatever we make of
+            # the body. Any failure from here keeps the reservation.
+            try:
+                res_json = response.json()
+                img_b64 = res_json["data"][0]["b64_json"]
+                self._settle_image_budget(reservation, res_json)
+                return f"data:image/png;base64,{img_b64}", None
+            except Exception as e:
+                self._keep_reservation("openai", f"{type(e).__name__}: {e}")
+                logger.error("OpenAI DALL-E generation failed: %s", e)
+            return None, None
 
         elif self.image_provider == "openrouter" and self.openrouter_api_key:
+            reservation = self._reserve_image_budget("openrouter")
+            if reservation is None:
+                return None, "budget"
+            # The GENERATION request and the image DOWNLOAD are separate
+            # phases. Once the generation has returned 2xx it is billed, so a
+            # failure in the download must never release the reservation.
             try:
                 headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.openrouter_api_key}"}
                 payload = {"prompt": prompt, "model": self.openrouter_image_model}
                 response = requests.post(
                     "https://openrouter.ai/api/v1/images/generations", json=payload, headers=headers, timeout=45
                 )
-                if response.status_code == 200:
-                    res_json = response.json()
-                    if "data" in res_json and len(res_json["data"]) > 0:
-                        img_url = res_json["data"][0].get("url")
-                        if img_url:
-                            img_data = requests.get(img_url, timeout=15)
-                            if img_data.status_code == 200:
-                                b64_str = base64.b64encode(img_data.content).decode("utf-8")
-                                return f"data:image/png;base64,{b64_str}"
             except Exception as e:
-                logger.error(f"OpenRouter image generation failed: {e}")
+                if _definitely_not_billed(e):
+                    shared_image_budget().release(reservation)
+                    logger.error("OpenRouter image generation failed: %s", e)
+                else:
+                    self._keep_reservation("openrouter", f"{type(e).__name__}: {e}")
+                    logger.error("OpenRouter image generation failed: %s", e)
+                return None, None
+            if not (200 <= response.status_code < 300):
+                shared_image_budget().release(reservation)
+                logger.error("OpenRouter image generation failed: HTTP %s", response.status_code)
+                return None, None
+            # Billed. Everything below may fail, and every failure keeps it.
+            try:
+                res_json = response.json()
+                rows = res_json.get("data") if isinstance(res_json, dict) else None
+                if rows:
+                    img_url = rows[0].get("url")
+                    if img_url:
+                        img_data = requests.get(img_url, timeout=15)
+                        if 200 <= img_data.status_code < 300:
+                            b64_str = base64.b64encode(img_data.content).decode("utf-8")
+                            self._settle_image_budget(reservation, res_json)
+                            return f"data:image/png;base64,{b64_str}", None
+                        raise RuntimeError(f"image download returned HTTP {img_data.status_code}")
+                reason = "generation succeeded but no usable image was returned"
+            except Exception as e:
+                reason = f"{type(e).__name__}: {e}"
+            self._keep_reservation("openrouter", reason)
+            logger.error("OpenRouter image generation failed: %s", reason)
+            return None, None
 
-        return None
+        return None, None
+
+    @staticmethod
+    def _keep_reservation(provider_name: str, reason: str) -> None:
+        """Log that a possibly-billed call is still holding its estimate."""
+        logger.warning(
+            "Sigil AI image: keeping the budget reservation for %s because the spend is "
+            "uncertain (%s). The image may have been generated and billed, so the estimate "
+            "is kept rather than refunded.",
+            provider_name,
+            reason,
+        )
+
+    def _reserve_image_budget(self, provider_name: str) -> "Reservation | None":
+        """Hold the estimated cost of one paid sigil image, or return None.
+
+        Sigil images and generated images share ONE daily budget, so a sigil can
+        be refused because earlier images spent the cap. That is the point of the
+        change rather than a failure: the caller logs one warning and returns no
+        image instead of raising into the sigil endpoint.
+        """
+        estimate = SIGIL_IMAGE_COST_ESTIMATE_USD.get(provider_name, DEFAULT_IMAGE_COST_ESTIMATE_USD)
+        reservation = shared_image_budget().try_reserve(estimate)
+        if reservation is None:
+            logger.warning(
+                "Sigil AI image skipped: the shared image budget refused this %s call "
+                "(estimated $%.4f). Sigils and generated images share one daily cap -- raise "
+                "the image daily cap in Settings, or wait for the UTC day to roll over.",
+                provider_name,
+                estimate,
+            )
+        return reservation
+
+    @staticmethod
+    def _settle_image_budget(reservation: "Reservation", payload: dict[str, Any]) -> None:
+        """Reconcile to the provider's reported actual cost, or keep the estimate.
+
+        dall-e-3 normally reports no cost, so the estimate stands. When a provider
+        does report one it is the authority and the estimate is ADJUSTED, rather
+        than the actual being added on top of it.
+        """
+        actual = _reported_cost_usd(payload)
+        budget_cost = reservation.estimated_cost_usd if actual is None else actual
+        shared_image_budget().reconcile(reservation, budget_cost)
 
     async def forge_sigil(self, intention: str, kamea_name: str = "saturn") -> dict[str, Any]:
         """Forges a sigil, returning coordinates, Kamea SVG, and optional AI generated image URL/data"""
@@ -383,6 +597,10 @@ class SigilService:
             "caption_facts": caption_facts,
             "timestamp": forged_at,
         }
+        # Propagated only when set (see generate_ai_image): a budget refusal is
+        # visible in the stored sigil rather than looking like a provider outage.
+        if "ai_image_skipped" in ai:
+            sigil_data["ai_image_skipped"] = ai["ai_image_skipped"]
 
         try:
             with open(self.storage_dir / f"{sigil_id}.json", "w", encoding="utf-8") as f:
