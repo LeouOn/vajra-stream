@@ -1,0 +1,125 @@
+{
+  "_comment": "Frontend-to-backend call table. One entry per frontend call that the W0 frontend/backend contract audit examined. The contract test checks each entry against the live OpenAPI schema and against the frontend source text. A count that is too HIGH fails the test; a count that is too LOW is fine, and a file/rule that appears that is not listed here also fails. Extend this table by hand when a new frontend call is audited.",
+  "_how_to_extend": "Add an entry with: name (unique id), method, api_path (the path exactly as the OpenAPI schema spells it), frontend_path (what the frontend passes to apiUrl(), without the /api/v1 prefix), frontend_source (the file under frontend/src), frontend_marker (a literal substring of that file, so a renamed call is caught), payload_keys (top-level body keys the frontend SENDS), response_keys (keys the frontend READS from the response), known_response_keys (the audit's verified key list, used when the route returns a plain dict and declares no response model), uses_api_url (false only for a raw fetch that bypasses the proxy), and ticket (the ticket id when the drift is a KNOWN-UNFIXED bug -- the test then runs as a strict xfail naming that ticket; leave it null for a contract that holds).",
+  "_ticket_meaning": "A non-null ticket means this entry's contract is KNOWN TO BE BROKEN and is expected to fail. When the fix lands the test XPASSes, and because the xfail is strict that becomes a failure telling the owner to delete the ticket marker.",
+  "calls": [
+    {
+      "name": "story_search",
+      "method": "GET",
+      "api_path": "/api/v1/stories/search",
+      "frontend_path": "/stories/search",
+      "frontend_source": "frontend/src/stores/commandStore.ts",
+      "frontend_marker": "/stories/search",
+      "payload_keys": [],
+      "response_keys": ["stories"],
+      "known_response_keys": ["stories", "results", "query"],
+      "uses_api_url": true,
+      "ticket": null
+    },
+    {
+      "name": "practice_status",
+      "method": "GET",
+      "api_path": "/api/v1/practices/{practice_id}/status",
+      "frontend_path": "/practices/${id}/status",
+      "frontend_source": "frontend/src/components/UI/PracticeDetail.tsx",
+      "frontend_marker": "/practices/${id}/status",
+      "payload_keys": [],
+      "response_keys": ["running", "count", "mala_count"],
+      "known_response_keys": [
+        "running",
+        "count",
+        "mala_count",
+        "total_recited",
+        "practice_id",
+        "practice_name",
+        "status"
+      ],
+      "uses_api_url": true,
+      "ticket": null
+    },
+    {
+      "name": "practice_start",
+      "method": "POST",
+      "api_path": "/api/v1/practices/{practice_id}/start",
+      "frontend_path": "/practices/${practice.id}/start",
+      "frontend_source": "frontend/src/components/UI/PracticeDetail.tsx",
+      "frontend_marker": "/practices/${practice.id}/start",
+      "payload_keys": ["dedication"],
+      "response_keys": [],
+      "known_response_keys": [],
+      "uses_api_url": true,
+      "ticket": "CD-7"
+    },
+    {
+      "name": "divination_interpret",
+      "method": "POST",
+      "api_path": "/api/v1/divination/interpret",
+      "frontend_path": "/divination/interpret",
+      "frontend_source": "frontend/src/components/UI/OperationsPanel.tsx",
+      "frontend_marker": "/divination/interpret",
+      "payload_keys": ["system", "question", "details"],
+      "response_keys": ["interpretation"],
+      "known_response_keys": ["status", "interpretation", "timestamp"],
+      "uses_api_url": true,
+      "ticket": null
+    },
+    {
+      "name": "video_from_narrative",
+      "method": "POST",
+      "api_path": "/api/v1/videos/from-narrative",
+      "frontend_path": "/videos/from-narrative",
+      "frontend_source": "frontend/src/components/UI/outlook/useNarrativeMedia.ts",
+      "frontend_marker": "/videos/from-narrative",
+      "payload_keys": [],
+      "response_keys": ["task_id", "model"],
+      "known_response_keys": [
+        "status",
+        "task_id",
+        "model",
+        "video_prompt",
+        "narrative_genre"
+      ],
+      "uses_api_url": true,
+      "ticket": null
+    },
+    {
+      "name": "sigil_broadcast",
+      "method": "POST",
+      "api_path": "/api/v1/sigils/broadcast",
+      "frontend_path": "/sigils/broadcast",
+      "frontend_source": "frontend/src/components/UI/BroadcastPanel.tsx",
+      "frontend_marker": "/sigils/broadcast",
+      "payload_keys": ["rate_values"],
+      "response_keys": [],
+      "known_response_keys": [],
+      "uses_api_url": true,
+      "ticket": "CD-8 (needs a product decision)"
+    },
+    {
+      "name": "ws_stats",
+      "method": "GET",
+      "api_path": "/ws-stats",
+      "frontend_path": "/ws-stats",
+      "frontend_source": "frontend/src/hooks/useWebSocketStable.ts",
+      "frontend_marker": "/ws-stats",
+      "payload_keys": [],
+      "response_keys": [],
+      "known_response_keys": [],
+      "uses_api_url": false,
+      "ticket": "CD-5"
+    },
+    {
+      "name": "populations",
+      "method": "GET",
+      "api_path": "/api/v1/populations/",
+      "frontend_path": "/populations",
+      "frontend_source": "frontend/src/components/UI/BroadcastPanel.tsx",
+      "frontend_marker": "/populations",
+      "payload_keys": [],
+      "response_keys": [],
+      "known_response_keys": [],
+      "uses_api_url": true,
+      "ticket": "CD-9"
+    }
+  ]
+}
