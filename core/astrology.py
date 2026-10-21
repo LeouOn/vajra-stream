@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 import pytz
 import swisseph as swe
 
+from core.astro.aspects import aspect_state, is_usable_speed
+
 logger = logging.getLogger(__name__)
 
 
@@ -177,8 +179,12 @@ class AstrologicalCalculator:
                     "retrograde": cs < 0,
                     "speed": round(cs, 4),
                 }
-            except Exception:
-                pass
+            except swe.Error as exc:
+                # Missing asteroid ephemeris (seas_18.se1) is expected on
+                # Moshier-only installs. The position table stays free of
+                # pseudo-entries; get_western_astrology surfaces the absence
+                # via its "unavailable_bodies" sibling key.
+                logger.debug("Western Chiron unavailable: %s", exc)
 
         return positions
 
@@ -312,8 +318,17 @@ class AstrologicalCalculator:
                             }
                         )
 
+        unavailable_bodies: dict[str, str] = {}
+        if self.PLANETS.get("chiron") is not None and "chiron" not in positions:
+            # Chiron is attempted inside get_planetary_positions; its absence
+            # there means the asteroid ephemeris (seas_18.se1) could not be
+            # loaded or read (the precise error is logged at debug). Chiron
+            # not configured at all is not an ephemeris failure: report {}.
+            unavailable_bodies["chiron"] = "ephemeris file missing or unreadable"
+
         return {
             "positions": positions,
+            "unavailable_bodies": unavailable_bodies,
             "elements": elements,
             "modalities": modalities,
             "dominant_element": max(elements, key=elements.get),
@@ -741,10 +756,74 @@ class AstrologicalCalculator:
     # INDIAN VEDIC ASTROLOGY FUNCTIONS (PANCHANG)
     # =========================================================================
 
+    def _latest_sunrise_before(self, dt: datetime, location: tuple[float, float]):
+        """The most recent sunrise at or before ``dt``, or None.
+
+        The Vedic day runs from sunrise to sunrise, so the weekday of an
+        instant is the weekday of the LOCAL CIVIL DATE of the sunrise that
+        started that day.
+
+        ``calculate_auspicious_times`` cannot answer this: it calls
+        ``swe.rise_trans`` starting AT the given instant, which returns the
+        NEXT sunrise. For any instant after that morning's sunrise it
+        therefore returns tomorrow's, and a caller that compares the instant
+        against it treats every post-sunrise instant as "before sunrise".
+
+        This helper searches BACKWARDS instead: it starts a little over a day
+        before the instant and steps forward through the sunrises it finds,
+        keeping the last one that is not after the instant.
+
+        Returns None when no sunrise could be found in that window, which
+        happens in polar day and polar night. The caller then falls back to
+        the instant's own civil date, so the result is still well defined and
+        the function never raises.
+        """
+        lat, lon = location
+        jd_instant = self.get_julian_day(dt)
+        # A little over a day back, so the previous day's sunrise is always in
+        # range even for an instant just after midnight.
+        jd = jd_instant - 30.0 / 24.0
+        latest = None
+        for _ in range(6):
+            rise = swe.rise_trans(jd, swe.SUN, swe.CALC_RISE, [lon, lat, 0])
+            if rise[0] < 0:
+                # No sunrise from here on (polar day or polar night).
+                break
+            rise_jd = rise[1][0]
+            if rise_jd > jd_instant:
+                # The next sunrise is in the future, so the previous one is ours.
+                break
+            latest = rise_jd
+            # Step just past this sunrise to find the next one.
+            jd = rise_jd + 1e-6
+        if latest is None:
+            return None
+        result = swe.revjul(latest)
+        moment_utc = datetime(
+            result[0],
+            result[1],
+            result[2],
+            int(result[3]),
+            int((result[3] % 1) * 60),
+            tzinfo=pytz.UTC,
+        )
+        if dt.tzinfo is not None:
+            return moment_utc.astimezone(dt.tzinfo)
+        return moment_utc
+
     def get_indian_astrology(self, dt: datetime, location: tuple[float, float] = None) -> dict:
         """
         Calculate Indian (Vedic) astrology: Sidereal positions and Panchanga elements.
+
+        Offset-naive datetimes are assumed to be UTC (mirroring
+        :meth:`get_comprehensive_astrology`) and the result records that via
+        ``"naive_datetime_assumed_utc": True``. Without this, the sunrise
+        comparison below raised TypeError for naive inputs, silently killing
+        Vimshottari dasha and gochara in the cosmic weather.
         """
+        naive_datetime_assumed_utc = dt.tzinfo is None
+        if naive_datetime_assumed_utc:
+            dt = pytz.UTC.localize(dt)
         jd = self.get_julian_day(dt)
 
         # Calculate Ayanamsa (precession offset for Lahiri)
@@ -832,8 +911,14 @@ class AstrologicalCalculator:
                     "degree": cl % 30,
                     "formatted": f"{rashis[cr]} {cl % 30:.2f}°",
                 }
-            except Exception:
-                pass
+            except swe.Error as exc:
+                # Same missing-asteroid-ephemeris case as the Western path:
+                # logged, table stays pure, reported via "unavailable_bodies".
+                logger.debug("Vedic Chiron unavailable: %s", exc)
+
+        unavailable_bodies: dict[str, str] = {}
+        if chiron_id is not None and "chiron" not in sidereal_positions:
+            unavailable_bodies["chiron"] = "ephemeris file missing or unreadable"
 
         # Add Ketu (opposite Rahu)
         if "rahu" in sidereal_positions:
@@ -988,17 +1073,20 @@ class AstrologicalCalculator:
             cycle_idx = (karana_num - 2) % 7
             karana_name = karana_names[cycle_idx]
 
-        # 5. Vara (Solar day starting at sunrise)
+        # 5. Vara (the solar day, which starts at sunrise)
+        # The Vedic day runs sunrise to sunrise, so the vara of an instant is
+        # the weekday of the LOCAL CIVIL DATE of the most recent sunrise at or
+        # before it. calculate_auspicious_times starts its rise_trans AT the
+        # instant and so returns the NEXT sunrise, which made every
+        # post-sunrise instant fall back to the previous weekday.
         local_date = dt
-        sunrise_today = None
+        vara_idx = local_date.weekday()
         if location:
-            times = self.calculate_auspicious_times(local_date, location)
-            sunrise_today = times.get("sunrise")
-
-        if sunrise_today and local_date < sunrise_today:
-            vara_idx = (local_date.weekday() - 1) % 7
-        else:
-            vara_idx = local_date.weekday()
+            sunrise_started = self._latest_sunrise_before(local_date, location)
+            if sunrise_started is not None:
+                vara_idx = sunrise_started.weekday()
+            # With no sunrise in the window (polar day or polar night) there
+            # is no solar day to use, so the instant's own civil date stands.
 
         vara_names = [
             "Somavara (Monday)",
@@ -1012,6 +1100,8 @@ class AstrologicalCalculator:
         vara_name = vara_names[vara_idx]
 
         return {
+            "naive_datetime_assumed_utc": naive_datetime_assumed_utc,
+            "unavailable_bodies": unavailable_bodies,
             "ayanamsa": ayanamsa,
             "sidereal_positions": sidereal_positions,
             "panchanga": {
@@ -1548,6 +1638,7 @@ class AstrologicalCalculator:
         Returns:
             dict: ``{datetime, location, western, indian, chinese, planetary_hours}``
         """
+        input_was_naive = dt is not None and dt.tzinfo is None
         if dt is None:
             dt = datetime.now(pytz.UTC)
         if dt.tzinfo is None:
@@ -1558,6 +1649,10 @@ class AstrologicalCalculator:
 
         western = self.get_western_astrology(dt, loc)
         indian = self.get_indian_astrology(dt, loc)
+        if input_was_naive:
+            # The caller's datetime was naive; get_indian_astrology only sees
+            # the localised copy and would report False. Preserve provenance.
+            indian["naive_datetime_assumed_utc"] = True
         chinese = self.get_chinese_astrology(dt)
         planetary_hours = self.calculate_exact_planetary_hours(dt, loc)
 
@@ -1736,18 +1831,21 @@ class AstrologicalCalculator:
                     if abs(distance - asp["angle"]) <= asp["orb"]:
                         exactness = 1.0 - (abs(distance - asp["angle"]) / asp["orb"])
                         orb = abs(distance - asp["angle"])
-                        # applying/separating: transit planet gaining on the
-                        # exact aspect angle vs the natal target.
+                        # applying/separating: delegated to core.astro.aspects.
+                        # The old inline test measured the offset from the
+                        # CONJUNCTION rather than from the aspect angle, and
+                        # subtracted the natal body's birth-time speed even though a
+                        # natal point is static for the whole transit day.
                         t_speed = t_pos.get("speed")
                         n_speed = n_pos.get("speed")
                         applying = None
-                        if isinstance(t_speed, int | float) and isinstance(n_speed, int | float):
-                            signed_delta = self._angular_delta_signed(t_lon, n_lon)
-                            d_sep_dt = t_speed - n_speed
-                            if signed_delta >= 0:
-                                applying = d_sep_dt < 0
-                            else:
-                                applying = d_sep_dt > 0
+                        # A speed that is not a usable number (None, a bool, a string,
+                        # NaN, inf) is treated as "this body has no speed", so one bad
+                        # field cannot raise through a whole chart.
+                        if is_usable_speed(t_speed) and is_usable_speed(n_speed):
+                            applying = aspect_state(
+                                t_lon, t_speed, n_lon, n_speed, asp["angle"], static_target=True
+                            ).applying
                         aspects.append(
                             {
                                 "transit_planet": t_name,
@@ -1790,7 +1888,18 @@ class AstrologicalCalculator:
         return gochara
 
     def calculate_vimshottari_dasha(self, birth_dt: datetime, location: tuple[float, float]) -> list[dict]:
-        """Calculate Vimshottari Dasha periods for a birth chart."""
+        """Calculate Vimshottari Dasha periods for a birth chart.
+
+        The birth instant is normalised to UTC first (the Moon is computed
+        for the UTC instant under the naive == UTC policy), so every period
+        endpoint is an absolute UTC instant carrying an explicit offset:
+        ``timedelta(days=...)`` then adds absolute days, not wall days, and
+        DST transitions in a caller's local zone cannot shift the endpoints.
+        """
+        if birth_dt.tzinfo is None:
+            birth_dt = pytz.UTC.localize(birth_dt)
+        else:
+            birth_dt = birth_dt.astimezone(pytz.UTC)
         vedic = self.get_indian_astrology(birth_dt, location)
         moon_lon = vedic["sidereal_positions"]["moon"]["longitude"]
 
@@ -3115,10 +3224,12 @@ class AstrologicalCalculator:
         """Internal natal-to-natal aspects with applying/separating flag.
 
         ``applying`` is computed from the planets' geocentric angular speeds
-        (``speed`` field from :meth:`get_planetary_positions`): if the faster
-        body is closing the angular gap toward the exact aspect angle, the
-        aspect is applying; otherwise it is separating. For pairs where one
-        body has no speed (e.g. angles), ``applying`` is ``None``.
+        (``speed`` field from :meth:`get_planetary_positions`): the aspect is
+        applying when the ORB is closing - the two bodies are moving towards
+        the exact aspect angle at their relative speed. It is not about which
+        body is faster; it is about the distance to the exact angle. For pairs
+        where one body has no usable speed (e.g. angles, or a speed that is not
+        a finite number), ``applying`` is ``None``.
 
         Args:
             dt: Datetime for the chart.
@@ -3159,15 +3270,14 @@ class AstrologicalCalculator:
                     orb = abs(distance - asp["angle"])
                     if orb <= asp["orb"]:
                         applying = None
-                        if isinstance(speed1, int | float) and isinstance(speed2, int | float):
-                            # d_sep_dt = rate of change of (lon2 - lon1).
-                            # Gap |signed_delta| shrinks when d_sep_dt has
-                            # the opposite sign to signed_delta.
-                            d_sep_dt = speed2 - speed1
-                            if signed_delta >= 0:
-                                applying = d_sep_dt < 0
-                            else:
-                                applying = d_sep_dt > 0
+                        # A speed that is not a usable number (None, a bool, a string,
+                        # NaN, inf) is treated as "this body has no speed".
+                        if is_usable_speed(speed1) and is_usable_speed(speed2):
+                            # Both natal bodies are in motion, so static_target is NOT
+                            # forced here: the separation really does change at the
+                            # relative speed. The old inline test measured the sign from
+                            # the CONJUNCTION rather than from the aspect angle.
+                            applying = aspect_state(lon1, speed1, lon2, speed2, asp["angle"]).applying
                         aspects.append(
                             {
                                 "planet_a": p1,

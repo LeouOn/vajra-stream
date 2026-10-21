@@ -21,12 +21,15 @@ Exports:
 """
 
 import json
+import logging
 import os
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from core.llm.defaults import NEMOTRON_FREE_MODEL_ID
+
+logger = logging.getLogger(__name__)
 
 # Attempt imports for local services, degraded gracefully if missing
 try:
@@ -385,12 +388,24 @@ class OutlookGenerator:
         natal_dt: datetime | None = None,
         natal_location: tuple[float, float] | None = None,
     ) -> str:
+        """Build the plain-text cosmic weather block.
+
+        Time contract for ``date``: ``None`` uses an aware UTC now;
+        an aware datetime is converted to UTC; a NAIVE datetime is passed
+        through unchanged and the astro engine's documented policy applies
+        (naive == UTC). No local timezone is ever guessed here.
+        """
         if not self.astro_engine:
             return "Astrological alignment: The stars dance in unknown but auspicious patterns."
         if not hasattr(self.astro_engine, "calculate_chart"):
             return "Astrological alignment: The celestial calculator is currently unavailable."
         try:
-            target_date = date or datetime.now()
+            if date is None:
+                target_date = datetime.now(timezone.utc)
+            elif date.tzinfo is not None:
+                target_date = date.astimezone(timezone.utc)
+            else:
+                target_date = date  # naive: engine policy treats it as UTC
             chart = self.astro_engine.calculate_chart(target_date, lat, lon)
             western = chart.get("western", {})
             positions = western.get("positions", {})
@@ -546,7 +561,7 @@ class OutlookGenerator:
                             f"Vimshottari Dasha: {current.get('ruler', '?')} period (started {current.get('start', '?')[:10] if current.get('start') else '?'})"
                         )
             except Exception:
-                pass
+                logger.debug("Vimshottari dasha unavailable for cosmic weather", exc_info=True)
 
             # --- Gochara (Vedic transit houses) ---
             try:
@@ -563,7 +578,7 @@ class OutlookGenerator:
                         if gochara_lines:
                             lines.append("Gochara (Transit Houses from Moon):\n" + "\n".join(gochara_lines))
             except Exception:
-                pass
+                logger.debug("Gochara unavailable for cosmic weather", exc_info=True)
 
             # --- Local Time ---
             try:
@@ -837,7 +852,7 @@ Generated Ritual:
         dom_elem = None
         if self.astro_engine and hasattr(self.astro_engine, "calculate_chart"):
             try:
-                _chart = self.astro_engine.calculate_chart(date or datetime.now(), lat, lon)
+                _chart = self.astro_engine.calculate_chart(date or datetime.now(timezone.utc), lat, lon)
                 _western = _chart.get("western") or {}
                 dom_elem = _western.get("dominant_element") or None
             except Exception:
@@ -1076,7 +1091,7 @@ CRITICAL: When reciting mantras and dharanis, include the FULL text — never ab
         dom_elem = None
         if self.astro_engine and hasattr(self.astro_engine, "calculate_chart"):
             try:
-                _chart = self.astro_engine.calculate_chart(date or datetime.now(), lat, lon)
+                _chart = self.astro_engine.calculate_chart(date or datetime.now(timezone.utc), lat, lon)
                 _western = _chart.get("western") or {}
                 dom_elem = _western.get("dominant_element") or None
             except Exception:
