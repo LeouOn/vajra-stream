@@ -189,7 +189,9 @@ def test_eight_threads_with_room_for_three_admit_exactly_three(
 def test_the_service_owns_a_threading_lock_not_an_asyncio_lock() -> None:
     """The lock must be a threading.Lock: an asyncio.Lock is per-loop."""
     service = _service()
-    assert isinstance(service._spend_lock, threading.Lock)
+    # threading.Lock is a factory function before Python 3.13, so isinstance
+    # needs the concrete lock type.
+    assert isinstance(service._spend_lock, type(threading.Lock()))
     assert not isinstance(service._spend_lock, asyncio.Lock)
 
 
