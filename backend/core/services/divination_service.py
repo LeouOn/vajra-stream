@@ -324,7 +324,10 @@ class DivinationService:
         """
         cards = self.draw_tarot(count=count, seed=seed)
         positions = SPREAD_POSITIONS.get(count, [])
-        is_custom = count not in SPREAD_POSITIONS
+        # An EMPTY draw has no layout at all, so it is not a custom one: there
+        # is nothing to be custom about. The flag is for a draw that has cards
+        # but whose size the product has no name for.
+        is_custom = len(cards) >= 1 and count not in SPREAD_POSITIONS
         spread = [dict(p) for p in positions]
         if is_custom:
             # The same generic positions the cards carry, so the envelope is

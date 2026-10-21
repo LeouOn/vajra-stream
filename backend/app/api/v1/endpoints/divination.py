@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from backend.core.services.divination_service import SPREAD_POSITIONS, divination_service
+from backend.core.services.divination_service import divination_service
 from backend.core.services.grimoire_service import grimoire_service
 from core.provenance import COMPUTED, DRAW
 
@@ -30,15 +30,26 @@ class InterpretRequest(BaseModel):
 async def draw_tarot(payload: DrawTarotRequest):
     """Draw Tarot cards (1, 3, or 10 Celtic Cross)"""
     try:
-        cards = divination_service.draw_tarot(payload.count)
-        return {
+        # Use the service's envelope so the response's `spread` always agrees
+        # with the `position` on the cards beside it. This route used to build
+        # `spread` straight from SPREAD_POSITIONS, so for an unnamed size the
+        # HTTP response carried `spread: []` while every card in the same
+        # response carried a position.
+        envelope = divination_service.draw_tarot_spread(payload.count)
+        response: dict[str, Any] = {
             "status": "success",
-            "cards": cards,
-            "count": len(cards),
-            "spread": [dict(p) for p in SPREAD_POSITIONS.get(payload.count, [])],
+            "cards": envelope["cards"],
+            "count": envelope["count"],
+            "spread": envelope["spread"],
             "timestamp": time.time(),
             "provenance": {"cards": DRAW},
         }
+        # The custom-layout marker is present only when the service put it
+        # there, i.e. for an unnamed size with at least one card. The named
+        # layouts (1, 3, 5, 10) keep their exact existing key set.
+        if "is_custom_layout" in envelope:
+            response["is_custom_layout"] = envelope["is_custom_layout"]
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

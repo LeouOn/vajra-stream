@@ -174,17 +174,50 @@ def test_seeded_cast_matches_the_independent_oracle(service: DivinationService) 
             assert result["figures"][name]["pattern"] == pattern, f"seed {seed}, {name}"
 
 
-def test_derivation_matches_the_oracle_over_4000_casts(
-    service: DivinationService, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The audit's 4 000-cast oracle comparison, as a permanent test.
+def _inactive_autouse_guards() -> list[str]:
+    """Which of the conftest's autouse guards are no longer in place.
+
+    The conftest patches ``LLMUsageTracker.record`` and ``os.system`` through
+    the per-test ``monkeypatch`` fixture. A test that calls
+    ``monkeypatch.undo()`` throws those away for the REST of the test, so a
+    real external LLM call or a real audio player would go unnoticed. Both
+    guards are named functions, so they can be identified by name.
+    """
+    import os
+
+    from core.llm.usage import LLMUsageTracker
+
+    problems: list[str] = []
+    if getattr(LLMUsageTracker.record, "__name__", "") != "guarded_record":
+        problems.append(
+            "the autouse LLM-spend guard is gone: core.llm.usage.LLMUsageTracker.record "
+            "is no longer the guarded one, so a real external LLM call would go unrecorded"
+        )
+    if os.environ.get("VAJRA_TEST_AUDIO") != "1":
+        # The conftest's guard sets this name on the patched function.
+        if getattr(os.system, "__name__", "") != "stub_os_system_players":
+            problems.append(
+                "the autouse audio guard is gone: os.system is no longer the guarded one, "
+                "so a test could reach the speakers"
+            )
+    return problems
+
+
+def _assert_derivation_matches_oracle(service: DivinationService, casts: int, seed: int = 20261021) -> None:
+    """Compare the service's derivation with the oracle over ``casts`` casts.
 
     The Mothers are forced through the ``secrets`` seam so that the comparison
-    is over the DERIVATION and not over the RNG. The figures the service
-    computes are checked against the oracle's, one field at a time.
+    is over the DERIVATION and not over the RNG.
+
+    The seam is patched with a NESTED ``pytest.MonkeyPatch.context()``, not the
+    test's own ``monkeypatch`` fixture. Calling ``monkeypatch.undo()`` would
+    revert EVERY patch the test has active -- including the conftest's autouse
+    audio and LLM-spend guards, which are installed through that same
+    fixture. A nested context reverts only its own change and leaves the rest
+    of the test's patches alone.
     """
-    rng = random.Random(20261021)
-    for _ in range(4000):
+    rng = random.Random(seed)
+    for _ in range(casts):
         mothers = [[rng.choice((1, 2)) for _ in range(4)] for _ in range(4)]
         lines = [0 if v == 1 else 1 for figure in mothers for v in figure]
         counter = {"n": 0}
@@ -194,9 +227,10 @@ def test_derivation_matches_the_oracle_over_4000_casts(
             _counter["n"] += 1
             return _lines[index]
 
-        monkeypatch.setattr(ds.secrets, "randbelow", fake_randbelow)
-        result = service.cast_geomancy()
-        monkeypatch.undo()
+        # A NESTED context: it reverts only this patch when the block ends.
+        with pytest.MonkeyPatch.context() as seam:
+            seam.setattr(ds.secrets, "randbelow", fake_randbelow)
+            result = service.cast_geomancy()
 
         expected = oracle_figures(mothers)
         for name, pattern in expected.items():
@@ -219,6 +253,36 @@ def test_derivation_matches_the_oracle_over_4000_casts(
 
         # the Reconciler is the Judge plus the figure in House 1
         assert result["figures"]["Reconciler"]["pattern"] == _add(expected["Judge"], expected["Mother 1"])
+
+
+def test_derivation_matches_the_oracle_over_4000_casts(service: DivinationService) -> None:
+    """The audit's 4 000-cast oracle comparison, as a permanent test.
+
+    The figures the service computes are checked against the oracle's, one
+    field at a time: all 15 figures, the 12-house projection, the Judge's even
+    point count, the Reconciler, and that no figure comes back "Unknown".
+    """
+    _assert_derivation_matches_oracle(service, 4000)
+
+    # The autouse guards must STILL be active after the loop. They are
+    # installed through the same monkeypatch fixture the seam used to touch,
+    # so this is the check that the seam did not take them down with it.
+    problems = _inactive_autouse_guards()
+    assert not problems, "\n".join(problems)
+
+
+def test_the_derivation_check_passes_twice_in_one_process(service: DivinationService) -> None:
+    """Running the comparison twice in one process must give the same result.
+
+    A previous version of this test called ``monkeypatch.undo()`` inside the
+    loop, which dropped the autouse guards for the rest of the test; the
+    nested context fixes that, and this test is the regression guard.
+    """
+    _assert_derivation_matches_oracle(service, 40)
+    _assert_derivation_matches_oracle(service, 40)
+
+    problems = _inactive_autouse_guards()
+    assert not problems, "\n".join(problems)
 
 
 def test_every_figure_gets_a_name(service: DivinationService) -> None:

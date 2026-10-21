@@ -126,3 +126,84 @@ def test_zero_cards_get_no_positions(service: DivinationService) -> None:
     result = service.draw_tarot_spread(count=0, seed=11)
     assert result["count"] == 0
     assert result["spread"] == []
+
+
+# ---------------------------------------------------------------------------
+# GEO-2b (1): the HTTP envelope must agree with the cards it carries
+# ---------------------------------------------------------------------------
+#
+# The route built its own envelope and filled ``spread`` straight from
+# SPREAD_POSITIONS, so for an unnamed size the HTTP response had
+# ``spread: []`` while every card in the same response carried a position.
+# The service's draw_tarot_spread() already got this right; the route did not
+# use it.
+
+
+async def test_http_tarot_draw_envelope_fills_the_spread_for_an_unnamed_size() -> None:
+    """The route and the service must say the same thing."""
+    from backend.app.api.v1.endpoints.divination import DrawTarotRequest, draw_tarot
+
+    response = await draw_tarot(DrawTarotRequest(count=2))
+
+    assert response["count"] == 2
+    assert len(response["spread"]) == 2, f"the envelope spread is {response['spread']}"
+    assert response["spread"][0]["name"] == "Card 1"
+    assert response["spread"][1]["name"] == "Card 2"
+    # and it agrees with the positions on the cards themselves
+    for index, card in enumerate(response["cards"]):
+        assert card["position"]["name"] == response["spread"][index]["name"]
+        assert card["position"]["id"] == response["spread"][index]["id"]
+
+
+async def test_http_tarot_draw_named_layouts_keep_their_exact_key_set() -> None:
+    """The named layouts must not gain or lose a key."""
+    from backend.app.api.v1.endpoints.divination import DrawTarotRequest, draw_tarot
+
+    for count in (1, 3, 5, 10):
+        response = await draw_tarot(DrawTarotRequest(count=count))
+        assert set(response.keys()) == {
+            "status",
+            "cards",
+            "count",
+            "spread",
+            "timestamp",
+            "provenance",
+        }, f"count={count} changed the envelope keys"
+        assert len(response["spread"]) == count
+        assert response["spread"][0]["name"] != "Card 1", "a named layout must keep its own names"
+
+
+async def test_http_tarot_draw_matches_the_service_envelope() -> None:
+    """The route and draw_tarot_spread must produce the same cards and spread."""
+    from backend.app.api.v1.endpoints.divination import DrawTarotRequest, draw_tarot
+    from backend.core.services.divination_service import divination_service
+
+    response = await draw_tarot(DrawTarotRequest(count=7))
+    service = divination_service.draw_tarot_spread(count=7)
+
+    assert [p["name"] for p in response["spread"]] == [p["name"] for p in service["spread"]]
+    assert response["count"] == service["count"]
+
+
+# ---------------------------------------------------------------------------
+# GEO-2b (2): an EMPTY draw has no layout, so it is not a custom one
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("count", [0, -1, -5])
+def test_an_empty_draw_is_not_marked_as_a_custom_layout(service: DivinationService, count: int) -> None:
+    """A zero-card draw has no layout to be custom about."""
+    result = service.draw_tarot_spread(count=count, seed=1)
+
+    assert result["count"] == 0
+    assert result["spread"] == []
+    assert "is_custom_layout" not in result, "an empty draw must not be flagged as custom"
+
+
+def test_a_non_empty_unnamed_draw_is_still_marked_custom(service: DivinationService) -> None:
+    """The flag must survive for the case it is actually for."""
+    result = service.draw_tarot_spread(count=2, seed=1)
+
+    assert result["count"] == 2
+    assert result["is_custom_layout"] is True
+    assert len(result["spread"]) == 2
