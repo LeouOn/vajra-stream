@@ -779,18 +779,18 @@ class AstrologicalCalculator:
         return (moment_utc + timedelta(hours=lon / 15.0)).weekday()
 
     def _jd_to_utc(self, jd: float | None) -> datetime | None:
-        """A Julian day as a timezone-aware UTC datetime, or None."""
+        """A Julian day as a timezone-aware UTC datetime, or None.
+
+        The SECONDS are kept: truncating to the minute is fine for a weekday
+        but an hour boundary has to be placed to the second, or the slices
+        would not tile the solar day. The full precision of the Julian day is
+        kept rather than rounded, so an hour boundary is never truncated
+        either.
+        """
         if jd is None:
             return None
         result = swe.revjul(jd)
-        return datetime(
-            result[0],
-            result[1],
-            result[2],
-            int(result[3]),
-            int((result[3] % 1) * 60),
-            tzinfo=pytz.UTC,
-        )
+        return datetime(result[0], result[1], result[2], tzinfo=pytz.UTC) + timedelta(seconds=result[3] * 3600.0)
 
     def _next_sun_event_jd(self, jd: float, flag: int, lon: float, lat: float) -> float | None:
         """The Julian day of the next rise or set after ``jd``, or None."""
@@ -799,23 +799,55 @@ class AstrologicalCalculator:
             return None
         return result[1][0]
 
-    def _previous_sun_event_jd(self, jd: float, flag: int, lon: float, lat: float) -> float | None:
-        """The Julian day of the last rise or set at or before ``jd``, or None.
+    def _chained_sun_events(
+        self, jd: float, flag: int, lon: float, lat: float, back: float = 2.5, forward: float = 2.5
+    ) -> list[float]:
+        """The rise or set events around a Julian day, in order.
 
-        ``swe.rise_trans`` only ever looks FORWARD, so this starts a couple of
-        days back and steps through the events it finds, keeping the last one
-        that is not after the instant. None is returned when there is no such
-        event at all, which is what happens in polar day and polar night.
+        The search is CHAINED: start before the instant, then search again from
+        just after each event found. A single forward search can step OVER an
+        event that is only minutes away - ``swe.rise_trans`` started a few
+        minutes before a sunrise skips it - and that only ever happens on the
+        FIRST search of a chain. A search started just after a found event
+        cannot step over anything, because the next event of that kind is about
+        a day away.
+
+        Events are NOT put into UT days. When an event's time of day drifts
+        earlier across midnight, two of them land in the same UT day, and
+        keeping only one of them drops an event the solar day needs - which
+        loses a sunset or a sunrise the surrounding day is built from.
         """
-        search = jd - 2.0
-        latest: float | None = None
-        for _ in range(8):
-            found = self._next_sun_event_jd(search, flag, lon, lat)
-            if found is None or found > jd:
+        events: list[float] = []
+        start = jd - back
+        end = jd + forward
+        while len(events) < 12:
+            event = self._next_sun_event_jd(start, flag, lon, lat)
+            if event is None or event > end:
                 break
-            latest = found
-            search = found + 1e-6
-        return latest
+            if not events or event > events[-1]:
+                events.append(event)
+            start = event + 0.01
+        return events
+
+    def _solar_day_bounds(self, jd: float, lon: float, lat: float) -> tuple[float, float, float] | None:
+        """The opening rise, the sunset and the closing rise of the solar day.
+
+        The solar day runs from the rise at or before the instant to the next
+        rise, and contains the FIRST set after that opening rise. None is
+        returned when the events do not exist (polar day or night) or when the
+        day is degenerate.
+        """
+        rises = self._chained_sun_events(jd, swe.CALC_RISE, lon, lat)
+        sets = self._chained_sun_events(jd, swe.CALC_SET, lon, lat)
+        opening = max((rise for rise in rises if rise <= jd), default=None)
+        closing = min((rise for rise in rises if rise > jd), default=None)
+        if opening is None or closing is None:
+            return None
+        after = [setting for setting in sets if setting > opening]
+        sunset = min(after) if after else None
+        if sunset is None or not (opening < sunset < closing):
+            return None
+        return opening, sunset, closing
 
     def _latest_sunrise_before(self, dt: datetime, location: tuple[float, float]) -> datetime | None:
         """The most recent sunrise at or before ``dt``, as a UTC instant, or None.
@@ -835,7 +867,11 @@ class AstrologicalCalculator:
         """
         lat, lon = location
         jd = self.get_julian_day(dt)
-        return self._jd_to_utc(self._previous_sun_event_jd(jd, swe.CALC_RISE, lon, lat))
+        bounds = self._solar_day_bounds(jd, lon, lat)
+        if bounds is not None:
+            return self._jd_to_utc(bounds[0])
+        rises = self._chained_sun_events(jd, swe.CALC_RISE, lon, lat)
+        return self._jd_to_utc(max((r for r in rises if r <= jd), default=None))
 
     def _sun_events_around(self, dt: datetime, location: tuple[float, float]) -> dict[str, datetime | None]:
         """The sun events around ``dt``, as UTC instants.
@@ -848,11 +884,107 @@ class AstrologicalCalculator:
         """
         lat, lon = location
         jd = self.get_julian_day(dt)
+        bounds = self._solar_day_bounds(jd, lon, lat)
+        rises = self._chained_sun_events(jd, swe.CALC_RISE, lon, lat)
+        sets = self._chained_sun_events(jd, swe.CALC_SET, lon, lat)
+        if bounds is not None:
+            opening, sunset, closing = bounds
+        else:
+            opening = max((r for r in rises if r <= jd), default=None)
+            closing = min((r for r in rises if r > jd), default=None)
+            after = [x for x in sets if opening is not None and x > opening]
+            sunset = min(after) if after else None
         return {
-            "previous_sunrise": self._jd_to_utc(self._previous_sun_event_jd(jd, swe.CALC_RISE, lon, lat)),
-            "next_sunrise": self._jd_to_utc(self._next_sun_event_jd(jd, swe.CALC_RISE, lon, lat)),
-            "previous_sunset": self._jd_to_utc(self._previous_sun_event_jd(jd, swe.CALC_SET, lon, lat)),
-            "next_sunset": self._jd_to_utc(self._next_sun_event_jd(jd, swe.CALC_SET, lon, lat)),
+            "previous_sunrise": self._jd_to_utc(opening),
+            "sunset": self._jd_to_utc(sunset),
+            "next_sunrise": self._jd_to_utc(closing),
+            "previous_sunset": self._jd_to_utc(max((s for s in sets if s <= jd), default=None)),
+            "next_sunset": self._jd_to_utc(min((s for s in sets if s > jd), default=None)),
+        }
+
+    def _solar_day(self, dt: datetime, location: tuple[float, float]) -> dict | None:
+        """The solar day containing ``dt``, with its hour boundaries.
+
+        A solar day runs from sunrise to sunrise. Its DAY part (sunrise to
+        sunset) is twelve equal hours and its NIGHT part (sunset to the next
+        sunrise) is twelve equal hours.
+
+        The day ruler is the VARA: the weekday of the local mean solar date
+        of the sunrise that began the solar day, so an instant after local
+        midnight but before sunrise belongs to the PREVIOUS day's ruler.
+
+        Returns None when the events do not exist (polar day or night) or
+        when the day is degenerate (a sunset at or after the next sunrise).
+        """
+        lat, lon = location
+        jd = self.get_julian_day(dt)
+        bounds = self._solar_day_bounds(jd, lon, lat)
+        if bounds is None:
+            return None
+        sunrise_jd, sunset_jd, next_sunrise_jd = bounds
+        sunrise = self._jd_to_utc(sunrise_jd)
+        sunset = self._jd_to_utc(sunset_jd)
+        next_sunrise = self._jd_to_utc(next_sunrise_jd)
+        if sunrise is None or sunset is None or next_sunrise is None:
+            return None
+
+        moment = self._as_utc(dt)
+        is_daytime = sunrise <= moment < sunset
+        day_ruler = self.WEEKDAY_RULERS[self._local_mean_solar_weekday(sunrise, lon)]
+        start_ruler_idx = self.CHALDEAN_ORDER.index(day_ruler)
+        day_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + i) % 7] for i in range(12)]
+        night_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + 12 + i) % 7] for i in range(12)]
+
+        if is_daytime:
+            unit = (sunset - sunrise) / 12
+            index = min(max(int((moment - sunrise) / unit), 0), 11)
+            start = sunrise + unit * index
+            end = sunrise + unit * (index + 1)
+        else:
+            unit = (next_sunrise - sunset) / 12
+            index = min(max(int((moment - sunset) / unit), 0), 11)
+            start = sunset + unit * index
+            end = sunset + unit * (index + 1)
+
+        return {
+            "sunrise": sunrise,
+            "sunset": sunset,
+            "next_sunrise": next_sunrise,
+            "is_daytime": is_daytime,
+            "day_ruler": day_ruler,
+            "day_rulers": day_rulers,
+            "night_rulers": night_rulers,
+            "hour_index": index + 1,
+            "start_time": start,
+            "end_time": end,
+        }
+
+    def get_solar_day_sun_events(self, dt: datetime, location: tuple[float, float]) -> dict[str, datetime | None]:
+        """The sun events of the solar day containing ``dt``.
+
+        Public so that the timing wheel can build its 24 slices from the same
+        events the planetary hours use. It must not use
+        ``calculate_auspicious_times`` for this: its "sunrise" and "sunset" are
+        the NEXT events after the given instant, which mixes two different
+        days (at San Francisco 2026-10-20 noon it returns the sunrise of the
+        21st and the sunset of the 20th, a negative day length).
+
+        Returns a dict with:
+          "sunrise"      the sunrise that began the solar day
+          "sunset"       the sunset inside that solar day
+          "next_sunrise"  the sunrise that ends it
+        each a timezone-aware datetime, in the same timezone as ``dt`` when it
+        is aware and in UTC otherwise; or None when the event does not exist
+        (polar day or night).
+        """
+        day = self._solar_day(dt, location)
+        if day is None:
+            return {"sunrise": None, "sunset": None, "next_sunrise": None}
+        offset = dt.tzinfo if dt.tzinfo is not None else pytz.UTC
+        return {
+            "sunrise": day["sunrise"].astimezone(offset),
+            "sunset": day["sunset"].astimezone(offset),
+            "next_sunrise": day["next_sunrise"].astimezone(offset),
         }
 
     def get_indian_astrology(self, dt: datetime, location: tuple[float, float] = None) -> dict:
@@ -1507,6 +1639,14 @@ class AstrologicalCalculator:
     def calculate_auspicious_times(self, date: datetime, location: tuple[float, float]) -> dict:
         """Calculate sunrise, sunset, solar noon, and Brahma Muhurta.
 
+        NOTE ON "sunrise" AND "sunset": these are the NEXT events AFTER the
+        given instant, NOT that calendar day's events. For an instant after
+        that day's sunrise the returned "sunrise" is the FOLLOWING day's, while
+        "sunset" may still be the current day's, so the two can come from
+        different days. A caller that needs the events of the day CONTAINING
+        the instant must bracket it instead - see
+        ``get_solar_day_sun_events``.
+
         Brahma Muhurta is the 96-minute period before sunrise, traditionally
         considered the most auspicious time for meditation and spiritual practice.
 
@@ -1559,66 +1699,41 @@ class AstrologicalCalculator:
     def calculate_exact_planetary_hours(self, dt: datetime, location: tuple[float, float]) -> dict:
         """
         Calculate the exact planetary hour based on local sunrise and sunset.
-        Returns the active ruler, remaining time, and full list for the day/night.
-        """
-        times = self.calculate_auspicious_times(dt, location)
-        sunrise = times.get("sunrise")
-        sunset = times.get("sunset")
 
-        if not sunrise or not sunset:
+        A solar day runs from sunrise to sunrise. Its DAY part (sunrise to
+        sunset) is twelve equal hours and its NIGHT part (sunset to the next
+        sunrise) is twelve equal hours; the instant falls in exactly one of
+        them. The day ruler is the VARA - the weekday of the local mean solar
+        date of the sunrise that began the solar day - so an instant after
+        local midnight but before sunrise belongs to the PREVIOUS day's ruler.
+        The hour rulers follow the Chaldean order from that ruler, continuing
+        through the night (the first night hour is the thirteenth).
+
+        The events come from ``_sun_events_around``, which brackets the
+        instant with the surrounding sunrises and sunsets.
+        ``calculate_auspicious_times`` cannot be used for this: its "sunrise"
+        and "sunset" are the NEXT events after the instant, so at San
+        Francisco 2026-10-20 noon it returns the sunrise of the 21st and the
+        sunset of the 20th - two different days, a negative day length, and
+        every daytime hour wrong.
+
+        Returns the polar fallback dict when there is no sunrise or sunset
+        (polar day or night, or a degenerate day).
+        """
+        day = self._solar_day(dt, location)
+        if day is None:
             # Fallback if polar day/night where sunrise/sunset doesn't occur
             return {"current_planetary_hour": "Sun", "is_daytime": True, "description": "Polar day/night fallback"}
 
-        # Determine day of week ruler (traditional weekday begins at sunrise)
-        if dt < sunrise:
-            # Before sunrise, we use previous day's weekday ruler
-            logical_date = dt - timedelta(days=1)
-        else:
-            logical_date = dt
-
-        weekday_idx = logical_date.weekday()  # Monday=0
-        day_ruler = self.WEEKDAY_RULERS[weekday_idx]
-
-        # Determine if it is currently daytime or nighttime
-        is_daytime = sunrise <= dt < sunset
-
-        if is_daytime:
-            # Day hours: split sunrise to sunset into 12 periods
-            hour_duration = (sunset - sunrise) / 12
-            seconds_elapsed = (dt - sunrise).total_seconds()
-            hour_idx = min(int(seconds_elapsed / hour_duration.total_seconds()), 11)
-            time_remaining = (sunrise + hour_duration * (hour_idx + 1)) - dt
-            start_time = sunrise + hour_duration * hour_idx
-            end_time = sunrise + hour_duration * (hour_idx + 1)
-        else:
-            # Night hours: split sunset to next sunrise into 12 periods
-            # Find next sunrise
-            next_day_times = self.calculate_auspicious_times(dt + timedelta(days=1), location)
-            next_sunrise = next_day_times.get("sunrise")
-
-            if dt >= sunset:
-                prev_sunset = sunset
-            else:
-                # Before today's sunrise, night started yesterday
-                prev_day_times = self.calculate_auspicious_times(dt - timedelta(days=1), location)
-                prev_sunset = prev_day_times.get("sunset")
-                next_sunrise = sunrise
-
-            hour_duration = (next_sunrise - prev_sunset) / 12
-            seconds_elapsed = (dt - prev_sunset).total_seconds()
-            hour_idx = min(int(seconds_elapsed / hour_duration.total_seconds()), 11)
-            time_remaining = (prev_sunset + hour_duration * (hour_idx + 1)) - dt
-            start_time = prev_sunset + hour_duration * hour_idx
-            end_time = prev_sunset + hour_duration * (hour_idx + 1)
-
-        # Calculate Chaldean order starting index
-        start_ruler_idx = self.CHALDEAN_ORDER.index(day_ruler)
-
-        # Calculate hourly rulers
-        day_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + i) % 7] for i in range(12)]
-        night_rulers = [self.CHALDEAN_ORDER[(start_ruler_idx + 12 + i) % 7] for i in range(12)]
-
-        current_ruler = day_rulers[hour_idx] if is_daytime else night_rulers[hour_idx]
+        is_daytime = day["is_daytime"]
+        day_ruler = day["day_ruler"]
+        day_rulers = day["day_rulers"]
+        night_rulers = day["night_rulers"]
+        hour_idx = day["hour_index"]
+        start_time = day["start_time"]
+        end_time = day["end_time"]
+        current_ruler = day_rulers[hour_idx - 1] if is_daytime else night_rulers[hour_idx - 1]
+        time_remaining = end_time - self._as_utc(dt)
 
         descriptions = {
             "Sun": "Vitality, consciousness, identity, career and leadership.",
@@ -1630,15 +1745,18 @@ class AstrologicalCalculator:
             "Saturn": "Discipline, structural building, boundaries, karmic meditation.",
         }
 
+        # The boundaries are reported in the caller's timezone when it has one,
+        # which is what callers have always seen.
+        offset = dt.tzinfo if dt.tzinfo is not None else pytz.UTC
         return {
             "status": "success",
             "current_planetary_hour": current_ruler,
             "day_planet": day_ruler,
-            "hour_index": hour_idx + 1,  # 1-12
+            "hour_index": hour_idx,  # 1-12
             "is_daytime": is_daytime,
             "time_remaining_seconds": int(time_remaining.total_seconds()),
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
+            "start_time": start_time.astimezone(offset).isoformat(),
+            "end_time": end_time.astimezone(offset).isoformat(),
             "description": descriptions.get(current_ruler, ""),
             "day_rulers": day_rulers,
             "night_rulers": night_rulers,

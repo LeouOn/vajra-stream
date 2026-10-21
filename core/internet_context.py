@@ -15,7 +15,7 @@ Data sources (all free, no API keys required):
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from xml.etree import ElementTree
 
@@ -269,20 +269,32 @@ def get_planetary_hour(
     """
     Get current planetary hour and day ruler using exact Swiss Ephemeris or Chaldean rotation.
     """
-    now = dt or datetime.now()
+    now = dt or datetime.now(timezone.utc)
     location = coords or DEFAULT_COORDS
+    # The calculator reads a naive datetime as UTC, so hand it an AWARE UTC
+    # instant: a naive host-local now would otherwise be read as a UTC instant,
+    # which is a different moment. The Chaldean fallback below keeps using the
+    # caller's OWN clock, so its behaviour there is unchanged.
+    if now.tzinfo is None:
+        engine_now = now.replace(tzinfo=timezone.utc)
+    else:
+        engine_now = now.astimezone(timezone.utc)
 
     try:
         from core.astrology import AstrologyEngine
 
         engine = AstrologyEngine()
-        res = engine.calculate_exact_planetary_hours(now, location)
+        res = engine.calculate_exact_planetary_hours(engine_now, location)
         current_hour = res.get("current_planetary_hour")
         if current_hour:
-            weekday = now.weekday()
-            day_rulers = ["Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Sun"]
-            day_ruler = day_rulers[weekday]
-            return current_hour, day_ruler
+            # The day ruler is the VARA: the weekday of the local mean solar
+            # date of the sunrise that began the solar day. The engine has
+            # already worked it out; the civil weekday of the instant is not
+            # it, because an instant after local midnight but before sunrise
+            # belongs to the PREVIOUS day.
+            day_ruler = res.get("day_planet")
+            if day_ruler:
+                return current_hour, day_ruler
     except Exception as e:
         logger.debug(f"Exact planetary hour calculation fallback to Chaldean rotation: {e}")
 

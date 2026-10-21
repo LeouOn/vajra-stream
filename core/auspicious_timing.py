@@ -579,29 +579,26 @@ class AuspiciousTiming:
             current_ruler = exact_hours["current_planetary_hour"]
             day_ruler = exact_hours["day_planet"]
 
-            times = self.engine.calculate_auspicious_times(dt, location) if self.engine else {}
-            sunrise = times.get("sunrise") or dt.replace(hour=6, minute=0, second=0, microsecond=0)
-            sunset = times.get("sunset") or dt.replace(hour=18, minute=0, second=0, microsecond=0)
+            # The events of the SOLAR DAY containing the instant, from the same
+            # source the planetary hours use. calculate_auspicious_times cannot
+            # be used here: its "sunrise" and "sunset" are the NEXT events
+            # after the instant, so the 24 slices mixed two different days
+            # (at San Francisco 2026-10-20 noon it returned the sunrise of
+            # the 21st and the sunset of the 20th).
+            sun_events = self.engine.get_solar_day_sun_events(dt, location) if self.engine else {}
+            sunrise = sun_events.get("sunrise")
+            sunset = sun_events.get("sunset")
+            next_sunrise = sun_events.get("next_sunrise")
+            if sunrise is None or sunset is None or next_sunrise is None:
+                # Polar day or night, or a degenerate day: the same hard-coded
+                # 06:00/18:00 estimate the no-engine branch uses.
+                sunrise = dt.replace(hour=6, minute=0, second=0, microsecond=0)
+                sunset = dt.replace(hour=18, minute=0, second=0, microsecond=0)
+                next_sunrise = sunrise + timedelta(days=1)
             day_hour_dur = (sunset - sunrise) / 12
-
-            if dt >= sunset:
-                prev_sunset = sunset
-                next_day_times = (
-                    self.engine.calculate_auspicious_times(dt + timedelta(days=1), location) if self.engine else {}
-                )
-                next_sunrise = next_day_times.get("sunrise") or (sunrise + timedelta(days=1))
-            elif dt < sunrise:
-                prev_day_times = (
-                    self.engine.calculate_auspicious_times(dt - timedelta(days=1), location) if self.engine else {}
-                )
-                prev_sunset = prev_day_times.get("sunset") or (sunset - timedelta(days=1))
-                next_sunrise = sunrise
-            else:
-                prev_sunset = sunset
-                next_day_times = (
-                    self.engine.calculate_auspicious_times(dt + timedelta(days=1), location) if self.engine else {}
-                )
-                next_sunrise = next_day_times.get("sunrise") or (sunrise + timedelta(days=1))
+            # The night part runs from the sunset of this solar day to the
+            # sunrise that ends it, so the two are the same sunset.
+            prev_sunset = sunset
             night_hour_dur = (next_sunrise - prev_sunset) / 12
 
         # 2. Build 24 planetary hour slices
