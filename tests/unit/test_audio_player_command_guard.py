@@ -300,8 +300,9 @@ def test_is_audio_player_command_array_name_prefix_is_correct_passthrough(cmd: s
         # Round 7 pinned these three as INTENDED benign swallows under the old
         # contract. The operator has since adopted dev-check's contract — True
         # means the program really launches — so they are now passthrough pins
-        # in test_is_audio_player_command_fail_capable_prefix_passes_through and
-        # test_is_audio_player_command_readonly_and_path_names_pass_through.
+        # in test_is_audio_player_command_fail_capable_prefix_passes_through;
+        # the readonly/PATH pins moved to the fail-closed side in CI-1b
+        # (test_is_audio_player_command_readonly_and_path_names_fail_closed).
         # Only the syntax-error case below remains a genuine benign swallow: a
         # recognised player token whose LINE cannot run, with no expansion and
         # no special name involved.
@@ -502,13 +503,17 @@ def test_is_audio_player_command_fail_capable_prefix_passes_through(cmd: str) ->
 @pytest.mark.parametrize(
     "cmd",
     [
-        # Names that cannot behave as a plain assignment under BASH: it refuses
-        # to assign its own readonly variables (rc 1), and a PATH override
-        # changes program lookup, so the player is never found. Under dash the
-        # six readonly names ARE ordinary assignments and the player LAUNCHES
-        # — see test_readonly_name_prefix_launches_under_a_dash_like_shell;
-        # the PATH entries behave the same under both shells (lookup fails or
-        # redirects before the player is found).
+        # CI-1b fail-closed: these prefixes are ORDINARY assignments under
+        # dash (Ubuntu CI's /bin/sh) and under bash >= 5.3 normal mode, where
+        # the player really launches (ground truth in
+        # test_readonly_name_prefix_launches_under_a_dash_like_shell), and
+        # 'PATH=$PATH aplay' / 'PATH=<player-dir> aplay' launch on EVERY
+        # shell. Under bash-as-sh the readonly names abort the command before
+        # launch — the swallow there is a benign over-block of the same class
+        # as 'aplay &&': over-blocking can only suppress sound, never cause
+        # it. PATH values are not parsed: an expansion, a relative path or a
+        # dir that exists only on another machine cannot be resolved at guard
+        # time, so a player program word is swallowed whatever PATH says.
         "UID=1 aplay f.wav",
         "EUID=1 aplay f.wav",
         "PPID=1 aplay f.wav",
@@ -517,13 +522,17 @@ def test_is_audio_player_command_fail_capable_prefix_passes_through(cmd: str) ->
         "BASH_VERSINFO=x aplay f.wav",
         "PATH=/nonexistent aplay f.wav",
         "PATH=/usr/bin aplay f.wav",
-        # env applies PATH before it looks the program up, so the same applies.
+        "PATH=$PATH aplay f.wav",
+        "PATH=/usr/bin:/bin aplay f.wav",
+        "PATH= aplay f.wav",
+        # env applies PATH before it looks the program up, so the same class.
         "env PATH=/nonexistent aplay f.wav",
+        "env PATH=/usr/bin aplay f.wav",
     ],
 )
-def test_is_audio_player_command_readonly_and_path_names_pass_through(cmd: str) -> None:
-    """Readonly and PATH assignment names must not be swallowed."""
-    assert conftest._is_audio_player_command(cmd) is False
+def test_is_audio_player_command_readonly_and_path_names_fail_closed(cmd: str) -> None:
+    """Readonly-name and PATH prefixes with a player word are swallowed."""
+    assert conftest._is_audio_player_command(cmd) is True
 
 
 @pytest.mark.parametrize(
@@ -703,17 +712,15 @@ def test_readonly_name_prefix_launches_under_a_dash_like_shell(name: str, tmp_pa
     """Ground truth: under dash, a bash-readonly NAME=VALUE prefix RUNS the program.
 
     bash refuses to assign UID/EUID/PPID/SHELLOPTS/BASHOPTS/BASH_VERSINFO,
-    so 'NAME=1 prog' never launches there — which is why the guard passes
-    those names through (test_is_audio_player_command_readonly_and_path_
-    names_pass_through). dash (Ubuntu CI's /bin/sh) defines no such readonly
-    variables: the prefix is an ordinary assignment and the program LAUNCHES.
-    This pins that per-shell truth with a stand-in, the bash direction of the
-    same truth (which is also this test's built-in RED control: pointed at
-    bash, the dash-side assertion fails), and the guard's CURRENT verdict
-    (False = passthrough) for the same inputs: on a dash system that verdict
-    fails OPEN for this class — a real player would run. Whether the guard
-    should instead swallow these fail-closed is the CI-1 item-3 lead
-    decision; conftest.py is deliberately unchanged in this round.
+    so 'NAME=1 prog' never launches there — and bash >= 5.3 in normal mode
+    prints the error but runs it anyway. dash (Ubuntu CI's /bin/sh) defines
+    no such readonly variables: the prefix is an ordinary assignment and the
+    program LAUNCHES. This pins that per-shell truth with a stand-in, the
+    bash-as-sh direction of the same truth (also this test's built-in RED
+    control: pointed at bash, the dash-side assertion fails), and — since
+    CI-1b adopted the fail-closed decision — the guard's True verdict for
+    the same inputs: truthful on dash and bash-normal, a benign over-block
+    under bash-as-sh.
 
     Never runs a player: the stand-in is an external scratch script and no
     player name is ever passed to a shell.
@@ -759,9 +766,10 @@ def test_readonly_name_prefix_launches_under_a_dash_like_shell(name: str, tmp_pa
         )
         assert "STOOD-IN" not in blocked.stdout, f"bash (as sh) unexpectedly ran the stand-in for {name!r}=1"
 
-    # Pin the guard's CURRENT verdict: False (passthrough). On dash systems
-    # this is fail-open for this class; see the docstring and CI-1 item 3.
-    assert conftest._is_audio_player_command(f"{name}=1 aplay f.wav") is False
+    # Pin the guard's verdict POST CI-1b: True (fail-closed swallow). Under
+    # dash (and bash >= 5.3 normal mode) the program really launches, so this
+    # is the truthful direction; under bash-as-sh it is a benign over-block.
+    assert conftest._is_audio_player_command(f"{name}=1 aplay f.wav") is True
 
 
 @pytest.mark.parametrize(

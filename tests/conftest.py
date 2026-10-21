@@ -695,10 +695,11 @@ def _leading_quoted_words(command: str) -> list[tuple[bool, str]]:
     character inert data, so 'A="x;y" aplay' and 'A=x\\; aplay' stay swallowed.
     Note the two checks mask differently on purpose: an expansion inside DOUBLE
     quotes is still live and is rejected, while a metacharacter inside double
-    quotes is data and is kept. A shell-level assignment naming a bash readonly
-    variable (UID, EUID, PPID, SHELLOPTS, BASHOPTS, BASH_VERSINFO) or PATH is
-    also passthrough, as is a PATH override in an env assignment, because env
-    applies it before looking the program up.
+    quotes is data and is kept. Assignment NAMES are not screened (CI-1b):
+    the bash-readonly names (UID, EUID, PPID, SHELLOPTS, BASHOPTS,
+    BASH_VERSINFO) and PATH are ordinary assignments under dash and under
+    bash >= 5.3 normal mode, so a player program word is swallowed whatever
+    the prefix names — the swallow direction can only suppress sound.
 
     TRADE-OFF, stated plainly: passing these forms through means a player
     command written with one of them is NOT swallowed, and could therefore play
@@ -847,10 +848,12 @@ def _is_audio_player_command(command: str) -> bool:
 
     Known coverage gaps / false negatives (player still runs, helper returns False):
     - UNSUPPORTED PREFIX SYNTAX, passes through. A prefix word carrying a
-      backtick, '$(', a '${...}' that is not a non-failing form, an unquoted
-      shell metacharacter (';' '&' '|' '<' '>' '(' ')'), or a name that is a
-      bash readonly variable or PATH, is not swallowed: the player may run
-      in a test. Ground-truthed and pinned; the leading edge of this class is
+      backtick, '$(', a '${...}' that is not a non-failing form, or an
+      unquoted shell metacharacter (';' '&' '|' '<' '>' '(' ')') is not
+      swallowed: the player may run in a test. (CI-1b removed the former
+      bash-readonly/PATH name screening from this class — those prefixes
+      are now classified like any other assignment, fail-closed.)
+      Ground-truthed and pinned; the leading edge of this class is
       'A=${X:?e} aplay' and the trailing edge is 'RANDOM=1 aplay', which stays
       swallowed. A quoted or escaped metacharacter is data, not an operator, so
       'A="x;y" aplay' and 'A=x\\; aplay' are still swallowed.
@@ -922,8 +925,6 @@ def _is_audio_player_command(command: str) -> bool:
     nohup_prefixes = {"nohup", "/usr/bin/nohup", "/bin/nohup"}
 
     idx = 0
-    shell_blocked_names = frozenset({"UID", "EUID", "PPID", "SHELLOPTS", "BASHOPTS", "BASH_VERSINFO", "PATH"})
-    env_blocked_names = frozenset({"PATH"})
 
     def _is_safe_expansion(inner: str) -> bool:
         """True for ${NAME} and the default forms ${NAME:-lit} / ${NAME-lit} / ..."""
@@ -1038,12 +1039,17 @@ def _is_audio_player_command(command: str) -> bool:
         if dequoted != token:
             return False
     # A shell-level assignment word must also be one whose evaluation cannot
-    # stop the program, and must not name a variable the shell refuses to
-    # assign (bash readonly) or that changes program lookup (PATH).
+    # stop the program. Assignment NAMES are deliberately NOT screened
+    # (CI-1b): the former bash-readonly names (UID, EUID, PPID, SHELLOPTS,
+    # BASHOPTS, BASH_VERSINFO) and PATH are ordinary assignments under dash
+    # (Ubuntu CI's /bin/sh) and under bash >= 5.3 in normal mode, where the
+    # program really launches, so screening them failed OPEN. They are now
+    # classified like any other assignment — fail-closed: a player program
+    # word is swallowed whatever the prefix names, accepting that under
+    # bash-as-sh (where the readonly assignment aborts) the swallow is a
+    # benign over-block of the same class as 'aplay &&'.
     while idx < len(tokens) and leading_words[idx][0]:
-        raw_word = leading_words[idx][2]
-        shell_name, _shell_sep, _shell_value = raw_word.partition("=")
-        if shell_name in shell_blocked_names or not _prefix_can_launch(raw_word):
+        if not _prefix_can_launch(leading_words[idx][2]):
             return False
         idx += 1
 
@@ -1075,7 +1081,7 @@ def _is_audio_player_command(command: str) -> bool:
                         name, sep, _ = tokens[idx].partition("=")
                         if not (sep and name.isascii() and name.isidentifier()):
                             break
-                        if name in env_blocked_names or not _prefix_can_launch(leading_words[idx][2]):
+                        if not _prefix_can_launch(leading_words[idx][2]):
                             return False
                         idx += 1
                     break
@@ -1099,10 +1105,14 @@ def _is_audio_player_command(command: str) -> bool:
                 continue
             name, sep, _ = tok.partition("=")
             if sep and name.isascii() and name.isidentifier():
-                # env applies the assignment before it looks the program up, so
-                # a PATH override or a fail-capable expansion in an env
-                # assignment word can stop the launch just as at shell level.
-                if name in env_blocked_names or not _prefix_can_launch(leading_words[idx][2]):
+                # env applies the assignment before it looks the program up,
+                # so a fail-capable expansion in an env assignment word can
+                # stop the launch just as at shell level. PATH is NOT screened
+                # (CI-1b): 'env PATH=$PATH aplay' and 'env PATH=<dir> aplay'
+                # launch on every shell, so a player program word is
+                # swallowed whatever PATH says — over-blocking only
+                # suppresses sound.
+                if not _prefix_can_launch(leading_words[idx][2]):
                     return False
                 idx += 1
                 saw_assignment = True
