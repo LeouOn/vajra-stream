@@ -25,6 +25,8 @@ async def test_autonomous_agent_event_reaction(monkeypatch: pytest.MonkeyPatch):
     # The agent calls a PAID LLM, so it is opt-in and OFF by default. This
     # test exercises the reasoning path, so it opts in explicitly.
     monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT", "1")
+    # This test pins today's acting chat call. Observe-only does not use it.
+    monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT_ACTIONS", "1")
 
     bus = EnhancedEventBus()
     _agent = AutonomousAgent(event_bus=bus)

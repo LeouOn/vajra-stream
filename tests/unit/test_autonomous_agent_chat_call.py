@@ -98,6 +98,8 @@ async def test_agent_chat_call_uses_the_right_arity(monkeypatch: pytest.MonkeyPa
     """
     from backend.app.api.v1.endpoints import llm as llm_module
 
+    # This test pins today's acting chat call. Observe-only does not use it.
+    monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT_ACTIONS", "1")
     fake_chat = RecordingChat()
     monkeypatch.setattr(llm_module, "chat_interaction", fake_chat)
 
@@ -120,6 +122,8 @@ async def test_agent_publishes_its_thought_when_the_call_succeeds(
     """A working chat call means the thought is produced and broadcast."""
     from backend.app.api.v1.endpoints import llm as llm_module
 
+    # This test pins today's acting chat call. Observe-only does not use it.
+    monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT_ACTIONS", "1")
     monkeypatch.setattr(llm_module, "chat_interaction", RecordingChat())
 
     bus = RecordingEventBus()
@@ -143,6 +147,8 @@ async def test_agent_without_a_registry_still_calls_with_the_right_arity(
     """
     from backend.app.api.v1.endpoints import llm as llm_module
 
+    # This test pins today's acting chat call. Observe-only does not use it.
+    monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT_ACTIONS", "1")
     fake_chat = RecordingChat()
     monkeypatch.setattr(llm_module, "chat_interaction", fake_chat)
 
@@ -267,6 +273,8 @@ async def test_enabled_agent_makes_at_most_one_call_per_interval(monkeypatch: py
     from backend.app.api.v1.endpoints import llm as llm_module
 
     monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT", "1")
+    # This test pins today's acting chat call. Observe-only does not use it.
+    monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT_ACTIONS", "1")
     fake_chat = RecordingChat()
     monkeypatch.setattr(llm_module, "chat_interaction", fake_chat)
 
@@ -286,6 +294,8 @@ async def test_enabled_agent_calls_once_per_event_type(monkeypatch: pytest.Monke
     from backend.app.api.v1.endpoints import llm as llm_module
 
     monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT", "1")
+    # This test pins today's acting chat call. Observe-only does not use it.
+    monkeypatch.setenv("VAJRA_AUTONOMOUS_AGENT_ACTIONS", "1")
     fake_chat = RecordingChat()
     monkeypatch.setattr(llm_module, "chat_interaction", fake_chat)
 
