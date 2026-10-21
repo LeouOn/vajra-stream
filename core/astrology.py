@@ -756,50 +756,34 @@ class AstrologicalCalculator:
     # INDIAN VEDIC ASTROLOGY FUNCTIONS (PANCHANG)
     # =========================================================================
 
-    def _latest_sunrise_before(self, dt: datetime, location: tuple[float, float]):
-        """The most recent sunrise at or before ``dt``, or None.
+    def _as_utc(self, dt: datetime) -> datetime:
+        """The instant as a timezone-aware UTC datetime.
 
-        The Vedic day runs from sunrise to sunrise, so the weekday of an
-        instant is the weekday of the LOCAL CIVIL DATE of the sunrise that
-        started that day.
-
-        ``calculate_auspicious_times`` cannot answer this: it calls
-        ``swe.rise_trans`` starting AT the given instant, which returns the
-        NEXT sunrise. For any instant after that morning's sunrise it
-        therefore returns tomorrow's, and a caller that compares the instant
-        against it treats every post-sunrise instant as "before sunrise".
-
-        This helper searches BACKWARDS instead: it starts a little over a day
-        before the instant and steps forward through the sunrises it finds,
-        keeping the last one that is not after the instant.
-
-        Returns None when no sunrise could be found in that window, which
-        happens in polar day and polar night. The caller then falls back to
-        the instant's own civil date, so the result is still well defined and
-        the function never raises.
+        A naive datetime is treated as UTC, which is what ``get_julian_day``
+        does, so the two never disagree about which instant is meant.
         """
-        lat, lon = location
-        jd_instant = self.get_julian_day(dt)
-        # A little over a day back, so the previous day's sunrise is always in
-        # range even for an instant just after midnight.
-        jd = jd_instant - 30.0 / 24.0
-        latest = None
-        for _ in range(6):
-            rise = swe.rise_trans(jd, swe.SUN, swe.CALC_RISE, [lon, lat, 0])
-            if rise[0] < 0:
-                # No sunrise from here on (polar day or polar night).
-                break
-            rise_jd = rise[1][0]
-            if rise_jd > jd_instant:
-                # The next sunrise is in the future, so the previous one is ours.
-                break
-            latest = rise_jd
-            # Step just past this sunrise to find the next one.
-            jd = rise_jd + 1e-6
-        if latest is None:
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=pytz.UTC)
+        return dt.astimezone(pytz.UTC)
+
+    def _local_mean_solar_weekday(self, moment_utc: datetime, lon: float) -> int:
+        """The weekday of the LOCAL MEAN SOLAR date of a UTC instant.
+
+        Local mean solar time is the solar clock at that longitude, so it
+        needs no timezone database. At sunrise the local solar clock is about
+        06:00 wherever you are, so the solar date never straddles midnight -
+        which is why the weekday of a sunrise is the same however the instant
+        referring to it was spelled (UTC-aware, naive-UTC, or the location's
+        own zone).
+        """
+        return (moment_utc + timedelta(hours=lon / 15.0)).weekday()
+
+    def _jd_to_utc(self, jd: float | None) -> datetime | None:
+        """A Julian day as a timezone-aware UTC datetime, or None."""
+        if jd is None:
             return None
-        result = swe.revjul(latest)
-        moment_utc = datetime(
+        result = swe.revjul(jd)
+        return datetime(
             result[0],
             result[1],
             result[2],
@@ -807,9 +791,69 @@ class AstrologicalCalculator:
             int((result[3] % 1) * 60),
             tzinfo=pytz.UTC,
         )
-        if dt.tzinfo is not None:
-            return moment_utc.astimezone(dt.tzinfo)
-        return moment_utc
+
+    def _next_sun_event_jd(self, jd: float, flag: int, lon: float, lat: float) -> float | None:
+        """The Julian day of the next rise or set after ``jd``, or None."""
+        result = swe.rise_trans(jd, swe.SUN, flag, [lon, lat, 0])
+        if result[0] < 0:
+            return None
+        return result[1][0]
+
+    def _previous_sun_event_jd(self, jd: float, flag: int, lon: float, lat: float) -> float | None:
+        """The Julian day of the last rise or set at or before ``jd``, or None.
+
+        ``swe.rise_trans`` only ever looks FORWARD, so this starts a couple of
+        days back and steps through the events it finds, keeping the last one
+        that is not after the instant. None is returned when there is no such
+        event at all, which is what happens in polar day and polar night.
+        """
+        search = jd - 2.0
+        latest: float | None = None
+        for _ in range(8):
+            found = self._next_sun_event_jd(search, flag, lon, lat)
+            if found is None or found > jd:
+                break
+            latest = found
+            search = found + 1e-6
+        return latest
+
+    def _latest_sunrise_before(self, dt: datetime, location: tuple[float, float]) -> datetime | None:
+        """The most recent sunrise at or before ``dt``, as a UTC instant, or None.
+
+        The Vedic day runs from sunrise to sunrise, so the weekday of an
+        instant comes from the sunrise that started that day.
+
+        ``calculate_auspicious_times`` cannot answer this: it calls
+        ``swe.rise_trans`` starting AT the given instant, which returns the
+        NEXT sunrise. For any instant after that morning's sunrise it
+        therefore returns tomorrow's, and a caller that compares the instant
+        against it treats every post-sunrise instant as "before sunrise".
+
+        The result is a UTC instant, NOT converted to the caller's timezone:
+        the weekday is taken from the local mean solar date, so the answer
+        cannot depend on how the instant was spelled.
+        """
+        lat, lon = location
+        jd = self.get_julian_day(dt)
+        return self._jd_to_utc(self._previous_sun_event_jd(jd, swe.CALC_RISE, lon, lat))
+
+    def _sun_events_around(self, dt: datetime, location: tuple[float, float]) -> dict[str, datetime | None]:
+        """The sun events around ``dt``, as UTC instants.
+
+        Returns a dict with ``previous_sunrise``, ``next_sunrise``,
+        ``previous_sunset`` and ``next_sunset``; each value is a
+        timezone-aware UTC datetime, or None when that event does not exist
+        (polar day or polar night). A caller that needs the day the instant
+        belongs to can take the previous sunrise from here.
+        """
+        lat, lon = location
+        jd = self.get_julian_day(dt)
+        return {
+            "previous_sunrise": self._jd_to_utc(self._previous_sun_event_jd(jd, swe.CALC_RISE, lon, lat)),
+            "next_sunrise": self._jd_to_utc(self._next_sun_event_jd(jd, swe.CALC_RISE, lon, lat)),
+            "previous_sunset": self._jd_to_utc(self._previous_sun_event_jd(jd, swe.CALC_SET, lon, lat)),
+            "next_sunset": self._jd_to_utc(self._next_sun_event_jd(jd, swe.CALC_SET, lon, lat)),
+        }
 
     def get_indian_astrology(self, dt: datetime, location: tuple[float, float] = None) -> dict:
         """
@@ -1075,18 +1119,25 @@ class AstrologicalCalculator:
 
         # 5. Vara (the solar day, which starts at sunrise)
         # The Vedic day runs sunrise to sunrise, so the vara of an instant is
-        # the weekday of the LOCAL CIVIL DATE of the most recent sunrise at or
-        # before it. calculate_auspicious_times starts its rise_trans AT the
-        # instant and so returns the NEXT sunrise, which made every
-        # post-sunrise instant fall back to the previous weekday.
+        # the weekday of the LOCAL MEAN SOLAR DATE of the most recent sunrise
+        # at or before it. The mean solar date is used rather than the
+        # instant's own timezone, so the answer does not depend on how the
+        # instant was spelled: the same instant given as UTC-aware, naive
+        # UTC, the location's zone, or a far-away zone gives the same vara.
+        # calculate_auspicious_times starts its rise_trans AT the instant and
+        # so returns the NEXT sunrise, which made every post-sunrise instant
+        # fall back to the previous weekday.
         local_date = dt
         vara_idx = local_date.weekday()
         if location:
+            lon = location[1]
             sunrise_started = self._latest_sunrise_before(local_date, location)
             if sunrise_started is not None:
-                vara_idx = sunrise_started.weekday()
-            # With no sunrise in the window (polar day or polar night) there
-            # is no solar day to use, so the instant's own civil date stands.
+                vara_idx = self._local_mean_solar_weekday(sunrise_started, lon)
+            else:
+                # Polar day or polar night: there is no solar day to use, so
+                # the instant's own local mean solar date stands.
+                vara_idx = self._local_mean_solar_weekday(self._as_utc(local_date), lon)
 
         vara_names = [
             "Somavara (Monday)",
