@@ -930,3 +930,38 @@ def test_time_resolution_gained_the_time_assumed_key(service):
         "warnings",
         "time_assumed",
     }, resolution
+
+
+# --------------------------------------------------------------------------- #
+# ADP-3 ADDENDUM: the plausibility check must wrap around the date line.
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    ("city", "lat", "lng", "zone"),
+    [
+        ("Apia", -13.83, -171.76, "Pacific/Apia"),
+        ("Kiritimati", 1.87, -157.43, "Pacific/Kiritimati"),
+        ("Chatham", -43.95, -176.55, "Pacific/Chatham"),
+    ],
+    ids=["Apia", "Kiritimati", "Chatham"],
+)
+def test_a_date_line_zone_does_not_warn(service, monkeypatch, city, lat, lng, zone):
+    """A clock offset is modulo 24 h, and the date line breaks longitude/15.
+
+    Pacific/Apia is +13 at 172 W: the naive difference is 24.45 h, which is not a
+    defect but the other side of the planet. Wrapped, it is 0.45 h.
+    """
+    monkeypatch.setitem(CITIES, city, {"latitude": lat, "longitude": lng, "timezone": zone})
+    result = service.get_natal_chart("Alice", "1990-07-04T09:00:00", city)
+    assert "error" not in result, result
+    warnings = " ".join(result["data"]["time_resolution"]["warnings"])
+    assert "solar time" not in warnings, warnings
+    assert "fallback" not in warnings, warnings
+
+
+def test_the_kolkata_with_los_angeles_case_still_warns(service, monkeypatch):
+    """The wrapped difference for a genuinely wrong pair is ~10.1 h, not 13.9 h."""
+    monkeypatch.setitem(CITIES, "Odd", {"latitude": 22.57, "longitude": 88.36, "timezone": "America/Los_Angeles"})
+    result = service.get_natal_chart("Alice", "1990-07-04T09:00:00", "Odd")
+    warnings = " ".join(result["data"]["time_resolution"]["warnings"])
+    assert "solar time" in warnings, warnings
+    assert "10.1" in warnings, f"the wrapped difference should be ~10.1 h: {warnings}"

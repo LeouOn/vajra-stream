@@ -9,7 +9,8 @@ import logging
 import sqlite3
 import uuid
 from datetime import timezone
-from typing import Literal
+from typing import Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -700,6 +701,111 @@ class SavedChartCreate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     timezone: str | None = None
+    ambiguous: Literal["earlier", "later"] | None = None
+    nonexistent: Literal["shift_forward"] | None = None
+
+
+def _saved_chart_zone_local(moment: datetime.datetime, zone: str | None):
+    """The wall time of ``moment`` in ``zone``, or None if the zone is unusable.
+
+    The zone errors are NARROW on purpose: the swallowed-exception ratchet in
+    ``tests/unit/test_no_new_swallowed_exceptions.py`` is downward-only, and a
+    blind ``except Exception`` here would raise its baseline.
+    """
+    if not zone:
+        return None
+    try:
+        return moment.astimezone(ZoneInfo(zone))
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        return None
+
+
+def _saved_chart_offset(delta: datetime.timedelta | None) -> str:
+    """Render a UTC offset as +HH:MM, for the saved-chart warnings."""
+    if delta is None:
+        return "none"
+    total = int(delta.total_seconds())
+    sign = "+" if total >= 0 else "-"
+    total = abs(total)
+    return f"{sign}{total // 3600:02d}:{(total % 3600) // 60:02d}"
+
+
+def _resolve_saved_chart_dt(
+    iso_str: str,
+    zone: str | None,
+    *,
+    ambiguous: str | None = None,
+    nonexistent: str | None = None,
+    what: str = "birth",
+) -> tuple[datetime.datetime, dict[str, Any]]:
+    """Resolve a saved chart's timestamp to ONE honest instant.
+
+    STRICT by default, exactly like :mod:`core.astro.timezone_policy` and like
+    the chart service: an ambiguous wall time (a fall-back overlap) or a
+    nonexistent one (a spring-forward gap) raises ``TimezonePolicyError``,
+    which the handlers turn into HTTP 422. The old code used
+    ``pytz.timezone(tz).localize(dt)``, whose ``is_dst`` defaults to False, so
+    an overlap was silently resolved to STANDARD time - an hour out, with the
+    Ascendant about 11.8 degrees away - and a gap was silently replaced.
+
+    An offset or ``Z`` in the input is an exact instant and is kept; a
+    disagreement with the zone is a WARNING, not an error.
+
+    Returns ``(aware_datetime, time_resolution)``. When the input was naive the
+    aware datetime is the LOCAL time, so the cached chart's ``datetime`` keeps
+    the meaning it had before (a local wall time with its offset).
+    ``time_resolution`` is the additive payload: utc_iso, offset, is_dst, zone
+    and warnings.
+    """
+    from dateutil import parser
+
+    from core.astro.timezone_policy import UnknownTimezone, resolve_local
+
+    text = iso_str
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    parsed = parser.parse(text)
+
+    warnings: list[str] = []
+    if parsed.tzinfo is not None and parsed.utcoffset() is not None:
+        # An exact instant. Keep it. Say so if the zone disagrees.
+        zone_local = _saved_chart_zone_local(parsed, zone)
+        if zone_local is not None:
+            zone_offset = zone_local.utcoffset()
+            if zone_offset is not None and zone_offset != parsed.utcoffset():
+                warnings.append(
+                    f"offset {_saved_chart_offset(parsed.utcoffset())} differs from "
+                    f"{zone} ({_saved_chart_offset(zone_offset)}) at that instant; "
+                    f"using the offset you gave"
+                )
+        utc = parsed.astimezone(datetime.timezone.utc)
+        zone_offset = parsed.utcoffset()
+        is_dst = None
+        zone_local = _saved_chart_zone_local(utc, zone)
+        if zone_local is not None:
+            zone_offset = zone_local.utcoffset()
+            dst = zone_local.dst() or datetime.timedelta(0)
+            is_dst = dst != datetime.timedelta(0)
+        return parsed, {
+            "utc_iso": utc.isoformat(),
+            "offset": (zone_offset.total_seconds() / 3600.0) if zone_offset else 0.0,
+            "is_dst": is_dst,
+            "zone": zone,
+            "warnings": warnings,
+        }
+
+    # Naive wall time: the stored (or geocoded) zone supplies the meaning.
+    if not zone:
+        raise UnknownTimezone(str(zone))
+    resolution = resolve_local(parsed.replace(tzinfo=None), zone, ambiguous=ambiguous, nonexistent=nonexistent)
+    warnings.extend(resolution.warnings)
+    return resolution.local, {
+        "utc_iso": resolution.utc.isoformat(),
+        "offset": resolution.utc_offset.total_seconds() / 3600.0,
+        "is_dst": resolution.is_dst,
+        "zone": resolution.zone,
+        "warnings": warnings,
+    }
 
 
 def _saved_chart_provenance() -> dict[str, str]:
@@ -719,6 +825,10 @@ class SavedChartResponse(SavedChartBase):
     created_at: str
     updated_at: str
     provenance: dict[str, str] = Field(default_factory=_saved_chart_provenance)
+    #: ADDITIVE. How the stored birth time was resolved to one instant. Present
+    #: on the routes that resolve a time; null on the routes that only read a
+    #: stored row. No existing key changed.
+    time_resolution: dict[str, Any] | None = None
 
 
 class RecalculateRequest(BaseModel):
@@ -727,11 +837,23 @@ class RecalculateRequest(BaseModel):
 
 class TransitToNatalRequest(BaseModel):
     transit_time_iso: str | None = None
+    #: Applies to ``transit_time_iso`` ONLY. A stored BIRTH time that is ambiguous
+    #: or nonexistent is NOT affected by it: that stays a 422, and such a chart is
+    #: fixed through PUT /charts/{id}, which takes its own opt-in.
+    ambiguous: Literal["earlier", "later"] | None = None
+    #: Applies to ``transit_time_iso`` ONLY; see ``ambiguous``.
+    nonexistent: Literal["shift_forward"] | None = None
 
 
 class TransitExportRequest(BaseModel):
     transit_time_iso: str | None = None
     strip_pii: bool = True
+    #: Applies to ``transit_time_iso`` ONLY. A stored BIRTH time that is ambiguous
+    #: or nonexistent is NOT affected by it: that stays a 422, and such a chart is
+    #: fixed through PUT /charts/{id}, which takes its own opt-in.
+    ambiguous: Literal["earlier", "later"] | None = None
+    #: Applies to ``transit_time_iso`` ONLY; see ``ambiguous``.
+    nonexistent: Literal["shift_forward"] | None = None
 
 
 class SavedChartsImportRequest(BaseModel):
@@ -741,6 +863,10 @@ class SavedChartsImportRequest(BaseModel):
 class SavedChartsCompareRequest(BaseModel):
     chart_id_a: int
     chart_id_b: int
+    ambiguous: Literal["earlier", "later"] | None = None
+    nonexistent: Literal["shift_forward"] | None = None
+    ambiguous_b: Literal["earlier", "later"] | None = None
+    nonexistent_b: Literal["shift_forward"] | None = None
 
 
 @router.get("/charts", response_model=list[SavedChartResponse])
@@ -836,13 +962,13 @@ async def create_saved_chart(chart: SavedChartCreate):
             tz = geo["timezone"]
 
         # Pre-calculate and cache chart data
-        import pytz
-        from dateutil import parser
-
         calc = AstrologicalCalculator()
-        dt = parser.parse(chart.birth_time_iso)
-        if dt.tzinfo is None:
-            dt = pytz.timezone(tz).localize(dt)
+        dt, time_resolution = _resolve_saved_chart_dt(
+            chart.birth_time_iso,
+            tz,
+            ambiguous=chart.ambiguous,
+            nonexistent=chart.nonexistent,
+        )
         chart_data = calc.get_comprehensive_astrology(dt, (lat, lon))
         cached_data = json.dumps(chart_data)
 
@@ -889,7 +1015,10 @@ async def create_saved_chart(chart: SavedChartCreate):
             "cached_chart_data": cached_data,
             "created_at": now_str,
             "updated_at": now_str,
+            "time_resolution": time_resolution,
         }
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -917,13 +1046,13 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
             tz = geo["timezone"]
 
         # Pre-calculate and cache chart data
-        import pytz
-        from dateutil import parser
-
         calc = AstrologicalCalculator()
-        dt = parser.parse(chart.birth_time_iso)
-        if dt.tzinfo is None:
-            dt = pytz.timezone(tz).localize(dt)
+        dt, time_resolution = _resolve_saved_chart_dt(
+            chart.birth_time_iso,
+            tz,
+            ambiguous=chart.ambiguous,
+            nonexistent=chart.nonexistent,
+        )
         chart_data = calc.get_comprehensive_astrology(dt, (lat, lon))
         cached_data = json.dumps(chart_data)
 
@@ -979,7 +1108,10 @@ async def update_saved_chart(chart_id: int, chart: SavedChartCreate):
             "cached_chart_data": cached_data,
             "created_at": created_at,
             "updated_at": now_str,
+            "time_resolution": time_resolution,
         }
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -1016,13 +1148,11 @@ async def recalculate_chart(chart_id: int):
             raise HTTPException(status_code=404, detail="Chart not found")
 
         chart = dict(row)
-        import pytz
-        from dateutil import parser
-
         calc = AstrologicalCalculator()
-        dt = parser.parse(chart["birth_time_iso"])
-        if dt.tzinfo is None:
-            dt = pytz.timezone(chart["timezone"]).localize(dt)
+        # STRICT: a stored chart whose wall time is ambiguous or nonexistent in
+        # its stored zone is a 422, and the stored row is NOT changed. The chart
+        # can be fixed through PUT /charts/{id}, which takes the opt-in.
+        dt, time_resolution = _resolve_saved_chart_dt(chart["birth_time_iso"], chart["timezone"])
 
         chart_data = calc.get_comprehensive_astrology(dt, (chart["latitude"], chart["longitude"]))
         cached_data = json.dumps(chart_data)
@@ -1040,7 +1170,13 @@ async def recalculate_chart(chart_id: int):
         conn.commit()
         conn.close()
 
-        return {"status": "success", "cached_chart_data": chart_data}
+        return {
+            "status": "success",
+            "cached_chart_data": chart_data,
+            "time_resolution": time_resolution,
+        }
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -1066,20 +1202,20 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
         import datetime as dt_mod
 
         import pytz
-        from dateutil import parser
 
         calc = AstrologicalCalculator()
 
         # Parse birth date
-        birth_dt = parser.parse(chart["birth_time_iso"])
-        if birth_dt.tzinfo is None:
-            birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
+        birth_dt, _res1 = _resolve_saved_chart_dt(chart["birth_time_iso"], chart["timezone"])
 
         # Parse transit date
         if req.transit_time_iso:
-            transit_dt = parser.parse(req.transit_time_iso)
-            if transit_dt.tzinfo is None:
-                transit_dt = pytz.timezone(chart["timezone"]).localize(transit_dt)
+            transit_dt, _res2 = _resolve_saved_chart_dt(
+                req.transit_time_iso,
+                chart["timezone"],
+                ambiguous=req.ambiguous,
+                nonexistent=req.nonexistent,
+            )
         else:
             transit_dt = dt_mod.datetime.now(pytz.timezone(chart["timezone"]))
 
@@ -1103,6 +1239,8 @@ async def get_chart_transits(chart_id: int, req: TransitToNatalRequest):
                 "bazi_clashes": bazi_transits,
             },
         }
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -1258,18 +1396,18 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
         import datetime as dt_mod
 
         import pytz
-        from dateutil import parser
 
         calc = AstrologicalCalculator()
 
-        birth_dt = parser.parse(chart["birth_time_iso"])
-        if birth_dt.tzinfo is None:
-            birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
+        birth_dt, _res1 = _resolve_saved_chart_dt(chart["birth_time_iso"], chart["timezone"])
 
         if req.transit_time_iso:
-            transit_dt = parser.parse(req.transit_time_iso)
-            if transit_dt.tzinfo is None:
-                transit_dt = pytz.timezone(chart["timezone"]).localize(transit_dt)
+            transit_dt, _res2 = _resolve_saved_chart_dt(
+                req.transit_time_iso,
+                chart["timezone"],
+                ambiguous=req.ambiguous,
+                nonexistent=req.nonexistent,
+            )
         else:
             transit_dt = dt_mod.datetime.now(pytz.timezone(chart["timezone"]))
 
@@ -1341,6 +1479,8 @@ async def get_chart_transit_export(chart_id: int, req: TransitExportRequest):
                 "gochara_v2": gochara_v2,
             },
         }
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -1369,14 +1509,9 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
 
         chart = dict(row)
 
-        import pytz
-        from dateutil import parser
-
         calc = AstrologicalCalculator()
 
-        birth_dt = parser.parse(chart["birth_time_iso"])
-        if birth_dt.tzinfo is None:
-            birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
+        birth_dt, _res1 = _resolve_saved_chart_dt(chart["birth_time_iso"], chart["timezone"])
 
         location = (chart["latitude"], chart["longitude"])
 
@@ -1436,6 +1571,8 @@ async def get_chart_natal_export(chart_id: int, req: TransitExportRequest):
                 "bazi": bazi_complete,
             },
         }
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -1458,16 +1595,13 @@ async def get_chart_vedic_dasha(chart_id: int):
 
         chart = dict(row)
 
-        import pytz
-        from dateutil import parser
-
         calc = AstrologicalCalculator()
-        birth_dt = parser.parse(chart["birth_time_iso"])
-        if birth_dt.tzinfo is None:
-            birth_dt = pytz.timezone(chart["timezone"]).localize(birth_dt)
+        birth_dt, _res1 = _resolve_saved_chart_dt(chart["birth_time_iso"], chart["timezone"])
 
         dashas = calc.calculate_vimshottari_dasha(birth_dt, (chart["latitude"], chart["longitude"]))
         return {"status": "success", "dashas": dashas}
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -1508,6 +1642,10 @@ async def compare_saved_charts(req: SavedChartsCompareRequest):
             chart_b["name"],
             chart_b["birth_time_iso"],
             chart_b["city"],
+            ambiguous=req.ambiguous,
+            nonexistent=req.nonexistent,
+            ambiguous_b=req.ambiguous_b,
+            nonexistent_b=req.nonexistent_b,
         )
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
@@ -1560,6 +1698,8 @@ async def compare_saved_charts(req: SavedChartsCompareRequest):
 
         result["data"]["scoring"] = scoring
         return result
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -1601,17 +1741,17 @@ async def import_saved_charts(req: dict):
 
             if not cached_data:
                 try:
-                    import pytz
-                    from dateutil import parser
-
                     calc = AstrologicalCalculator()
-                    dt = parser.parse(birth_time_iso)
-                    if dt.tzinfo is None:
-                        dt = pytz.timezone(tz).localize(dt)
+                    dt, _res = _resolve_saved_chart_dt(birth_time_iso, tz)
                     chart_data = calc.get_comprehensive_astrology(dt, (lat, lon))
                     cached_data = json.dumps(chart_data)
-                except Exception:
-                    pass
+                except TimezonePolicyError as exc:
+                    # The imported wall time is ambiguous or nonexistent in its own
+                    # zone. The row is still imported; the cache is left empty
+                    # rather than filled with a chart for the wrong instant.
+                    logger.warning("Imported chart %r not cached: %s", name, exc)
+                except Exception as exc:
+                    logger.warning("Imported chart %r not cached: %s", name, exc)
 
             cursor.execute("SELECT id FROM saved_natal_charts WHERE name = ? AND city = ?", (name, city))
             existing = cursor.fetchone()

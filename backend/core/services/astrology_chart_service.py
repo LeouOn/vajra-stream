@@ -606,7 +606,10 @@ def _plausibility_warnings(zone: ZoneInfo, zone_name: str, utc: datetime.datetim
     dst = local.dst() or datetime.timedelta(0)
     standard_hours = (offset - dst).total_seconds() / 3600.0
     solar_hours = lng / 15.0
-    difference = abs(standard_hours - solar_hours)
+    # A clock offset is MODULO 24 h. The naive difference would report 24.45 h for
+    # Pacific/Apia (+13 at 172 W), which is a correct pair, because the date line
+    # puts the longitude on the far side of Greenwich. Wrap the difference.
+    difference = abs(((standard_hours - solar_hours + 12.0) % 24.0) - 12.0)
     if zone_name == "UTC" and difference > SOLAR_TIME_TOLERANCE_HOURS:
         warnings.append(
             f"the geocoded zone is exactly 'UTC' but the longitude {lng} is "
