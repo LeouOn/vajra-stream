@@ -516,7 +516,12 @@ async def search_stories(q: str = ""):
         },
     ]
     results = [t for t in tales if q.lower() in t["title"].lower() or q.lower() in t["theme"].lower()] if q else tales
-    return {"results": results, "query": q}
+    # CD-3: the Command Center UI reads `data.stories` (commandStore.ts), so
+    # the list is returned under BOTH keys — `stories` for the UI, `results`
+    # for existing consumers — additively; `query` is unchanged. The inline
+    # hardcoded tale list would belong in a service or the knowledge/
+    # dharma-tales module; that refactor is deliberately out of this ticket.
+    return {"results": results, "stories": results, "query": q}
 
 
 # WebSocket endpoint - Stable implementation
