@@ -157,7 +157,8 @@ def test_is_audio_player_command_non_identifier_name_is_not_an_assignment(cmd: s
         'P=1 A="x\\" B=z" "C=q" aplay f.wav',
         'A="x\\" B=z" "C=q" nohup aplay f.wav',
         'A="x\\" B=z" AUDIO"DEV"=q aplay f.wav',
-        # Same family: bash expands $AUDIODEV to empty, leaving the word '=x',
+        # Same family: the shell expands an unset $AUDIODEV to empty (POSIX
+        # behaviour; identical under bash and dash), leaving the word '=x',
         # an invalid assignment, so the shell exits 127. The helper agrees
         # because '$' is not part of an identifier.
         "$AUDIODEV=x aplay f.wav",
@@ -235,9 +236,13 @@ def test_is_audio_player_command_values_never_change_the_verdict(cmd: str) -> No
 @pytest.mark.parametrize(
     "cmd",
     [
-        # bash extension names in the assignment position. bash (which is
-        # /bin/sh here) accepts these as assignments, so the player really does
-        # launch while the helper returns False. Recorded as known gaps and
+        # bash extension names in the assignment position. Under BASH (which is
+        # /bin/sh on the developer box but NOT on Ubuntu CI, where /bin/sh is
+        # dash) these are accepted as assignments, so the player really does
+        # launch while the helper returns False — the known gap this pin
+        # records. Under dash/POSIX sh the name is not a valid identifier, the
+        # word becomes an unresolvable command name, nothing launches, and
+        # False is simply the correct verdict there. Recorded as known gaps and
         # pinned here the same way the other gaps are.
         "A+=x aplay f.wav",
         "A+=x nohup aplay f.wav",
@@ -264,9 +269,11 @@ def test_is_audio_player_command_bash_extension_names_are_known_gaps(cmd: str) -
 @pytest.mark.parametrize(
     "cmd",
     [
-        # NOT a gap: in this /bin/sh, 'A[0]=x' in the SHELL assignment position
-        # is a syntax error (rc 1, "A[0]: not a valid identifier") and the
-        # program never runs, so False is the CORRECT verdict here. It is only
+        # NOT a gap: 'A[0]=x' in the SHELL assignment position never runs the
+        # program under EITHER shell — bash: syntax error, rc 1, "A[0]: not a
+        # valid identifier"; dash/POSIX sh: the word is a command name that
+        # fails to resolve, rc 127 — so False is the CORRECT verdict here. It is
+        # only
         # accepted by env, which applies no shell rule - see the gap test above
         # for 'env A[0]=x aplay f.wav'. Kept as a pin so the label cannot drift
         # back to calling this a 'player launches' gap.
@@ -407,17 +414,46 @@ def test_benign_swallow_class_fails_in_a_real_shell() -> None:
         # The stand-in is invoked by BARE NAME so a PATH override can break the
         # lookup, and it is an external script rather than a builtin so PATH
         # actually applies.
-        checks = [
+        #
+        # Shell truth (CI-1): 'UID=1' stops the launch only under BASH, whose
+        # readonly UID makes the assignment fail (rc 1). Under dash (Ubuntu
+        # CI's /bin/sh) an ordinary prefix assignment runs the command — pinned
+        # in test_readonly_name_prefix_launches_under_a_dash_like_shell below —
+        # so that entry is verified under an EXPLICIT bash, never against
+        # /bin/sh, whose identity is machine-dependent. The other two entries
+        # are portable POSIX behaviour and stay on /bin/sh.
+        portable_checks = [
             ("A=${VAJRA_QA_ABSENT_87219:?e}", "expansion error"),
-            ("UID=1", "readonly variable"),
             ("PATH=/nonexistent", "PATH lookup failure"),
         ]
-        for prefix, label in checks:
+        for prefix, label in portable_checks:
             analog = f"{prefix} devbstandin"
             result = subprocess.run(
                 ["/bin/sh", "-c", analog], capture_output=True, text=True, timeout=10, env=shell_env
             )
             assert "STOOD-IN" not in result.stdout, f"{label}: stand-in unexpectedly ran for {analog!r}"
+
+        # CI-1 ground truth is bash-MODE-specific: bash 5.3 in NORMAL mode
+        # prints 'UID: readonly variable' but STILL runs the command (verified
+        # on 5.3.20), while bash invoked AS sh (argv0='sh' — the mode
+        # '/bin/sh is bash' machines actually run, and the mode os.system
+        # triggers there) aborts with rc 1. The bash-side truth is therefore
+        # pinned under argv0='sh' via executable=; the dash-side truth lives
+        # in test_readonly_name_prefix_launches_under_a_dash_like_shell.
+        bash_path = shutil.which("bash")
+        if bash_path is None:
+            pytest.skip("bash not available: cannot verify the bash-sh readonly-UID ground truth")
+        readonly_result = subprocess.run(
+            ["sh", "-c", "UID=1 devbstandin"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=shell_env,
+            executable=bash_path,
+        )
+        assert (
+            "STOOD-IN" not in readonly_result.stdout
+        ), "readonly variable: stand-in unexpectedly ran for 'UID=1 devbstandin'"
 
         # A recognised player token with a trailing operator and nothing after
         # it: sh is a syntax error, the program never runs, and the helper
@@ -466,9 +502,13 @@ def test_is_audio_player_command_fail_capable_prefix_passes_through(cmd: str) ->
 @pytest.mark.parametrize(
     "cmd",
     [
-        # Names that cannot behave as a plain assignment here. bash refuses to
-        # assign its own readonly variables (rc 1), and a PATH override changes
-        # program lookup, so the player is never found.
+        # Names that cannot behave as a plain assignment under BASH: it refuses
+        # to assign its own readonly variables (rc 1), and a PATH override
+        # changes program lookup, so the player is never found. Under dash the
+        # six readonly names ARE ordinary assignments and the player LAUNCHES
+        # — see test_readonly_name_prefix_launches_under_a_dash_like_shell;
+        # the PATH entries behave the same under both shells (lookup fails or
+        # redirects before the player is found).
         "UID=1 aplay f.wav",
         "EUID=1 aplay f.wav",
         "PPID=1 aplay f.wav",
@@ -548,11 +588,15 @@ def test_evaluation_failing_prefix_class_ground_truth() -> None:
         control = subprocess.run(["/bin/sh", "-c", "qplay"], capture_output=True, text=True, timeout=10, env=shell_env)
         assert control.stdout.strip() == "ok", "stand-in unreachable; checks below would be vacuous"
 
+        # 'UID=1' is bash-only ground truth (bash: readonly variable, rc 1;
+        # dash: ordinary assignment, the command RUNS) — pinned separately in
+        # test_readonly_name_prefix_launches_under_a_dash_like_shell — so it is
+        # verified under an EXPLICIT bash here, never against /bin/sh. The
+        # remaining prefixes are portable POSIX behaviour.
         not_run = [
             "A=${VAJRA_QA_ABSENT_87219:?e}",
             "A=${}",
             "A=$((1/0))",
-            "UID=1",
             "PATH=/nonexistent",
         ]
         for prefix in not_run:
@@ -560,6 +604,24 @@ def test_evaluation_failing_prefix_class_ground_truth() -> None:
                 ["/bin/sh", "-c", f"{prefix} qplay"], capture_output=True, text=True, timeout=10, env=shell_env
             )
             assert result.stdout.strip() != "ok", f"stand-in unexpectedly ran for {prefix!r}"
+
+        # CI-1 ground truth is bash-MODE-specific: bash invoked AS sh
+        # (argv0='sh') aborts the command on the readonly assignment (rc 1),
+        # while bash 5.3 in normal mode prints the error but STILL runs it.
+        # The bash-sh mode is the one pinned here; the dash-side truth lives
+        # in test_readonly_name_prefix_launches_under_a_dash_like_shell.
+        bash_path = shutil.which("bash")
+        if bash_path is None:
+            pytest.skip("bash not available: cannot verify the bash-sh readonly-UID ground truth")
+        readonly_result = subprocess.run(
+            ["sh", "-c", "UID=1 qplay"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=shell_env,
+            executable=bash_path,
+        )
+        assert readonly_result.stdout.strip() != "ok", "stand-in unexpectedly ran for 'UID=1'"
 
         does_run = [
             "A=${VAJRA_QA_ABSENT_87219:-d}",
@@ -576,6 +638,130 @@ def test_evaluation_failing_prefix_class_ground_truth() -> None:
             assert result.stdout.strip() == "ok", f"stand-in did not run for {prefix!r}: {result.stderr!r}"
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+# A shim that behaves as dash does for exactly the delta this file cares
+# about, for machines with no dash (this developer box: /bin/sh -> bash).
+# IMMUTABLE template: {python} is the only substitution.
+_DASH_SIMULATION_SHIM = """#!{python}
+# SIMULATED dash for CI-1: identical to bash EXCEPT that leading NAME=VALUE
+# prefixes whose NAME bash refuses as readonly are ordinary assignments and
+# the command runs, as in dash/POSIX sh. Everything else is run by bash.
+import os
+import subprocess
+import sys
+
+BASH_READONLY = {{"UID", "EUID", "PPID", "SHELLOPTS", "BASHOPTS", "BASH_VERSINFO"}}
+
+args = sys.argv[1:]
+if not args or args[0] != "-c" or len(args) < 2:
+    os.execv("/bin/bash", ["bash"] + args)
+
+words = args[1].split()
+env = dict(os.environ)
+rest = list(words)
+while rest:
+    name, sep, _value = rest[0].partition("=")
+    if sep and name in BASH_READONLY:
+        env[name] = _value
+        rest.pop(0)
+        continue
+    break
+raise SystemExit(subprocess.run(["/bin/bash", "-c", " ".join(rest)], env=env).returncode)
+"""
+
+
+def _dash_like_shell(scratch: pathlib.Path) -> tuple[list[str], str]:
+    """Resolve a shell with dash's prefix-assignment semantics.
+
+    Prefers a REAL dash binary. Where none exists (this developer box has
+    only bash and zsh, and zsh also refuses UID), it writes a SIMULATED dash
+    into the scratch directory: a shim identical to bash except that the
+    names bash treats as readonly are ordinary prefix assignments and the
+    command runs — dash's documented behaviour (dash defines no readonly
+    UID/EUID; POSIX prefix assignments precede the utility). Returns the
+    shell argv and a label the caller must surface, so no run ever pretends
+    it used a real dash when it used the simulation.
+    """
+    import shutil
+    import sys
+
+    real_dash = shutil.which("dash")
+    if real_dash is not None:
+        return [real_dash], "real dash"
+    shim = scratch / "dashlike-sh"
+    shim.write_text(_DASH_SIMULATION_SHIM.format(python=sys.executable))
+    shim.chmod(0o755)
+    return [str(shim)], "SIMULATED dash (bash + readonly-name assignment delta)"
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["UID", "EUID", "PPID", "SHELLOPTS", "BASHOPTS", "BASH_VERSINFO"],
+)
+def test_readonly_name_prefix_launches_under_a_dash_like_shell(name: str, tmp_path) -> None:
+    """Ground truth: under dash, a bash-readonly NAME=VALUE prefix RUNS the program.
+
+    bash refuses to assign UID/EUID/PPID/SHELLOPTS/BASHOPTS/BASH_VERSINFO,
+    so 'NAME=1 prog' never launches there — which is why the guard passes
+    those names through (test_is_audio_player_command_readonly_and_path_
+    names_pass_through). dash (Ubuntu CI's /bin/sh) defines no such readonly
+    variables: the prefix is an ordinary assignment and the program LAUNCHES.
+    This pins that per-shell truth with a stand-in, the bash direction of the
+    same truth (which is also this test's built-in RED control: pointed at
+    bash, the dash-side assertion fails), and the guard's CURRENT verdict
+    (False = passthrough) for the same inputs: on a dash system that verdict
+    fails OPEN for this class — a real player would run. Whether the guard
+    should instead swallow these fail-closed is the CI-1 item-3 lead
+    decision; conftest.py is deliberately unchanged in this round.
+
+    Never runs a player: the stand-in is an external scratch script and no
+    player name is ever passed to a shell.
+    """
+    import shutil
+    import stat
+    import subprocess
+
+    scratch = pathlib.Path(str(tmp_path))
+    stand_in = scratch / "devbstandin"
+    stand_in.write_text("#!/bin/sh\nprintf 'STOOD-IN'\n")
+    stand_in.chmod(stand_in.stat().st_mode | stat.S_IEXEC)
+
+    shell_argv, label = _dash_like_shell(scratch)
+    # Scratch-only PATH proves the stand-in is found via the scratch dir; the
+    # shim's shebang is absolute, so the shim itself still runs.
+    env = {"PATH": str(scratch)}
+
+    control = subprocess.run(shell_argv + ["-c", "devbstandin"], capture_output=True, text=True, timeout=10, env=env)
+    assert "STOOD-IN" in control.stdout, f"stand-in unreachable under {label}; the checks below would be vacuous"
+
+    ran = subprocess.run(
+        shell_argv + ["-c", f"{name}=1 devbstandin"], capture_output=True, text=True, timeout=10, env=env
+    )
+    assert (
+        "STOOD-IN" in ran.stdout
+    ), f"under {label}, {name!r}=1 did NOT run the stand-in: dash treats it as an ordinary assignment"
+
+    bash_path = shutil.which("bash")
+    if bash_path is not None:
+        # argv0='sh' on purpose: bash AS sh aborts the command on the readonly
+        # assignment; bash 5.3 in NORMAL mode prints the error but STILL runs
+        # the command (verified on 5.3.20) — so the mode is part of the truth
+        # this asserts. This block is also the test's built-in RED control:
+        # pointed at sh-mode bash, the dash-side assertion above fails.
+        blocked = subprocess.run(
+            ["sh", "-c", f"{name}=1 devbstandin"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+            executable=bash_path,
+        )
+        assert "STOOD-IN" not in blocked.stdout, f"bash (as sh) unexpectedly ran the stand-in for {name!r}=1"
+
+    # Pin the guard's CURRENT verdict: False (passthrough). On dash systems
+    # this is fail-open for this class; see the docstring and CI-1 item 3.
+    assert conftest._is_audio_player_command(f"{name}=1 aplay f.wav") is False
 
 
 @pytest.mark.parametrize(
