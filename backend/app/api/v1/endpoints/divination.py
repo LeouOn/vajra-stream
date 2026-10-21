@@ -64,10 +64,15 @@ async def cast_iching(seed: int | None = None):
 
 
 @router.post("/geomancy/shield")
-async def cast_geomancy():
-    """Cast a Geomantic Shield Chart projected into the 12 Houses"""
+async def cast_geomancy(seed: int | None = None):
+    """Cast a Geomantic Shield Chart projected into the 12 Houses.
+
+    ``seed`` is optional and additive. Omitted, the Mothers are drawn with
+    ``secrets`` exactly as before. Given, it makes the cast reproducible for
+    tests and replays; the distribution is unchanged either way.
+    """
     try:
-        result = divination_service.cast_geomancy()
+        result = divination_service.cast_geomancy(seed=seed)
         return {
             "status": "success",
             "chart": result,

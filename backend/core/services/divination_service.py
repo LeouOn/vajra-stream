@@ -78,6 +78,24 @@ SPREAD_POSITIONS: dict[int, list[dict[str, Any]]] = {
     ],
 }
 
+
+def _generic_spread_position(index: int) -> dict[str, Any]:
+    """A neutral position for a spread size the product has no layout for.
+
+    The shape is exactly the one the named layouts use -- ``id``, ``name``,
+    ``position``, ``label`` -- so a consumer that reads
+    ``card["position"]["name"]`` works for every size. The name says only what
+    the card IS ("Card 3"), never what it MEANS: a size with no layout must not
+    be given an invented interpretation.
+    """
+    return {
+        "id": index,
+        "name": f"Card {index}",
+        "position": "center",
+        "label": f"Position {index} of an unnamed layout",
+    }
+
+
 GEOMANTIC_FIGURES = {
     "Via": {
         "pattern": [1, 1, 1, 1],
@@ -290,8 +308,10 @@ class DivinationService:
             # Surface the matching meaning text for this orientation.
             card["meaning"] = reversed_text if is_reversed else upright_text
             card["svg"] = self._render_tarot_card_svg(card)
-            if i < len(positions):
-                card["position"] = positions[i]
+            # Every card carries a position. A size the product has no layout
+            # for gets a GENERIC one rather than silently losing the key, which
+            # used to leave a 2- or 7-card draw looking like a plain list.
+            card["position"] = positions[i] if i < len(positions) else _generic_spread_position(i + 1)
             drawn.append(card)
 
         return drawn
@@ -303,11 +323,26 @@ class DivinationService:
         this method returns the richer envelope that includes the spread layout.
         """
         cards = self.draw_tarot(count=count, seed=seed)
-        return {
+        positions = SPREAD_POSITIONS.get(count, [])
+        is_custom = count not in SPREAD_POSITIONS
+        spread = [dict(p) for p in positions]
+        if is_custom:
+            # The same generic positions the cards carry, so the envelope is
+            # complete rather than an empty list beside cards that have them.
+            spread = [_generic_spread_position(i + 1) for i in range(len(cards))]
+        envelope: dict[str, Any] = {
             "cards": cards,
             "count": len(cards),
-            "spread": [dict(p) for p in SPREAD_POSITIONS.get(count, [])],
+            "spread": spread,
         }
+        if is_custom:
+            # Additive, and ONLY for a size the product has no layout for: a
+            # consumer can now tell "a 3-card Past/Present/Future" from "a
+            # 3-card layout I do not have a name for". The key is absent for
+            # the named layouts, whose envelopes keep their exact existing
+            # shape (there is nothing new to say about them).
+            envelope["is_custom_layout"] = True
+        return envelope
 
     # Element -> neon glow color (preserves the existing neon aesthetic)
     _ELEMENT_COLORS = {
@@ -906,12 +941,27 @@ class DivinationService:
 </svg>"""
         return svg
 
-    def cast_geomancy(self) -> dict[str, Any]:
-        """Casts a complete Geomantic Shield Chart from 4 Mothers"""
-        # Generate 4 random Mothers (each line 1 or 2 dots)
+    def cast_geomancy(self, seed: int | None = None) -> dict[str, Any]:
+        """Casts a complete Geomantic Shield Chart from 4 Mothers.
+
+        Args:
+            seed: Optional. ``None`` (the default) draws the Mothers with
+                ``secrets``, so an unseeded cast is cryptographically random as
+                before. An integer seeds ``random.Random(seed)`` instead and
+                draws the SAME per-line value, so the distribution is identical
+                and the cast can be replayed exactly.
+        """
+        # Generate 4 random Mothers (each line 1 or 2 dots).
+        # 16 draws in mother-major order, one mother at a time.
+        if seed is None:
+            draws = [secrets.randbelow(2) + 1 for _ in range(16)]
+        else:
+            rng = random.Random(seed)
+            draws = [rng.randrange(2) + 1 for _ in range(16)]
+
         mothers = {}
         for i in range(1, 5):
-            mothers[f"Mother {i}"] = [secrets.randbelow(2) + 1 for _ in range(4)]
+            mothers[f"Mother {i}"] = draws[(i - 1) * 4 : i * 4]
 
         # Daughters 1-4
         daughters = {}
