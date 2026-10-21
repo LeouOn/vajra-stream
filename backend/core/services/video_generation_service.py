@@ -34,9 +34,9 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -182,10 +182,19 @@ class VideoGenerationService:
         # Cost-tracking state (instance-local, reset on restart)
         self._daily_spend: dict[str, float] = {}
         self._hourly_calls: list[float] = []
-        # Makes check-and-reserve atomic for this instance. Created lazily on
-        # first use so it binds to the running event loop and is never
-        # module-level, loop-bound state.
-        self._spend_lock: asyncio.Lock | None = None
+        # Makes check-and-reserve atomic for this instance.
+        #
+        # A threading.Lock, not an asyncio.Lock, and not "no lock at all".
+        # Within a single event loop everything the lock covers is synchronous
+        # and separated by no await, so nothing can interleave there and no
+        # lock would be needed. This lock covers the case that actually bites:
+        # two caller threads, each running its own event loop, would otherwise
+        # both pass the guard and both pay - an asyncio.Lock binds to whichever
+        # loop first awaited it and gives no protection across threads (a
+        # thread on a second loop waits on a lock that will never be released
+        # for it). The lock is held only across synchronous code and never
+        # across the paid await, so it can never serialise network I/O.
+        self._spend_lock = threading.Lock()
 
     # ── Config ─────────────────────────────────────────────────────────
 
@@ -228,15 +237,16 @@ class VideoGenerationService:
     # ── Cost tracking ──────────────────────────────────────────────────
 
     def get_cost_stats(self) -> dict[str, Any]:
-        now = time.time()
-        self._hourly_calls = [t for t in self._hourly_calls if now - t < 3600]
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        return {
-            "daily_spend_usd": self._daily_spend.get(today, 0.0),
-            "daily_cost_cap_usd": self._config["daily_cost_cap_usd"],
-            "hourly_calls": len(self._hourly_calls),
-            "max_per_hour": self._config["max_per_hour"],
-        }
+        with self._spend_lock:
+            now = time.time()
+            self._hourly_calls = [t for t in self._hourly_calls if now - t < 3600]
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            return {
+                "daily_spend_usd": self._daily_spend.get(today, 0.0),
+                "daily_cost_cap_usd": self._config["daily_cost_cap_usd"],
+                "hourly_calls": len(self._hourly_calls),
+                "max_per_hour": self._config["max_per_hour"],
+            }
 
     def _check_cost_guard(self, model: str) -> None:
         """Raise ``RuntimeError`` if submitting this model would breach cost/rate limits.
@@ -260,15 +270,6 @@ class VideoGenerationService:
         if len(self._hourly_calls) >= self._config["max_per_hour"]:
             raise RuntimeError(f"max_per_hour={self._config['max_per_hour']} reached; try again later")
 
-    def _get_spend_lock(self) -> asyncio.Lock:
-        """The lock that makes check-and-reserve atomic for this instance.
-
-        Created lazily on first use, so it is bound to the running event loop.
-        """
-        if self._spend_lock is None:
-            self._spend_lock = asyncio.Lock()
-        return self._spend_lock
-
     def _record_spend(self, model: str) -> tuple[str, float]:
         """Reserve this call's spend and return a token that can release it.
 
@@ -290,16 +291,19 @@ class VideoGenerationService:
         """Undo exactly the reservation identified by ``reservation``.
 
         Used when the paid POST did not produce a task, so a failed
-        submission does not consume the caller's budget.
+        submission does not consume the caller's budget. Takes the spend lock
+        itself, so the caller must NOT already hold it (a threading.Lock is not
+        reentrant).
         """
-        day, stamp = reservation
-        cost = MODEL_SPECS.get(model, {}).get("cost_usd", 0.0)
-        if day in self._daily_spend:
-            self._daily_spend[day] = max(0.0, self._daily_spend[day] - cost)
-        try:
-            self._hourly_calls.remove(stamp)
-        except ValueError:
-            pass
+        with self._spend_lock:
+            day, stamp = reservation
+            cost = MODEL_SPECS.get(model, {}).get("cost_usd", 0.0)
+            if day in self._daily_spend:
+                self._daily_spend[day] = max(0.0, self._daily_spend[day] - cost)
+            try:
+                self._hourly_calls.remove(stamp)
+            except ValueError:
+                pass
 
     # ── Public API ─────────────────────────────────────────────────────
 
@@ -372,12 +376,12 @@ class VideoGenerationService:
         )
 
         # Check-and-reserve ATOMICALLY. The reservation is taken under the
-        # lock, so a concurrent submission sees the budget as already spent and
+        # lock, so a concurrent submission - including one on another thread,
+        # which has its own event loop - sees the budget as already spent and
         # is refused by the same guard error, instead of both calls passing
         # the check and then both paying. The paid POST happens OUTSIDE the
         # lock, so network I/O is never serialised across requests.
-        spend_lock = self._get_spend_lock()
-        async with spend_lock:
+        with self._spend_lock:
             self._check_cost_guard(model_name)
             reservation = self._record_spend(model_name)
 
@@ -424,9 +428,9 @@ class VideoGenerationService:
             # The submission did not produce a task, so give the budget back.
             # A cancellation is not an Exception (it derives from
             # BaseException) and the money may well have been spent, so it
-            # keeps its reservation.
-            async with spend_lock:
-                self._release_spend(model_name, reservation)
+            # keeps its reservation. _release_spend takes the spend lock
+            # itself, so it must not be called with the lock already held.
+            self._release_spend(model_name, reservation)
             raise
 
         return str(task_id)
