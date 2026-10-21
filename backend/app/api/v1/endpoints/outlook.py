@@ -10,7 +10,7 @@ import asyncio
 import json
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -122,6 +122,21 @@ def get_db_connection():
     return conn
 
 
+def _date_generated_iso(request_date: datetime | None) -> str:
+    """OUT-3: ``date_generated`` is stored as an AWARE UTC ISO timestamp.
+
+    ``request_date`` absent -> now in UTC; aware -> converted to UTC; naive
+    -> stored exactly as supplied (the engine's documented naive == UTC
+    policy; no offset is invented for a naive input). Previously this was
+    ``datetime.now().isoformat()`` — naive host wall time, which both
+    mislabelled the chart instant and made JS consumers guess the zone.
+    """
+    stamp = request_date if request_date is not None else datetime.now(timezone.utc)
+    if stamp.utcoffset() is not None:
+        stamp = stamp.astimezone(timezone.utc)
+    return stamp.isoformat()
+
+
 @router.post("/generate_single", summary="Generate a dense, single-pass blessing narrative")
 async def generate_single(request: OutlookRequest):
     """
@@ -179,7 +194,7 @@ async def generate_single(request: OutlookRequest):
                     json.dumps(result.get("languages")),
                     request.lat,
                     request.lon,
-                    (request.date or datetime.now()).isoformat(),
+                    _date_generated_iso(request.date),
                     result.get("narrative"),
                     result.get("astrology_used"),
                     result.get("divination_used"),
@@ -255,7 +270,7 @@ async def generate_epic(request: EpicOutlookRequest):
                     json.dumps(request.languages),
                     request.lat,
                     request.lon,
-                    (request.date or datetime.now()).isoformat(),
+                    _date_generated_iso(request.date),
                     json.dumps(result.get("narrative_parts")),
                     result.get("astrology_used"),
                     result.get("divination_used"),

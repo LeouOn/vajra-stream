@@ -394,6 +394,12 @@ class OutlookGenerator:
         an aware datetime is converted to UTC; a NAIVE datetime is passed
         through unchanged and the astro engine's documented policy applies
         (naive == UTC). No local timezone is ever guessed here.
+
+        Vimshottari dasha and gochara are natal-chart features: they are
+        computed only when ``natal_dt`` is provided (located with
+        ``natal_location`` or the target location) and are omitted entirely
+        without birth data. The printed dasha is the period whose [start,
+        end) interval contains the target date.
         """
         if not self.astro_engine:
             return "Astrological alignment: The stars dance in unknown but auspicious patterns."
@@ -402,10 +408,22 @@ class OutlookGenerator:
         try:
             if date is None:
                 target_date = datetime.now(timezone.utc)
-            elif date.tzinfo is not None:
+            elif not isinstance(date, datetime):
+                # OUT-3: datetime.date / str used to die on the attribute
+                # checks below with a muddy AttributeError; refuse with a
+                # clear typed error the outer handler can name.
+                raise TypeError(f"date must be a datetime, got {type(date).__name__!r}")
+            elif date.utcoffset() is not None:
                 target_date = date.astimezone(timezone.utc)
             else:
-                target_date = date  # naive: engine policy treats it as UTC
+                # Naive, or aware-by-tzinfo but offset-less: utcoffset() is
+                # None in both cases. astimezone() would quietly fold an
+                # offset-less datetime to the HOST's zone (CPython 3.13), and
+                # the astro engine raises on such tzinfos anyway ("fromutc:
+                # non-None utcoffset() result required"). Treat it as naive
+                # per the engine policy (naive == UTC): strip the unusable
+                # tzinfo so downstream sees a plain naive datetime.
+                target_date = date.replace(tzinfo=None) if date.tzinfo is not None else date
             chart = self.astro_engine.calculate_chart(target_date, lat, lon)
             western = chart.get("western", {})
             positions = western.get("positions", {})
@@ -551,51 +569,92 @@ class OutlookGenerator:
             if ruler:
                 lines.append(f"Planetary Hour Ruler: {ruler}")
 
-            # --- Vimshottari Dasha (current planetary period) ---
-            try:
-                if hasattr(self.astro_engine, "calculate_vimshottari_dasha"):
-                    dasha_periods = self.astro_engine.calculate_vimshottari_dasha(target_date, (lat, lon))
-                    if dasha_periods:
-                        current = dasha_periods[0]
-                        lines.append(
-                            f"Vimshottari Dasha: {current.get('ruler', '?')} period (started {current.get('start', '?')[:10] if current.get('start') else '?'})"
+            # --- Vimshottari Dasha (a natal period: needs birth data) ---
+            if natal_dt is not None:
+                try:
+                    if hasattr(self.astro_engine, "calculate_vimshottari_dasha"):
+                        dasha_periods = self.astro_engine.calculate_vimshottari_dasha(
+                            natal_dt, natal_location or (lat, lon)
                         )
-            except Exception:
-                logger.debug("Vimshottari dasha unavailable for cosmic weather", exc_info=True)
 
-            # --- Gochara (Vedic transit houses) ---
-            try:
-                if hasattr(self.astro_engine, "get_vedic_gochara"):
-                    gochara = self.astro_engine.get_vedic_gochara(target_date, (lat, lon), target_date)
-                    if gochara:
-                        gochara_lines = []
-                        for planet, info in list(gochara.items())[:6]:  # top 6 planets
-                            if isinstance(info, dict):
-                                house = info.get("gochara_house", "?")
-                                rashi = info.get("transit_rashi", "")
-                                rashi_short = rashi.split(" ")[0] if rashi else "?"
-                                gochara_lines.append(f"  {planet.title()}: House {house} from Moon ({rashi_short})")
-                        if gochara_lines:
-                            lines.append("Gochara (Transit Houses from Moon):\n" + "\n".join(gochara_lines))
-            except Exception:
-                logger.debug("Gochara unavailable for cosmic weather", exc_info=True)
+                        def _as_utc(value: datetime) -> datetime:
+                            # Engine policy: naive == UTC.
+                            if value.tzinfo is None:
+                                return value.replace(tzinfo=timezone.utc)
+                            return value.astimezone(timezone.utc)
 
-            # --- Local Time ---
+                        # Select the period whose [start, end) contains the
+                        # target; a target outside every period omits the line.
+                        target_utc = _as_utc(target_date)
+                        current = None
+                        for period in dasha_periods or []:
+                            if not isinstance(period, dict):
+                                continue
+                            try:
+                                p_start = datetime.fromisoformat(str(period.get("start")))
+                                p_end = datetime.fromisoformat(str(period.get("end")))
+                            except (TypeError, ValueError):
+                                continue
+                            if _as_utc(p_start) <= target_utc < _as_utc(p_end):
+                                current = period
+                                break
+                        if current is not None:
+                            lines.append(
+                                f"Vimshottari Dasha: {current.get('ruler', '?')} period "
+                                f"({str(current.get('start', ''))[:10]} to {str(current.get('end', ''))[:10]})"
+                            )
+                except Exception:
+                    logger.debug("Vimshottari dasha unavailable for cosmic weather", exc_info=True)
+
+            # --- Gochara (transit houses from the NATAL Moon: needs birth data) ---
+            if natal_dt is not None:
+                try:
+                    if hasattr(self.astro_engine, "get_vedic_gochara"):
+                        gochara = self.astro_engine.get_vedic_gochara(
+                            natal_dt, natal_location or (lat, lon), target_date
+                        )
+                        if gochara:
+                            gochara_lines = []
+                            for planet, info in list(gochara.items())[:6]:  # top 6 planets
+                                if isinstance(info, dict):
+                                    house = info.get("gochara_house", "?")
+                                    rashi = info.get("transit_rashi", "")
+                                    rashi_short = rashi.split(" ")[0] if rashi else "?"
+                                    gochara_lines.append(f"  {planet.title()}: House {house} from Moon ({rashi_short})")
+                            if gochara_lines:
+                                lines.append("Gochara (Transit Houses from Moon):\n" + "\n".join(gochara_lines))
+                except Exception:
+                    logger.debug("Gochara unavailable for cosmic weather", exc_info=True)
+
+            # --- Local Time (OUT-3: honest, zone-free) ---
+            # There is no DST calendar and no half-hour/quarter-hour zone
+            # table here, so no civil-time zone name is claimed (the old
+            # PDT/PST/UTC+N heuristic printed clocks hours off and labelled
+            # them with a zone they were not in). Print the UTC instant and
+            # the LOCAL MEAN SOLAR TIME — UTC + lon/15 hours, continuous and
+            # exact arithmetic, not an approximation of a civil clock. A real
+            # civil local time needs an IANA zone from the location
+            # (geocoding returns one for city names; core/astro/
+            # timezone_policy.py is zoneinfo-based) — the learner decides
+            # whether to add a lat/lon->zone source later.
             try:
                 from datetime import timedelta as _td
 
-                tz_offset_hours = round(lon / 15.0)
-                tz_name = (
-                    "PDT"
-                    if (-8 <= tz_offset_hours <= -7)
-                    else "PST"
-                    if tz_offset_hours == -8
-                    else f"UTC{tz_offset_hours:+d}"
+                local_solar = target_date + _td(hours=lon / 15.0)
+                hemisphere = "W" if lon < 0 else "E"
+                # OUT-3b: when the solar calendar date differs from the UTC
+                # date, say so — a clock read against the wrong date is the
+                # same lie the old fake-zone line told. The comparison uses
+                # this same local_solar value; no second computation.
+                date_clause = (
+                    f" on {local_solar.strftime('%Y-%m-%d')}" if local_solar.date() != target_date.date() else ""
                 )
-                local_dt = target_date + _td(hours=tz_offset_hours)
-                lines.append(f"Local Time: {local_dt.strftime('%Y-%m-%d %H:%M')} {tz_name} (approx)")
+                lines.append(
+                    f"Local Time: {target_date.strftime('%Y-%m-%d %H:%M')} UTC "
+                    f"(local solar time {local_solar.strftime('%H:%M')}{date_clause} at {abs(lon):.2f} {hemisphere})"
+                )
             except Exception:
-                pass
+                logger.warning("Local solar time line unavailable", exc_info=True)
 
             result = "Cosmic Weather Report:\n" + "\n".join(lines)
             return result
