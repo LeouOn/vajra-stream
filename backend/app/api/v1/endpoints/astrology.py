@@ -9,10 +9,12 @@ import logging
 import sqlite3
 import uuid
 from datetime import timezone
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from core.astro.timezone_policy import TimezonePolicyError
 from core.provenance import COMPUTED, DECORATIVE, RECORD, with_provenance
 
 # Module-level guarded import — `core.astrology` does an unguarded
@@ -579,6 +581,8 @@ class NatalChartRequest(BaseModel):
     name: str
     birth_time_iso: str
     birth_city: str
+    ambiguous: Literal["earlier", "later"] | None = None
+    nonexistent: Literal["shift_forward"] | None = None
 
 
 @router.post("/natal-chart")
@@ -586,7 +590,16 @@ async def generate_natal_chart(req: NatalChartRequest):
     """Generate a natal chart and export raw JSON data"""
     from backend.core.services.astrology_chart_service import astrology_chart_service
 
-    result = astrology_chart_service.get_natal_chart(req.name, req.birth_time_iso, req.birth_city)
+    try:
+        result = astrology_chart_service.get_natal_chart(
+            req.name,
+            req.birth_time_iso,
+            req.birth_city,
+            ambiguous=req.ambiguous,
+            nonexistent=req.nonexistent,
+        )
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
@@ -597,6 +610,8 @@ class TransitRequest(BaseModel):
     birth_time_iso: str
     birth_city: str
     current_time_iso: str | None = None
+    ambiguous: Literal["earlier", "later"] | None = None
+    nonexistent: Literal["shift_forward"] | None = None
 
 
 @router.post("/daily-horoscope")
@@ -604,9 +619,17 @@ async def generate_daily_horoscope(req: TransitRequest):
     """Generate a daily transit horoscope compared against natal chart"""
     from backend.core.services.astrology_chart_service import astrology_chart_service
 
-    result = astrology_chart_service.get_daily_transit(
-        req.name, req.birth_time_iso, req.birth_city, req.current_time_iso
-    )
+    try:
+        result = astrology_chart_service.get_daily_transit(
+            req.name,
+            req.birth_time_iso,
+            req.birth_city,
+            req.current_time_iso,
+            ambiguous=req.ambiguous,
+            nonexistent=req.nonexistent,
+        )
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
@@ -619,16 +642,37 @@ class SynastryRequest(BaseModel):
     name_b: str
     time_b: str
     city_b: str
+    ambiguous: Literal["earlier", "later"] | None = None
+    nonexistent: Literal["shift_forward"] | None = None
+    ambiguous_b: Literal["earlier", "later"] | None = None
+    nonexistent_b: Literal["shift_forward"] | None = None
 
 
 @router.post("/synastry")
 async def generate_synastry(req: SynastryRequest):
-    """Generate synastry (compatibility) aspects between two charts"""
+    """Generate synastry (compatibility) aspects between two charts
+
+    ``ambiguous`` / ``nonexistent`` apply to BOTH people. ``ambiguous_b`` /
+    ``nonexistent_b`` override them for the second person only, so two people
+    in different cities can need different answers.
+    """
     from backend.core.services.astrology_chart_service import astrology_chart_service
 
-    result = astrology_chart_service.get_synastry(
-        req.name_a, req.time_a, req.city_a, req.name_b, req.time_b, req.city_b
-    )
+    try:
+        result = astrology_chart_service.get_synastry(
+            req.name_a,
+            req.time_a,
+            req.city_a,
+            req.name_b,
+            req.time_b,
+            req.city_b,
+            ambiguous=req.ambiguous,
+            nonexistent=req.nonexistent,
+            ambiguous_b=req.ambiguous_b,
+            nonexistent_b=req.nonexistent_b,
+        )
+    except TimezonePolicyError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
     return result
@@ -1610,7 +1654,7 @@ async def import_saved_charts(req: dict):
 # `AstrologicalCalculator` is reconstructed per request so requests are
 # stateless and safe to call concurrently.
 
-from typing import Literal  # noqa: E402
+from typing import Literal  # noqa: E402  # noqa: E402
 
 import pytz  # noqa: E402
 from dateutil import parser as _dt_parser  # noqa: E402
