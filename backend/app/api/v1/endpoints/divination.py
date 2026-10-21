@@ -44,10 +44,15 @@ async def draw_tarot(payload: DrawTarotRequest):
 
 
 @router.post("/iching/cast")
-async def cast_iching():
-    """Cast an I Ching hexagram (6 lines, primary + relating)"""
+async def cast_iching(seed: int | None = None):
+    """Cast an I Ching hexagram (6 lines, primary + relating).
+
+    ``seed`` is optional and additive. Omitted, the cast draws from ``secrets``
+    exactly as before. Given, it makes the cast reproducible for tests and
+    replays; the yarrow probabilities are unchanged either way.
+    """
     try:
-        result = divination_service.cast_i_ching()
+        result = divination_service.cast_i_ching(seed=seed)
         return {
             "status": "success",
             "cast": result,

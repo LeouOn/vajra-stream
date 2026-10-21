@@ -713,30 +713,54 @@ class DivinationService:
 </svg>"""
         return svg
 
-    def cast_i_ching(self) -> dict[str, Any]:
-        """Casts an I Ching hexagram line by line using yarrow probabilities"""
+    def cast_i_ching(self, seed: int | None = None) -> dict[str, Any]:
+        """Casts an I Ching hexagram line by line using yarrow probabilities.
+
+        Args:
+            seed: Optional. ``None`` (the default) draws from ``secrets``, so an
+                unseeded cast is cryptographically random as before. An integer
+                seeds ``random.Random(seed)`` instead, using the SAME 0..15 draw
+                and therefore the SAME yarrow probabilities, so a cast can be
+                reproduced exactly for tests and replays.
+        """
         lines = []
-        # Draw 6 lines bottom-up (line 1 to line 6)
-        for _ in range(6):
-            # Yarrow probabilities:
-            # 6: Old Yin (changing) -> 1/16
-            # 7: Young Yang -> 5/16
-            # 8: Young Yin -> 7/16
-            # 9: Old Yang (changing) -> 3/16
-            rnd = secrets.randbelow(16)
+        # Draw 6 lines bottom-up (line 1 to line 6).
+        # Yarrow probabilities, from a single 0..15 draw:
+        # 6: Old Yin (changing) -> 1/16
+        # 7: Young Yang -> 5/16
+        # 8: Young Yin -> 7/16
+        # 9: Old Yang (changing) -> 3/16
+        if seed is None:
+            draws = [secrets.randbelow(16) for _ in range(6)]
+        else:
+            rng = random.Random(seed)
+            draws = [rng.randrange(16) for _ in range(6)]
+
+        for rnd in draws:
             if rnd == 0:
-                line_val = 6
+                lines.append(6)
             elif rnd <= 5:
-                line_val = 7
+                lines.append(7)
             elif rnd <= 12:
-                line_val = 8
+                lines.append(8)
             else:
-                line_val = 9
-            lines.append(line_val)
+                lines.append(9)
 
         # Compile hexagram patterns
+        # Primary: yang for 7 and 9, yin for 6 and 8.
         primary_pattern = [1 if (v == 7 or v == 9) else 0 for v in lines]
-        relating_pattern = [1 if (v == 7 or v == 8) else (0 if v == 6 else 1) for v in lines]  # Change changing lines
+        # Relating: every CHANGING line flips. A line reads yang when its value
+        # is 7 (young yang, unchanged) or 6 (old yin, changing TO yang), and yin
+        # when it is 8 (young yin) or 9 (old yang, changing TO yin). That is
+        # exactly ``primary XOR changing``.
+        #
+        # The previous expression, ``1 if (v == 7 or v == 8) else (0 if v == 6
+        # else 1)``, was only right for 7: it mapped 8 -> 1 (young yin stayed
+        # yang), 6 -> 0 (old yin did not change) and 9 -> 1 (old yang did not
+        # change). Three of the four line values were wrong, so the relating
+        # hexagram was wrong on nearly every cast -- and for a cast with no
+        # changing lines it reported a completely unrelated hexagram.
+        relating_pattern = [1 if (v == 7 or v == 6) else 0 for v in lines]
 
         changing_indices = [i + 1 for i, v in enumerate(lines) if v == 6 or v == 9]
 
@@ -791,6 +815,14 @@ class DivinationService:
                         "judgment": hexagram["judgment"],
                         "images": hexagram["images"],
                         "lines": hexagram["lines"],
+                        # Additive: knowledge/iching.json already carries these
+                        # and they were being dropped here. A later
+                        # cross-reading wave needs the trigram and element to
+                        # relate a hexagram to natal data.
+                        "lower_trigram": hexagram.get("lower_trigram", ""),
+                        "upper_trigram": hexagram.get("upper_trigram", ""),
+                        "element": hexagram.get("element", ""),
+                        "keywords": hexagram.get("keywords", []),
                     }
 
         # 2. Defensive fallback (unreachable in practice: iching.json ships all 64
@@ -805,6 +837,12 @@ class DivinationService:
             "judgment": "Esoteric transformation",
             "images": "",
             "lines": [],
+            # Same additive keys, empty, so the shape does not change on the
+            # defensive path either.
+            "lower_trigram": "",
+            "upper_trigram": "",
+            "element": "",
+            "keywords": [],
         }
 
     def _render_hexagram_svg(self, primary: list[int], relating: list[int], raw_lines: list[int]) -> str:
