@@ -10,14 +10,27 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
+import { useEarthState } from '../../stores/earthStateStore';
+import ProvenanceTag from '../UI/ProvenanceTag';
+import { loadLand } from '../../lib/earth';
 import {
   COUNTRY_COORDS,
   resolveTargetCoords as resolveCoords,
   latLonToVec3,
-  planetToLatLon,
-  createEarthTexture,
-  PLANET_COLORS,
   ASPECT_COLORS,
+  EARTH_AMBIENT_LIT,
+  earthSurfaceProps,
+  useSharedEarthTexture,
+  DAWN_RADIUS,
+  ISLAND_RADIUS,
+  buildTerminatorGeometry,
+  buildSmallIslandGeometry,
+  drawnBodies,
+  findDrawnBody,
+  subPointMarker,
+  sunMoved,
+  tinyIslandsEnabled,
+  type DrawnBody,
 } from './worldEmanationHelpers';
 
 interface PlanetPosition {
@@ -340,25 +353,146 @@ const AspectLine: React.FC<AspectLineProps> = ({ start, end, color, aspectType: 
   return <primitive object={line} />;
 };
 
+function useNowMs(): number {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return nowMs;
+}
+
+function useOnScreen(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [onScreen, setOnScreen] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    let observer: IntersectionObserver;
+    try {
+      observer = new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        setOnScreen(entry ? entry.isIntersecting : true);
+      });
+    } catch {
+      return undefined;
+    }
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return onScreen;
+}
+
+function EarthLights({ sun }: { sun: DrawnBody | null }) {
+  if (!sun) {
+    return (
+      <>
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[5, 3, 5]} intensity={0.4} />
+      </>
+    );
+  }
+  const at = latLonToVec3(sun.lat, sun.lon, 8);
+  return (
+    <>
+      <ambientLight intensity={EARTH_AMBIENT_LIT} />
+      <directionalLight position={[at.x, at.y, at.z]} intensity={1.05} />
+    </>
+  );
+}
+
+function DawnLine({ sun }: { sun: DrawnBody }) {
+  const drawn = useRef({ lat: sun.lat, lon: sun.lon });
+  const [geometry, setGeometry] = useState(() => buildTerminatorGeometry(sun, DAWN_RADIUS));
+  const material = useMemo(
+    () => new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 1, transparent: true, opacity: 0.95 }),
+    [],
+  );
+  useEffect(() => {
+    const prev = drawn.current;
+    if (prev.lat === sun.lat && prev.lon === sun.lon) return;
+    if (!sunMoved(prev, sun)) return;
+    drawn.current = { lat: sun.lat, lon: sun.lon };
+    setGeometry(buildTerminatorGeometry(drawn.current, DAWN_RADIUS));
+  }, [sun.lat, sun.lon]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+  const line = useMemo(() => new THREE.LineLoop(geometry, material), [geometry, material]);
+  return <primitive object={line} />;
+}
+
+function TinyIslands() {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const material = useMemo(
+    () => new THREE.LineBasicMaterial({ color: '#c5d5c8', transparent: true, opacity: 0.55, depthWrite: false }),
+    [],
+  );
+  useEffect(() => {
+    if (!tinyIslandsEnabled()) return undefined;
+    let cancelled = false;
+    void loadLand()
+      .then((land) => {
+        const built = buildSmallIslandGeometry(land, ISLAND_RADIUS);
+        if (cancelled) {
+          built.dispose();
+          return;
+        }
+        setGeometry(built);
+      })
+      .catch(() => {
+        /* Land chunk failed. The texture keeps its blob map and this overlay stays off. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+  const line = useMemo(
+    () => (geometry ? new THREE.LineSegments(geometry, material) : null),
+    [geometry, material],
+  );
+  if (!line) return null;
+  return <primitive object={line} />;
+}
+
+function SubPointMarkers({ bodies }: { bodies: DrawnBody[] }) {
+  return (
+    <group>
+      {bodies.map((body) => {
+        const marker = subPointMarker(body);
+        return (
+          <mesh key={body.id} position={marker.position}>
+            <sphereGeometry args={[marker.size, 16, 16]} />
+            <meshBasicMaterial color={marker.color} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
 interface AspectLinesProps {
-  planetPositions: PlanetPositions;
+  bodies: DrawnBody[] | null;
   aspects: Aspect[] | undefined;
 }
 
-const AspectLines: React.FC<AspectLinesProps> = ({ planetPositions, aspects }) => {
-  if (!planetPositions || !aspects || aspects.length === 0) return null;
+const AspectLines: React.FC<AspectLinesProps> = ({ bodies, aspects }) => {
+  if (!bodies || !aspects || aspects.length === 0) return null;
 
   const lines = aspects.slice(0, 8).map((asp, i) => {
-    const p1 = planetPositions[asp.planet1];
-    const p2 = planetPositions[asp.planet2];
+    const p1 = findDrawnBody(bodies, asp.planet1);
+    const p2 = findDrawnBody(bodies, asp.planet2);
     if (!p1 || !p2) return null;
-    const [lat1, lon1] = planetToLatLon(p1.longitude || 0);
-    const [lat2, lon2] = planetToLatLon(p2.longitude || 0);
-    const start = latLonToVec3(lat1, lon1);
-    const end = latLonToVec3(lat2, lon2);
     const color = ASPECT_COLORS[asp.aspect] || '#94a3b8';
     return (
-      <AspectLine key={i} start={start} end={end} color={color} aspectType={asp.aspect} exactness={asp.exactness || 0.5} />
+      <AspectLine
+        key={i}
+        start={latLonToVec3(p1.lat, p1.lon)}
+        end={latLonToVec3(p2.lat, p2.lon)}
+        color={color}
+        aspectType={asp.aspect}
+        exactness={asp.exactness || 0.5}
+      />
     );
   });
 
@@ -371,7 +505,6 @@ interface GlobeContentProps {
   broadcastTargets?: BroadcastTarget[];
   onLocationClick?: (location: unknown) => void;
   showBlessings?: boolean;
-  planetPositions?: PlanetPositions;
   aspects?: Aspect[];
 }
 
@@ -380,18 +513,23 @@ const GlobeContent: React.FC<GlobeContentProps> = ({
   broadcastTargets,
   onLocationClick: _onLocationClick,
   showBlessings = true,
-  planetPositions,
   aspects,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const earthTex = useSharedEarthTexture();
+  const earth = useEarthState();
+  const nowMs = useNowMs();
+  const bodies =
+    earth.status === 'ok' && earth.state && earth.fetchedAt !== null
+      ? drawnBodies(earth.state, earth.fetchedAt, nowMs)
+      : null;
+  const sun = bodies?.find((body) => body.id === 'sun') ?? null;
 
   useFrame((_, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * 0.08;
     }
   });
-
-  const earthTex = useMemo(() => createEarthTexture(), []);
 
   const markerData = useMemo<MarkerData[]>(() => {
     const markers: MarkerData[] = [];
@@ -425,35 +563,24 @@ const GlobeContent: React.FC<GlobeContentProps> = ({
         });
       }
     });
-    // Planet markers
-    if (planetPositions) {
-      Object.entries(planetPositions).forEach(([name, pos]) => {
-        if (['ascendant', 'midheaven'].includes(name)) return;
-        const [lat, lon] = planetToLatLon(pos.longitude || 0);
-        markers.push({
-          pos: latLonToVec3(lat, lon),
-          color: PLANET_COLORS[name] || '#ffffff',
-          size: name === 'sun' ? 0.08 : name === 'moon' ? 0.07 : 0.045,
-          pulseSpeed: name === 'sun' ? 1 : name === 'moon' ? 2 : 1.5,
-          label: `${name} ${pos.sign || ''} ${pos.retrograde ? '℞' : ''}`,
-          isPlanet: true,
-        });
-      });
-    }
     return markers;
-  }, [disasters, broadcastTargets, planetPositions]);
+  }, [disasters, broadcastTargets]);
 
   return (
     <group ref={groupRef}>
+      <EarthLights sun={sun} />
       <mesh>
         <sphereGeometry args={[2, 64, 64]} />
-        <meshStandardMaterial map={earthTex} roughness={0.7} metalness={0.1} />
+        <meshStandardMaterial key={earthTex.uuid} {...earthSurfaceProps(earthTex)} />
       </mesh>
+      <TinyIslands />
+      {sun && <DawnLine sun={sun} />}
+      {bodies && <SubPointMarkers bodies={bodies} />}
       <GridLines />
       <Atmosphere />
       {showBlessings && <BlessingRays isActive={(broadcastTargets || []).length > 0} />}
       {showBlessings && <RainbowRing isActive={(broadcastTargets || []).length > 0} />}
-      <AspectLines planetPositions={planetPositions || null} aspects={aspects} />
+      <AspectLines bodies={bodies} aspects={aspects} />
       {markerData.map((m, i) => (
         <Marker key={i} position={m.pos} color={m.color} size={m.size} pulseSpeed={m.pulseSpeed} />
       ))}
@@ -461,26 +588,7 @@ const GlobeContent: React.FC<GlobeContentProps> = ({
   );
 };
 
-// ─── Mini Globe for dashboard embedding ───
-interface MiniGlobeProps {
-  isActive?: boolean;
-  size?: 'small' | 'large';
-}
-
-export function MiniGlobe({ isActive = false, size = 'small' }: MiniGlobeProps) {
-  const h = size === 'small' ? 200 : 320;
-  return (
-    <div style={{ width: h, height: h }} className="relative">
-      <Canvas camera={{ position: [0, 0.3, 4.5], fov: 50 }}>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 3, 5]} intensity={1.0} />
-        <Stars radius={30} depth={20} count={800} factor={2} saturation={0} fade speed={0.3} />
-        <GlobeContent disasters={[]} broadcastTargets={isActive ? [{ name: 'Active', location: '' }] : []} showBlessings={true} />
-        <OrbitControls enableZoom={false} enablePan={false} enableRotate={true} autoRotate={true} autoRotateSpeed={0.3} />
-      </Canvas>
-    </div>
-  );
-}
+// MiniGlobe (a second WebGL canvas) was replaced by the 2D MiniEarth on the Broadcast tab.
 
 // ─── Main Component ───
 interface RadionicsGlobeProps {
@@ -489,6 +597,9 @@ interface RadionicsGlobeProps {
 }
 
 export default function RadionicsGlobe({ disasters, broadcastTargets }: RadionicsGlobeProps) {
+  const earth = useEarthState();
+  const shellRef = useRef<HTMLDivElement>(null);
+  const onScreen = useOnScreen(shellRef);
   const [worldData, setWorldData] = useState<{ disasters: Disaster[]; events: unknown[] }>({ disasters: [], events: [] });
   const [planetPositions, setPlanetPositions] = useState<PlanetPositions>(null);
   const [aspects, setAspects] = useState<Aspect[]>([]);
@@ -528,15 +639,16 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }: Radionic
   const allTargets = broadcastTargets || [];
 
   return (
-    <div className="w-full h-full relative">
-      <Canvas camera={{ position: [0, 0.5, 5.5], fov: 45 }}>
-        <ambientLight intensity={0.3} />
-        <directionalLight position={[5, 3, 5]} intensity={0.8} />
+    <div ref={shellRef} className="w-full h-full relative">
+      <Canvas
+        camera={{ position: [0, 0.5, 5.5], fov: 45 }}
+        dpr={[1, 1.5]}
+        frameloop={onScreen ? 'always' : 'never'}
+      >
         <Stars radius={50} depth={30} count={2000} factor={3} saturation={0} fade speed={0.5} />
         <GlobeContent
           disasters={allDisasters}
           broadcastTargets={allTargets}
-          planetPositions={planetPositions}
           aspects={aspects}
         />
         <OrbitControls
@@ -560,6 +672,10 @@ export default function RadionicsGlobe({ disasters, broadcastTargets }: Radionic
             {Object.values(planetPositions).filter(p => p.retrograde).length} ℞
           </div>
         )}
+        <div className="bg-black/60 px-2 py-1 rounded border border-slate-500/30 text-slate-300">
+          {earth.status !== 'ok' && <span>ephemeris unavailable </span>}
+          <ProvenanceTag kind="computed" />
+        </div>
       </div>
     </div>
   );

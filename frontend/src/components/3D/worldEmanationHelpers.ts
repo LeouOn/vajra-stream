@@ -2,7 +2,19 @@
  * worldEmanationHelpers.ts — Pure geographic and 3D projection helpers
  * for Earth emanation, radionics globe, and target coordinate resolution.
  */
+import { useEffect, useState } from 'react';
 import * as THREE from 'three';
+import {
+  angularDistanceDeg,
+  extrapolateSubPoint,
+  loadLand,
+  paintLand,
+  smallIslandVertices,
+  terminatorPoints,
+  type EarthState,
+  type LandData,
+  type SubPoint,
+} from '../../lib/earth';
 
 export const COUNTRY_COORDS: Record<string, [number, number]> = {
   'japan': [36, 138], 'tokyo': [35.6762, 139.6503], 'osaka': [34.6937, 135.5023],
@@ -133,7 +145,10 @@ export function latLonToVec3(lat: number, lon: number, radius = 2.05): THREE.Vec
 }
 
 /**
- * Ecliptic longitude → sub-planetary point on globe.
+ * Old stylised rule, kept for the existing unit test and any caller that
+ * still wants the decorative mapping. The globes do not use it.
+ * Longitude is ecliptic longitude − 180. Latitude is 23.44°·sin(ecliptic longitude).
+ * Real sub-points come from `useEarthState`.
  */
 export function planetToLatLon(eclipticLongitude: number): [number, number] {
   const lon = eclipticLongitude - 180;
@@ -211,47 +226,278 @@ export function toneFromFrequencies(freqs: number[] | undefined): string {
   return FALLBACK_TONE;
 }
 
+/** Sphere radius shared by WorldEmanation and RadionicsGlobe. */
+export const EARTH_SPHERE_RADIUS = 2;
+
+/** Dawn line sits just above the sphere. */
+export const DAWN_RADIUS = EARTH_SPHERE_RADIUS * 1.004;
+
+/** Tiny-island outline sits just above the sphere, under the dawn line. */
+export const ISLAND_RADIUS = EARTH_SPHERE_RADIUS * 1.003;
+
+/** Rebuild the dawn line only after the sub-solar point moves at least this far. */
+export const SUN_REBUILD_DEG = 0.05;
+
 /**
- * Procedural Earth texture generation.
+ * Tiny-island outlines. Turn this off if a measurement crosses the Wave 0
+ * thresholds (mount +100 ms, memory +50 MB, or steady frame +1 ms).
+ * `?tinyIslands=0` or `?tinyIslands=1` overrides it for a screenshot.
  */
-export function createEarthTexture(): THREE.CanvasTexture {
-  const size = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size / 2;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
+export const SHOW_TINY_ISLANDS = true;
 
-  // Ocean gradient
-  const grad = ctx.createLinearGradient(0, 0, 0, size / 2);
-  grad.addColorStop(0, '#0a1628');
-  grad.addColorStop(0.3, '#0d2137');
-  grad.addColorStop(0.5, '#0f2b45');
-  grad.addColorStop(0.7, '#0d2137');
-  grad.addColorStop(1, '#0a1628');
+const EARTH_TEX_W = 2048;
+const EARTH_TEX_H = 1024;
+
+/**
+ * Navy ocean and green land, bright enough that a lit hemisphere stays
+ * readable after MeshStandardMaterial shading. BT.709 luminance is about
+ * 57 for the ocean and 180 for the land.
+ */
+export const EARTH_OCEAN = '#163e73';
+export const EARTH_LAND = '#7dcc6a';
+
+/** Ambient floor when the Sun is drawn. Night land stays faintly colored. */
+export const EARTH_AMBIENT_LIT = 0.32;
+
+let sharedTexture: THREE.CanvasTexture | null = null;
+let textureRefs = 0;
+let textureGeneration = 0;
+
+function paintBlobEarth(ctx: CanvasRenderingContext2D): void {
+  const sx = EARTH_TEX_W / 512;
+  const sy = EARTH_TEX_H / 256;
+  const grad = ctx.createLinearGradient(0, 0, 0, EARTH_TEX_H);
+  grad.addColorStop(0, '#0e2a52');
+  grad.addColorStop(0.3, '#123560');
+  grad.addColorStop(0.5, EARTH_OCEAN);
+  grad.addColorStop(0.7, '#123560');
+  grad.addColorStop(1, '#0e2a52');
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size / 2);
+  ctx.fillRect(0, 0, EARTH_TEX_W, EARTH_TEX_H);
 
-  // Simplified continent blobs
-  ctx.fillStyle = '#1a3a2a';
-  // North America
-  ctx.beginPath(); ctx.ellipse(100, 80, 110, 70, -0.2, 0, Math.PI * 2); ctx.fill();
-  // South America
-  ctx.beginPath(); ctx.ellipse(130, 185, 35, 65, 0.1, 0, Math.PI * 2); ctx.fill();
-  // Europe
-  ctx.beginPath(); ctx.ellipse(260, 65, 55, 40, 0, 0, Math.PI * 2); ctx.fill();
-  // Africa
-  ctx.beginPath(); ctx.ellipse(275, 160, 45, 90, 0, 0, Math.PI * 2); ctx.fill();
-  // Asia
-  ctx.beginPath(); ctx.ellipse(370, 75, 120, 65, 0, 0, Math.PI * 2); ctx.fill();
-  // Australia
-  ctx.beginPath(); ctx.ellipse(420, 200, 30, 22, 0, 0, Math.PI * 2); ctx.fill();
-  // Southeast Asia islands
-  ctx.beginPath(); ctx.ellipse(430, 140, 18, 25, 0.3, 0, Math.PI * 2); ctx.fill();
-  // Japan
-  ctx.beginPath(); ctx.ellipse(455, 85, 8, 20, 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = EARTH_LAND;
+  ctx.beginPath(); ctx.ellipse(100 * sx, 80 * sy, 110 * sx, 70 * sy, -0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(130 * sx, 185 * sy, 35 * sx, 65 * sy, 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(260 * sx, 65 * sy, 55 * sx, 40 * sy, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(275 * sx, 160 * sy, 45 * sx, 90 * sy, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(370 * sx, 75 * sy, 120 * sx, 65 * sy, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(420 * sx, 200 * sy, 30 * sx, 22 * sy, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(430 * sx, 140 * sy, 18 * sx, 25 * sy, 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(455 * sx, 85 * sy, 8 * sx, 20 * sy, 0.2, 0, Math.PI * 2); ctx.fill();
+}
 
+function buildSharedTexture(): THREE.CanvasTexture {
+  textureGeneration += 1;
+  const generation = textureGeneration;
+  const canvas = document.createElement('canvas');
+  canvas.width = EARTH_TEX_W;
+  canvas.height = EARTH_TEX_H;
+  const ctx = canvas.getContext('2d');
+  if (ctx) paintBlobEarth(ctx);
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = THREE.RepeatWrapping;
+  if (ctx) {
+    void loadLand()
+      .then((land) => {
+        if (generation !== textureGeneration || sharedTexture !== tex) return;
+        const paintCtx = canvas.getContext('2d');
+        if (!paintCtx) return;
+        paintLand(paintCtx, land, EARTH_TEX_W, EARTH_TEX_H, { ocean: EARTH_OCEAN, land: EARTH_LAND });
+        tex.needsUpdate = true;
+      })
+      .catch(() => {
+        /* Blob map stays. The land chunk can fail without blanking the globe. */
+      });
+  }
   return tex;
+}
+
+/** Retain the module-shared 2048×1024 Earth texture. Pair every call with releaseEarthTexture. */
+export function retainEarthTexture(): THREE.CanvasTexture {
+  if (!sharedTexture) sharedTexture = buildSharedTexture();
+  textureRefs += 1;
+  return sharedTexture;
+}
+
+/**
+ * Same texture as retainEarthTexture. The name and the no-argument
+ * CanvasTexture return are the existing call signature. This call retains;
+ * the owner must release.
+ */
+export function createEarthTexture(): THREE.CanvasTexture {
+  return retainEarthTexture();
+}
+
+type EarthTextureHold = {
+  texture: THREE.CanvasTexture;
+  live: boolean;
+  counted: boolean;
+};
+
+/**
+ * Development StrictMode renders a new function component twice and keeps
+ * the second result. Each render retains. `mountedHolds` counts committed
+ * holders; the microtask drops the retains whose render was discarded.
+ */
+let mountedHolds = 0;
+let correctionScheduled = false;
+
+function scheduleRetainCorrection(): void {
+  if (correctionScheduled) return;
+  correctionScheduled = true;
+  queueMicrotask(() => {
+    correctionScheduled = false;
+    const extra = textureRefs - mountedHolds;
+    for (let i = 0; i < extra; i += 1) releaseEarthTexture();
+  });
+}
+
+/**
+ * The shared Earth texture, retained before the first paint.
+ * StrictMode runs the effect, its cleanup, then the effect again. The
+ * cleanup only marks the hold; a microtask releases it if nothing remounted
+ * that same hold. A later mount gets its own hold and its own retain.
+ */
+export function useSharedEarthTexture(): THREE.CanvasTexture {
+  const [hold] = useState<EarthTextureHold>(() => ({
+    texture: retainEarthTexture(),
+    live: true,
+    counted: false,
+  }));
+  useEffect(() => {
+    if (!hold.counted) {
+      hold.counted = true;
+      mountedHolds += 1;
+      scheduleRetainCorrection();
+    }
+    hold.live = true;
+    return () => {
+      hold.live = false;
+      queueMicrotask(() => {
+        if (hold.live) return;
+        if (hold.counted) {
+          hold.counted = false;
+          mountedHolds -= 1;
+        }
+        releaseEarthTexture();
+      });
+    };
+  }, [hold]);
+  return hold.texture;
+}
+
+/** Material props that already include the map. Spread these on the first frame. */
+export function earthSurfaceProps(map: THREE.CanvasTexture): {
+  map: THREE.CanvasTexture;
+  color: '#ffffff';
+  roughness: 0.7;
+  metalness: 0.1;
+} {
+  return { map, color: '#ffffff', roughness: 0.7, metalness: 0.1 };
+}
+
+/** A standard material whose map is attached at construction time. */
+export function createEarthSurfaceMaterial(map: THREE.CanvasTexture): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial(earthSurfaceProps(map));
+}
+
+/** Drop one retain. At zero, dispose the texture and drop the canvas backing store. */
+export function releaseEarthTexture(): void {
+  if (textureRefs <= 0) return;
+  textureRefs -= 1;
+  if (textureRefs > 0 || !sharedTexture) return;
+  const tex = sharedTexture;
+  const canvas = tex.image instanceof HTMLCanvasElement ? tex.image : null;
+  sharedTexture = null;
+  textureGeneration += 1;
+  tex.dispose();
+  if (canvas) {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
+export function sunMoved(prev: SubPoint | null, next: SubPoint): boolean {
+  if (!prev) return true;
+  return angularDistanceDeg(prev, next) >= SUN_REBUILD_DEG;
+}
+
+export function tinyIslandsEnabled(): boolean {
+  if (typeof window !== 'undefined') {
+    const flag = new URLSearchParams(window.location.search).get('tinyIslands');
+    if (flag === '0') return false;
+    if (flag === '1') return true;
+  }
+  return SHOW_TINY_ISLANDS;
+}
+
+export function buildTerminatorGeometry(sun: SubPoint, radius: number): THREE.BufferGeometry {
+  const points = terminatorPoints(sun);
+  const positions = new Float32Array(points.length * 3);
+  const colors = new Float32Array(points.length * 3);
+  const warm = new THREE.Color('#ffb15a');
+  const dim = new THREE.Color('#5c6b86');
+  for (let i = 0; i < points.length; i += 1) {
+    const point = points[i];
+    const vec = latLonToVec3(point.lat, point.lon, radius);
+    positions[i * 3] = vec.x;
+    positions[i * 3 + 1] = vec.y;
+    positions[i * 3 + 2] = vec.z;
+    const color = point.side === 'sunrise' ? warm : dim;
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return geometry;
+}
+
+export function buildSmallIslandGeometry(land: LandData, radius: number): THREE.BufferGeometry {
+  const { rings } = smallIslandVertices(land);
+  const positions: number[] = [];
+  for (const ring of rings) {
+    const count = ring.length / 2;
+    if (count < 2) continue;
+    const closed = count > 2 && ring[0] === ring[ring.length - 2] && ring[1] === ring[ring.length - 1];
+    const edges = closed ? count - 1 : count;
+    for (let i = 0; i < edges; i += 1) {
+      const j = (i + 1) % count;
+      const a = latLonToVec3(ring[i * 2 + 1], ring[i * 2], radius);
+      const b = latLonToVec3(ring[j * 2 + 1], ring[j * 2], radius);
+      positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  return geometry;
+}
+
+export interface DrawnBody {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+export function drawnBodies(state: EarthState, fetchedAt: number, nowMs: number): DrawnBody[] {
+  const dtSeconds = (nowMs - fetchedAt) / 1000;
+  return [state.sun, state.moon, ...state.planets].map((body) => {
+    const point = extrapolateSubPoint(body, dtSeconds);
+    return { id: body.id, name: body.name, lat: point.lat, lon: point.lon };
+  });
+}
+
+export function subPointMarker(body: DrawnBody): { position: THREE.Vector3; color: string; size: number } {
+  return {
+    position: latLonToVec3(body.lat, body.lon),
+    color: PLANET_COLORS[body.id] || '#ffffff',
+    size: body.id === 'sun' ? 0.08 : body.id === 'moon' ? 0.07 : 0.045,
+  };
+}
+
+export function findDrawnBody(bodies: DrawnBody[], name: string): DrawnBody | null {
+  const key = name.trim().toLowerCase();
+  return bodies.find((body) => body.id === key || (body.name || '').toLowerCase() === key) ?? null;
 }

@@ -13,7 +13,7 @@ import { useWebSocketStable as useWebSocket } from '../../hooks/useWebSocketStab
 import { useAudioStore } from '../../stores/audioStore';
 import { audioFeedback } from '../../utils/audioFeedback';
 import RateDial from './RateDial';
-import { MiniGlobe } from '../3D/RadionicsGlobe';
+import { MiniEarth } from '../2D/MiniEarth';
 import { apiUrl } from '../../utils/api';
 import { useCrystalStore } from '../../stores/crystalStore';
 import { isActiveStatus, useOperationsStore } from '../../stores/operationsStore';
@@ -350,7 +350,7 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
       {/* Broadcast Globe Visualization */}
       <div className="bg-gray-900/60 backdrop-blur-md rounded-xl border border-white/10 p-4 flex flex-col lg:flex-row items-center gap-4">
         <div className="flex-shrink-0">
-          <MiniGlobe isActive={activeSessions.length > 0} size="small" />
+          <MiniEarth isActive={activeSessions.length > 0} size="small" />
         </div>
         <div className="flex-1 space-y-2 text-center lg:text-left">
           <h3 className="text-sm font-bold text-white tracking-wider flex items-center gap-2 justify-center lg:justify-start">

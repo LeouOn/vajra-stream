@@ -16,15 +16,28 @@ import * as THREE from 'three';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
 import { useBroadcastStore, type BroadcastEvent } from '../../stores/broadcastStore';
+import { useEarthState } from '../../stores/earthStateStore';
+import ProvenanceTag from '../UI/ProvenanceTag';
+import { loadLand } from '../../lib/earth';
 import {
   resolveTargetCoords,
   latLonToVec3,
-  planetToLatLon,
   createArcCurve,
-  createEarthTexture,
   toneFromFrequencies,
-  PLANET_COLORS,
   ASPECT_COLORS,
+  EARTH_AMBIENT_LIT,
+  earthSurfaceProps,
+  useSharedEarthTexture,
+  DAWN_RADIUS,
+  ISLAND_RADIUS,
+  buildTerminatorGeometry,
+  buildSmallIslandGeometry,
+  drawnBodies,
+  findDrawnBody,
+  subPointMarker,
+  sunMoved,
+  tinyIslandsEnabled,
+  type DrawnBody,
 } from './worldEmanationHelpers';
 
 interface Disaster {
@@ -34,12 +47,6 @@ interface Disaster {
   severity?: string;
   lat?: number;
   lon?: number;
-}
-
-interface PlanetPosition {
-  longitude?: number;
-  sign?: string;
-  retrograde?: boolean;
 }
 
 interface Aspect {
@@ -219,19 +226,136 @@ const BlessingFlightArc: React.FC<{ start: THREE.Vector3; end: THREE.Vector3; la
   );
 };
 
-// Astrological Aspect Chords
-const AspectLines: React.FC<{ planetPositions: Record<string, PlanetPosition> | null; aspects: Aspect[] }> = ({ planetPositions, aspects }) => {
-  if (!planetPositions || aspects.length === 0) return null;
+function useNowMs(): number {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return nowMs;
+}
+
+/** On-screen canvases keep their decorative rAF. Off-screen canvases stop. */
+function useOnScreen(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [onScreen, setOnScreen] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    let observer: IntersectionObserver;
+    try {
+      observer = new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        setOnScreen(entry ? entry.isIntersecting : true);
+      });
+    } catch {
+      return undefined;
+    }
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return onScreen;
+}
+
+function EarthLights({ sun }: { sun: DrawnBody | null }) {
+  if (!sun) {
+    return (
+      <>
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[5, 3, 5]} intensity={0.4} />
+      </>
+    );
+  }
+  const at = latLonToVec3(sun.lat, sun.lon, 8);
+  return (
+    <>
+      <ambientLight intensity={EARTH_AMBIENT_LIT} />
+      <directionalLight position={[at.x, at.y, at.z]} intensity={1.05} />
+    </>
+  );
+}
+
+function DawnLine({ sun }: { sun: DrawnBody }) {
+  const drawn = useRef({ lat: sun.lat, lon: sun.lon });
+  const [geometry, setGeometry] = useState(() => buildTerminatorGeometry(sun, DAWN_RADIUS));
+  const material = useMemo(
+    () => new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 1, transparent: true, opacity: 0.95 }),
+    [],
+  );
+  useEffect(() => {
+    const prev = drawn.current;
+    if (prev.lat === sun.lat && prev.lon === sun.lon) return;
+    if (!sunMoved(prev, sun)) return;
+    drawn.current = { lat: sun.lat, lon: sun.lon };
+    setGeometry(buildTerminatorGeometry(drawn.current, DAWN_RADIUS));
+  }, [sun.lat, sun.lon]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+  const line = useMemo(() => new THREE.LineLoop(geometry, material), [geometry, material]);
+  return <primitive object={line} />;
+}
+
+function TinyIslands() {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const material = useMemo(
+    () => new THREE.LineBasicMaterial({ color: '#c5d5c8', transparent: true, opacity: 0.55, depthWrite: false }),
+    [],
+  );
+  useEffect(() => {
+    if (!tinyIslandsEnabled()) return undefined;
+    let cancelled = false;
+    void loadLand()
+      .then((land) => {
+        const built = buildSmallIslandGeometry(land, ISLAND_RADIUS);
+        if (cancelled) {
+          built.dispose();
+          return;
+        }
+        setGeometry(built);
+      })
+      .catch(() => {
+        /* Land chunk failed. The texture keeps its blob map and this overlay stays off. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => () => geometry?.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+  const line = useMemo(
+    () => (geometry ? new THREE.LineSegments(geometry, material) : null),
+    [geometry, material],
+  );
+  if (!line) return null;
+  return <primitive object={line} />;
+}
+
+function SubPointMarkers({ bodies }: { bodies: DrawnBody[] }) {
+  return (
+    <group>
+      {bodies.map((body) => {
+        const marker = subPointMarker(body);
+        return (
+          <mesh key={body.id} position={marker.position}>
+            <sphereGeometry args={[marker.size, 16, 16]} />
+            <meshBasicMaterial color={marker.color} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+// Astrological Aspect Chords — endpoints are true sub-points, not the old stylised rule.
+const AspectLines: React.FC<{ bodies: DrawnBody[] | null; aspects: Aspect[] }> = ({ bodies, aspects }) => {
+  if (!bodies || aspects.length === 0) return null;
 
   return (
     <group>
       {aspects.slice(0, 8).map((asp, i) => {
-        const p1 = planetPositions[asp.planet1];
-        const p2 = planetPositions[asp.planet2];
+        const p1 = findDrawnBody(bodies, asp.planet1);
+        const p2 = findDrawnBody(bodies, asp.planet2);
         if (!p1 || !p2) return null;
-        const [lat1, lon1] = planetToLatLon(p1.longitude || 0);
-        const [lat2, lon2] = planetToLatLon(p2.longitude || 0);
-        const curve = createArcCurve(latLonToVec3(lat1, lon1), latLonToVec3(lat2, lon2), 0.2);
+        const curve = createArcCurve(latLonToVec3(p1.lat, p1.lon), latLonToVec3(p2.lat, p2.lon), 0.2);
         const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(30));
         return (
           <ThreeLine key={i} geometry={geo} color={ASPECT_COLORS[asp.aspect] || '#94a3b8'} opacity={0.3} />
@@ -302,7 +426,6 @@ interface SceneContentProps {
   practitionerCoords: [number, number];
   activeBroadcasts: BroadcastEvent[];
   disasters: Disaster[];
-  planetPositions: Record<string, PlanetPosition> | null;
   aspects: Aspect[];
 }
 
@@ -311,11 +434,17 @@ const SceneContent: React.FC<SceneContentProps> = ({
   practitionerCoords,
   activeBroadcasts,
   disasters,
-  planetPositions,
   aspects,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const earthTex = useMemo(() => createEarthTexture(), []);
+  const earthTex = useSharedEarthTexture();
+  const earth = useEarthState();
+  const nowMs = useNowMs();
+  const bodies =
+    earth.status === 'ok' && earth.state && earth.fetchedAt !== null
+      ? drawnBodies(earth.state, earth.fetchedAt, nowMs)
+      : null;
+  const sun = bodies?.find((body) => body.id === 'sun') ?? null;
 
   useFrame((_, delta) => {
     if (groupRef.current) {
@@ -359,10 +488,14 @@ const SceneContent: React.FC<SceneContentProps> = ({
 
   return (
     <group ref={groupRef}>
+      <EarthLights sun={sun} />
       <mesh>
         <sphereGeometry args={[2, 48, 48]} />
-        <meshStandardMaterial map={earthTex} roughness={0.7} metalness={0.1} />
+        <meshStandardMaterial key={earthTex.uuid} {...earthSurfaceProps(earthTex)} />
       </mesh>
+      <TinyIslands />
+      {sun && <DawnLine sun={sun} />}
+      {bodies && <SubPointMarkers bodies={bodies} />}
 
       <GridLines />
       <Atmosphere isDiffusing={hasDiffuseBroadcast} />
@@ -384,7 +517,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
 
       {/* Disaster Markers (rendered in compact as subtle pulses, and in full with markers) */}
       <DisasterMarkers disasters={variant === 'compact' ? disasters.slice(0, 3) : disasters} />
-      {variant === 'full' && <AspectLines planetPositions={planetPositions} aspects={aspects} />}
+      {variant === 'full' && <AspectLines bodies={bodies} aspects={aspects} />}
     </group>
   );
 };
@@ -414,12 +547,14 @@ export default function WorldEmanation({
   className = '',
 }: WorldEmanationProps): React.ReactElement {
   const recentBroadcasts = useBroadcastStore((state) => state.recentBroadcasts);
+  const earth = useEarthState();
+  const shellRef = useRef<HTMLDivElement>(null);
+  const onScreen = useOnScreen(shellRef);
   const [practitionerCoords, setPractitionerCoords] = useState<[number, number]>(
     customCoords || [DEFAULT_LAT, DEFAULT_LNG],
   );
 
   const [disasters, setDisasters] = useState<Disaster[]>([]);
-  const [planetPositions, setPlanetPositions] = useState<Record<string, PlanetPosition> | null>(null);
   const [aspects, setAspects] = useState<Aspect[]>([]);
 
   // Discover practitioner coordinates if available
@@ -458,9 +593,8 @@ export default function WorldEmanation({
       try {
         const res = await fetch(apiUrl(`/astrology/current?latitude=${practitionerCoords[0]}&longitude=${practitionerCoords[1]}`));
         if (res.ok && mounted) {
-          const data = (await res.json()) as { astrology?: { western?: { positions?: Record<string, PlanetPosition>; aspects?: Aspect[] } } };
+          const data = (await res.json()) as { astrology?: { western?: { aspects?: Aspect[] } } };
           const western = data.astrology?.western;
-          setPlanetPositions(western?.positions || null);
           setAspects(western?.aspects || []);
         }
       } catch {
@@ -504,20 +638,22 @@ export default function WorldEmanation({
 
   return (
     <div
+      ref={shellRef}
       data-testid="world-emanation"
       className={`relative w-full ${containerHeight} rounded-xl overflow-hidden bg-gradient-to-b from-slate-950/80 to-sky-950/30 border border-sky-500/20 shadow-inner ${className}`}
     >
       <CanvasErrorBoundary fallback={fallbackView}>
-        <Canvas camera={{ position: [0, 0.4, 5.2], fov: 45 }}>
-          <ambientLight intensity={0.4} />
-          <directionalLight position={[5, 3, 5]} intensity={0.9} />
+        <Canvas
+          camera={{ position: [0, 0.4, 5.2], fov: 45 }}
+          dpr={[1, 1.5]}
+          frameloop={onScreen ? 'always' : 'never'}
+        >
           <Stars radius={40} depth={20} count={variant === 'compact' ? 600 : 1500} factor={2} fade speed={0.3} />
           <SceneContent
             variant={variant}
             practitionerCoords={practitionerCoords}
             activeBroadcasts={activeBroadcasts}
             disasters={disasters}
-            planetPositions={planetPositions}
             aspects={aspects}
           />
           <OrbitControls
@@ -537,6 +673,8 @@ export default function WorldEmanation({
         <div className="flex items-center gap-1.5 bg-slate-950/75 backdrop-blur-md px-2.5 py-1 rounded-full border border-sky-500/30 text-[11px] font-mono text-sky-200">
           <span className={`w-2 h-2 rounded-full ${activeBroadcasts.length > 0 ? 'bg-cyan-400 animate-pulse' : 'bg-slate-500'}`} />
           <span>{activeTargetSummary ? `Emanating: ${activeTargetSummary}` : 'Field Receptive'}</span>
+          {earth.status !== 'ok' && <span>ephemeris unavailable</span>}
+          <ProvenanceTag kind="computed" />
         </div>
 
         <div className="flex gap-2 text-[10px] font-mono">

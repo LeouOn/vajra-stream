@@ -241,3 +241,52 @@ export interface EarthState {
   planets: BodySubPoint[];
   provenance: Record<string, string>;
 }
+
+/** Sidereal Earth rotation used between earth-state polls. The body's own RA drift is ignored. */
+const EARTH_ROTATION_DEG_PER_SEC = 360.9856 / 86400;
+
+/**
+ * Advance a sub-point by Earth's rotation. Longitude decreases (west) by
+ * 360.9856°/86400 s. Latitude is unchanged. Longitude stays in [-180, 180).
+ */
+export function extrapolateSubPoint(p: SubPoint, dtSeconds: number): SubPoint {
+  return {
+    lat: p.lat,
+    lon: wrapLon(p.lon - EARTH_ROTATION_DEG_PER_SEC * dtSeconds),
+  };
+}
+
+/**
+ * Outer rings of polygons whose longer bounding-box side is under `maxSpanDeg`.
+ * Vertex count is every lon/lat pair in those rings, including a repeated closing point.
+ * Holes are not outlined. The committed 50 m file yields 913 polygons and 9152 vertices at 0.5°.
+ */
+export function smallIslandVertices(
+  land: LandData,
+  maxSpanDeg = 0.5,
+): { rings: number[][]; polygonCount: number; vertexCount: number } {
+  const rings: number[][] = [];
+  let vertexCount = 0;
+  for (const poly of land.polys) {
+    const ring = poly.o;
+    if (ring.length < 4) continue;
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    for (let i = 0; i < ring.length; i += 2) {
+      const lon = ring[i];
+      const lat = ring[i + 1];
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+    const longer = Math.max(maxLon - minLon, maxLat - minLat);
+    if (longer < maxSpanDeg) {
+      rings.push(ring);
+      vertexCount += ring.length / 2;
+    }
+  }
+  return { rings, polygonCount: rings.length, vertexCount };
+}
