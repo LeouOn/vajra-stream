@@ -132,6 +132,45 @@ async def get_night_sky(
     )
 
 
+@router.get("/earth-state")
+async def get_earth_state(datetime_str: str | None = None):
+    """Sub-points of Sun, Moon and planets plus Greenwich apparent sidereal time.
+
+    Pure ephemeris maths (core.earth_sky): naive ``datetime_str`` is UTC, a
+    trailing ``Z`` is accepted, times outside 1800-01-01..2200-12-31 UTC are
+    422, and without swisseph the answer is 503 - never invented positions.
+    """
+    from datetime import datetime
+
+    from core.earth_sky import EphemerisUnavailable, earth_state
+
+    dt = None
+    if datetime_str:
+        clean = datetime_str.strip()
+        if clean.endswith("Z"):
+            clean = clean[:-1] + "+00:00"
+        try:
+            dt = datetime.fromisoformat(clean)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="malformed datetime_str; expected ISO-8601")
+    try:
+        state = earth_state(dt)
+    except EphemerisUnavailable:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return with_provenance(
+        state,
+        {
+            "at": COMPUTED,
+            "gast_deg": COMPUTED,
+            "sun": COMPUTED,
+            "moon": COMPUTED,
+            "planets": COMPUTED,
+        },
+    )
+
+
 @router.get("/current")
 async def get_current_astrology(datetime_str: str = None, latitude: float = None, longitude: float = None):
     """Get current astrological data or calculate for custom datetime & location"""
