@@ -24,14 +24,19 @@ describe('twilightGlow', () => {
     expect(GLOW_WIDTH_DEG).toBe(70);
   });
 
-  it('feathers the angular envelope: literals, symmetry, monotone, 0 at the edge', () => {
+  it('keeps a flat plateau to 12 deg, then feathers: literals, symmetry, monotone, 0 at 35', () => {
+    // W5-L: the raised cosine over +-35 put almost all its energy in +-15 and
+    // made the strongest twilight case too faint. 1 on +-12, then a raised
+    // cosine from 12 to 35 (zero slope at both ends).
     expect(angularGlowProfile(0)).toBeCloseTo(1, 12);
-    expect(angularGlowProfile(10)).toBeCloseTo(0.8117449, 6);
-    expect(angularGlowProfile(20)).toBeCloseTo(0.3887395, 6);
-    expect(angularGlowProfile(30)).toBeCloseTo(0.0495156, 6);
+    expect(angularGlowProfile(6)).toBeCloseTo(1, 12);
+    expect(angularGlowProfile(12)).toBeCloseTo(1, 12);
+    expect(angularGlowProfile(20)).toBeCloseTo(0.7300325, 6);
+    expect(angularGlowProfile(30)).toBeCloseTo(0.1121444, 6);
     expect(angularGlowProfile(35)).toBe(0);
     expect(angularGlowProfile(40)).toBe(0);
-    expect(angularGlowProfile(-10)).toBeCloseTo(angularGlowProfile(10), 12);
+    expect(angularGlowProfile(-6)).toBeCloseTo(1, 12);
+    expect(angularGlowProfile(-20)).toBeCloseTo(angularGlowProfile(20), 12);
     expect(angularGlowProfile(-35)).toBe(0);
     let previous = 1;
     for (let offset = 0; offset <= 35; offset += 0.1) {

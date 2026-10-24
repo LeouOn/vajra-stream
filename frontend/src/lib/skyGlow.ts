@@ -41,15 +41,23 @@ function wrap360(deg: number): number {
   return wrapped < 0 ? wrapped + 360 : wrapped;
 }
 
+/** Half-width of the flat 1.0 plateau around the Sun's azimuth. */
+export const GLOW_PLATEAU_HALF_WIDTH_DEG = 12;
+
 /**
- * The angular alpha envelope across the band (raised cosine): 1 on the Sun's
- * azimuth, smoothly to 0 at +-35 deg, with zero slope at both ends (no crisp
- * radial cut). Symmetric and continuous; 0 outside the band.
+ * The angular alpha envelope across the band: a FLAT 1.0 plateau within +-12
+ * degrees of the Sun's azimuth, then a raised cosine from 12 to 35 degrees down
+ * to 0, with zero slope at 12 and at 35 (no crisp radial cut). The plateau keeps
+ * the strongest twilight (-2 deg) and the deep -12 deg case visibly warm rather
+ * than spending the energy in a narrow spike. Symmetric and continuous; 0
+ * outside the band.
  */
 export function angularGlowProfile(offsetDeg: number): number {
   const abs = Math.abs(offsetDeg);
   if (!Number.isFinite(abs) || abs >= GLOW_HALF_WIDTH_DEG) return 0;
-  return 0.5 * (1 + Math.cos((Math.PI * abs) / GLOW_HALF_WIDTH_DEG));
+  if (abs <= GLOW_PLATEAU_HALF_WIDTH_DEG) return 1;
+  const t = (abs - GLOW_PLATEAU_HALF_WIDTH_DEG) / (GLOW_HALF_WIDTH_DEG - GLOW_PLATEAU_HALF_WIDTH_DEG);
+  return 0.5 * (1 + Math.cos(Math.PI * t));
 }
 
 /**
