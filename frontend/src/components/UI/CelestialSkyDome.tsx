@@ -65,6 +65,16 @@ export function formatDeg(deg: number): string {
   return deg.toFixed(2);
 }
 
+/** Footer wording for the geocentric (or unknown-frame) case. */
+const FRAME_GEOCENTRIC =
+  'Sun, Moon and planets are geocentric (no parallax; the Moon can differ by up to about 1 degree from where it appears at your place).';
+/** Live W4-T1 payload: parallax applied to every body. */
+const FRAME_LIVE_TOPOCENTRIC =
+  'Sun, Moon and planets are topocentric: parallax included (up to about 1 degree for the Moon); altitudes are geometric, without atmospheric refraction.';
+/** Scrub W4-T2 series: only the Moon is corrected; Sun/planets stay geocentric. */
+const FRAME_SCRUB_TOPOCENTRIC =
+  'Sun, Moon and planets are shown for the scrubbed instant: the Moon is topocentric (parallax included, up to about 1 degree); the Sun and planets are geocentric, within 0.01 degree of the topocentric place. Altitudes are geometric, without atmospheric refraction.';
+
 /** "+2h 05m" style scrub offset. */
 function formatOffset(minutes: number): string {
   const sign = minutes < 0 ? '-' : '+';
@@ -954,6 +964,14 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         ? 'Vedic stars above the horizon (hidden by daylight):'
         : 'Vedic stars above the horizon (fainter ones hidden by the twilight sky):';
 
+  const frameFooter = scrubMode
+    ? scrubbed?.moonFrame === 'topocentric'
+      ? FRAME_SCRUB_TOPOCENTRIC
+      : FRAME_GEOCENTRIC
+    : data?.position_frame === 'topocentric'
+      ? FRAME_LIVE_TOPOCENTRIC
+      : FRAME_GEOCENTRIC;
+
   const staleAgeSeconds =
     lastGoodAt === null ? null : Math.max(0, Math.round((Date.now() - lastGoodAt) / 1000));
   const scrubOffset = scrubAtIso === null ? null : formatOffset(offsetMinutes(scrubAtIso, Date.now()));
@@ -1271,10 +1289,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           BSC5 via CDS VizieR · IAU star names CC BY · figures: IAU and Sky & Telescope (Sinnott and Fienberg), CC BY 3.0, via d3-celestial BSD-3
         </p>
         <p>precession only; proper motion, nutation and aberration ignored</p>
-        <p>
-          Sun, Moon and planets are geocentric (no parallax; the Moon can differ by up to about 1
-          degree from where it appears at your place).
-        </p>
+        <p data-testid="sky-frame-footer">{frameFooter}</p>
         {sacredMissing && (
           <p data-testid="sky-scrub-sacred-footer">sacred stars unavailable while scrubbing</p>
         )}

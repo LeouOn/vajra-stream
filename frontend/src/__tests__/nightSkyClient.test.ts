@@ -118,6 +118,24 @@ describe('decodeNightSky', () => {
     }
   });
 
+  it('decodes the optional position_frame, allowing absence and both real frames', () => {
+    expect(decodeNightSky(payload()).position_frame).toBeUndefined();
+    expect(decodeNightSky(payload({ position_frame: 'topocentric' })).position_frame).toBe(
+      'topocentric',
+    );
+    expect(decodeNightSky(payload({ position_frame: 'geocentric' })).position_frame).toBe(
+      'geocentric',
+    );
+  });
+
+  it('rejects a junk position_frame, naming the path', () => {
+    for (const bad of ['tropical', 1, null, 'TOPOCENTRIC']) {
+      expect(() => decodeNightSky(payload({ position_frame: bad })), String(bad)).toThrow(
+        /position_frame/,
+      );
+    }
+  });
+
   it('names the first bad path for each field class', () => {
     const mutations: [string, (body: Record<string, unknown>) => void, RegExp][] = [
       ['timestamp without zone', (body) => (body.timestamp_utc = '2026-10-22T02:00:00'), /timestamp_utc/],

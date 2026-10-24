@@ -235,8 +235,11 @@ describe('CelestialSkyDome catalogue layers', () => {
     expect(footer.textContent).toContain(
       'precession only; proper motion, nutation and aberration ignored',
     );
-    // W3-D2a: the live path is geocentric, so the dome says so.
-    expect(footer.textContent).toContain('geocentric');
+    // The fixture payload has no position_frame (unknown), so the footer keeps
+    // the original geocentric wording (W4-D1d).
+    expect(footer.textContent).toContain(
+      'Sun, Moon and planets are geocentric (no parallax; the Moon can differ by up to about 1 degree from where it appears at your place).',
+    );
     expect(footer.querySelectorAll('[data-provenance="computed"]')).toHaveLength(2);
     expect(footer.querySelectorAll('[data-provenance="decorative"]')).toHaveLength(2);
   });

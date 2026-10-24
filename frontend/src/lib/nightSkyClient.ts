@@ -73,6 +73,8 @@ export interface NightSkyStar {
 }
 
 /** Every field the dome reads; anything else in the JSON is ignored. */
+export type PositionFrame = 'topocentric' | 'geocentric';
+
 export interface NightSky {
   timestamp_utc: string;
   observer: NightSkyObserver;
@@ -82,6 +84,8 @@ export interface NightSky {
   sacred_stars: NightSkyStar[];
   visible_stars_count: number;
   provenance: Record<string, unknown>;
+  /** Frame of the payload's altitudes (W4-T1). Absent = an older/unknown backend. */
+  position_frame?: PositionFrame;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -210,6 +214,14 @@ export function decodeNightSky(raw: unknown): NightSky {
 
   if (!isRecord(record.provenance)) invalid('provenance', 'must be an object');
 
+  let position_frame: PositionFrame | undefined;
+  if (record.position_frame !== undefined) {
+    if (record.position_frame !== 'topocentric' && record.position_frame !== 'geocentric') {
+      invalid('position_frame', 'must be "topocentric" or "geocentric"');
+    }
+    position_frame = record.position_frame;
+  }
+
   return {
     timestamp_utc,
     observer,
@@ -219,6 +231,7 @@ export function decodeNightSky(raw: unknown): NightSky {
     sacred_stars,
     visible_stars_count: requireCount(record.visible_stars_count, 'visible_stars_count'),
     provenance: record.provenance,
+    ...(position_frame === undefined ? {} : { position_frame }),
   };
 }
 
