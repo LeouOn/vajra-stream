@@ -704,6 +704,15 @@ async def stop_recitation():
 # ============================================================================
 
 
+class WorkingLocation(BaseModel):
+    """Where a working is sealed (its witness shows the sky from here)."""
+
+    latitude: float = Field(..., ge=-90.0, le=90.0)
+    longitude: float = Field(..., ge=-180.0, le=180.0)
+    label: str | None = Field(default=None, max_length=120)
+    source: Literal["browser", "typed", "geocoded"] = "typed"
+
+
 class RunWorkingRequest(BaseModel):
     intention: str = Field(..., min_length=1, max_length=1000)
     target: str = Field(default="all beings", max_length=200)
@@ -716,6 +725,9 @@ class RunWorkingRequest(BaseModel):
     divination: dict | None = None
     deity: str | None = Field(
         default=None, max_length=120, description="Deity id or alias from knowledge/iconography.json (GET /iconography)"
+    )
+    location: WorkingLocation | None = Field(
+        default=None, description="Where the working is sealed; omit to use the home location (GET /settings/location)"
     )
 
     @field_validator("deity")
@@ -747,6 +759,7 @@ async def run_working_endpoint(request: RunWorkingRequest):
             moon_phase=request.moon_phase,
             divination=request.divination,
             deity=request.deity,
+            location=request.location.model_dump() if request.location else None,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -768,13 +781,15 @@ async def collapse_duplicates_endpoint():
 
 
 @router.get("/workings/{working_id}", summary="Load one sealed working folio")
-async def get_working_endpoint(working_id: str):
+async def get_working_endpoint(working_id: str, strip_pii: bool = False):
+    """One folio; ``strip_pii=true`` leaves out where it was sealed (label, coordinates, observer)."""
+    from core.home_location import strip_location_pii
     from core.working import load_working
 
     folio = load_working(working_id)
     if folio is None:
         raise HTTPException(status_code=404, detail="Working not found")
-    return folio
+    return strip_location_pii(folio) if strip_pii else folio
 
 
 class WorkingPatchRequest(BaseModel):

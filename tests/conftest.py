@@ -88,6 +88,12 @@ _TEST_DB_DIR = tempfile.mkdtemp(prefix="vajra-test-db-")
 TEST_DB_PATH = os.path.join(_TEST_DB_DIR, "vajra_stream.db")
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
 
+# The home location (core/home_location.py) lives in ~/.vajra-stream by default:
+# a developer's real one must never reach a test folio, and no test may write
+# it. Every test gets an empty store here (see _isolated_home_location below).
+HOME_LOCATION_TEST_PATH = os.path.join(_TEST_DB_DIR, "home_location.json")
+os.environ["VAJRA_HOME_LOCATION_PATH"] = HOME_LOCATION_TEST_PATH
+
 # ---------------------------------------------------------------------------
 # Hard guard: sqlite3 refuses to open the live database during the suite
 # ---------------------------------------------------------------------------
@@ -364,6 +370,17 @@ def _fake_get_coordinates_and_timezone(self, location_name: str) -> dict:
         "timezone": "UTC",
         "address": key or "Unknown",
     }
+
+
+@pytest.fixture(autouse=True)
+def _isolated_home_location(monkeypatch):
+    """Each test starts with no home location, in the suite's temp store."""
+    monkeypatch.setenv("VAJRA_HOME_LOCATION_PATH", HOME_LOCATION_TEST_PATH)
+    if os.path.exists(HOME_LOCATION_TEST_PATH):
+        os.remove(HOME_LOCATION_TEST_PATH)
+    yield
+    if os.path.exists(HOME_LOCATION_TEST_PATH):
+        os.remove(HOME_LOCATION_TEST_PATH)
 
 
 @pytest.fixture(autouse=True)

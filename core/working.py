@@ -13,12 +13,13 @@ import json
 import logging
 import threading
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from core import iconography, image_prompts, sky
+from core import home_location, iconography, image_prompts, sky
 from core.auspicious_timing import check_auspicious_window, check_saka_dawa
 from core.context_builder import search_rates
 from core.provenance import COMPUTED, DRAW, RECORD, with_provenance
@@ -44,6 +45,7 @@ FOLIO_PROVENANCE: dict[str, str] = {
     "broadcast": RECORD,
     "divination": DRAW,
     "deity": RECORD,
+    "location": RECORD,
 }
 
 # Dials set by hand (PATCH /workings/{id}) are recorded as entered.
@@ -332,13 +334,16 @@ def update_working_rates(working_id: str, rate_values: list[int]) -> dict[str, A
 def _folio_sky(folio: dict[str, Any]) -> dict[str, Any] | None:
     """The true sky at the folio's ``sealed_at`` and place (core/sky.py), or ``None``.
 
-    ``observer.source`` says whether the folio's own location or the default was used.
+    ``observer.source`` says whether the folio's own location or the default was
+    used. The sky is computed at the exact place; the returned record (stored on
+    the witness and shown in captions) carries the place rounded, with its label
+    (:func:`core.sky.public_sky`).
     """
     lat, lon, source = sky.observer_for(folio)
     computed = sky.compute_sky(folio.get("sealed_at"), lat, lon)
-    if computed is not None:
-        computed["observer"]["source"] = source
-    return computed
+    if computed is None:
+        return None
+    return sky.public_sky(computed, source, sky.observer_label(folio) if source == "folio" else None)
 
 
 def _saka_block(folio: dict[str, Any]) -> dict[str, Any]:
@@ -752,8 +757,15 @@ def run_working(
     moon_phase: str | None = None,
     divination: dict[str, Any] | None = None,
     deity: str | None = None,
+    location: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Seal one working and optionally start a non-blocking broadcast.
+
+    ``location`` (``{latitude, longitude, label?, source?}``) is where the
+    working is sealed, so its witness shows the sky from there. Without one the
+    home location (core/home_location.py) is used; with neither the folio has
+    no location and its sky falls back to the configured default. An invalid
+    location raises ``ValueError`` before anything is sealed.
 
     ``deity`` (an id, alias or form alias from ``knowledge/iconography.json``,
     e.g. ``green_tara`` or ``thousand-armed Chenrezig``) is sealed on the folio
@@ -763,6 +775,7 @@ def run_working(
     deity_ref = iconography.resolve(deity) if deity and deity.strip() else None
     if deity and deity.strip() and deity_ref is None:
         raise ValueError(f"unknown deity {deity!r}; see knowledge/iconography.json")
+    sealed_location = home_location.folio_location(location)
     intention = (intention or "").strip() or "May all beings be free from suffering"
     target = (target or "all beings").strip() or "all beings"
     duration_minutes = max(1, min(int(duration_minutes or 5), 30))
@@ -820,6 +833,7 @@ def run_working(
         },
         "divination": divination,
         "deity": deity_ref.record() if deity_ref is not None else None,
+        "location": sealed_location,
         "provenance": dict(FOLIO_PROVENANCE),
     }
     folio["image_prompt"] = witness_prompt(folio)
