@@ -9,6 +9,7 @@
  * answer can never overwrite a newer place.
  */
 import { apiUrl } from '../utils/api';
+import { wrapLon } from './earth';
 import { parseInstant } from './skyClock';
 
 export type NightSkyErrorKind =
@@ -233,6 +234,9 @@ async function detailOf(response: Response): Promise<string | null> {
   return null;
 }
 
+/** A request that has not finished (headers and body) by now is abandoned as a `network` failure. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 let generation = 0;
 let activeController: AbortController | null = null;
 
@@ -247,7 +251,8 @@ export function cancelNightSkyRequest(): void {
  * Fetch and validate the geocentric sky for an observer.
  *
  * @param lat latitude in degrees [-90, 90]
- * @param lng longitude in degrees (finite)
+ * @param lng longitude in degrees, any finite value: it is wrapped into [-180, 180) before the request
+ *   (the route refuses a longitude outside that range), and an in-range value is sent unchanged
  * @param atIso optional ISO-8601 instant with an explicit zone (live if absent)
  */
 export async function fetchNightSky(lat: number, lng: number, atIso?: string): Promise<NightSky> {
@@ -258,7 +263,8 @@ export async function fetchNightSky(lat: number, lng: number, atIso?: string): P
     throw new NightSkyError('invalid-input', 'The observer longitude must be a finite number.');
   }
 
-  const query = new URLSearchParams({ latitude: String(lat), longitude: String(lng) });
+  const sentLng = lng >= -180 && lng < 180 ? lng : wrapLon(lng);
+  const query = new URLSearchParams({ latitude: String(lat), longitude: String(sentLng) });
   if (atIso !== undefined) {
     let atMs: number;
     try {
@@ -276,60 +282,86 @@ export async function fetchNightSky(lat: number, lng: number, atIso?: string): P
   activeController?.abort();
   const controller = new AbortController();
   activeController = controller;
-
-  let response: Response;
-  try {
-    response = await fetch(`${apiUrl('/astrology/night-sky')}?${query.toString()}`, {
-      signal: controller.signal,
-    });
-  } catch {
-    if (myGeneration !== generation || controller.signal.aborted) {
-      throw new NightSkyError('stale', 'A newer night-sky request replaced this one.');
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+  // Why this request must stop being acted on, or null if it is still the live one. A newer call or a cancel
+  // makes it stale (checked first, so a superseded request that also timed out is still just stale).
+  const interrupted = (): NightSkyError | null => {
+    if (myGeneration !== generation) {
+      return new NightSkyError('stale', 'A newer night-sky request replaced this one.');
     }
-    throw new NightSkyError('network', 'Could not reach the server for the night sky.');
-  }
-  if (myGeneration !== generation) {
-    throw new NightSkyError('stale', 'A newer night-sky request replaced this one.');
-  }
-
-  if (!response.ok) {
-    const detail = await detailOf(response);
-    if (response.status === 422) {
-      throw new NightSkyError(
-        'invalid-input',
-        detail ?? 'The server rejected the night-sky request (422).',
-        422,
+    if (timedOut) {
+      return new NightSkyError(
+        'network',
+        `The night-sky request timed out after ${REQUEST_TIMEOUT_MS / 1000} s.`,
       );
     }
-    if (response.status === 503) {
+    if (controller.signal.aborted) {
+      return new NightSkyError('stale', 'A newer night-sky request replaced this one.');
+    }
+    return null;
+  };
+
+  try {
+    let response: Response;
+    try {
+      response = await fetch(`${apiUrl('/astrology/night-sky')}?${query.toString()}`, {
+        signal: controller.signal,
+      });
+    } catch {
+      throw interrupted() ?? new NightSkyError('network', 'Could not reach the server for the night sky.');
+    }
+    const afterHeaders = interrupted();
+    if (afterHeaders) throw afterHeaders;
+
+    if (!response.ok) {
+      const detail = await detailOf(response);
+      // The error body is read after the last check above: a request superseded (or timed out) meanwhile
+      // must not be reported as unavailable/http/invalid-input.
+      const afterErrorBody = interrupted();
+      if (afterErrorBody) throw afterErrorBody;
+      if (response.status === 422) {
+        throw new NightSkyError(
+          'invalid-input',
+          detail ?? 'The server rejected the night-sky request (422).',
+          422,
+        );
+      }
+      if (response.status === 503) {
+        throw new NightSkyError(
+          'unavailable',
+          detail ?? 'The ephemeris is unavailable (503).',
+          503,
+        );
+      }
       throw new NightSkyError(
-        'unavailable',
-        detail ?? 'The ephemeris is unavailable (503).',
-        503,
+        'http',
+        detail ?? `The night-sky request failed (HTTP ${response.status}).`,
+        response.status,
       );
     }
-    throw new NightSkyError(
-      'http',
-      detail ?? `The night-sky request failed (HTTP ${response.status}).`,
-      response.status,
-    );
-  }
 
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    throw new NightSkyError('invalid-response', 'The night-sky response body was not JSON.');
-  }
-  if (myGeneration !== generation) {
-    throw new NightSkyError('stale', 'A newer night-sky request replaced this one.');
-  }
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      // An aborted body read rejects too: say why, instead of calling it "not JSON".
+      throw interrupted() ?? new NightSkyError('invalid-response', 'The night-sky response body was not JSON.');
+    }
+    const afterBody = interrupted();
+    if (afterBody) throw afterBody;
 
-  try {
-    return decodeNightSky(body);
-  } catch (error) {
-    if (error instanceof NightSkyError) throw error;
-    const detail = error instanceof Error ? error.message : String(error);
-    throw new NightSkyError('invalid-response', `The night-sky response was not valid: ${detail}.`);
+    try {
+      return decodeNightSky(body);
+    } catch (error) {
+      if (error instanceof NightSkyError) throw error;
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new NightSkyError('invalid-response', `The night-sky response was not valid: ${detail}.`);
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }

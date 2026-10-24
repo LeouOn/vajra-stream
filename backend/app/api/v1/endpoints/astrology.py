@@ -106,11 +106,18 @@ async def get_night_sky(
     (it used to be swallowed and answered with *now*); naive means UTC. Like
     ``/earth-state`` the supported range is 1800-01-01..2200-12-31 UTC (422
     outside it, same ``detail``); a ``swisseph.Error`` is 503, never a bare 500.
+    ``latitude`` outside [-90, 90] and ``longitude`` outside [-180, 180] (and
+    nan/inf) are 422 with a plain-string ``detail`` before any computation.
     """
     from datetime import datetime, timezone
 
     from core.celestial_sky import calculate_night_sky, swe
     from core.earth_sky import as_supported_utc
+
+    # The place is judged first, before any parsing or computation (nan and inf fail too); same check and
+    # wording as /sun-events. A non-numeric value never gets here: FastAPI's own 422 answers it.
+    _query_degrees("latitude", repr(latitude), 90.0)
+    _query_degrees("longitude", repr(longitude), 180.0)
 
     dt = None
     if datetime_str:

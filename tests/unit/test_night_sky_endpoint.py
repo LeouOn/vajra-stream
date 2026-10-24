@@ -160,3 +160,46 @@ class TestNightSkySupportedRange:
             edge = client.get("/astrology/night-sky", params={"datetime_str": moment}).json()
             assert set(edge) == set(middle), moment
             assert set(edge["observer"]) == set(middle["observer"]), moment
+
+
+class TestNightSkyPlaceRange:
+    """W3-R3 (F3): /night-sky refuses places that do not exist, before any computation.
+
+    It used to answer 200 for latitude=95 or longitude=1000000 and echo the nonsense, which the client
+    validator then rejected as an invalid response. Same wording and plain-string detail as /sun-events.
+    """
+
+    @pytest.mark.parametrize("latitude", ["95", "90.0001", "-91", "-1000", "nan", "inf", "-inf"])
+    def test_bad_latitude_is_422_with_a_string_detail(self, client: TestClient, latitude: str):
+        response = client.get("/astrology/night-sky", params={"latitude": latitude, "longitude": "10"})
+        assert response.status_code == 422, latitude
+        assert response.json() == {"detail": "latitude must be a number between -90 and 90"}
+
+    @pytest.mark.parametrize("longitude", ["181", "180.0001", "-180.0001", "1000000", "-720", "nan", "inf", "-inf"])
+    def test_bad_longitude_is_422_with_a_string_detail(self, client: TestClient, longitude: str):
+        response = client.get("/astrology/night-sky", params={"latitude": "10", "longitude": longitude})
+        assert response.status_code == 422, longitude
+        assert response.json() == {"detail": "longitude must be a number between -180 and 180"}
+
+    @pytest.mark.parametrize(("latitude", "longitude"), [(90, 180), (-90, -180), (0, 0), (89.9999, 179.9999)])
+    def test_the_boundaries_are_accepted(self, client: TestClient, latitude, longitude):
+        response = client.get(
+            "/astrology/night-sky",
+            params={"latitude": latitude, "longitude": longitude, "datetime_str": "2026-03-20T14:46:00Z"},
+        )
+        assert response.status_code == 200, (latitude, longitude)
+
+    def test_the_place_is_judged_before_any_computation(self, client: TestClient, monkeypatch):
+        from core import celestial_sky
+
+        def must_not_run(**_kwargs):
+            raise AssertionError("calculate_night_sky must not run for an impossible place")
+
+        monkeypatch.setattr(celestial_sky, "calculate_night_sky", must_not_run)
+        for params in ({"latitude": "95"}, {"longitude": "181"}, {"latitude": "nan"}):
+            assert client.get("/astrology/night-sky", params=params).status_code == 422, params
+
+    def test_the_default_place_still_answers_200(self, client: TestClient):
+        response = client.get("/astrology/night-sky", params={"datetime_str": "2026-03-20T14:46:00Z"})
+        assert response.status_code == 200
+        assert response.json()["observer"]["latitude"] == 37.7749

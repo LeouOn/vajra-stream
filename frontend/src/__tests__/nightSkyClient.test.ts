@@ -7,7 +7,7 @@
  * failures into typed errors. A newer call wins even if the older answer lands
  * last, and the newer call aborts the older one.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   NightSkyError,
   cancelNightSkyRequest,
@@ -236,5 +236,188 @@ describe('fetchNightSky: newest request wins', () => {
     expect(signal.aborted).toBe(true);
     (pendingResolve as unknown as (response: Response) => void)(jsonResponse(payload()));
     await rejection;
+  });
+});
+
+/**
+ * Headers arrive at once; the body then stays open and errors when the request is aborted, as a real fetch
+ * body does. (Superseding or timing out a request after its headers arrived is exactly this case.)
+ */
+function slowBodyResponse(signal: AbortSignal | null | undefined, status: number): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      signal?.addEventListener('abort', () => {
+        controller.error(new DOMException('The operation was aborted.', 'AbortError'));
+      });
+    },
+  });
+  return new Response(stream, { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+/** A fetch that never answers and rejects when aborted. */
+function neverAnswers(_url: string, init: RequestInit): Promise<Response> {
+  return new Promise((_resolve, reject) => {
+    init.signal?.addEventListener('abort', () => {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    });
+  });
+}
+
+const settle = (promise: Promise<unknown>) =>
+  promise.then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
+const nextMacrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+describe('fetchNightSky: a superseded request is never reported as a real error', () => {
+  it('is stale when it is superseded while its 200 body is being read', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const older = settle(fetchNightSky(0, 0));
+    await nextMacrotask(); // let the older call reach `response.json()`
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await expect(fetchNightSky(0, 0)).resolves.toMatchObject({ visible_planets_count: 1 });
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it.each([422, 500, 503])('is stale when it is superseded after a %i arrived', async (status) => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, status)),
+    );
+    const older = settle(fetchNightSky(0, 0));
+    await nextMacrotask();
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchNightSky(0, 0);
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it('cancelNightSkyRequest makes an in-flight call stale, also mid-body', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const inFlight = settle(fetchNightSky(0, 0));
+    await nextMacrotask();
+    cancelNightSkyRequest();
+    expect(await inFlight).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+});
+
+describe('fetchNightSky: timeout', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('abandons a server that never answers as a network error after 15 s', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(neverAnswers);
+    const outcome = settle(fetchNightSky(0, 0));
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await outcome;
+    expect(result).toMatchObject({ ok: false, error: { kind: 'network' } });
+    expect(String((result as { error: Error }).error.message)).toMatch(/timed out after 15 s/i);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('also covers a body that never finishes (headers arrived, nothing else)', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const outcome = settle(fetchNightSky(0, 0));
+    await vi.advanceTimersByTimeAsync(15_000);
+    const result = await outcome;
+    expect(result).toMatchObject({ ok: false, error: { kind: 'network' } });
+    expect(String((result as { error: Error }).error.message)).toMatch(/timed out/i);
+  });
+
+  it('a timeout on an error body is the timeout, not the status', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 503)),
+    );
+    const outcome = settle(fetchNightSky(0, 0));
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await outcome).toMatchObject({ ok: false, error: { kind: 'network' } });
+  });
+
+  it('leaves no timer behind after a success, a failure or a cancel', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchNightSky(0, 0);
+    expect(vi.getTimerCount()).toBe(0);
+
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'boom' }, 500));
+    await settle(fetchNightSky(0, 0));
+    expect(vi.getTimerCount()).toBe(0);
+
+    fetchMock.mockImplementation(neverAnswers);
+    const cancelled = settle(fetchNightSky(0, 0));
+    cancelNightSkyRequest();
+    await cancelled;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('a request that was superseded and then timed out is still stale', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(neverAnswers);
+    const older = settle(fetchNightSky(0, 0));
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchNightSky(0, 0);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+});
+
+describe('fetchNightSky: the observer is checked and the longitude wrapped before requesting', () => {
+  const requested = () =>
+    String((fetchMock.mock.calls[fetchMock.mock.calls.length - 1] as [string, RequestInit])[0]);
+
+  it.each([
+    [190, '-170'],
+    [-190, '170'],
+    [180, '-180'],
+    [540, '-180'],
+    [360, '0'],
+    [-360, '0'],
+    [725, '5'],
+  ])('wraps longitude %d into [-180, 180) as %s', async (lng, wrapped) => {
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchNightSky(10, lng);
+    expect(new URL(requested(), 'http://x').searchParams.get('longitude')).toBe(wrapped);
+  });
+
+  it('keeps an in-range longitude byte for byte (no floating-point noise)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    for (const lng of [-122.4194, 179.9999, -180, 0, 18.42]) {
+      await fetchNightSky(10, lng);
+      expect(requested()).toContain(`longitude=${lng}`);
+    }
+  });
+
+  it('wraps an enormous finite longitude into range', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchNightSky(10, 1_000_000);
+    const sent = Number(new URL(requested(), 'http://x').searchParams.get('longitude'));
+    expect(sent).toBeGreaterThanOrEqual(-180);
+    expect(sent).toBeLessThan(180);
+    expect(((1_000_000 - sent) % 360 + 360) % 360).toBeCloseTo(0, 6);
+  });
+
+  it('rejects a latitude outside [-90, 90] as invalid-input, without a request', async () => {
+    for (const lat of [90.0001, -91, 95, 1000, Number.POSITIVE_INFINITY, Number.NaN]) {
+      await expect(fetchNightSky(lat, 0), String(lat)).rejects.toMatchObject({ kind: 'invalid-input' });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts the latitude boundaries', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchNightSky(90, 0);
+    await fetchNightSky(-90, 0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

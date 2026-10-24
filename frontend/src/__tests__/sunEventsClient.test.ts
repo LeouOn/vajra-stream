@@ -5,8 +5,13 @@
  * 422/503/network failures into typed errors, and ignores a stale response
  * when a newer request has started.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SunEventsError, fetchSunEvents, type SunEvents } from '../lib/sunEventsClient';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  SunEventsError,
+  cancelSunEventsRequest,
+  fetchSunEvents,
+  type SunEvents,
+} from '../lib/sunEventsClient';
 
 const AT = '2026-10-24T09:00:00Z';
 
@@ -205,5 +210,154 @@ describe('fetchSunEvents: stale generation guard', () => {
 
     expect(newerResult.ok && newerResult.value.next_sunrise).toBe('2026-10-25T16:00:00.000Z');
     expect(olderResult).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+});
+
+/**
+ * Headers arrive at once; the body then stays open and errors when the request is aborted, as a real fetch
+ * body does. (Superseding or timing out a request after its headers arrived is exactly this case.)
+ */
+function slowBodyResponse(signal: AbortSignal | null | undefined, status: number): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      signal?.addEventListener('abort', () => {
+        controller.error(new DOMException('The operation was aborted.', 'AbortError'));
+      });
+    },
+  });
+  return new Response(stream, { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+/** A fetch that never answers and rejects when aborted. */
+function neverAnswers(_url: string, init: RequestInit): Promise<Response> {
+  return new Promise((_resolve, reject) => {
+    init.signal?.addEventListener('abort', () => {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    });
+  });
+}
+
+const settle = (promise: Promise<unknown>) =>
+  promise.then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
+const nextMacrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+describe('fetchSunEvents: a superseded request is never reported as a real error', () => {
+  it('is stale when it is superseded while its 200 body is being read', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const older = settle(fetchSunEvents(0, 0, AT));
+    await nextMacrotask(); // let the older call reach `response.json()`
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await expect(fetchSunEvents(0, 0, AT)).resolves.toMatchObject({ at: AT });
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it.each([422, 500, 503])('is stale when it is superseded after a %i arrived', async (status) => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, status)),
+    );
+    const older = settle(fetchSunEvents(0, 0, AT));
+    await nextMacrotask();
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchSunEvents(0, 0, AT);
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it('cancelSunEventsRequest makes an in-flight call stale, also mid-body', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const inFlight = settle(fetchSunEvents(0, 0, AT));
+    await nextMacrotask();
+    cancelSunEventsRequest();
+    expect(await inFlight).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it('cancelSunEventsRequest aborts the signal of a call still waiting for headers', async () => {
+    fetchMock.mockImplementation(neverAnswers);
+    const pending = settle(fetchSunEvents(0, 0, AT));
+    const signal = (fetchMock.mock.calls[0] as [string, RequestInit])[1].signal as AbortSignal;
+    cancelSunEventsRequest();
+    expect(signal.aborted).toBe(true);
+    expect(await pending).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it('cancelSunEventsRequest with nothing in flight is harmless and does not poison the next call', async () => {
+    cancelSunEventsRequest();
+    cancelSunEventsRequest();
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await expect(fetchSunEvents(0, 0, AT)).resolves.toMatchObject({ at: AT });
+  });
+});
+
+describe('fetchSunEvents: timeout', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('abandons a server that never answers as a network error after 15 s', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(neverAnswers);
+    const outcome = settle(fetchSunEvents(0, 0, AT));
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await outcome;
+    expect(result).toMatchObject({ ok: false, error: { kind: 'network' } });
+    expect(String((result as { error: Error }).error.message)).toMatch(/timed out after 15 s/i);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('also covers a body that never finishes (headers arrived, nothing else)', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const outcome = settle(fetchSunEvents(0, 0, AT));
+    await vi.advanceTimersByTimeAsync(15_000);
+    const result = await outcome;
+    expect(result).toMatchObject({ ok: false, error: { kind: 'network' } });
+    expect(String((result as { error: Error }).error.message)).toMatch(/timed out/i);
+  });
+
+  it('a timeout on an error body is the timeout, not the status', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 503)),
+    );
+    const outcome = settle(fetchSunEvents(0, 0, AT));
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await outcome).toMatchObject({ ok: false, error: { kind: 'network' } });
+  });
+
+  it('leaves no timer behind after a success, a failure or a cancel', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchSunEvents(0, 0, AT);
+    expect(vi.getTimerCount()).toBe(0);
+
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'boom' }, 500));
+    await settle(fetchSunEvents(0, 0, AT));
+    expect(vi.getTimerCount()).toBe(0);
+
+    fetchMock.mockImplementation(neverAnswers);
+    const cancelled = settle(fetchSunEvents(0, 0, AT));
+    cancelSunEventsRequest();
+    await cancelled;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('a request that was superseded and then timed out is still stale', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(neverAnswers);
+    const older = settle(fetchSunEvents(0, 0, AT));
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchSunEvents(0, 0, AT);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
   });
 });

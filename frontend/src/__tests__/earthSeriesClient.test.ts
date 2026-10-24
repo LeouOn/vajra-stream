@@ -5,7 +5,7 @@
  * turns 422/503/network failures into typed readable errors, and lets a newer
  * call win: an older answer that arrives last is rejected as `stale`.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EarthSeriesError, cancelSeriesRequest, fetchSeries } from '../lib/earthSeriesClient';
 
 const START = '2026-03-20T14:46:00Z';
@@ -180,5 +180,160 @@ describe('fetchSeries: stale-request guard', () => {
     // The older request still answers; it must not override the newer result.
     pending[0](jsonResponse(payload()));
     await olderRejection;
+  });
+});
+
+/**
+ * Headers arrive at once; the body then stays open and errors when the request is aborted, as a real fetch
+ * body does. (Superseding or timing out a request after its headers arrived is exactly this case.)
+ */
+function slowBodyResponse(signal: AbortSignal | null | undefined, status: number): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      signal?.addEventListener('abort', () => {
+        controller.error(new DOMException('The operation was aborted.', 'AbortError'));
+      });
+    },
+  });
+  return new Response(stream, { status, headers: { 'Content-Type': 'application/json' } });
+}
+
+/** A fetch that never answers and rejects when aborted. */
+function neverAnswers(_url: string, init: RequestInit): Promise<Response> {
+  return new Promise((_resolve, reject) => {
+    init.signal?.addEventListener('abort', () => {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    });
+  });
+}
+
+const settle = (promise: Promise<unknown>) =>
+  promise.then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
+const nextMacrotask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+describe('fetchSeries: a superseded request is never reported as a real error', () => {
+  it('is stale when it is superseded while its 200 body is being read', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const older = settle(fetchSeries(START, END, 600));
+    await nextMacrotask(); // let the older call reach `response.json()`
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await expect(fetchSeries(START, END, 600)).resolves.toMatchObject({ count: 3 });
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it.each([422, 500, 503])('is stale when it is superseded after a %i arrived', async (status) => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, status)),
+    );
+    const older = settle(fetchSeries(START, END, 600));
+    await nextMacrotask();
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchSeries(START, END, 600);
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+
+  it('cancelSeriesRequest makes an in-flight call stale, also mid-body', async () => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const inFlight = settle(fetchSeries(START, END, 600));
+    await nextMacrotask();
+    cancelSeriesRequest();
+    expect(await inFlight).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+});
+
+describe('fetchSeries: timeout', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('abandons a server that never answers as a network error after 15 s', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(neverAnswers);
+    const outcome = settle(fetchSeries(START, END, 600));
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(vi.getTimerCount()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    const result = await outcome;
+    expect(result).toMatchObject({ ok: false, error: { kind: 'network' } });
+    expect(String((result as { error: Error }).error.message)).toMatch(/timed out after 15 s/i);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('also covers a body that never finishes (headers arrived, nothing else)', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 200)),
+    );
+    const outcome = settle(fetchSeries(START, END, 600));
+    await vi.advanceTimersByTimeAsync(15_000);
+    const result = await outcome;
+    expect(result).toMatchObject({ ok: false, error: { kind: 'network' } });
+    expect(String((result as { error: Error }).error.message)).toMatch(/timed out/i);
+  });
+
+  it('a timeout on an error body is the timeout, not the status', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation((_url: string, init: RequestInit) =>
+      Promise.resolve(slowBodyResponse(init.signal, 503)),
+    );
+    const outcome = settle(fetchSeries(START, END, 600));
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await outcome).toMatchObject({ ok: false, error: { kind: 'network' } });
+  });
+
+  it('leaves no timer behind after a success, a failure or a cancel', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchSeries(START, END, 600);
+    expect(vi.getTimerCount()).toBe(0);
+
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'boom' }, 500));
+    await settle(fetchSeries(START, END, 600));
+    expect(vi.getTimerCount()).toBe(0);
+
+    fetchMock.mockImplementation(neverAnswers);
+    const cancelled = settle(fetchSeries(START, END, 600));
+    cancelSeriesRequest();
+    await cancelled;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('a request that was superseded and then timed out is still stale', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(neverAnswers);
+    const older = settle(fetchSeries(START, END, 600));
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    await fetchSeries(START, END, 600);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(await older).toMatchObject({ ok: false, error: { kind: 'stale' } });
+  });
+});
+
+describe('fetchSeries: a window of fewer than two samples is refused up front', () => {
+  it('rejects start == end without calling the network (the decoder needs at least two samples)', async () => {
+    await expect(fetchSeries(START, START, 600)).rejects.toMatchObject({ kind: 'invalid-input' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an end that is less than one step after the start', async () => {
+    const shortEnd = new Date(Date.parse(START) + 599_000).toISOString();
+    const error = await fetchSeries(START, shortEnd, 600).catch((e: unknown) => e);
+    expect(error).toMatchObject({ kind: 'invalid-input' });
+    expect(String((error as Error).message)).toMatch(/two samples|at least one step/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('accepts an end exactly one step after the start (two samples)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    const oneStep = new Date(Date.parse(START) + 600_000).toISOString();
+    await expect(fetchSeries(START, oneStep, 600)).resolves.toMatchObject({ count: 3 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

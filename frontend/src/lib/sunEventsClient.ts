@@ -117,9 +117,23 @@ async function detailOf(response: Response): Promise<string | null> {
   return null;
 }
 
+/** A request that has not finished (headers and body) by now is abandoned as a `network` failure. */
+const REQUEST_TIMEOUT_MS = 15_000;
+
 /** Monotonic request generation: a newer call makes every older one stale. */
 let generation = 0;
 let activeController: AbortController | null = null;
+
+/**
+ * Abort the in-flight request and make it stale (panel unmount). Mirrors
+ * `cancelNightSkyRequest` / `cancelSeriesRequest`: a later answer is rejected
+ * as `stale` rather than acting on state the caller has already left.
+ */
+export function cancelSunEventsRequest(): void {
+  generation += 1;
+  activeController?.abort();
+  activeController = null;
+}
 
 /**
  * Fetch and validate the sun events for an observer at an instant.
@@ -149,6 +163,28 @@ export async function fetchSunEvents(lat: number, lng: number, atIso: string): P
   activeController?.abort();
   const controller = new AbortController();
   activeController = controller;
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+  // Why this request must stop being acted on, or null if it is still the live one. A newer call or a cancel
+  // makes it stale (checked first, so a superseded request that also timed out is still just stale).
+  const interrupted = (): SunEventsError | null => {
+    if (myGeneration !== generation) {
+      return new SunEventsError('stale', 'A newer sun-events request replaced this one.');
+    }
+    if (timedOut) {
+      return new SunEventsError(
+        'network',
+        `The sun-events request timed out after ${REQUEST_TIMEOUT_MS / 1000} s.`,
+      );
+    }
+    if (controller.signal.aborted) {
+      return new SunEventsError('stale', 'A newer sun-events request replaced this one.');
+    }
+    return null;
+  };
 
   const query = new URLSearchParams({
     latitude: String(lat),
@@ -156,48 +192,52 @@ export async function fetchSunEvents(lat: number, lng: number, atIso: string): P
     datetime_str: new Date(atMs).toISOString(),
   });
 
-  let response: Response;
   try {
-    response = await fetch(`${apiUrl('/astrology/sun-events')}?${query.toString()}`, {
-      signal: controller.signal,
-    });
-  } catch {
-    if (myGeneration !== generation || controller.signal.aborted) {
-      throw new SunEventsError('stale', 'A newer sun-events request replaced this one.');
+    let response: Response;
+    try {
+      response = await fetch(`${apiUrl('/astrology/sun-events')}?${query.toString()}`, {
+        signal: controller.signal,
+      });
+    } catch {
+      throw interrupted() ?? new SunEventsError('network', 'Could not reach the server for sun events.');
     }
-    throw new SunEventsError('network', 'Could not reach the server for sun events.');
-  }
-  if (myGeneration !== generation) {
-    throw new SunEventsError('stale', 'A newer sun-events request replaced this one.');
-  }
+    const afterHeaders = interrupted();
+    if (afterHeaders) throw afterHeaders;
 
-  if (!response.ok) {
-    const detail = await detailOf(response);
-    if (response.status === 422) {
+    if (!response.ok) {
+      const detail = await detailOf(response);
+      // The error body is read after the last check above: a request superseded (or timed out) meanwhile
+      // must not be reported as unavailable/http/invalid-input.
+      const afterErrorBody = interrupted();
+      if (afterErrorBody) throw afterErrorBody;
+      if (response.status === 422) {
+        throw new SunEventsError(
+          'invalid-input',
+          detail ?? 'The server rejected the request (422).',
+          422,
+        );
+      }
+      if (response.status === 503) {
+        throw new SunEventsError('unavailable', detail ?? 'Ephemeris unavailable (503).', 503);
+      }
       throw new SunEventsError(
-        'invalid-input',
-        detail ?? 'The server rejected the request (422).',
-        422,
+        'http',
+        detail ?? `Sun events request failed (HTTP ${response.status}).`,
+        response.status,
       );
     }
-    if (response.status === 503) {
-      throw new SunEventsError('unavailable', detail ?? 'Ephemeris unavailable (503).', 503);
-    }
-    throw new SunEventsError(
-      'http',
-      detail ?? `Sun events request failed (HTTP ${response.status}).`,
-      response.status,
-    );
-  }
 
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    throw invalidResponse('body is not JSON');
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      // An aborted body read rejects too: say why, instead of calling it "not JSON".
+      throw interrupted() ?? invalidResponse('body is not JSON');
+    }
+    const afterBody = interrupted();
+    if (afterBody) throw afterBody;
+    return validateSunEvents(body);
+  } finally {
+    clearTimeout(timer);
   }
-  if (myGeneration !== generation) {
-    throw new SunEventsError('stale', 'A newer sun-events request replaced this one.');
-  }
-  return validateSunEvents(body);
 }
