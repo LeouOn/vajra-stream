@@ -9,12 +9,17 @@
  *
  * Picking on the strip sets the shared observer; the dome takes no props and
  * follows the same store; the controls write the shared instant.
+ *
+ * The planetary-hour readout (W3-J) sits directly under the dome in the same
+ * column: beside it, not inside it (the spec words it as "shown on the dome").
+ * It follows the same store and takes no props.
  */
 import React, { useCallback, useMemo } from 'react';
 
 import { useSkyStore } from '../../stores/skyStore';
 import { WorldStrip } from '../2D/WorldStrip';
 import CelestialSkyDome from './CelestialSkyDome';
+import PlanetaryHourReadout from './PlanetaryHourReadout';
 import SkyTimeControls from './SkyTimeControls';
 import ProvenanceTag from './ProvenanceTag';
 
@@ -58,8 +63,9 @@ export default function EarthSkyCard({ className = '' }: Props): React.ReactElem
         <div className="min-w-0">
           <WorldStrip observer={observer} onPick={onPick} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-3">
           <CelestialSkyDome />
+          <PlanetaryHourReadout />
         </div>
       </div>
 

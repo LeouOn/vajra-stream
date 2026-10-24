@@ -328,6 +328,112 @@ async def get_sun_events(
     return with_provenance(payload, {"at": COMPUTED, **{key: COMPUTED for key in keys}})
 
 
+def _boundary_ms(instant: datetime.datetime) -> str:
+    """An hour boundary as ``...Z`` rounded UP to the millisecond.
+
+    Adjacent hours then share the identical string, and asking at an ``ends_at`` always lands in the NEXT hour
+    (a value truncated down would sit up to 1 ms before the real boundary and still be inside the hour).
+    """
+    from core.earth_sky import format_instant
+
+    rounded = instant + datetime.timedelta(microseconds=(-instant.microsecond) % 1000)
+    return format_instant(rounded, "milliseconds")
+
+
+_NO_PLANETARY_HOUR = (
+    "No sunrise-to-sunrise day brackets this instant at this place (polar day or night), "
+    "so there is no planetary hour."
+)
+
+
+@router.get("/planetary-hour")
+async def get_planetary_hour(
+    latitude: str | None = None,
+    longitude: str | None = None,
+    datetime_str: str | None = None,
+):
+    """Which planetary hour it is at a place and instant: ruler, day or night, bounds and the time left.
+
+    Wraps the engine's solar-day maths (``AstrologicalCalculator._solar_day``, the primitive that
+    ``calculate_exact_planetary_hours`` is built on), with the strict parsing and range rules of ``/sun-events``:
+    ``latitude`` in [-90, 90] and ``longitude`` in [-180, 180] are required (no default place), ``datetime_str``
+    is optional (absent means now; blank or malformed is 422; naive means UTC) and must lie in
+    1800-01-01..2200-12-31 UTC; every 422 ``detail`` is a plain string. Without the ephemeris the answer is 503.
+
+    Not ``/timing-wheel``: ~28 KB for a handful of fields, a malformed ``date`` answers *now*, and at a polar place
+    it silently substitutes a 06:00 / 18:00 estimate that its ``provenance`` still calls ``computed``. Not
+    ``calculate_exact_planetary_hours``: at a polar place it returns a hard-coded ``"Sun"`` hour, and it truncates
+    the time left to whole seconds.
+
+    A solar day runs from one sunrise to the next; its daytime is twelve equal hours, its night twelve more; the
+    day ruler is the weekday of the local mean solar date of the sunrise that began it; hour rulers follow the
+    Chaldean order from the day ruler, the first night hour being the thirteenth.
+
+    Returns ``at``, the echoed place, ``solar_day`` (``sunrise``, ``sunset``, ``next_sunrise`` as ``...Z``
+    instants rounded up to the millisecond, and ``day_ruler``) and ``hour`` (``ruler``, ``is_daytime``, ``index`` 1-12 within
+    the day or night part, ``starts_at``, ``ends_at``, ``length_seconds`` and ``time_remaining_seconds``, exact to
+    the millisecond and never negative). Where no sunrise-to-sunrise day brackets the instant (polar day or night,
+    or a degenerate day) ``solar_day`` and ``hour`` are ``null`` and ``reason`` says why: an hour is never invented.
+
+    The hour boundaries are exact to the millisecond and are printed rounded UP, so adjacent hours share the
+    identical string and asking at an ``ends_at`` always lands in the next hour, also at a sunrise (where the
+    engine's whole-second resolution is compensated for).
+    """
+    from core.earth_sky import as_supported_utc, format_instant
+
+    lat = _query_degrees("latitude", latitude, 90.0)
+    lon = _query_degrees("longitude", longitude, 180.0)
+    moment = _query_instant("datetime_str", datetime_str, required=False)
+    try:
+        moment = as_supported_utc(moment or datetime.datetime.now(timezone.utc), "time")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    if AstrologicalCalculator is None:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
+    import swisseph as swe  # present whenever AstrologicalCalculator is: core.astrology imports it unguarded
+
+    try:
+        engine = AstrologicalCalculator()
+        day = engine._solar_day(moment, (lat, lon))
+        if day is not None and moment >= day["end_time"]:
+            # The engine finds the surrounding sunrise from the WHOLE SECOND of the instant, so for the fraction of a
+            # second after a sunrise it still answers with the previous night's last hour, which is already over.
+            # Ask again a second later: that lands in the new day, whose first hour starts at that sunrise.
+            day = engine._solar_day(moment + datetime.timedelta(seconds=1), (lat, lon))
+    except swe.Error:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
+
+    payload: dict[str, Any] = {
+        "at": format_instant(moment),
+        "latitude": lat,
+        "longitude": lon,
+        "solar_day": None,
+        "hour": None,
+        "reason": None,
+    }
+    if day is None:
+        payload["reason"] = _NO_PLANETARY_HOUR
+    else:
+        rulers = day["day_rulers"] if day["is_daytime"] else day["night_rulers"]
+        starts_at, ends_at = day["start_time"], day["end_time"]
+        payload["solar_day"] = {
+            "sunrise": _boundary_ms(day["sunrise"]),
+            "sunset": _boundary_ms(day["sunset"]),
+            "next_sunrise": _boundary_ms(day["next_sunrise"]),
+            "day_ruler": day["day_ruler"],
+        }
+        payload["hour"] = {
+            "ruler": rulers[day["hour_index"] - 1],
+            "is_daytime": bool(day["is_daytime"]),
+            "index": day["hour_index"],
+            "starts_at": _boundary_ms(starts_at),
+            "ends_at": _boundary_ms(ends_at),
+            "length_seconds": round((ends_at - starts_at).total_seconds(), 3),
+            "time_remaining_seconds": round(max(0.0, (ends_at - moment).total_seconds()), 3),
+        }
+    return with_provenance(payload, {"at": COMPUTED, "solar_day": COMPUTED, "hour": COMPUTED})
+
+
 @router.get("/current")
 async def get_current_astrology(datetime_str: str = None, latitude: float = None, longitude: float = None):
     """Get current astrological data or calculate for custom datetime & location"""

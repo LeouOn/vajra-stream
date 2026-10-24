@@ -31,6 +31,20 @@ vi.mock('../../components/UI/CelestialSkyDome', async () => {
   };
 });
 
+// The planetary-hour readout would call its route; it has its own tests (PlanetaryHourReadout.test.tsx).
+// Stubbed so its slot in the card is observable: it must receive NO props, because it follows the store.
+const READOUT = vi.hoisted(() => ({ calls: [] as Array<Record<string, unknown>> }));
+
+vi.mock('../../components/UI/PlanetaryHourReadout', async () => {
+  const ReactModule = await import('react');
+  return {
+    default: (props: Record<string, unknown>) => {
+      READOUT.calls.push(props);
+      return ReactModule.createElement('div', { 'data-testid': 'planetary-hour-stub' });
+    },
+  };
+});
+
 // The strip's sun store would poll /earth-state; the strip has its own tests.
 vi.mock('../../stores/earthStateStore', () => ({
   useEarthState: () => ({ status: 'idle', state: null, fetchedAt: null, error: null }),
@@ -92,6 +106,7 @@ function unmount(root: Root): void {
 function reset(): void {
   useSkyStore.setState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG, label: undefined, at: null });
   DOME.calls.length = 0;
+  READOUT.calls.length = 0;
 }
 
 beforeEach(() => {
@@ -155,6 +170,22 @@ describe('EarthSkyCard', () => {
     const last = DOME.calls[DOME.calls.length - 1];
     expect(DOME.calls.length).toBeGreaterThan(1);
     expect(Object.keys(last)).toEqual([]); // still no explicit observer; the store is the source
+  });
+
+  it('mounts the planetary-hour readout once, directly under the dome and beside (not inside) it, with no props', () => {
+    const { container } = mount(<EarthSkyCard />);
+    const readout = container.querySelector('[data-testid="planetary-hour-stub"]');
+    const dome = container.querySelector('[data-testid="dome-stub"]');
+    expect(container.querySelectorAll('[data-testid="planetary-hour-stub"]')).toHaveLength(1);
+    expect(readout).not.toBeNull();
+    expect(dome).not.toBeNull();
+    expect(dome!.contains(readout)).toBe(false); // not inside the dome
+    expect(readout!.parentElement).toBe(dome!.parentElement); // same column
+    expect(dome!.nextElementSibling).toBe(readout); // directly under it
+    expect(READOUT.calls.length).toBeGreaterThan(0);
+    expect(Object.keys(READOUT.calls[0])).toEqual([]);
+    // the card still adds no canvas of its own: the strip only
+    expect(container.querySelectorAll('canvas')).toHaveLength(1);
   });
 
   it('the caption says live or scrubbed using the dome’s wording', () => {
