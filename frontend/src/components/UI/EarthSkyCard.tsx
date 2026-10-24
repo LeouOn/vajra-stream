@@ -15,9 +15,21 @@
  * unavailable is each one's own status, and each carries its own provenance. A card-level "computed" would be
  * true only while every child happened to succeed (and the card cannot see the dome's own night-sky status).
  *
- * The planetary-hour readout (W3-J) sits directly under the dome in the same
- * column: beside it, not inside it (the spec words it as "shown on the dome").
- * It follows the same store and takes no props.
+ * Layout (W3-M2, measured in a real browser): the card is two columns from lg.
+ * LEFT = where and when: the flat strip, the planetary-hour readout under it
+ * (it is about the place and the instant, like the strip) and the time
+ * controls. RIGHT = the sky: the dome, alone. The dome is the tall element
+ * (~760 px); strip + readout alone leave ~300 px empty under them at 1440 px,
+ * while the controls (~210 px) belong with the place and time anyway, so the
+ * two columns end within ~80 px of each other.
+ *
+ * On a narrow screen the columns stack in DOM order: strip, readout,
+ * controls, dome. The facts come first, and the slider sits right under the
+ * two things it moves instead of ~1,000 px below them under the dome. No
+ * `order-*` utility is used, so reading order, tab order and visual order are
+ * the same on both layouts. The readout is beside the dome, not inside it
+ * (the spec words it as "shown on the dome"); it follows the same store and
+ * takes no props.
  */
 import React, { useCallback, useMemo } from 'react';
 
@@ -61,18 +73,17 @@ export default function EarthSkyCard({ className = '' }: Props): React.ReactElem
         </p>
       </header>
 
-      {/* Strip and dome side by side from lg; stacked on a narrow screen. */}
+      {/* Two columns from lg, one stacked column below it; the DOM order IS the narrow order (no `order-*`). */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <div className="min-w-0">
+        <div data-testid="earth-sky-left" className="min-w-0 space-y-3">
           <WorldStrip observer={observer} onPick={onPick} />
-        </div>
-        <div className="min-w-0 space-y-3">
-          <CelestialSkyDome />
           <PlanetaryHourReadout />
+          <SkyTimeControls />
+        </div>
+        <div data-testid="earth-sky-right" className="min-w-0">
+          <CelestialSkyDome />
         </div>
       </div>
-
-      <SkyTimeControls />
     </section>
   );
 }

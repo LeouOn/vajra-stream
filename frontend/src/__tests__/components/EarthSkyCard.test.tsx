@@ -178,20 +178,82 @@ describe('EarthSkyCard', () => {
     expect(Object.keys(last)).toEqual([]); // still no explicit observer; the store is the source
   });
 
-  it('mounts the planetary-hour readout once, directly under the dome and beside (not inside) it, with no props', () => {
-    const { container } = mount(<EarthSkyCard />);
-    const readout = container.querySelector('[data-testid="planetary-hour-stub"]');
-    const dome = container.querySelector('[data-testid="dome-stub"]');
-    expect(container.querySelectorAll('[data-testid="planetary-hour-stub"]')).toHaveLength(1);
-    expect(readout).not.toBeNull();
-    expect(dome).not.toBeNull();
-    expect(dome!.contains(readout)).toBe(false); // not inside the dome
-    expect(readout!.parentElement).toBe(dome!.parentElement); // same column
-    expect(dome!.nextElementSibling).toBe(readout); // directly under it
-    expect(READOUT.calls.length).toBeGreaterThan(0);
-    expect(Object.keys(READOUT.calls[0])).toEqual([]);
-    // the card still adds no canvas of its own: the strip only
-    expect(container.querySelectorAll('canvas')).toHaveLength(1);
+  describe('layout: where-and-when on the left (strip, hour, controls), the sky (the dome) alone on the right', () => {
+    const parts = (container: HTMLElement) => ({
+      strip: container.querySelector('[data-testid="world-strip-wrap"]') as HTMLElement,
+      readout: container.querySelector('[data-testid="planetary-hour-stub"]') as HTMLElement,
+      dome: container.querySelector('[data-testid="dome-stub"]') as HTMLElement,
+      controls: container.querySelector('[data-testid="sky-time-controls"]') as HTMLElement,
+      left: container.querySelector('[data-testid="earth-sky-left"]') as HTMLElement,
+      right: container.querySelector('[data-testid="earth-sky-right"]') as HTMLElement,
+    });
+    const before = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    it('mounts the planetary-hour readout once, in the LEFT column directly under the strip, with no props', () => {
+      const { container } = mount(<EarthSkyCard />);
+      expect(container.querySelectorAll('[data-testid="planetary-hour-stub"]')).toHaveLength(1);
+      const { strip, readout, dome, left, right } = parts(container);
+      expect(left).not.toBeNull();
+      expect(left.contains(strip)).toBe(true);
+      expect(left.contains(readout)).toBe(true);
+      expect(left.contains(dome)).toBe(false);
+      // directly under the strip: the readout is the element that follows the strip's own block in the column
+      const column = Array.from(left.children);
+      const stripBlock = column.find((child) => child.contains(strip))!;
+      expect(stripBlock.nextElementSibling).toBe(readout);
+      expect(READOUT.calls.length).toBeGreaterThan(0);
+      expect(Object.keys(READOUT.calls[0])).toEqual([]);
+      expect(right.contains(readout)).toBe(false);
+    });
+
+    it('the dome is alone in the right column, and there is exactly one dome, one controls, one readout', () => {
+      const { container } = mount(<EarthSkyCard />);
+      const { dome, right, left } = parts(container);
+      expect(right.contains(dome)).toBe(true);
+      expect(Array.from(right.children)).toHaveLength(1); // nothing but the dome's own block
+      expect(left.contains(dome)).toBe(false);
+      expect(container.querySelectorAll('[data-testid="dome-stub"]')).toHaveLength(1);
+      expect(container.querySelectorAll('[data-testid="sky-time-controls"]')).toHaveLength(1);
+      expect(container.querySelectorAll('[data-testid="planetary-hour-stub"]')).toHaveLength(1);
+    });
+
+    it('the controls are the last block of the LEFT column, so they sit beside the sky they move', () => {
+      const { container } = mount(<EarthSkyCard />);
+      const { controls, left, right, strip, readout } = parts(container);
+      expect(left.parentElement).toBe(right.parentElement); // the two columns share one grid
+      expect(left.contains(controls)).toBe(true);
+      expect(right.contains(controls)).toBe(false);
+      const blocks = Array.from(left.children);
+      expect(blocks).toHaveLength(3); // strip, readout, controls: nothing else in the column
+      expect(blocks[0].contains(strip)).toBe(true);
+      expect(blocks[1]).toBe(readout);
+      expect(blocks[2].contains(controls)).toBe(true);
+    });
+
+    it('on a narrow screen it stacks in DOM order: strip, readout, controls, dome (no CSS reordering)', () => {
+      const { container } = mount(<EarthSkyCard />);
+      const { strip, readout, dome, controls } = parts(container);
+      expect(before(strip, readout)).toBe(true);
+      expect(before(readout, controls)).toBe(true);
+      expect(before(controls, dome)).toBe(true);
+      // one grid column below lg, two from lg; nothing is moved with an `order-*` utility, so the stack above is
+      // the reading order, the tab order and the narrow visual order at once
+      const grid = parts(container).left.parentElement!;
+      const tokens = grid.className.split(/\s+/);
+      expect(tokens).toContain('grid-cols-1');
+      expect(tokens).toContain('lg:grid-cols-2');
+      const reordered = Array.from(container.querySelectorAll('[class]')).filter((el) =>
+        String(el.getAttribute('class'))
+          .split(/\s+/)
+          .some((token) => /^(?:[a-z]+:)*order-(?:\d+|first|last|none)$/.test(token)),
+      );
+      expect(reordered).toHaveLength(0);
+    });
+
+    it('the card still adds no canvas of its own: the strip only', () => {
+      const { container } = mount(<EarthSkyCard />);
+      expect(container.querySelectorAll('canvas')).toHaveLength(1);
+    });
   });
 
   describe('the caption states the selected MODE and makes no claim about the data', () => {
