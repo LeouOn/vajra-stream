@@ -236,18 +236,30 @@ describe('EarthSkyCard', () => {
       expect(before(strip, readout)).toBe(true);
       expect(before(readout, controls)).toBe(true);
       expect(before(controls, dome)).toBe(true);
-      // one grid column below lg, two from lg; nothing is moved with an `order-*` utility, so the stack above is
-      // the reading order, the tab order and the narrow visual order at once
+      // one grid column below 1280 px, two from there; nothing is moved with an `order-*` utility, so the stack
+      // above is the reading order, the tab order and the narrow visual order at once
       const grid = parts(container).left.parentElement!;
       const tokens = grid.className.split(/\s+/);
       expect(tokens).toContain('grid-cols-1');
-      expect(tokens).toContain('lg:grid-cols-2');
+      // W3-M4 (changed deliberately: this was `lg:grid-cols-2`): measured in a real browser, equal columns left the
+      // dome stacked and the card lopsided between 1024 and ~1330 px. The dome's column is never narrower than the
+      // 610 px the dome needs to keep its canvas and side panel side by side (554 px inside + its own padding);
+      // above ~1330 px the two columns are equal, so 1440 px is unchanged.
+      expect(tokens).toContain('min-[1280px]:grid-cols-[minmax(0,1fr)_minmax(610px,1fr)]');
+      expect(tokens).not.toContain('lg:grid-cols-2');
       const reordered = Array.from(container.querySelectorAll('[class]')).filter((el) =>
         String(el.getAttribute('class'))
           .split(/\s+/)
           .some((token) => /^(?:[a-z]+:)*order-(?:\d+|first|last|none)$/.test(token)),
       );
       expect(reordered).toHaveLength(0);
+    });
+
+    it('caps the strip at 720 px (a 360 px tall 2:1 map) and centres it, so a wide column cannot make it tower over the dome', () => {
+      const { container } = mount(<EarthSkyCard />);
+      const tokens = parts(container).strip.className.split(/\s+/);
+      expect(tokens).toContain('max-w-[720px]');
+      expect(tokens).toContain('mx-auto');
     });
 
     it('the card still adds no canvas of its own: the strip only', () => {

@@ -15,13 +15,23 @@
  * unavailable is each one's own status, and each carries its own provenance. A card-level "computed" would be
  * true only while every child happened to succeed (and the card cannot see the dome's own night-sky status).
  *
- * Layout (W3-M2, measured in a real browser): the card is two columns from lg.
+ * Layout (W3-M2, measured in a real browser): the card is two columns from 1280 px.
  * LEFT = where and when: the flat strip, the planetary-hour readout under it
  * (it is about the place and the instant, like the strip) and the time
  * controls. RIGHT = the sky: the dome, alone. The dome is the tall element
- * (~760 px); strip + readout alone leave ~300 px empty under them at 1440 px,
+ * (~680 px); strip + readout alone leave ~300 px empty under them at 1440 px,
  * while the controls (~210 px) belong with the place and time anyway, so the
- * two columns end within ~80 px of each other.
+ * two columns end within ~60 px of each other.
+ *
+ * W3-M4 (measured at 1100 / 1280 / 1366 / 1440 / 1920 / 420 px, docs/notes/earthsky/wave3/c1/card-matrix.mjs):
+ * - Equal columns below ~1330 px gave the dome a column too narrow to keep its canvas and side panel side by side
+ *   (554 px inside + its own ~50 px of padding), so it stacked and ran 280-460 px taller than the left column.
+ *   The dome's column is now never narrower than 610 px; the left column takes what is left, and above ~1330 px
+ *   the columns are equal again (1440 px is exactly as before).
+ * - Below 1280 px the left column would be under ~500 px, so the card is one column there (an uncapped 2:1 strip
+ *   is 480-620 px tall in a single column, hence the strip cap below).
+ * - The strip is capped at 720 px (360 px tall) and centred: at 1920 px an 887 px strip made the left column 170 px
+ *   taller than the dome. 720 px is wider than the strip is anywhere from 1280 to 1440 px, so those are unchanged.
  *
  * On a narrow screen the columns stack in DOM order: strip, readout,
  * controls, dome. The facts come first, and the slider sits right under the
@@ -73,10 +83,15 @@ export default function EarthSkyCard({ className = '' }: Props): React.ReactElem
         </p>
       </header>
 
-      {/* Two columns from lg, one stacked column below it; the DOM order IS the narrow order (no `order-*`). */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      {/*
+        Two columns from 1280 px, one stacked column below it; the DOM order IS the narrow order (no `order-*`).
+        The right column is never narrower than 610 px: the dome needs 554 px inside to keep canvas and panel side
+        by side. 610 px follows the dome's `flex-[2_1_280px]` / `flex-[1_1_250px]` minimums and its own padding;
+        change them together.
+      */}
+      <div className="grid grid-cols-1 min-[1280px]:grid-cols-[minmax(0,1fr)_minmax(610px,1fr)] gap-4 items-start">
         <div data-testid="earth-sky-left" className="min-w-0 space-y-3">
-          <WorldStrip observer={observer} onPick={onPick} />
+          <WorldStrip className="mx-auto max-w-[720px]" observer={observer} onPick={onPick} />
           <PlanetaryHourReadout />
           <SkyTimeControls />
         </div>

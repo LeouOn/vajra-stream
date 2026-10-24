@@ -975,12 +975,15 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         </div>
 
         {/* Telemetry & Legend Panel */}
-        <div data-testid="sky-side-panel" className="min-w-0 flex-[1_1_250px] space-y-4 overflow-hidden">
+        <div
+          data-testid="sky-side-panel"
+          className="min-w-0 flex-[1_1_250px] space-y-4 overflow-hidden [container-type:inline-size]"
+        >
           <div data-testid="sky-visible-header" className="border-b border-slate-800 pb-3">
             <span className="block text-xs uppercase tracking-wider text-slate-400 font-medium">
               Overhead Visibility
             </span>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs [@container(max-width:295px)]:gap-x-3">
               <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
                 <Switch size="small" checked={showPlanets} onChange={setShowPlanets} />
                 <span>Planets ({scrubMode ? planetMarks.length : data?.visible_planets_count || 0})</span>
@@ -1017,7 +1020,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           {/* Active Visible Planets Grid */}
           <div
             data-testid="sky-planet-grid"
-            className="grid grid-cols-[repeat(auto-fill,minmax(min(9rem,100%),1fr))] gap-2 min-w-0"
+            className="grid grid-cols-[repeat(auto-fill,minmax(min(9rem,max(7.5rem,calc(50%_-_4px)),100%),1fr))] gap-2 min-w-0"
           >
             {planetMarks.map((mark) => {
               const p = mark.planet;
@@ -1027,7 +1030,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                   data-testid="sky-planet-card"
                   className="min-w-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-xs flex flex-col justify-between"
                 >
-                  <div className="flex min-w-0 items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
                     <span className="min-w-0 truncate font-medium" style={{ color: p.color }}>
                       {p.name} {p.glyph}
                     </span>
@@ -1035,8 +1038,9 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                       Alt {formatDeg(mark.alt)}°
                     </Tag>
                   </div>
-                  <div className="mt-1 truncate text-[10px] text-slate-400">
-                    {scrubMode ? '' : `${p.sign} ${p.sign_glyph} · `}Az {formatDeg(mark.az)}°
+                  <div className="mt-1 break-words text-[10px] text-slate-400">
+                    {scrubMode ? '' : `${p.sign} ${p.sign_glyph} · `}
+                    <span className="whitespace-nowrap">Az {formatDeg(mark.az)}°</span>
                   </div>
                 </div>
               );

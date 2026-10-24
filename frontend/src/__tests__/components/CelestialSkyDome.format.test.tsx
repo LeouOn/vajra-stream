@@ -261,13 +261,54 @@ describe('CelestialSkyDome side-panel layout rules', () => {
     expect(container.querySelector('[data-testid="sky-visible-header"]')).not.toBeNull();
   });
 
-  it('a planet card may shrink below 9rem instead of overflowing a narrow panel (W3-M3)', async () => {
+  it('a planet card may shrink below 9rem instead of overflowing a narrow panel, and a panel too narrow for two 9rem cards gets two (W3-M3, W3-M4)', async () => {
     useSkyStore.setState({ at: SCRUB });
     await mount();
     const grid = container.querySelector('[data-testid="sky-planet-grid"]') as HTMLElement;
     // minmax(9rem,1fr) alone cannot shrink: at a 133 px panel every card was 144 px and stuck out by 11 px
-    expect(grid.className).toContain('minmax(min(9rem,100%),1fr)');
     expect(grid.className).not.toContain('minmax(9rem,1fr)');
+    // W3-M4 (changed deliberately: this was minmax(min(9rem,100%),1fr)). The card's panel is 264 px at 1440 px, one
+    // 9rem column, so every extra planet added ~68 px to the dome and unbalanced the two columns by the number of
+    // planets shown. Below two 9rem cards (296 px) the minimum becomes half the panel (2 x (50% - 4 px) + the 8 px gap
+    // = the panel), never under 7.5rem, so a narrow panel takes two columns; at 296 px and up it is the old 9rem rule
+    // exactly (measured: the astrology page at 1440/1280/1100/420 is unchanged).
+    expect(tokens(grid)).toContain(
+      'grid-cols-[repeat(auto-fill,minmax(min(9rem,max(7.5rem,calc(50%_-_4px)),100%),1fr))]',
+    );
+  });
+
+  it('a planet card puts the Alt tag under the name when the two do not fit, instead of squeezing the name (W3-M4)', async () => {
+    useSkyStore.setState({ at: SCRUB });
+    await mount();
+    const cards = Array.from(container.querySelectorAll('[data-testid="sky-planet-card"]'));
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      const row = card.firstElementChild as HTMLElement;
+      expect(tokens(row)).toContain('flex-wrap'); // a 128 px card has 110 px inside: name ~58 + tag ~62 + gap = 128
+      const name = row.firstElementChild as HTMLElement;
+      expect(tokens(name)).toContain('truncate'); // a name longer than the whole line still cannot overflow
+      expect(tokens(name)).toContain('min-w-0');
+      // the Az line (live: "Sagittarius ♐ · Az 359.99°", ~135 px at 10 px) is longer than a two-column card's 110 px,
+      // so it wraps at its spaces: an ellipsis would hide the Az value itself
+      const sub = card.lastElementChild as HTMLElement;
+      expect(tokens(sub)).toContain('break-words');
+      expect(tokens(sub)).not.toContain('truncate');
+      // ...and it breaks BEFORE "Az", never between "Az" and its number
+      const az = sub.querySelector('span.whitespace-nowrap');
+      expect(az?.textContent).toMatch(/^Az \d+\.\d{2}°$/);
+    }
+  });
+
+  it('the five toggles close their column gap only inside a narrow panel, so "Ecliptic" does not take a row alone (W3-M4)', async () => {
+    useSkyStore.setState({ at: SCRUB });
+    await mount();
+    const panel = container.querySelector('[data-testid="sky-side-panel"]') as HTMLElement;
+    // the panel is the size container the narrow-panel rule asks about; it is already a flex item with an explicit
+    // basis and min-w-0, so inline-size containment changes nothing else about it
+    expect(tokens(panel)).toContain('[container-type:inline-size]');
+    const toggles = container.querySelector('[data-testid="sky-visible-header"] > div') as HTMLElement;
+    expect(tokens(toggles)).toContain('gap-x-4'); // wide panels keep exactly the M3 gap
+    expect(tokens(toggles)).toContain('[@container(max-width:295px)]:gap-x-3');
   });
 
   it('lays canvas and panel out by the dome\'s own width, not by the viewport (W3-M3)', async () => {
