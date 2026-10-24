@@ -345,13 +345,13 @@ describe('CelestialSkyDome scrub mode', () => {
 
     const jupiter = expected.bodies.find((body) => body.id === 'jupiter');
     if (jupiter && expected.positions.jupiter.alt > 0) {
-      expect(container.textContent).toContain(`Alt ${expected.positions.jupiter.alt}°`);
+      expect(container.textContent).toContain(`Alt ${expected.positions.jupiter.alt.toFixed(2)}°`);
     }
     const visibleSacred = expected.sacred.filter((p) => p.alt > 0);
     expect(Number(dataset('scrubSacred'))).toBe(visibleSacred.length);
     const vega = expected.sacred.find((p) => p.id === 'vega');
     if (vega && vega.alt > 0) {
-      expect(container.textContent).toContain(`+${vega.alt}°`);
+      expect(container.textContent).toContain(`+${vega.alt.toFixed(2)}°`);
     }
     // Parity with the live sacred-star path (geocentric/GMST vs GAST).
     const rad = Math.PI / 180;

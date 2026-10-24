@@ -38,6 +38,11 @@ import {
 import { buildSkyLayer } from '../../lib/skyLayer';
 import ProvenanceTag from './ProvenanceTag';
 
+/** Two-decimal degrees for DISPLAY only (drawing keeps the raw value). */
+export function formatDeg(deg: number): string {
+  return deg.toFixed(2);
+}
+
 /** "+2h 05m" style scrub offset. */
 function formatOffset(minutes: number): string {
   const sign = minutes < 0 ? '-' : '+';
@@ -765,7 +770,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           name: scrubMode
             ? `${p.name} ${p.glyph}`
             : `${p.name} ${p.glyph} in ${p.sign} ${p.sign_glyph}`,
-          sub: `Alt: ${mark.alt}° · Az: ${mark.az}°`,
+          sub: `Alt: ${formatDeg(mark.alt)}° · Az: ${formatDeg(mark.az)}°`,
           alt: mark.alt,
           az: mark.az,
           extra: p.esoteric_quality,
@@ -783,7 +788,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       if (Math.hypot(mx - sx, my - sy) < 12) {
         setHoveredObject({
           name: `${s.name}`,
-          sub: `${s.nakshatra} · Alt: ${mark.alt}° · Az: ${mark.az}°`,
+          sub: `${s.nakshatra} · Alt: ${formatDeg(mark.alt)}° · Az: ${formatDeg(mark.az)}°`,
           alt: mark.alt,
           az: mark.az,
           extra: s.quality,
@@ -821,8 +826,8 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       data-testid="celestial-sky-dome-card"
       className={`border border-purple-500/20 bg-slate-950/60 backdrop-blur-md rounded-2xl ${className}`}
       title={
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <Compass className="w-5 h-5 text-purple-400" />
             <span className="text-purple-200 font-serif text-lg tracking-wide">
               Celestial Night-Sky Dome
@@ -830,9 +835,9 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             <Tag color="purple">Horizon Alt/Az</Tag>
           </div>
           {data && !scrubMode && (
-            <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
-              <span>LST: {data.observer.local_sidereal_time_hms}</span>
-              <span className="flex items-center gap-1 text-amber-300">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono min-w-0">
+              <span className="whitespace-nowrap">LST: {data.observer.local_sidereal_time_hms}</span>
+              <span className="flex items-center gap-1 text-amber-300 whitespace-nowrap">
                 <Moon className="w-3.5 h-3.5" />
                 {data.moon.phase_name} ({data.moon.illumination}%)
               </span>
@@ -935,7 +940,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             </div>
           )}
 
-          <div className="flex flex-col lg:flex-row gap-6 items-center">
+          <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:items-center gap-6">
         {/* Sky Dome Canvas */}
         <div className="relative w-full max-w-[440px] aspect-square flex items-center justify-center">
           <canvas
@@ -963,12 +968,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         </div>
 
         {/* Telemetry & Legend Panel */}
-        <div className="flex-1 w-full space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">
+        <div data-testid="sky-side-panel" className="w-full min-w-0 space-y-4 overflow-hidden">
+          <div data-testid="sky-visible-header" className="border-b border-slate-800 pb-3">
+            <span className="block text-xs uppercase tracking-wider text-slate-400 font-medium">
               Overhead Visibility
             </span>
-            <div className="flex flex-wrap items-center gap-4 text-xs">
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
               <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
                 <Switch size="small" checked={showPlanets} onChange={setShowPlanets} />
                 <span>Planets ({scrubMode ? planetMarks.length : data?.visible_planets_count || 0})</span>
@@ -1003,24 +1008,28 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           </div>
 
           {/* Active Visible Planets Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div
+            data-testid="sky-planet-grid"
+            className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2 min-w-0"
+          >
             {planetMarks.map((mark) => {
               const p = mark.planet;
               return (
                 <div
                   key={p.id}
-                  className="rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-xs flex flex-col justify-between"
+                  data-testid="sky-planet-card"
+                  className="min-w-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-xs flex flex-col justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium" style={{ color: p.color }}>
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <span className="min-w-0 truncate font-medium" style={{ color: p.color }}>
                       {p.name} {p.glyph}
                     </span>
-                    <Tag color="default" className="text-[10px] m-0">
-                      Alt {mark.alt}°
+                    <Tag color="default" className="m-0 shrink-0 whitespace-nowrap text-[10px]">
+                      Alt {formatDeg(mark.alt)}°
                     </Tag>
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-1">
-                    {scrubMode ? '' : `${p.sign} ${p.sign_glyph} · `}Az {mark.az}°
+                  <div className="mt-1 truncate text-[10px] text-slate-400">
+                    {scrubMode ? '' : `${p.sign} ${p.sign_glyph} · `}Az {formatDeg(mark.az)}°
                   </div>
                 </div>
               );
@@ -1033,20 +1042,26 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>Visible Vedic Nakshatras Overhead:</span>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex min-w-0 flex-wrap gap-1.5">
               {sacredMarks.map((mark) => {
                 const s = mark.star;
                 return (
-                  <Tooltip key={s.id} title={`${s.quality} (Azimuth: ${mark.az}°, Alt: ${mark.alt}°)`}>
+                  <Tooltip
+                    key={s.id}
+                    title={`${s.quality} (Azimuth: ${formatDeg(mark.az)}°, Alt: ${formatDeg(mark.alt)}°)`}
+                  >
                     <Tag
                       color="purple"
-                      className="cursor-help py-0.5 px-2 text-xs border border-purple-500/30"
+                      data-testid="sky-sacred-badge"
+                      className="max-w-full min-w-0 cursor-help overflow-hidden border border-purple-500/30 px-2 py-0.5 text-xs"
                       style={{ borderColor: s.color }}
                     >
-                      <span className="font-semibold" style={{ color: s.color }}>
+                      <span className="truncate font-semibold" style={{ color: s.color }}>
                         {s.name.split(' ')[0]}
                       </span>{' '}
-                      <span className="opacity-75 font-mono text-[10px]">+{mark.alt}°</span>
+                      <span className="shrink-0 whitespace-nowrap font-mono text-[10px] opacity-75">
+                        +{formatDeg(mark.alt)}°
+                      </span>
                     </Tag>
                   </Tooltip>
                 );
