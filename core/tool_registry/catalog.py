@@ -1462,7 +1462,7 @@ TOOL_SPECS: tuple[ToolSpec, ...] = (
     ),
     ToolSpec(
         name="get_celestial_night_sky",
-        description="Calculate topocentric celestial dome Alt/Az coordinates for 10 planets and 10 Vedic nakshatra stars, with Moon phase, illumination, and LST.",
+        description="Calculate celestial dome Alt/Az coordinates for the Sun, Moon and 8 planets (topocentric: corrected for the observer's place, up to ~1 degree for the Moon; geometric altitude, no refraction) and 10 Vedic nakshatra stars, with Moon phase, illumination, and LST.",
         parameters={
             "type": "object",
             "properties": {

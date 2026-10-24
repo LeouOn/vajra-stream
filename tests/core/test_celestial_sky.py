@@ -400,10 +400,15 @@ def test_precession_helper_is_the_identity_at_j2000():
 # east longitude; the alt/az below comes from the plain trig written in this
 # file (_horizontal_from_equatorial), not from the code under test.
 #
-# Tolerance 0.02 deg: the live path is geocentric FLG_EQUATORIAL like the oracle,
-# so the difference is the 2-decimal rounding of the payload (<= 0.007 deg).
-# Precessing a planet that is already of date moves it by 0.36 deg in 2026 and
+# Tolerance 0.02 deg for the Sun and the planets. The oracle is GEOCENTRIC and, since W4-T1,
+# the live payload is TOPOCENTRIC: for these bodies the diurnal parallax is at most 0.0091 deg
+# (Venus at 0.27 AU), plus the 2-decimal rounding of the payload (<= 0.0071 deg), so 0.02 still
+# holds. Precessing a planet that is already of date moves it by 0.36 deg in 2026 and
 # 0.7 deg in 1950 and 2049, so the tolerance has a wide margin on both sides.
+# The Moon is different: its parallax is up to 1 deg, so against this geocentric oracle it is
+# only bounded (never above its geocentric place, never more than the horizontal parallax
+# below it). Its exact topocentric place is held to 0.001 deg by two independent oracles in
+# tests/unit/test_night_sky_topocentric.py, which also catches a precessed Moon.
 # ---------------------------------------------------------------------------
 
 # fmt: off
@@ -425,7 +430,7 @@ def _oracle_altaz(instant: str, body_id: str, lat: float, lon: float) -> tuple[f
 
 @pytest.mark.unit
 def test_sun_moon_and_planets_land_on_the_oracle_altaz():
-    """Absolute check of the Sun, Moon and eight planets: 3 instants x 2 places x 10 bodies."""
+    """Absolute check of the Sun and eight planets (the Moon is bounded): 3 instants x 2 places x 10 bodies."""
     for instant in _ORACLE_SUBPOINTS:
         dt = datetime.fromisoformat(instant.replace("Z", "+00:00"))
         for place, lat, lon in _PLANET_PLACES:
@@ -435,11 +440,18 @@ def test_sun_moon_and_planets_land_on_the_oracle_altaz():
             for body_id in got:
                 alt_expected, az_expected = _oracle_altaz(instant, body_id, lat, lon)
                 sep = _great_circle_deg(got[body_id]["altitude"], got[body_id]["azimuth"], alt_expected, az_expected)
+                if body_id == "moon":
+                    # W4-T1: topocentric payload vs geocentric oracle - see the comment above.
+                    assert sep <= 1.05, f"moon at {instant} {place}: {sep:.4f} deg, more than its horizontal parallax"
+                    assert (
+                        got[body_id]["altitude"] <= alt_expected + 0.01
+                    ), f"moon at {instant} {place}: parallax can only lower the Moon"
+                    continue
                 assert sep <= 0.02, f"{body_id} at {instant} {place}: {sep:.4f} deg from the oracle sub-point"
             moon = res["moon"]
-            alt_expected, az_expected = _oracle_altaz(instant, "moon", lat, lon)
-            assert (
-                _great_circle_deg(moon["altitude"], moon["azimuth"], alt_expected, az_expected) <= 0.02
+            assert (moon["altitude"], moon["azimuth"]) == (
+                got["moon"]["altitude"],
+                got["moon"]["azimuth"],
             ), f"moon block at {instant} {place}"
 
 

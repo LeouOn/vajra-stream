@@ -1,9 +1,20 @@
 """
-core.celestial_sky — Real-time topocentric celestial dome calculations.
+core.celestial_sky — Real-time celestial dome calculations for an observer's place.
 
 Calculates Altitude (-90° to +90°) and Azimuth (0° to 360°, North=0, East=90)
 for visible planets, Moon phase/illumination, and sacred Vedic fixed stars / nakshatras
 above any observer location (latitude, longitude) at any given UTC time.
+
+Frames. The Sun, Moon and planets come from the Swiss Ephemeris as geocentric apparent
+places and are then corrected for diurnal parallax (Meeus, Astronomical Algorithms ch. 40;
+oblate Earth, observer at sea level), so their altitude/azimuth are what an observer at
+(latitude, longitude) sees: topocentric. The correction is largest for the Moon (up to ~1°),
+8.8" for the Sun and at most ~32" for a planet. Right ascension and declination in the
+payload stay geocentric apparent, and ``position_frame`` names the frame of the
+altitude/azimuth. Altitudes are geometric (no atmospheric refraction). The correction is a
+pure function of its arguments: swisseph's ``set_topo`` is process-global and the routes run
+in a thread pool, so this module never calls it. The fixed stars have no measurable parallax
+and are only precessed (J2000 -> of date).
 """
 
 from __future__ import annotations
@@ -249,8 +260,13 @@ SACRED_FIXED_STARS: list[dict[str, Any]] = [
 ]
 
 
-def _equatorial_to_horizontal(ra_deg: float, dec_deg: float, lst_deg: float, lat_deg: float) -> tuple[float, float]:
-    """Convert Right Ascension and Declination to topocentric Altitude and Azimuth."""
+def _horizontal_unrounded(ra_deg: float, dec_deg: float, lst_deg: float, lat_deg: float) -> tuple[float, float]:
+    """Altitude and azimuth, unrounded, of the equatorial place (RA, Dec) for an observer at ``lat_deg``.
+
+    The place is taken as given: pass a topocentric RA/Dec (see :func:`_topocentric_equatorial`) to get
+    what the observer sees, or a geocentric one (the stars, whose parallax is nil) to get the direction
+    from the Earth's centre.
+    """
     h_rad = math.radians((lst_deg - ra_deg) % 360.0)
     lat_rad = math.radians(lat_deg)
     dec_rad = math.radians(dec_deg)
@@ -263,7 +279,60 @@ def _equatorial_to_horizontal(ra_deg: float, dec_deg: float, lst_deg: float, lat
     x = math.sin(dec_rad) * math.cos(lat_rad) - math.cos(dec_rad) * math.sin(lat_rad) * math.cos(h_rad)
     az_deg = (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
 
+    return alt_deg, az_deg
+
+
+def _equatorial_to_horizontal(ra_deg: float, dec_deg: float, lst_deg: float, lat_deg: float) -> tuple[float, float]:
+    """Convert Right Ascension and Declination to Altitude and Azimuth, rounded to 2 decimals."""
+    alt_deg, az_deg = _horizontal_unrounded(ra_deg, dec_deg, lst_deg, lat_deg)
     return round(alt_deg, 2), round(az_deg, 2)
+
+
+# Meeus, Astronomical Algorithms ch. 40: the Earth's equatorial horizontal parallax is 8.794" at
+# 1 AU, so a body Δ AU away has sin(π) = sin(8.794") / Δ (the Earth's equatorial radius in AU is sin(8.794")).
+_SIN_PARALLAX_AT_1_AU = math.sin(math.radians(8.794 / 3600.0))
+# Meeus ch. 11: polar / equatorial radius b/a = 1 - f for the IAU 1976 flattening f = 1/298.257.
+_EARTH_AXIS_RATIO = 0.99664719
+
+
+def _observer_terms(lat_deg: float) -> tuple[float, float]:
+    """Meeus ch. 11: ρ·sin(φ') and ρ·cos(φ') for an observer at sea level at geodetic latitude ``lat_deg``.
+
+    φ' is the geocentric latitude and ρ the distance from the Earth's centre in equatorial radii. The
+    geodetic latitude is the one a map or GPS gives, and the request's ``latitude``.
+    """
+    lat_rad = math.radians(lat_deg)
+    u = math.atan2(_EARTH_AXIS_RATIO * math.sin(lat_rad), math.cos(lat_rad))
+    return _EARTH_AXIS_RATIO * math.sin(u), math.cos(u)
+
+
+def _topocentric_equatorial(
+    ra_deg: float, dec_deg: float, distance_au: float, lst_deg: float, lat_deg: float
+) -> tuple[float, float]:
+    """Right ascension and declination of a body as seen from the observer's place (diurnal parallax).
+
+    Meeus ch. 40. ``ra_deg``/``dec_deg``/``distance_au`` are the body's geocentric apparent place and
+    distance (what ``swe.calc_ut(..., FLG_EQUATORIAL)`` returns), ``lst_deg`` the local apparent sidereal
+    time and ``lat_deg`` the observer's geodetic latitude (height 0). Pure: no ephemeris, no global state.
+    """
+    if not (math.isfinite(distance_au) and distance_au > 0.0):
+        raise ValueError(f"distance must be a positive, finite number of AU, got {distance_au!r}")
+    sin_parallax = _SIN_PARALLAX_AT_1_AU / distance_au
+    rho_sin, rho_cos = _observer_terms(lat_deg)
+    hour_angle = math.radians((lst_deg - ra_deg) % 360.0)
+    dec = math.radians(dec_deg)
+    denominator = math.cos(dec) - rho_cos * sin_parallax * math.cos(hour_angle)
+    delta_ra = math.atan2(-rho_cos * sin_parallax * math.sin(hour_angle), denominator)
+    topo_dec = math.atan2((math.sin(dec) - rho_sin * sin_parallax) * math.cos(delta_ra), denominator)
+    return (ra_deg + math.degrees(delta_ra)) % 360.0, math.degrees(topo_dec)
+
+
+def _topocentric_horizontal(
+    ra_deg: float, dec_deg: float, distance_au: float, lst_deg: float, lat_deg: float
+) -> tuple[float, float]:
+    """Unrounded altitude and azimuth of a body as seen from the observer's place (parallax applied)."""
+    topo_ra, topo_dec = _topocentric_equatorial(ra_deg, dec_deg, distance_au, lst_deg, lat_deg)
+    return _horizontal_unrounded(topo_ra, topo_dec, lst_deg, lat_deg)
 
 
 def _precess_j2000_to_date(ra_deg: float, dec_deg: float, jd: float) -> tuple[float, float]:
@@ -303,7 +372,16 @@ def calculate_night_sky(
     longitude: float = -122.4194,
     dt: datetime | None = None,
 ) -> dict[str, Any]:
-    """Calculate the real-time visible celestial dome above (latitude, longitude)."""
+    """Calculate the real-time visible celestial dome above (latitude, longitude).
+
+    The Sun, Moon and planets' ``altitude``/``azimuth`` are topocentric: corrected for the diurnal
+    parallax of an observer at sea level at ``latitude`` (the Moon sits up to ~1° lower than its
+    geocentric place, the Sun 8.8" and the planets less than 32"). ``right_ascension`` and
+    ``declination`` stay geocentric apparent. ``position_frame`` says which frame the
+    altitude/azimuth are in: ``"topocentric"`` normally, ``"geocentric"`` for the approximate
+    fallback used when the Swiss Ephemeris is missing (it has no distances to correct with).
+    Altitudes are geometric: no atmospheric refraction.
+    """
     if dt is None:
         dt = datetime.now(timezone.utc)
     elif dt.tzinfo is None:
@@ -337,12 +415,13 @@ def calculate_night_sky(
     planets: list[dict[str, Any]] = []
     sun_lon_ecl = 0.0
     moon_lon_ecl = 0.0
+    position_frame = "topocentric" if HAS_SWISSEPH and swe is not None else "geocentric"
 
     for pid, info in PLANET_INFO.items():
         if HAS_SWISSEPH and swe is not None:
-            # Equatorial
+            # Equatorial, geocentric apparent; the distance (AU) is what the parallax needs
             xx_eq, _ = swe.calc_ut(tjd_ut, info["swe_id"], swe.FLG_EQUATORIAL)
-            ra_deg, dec_deg = xx_eq[0], xx_eq[1]
+            ra_deg, dec_deg, distance_au = xx_eq[0], xx_eq[1], xx_eq[2]
             # Ecliptic for sign
             xx_ecl, _ = swe.calc_ut(tjd_ut, info["swe_id"], 0)
             lon_ecl = xx_ecl[0]
@@ -350,13 +429,15 @@ def calculate_night_sky(
                 sun_lon_ecl = lon_ecl
             elif pid == "moon":
                 moon_lon_ecl = lon_ecl
+            topo_alt, topo_az = _topocentric_horizontal(ra_deg, dec_deg, distance_au, lst_deg, latitude)
+            alt_deg, az_deg = round(topo_alt, 2), round(topo_az, 2)
         else:
-            # Deterministic fallback positions
+            # Deterministic fallback positions (no distances, so no parallax: see position_frame)
             lon_ecl = (info["swe_id"] * 36.0 + dt.timetuple().tm_yday) % 360.0
             ra_deg = lon_ecl
             dec_deg = 23.44 * math.sin(math.radians(lon_ecl))
+            alt_deg, az_deg = _equatorial_to_horizontal(ra_deg, dec_deg, lst_deg, latitude)
 
-        alt_deg, az_deg = _equatorial_to_horizontal(ra_deg, dec_deg, lst_deg, latitude)
         sign_idx = int(lon_ecl // 30) % 12
         sign_name = SIGNS[sign_idx]
 
@@ -449,4 +530,5 @@ def calculate_night_sky(
         "visible_planets_count": len(visible_planets),
         "sacred_stars": stars,
         "visible_stars_count": len(visible_stars),
+        "position_frame": position_frame,
     }

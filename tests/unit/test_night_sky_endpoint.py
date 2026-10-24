@@ -58,6 +58,7 @@ class TestNightSkyDatetime:
 
     def test_response_key_set_is_pinned_and_unchanged(self, client: TestClient):
         payload = client.get("/astrology/night-sky", params={"datetime_str": "2026-03-20T14:46:00Z"}).json()
+        # W4-T1 added exactly one key, ``position_frame`` (additive; nothing else moved).
         assert set(payload) == {
             "status",
             "timestamp_utc",
@@ -67,6 +68,7 @@ class TestNightSkyDatetime:
             "visible_planets_count",
             "sacred_stars",
             "visible_stars_count",
+            "position_frame",
             "provenance",
         }
 
@@ -203,3 +205,33 @@ class TestNightSkyPlaceRange:
         response = client.get("/astrology/night-sky", params={"datetime_str": "2026-03-20T14:46:00Z"})
         assert response.status_code == 200
         assert response.json()["observer"]["latitude"] == 37.7749
+
+
+class TestNightSkyTopocentric:
+    """W4-T1: the route's Sun, Moon and planet altitude/azimuth are for the observer's place, not the Earth's centre.
+
+    The expected numbers are literals: the Moon over San Francisco at 2026-01-01T13:30Z is 2.85 deg up
+    (astropy TETE -> ITRS -> AltAz, WGS84 site, no refraction; swisseph's FLG_TOPOCTR agrees to 0.0001 deg),
+    where the geocentric value the route used to return is 3.86 deg. Exhaustive oracle coverage is in
+    tests/unit/test_night_sky_topocentric.py; this pins what a client of the route sees.
+    """
+
+    LOW_MOON = {"latitude": "37.7749", "longitude": "-122.4194", "datetime_str": "2026-01-01T13:30:00Z"}
+
+    def test_the_payload_names_its_frame(self, client: TestClient):
+        payload = client.get("/astrology/night-sky", params=self.LOW_MOON).json()
+        assert payload["position_frame"] == "topocentric"
+
+    def test_a_low_moon_is_lower_than_the_geocentric_value_the_route_used_to_return(self, client: TestClient):
+        payload = client.get("/astrology/night-sky", params=self.LOW_MOON).json()
+        moon = next(p for p in payload["planets"] if p["id"] == "moon")
+        assert moon["altitude"] == pytest.approx(2.85, abs=0.01)
+        assert abs(moon["altitude"] - 3.86) > 0.5  # the old, geocentric answer
+        assert (payload["moon"]["altitude"], payload["moon"]["azimuth"]) == (moon["altitude"], moon["azimuth"])
+
+    def test_right_ascension_and_declination_are_still_the_geocentric_apparent_place(self, client: TestClient):
+        payload = client.get("/astrology/night-sky", params=self.LOW_MOON).json()
+        moon = next(p for p in payload["planets"] if p["id"] == "moon")
+        # swisseph FLG_EQUATORIAL at that instant (73.2704, 27.6295); a topocentric RA/Dec would differ by up to ~1 deg
+        assert moon["right_ascension"] == pytest.approx(73.27, abs=0.006)
+        assert moon["declination"] == pytest.approx(27.63, abs=0.006)

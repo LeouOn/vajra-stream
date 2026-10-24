@@ -1604,14 +1604,19 @@ def get_celestial_night_sky(
     longitude: float = DEFAULT_LNG,
     timestamp: float | None = None,
 ) -> dict[str, Any]:
-    """Get topocentric celestial night sky coordinates for observer.
+    """Get celestial night sky coordinates for observer.
 
-    Computes topocentric Altitude/Azimuth for 10 solar system bodies (Sun, Moon,
+    Computes Altitude/Azimuth for 10 solar system bodies (Sun, Moon,
     Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto) and 10 Vedic
     nakshatra fixed stars (Sirius/Mrigashirsha, Vega/Abhijit, Arcturus/Swati,
     Spica/Chitra, Aldebaran/Rohini, Antares/Jyeshtha, Betelgeuse/Ardra,
     Polaris/Dhruva, Regulus/Magha, Pleiades/Krittika), along with Moon phase,
     illumination percentage, and Local Sidereal Time (LST).
+
+    The bodies' Altitude/Azimuth are topocentric: corrected for the diurnal parallax
+    of an observer at sea level (the Moon sits up to ~1 degree lower than its
+    geocentric place); altitudes are geometric, with no refraction. The result's
+    ``position_frame`` names that frame; right_ascension/declination stay geocentric.
     """
     from datetime import datetime, timezone
 

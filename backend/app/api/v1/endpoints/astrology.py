@@ -99,10 +99,15 @@ async def get_night_sky(
     longitude: float = -122.4194,
     datetime_str: str | None = None,
 ):
-    """Calculate the real-time topocentric celestial dome above (latitude, longitude).
+    """Calculate the real-time celestial dome above (latitude, longitude).
 
-    Returns altitude/azimuth horizontal coordinates for all planets, Moon phase,
-    and sacred Vedic nakshatra fixed stars. A malformed ``datetime_str`` is 422
+    Returns altitude/azimuth horizontal coordinates for the Sun, Moon and planets, Moon
+    phase, and sacred Vedic nakshatra fixed stars. The Sun, Moon and planets are
+    topocentric: corrected for the diurnal parallax of an observer at sea level at
+    ``latitude`` (the Moon sits up to ~1 degree lower than its geocentric place). Altitudes
+    are geometric, with no refraction. ``right_ascension``/``declination`` stay geocentric
+    apparent, and the top-level ``position_frame`` names the frame of altitude/azimuth.
+    A malformed ``datetime_str`` is 422
     (it used to be swallowed and answered with *now*); naive means UTC. Like
     ``/earth-state`` the supported range is 1800-01-01..2200-12-31 UTC (422
     outside it, same ``detail``); a ``swisseph.Error`` is 503, never a bare 500.
