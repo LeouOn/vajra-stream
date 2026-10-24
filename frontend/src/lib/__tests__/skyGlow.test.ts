@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { GLOW_WIDTH_DEG, HALO_ALPHA, TWILIGHT_GLOW_ENABLED, twilightGlow } from '../skyGlow';
+import {
+  GLOW_WIDTH_DEG,
+  HALO_ALPHA,
+  TWILIGHT_GLOW_ENABLED,
+  angularGlowProfile,
+  twilightGlow,
+} from '../skyGlow';
 
 describe('twilightGlow', () => {
   it('is absent at night and has literal anchors through twilight', () => {
@@ -16,6 +22,26 @@ describe('twilightGlow', () => {
     expect(twilightGlow(6, 90)).toMatchObject({ kind: 'horizon', alpha: 0 });
     expect(twilightGlow(10, 90)).toMatchObject({ kind: 'halo', alpha: HALO_ALPHA });
     expect(GLOW_WIDTH_DEG).toBe(70);
+  });
+
+  it('feathers the angular envelope: literals, symmetry, monotone, 0 at the edge', () => {
+    expect(angularGlowProfile(0)).toBeCloseTo(1, 12);
+    expect(angularGlowProfile(10)).toBeCloseTo(0.8117449, 6);
+    expect(angularGlowProfile(20)).toBeCloseTo(0.3887395, 6);
+    expect(angularGlowProfile(30)).toBeCloseTo(0.0495156, 6);
+    expect(angularGlowProfile(35)).toBe(0);
+    expect(angularGlowProfile(40)).toBe(0);
+    expect(angularGlowProfile(-10)).toBeCloseTo(angularGlowProfile(10), 12);
+    expect(angularGlowProfile(-35)).toBe(0);
+    let previous = 1;
+    for (let offset = 0; offset <= 35; offset += 0.1) {
+      const value = angularGlowProfile(offset);
+      expect(value).toBeLessThanOrEqual(previous + 1e-12);
+      previous = value;
+    }
+    for (let offset = 0; offset < 35; offset += 0.1) {
+      expect(Math.abs(angularGlowProfile(offset + 0.1) - angularGlowProfile(offset))).toBeLessThan(0.02);
+    }
   });
 
   it('is continuous through the twilight band and wraps the azimuth', () => {

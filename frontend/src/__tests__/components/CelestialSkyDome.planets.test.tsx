@@ -305,17 +305,24 @@ describe('twilight glow wiring', () => {
     current = payload([], -5);
     await mount();
     expect(gradientCalls).toBe(2); // background + horizon glow
+    // The glow is feathered with 20 gradient sub-wedges (plus the background).
+    expect(fills.filter((fill) => fill.style === '[object Object]').length).toBeGreaterThanOrEqual(21);
 
     act(() => root.unmount());
     root = createRoot(container);
     gradientCalls = 0;
+    fills = [];
+    texts = [];
     current = payload([], -40);
     await mount();
     expect(gradientCalls).toBe(1); // background only: night is unchanged
+    expect(fills.filter((fill) => fill.style === '[object Object]').length).toBe(1);
 
     act(() => root.unmount());
     root = createRoot(container);
     gradientCalls = 0;
+    fills = [];
+    texts = [];
     current = payload([], 40);
     await mount();
     expect(gradientCalls).toBe(2); // background + the faint midday halo

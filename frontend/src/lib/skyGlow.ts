@@ -21,6 +21,8 @@ export const GLOW_PEAK_END_SUN_ALT_DEG = 2;
 export const GLOW_END_SUN_ALT_DEG = 6;
 /** Angular width of the warm rim band. */
 export const GLOW_WIDTH_DEG = 70;
+/** Half-width: beyond this off-axis angle the glow is 0. */
+export const GLOW_HALF_WIDTH_DEG = GLOW_WIDTH_DEG / 2;
 /** Opacity of the midday halo around the Sun marker. */
 export const HALO_ALPHA = 0.18;
 
@@ -37,6 +39,17 @@ export interface SkyGlow {
 function wrap360(deg: number): number {
   const wrapped = deg % 360;
   return wrapped < 0 ? wrapped + 360 : wrapped;
+}
+
+/**
+ * The angular alpha envelope across the band (raised cosine): 1 on the Sun's
+ * azimuth, smoothly to 0 at +-35 deg, with zero slope at both ends (no crisp
+ * radial cut). Symmetric and continuous; 0 outside the band.
+ */
+export function angularGlowProfile(offsetDeg: number): number {
+  const abs = Math.abs(offsetDeg);
+  if (!Number.isFinite(abs) || abs >= GLOW_HALF_WIDTH_DEG) return 0;
+  return 0.5 * (1 + Math.cos((Math.PI * abs) / GLOW_HALF_WIDTH_DEG));
 }
 
 /**

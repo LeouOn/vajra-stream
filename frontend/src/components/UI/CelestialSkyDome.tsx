@@ -52,7 +52,13 @@ import {
   formatPlanetMagnitude,
   isDimmedPlanet,
 } from '../../lib/planetVisibility';
-import { TWILIGHT_GLOW_ENABLED, twilightGlow } from '../../lib/skyGlow';
+import {
+  GLOW_HALF_WIDTH_DEG,
+  GLOW_WIDTH_DEG,
+  TWILIGHT_GLOW_ENABLED,
+  angularGlowProfile,
+  twilightGlow,
+} from '../../lib/skyGlow';
 import {
   placeLabels,
   type Box,
@@ -250,6 +256,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     labels: PlacedLabel[];
   }>({ markerKey: '', labelKey: '', markers: [], entries: [], labels: [] });
   const labelWidthsRef = useRef<Map<string, number>>(new Map());
+  const glowCacheRef = useRef<{ key: string; canvas: HTMLCanvasElement | null }>({
+    key: '',
+    canvas: null,
+  });
   const layerCacheRef = useRef<{
     canvas: HTMLCanvasElement | null;
     lst: number;
@@ -632,19 +642,49 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       if (TWILIGHT_GLOW_ENABLED) {
         const glow = twilightGlow(sunAltDeg, sunAzDeg);
         if (glow.kind === 'horizon' && glow.alpha > 0) {
-          const centre = -Math.PI / 2 - (glow.azimuthDeg * Math.PI) / 180;
-          const half = (35 * Math.PI) / 180;
-          // A filled wedge (no clip/save/fillRect needed) with a radial
-          // gradient: one gradient + one fill per frame.
-          const warm = ctx.createRadialGradient(cx, cy, radius * 0.55, cx, cy, radius);
-          warm.addColorStop(0, 'rgba(255,150,80,0)');
-          warm.addColorStop(0.75, `rgba(255,145,70,${(glow.alpha * 0.18).toFixed(3)})`);
-          warm.addColorStop(1, `rgba(255,130,50,${(glow.alpha * 0.6).toFixed(3)})`);
-          ctx.fillStyle = warm;
-          ctx.beginPath();
-          ctx.moveTo(cx, cy);
-          ctx.arc(cx, cy, radius, centre - half, centre + half, false);
-          ctx.fill();
+          // The feather is baked into an offscreen glow canvas (20 thin
+          // sub-wedges whose alpha follows the raised-cosine envelope), cached
+          // by a 0.5-degree Sun altitude and 1-degree azimuth; each frame then
+          // costs one drawImage. No conic-gradient dependency.
+          const glowKey = `${size}|${Math.round(sunAltDeg * 2)}|${Math.round(glow.azimuthDeg)}`;
+          const cache = glowCacheRef.current;
+          if (cache.canvas === null || cache.key !== glowKey) {
+            const glowCanvas = document.createElement('canvas');
+            glowCanvas.width = size;
+            glowCanvas.height = size;
+            const glowCtx = glowCanvas.getContext('2d');
+            if (glowCtx) {
+              const centre = -Math.PI / 2 - (glow.azimuthDeg * Math.PI) / 180;
+              const warm = glowCtx.createRadialGradient(cx, cy, radius * 0.55, cx, cy, radius);
+              warm.addColorStop(0, 'rgba(255,150,80,0)');
+              warm.addColorStop(0.75, 'rgba(255,145,70,0.18)');
+              warm.addColorStop(1, 'rgba(255,130,50,0.6)');
+              glowCtx.fillStyle = warm;
+              const segments = 20;
+              for (let index = 0; index < segments; index += 1) {
+                const offset0 = -GLOW_HALF_WIDTH_DEG + (index / segments) * GLOW_WIDTH_DEG;
+                const offset1 = -GLOW_HALF_WIDTH_DEG + ((index + 1) / segments) * GLOW_WIDTH_DEG;
+                const mid = (offset0 + offset1) / 2;
+                glowCtx.globalAlpha = glow.alpha * angularGlowProfile(mid);
+                glowCtx.beginPath();
+                glowCtx.moveTo(cx, cy);
+                glowCtx.arc(
+                  cx,
+                  cy,
+                  radius,
+                  centre + (offset0 * Math.PI) / 180,
+                  centre + (offset1 * Math.PI) / 180,
+                  false,
+                );
+                glowCtx.fill();
+              }
+              glowCtx.globalAlpha = 1;
+            }
+            glowCacheRef.current = { key: glowKey, canvas: glowCanvas };
+          }
+          if (glowCacheRef.current.canvas !== null && typeof ctx.drawImage === 'function') {
+            ctx.drawImage(glowCacheRef.current.canvas, 0, 0);
+          }
         } else if (glow.kind === 'halo') {
           const [hx, hy] = project(sunAltDeg, sunAzDeg);
           const halo = ctx.createRadialGradient(hx, hy, 0, hx, hy, 36);
