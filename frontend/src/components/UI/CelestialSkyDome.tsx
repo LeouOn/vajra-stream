@@ -48,6 +48,12 @@ import {
 } from '../../lib/skyBrightness';
 import { moonIlluminatedFraction, type MoonLight } from '../../lib/moonlight';
 import {
+  PLANET_MAGNITUDES,
+  formatPlanetMagnitude,
+  isDimmedPlanet,
+} from '../../lib/planetVisibility';
+import { TWILIGHT_GLOW_ENABLED, twilightGlow } from '../../lib/skyGlow';
+import {
   placeLabels,
   type LabelItem,
   type PlacedLabel,
@@ -236,7 +242,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   scrubModeRef.current = scrubMode;
   const labelCacheRef = useRef<{
     key: string;
-    entries: { id: string; text: string; color: string; item: LabelItem }[];
+    entries: { id: string; text: string; color: string; alpha: number; item: LabelItem }[];
     labels: PlacedLabel[];
   }>({ key: '', entries: [], labels: [] });
   const labelWidthsRef = useRef<Map<string, number>>(new Map());
@@ -410,6 +416,9 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const sunAltDeg = scrubMode
     ? (scrubbed?.positions.sun?.alt ?? -90)
     : (data?.planets.find((planet) => planet.id === 'sun')?.altitude ?? -90);
+  const sunAzDeg = scrubMode
+    ? (scrubbed?.positions.sun?.az ?? 0)
+    : (data?.planets.find((planet) => planet.id === 'sun')?.azimuth ?? 0);
   const daylightActive = sunAltDeg > NIGHT_SUN_ALT_DEG;
 
   // One moonlight feed for live and scrub: the Moon's topocentric altitude and
@@ -613,6 +622,37 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         return [px, py];
       };
 
+      // Twilight glow: one warm radial gradient along the rim, clipped to a
+      // 70-degree wedge around the Sun's azimuth, drawn under the layer and
+      // markers. A frame costs one gradient + one fill; night draws nothing.
+      if (TWILIGHT_GLOW_ENABLED) {
+        const glow = twilightGlow(sunAltDeg, sunAzDeg);
+        if (glow.kind === 'horizon' && glow.alpha > 0) {
+          const centre = -Math.PI / 2 - (glow.azimuthDeg * Math.PI) / 180;
+          const half = (35 * Math.PI) / 180;
+          // A filled wedge (no clip/save/fillRect needed) with a radial
+          // gradient: one gradient + one fill per frame.
+          const warm = ctx.createRadialGradient(cx, cy, radius * 0.55, cx, cy, radius);
+          warm.addColorStop(0, 'rgba(255,150,80,0)');
+          warm.addColorStop(0.75, `rgba(255,145,70,${(glow.alpha * 0.18).toFixed(3)})`);
+          warm.addColorStop(1, `rgba(255,130,50,${(glow.alpha * 0.6).toFixed(3)})`);
+          ctx.fillStyle = warm;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, radius, centre - half, centre + half, false);
+          ctx.fill();
+        } else if (glow.kind === 'halo') {
+          const [hx, hy] = project(sunAltDeg, sunAzDeg);
+          const halo = ctx.createRadialGradient(hx, hy, 0, hx, hy, 36);
+          halo.addColorStop(0, `rgba(255,235,200,${glow.alpha})`);
+          halo.addColorStop(1, 'rgba(255,235,200,0)');
+          ctx.fillStyle = halo;
+          ctx.beginPath();
+          ctx.arc(hx, hy, 36, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
       // Catalogue, figures, and ecliptic share one offscreen canvas. The
       // animation loop only blits it. Rebuild when the observer latitude,
       // the epoch, the size, the layer flags or the sidereal time (>= 0.02°)
@@ -814,26 +854,35 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         planetMarks.forEach((mark) => {
           const p = mark.planet;
           const [px, py] = project(mark.alt, mark.az);
+          const dimmed = isDimmedPlanet(
+            p.id,
+            PLANET_MAGNITUDES[p.id],
+            sunAltDeg,
+            moonLight,
+            seeThrough,
+          );
 
-          // Planet glow aura
-          ctx.beginPath();
-          ctx.arc(px, py, 11, 0, Math.PI * 2);
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = 0.2;
-          ctx.fill();
+          // Planet glow aura (off when the planet is below the naked-eye limit)
+          if (!dimmed) {
+            ctx.beginPath();
+            ctx.arc(px, py, 11, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = 0.2;
+            ctx.fill();
+          }
 
           // Planet glyph circle
           ctx.beginPath();
           ctx.arc(px, py, 7.5, 0, Math.PI * 2);
           ctx.fillStyle = '#0f172a';
-          ctx.globalAlpha = 0.85;
+          ctx.globalAlpha = dimmed ? 0.35 : 0.85;
           ctx.fill();
           ctx.strokeStyle = p.color;
           ctx.lineWidth = 1.5;
           ctx.stroke();
 
           // Glyph character
-          ctx.globalAlpha = 1.0;
+          ctx.globalAlpha = dimmed ? 0.35 : 1.0;
           ctx.fillStyle = p.color;
           ctx.font = '11px sans-serif';
           ctx.textAlign = 'center';
@@ -846,7 +895,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       // every frame just draws the cached placement. Text widths are cached by
       // string, so steady frames allocate nothing here.
       {
-        const entries: { id: string; text: string; color: string; item: LabelItem }[] = [];
+        const entries: { id: string; text: string; color: string; alpha: number; item: LabelItem }[] = [];
         const widthOf = (text: string): number => {
           const known = labelWidthsRef.current.get(text);
           if (known !== undefined) return known;
@@ -861,10 +910,18 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             const [x, y] = project(mark.alt, mark.az);
             const text = scrubMode ? p.name : `${p.name} ${p.sign_glyph}`;
             const priority = p.id === 'sun' ? 40 : p.id === 'moon' ? 39 : 20;
+            const dimmed = isDimmedPlanet(
+              p.id,
+              PLANET_MAGNITUDES[p.id],
+              sunAltDeg,
+              moonLight,
+              seeThrough,
+            );
             entries.push({
               id: p.id,
               text,
               color: p.color,
+              alpha: dimmed ? 0.5 : 1,
               item: { id: p.id, x, y, width: widthOf(text), height: 10, priority, markerRadius: 8 },
             });
           }
@@ -881,6 +938,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
               id: s.id,
               text,
               color: 'rgba(226, 232, 240, 0.7)',
+              alpha: 1,
               item: { id: s.id, x, y, width: widthOf(text), height: 10, priority: 10, markerRadius: dotSize },
             });
           }
@@ -889,7 +947,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           entries
             .map(
               (entry) =>
-                `${entry.id}:${Math.round(entry.item.x)},${Math.round(entry.item.y)},${Math.round(entry.item.width)},${entry.item.priority}`,
+                `${entry.id}:${Math.round(entry.item.x)},${Math.round(entry.item.y)},${Math.round(entry.item.width)},${entry.item.priority},${entry.alpha}`,
             )
             .join(';') + `|${Math.round(cx)},${Math.round(cy)},${Math.round(radius)}|${scrubMode ? 1 : 0}`;
         if (labelCacheRef.current.key !== key) {
@@ -921,7 +979,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           ctx.font = '9px sans-serif';
           ctx.textAlign = label.anchor;
           ctx.textBaseline = 'alphabetic';
-          ctx.globalAlpha = 1;
+          ctx.globalAlpha = entry.alpha;
           ctx.fillStyle = entry.color;
           ctx.fillText(entry.text, label.x, label.y);
         }
@@ -1042,7 +1100,11 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           name: scrubMode
             ? `${p.name} ${p.glyph}`
             : `${p.name} ${p.glyph} in ${p.sign} ${p.sign_glyph}`,
-          sub: `Alt: ${formatDeg(mark.alt)}° · Az: ${formatDeg(mark.az)}°`,
+          sub: `Alt: ${formatDeg(mark.alt)}° · Az: ${formatDeg(mark.az)}°${
+            isDimmedPlanet(p.id, PLANET_MAGNITUDES[p.id], sunAltDeg, moonLight, seeThrough)
+              ? ` · Not visible to the naked eye now (magnitude ${formatPlanetMagnitude(PLANET_MAGNITUDES[p.id] ?? 0)})`
+              : ''
+          }`,
           alt: mark.alt,
           az: mark.az,
           extra: p.esoteric_quality,
@@ -1354,6 +1416,13 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           >
             {planetMarks.map((mark) => {
               const p = mark.planet;
+              const dimmed = isDimmedPlanet(
+                p.id,
+                PLANET_MAGNITUDES[p.id],
+                sunAltDeg,
+                moonLight,
+                seeThrough,
+              );
               return (
                 <div
                   key={p.id}
@@ -1372,6 +1441,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                     {scrubMode ? '' : `${p.sign} ${p.sign_glyph} · `}
                     <span className="whitespace-nowrap">Az {formatDeg(mark.az)}°</span>
                   </div>
+                  {dimmed && (
+                    <div className="mt-1 break-words text-[10px] text-amber-200/80">
+                      Not visible to the naked eye now (magnitude{' '}
+                      {formatPlanetMagnitude(PLANET_MAGNITUDES[p.id] ?? 0)})
+                    </div>
+                  )}
                 </div>
               );
             })}
