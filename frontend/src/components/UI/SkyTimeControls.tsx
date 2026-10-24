@@ -153,7 +153,11 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
     setError(null);
     setSunriseNote(null);
     try {
-      const events = await fetchSunEvents(lat, lng, new Date(shownMs).toISOString());
+      // Ask from the shown instant PLUS 1 s. The engine floors the query to
+      // the second, and the route prints the event itself, so asking from a
+      // sunrise instant answers with that same sunrise forever. +1 s always
+      // crosses the engine's one-second boundary (W3-R2 F1).
+      const events = await fetchSunEvents(lat, lng, new Date(shownMs + 1000).toISOString());
       if (request !== requestId.current) return;
       if (events.next_sunrise === null) {
         setSunriseNote('No sunrise here within the next day (polar night or midnight sun).');

@@ -291,6 +291,9 @@ afterEach(() => {
 
 describe('CelestialSkyDome scrub mode', () => {
   it('requests one +-24 h window at 603 s x 288 and shows the scrubbed sky', async () => {
+    // Pin "now" two hours before the shown instant so this is the normal
+    // now-centred window (the paused-outside case is the next test).
+    vi.spyOn(Date, 'now').mockReturnValue(parseInstant(SCRUB_AT) - 2 * 3600_000);
     await mount();
     await deliverLive();
     expect(nightRequests).toHaveLength(1);
@@ -455,24 +458,88 @@ describe('CelestialSkyDome scrub mode', () => {
     expect(lastCall.latDeg).toBe(-33.8688);
   });
 
-  it('uses only the newest series when two observer changes race', async () => {
+  it('does not refetch the series on a place change in scrub mode', async () => {
     await mount();
     await deliverLive();
     await enterScrub();
-    // A place change while the first series request is in flight starts a second.
+    await deliverSeries(fixture());
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
+
     act(() => {
       useSkyStore.getState().setObserver(-33.8688, 151.2093, 'Sydney');
     });
     await flush();
+
+    // Sub-points do not depend on the place: no second 213 KB download.
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
+    const lastCall = mocks.buildSkyLayer.mock.calls[mocks.buildSkyLayer.mock.calls.length - 1]?.[0] as {
+      latDeg: number;
+    };
+    expect(lastCall.latDeg).toBe(-33.8688);
+  });
+
+  it('centres the series on a paused instant that drifted 30 h past the window', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(parseInstant(SCRUB_AT) - 30 * 3600_000);
+    await mount();
+    await deliverLive();
+    await enterScrub();
+
+    const [startIso, endIso, step] = mocks.fetchSeries.mock.calls[0] as [string, string, number];
+    const start = parseInstant(startIso);
+    const end = parseInstant(endIso);
+    const shown = parseInstant(SCRUB_AT);
+    expect(step).toBe(603);
+    // 30 h after the real now -> outside now +-24 h -> the window follows it.
+    expect(start).toBe(Math.floor((shown - 24 * 3600_000) / 60_000) * 60_000);
+    expect(end - start).toBe(287 * 603 * 1000);
+    expect(start).toBeLessThanOrEqual(shown);
+    expect(end).toBeGreaterThanOrEqual(shown);
+
+    await deliverSeries(fixture());
+    expect(dataset('scrubStatus')).toBe('ready');
+    expect(container.textContent).toContain('computed for that instant');
+    expect(container.textContent).not.toContain('planets not drawn');
+    expect(Number(dataset('scrubPlanets'))).toBeGreaterThan(0);
+  });
+
+  it('says planets are not drawn for an instant no series can cover, and stops refetching', async () => {
+    await mount();
+    await deliverLive();
+    await enterScrub('2300-06-01T00:00:00Z');
+    const [startIso, endIso] = mocks.fetchSeries.mock.calls[0] as [string, string, number];
+    // The request is clamped to the supported range, end on the 603 s grid.
+    expect(parseInstant(endIso)).toBe(Date.UTC(2200, 11, 31, 23, 59, 59));
+    expect(parseInstant(endIso) - parseInstant(startIso)).toBe(287 * 603 * 1000);
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
+
+    // Any answer cannot cover 2300; the dome must say so and not loop.
+    await deliverSeries(fixture());
+    expect(container.querySelector('[data-testid="sky-scrub-outside"]')).not.toBeNull();
+    expect(container.textContent).toContain('planets not drawn: no series for this instant');
+    expect(dataset('scrubPlanets')).toBe('0');
+    await flush();
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
+
+    void startIso;
+  });
+
+  it('uses only the newest series when entering scrub twice races an older answer', async () => {
+    await mount();
+    await deliverLive();
+    await enterScrub(); // request A pending
+    act(() => {
+      useSkyStore.getState().goLive();
+    });
+    await flush();
+    await enterScrub(); // request B pending
     expect(mocks.fetchSeries).toHaveBeenCalledTimes(2);
 
     const fresh = fixture(90); // +90 deg GAST, distinguishable
     await resolveSeries(1, fresh);
     const atMs = parseInstant(SCRUB_AT);
-    const expected = skyAtInstant(fresh, atMs, -33.8688, 151.2093, SACRED_J2000);
+    const expected = skyAtInstant(fresh, atMs, DEFAULT_LAT, DEFAULT_LNG, SACRED_J2000);
 
     await resolveSeries(0, fixture(0)); // stale answer arrives last
-
     const lastCall = mocks.buildSkyLayer.mock.calls[mocks.buildSkyLayer.mock.calls.length - 1]?.[0] as {
       lstDeg: number;
     };

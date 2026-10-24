@@ -263,6 +263,42 @@ describe('CelestialSkyDome observer store', () => {
     expect(container.textContent).toContain('20:02:00');
   });
 
+  it('keeps the spinner while a newer request is in flight after a stale answer', async () => {
+    await mount(); // request 0
+    act(() => {
+      useSkyStore.getState().setObserver(-33.8688, 151.2093, 'Sydney');
+    });
+    await flush();
+    expect(requests).toHaveLength(2);
+    const spinning = () => container.querySelector('svg.animate-spin') !== null;
+    expect(spinning()).toBe(true);
+
+    // The earlier (aborted) answer resolves stale; the newer request is still
+    // in flight, so the spinner must not be cleared by the older settlement.
+    await deliver(0, payload(10, '01:00:00', DEFAULT_LAT, DEFAULT_LNG));
+    expect(spinning()).toBe(true);
+
+    await deliver(1, payload(20, '02:00:00', -33.8688, 151.2093));
+    expect(spinning()).toBe(false);
+  });
+
+  it('says stale data are for another place after a failed place change', async () => {
+    await mount();
+    await deliver(0, payload(298.11, '19:52:26'));
+    act(() => {
+      useSkyStore.getState().setObserver(-33.8688, 151.2093, 'Sydney');
+    });
+    await flush();
+    expect(requests).toHaveLength(2);
+    await fail(1);
+
+    const stale = container.querySelector('[data-testid="sky-stale"]');
+    expect(stale?.getAttribute('data-other-place')).toBe('true');
+    expect(stale?.textContent).toContain('another place');
+    // The transient "updating" note is replaced by the stale-place note.
+    expect(container.querySelector('[data-testid="sky-updating-place"]')).toBeNull();
+  });
+
   it('lets explicit props win over the store', async () => {
     useSkyStore.getState().setObserver(1, 2, 'Store place');
 

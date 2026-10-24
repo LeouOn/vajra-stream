@@ -30,6 +30,11 @@ export const SCRUB_MAX_AGE_MS = 30 * 60_000;
 
 const MINUTE_MS = 60_000;
 const HALF_DAY_MS = 24 * 3600_000;
+const WINDOW_SPAN_MS = (SCRUB_SAMPLE_COUNT - 1) * SCRUB_STEP_SECONDS * 1000;
+
+/** The backend's supported ephemeris range (core/earth_sky.py). */
+export const SERIES_RANGE_START_MS = Date.UTC(1800, 0, 1);
+export const SERIES_RANGE_END_MS = Date.UTC(2200, 11, 31, 23, 59, 59);
 
 export interface ScrubWindow {
   startMs: number;
@@ -41,13 +46,22 @@ export interface ScrubWindow {
 }
 
 /**
- * The window to request on entering scrub mode: real now - 24 h, rounded DOWN
- * to a whole minute, then 288 samples at 603 s. The end sits on the grid and
- * is at least now + 24 h (start loses < 60 s, the span adds 4 m 21 s).
+ * The window to request: normally real now - 24 h, rounded DOWN to a whole
+ * minute, then 288 samples at 603 s. When the shown instant is outside
+ * [now - 24 h, now + 24 h] (a pause that has drifted out of the fetched
+ * window), the window is centred on that instant instead, so a long-paused
+ * dashboard keeps its planets. The window is clamped to the backend's
+ * supported range; the end always sits on the 603 s grid.
  */
-export function scrubWindow(nowMs: number): ScrubWindow {
-  const startMs = Math.floor((nowMs - HALF_DAY_MS) / MINUTE_MS) * MINUTE_MS;
-  const endMs = startMs + (SCRUB_SAMPLE_COUNT - 1) * SCRUB_STEP_SECONDS * 1000;
+export function scrubWindow(nowMs: number, shownMs?: number): ScrubWindow {
+  const anchor =
+    shownMs !== undefined && (shownMs < nowMs - HALF_DAY_MS || shownMs > nowMs + HALF_DAY_MS)
+      ? shownMs
+      : nowMs;
+  let startMs = Math.floor((anchor - HALF_DAY_MS) / MINUTE_MS) * MINUTE_MS;
+  if (startMs + WINDOW_SPAN_MS > SERIES_RANGE_END_MS) startMs = SERIES_RANGE_END_MS - WINDOW_SPAN_MS;
+  if (startMs < SERIES_RANGE_START_MS) startMs = SERIES_RANGE_START_MS;
+  const endMs = startMs + WINDOW_SPAN_MS;
   return {
     startMs,
     endMs,
@@ -68,6 +82,9 @@ export function shouldRefetchSeries(
   shownMs: number,
   nowMs: number,
 ): boolean {
+  // No window can cover an instant outside the backend's supported range;
+  // asking again every 30 min would only re-download the same nothing.
+  if (shownMs < SERIES_RANGE_START_MS || shownMs > SERIES_RANGE_END_MS) return false;
   if (series === null || fetchedAtMs === null) return true;
   if (nowMs - fetchedAtMs > SCRUB_MAX_AGE_MS) return true;
   const first = series.samples[0].atMs;

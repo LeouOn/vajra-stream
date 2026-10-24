@@ -27,6 +27,8 @@ import {
   type EarthSeriesErrorKind,
 } from '../../lib/earthSeriesClient';
 import {
+  SERIES_RANGE_END_MS,
+  SERIES_RANGE_START_MS,
   localScrubLst,
   sacredHorizontal,
   scrubWindow,
@@ -193,8 +195,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const seriesRef = useRef<{ series: SkySeries; fetchedAtMs: number } | null>(null);
   const seriesGenerationRef = useRef<number>(0);
   const scrubModeRef = useRef<boolean>(false);
+  const scrubAtRef = useRef<number | null>(null);
   const lastEdgeShownRef = useRef<number | null>(null);
   scrubModeRef.current = scrubMode;
+  scrubAtRef.current = scrubAtMs;
   const layerCacheRef = useRef<{
     canvas: HTMLCanvasElement | null;
     lst: number;
@@ -207,6 +211,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
 
   const loadSky = async () => {
     setLoading(true);
+    let superseded = false;
     try {
       const sky = await fetchNightSky(observerLat, observerLng);
       skyClockRef.current = {
@@ -220,18 +225,22 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       setStatus('ok');
       setErrorKind(null);
     } catch (error) {
-      // A superseded answer is not a failure: a newer request owns the dome.
-      if (error instanceof NightSkyError && error.kind === 'stale') return;
-      setErrorKind(error instanceof NightSkyError ? error.kind : 'network');
-      if (lastGoodRef.current) {
-        // Freeze the catalogue clock where it was when the answer failed.
-        frozenAtRef.current = performance.now();
-        setStatus('stale');
+      // A superseded answer is not a failure: a newer request owns the dome
+      // (and the spinner), so it must not clear that request's loading state.
+      if (error instanceof NightSkyError && error.kind === 'stale') {
+        superseded = true;
       } else {
-        setStatus('unavailable');
+        setErrorKind(error instanceof NightSkyError ? error.kind : 'network');
+        if (lastGoodRef.current) {
+          // Freeze the catalogue clock where it was when the answer failed.
+          frozenAtRef.current = performance.now();
+          setStatus('stale');
+        } else {
+          setStatus('unavailable');
+        }
       }
     } finally {
-      setLoading(false);
+      if (!superseded) setLoading(false);
     }
   };
 
@@ -275,7 +284,11 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       return;
     }
     const generation = (seriesGenerationRef.current += 1);
-    const window = scrubWindow(Date.now());
+    // Sub-points do not depend on the observer, so this effect deliberately
+    // does NOT depend on observerLat/observerLng (a place change must not
+    // re-download 213 KB). The anchor keeps a paused instant that has drifted
+    // out of the now-centred range covered.
+    const window = scrubWindow(Date.now(), scrubAtRef.current ?? undefined);
     let live = true;
     setScrubStatus('loading');
     fetchSeries(window.startIso, window.endIso, window.stepSeconds)
@@ -297,7 +310,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       live = false;
       cancelSeriesRequest();
     };
-  }, [scrubMode, observerLat, observerLng, scrubFetchToken]);
+  }, [scrubMode, scrubFetchToken]);
 
   // Refetch when the shown instant nears an edge or the window ages out.
   useEffect(() => {
@@ -846,6 +859,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
 
   const staleAgeSeconds =
     lastGoodAt === null ? null : Math.max(0, Math.round((Date.now() - lastGoodAt) / 1000));
+  const scrubOutOfRange =
+    scrubMode &&
+    scrubAtMs !== null &&
+    (scrubAtMs < SERIES_RANGE_START_MS || scrubAtMs > SERIES_RANGE_END_MS);
   const scrubOffset = scrubAtIso === null ? null : formatOffset(offsetMinutes(scrubAtIso, Date.now()));
   const payloadIsOtherPlace =
     !scrubMode &&
@@ -895,9 +912,13 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           className="mb-4 rounded-lg border border-sky-500/30 bg-sky-950/20 px-3 py-2 text-[11px] leading-snug text-sky-200"
         >
           <div>
-            Scrubbed: {new Date(scrubAtMs).toISOString()} ({scrubOffset} from now). Sun, Moon,
-            planets, stars: computed for that instant. Moon phase, zodiac signs and sacred-star
-            notes: as of now.
+            Scrubbed: {new Date(scrubAtMs).toISOString()} ({scrubOffset} from now).{' '}
+            {scrubbed !== null
+              ? 'Sun, Moon, planets, stars: computed for that instant.'
+              : scrubStatus === 'loading'
+                ? 'Stars: computed for that instant; loading the series for the Sun, Moon and planets…'
+                : 'Stars: computed for that instant; planets not drawn: no series for this instant.'}{' '}
+            Moon phase, zodiac signs and sacred-star notes: as of now.
           </div>
           {scrubStatus === 'loading' && (
             <div data-testid="sky-scrub-loading" className="mt-1 text-sky-300/80">
@@ -908,6 +929,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             <div data-testid="sky-scrub-unavailable" data-reason={scrubErrorKind ?? 'http'} className="mt-1 text-amber-300">
               Time series unavailable ({reasonLabel(scrubErrorKind)}): planets are not drawn; stars
               use local sidereal time.
+            </div>
+          )}
+          {scrubOutOfRange && (
+            <div data-testid="sky-scrub-outside" className="mt-1 text-amber-300">
+              This instant is outside the series range (1800–2200), so the Sun, Moon and planets
+              cannot be drawn. No further series requests are made for it.
             </div>
           )}
           {sacredMissing && (
@@ -940,7 +967,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         )
       ) : (
         <>
-          {payloadIsOtherPlace && (
+          {payloadIsOtherPlace && status === 'ok' && (
             <div
               data-testid="sky-updating-place"
               className="mb-4 rounded-lg border border-sky-500/30 bg-sky-950/20 px-3 py-2 text-[11px] text-sky-200"
@@ -952,10 +979,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             <div
               data-testid="sky-stale"
               data-reason={errorKind ?? 'stale'}
+              data-other-place={payloadIsOtherPlace ? 'true' : 'false'}
               className="mb-4 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-[11px] text-amber-200"
             >
-              Planets and sacred stars are stale — last good {staleAgeSeconds ?? '?'} s ago; not
-              current.
+              {payloadIsOtherPlace
+                ? `Planets and sacred stars are for another place (${data.observer.latitude.toFixed(3)}, ${data.observer.longitude.toFixed(3)}), not the requested one — last good ${staleAgeSeconds ?? '?'} s ago; not current.`
+                : `Planets and sacred stars are stale — last good ${staleAgeSeconds ?? '?'} s ago; not current.`}
             </div>
           )}
 

@@ -14,6 +14,8 @@ import {
   SCRUB_MAX_AGE_MS,
   SCRUB_SAMPLE_COUNT,
   SCRUB_STEP_SECONDS,
+  SERIES_RANGE_END_MS,
+  SERIES_RANGE_START_MS,
   localScrubLst,
   scrubWindow,
   shouldRefetchSeries,
@@ -77,6 +79,29 @@ describe('scrubWindow', () => {
     expect(window.endMs).toBeGreaterThanOrEqual(now + 24 * 3600_000);
     expect(window.endIso).toMatch(/Z$/);
   });
+
+  it('centres on the shown instant when it is outside now +-24 h', () => {
+    const now = Date.UTC(2026, 9, 24, 9, 0, 0);
+    const shown = now + 30 * 3600_000; // a pause that drifted past the window
+    const window = scrubWindow(now, shown);
+    expect(window.startMs).toBe(Math.floor((shown - 24 * 3600_000) / 60_000) * 60_000);
+    expect(window.endMs - window.startMs).toBe(287 * 603 * 1000);
+    expect(window.startMs).toBeLessThanOrEqual(shown);
+    expect(window.endMs).toBeGreaterThanOrEqual(shown);
+  });
+
+  it('clamps the window to the backend-supported 1800-2200 range, end on the grid', () => {
+    const nearEnd = SERIES_RANGE_END_MS - 3600_000;
+    const atEnd = scrubWindow(nearEnd, nearEnd);
+    expect(atEnd.endMs).toBe(SERIES_RANGE_END_MS);
+    expect(atEnd.endMs - atEnd.startMs).toBe(287 * 603 * 1000);
+    expect(atEnd.startMs).toBeGreaterThanOrEqual(SERIES_RANGE_START_MS);
+
+    const nearStart = SERIES_RANGE_START_MS + 3600_000;
+    const atStart = scrubWindow(nearStart, nearStart);
+    expect(atStart.startMs).toBe(SERIES_RANGE_START_MS);
+    expect(atStart.endMs - atStart.startMs).toBe(287 * 603 * 1000);
+  });
 });
 
 function wideSeries(): SkySeries {
@@ -109,6 +134,11 @@ describe('shouldRefetchSeries', () => {
     expect(shouldRefetchSeries(series, now - SCRUB_MAX_AGE_MS - 1, first, now)).toBe(true);
     expect(shouldRefetchSeries(series, now, first - 1, now)).toBe(true);
     expect(shouldRefetchSeries(series, now, last + 1, now)).toBe(true);
+  });
+
+  it('never refetches for an instant outside the supported 1800-2200 range', () => {
+    expect(shouldRefetchSeries(series, now, SERIES_RANGE_END_MS + 1, now)).toBe(false);
+    expect(shouldRefetchSeries(series, now, SERIES_RANGE_START_MS - 1, now)).toBe(false);
   });
 
   it('fetches near either edge (30 min) but not in the middle when fresh', () => {

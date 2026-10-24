@@ -200,10 +200,50 @@ describe('Next sunrise here', () => {
     expect(clientMock).toHaveBeenCalledTimes(1);
     expect(clientMock.mock.calls[0][0]).toBe(DEFAULT_LAT);
     expect(clientMock.mock.calls[0][1]).toBe(DEFAULT_LNG);
-    expect(clientMock.mock.calls[0][2]).toBe('2026-10-24T09:00:00.000Z');
+    // The query is the shown instant + 1 s: the engine floors to the second,
+    // and asking from the event itself would return the same event forever.
+    expect(clientMock.mock.calls[0][2]).toBe('2026-10-24T09:00:01.000Z');
     expect(useSkyStore.getState().at).toBe('2026-10-24T14:32:00.000Z');
     expect(text()).toContain('Sunrise set: 2026-10-24 14:32:00 UTC');
     expect(text()).toContain('computed');
+  });
+
+  it('a second press returns a later sunrise (engine-like stub floors to the second)', async () => {
+    // True sunrise instants (ms precision). The engine floors the *query* to
+    // the second, and the route prints the event itself; asking from the
+    // event (2026-10-24T14:26:49.815Z) floors to :49 and returns the SAME
+    // sunrise forever. Asking from shown + 1 s crosses the boundary.
+    const TRUE_SUNRISES = [
+      Date.parse('2026-10-24T14:26:49.815Z'),
+      Date.parse('2026-10-25T14:27:35.204Z'),
+    ];
+    clientMock.mockImplementation(async (_lat, _lng, atIso) => {
+      const flooredToSecond = Math.floor(Date.parse(atIso) / 1000) * 1000;
+      const next = TRUE_SUNRISES.find((t) => t > flooredToSecond);
+      return {
+        ...EVENTS,
+        next_sunrise: next === undefined ? null : new Date(next).toISOString(),
+      };
+    });
+    mount();
+    const button = byLabel('Next sunrise at this location');
+
+    await clickAsync(button);
+    expect(useSkyStore.getState().at).toBe('2026-10-24T14:26:49.815Z');
+    expect(clientMock.mock.calls[0][2]).toBe('2026-10-24T09:00:01.000Z');
+
+    // Real time moves past the first sunrise, so the next one is inside the
+    // component's +24 h refusal window (which is relative to the real now).
+    act(() => {
+      vi.setSystemTime(new Date('2026-10-24T15:00:00Z'));
+    });
+
+    await clickAsync(button);
+    expect(clientMock.mock.calls[1][2]).toBe('2026-10-24T14:26:50.815Z');
+    expect(useSkyStore.getState().at).toBe('2026-10-25T14:27:35.204Z');
+    expect(Date.parse(useSkyStore.getState().at!)).toBeGreaterThan(
+      Date.parse('2026-10-24T14:26:49.815Z'),
+    );
   });
 
   it('says there is no sunrise at polar night and changes nothing', async () => {
