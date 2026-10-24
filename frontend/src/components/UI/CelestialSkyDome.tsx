@@ -29,14 +29,36 @@ import {
 } from '../../lib/skyScrub';
 import { offsetMinutes, parseInstant } from '../../lib/skyClock';
 import {
+  domePoint,
+  equatorialToHorizontal,
   julianDay,
   loadConstellationLines,
   loadStars,
+  precessJ2000,
+  starRadiusPx,
+  starRgb,
   type ConstellationLines,
   type Star,
 } from '../../lib/sky';
+import {
+  NIGHT_SUN_ALT_DEG,
+  skyBackground,
+  starAlpha as daylightStarAlpha,
+} from '../../lib/skyBrightness';
 import { buildSkyLayer } from '../../lib/skyLayer';
 import ProvenanceTag from './ProvenanceTag';
+
+const SEE_THROUGH_KEY = 'vajra.dome.seeThroughDaylight';
+
+/** Per-viewer convenience only; anything goes wrong -> default off. */
+function readSeeThroughPreference(): boolean {
+  try {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem(SEE_THROUGH_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 /** Two-decimal degrees for DISPLAY only (drawing keeps the raw value). */
 export function formatDeg(deg: number): string {
@@ -171,6 +193,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const [showCatalogue, setShowCatalogue] = useState<boolean>(true);
   const [showFigures, setShowFigures] = useState<boolean>(true);
   const [showEcliptic, setShowEcliptic] = useState<boolean>(true);
+  const [seeThrough, setSeeThrough] = useState<boolean>(readSeeThroughPreference);
   const [catalogue, setCatalogue] = useState<Star[] | null>(null);
   const [figureLines, setFigureLines] = useState<ConstellationLines | null>(null);
   const [catalogueStatus, setCatalogueStatus] = useState<'pending' | 'ready' | 'unavailable'>('pending');
@@ -202,7 +225,20 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     lat: number;
     epoch: number;
     buildMs: number;
-  }>({ canvas: null, lst: Number.NaN, size: -1, flags: '', lat: Number.NaN, epoch: Number.NaN, buildMs: 0 });
+    /** Stars in the current cached picture (layer stamps, or the daylight loop). */
+    starsDrawn: number;
+    starMode: 'layer' | 'separate';
+  }>({
+    canvas: null,
+    lst: Number.NaN,
+    size: -1,
+    flags: '',
+    lat: Number.NaN,
+    epoch: Number.NaN,
+    buildMs: 0,
+    starsDrawn: 0,
+    starMode: 'layer',
+  });
 
   const loadSky = async () => {
     setLoading(true);
@@ -346,6 +382,24 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       ? null
       : Math.max(0, Math.round((Date.now() - seriesFetchedAtMs) / 60_000));
 
+  // One Sun altitude for both modes: the live payload's Sun entry, or the
+  // scrub layer's Sun position. No Sun (series unavailable) -> night rendering.
+  const sunAltDeg = scrubMode
+    ? (scrubbed?.positions.sun?.alt ?? -90)
+    : (data?.planets.find((planet) => planet.id === 'sun')?.altitude ?? -90);
+  const daylightActive = sunAltDeg > NIGHT_SUN_ALT_DEG;
+  const onSeeThroughChange = (next: boolean) => {
+    setSeeThrough(next);
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(SEE_THROUGH_KEY, next ? '1' : '0');
+      }
+    } catch {
+      /* convenience only; the page works without persistence */
+    }
+  };
+
+
   const scrubFallback = useMemo(() => {
     if (!scrubMode || scrubAtMs === null || scrubbed !== null) return null;
     const jd = julianDay(new Date(scrubAtMs));
@@ -398,8 +452,18 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
 
     let animId = 0;
     let lastDrawMs = Number.NEGATIVE_INFINITY;
-    const twinkles = !reducedMotion && showStars && sacredMarks.length > 0;
+    const twinkles =
+      !reducedMotion &&
+      showStars &&
+      sacredMarks.some(
+        (mark) => daylightStarAlpha(mark.star.magnitude, sunAltDeg, seeThrough) > 0,
+      );
     const drawIntervalMs = twinkles ? TWINKLE_FRAME_MS : STILL_REDRAW_MS;
+    const separateStars = daylightActive && showCatalogue && catalogue !== null;
+    const figureAlpha = daylightStarAlpha(2, sunAltDeg, seeThrough);
+    // In daylight the layer never stamps stars (no flash before the catalogue
+    // resolves); the per-star loop draws them once the catalogue is here.
+    const layerShowCatalogue = showCatalogue && !daylightActive;
 
     const render = (time: number) => {
       const frameStarted = performance.now();
@@ -417,11 +481,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       const cy = size / 2;
       const radius = size * 0.42;
 
-      // Dark celestial background circle
+      // Sky disc: exactly today's night fill below -18°, twilight indigo, day blue.
+      const palette = skyBackground(sunAltDeg);
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      grad.addColorStop(0, '#0f172a');
-      grad.addColorStop(0.7, '#090d16');
-      grad.addColorStop(1, '#020617');
+      grad.addColorStop(0, palette.core);
+      grad.addColorStop(0.7, palette.mid);
+      grad.addColorStop(1, palette.edge);
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -493,12 +558,16 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       // changed. The ecliptic is computed independently of the two lazy
       // chunks, so a failed chunk cannot take it down.
       const anyLayer = showCatalogue || showFigures || showEcliptic;
+      let starsDrawnNow = 0;
+      const starModeNow: 'layer' | 'separate' = separateStars ? 'separate' : 'layer';
       if (
         anyLayer &&
         typeof ctx.drawImage === 'function' &&
         typeof ctx.putImageData === 'function'
       ) {
-        const flags = `${showCatalogue ? 1 : 0}${showFigures ? 1 : 0}${showEcliptic ? 1 : 0}`;
+        const flags = `${layerShowCatalogue ? 1 : 0}${showFigures ? 1 : 0}${showEcliptic ? 1 : 0}|${Math.round(figureAlpha * 20)}|${
+          separateStars ? `d${Math.round(sunAltDeg * 4)}${seeThrough ? 'x' : 'n'}` : 'l'
+        }`;
         let lst: number;
         let jd: number;
         let epochDay: number;
@@ -562,7 +631,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             latDeg: layerLat,
             jd,
             size,
-            showCatalogue,
+            showCatalogue: layerShowCatalogue,
             showFigures,
             showEcliptic,
           });
@@ -575,27 +644,63 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             const off = cache.canvas.getContext('2d');
             if (off && typeof off.putImageData === 'function') {
               off.putImageData(new ImageData(built.stars, size, size), 0, 0);
-              off.beginPath();
-              for (let i = 0; i < built.figures.length; i += 1) {
-                const seg = built.figures[i];
-                off.moveTo(seg.x1, seg.y1);
-                off.lineTo(seg.x2, seg.y2);
+              // Daylight stars live in the cached canvas too, so a frame costs
+              // one drawImage: draw them only when the cache rebuilds. Skip the
+              // projection entirely for stars whose daylight alpha is 0.
+              let builtStarsDrawn = 0;
+              if (separateStars && catalogue !== null) {
+                for (let i = 0; i < catalogue.length; i += 1) {
+                  const star = catalogue[i];
+                  const alpha = daylightStarAlpha(star.v, sunAltDeg, seeThrough);
+                  if (!(alpha > 0)) continue;
+                  const ofDate = precessJ2000(star.ra, star.dec, jd);
+                  // Same place as the layer/planets (the payload's place in live mode).
+                  const horizontal = equatorialToHorizontal(ofDate.ra, ofDate.dec, lst, layerLat);
+                  if (!(horizontal.alt > 0)) continue;
+                  const point = domePoint(horizontal.alt, horizontal.az, radius, cx, cy);
+                  const rgb = starRgb(star.bv);
+                  off.globalAlpha = alpha;
+                  off.fillStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+                  off.beginPath();
+                  off.arc(point.x, point.y, Math.max(0.5, starRadiusPx(star.v)), 0, Math.PI * 2);
+                  off.fill();
+                  builtStarsDrawn += 1;
+                }
+                off.globalAlpha = 1;
               }
-              off.strokeStyle = 'rgba(148, 163, 184, 0.35)';
-              off.lineWidth = 1;
-              off.setLineDash([]);
-              off.stroke();
-              off.beginPath();
-              for (let i = 0; i < built.ecliptic.length; i += 1) {
-                const seg = built.ecliptic[i];
-                off.moveTo(seg.x1, seg.y1);
-                off.lineTo(seg.x2, seg.y2);
+              cache.starsDrawn = separateStars
+                ? builtStarsDrawn
+                : layerShowCatalogue
+                  ? (catalogue?.length ?? 0)
+                  : 0;
+              cache.starMode = separateStars ? 'separate' : 'layer';
+              // Figures and the ecliptic fade with the sky; at 0 they are not
+              // stroked at all (daylight with the x-ray toggle off).
+              if (figureAlpha > 0) {
+                off.globalAlpha = figureAlpha;
+                off.beginPath();
+                for (let i = 0; i < built.figures.length; i += 1) {
+                  const seg = built.figures[i];
+                  off.moveTo(seg.x1, seg.y1);
+                  off.lineTo(seg.x2, seg.y2);
+                }
+                off.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+                off.lineWidth = 1;
+                off.setLineDash([]);
+                off.stroke();
+                off.beginPath();
+                for (let i = 0; i < built.ecliptic.length; i += 1) {
+                  const seg = built.ecliptic[i];
+                  off.moveTo(seg.x1, seg.y1);
+                  off.lineTo(seg.x2, seg.y2);
+                }
+                off.strokeStyle = 'rgba(251, 191, 36, 0.75)';
+                off.lineWidth = 1;
+                off.setLineDash([6, 5]);
+                off.stroke();
+                off.setLineDash([]);
+                off.globalAlpha = 1;
               }
-              off.strokeStyle = 'rgba(251, 191, 36, 0.75)';
-              off.lineWidth = 1;
-              off.setLineDash([6, 5]);
-              off.stroke();
-              off.setLineDash([]);
               cache.lst = lst;
               cache.size = size;
               cache.flags = flags;
@@ -605,6 +710,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             }
           }
         }
+        starsDrawnNow = cache.starsDrawn;
         if (cache.canvas !== null) ctx.drawImage(cache.canvas, 0, 0);
         if (canvas.dataset) canvas.dataset.layerMs = cache.buildMs.toFixed(3);
       }
@@ -613,10 +719,13 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       if (showStars) {
         sacredMarks.forEach((mark, idx) => {
           const s = mark.star;
+          const daylight = daylightStarAlpha(s.magnitude, sunAltDeg, seeThrough);
+          if (!(daylight > 0)) return;
           const [sx, sy] = project(mark.alt, mark.az);
-          const twinkle = reducedMotion
-            ? TWINKLE_REST_ALPHA
-            : 0.8 + 0.2 * Math.sin(time * 0.003 + idx * 1.5);
+          const twinkle =
+            (reducedMotion
+              ? TWINKLE_REST_ALPHA
+              : 0.8 + 0.2 * Math.sin(time * 0.003 + idx * 1.5)) * daylight;
           const dotSize = Math.max(2, 4.5 - s.magnitude * 0.8);
 
           // Star glow
@@ -687,6 +796,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         canvas.dataset.scrubStatus = scrubBannerState;
         canvas.dataset.scrubPlanets = String(planetMarks.length);
         canvas.dataset.scrubSacred = String(sacredMarks.length);
+        canvas.dataset.daylight = daylightActive ? (seeThrough ? 'xray' : 'hidden') : 'night';
+        canvas.dataset.starMode = starModeNow;
+        canvas.dataset.starsDrawn = String(starsDrawnNow);
+        canvas.dataset.figureAlpha = figureAlpha.toFixed(2);
       }
     };
 
@@ -736,6 +849,9 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     figureLines,
     reducedMotion,
     status,
+    sunAltDeg,
+    seeThrough,
+    daylightActive,
     scrubMode,
     scrubAtMs,
     scrubBannerState,
@@ -827,6 +943,16 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       : catalogueStatus === 'ready' && figuresStatus === 'ready'
         ? 'ready'
         : 'pending';
+
+  // The chip list always shows the sacred stars above the horizon; the heading
+  // says honestly whether the daylight layer is hiding/dimming them.
+  const vedicHeading = !daylightActive
+    ? 'Visible Vedic Nakshatras Overhead:'
+    : seeThrough
+      ? 'Vedic stars above the horizon (drawn faintly):'
+      : sunAltDeg >= 0
+        ? 'Vedic stars above the horizon (hidden by daylight):'
+        : 'Vedic stars above the horizon (fainter ones hidden by the twilight sky):';
 
   const staleAgeSeconds =
     lastGoodAt === null ? null : Math.max(0, Math.round((Date.now() - lastGoodAt) / 1000));
@@ -942,6 +1068,18 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         )
       ) : (
         <>
+          {daylightActive && (
+            <div
+              data-testid="sky-daylight-caption"
+              className="mb-4 rounded-lg border border-amber-500/30 bg-amber-950/15 px-3 py-2 text-[11px] text-amber-200"
+            >
+              {seeThrough
+                ? 'Daylight x-ray: stars drawn faintly.'
+                : sunAltDeg >= 0
+                  ? `Stars hidden: the Sun is ${formatDeg(sunAltDeg)}° above the horizon.`
+                  : `Twilight: fainter stars are hidden (the Sun is ${formatDeg(-sunAltDeg)}° below the horizon).`}
+            </div>
+          )}
           {payloadIsOtherPlace && status === 'ok' && (
             <div
               data-testid="sky-updating-place"
@@ -1039,6 +1177,16 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                 <Switch size="small" checked={showEcliptic} onChange={setShowEcliptic} />
                 <span>Ecliptic</span>
               </label>
+              <label data-testid="sky-see-through" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                <Switch
+                  size="small"
+                  checked={seeThrough}
+                  onChange={onSeeThroughChange}
+                  aria-label="See through daylight"
+                  aria-pressed={seeThrough}
+                />
+                <span>See through daylight</span>
+              </label>
             </div>
           </div>
 
@@ -1076,7 +1224,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           <div>
             <div className="text-xs text-slate-400 mb-2 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Visible Vedic Nakshatras Overhead:</span>
+              <span data-testid="sky-vedic-heading">{vedicHeading}</span>
             </div>
             <div className="flex min-w-0 flex-wrap gap-1.5">
               {sacredMarks.map((mark) => {

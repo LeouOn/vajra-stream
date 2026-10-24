@@ -31,7 +31,7 @@
  * column bottoms was 1..98 px over twelve observer longitudes at one instant
  * (1440 px), 170 px at 1280 px (the dome's 610 px column floor squeezes the
  * left column there) and 99..163 px with seven visible planets. With a fixed
- * night sky (the reference fixture in frontend/e2e/fixtures) it is 53 px at
+ * night sky (the reference fixture in frontend/e2e/fixtures) it is 27 px at
  * 1440 px. The strict bound is asserted against that
  * fixed sky in frontend/e2e/earth-sky-layout.spec.ts; the live smoke records
  * the live number instead of pretending it is a layout invariant.
