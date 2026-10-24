@@ -45,6 +45,11 @@ import {
   skyBackground,
   starAlpha as daylightStarAlpha,
 } from '../../lib/skyBrightness';
+import {
+  placeLabels,
+  type LabelItem,
+  type PlacedLabel,
+} from '../../lib/skyLabels';
 import { buildSkyLayer } from '../../lib/skyLayer';
 import ProvenanceTag from './ProvenanceTag';
 
@@ -227,6 +232,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const frozenAtRef = useRef<number | null>(null);
   const scrubModeRef = useRef<boolean>(false);
   scrubModeRef.current = scrubMode;
+  const labelCacheRef = useRef<{
+    key: string;
+    entries: { id: string; text: string; color: string; item: LabelItem }[];
+    labels: PlacedLabel[];
+  }>({ key: '', entries: [], labels: [] });
+  const labelWidthsRef = useRef<Map<string, number>>(new Map());
   const layerCacheRef = useRef<{
     canvas: HTMLCanvasElement | null;
     lst: number;
@@ -752,12 +763,6 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           ctx.globalAlpha = twinkle;
           ctx.fill();
           ctx.globalAlpha = 1.0;
-
-          // Star label
-          ctx.font = '9px sans-serif';
-          ctx.textAlign = 'left';
-          ctx.fillStyle = 'rgba(226, 232, 240, 0.7)';
-          ctx.fillText(s.name.split(' ')[0], sx + 6, sy - 2);
         });
       }
 
@@ -791,13 +796,92 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(p.glyph, px, py);
-
-          // Name & Sign tag (the sign is as-of-now, so it is omitted when scrubbed)
-          ctx.font = '9px sans-serif';
-          ctx.textAlign = 'left';
-          ctx.fillStyle = p.color;
-          ctx.fillText(scrubMode ? p.name : `${p.name} ${p.sign_glyph}`, px + 10, py - 4);
         });
+      }
+
+      // Labels are PLACED only when the rounded marker/text geometry changes;
+      // every frame just draws the cached placement. Text widths are cached by
+      // string, so steady frames allocate nothing here.
+      {
+        const entries: { id: string; text: string; color: string; item: LabelItem }[] = [];
+        const widthOf = (text: string): number => {
+          const known = labelWidthsRef.current.get(text);
+          if (known !== undefined) return known;
+          ctx.font = '9px sans-serif';
+          const measured = ctx.measureText(text).width;
+          labelWidthsRef.current.set(text, measured);
+          return measured;
+        };
+        if (showPlanets) {
+          for (const mark of planetMarks) {
+            const p = mark.planet;
+            const [x, y] = project(mark.alt, mark.az);
+            const text = scrubMode ? p.name : `${p.name} ${p.sign_glyph}`;
+            const priority = p.id === 'sun' ? 40 : p.id === 'moon' ? 39 : 20;
+            entries.push({
+              id: p.id,
+              text,
+              color: p.color,
+              item: { id: p.id, x, y, width: widthOf(text), height: 10, priority, markerRadius: 8 },
+            });
+          }
+        }
+        if (showStars) {
+          for (const mark of sacredMarks) {
+            const s = mark.star;
+            // A star the daylight layer hides gets no label and takes no space.
+            if (!(daylightStarAlpha(s.magnitude, sunAltDeg, seeThrough) > 0)) continue;
+            const [x, y] = project(mark.alt, mark.az);
+            const text = s.name.split(' ')[0];
+            const dotSize = Math.max(2, 4.5 - s.magnitude * 0.8);
+            entries.push({
+              id: s.id,
+              text,
+              color: 'rgba(226, 232, 240, 0.7)',
+              item: { id: s.id, x, y, width: widthOf(text), height: 10, priority: 10, markerRadius: dotSize },
+            });
+          }
+        }
+        const key =
+          entries
+            .map(
+              (entry) =>
+                `${entry.id}:${Math.round(entry.item.x)},${Math.round(entry.item.y)},${Math.round(entry.item.width)},${entry.item.priority}`,
+            )
+            .join(';') + `|${Math.round(cx)},${Math.round(cy)},${Math.round(radius)}|${scrubMode ? 1 : 0}`;
+        if (labelCacheRef.current.key !== key) {
+          labelCacheRef.current = {
+            key,
+            entries,
+            labels: placeLabels(entries.map((entry) => entry.item), {
+              cx,
+              cy,
+              radius,
+              margin: 4,
+              gap: 3,
+            }),
+          };
+        }
+        const cache = labelCacheRef.current;
+        for (let index = 0; index < cache.labels.length; index += 1) {
+          const label = cache.labels[index];
+          if (label.hidden) continue;
+          const entry = cache.entries[index];
+          if (label.leader) {
+            ctx.strokeStyle = 'rgba(226, 232, 240, 0.3)';
+            ctx.lineWidth = 0.75;
+            ctx.beginPath();
+            ctx.moveTo(label.leader.x1, label.leader.y1);
+            ctx.lineTo(label.leader.x2, label.leader.y2);
+            ctx.stroke();
+          }
+          ctx.font = '9px sans-serif';
+          ctx.textAlign = label.anchor;
+          ctx.textBaseline = 'alphabetic';
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = entry.color;
+          ctx.fillText(entry.text, label.x, label.y);
+        }
       }
 
       if (canvas.dataset) {
