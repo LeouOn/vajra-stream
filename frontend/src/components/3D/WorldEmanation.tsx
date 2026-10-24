@@ -19,7 +19,7 @@ import { useBroadcastStore, type BroadcastEvent } from '../../stores/broadcastSt
 import { useSkyStore } from '../../stores/skyStore';
 import { useEarthState } from '../../stores/earthStateStore';
 import ProvenanceTag from '../UI/ProvenanceTag';
-import { loadLand } from '../../lib/earth';
+import { loadLand, OBSERVER_MARKER_COLOR } from '../../lib/earth';
 import {
   resolveTargetCoords,
   latLonToVec3,
@@ -473,7 +473,7 @@ function ObserverMarker(): React.ReactElement {
       </mesh>
       <mesh raycast={NO_RAYCAST}>
         <sphereGeometry args={[0.048, 16, 16]} />
-        <meshBasicMaterial color="#ffe08a" toneMapped={false} />
+        <meshBasicMaterial color={OBSERVER_MARKER_COLOR} toneMapped={false} />
       </mesh>
     </group>
   );

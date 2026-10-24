@@ -22,6 +22,11 @@ import { nudgeCarrierFrequency } from '../../lib/stickPlate';
 import Reading from './Reading';
 import SigilRenderStatus, { type SigilRender } from './SigilRenderStatus';
 
+// Earth & Sky (strip + dome + time controls) is lazy: it is a sizeable chunk
+// and most Broadcast visits never open it. One instance only (the clients'
+// single-flight state is module-scoped).
+const EarthSkyCard = React.lazy(() => import('./EarthSkyCard'));
+
 interface Dimensions {
   d1: number;
   d2: number;
@@ -373,6 +378,20 @@ const BroadcastPanel: React.FC<Props> = (_props: Props) => {
           </div>
         </div>
       </div>
+
+      {/* Earth & Sky: the flat strip, the observer's dome and the time controls */}
+      <React.Suspense
+        fallback={
+          <div
+            data-testid="earth-sky-card-fallback"
+            className="bg-gray-900/40 rounded-xl border border-white/10 p-4 text-[11px] text-gray-400"
+          >
+            Loading Earth &amp; Sky…
+          </div>
+        }
+      >
+        <EarthSkyCard />
+      </React.Suspense>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         

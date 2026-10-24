@@ -19,7 +19,10 @@ import {
   PICK_MAX_MOVE_PX,
   createGlobePicker,
 } from '../../components/3D/worldEmanationHelpers';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
+import { OBSERVER_MARKER_COLOR } from '../../lib/earth';
 import { useSkyStore } from '../../stores/skyStore';
 
 vi.mock('@react-three/fiber', () => ({
@@ -151,6 +154,25 @@ describe('drag vs click', () => {
     expect(clickAt(picker, { x: Number.NaN, y: 0.5 })).toBe(false);
     expect(clickAt(picker, { x: 0.5, y: Number.POSITIVE_INFINITY })).toBe(false);
     expect(useSkyStore.getState().lat).toBe(DEFAULT_LAT);
+  });
+});
+
+describe('observer marker colour', () => {
+  it('uses the one marker colour from lib/earth, not a second literal', () => {
+    expect(OBSERVER_MARKER_COLOR).toBe('#ffe08a');
+    // happy-dom's import.meta.url is not a file: URL, so resolve from cwd
+    // (vitest runs from frontend/).
+    const read = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
+    const globeSource = read('src/components/3D/WorldEmanation.tsx');
+    // Imported and used on the marker core; no hard-coded gold left.
+    expect(globeSource).toContain('OBSERVER_MARKER_COLOR');
+    expect(globeSource).toContain('color={OBSERVER_MARKER_COLOR}');
+    expect(globeSource).not.toContain("'#ffe08a'");
+    // The strip paints through drawWorldStrip; its own test checks the
+    // rendered fill/stroke, and the shared constant must be the source.
+    const stripLib = read('src/lib/equirect.ts');
+    expect(stripLib).toContain('OBSERVER_MARKER_COLOR');
+    expect(stripLib).not.toContain("'#7ef29a'");
   });
 });
 

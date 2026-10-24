@@ -17,13 +17,15 @@ import { useSkyStore } from '../../stores/skyStore';
 
 vi.mock('../../lib/sunEventsClient', () => ({
   fetchSunEvents: vi.fn(),
+  cancelSunEventsRequest: vi.fn(),
 }));
 
-import { fetchSunEvents } from '../../lib/sunEventsClient';
+import { cancelSunEventsRequest, fetchSunEvents } from '../../lib/sunEventsClient';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const clientMock = vi.mocked(fetchSunEvents);
+const cancelMock = vi.mocked(cancelSunEventsRequest);
 const NOW = new Date('2026-10-24T09:00:00Z');
 
 const EVENTS = {
@@ -340,6 +342,33 @@ describe('Next sunrise here', () => {
 
     expect(useSkyStore.getState().at).toBeNull();
     expect(text()).not.toContain('Sunrise set');
+  });
+
+  it('a sunrise that resolves after unmount never writes the store', async () => {
+    // The component is unmounted mid-request (navigate away); the answer must
+    // be dropped by the component's own request id and the client request
+    // must be cancelled.
+    const pending = deferred<typeof EVENTS>();
+    clientMock.mockReturnValueOnce(pending.promise);
+    cancelMock.mockReset();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    mount();
+    await clickAsync(byLabel('Next sunrise at this location'));
+    act(() => {
+      root.unmount();
+    });
+
+    await act(async () => {
+      pending.resolve({ ...EVENTS, next_sunrise: '2026-10-24T16:00:00.000Z' });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(useSkyStore.getState().at).toBeNull();
+    expect(cancelMock).toHaveBeenCalled();
+    expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/unmounted|not wrapped in act/i);
+    consoleError.mockRestore();
   });
 
   it('disables the button and shows a busy state while loading', async () => {

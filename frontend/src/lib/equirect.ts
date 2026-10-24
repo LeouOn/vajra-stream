@@ -14,6 +14,7 @@
  * complete frame, so a harness can screenshot it at any sun position.
  */
 import {
+  OBSERVER_MARKER_COLOR,
   SUNRISE_ALTITUDE_DEG,
   paintLand,
   terminatorPoints,
@@ -266,12 +267,12 @@ export function drawWorldStrip(
   // Observer marker: ring + centre dot.
   if (observer) {
     const o = latLonToXY(observer.lat, observer.lng, w, h);
-    ctx.strokeStyle = '#7ef29a';
+    ctx.strokeStyle = OBSERVER_MARKER_COLOR;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(o.x, o.y, 5, 0, TAU);
     ctx.stroke();
-    ctx.fillStyle = '#7ef29a';
+    ctx.fillStyle = OBSERVER_MARKER_COLOR;
     ctx.beginPath();
     ctx.arc(o.x, o.y, 1.5, 0, TAU);
     ctx.fill();

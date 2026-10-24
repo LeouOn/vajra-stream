@@ -21,6 +21,13 @@
  */
 export const SUNRISE_ALTITUDE_DEG = -0.8793;
 
+/**
+ * The observer marker colour, shared by the 3D globe and the flat strip so
+ * one place reads as the same mark everywhere. Each surface keeps its own
+ * rim/visibility treatment; only the colour is shared.
+ */
+export const OBSERVER_MARKER_COLOR = '#ffe08a';
+
 export interface SubPoint {
   lat: number;
   lon: number;

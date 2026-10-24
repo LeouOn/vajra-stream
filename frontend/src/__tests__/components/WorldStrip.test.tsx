@@ -14,6 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 
 import { WorldStrip } from '../../components/2D/WorldStrip';
+import { OBSERVER_MARKER_COLOR } from '../../lib/earth';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -176,6 +177,58 @@ describe('WorldStrip (headless: canvas 2d context unavailable)', () => {
     const second = onPick.mock.calls[onPick.mock.calls.length - 1];
     expect(second[0]).toBeCloseTo(89, 0);
     expect(second[1]).toBeCloseTo(-178.5, 0);
+  });
+
+  test('draws the observer marker in the one shared colour', () => {
+    const fills = new Set<string>();
+    const strokes = new Set<string>();
+    const surface: Record<string, unknown> = {
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      globalCompositeOperation: 'source-over',
+      fillRect: () => undefined,
+      beginPath: () => undefined,
+      moveTo: () => undefined,
+      lineTo: () => undefined,
+      closePath: () => undefined,
+      arc: () => undefined,
+      stroke: () => undefined,
+      fill: () => undefined,
+      strokeRect: () => undefined,
+      save: () => undefined,
+      restore: () => undefined,
+      createImageData: (w: number, h: number) => ({
+        width: w,
+        height: h,
+        data: new Uint8ClampedArray(w * h * 4),
+      }),
+      putImageData: () => undefined,
+      drawImage: () => undefined,
+    };
+    const ctx = new Proxy(surface, {
+      set(target, prop, value) {
+        if (prop === 'fillStyle') fills.add(String(value));
+        if (prop === 'strokeStyle') strokes.add(String(value));
+        target[prop as string] = value;
+        return true;
+      },
+    });
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
+    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+      configurable: true,
+      value: () => ctx as unknown as CanvasRenderingContext2D,
+    });
+    try {
+      mount(<WorldStrip sun={null} observer={{ lat: 10, lng: 20 }} />);
+      expect(OBSERVER_MARKER_COLOR).toBe('#ffe08a');
+      // Ring stroke + centre dot fill, both from the shared constant.
+      expect(strokes.has(OBSERVER_MARKER_COLOR)).toBe(true);
+      expect(fills.has(OBSERVER_MARKER_COLOR)).toBe(true);
+    } finally {
+      if (descriptor) Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', descriptor);
+      else Reflect.deleteProperty(HTMLCanvasElement.prototype, 'getContext');
+    }
   });
 
   test('applies the className to the wrapper', () => {

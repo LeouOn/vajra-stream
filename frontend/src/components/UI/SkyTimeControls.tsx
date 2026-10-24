@@ -24,7 +24,7 @@ import {
   offsetMinutes,
   parseInstant,
 } from '../../lib/skyClock';
-import { fetchSunEvents } from '../../lib/sunEventsClient';
+import { cancelSunEventsRequest, fetchSunEvents } from '../../lib/sunEventsClient';
 import ProvenanceTag from './ProvenanceTag';
 
 const { Text } = Typography;
@@ -79,6 +79,16 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
   const [sunriseNote, setSunriseNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+
+  // Unmount (navigate away): invalidate this component's in-flight request and
+  // cancel the shared client request, so an answer that arrives later can never
+  // write the global skyStore instant (W3-G2).
+  useEffect(() => {
+    return () => {
+      requestId.current += 1;
+      cancelSunEventsRequest();
+    };
+  }, []);
 
   // One clock for the readout and the offset; no work while the tab is hidden.
   useEffect(() => {
