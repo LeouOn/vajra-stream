@@ -167,12 +167,17 @@ export default function PlanetaryHourReadout({ className = '' }: Props): React.R
     };
   }, []);
 
-  let view: 'loading' | 'ready' | 'no-sunrise' | 'unavailable';
+  // While the shown instant moves (time-lapse or a drag), the held answer is
+  // kept on screen, dimmed, with an "updating" cue; a first load still shows
+  // the loading text and an error still shows the error.
+  const heldSamePlace = held !== null && held.placeKey === placeKey;
+  let view: 'loading' | 'ready' | 'no-sunrise' | 'unavailable' | 'updating';
   if (heldCovers && held !== null) view = held.data.hour !== null ? 'ready' : 'no-sunrise';
   else if (failedHere) view = 'unavailable';
+  else if (heldSamePlace) view = 'updating';
   else view = 'loading';
 
-  const hour = held !== null && heldCovers ? held.data.hour : null;
+  const hour = heldSamePlace && held !== null && (heldCovers || view === 'updating') ? held.data.hour : null;
 
   return (
     <div
@@ -182,7 +187,7 @@ export default function PlanetaryHourReadout({ className = '' }: Props): React.R
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-bold tracking-wide text-gray-200">Planetary hour</span>
-        {(view === 'ready' || view === 'no-sunrise') && <ProvenanceTag kind="computed" />}
+        {(view === 'ready' || view === 'no-sunrise' || view === 'updating') && <ProvenanceTag kind="computed" />}
       </div>
 
       {view === 'loading' && (
@@ -197,15 +202,20 @@ export default function PlanetaryHourReadout({ className = '' }: Props): React.R
         </p>
       )}
 
-      {view === 'no-sunrise' && held !== null && (
-        <div className="mt-1" data-testid="planetary-hour-none">
+      {(view === 'no-sunrise' || (view === 'updating' && held !== null && held.data.hour === null)) && held !== null && (
+        <div className={`mt-1 ${view === 'updating' ? 'opacity-60' : ''}`} data-testid="planetary-hour-none">
           <p className="m-0 font-medium text-gray-200">No planetary hour here</p>
           <p className="m-0 text-gray-400">{held.data.reason}</p>
+          {view === 'updating' && (
+            <p className="m-0 text-[10px] text-amber-300" data-testid="planetary-hour-updating">
+              updating…
+            </p>
+          )}
         </div>
       )}
 
-      {view === 'ready' && hour !== null && held !== null && (
-        <div className="mt-1 space-y-0.5">
+      {(view === 'ready' || (view === 'updating' && hour !== null)) && hour !== null && held !== null && (
+        <div className={`mt-1 space-y-0.5 ${view === 'updating' ? 'opacity-60' : ''}`}>
           <div aria-live="polite" className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-base font-semibold text-white" data-testid="planetary-hour-ruler">
               {hour.ruler}
@@ -215,10 +225,18 @@ export default function PlanetaryHourReadout({ className = '' }: Props): React.R
             </span>
           </div>
           <div>
-            <span className="font-mono text-gray-100" data-testid="planetary-hour-left" aria-live="off">
-              {formatLeft(Math.ceil((hour.endsAtMs - shownMs) / 1000))}
-            </span>{' '}
-            left
+            {view === 'updating' ? (
+              <span className="text-[10px] text-amber-300" data-testid="planetary-hour-updating">
+                updating…
+              </span>
+            ) : (
+              <>
+                <span className="font-mono text-gray-100" data-testid="planetary-hour-left" aria-live="off">
+                  {formatLeft(Math.ceil((hour.endsAtMs - shownMs) / 1000))}
+                </span>{' '}
+                left
+              </>
+            )}
           </div>
           <div className="text-gray-400" data-testid="planetary-hour-day-ruler">
             Day ruled by {held.data.solarDay?.dayRuler}

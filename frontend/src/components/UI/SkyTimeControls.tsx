@@ -335,8 +335,8 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
 
         <div data-testid="sky-time-readout" aria-live="polite">
           <div>
-            <Tag color={isLive ? 'green' : 'gold'} style={{ marginInlineEnd: 6 }}>
-              {isLive ? 'Live' : 'Paused'}
+            <Tag color={playing ? 'blue' : isLive ? 'green' : 'gold'} style={{ marginInlineEnd: 6 }}>
+              {playing ? 'Playing' : isLive ? 'Live' : 'Paused'}
             </Tag>
             <Text>{shownAt}</Text>
           </div>

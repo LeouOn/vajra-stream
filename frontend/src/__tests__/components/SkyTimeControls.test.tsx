@@ -419,6 +419,9 @@ describe('time-lapse (W5-C)', () => {
     click(byLabel('Play the time-lapse'));
     expect(byLabel('Stop the time-lapse').getAttribute('aria-pressed')).toBe('true');
     expect(text()).toContain('Playing at 600x');
+    // The state badge says Playing (not Paused) while the loop runs.
+    expect(text()).toMatch(/Playing/);
+    expect(container.querySelector('[data-testid="sky-time-readout"] .ant-tag')?.textContent).toBe('Playing');
     act(() => {
       vi.advanceTimersByTime(1000);
     });
@@ -427,6 +430,7 @@ describe('time-lapse (W5-C)', () => {
     expect(advanced).toBeLessThan(720_000);
     click(byLabel('Stop the time-lapse'));
     expect(byLabel('Play the time-lapse').getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelector('[data-testid="sky-time-readout"] .ant-tag')?.textContent).toBe('Paused');
     const frozen = atMs();
     act(() => {
       vi.advanceTimersByTime(1000);

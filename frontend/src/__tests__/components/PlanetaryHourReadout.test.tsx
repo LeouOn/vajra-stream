@@ -178,15 +178,18 @@ describe('PlanetaryHourReadout: live', () => {
     expect(text('planetary-hour-left')).toMatch(/^5[45] min/);
   });
 
-  it('the time left is never negative while the next hour is on its way', async () => {
+  it('keeps the last good hour dimmed with an updating cue while the next hour is on its way (never a negative time left)', async () => {
     const pending = deferred<PlanetaryHour>();
     mount();
     await flush();
+    const firstRuler = text('planetary-hour-ruler');
     clientMock.mockReturnValueOnce(pending.promise);
     await advance(50 * 60_000 + 5000);
-    expect(state()).toBe('loading'); // not a stale "-5 s" hour
+    expect(state()).toBe('updating'); // not a stale "-5 s" hour, not a blank loading card
     expect(container.querySelector('[data-testid="planetary-hour-left"]')).toBeNull();
-    expect(container.querySelector('[data-testid="planetary-hour-ruler"]')).toBeNull();
+    expect(text('planetary-hour-ruler')).toBe(firstRuler); // the last good answer stays
+    expect(text('planetary-hour-kind')).toMatch(/hour \d+ of 12/i);
+    expect(container.querySelector('[data-testid="planetary-hour-updating"]')?.textContent).toMatch(/updating/i);
     pending.resolve(fakeHour(Date.now()));
     await flush();
     expect(state()).toBe('ready');
@@ -267,7 +270,7 @@ describe('PlanetaryHourReadout: scrubbed', () => {
     expect(container.textContent).toMatch(/05:00:00 UTC/);
   });
 
-  it('moving inside the held hour makes no request; leaving it shows loading and asks again after the debounce', async () => {
+  it('moving inside the held hour makes no request; leaving it keeps the last good hour dimmed and asks again after the debounce', async () => {
     mount();
     await flush();
     await scrubTo('2026-10-24T09:10:00.000Z');
@@ -279,7 +282,9 @@ describe('PlanetaryHourReadout: scrubbed', () => {
     expect(clientMock.mock.calls.length).toBe(afterFirst);
     expect(state()).toBe('ready');
     await scrubTo('2026-10-24T10:30:00.000Z'); // a later hour
-    expect(state()).toBe('loading');
+    expect(state()).toBe('updating');
+    expect(container.querySelector('[data-testid="planetary-hour-updating"]')).not.toBeNull();
+    expect(text('planetary-hour-ruler')).toBe(fakeHour(NOW_MS + 10 * 60_000).hour!.ruler);
     await advance(250);
     await flush();
     expect(clientMock.mock.calls.length).toBe(afterFirst + 1);
