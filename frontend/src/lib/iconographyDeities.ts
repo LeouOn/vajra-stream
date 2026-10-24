@@ -23,5 +23,9 @@ export const ICONOGRAPHY_DEITY_OPTIONS: readonly DeityOption[] = [
   { value: 'shakyamuni', label: 'Shakyamuni Buddha' },
   { value: 'manjushri', label: 'Manjushri' },
   { value: 'prajnaparamita', label: 'Prajnaparamita' },
+  { value: 'vairocana', label: 'Vairocana Buddha' },
+  { value: 'akshobhya', label: 'Akshobhya Buddha' },
+  { value: 'ratnasambhava', label: 'Ratnasambhava Buddha' },
+  { value: 'amoghasiddhi', label: 'Amoghasiddhi Buddha' },
   { value: 'buddha_generic', label: 'A Buddha (generic form, e.g. the 88 Buddhas)' },
 ];

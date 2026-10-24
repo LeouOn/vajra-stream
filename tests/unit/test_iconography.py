@@ -86,6 +86,45 @@ def test_the_88_buddhas_get_no_invented_individual_iconography():
     assert any("no individually established iconography" in f["value"] for f in facts)
 
 
+FIVE_BUDDHAS = {
+    # family: (lord, direction, body colour, the lord's characteristic gesture)
+    "tathagata": ("vairocana", "centre", "white", "dharmachakra mudra"),
+    "vajra": ("akshobhya", "east", "blue", "bhumisparsha mudra"),
+    "ratna": ("ratnasambhava", "south", "yellow", "varada mudra"),
+    "padma": ("amitabha", "west", "red", "dhyana mudra"),
+    "karma": ("amoghasiddhi", "north", "green", "abhaya mudra"),
+}
+
+
+def test_buddha_families_registry():
+    registry = DATA["buddha_families"]
+    assert registry["sources"] and all(s in DATA["sources"] for s in registry["sources"])
+    families = registry["families"]
+    assert set(families) == set(FIVE_BUDDHAS)
+    for family_id, (lord, direction, colour, gesture) in FIVE_BUDDHAS.items():
+        family = families[family_id]
+        assert family["lord"] == lord and family["direction"] == direction
+        for key in ("name", "element", "wisdom", "poison", "emblem"):
+            assert family[key].strip(), f"{family_id}.{key}"
+        entry = iconography.get_deity(lord)
+        assert entry is not None and entry["buddha_family"] == family_id
+        form = iconography.get_form(entry)
+        assert form["body_colour"] == colour
+        assert any(gesture in (hand.get("mudra") or "") for hand in form["hands"]), lord
+    assert iconography.buddha_families() == families
+
+
+def test_every_entry_states_its_buddha_family_or_null():
+    families = DATA["buddha_families"]["families"]
+    for entry in DATA["deities"]:
+        assert "buddha_family" in entry, entry["id"]
+        assert entry["buddha_family"] is None or entry["buddha_family"] in families, entry["id"]
+    # Unsettled memberships stay null rather than guessed.
+    for deity_id in ("white_tara", "medicine_buddha", "prajnaparamita", "cundi", "buddha_generic", "manjushri"):
+        assert iconography.get_deity(deity_id)["buddha_family"] is None, deity_id
+    assert {d["id"]: d["buddha_family"] for d in iconography.list_deities()}["green_tara"] == "karma"
+
+
 # -- lookup --------------------------------------------------------------------------
 
 
@@ -136,6 +175,11 @@ def test_named_yidams_in_sacred_entities_resolve():
         ("avalokiteshvara:thousand_armed", "avalokiteshvara", "thousand_armed"),
         ("Buddha Shakyamuni (heart-essence)", "shakyamuni", "earth_touching"),
         ("千手觀音", "avalokiteshvara", "thousand_armed"),
+        ("Vairocana", "vairocana", "standard"),
+        ("Akṣobhya", "akshobhya", "standard"),
+        ("Mikyöpa", "akshobhya", "standard"),
+        ("Ratnasambhava Buddha", "ratnasambhava", "standard"),
+        ("不空成就佛", "amoghasiddhi", "standard"),
     ],
 )
 def test_resolve(name, deity_id, form_id):
@@ -206,6 +250,14 @@ def test_four_armed_avalokiteshvara_clause():
     ):
         assert needle in clause, needle
     assert clause.index("upper right hand") < clause.index("crystal mala") < clause.index("upper left hand")
+
+
+def test_akshobhya_clause():
+    clause = iconography.deity_prompt_clause(iconography.lookup("Akshobhya"))
+    for needle in ("blue body", "earth-touching gesture", "meditation gesture", "robes"):
+        assert needle in clause, needle
+    assert clause.index("the right hand") < clause.index("earth-touching") < clause.index("the left hand")
+    assert "holding" not in clause  # the vajra is held or set on the seat, by image: not settled, so not prompted
 
 
 def test_unknown_fields_are_not_prompted():
