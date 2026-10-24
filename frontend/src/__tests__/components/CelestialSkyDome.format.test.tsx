@@ -236,6 +236,10 @@ describe('CelestialSkyDome number formatting', () => {
 });
 
 describe('CelestialSkyDome side-panel layout rules', () => {
+  // happy-dom has no layout: these class assertions only pin the RULES; the judge of the result is the real browser
+  // (docs/notes/earthsky/wave3/c1/dome-panel.mjs: panel/grid/card/badge overflow, canvas width, card balance).
+  const tokens = (el: Element) => el.className.split(/\s+/);
+
   it('carries the shrink/wrap/overflow rules d1 asserts in the browser', async () => {
     useSkyStore.setState({ at: SCRUB });
     await mount();
@@ -255,5 +259,33 @@ describe('CelestialSkyDome side-panel layout rules', () => {
       expect(card.className).toContain('overflow-hidden');
     }
     expect(container.querySelector('[data-testid="sky-visible-header"]')).not.toBeNull();
+  });
+
+  it('a planet card may shrink below 9rem instead of overflowing a narrow panel (W3-M3)', async () => {
+    useSkyStore.setState({ at: SCRUB });
+    await mount();
+    const grid = container.querySelector('[data-testid="sky-planet-grid"]') as HTMLElement;
+    // minmax(9rem,1fr) alone cannot shrink: at a 133 px panel every card was 144 px and stuck out by 11 px
+    expect(grid.className).toContain('minmax(min(9rem,100%),1fr)');
+    expect(grid.className).not.toContain('minmax(9rem,1fr)');
+  });
+
+  it('lays canvas and panel out by the dome\'s own width, not by the viewport (W3-M3)', async () => {
+    useSkyStore.setState({ at: SCRUB });
+    await mount();
+    const panel = container.querySelector('[data-testid="sky-side-panel"]') as HTMLElement;
+    const row = panel.parentElement as HTMLElement;
+    const canvasBox = row.firstElementChild as HTMLElement;
+    expect(canvasBox.contains(container.querySelector('[data-testid="celestial-sky-dome-canvas"]'))).toBe(true);
+    expect(row.lastElementChild).toBe(panel); // canvas first, panel second: the stack order when it wraps
+
+    // a wrapping flex row: side by side while the container fits both minimums, stacked when it does not
+    expect(tokens(row)).toContain('flex');
+    expect(tokens(row)).toContain('flex-wrap');
+    expect(tokens(canvasBox)).toContain('max-w-[440px]');
+    expect(tokens(canvasBox)).toContain('flex-[2_1_280px]');
+    expect(tokens(panel)).toContain('flex-[1_1_250px]');
+    // the viewport-width grid is what gave the panel 133 px at 1440, 53 px at 1280 and 0 px at 1100
+    expect(tokens(row).filter((token) => /^lg:|grid-cols/.test(token))).toEqual([]);
   });
 });

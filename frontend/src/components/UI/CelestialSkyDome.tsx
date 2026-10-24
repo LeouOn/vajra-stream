@@ -940,9 +940,16 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             </div>
           )}
 
-          <div className="flex flex-col lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:items-center gap-6">
+          {/*
+            Canvas and side panel share a WRAPPING flex row, so the layout follows the dome's own width and not the
+            viewport's: side by side while the container fits both minimums (canvas 280 px, panel 250 px), stacked
+            when it does not. The canvas is capped at 440 px and takes twice the spare room; the panel takes the rest.
+            (The previous viewport-width grid gave the panel 133 px inside the Earth & Sky card at 1440 px, 53 px at
+            1280 and none at 1100; measured in a real browser, docs/notes/earthsky/wave3/c1/dome-panel.mjs.)
+          */}
+          <div className="flex flex-wrap items-center gap-6">
         {/* Sky Dome Canvas */}
-        <div className="relative w-full max-w-[440px] aspect-square flex items-center justify-center">
+        <div className="relative mx-auto aspect-square max-w-[440px] flex-[2_1_280px] flex items-center justify-center">
           <canvas
             ref={canvasRef}
             data-testid="celestial-sky-dome-canvas"
@@ -968,7 +975,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         </div>
 
         {/* Telemetry & Legend Panel */}
-        <div data-testid="sky-side-panel" className="w-full min-w-0 space-y-4 overflow-hidden">
+        <div data-testid="sky-side-panel" className="min-w-0 flex-[1_1_250px] space-y-4 overflow-hidden">
           <div data-testid="sky-visible-header" className="border-b border-slate-800 pb-3">
             <span className="block text-xs uppercase tracking-wider text-slate-400 font-medium">
               Overhead Visibility
@@ -1010,7 +1017,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           {/* Active Visible Planets Grid */}
           <div
             data-testid="sky-planet-grid"
-            className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2 min-w-0"
+            className="grid grid-cols-[repeat(auto-fill,minmax(min(9rem,100%),1fr))] gap-2 min-w-0"
           >
             {planetMarks.map((mark) => {
               const p = mark.planet;
