@@ -10,12 +10,13 @@
  * Backed by `useBroadcastStore` and `/operator/world-context`.
  */
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { apiUrl } from '../../utils/api';
 import { useBroadcastStore, type BroadcastEvent } from '../../stores/broadcastStore';
+import { useSkyStore } from '../../stores/skyStore';
 import { useEarthState } from '../../stores/earthStateStore';
 import ProvenanceTag from '../UI/ProvenanceTag';
 import { loadLand } from '../../lib/earth';
@@ -37,6 +38,8 @@ import {
   subPointMarker,
   sunMoved,
   tinyIslandsEnabled,
+  createGlobePicker,
+  type GlobePickEvent,
   type DrawnBody,
 } from './worldEmanationHelpers';
 
@@ -429,6 +432,53 @@ interface SceneContentProps {
   aspects: Aspect[];
 }
 
+/** Disable raycasting on a mesh: the observer marker must not swallow picks. */
+const NO_RAYCAST = (): void => {};
+
+/** r3f pointer intersection -> the plain gesture payload the picker uses. */
+function toPickEvent(event: ThreeEvent<PointerEvent>): GlobePickEvent {
+  const native = event.nativeEvent;
+  return {
+    x: native.clientX,
+    y: native.clientY,
+    t: native.timeStamp,
+    uv: event.uv ? { x: event.uv.x, y: event.uv.y } : null,
+  };
+}
+
+/**
+ * The observer's latitude/longitude from `skyStore`. Two narrow selectors, so
+ * a time scrub (`at` changing) does not re-render the globe; only a place
+ * change does.
+ */
+export function useObserverLatLng(): { lat: number; lng: number } {
+  const lat = useSkyStore((state) => state.lat);
+  const lng = useSkyStore((state) => state.lng);
+  return { lat, lng };
+}
+
+/**
+ * A small unlit marker at the observer's place, inside the rotating Earth
+ * group so it stays glued to the texture. A dark rim keeps it readable on the
+ * day side, the bright core on the night side; raycast is disabled so it never
+ * intercepts the click that sets a new place.
+ */
+function ObserverMarker(): React.ReactElement {
+  const { lat, lng } = useObserverLatLng();
+  return (
+    <group position={latLonToVec3(lat, lng, 2.03)}>
+      <mesh raycast={NO_RAYCAST}>
+        <sphereGeometry args={[0.062, 16, 16]} />
+        <meshBasicMaterial color="#1a1206" toneMapped={false} />
+      </mesh>
+      <mesh raycast={NO_RAYCAST}>
+        <sphereGeometry args={[0.048, 16, 16]} />
+        <meshBasicMaterial color="#ffe08a" toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
 const SceneContent: React.FC<SceneContentProps> = ({
   variant,
   practitionerCoords,
@@ -437,6 +487,15 @@ const SceneContent: React.FC<SceneContentProps> = ({
   aspects,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+  // One gesture recognizer per scene. It reads the store action at event time
+  // (getState), so the globe does not subscribe to the store for picking.
+  const picker = useMemo(
+    () =>
+      createGlobePicker((lat, lng) => {
+        useSkyStore.getState().setObserver(lat, lng);
+      }),
+    [],
+  );
   const earthTex = useSharedEarthTexture();
   const earth = useEarthState();
   const nowMs = useNowMs();
@@ -489,10 +548,15 @@ const SceneContent: React.FC<SceneContentProps> = ({
   return (
     <group ref={groupRef}>
       <EarthLights sun={sun} />
-      <mesh>
+      <mesh
+        onPointerDown={(event) => picker.onPointerDown(toPickEvent(event))}
+        onPointerUp={(event) => picker.onPointerUp(toPickEvent(event))}
+        onPointerCancel={() => picker.onPointerCancel()}
+      >
         <sphereGeometry args={[2, 48, 48]} />
         <meshStandardMaterial key={earthTex.uuid} {...earthSurfaceProps(earthTex)} />
       </mesh>
+      <ObserverMarker />
       <TinyIslands />
       {sun && <DawnLine sun={sun} />}
       {bodies && <SubPointMarkers bodies={bodies} />}

@@ -11,6 +11,7 @@ import {
   paintLand,
   smallIslandVertices,
   terminatorPoints,
+  uvToLatLon,
   type EarthState,
   type LandData,
   type SubPoint,
@@ -134,6 +135,65 @@ export function resolveTargetCoords(locationStr?: string | null): [number, numbe
 /**
  * Converts spherical (lat, lon) coordinates to a 3D Cartesian vector on a sphere of radius R.
  */
+/**
+ * Globe picking (W3-C): a click is a pointer-down and pointer-up close in space
+ * and time. Anything bigger is a drag (the user rotating the globe) and must
+ * not move the observer. Thresholds are in CSS pixels and milliseconds.
+ */
+export const PICK_MAX_MOVE_PX = 5;
+export const PICK_MAX_DURATION_MS = 500;
+
+export interface GlobePickPoint {
+  /** Pointer position in CSS pixels (clientX/clientY). */
+  x: number;
+  y: number;
+  /** Event time in milliseconds (event.timeStamp). */
+  t: number;
+}
+
+export interface GlobePickEvent extends GlobePickPoint {
+  /** The surface UV from the r3f intersection; absent if there was no hit. */
+  uv?: { x: number; y: number } | null;
+}
+
+export interface GlobePicker {
+  onPointerDown(event: GlobePickPoint): void;
+  /** Returns true when the gesture was a pick and `onPick` was called. */
+  onPointerUp(event: GlobePickEvent): boolean;
+  onPointerCancel(): void;
+}
+
+/**
+ * A tiny gesture recognizer for the globe. `onPick` receives the latitude and
+ * longitude resolved through `uvToLatLon` (the accepted W3-C0 inverse), never
+ * a hand-rolled conversion. The returned handlers are stable; the component
+ * owns one instance.
+ */
+export function createGlobePicker(onPick: (lat: number, lng: number) => void): GlobePicker {
+  let down: GlobePickPoint | null = null;
+  return {
+    onPointerDown(event) {
+      down = { x: event.x, y: event.y, t: event.t };
+    },
+    onPointerUp(event) {
+      const start = down;
+      down = null;
+      if (start === null) return false;
+      const moved = Math.hypot(event.x - start.x, event.y - start.y);
+      const elapsed = event.t - start.t;
+      if (moved > PICK_MAX_MOVE_PX || elapsed > PICK_MAX_DURATION_MS) return false;
+      const uv = event.uv;
+      if (!uv || !Number.isFinite(uv.x) || !Number.isFinite(uv.y)) return false;
+      const { lat, lng } = uvToLatLon(uv.x, uv.y);
+      onPick(lat, lng);
+      return true;
+    },
+    onPointerCancel() {
+      down = null;
+    },
+  };
+}
+
 export function latLonToVec3(lat: number, lon: number, radius = 2.05): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lon + 180) * (Math.PI / 180);

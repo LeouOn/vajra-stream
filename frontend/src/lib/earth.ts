@@ -290,3 +290,59 @@ export function smallIslandVertices(
   }
   return { rings, polygonCount: rings.length, vertexCount };
 }
+
+// ---------------------------------------------------------------------------
+// Globe picking: the inverse of the lat/lon -> vector mapping (row W3-C0)
+// ---------------------------------------------------------------------------
+
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Below this horizontal radius (relative to the point's radius) a cartesian
+ * point is treated as a pole. `latLonToVec3` is exact at +90 (sin(0) = 0) but
+ * at -90 `sin(180°)` rounds to ~1.2e-16, which would otherwise turn into an
+ * arbitrary longitude. 89.999° has a horizontal radius of ~1.7e-5, far above
+ * the threshold.
+ */
+const POLE_HORIZONTAL_EPS = 1e-12;
+
+/**
+ * `uvToLatLon` — the equirectangular texture coordinate on three's
+ * `SphereGeometry` -> degrees. This is what a raycast `intersection.uv`
+ * carries when the globe material samples `land`/earth textures:
+ *   u = (lng + 180) / 360, v = (lat + 90) / 180
+ * (the Wave 1 check against SphereGeometry vertices lives in
+ * docs/notes/earthsky/wave1/lead-vis/align.test.ts).
+ * Longitude is wrapped into [-180, 180), so the seam (u = 0 or 1) is -180
+ * away from the poles. A pole has no longitude of its own, so v = 0 and v = 1
+ * report 0 — the same defined value `pointToLatLon` uses.
+ */
+export function uvToLatLon(u: number, v: number): LatLng {
+  const lat = v * 180 - 90;
+  if (v <= 0 || v >= 1) return { lat, lng: 0 };
+  return { lat, lng: wrapLon(u * 360 - 180) };
+}
+
+/**
+ * `pointToLatLon` — a point on the globe in the same local frame as the
+ * forward mapping the globes already use (`latLonToVec3` in
+ * components/3D/worldEmanationHelpers.ts):
+ *   phi = (90 - lat)°, theta = (lng + 180)°
+ *   x = -r sin(phi) cos(theta), y = r cos(phi), z = r sin(phi) sin(theta)
+ * The radius does not matter. Longitude is wrapped into [-180, 180); the
+ * poles have no longitude of their own, so they return 0 (a defined value)
+ * and the degenerate zero vector returns 0, 0.
+ */
+export function pointToLatLon(x: number, y: number, z: number): LatLng {
+  const radius = Math.hypot(x, y, z);
+  if (!(radius > 0)) return { lat: 0, lng: 0 };
+  const lat = Math.asin(Math.min(1, Math.max(-1, y / radius))) * DEG;
+  const horizontal = Math.hypot(x, z);
+  if (horizontal <= POLE_HORIZONTAL_EPS * radius) return { lat, lng: 0 };
+  // x = -r sin(phi) cos(theta), z = r sin(phi) sin(theta), so
+  // theta = atan2(z, -x) and lng = theta - 180, wrapped.
+  return { lat, lng: wrapLon(Math.atan2(z, -x) * DEG - 180) };
+}
