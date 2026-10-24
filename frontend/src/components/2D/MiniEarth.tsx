@@ -4,6 +4,7 @@ import { DEFAULT_LNG } from '../../lib/geo';
 import {
   SUNRISE_ALTITUDE_DEG,
   extrapolateSubPoint,
+  shownNowMs,
   terminatorPoints,
   wrapLon,
   type EarthState,
@@ -46,6 +47,9 @@ export function MiniEarth({ isActive, size, state }: MiniEarthProps) {
   const effective = state !== undefined ? state : slice.status === 'ok' ? slice.state : null;
   const stateRef = useRef<EarthState | null>(effective);
   stateRef.current = effective;
+  // A scrubbed (frozen) slice must not drift with the wall clock; an explicit `state` prop is always "live".
+  const clockRef = useRef<{ frozen?: boolean; fetchedAt: number | null }>(slice);
+  clockRef.current = state !== undefined ? { fetchedAt: null } : slice;
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +110,7 @@ export function MiniEarth({ isActive, size, state }: MiniEarthProps) {
       const current = stateRef.current;
       if (current) {
         const atMs = Date.parse(current.at);
-        const age = Number.isFinite(atMs) ? Math.max(0, (Date.now() - atMs) / 1000) : 0;
+        const age = Number.isFinite(atMs) ? Math.max(0, (shownNowMs(clockRef.current, Date.now()) - atMs) / 1000) : 0;
         const sun = extrapolateSubPoint({ lat: current.sun.lat, lon: current.sun.lon }, age);
         // Half-resolution mask: the night ramp is a smooth gradient, so a
         // (radius/2) mask upscaled on composite is visually identical at

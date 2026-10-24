@@ -20,23 +20,13 @@ import {
   type NightSkyStar,
 } from '../../lib/nightSkyClient';
 import { useSkyStore } from '../../stores/skyStore';
+import { useSkySeries } from '../../stores/skySeriesStore';
 import {
-  cancelSeriesRequest,
-  EarthSeriesError,
-  fetchSeries,
-  type EarthSeriesErrorKind,
-} from '../../lib/earthSeriesClient';
-import {
-  SERIES_RANGE_END_MS,
-  SERIES_RANGE_START_MS,
   localScrubLst,
   sacredHorizontal,
-  scrubWindow,
-  shouldRefetchSeries,
   skyAtInstant,
   type ScrubbedSky,
 } from '../../lib/skyScrub';
-import type { SkySeries } from '../../lib/skySeries';
 import { offsetMinutes, parseInstant } from '../../lib/skyClock';
 import {
   julianDay,
@@ -164,10 +154,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const [status, setStatus] = useState<'loading' | 'ok' | 'stale' | 'unavailable'>('loading');
   const [errorKind, setErrorKind] = useState<NightSkyErrorKind | null>(null);
   const [lastGoodAt, setLastGoodAt] = useState<number | null>(null);
-  const [scrubStatus, setScrubStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
-  const [scrubErrorKind, setScrubErrorKind] = useState<EarthSeriesErrorKind | null>(null);
-  const [scrubFetchToken, setScrubFetchToken] = useState<number>(0);
-  const [scrubVersion, setScrubVersion] = useState<number>(0);
+  const { series, status: seriesStatus, error: seriesError, errorKind: seriesErrorKind } = useSkySeries();
   const [showStars, setShowStars] = useState<boolean>(true);
   const [showPlanets, setShowPlanets] = useState<boolean>(true);
   const [showCatalogue, setShowCatalogue] = useState<boolean>(true);
@@ -192,13 +179,8 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const skyClockRef = useRef<{ lst: number; fetchedAt: number } | null>(null);
   const lastGoodRef = useRef<boolean>(false);
   const frozenAtRef = useRef<number | null>(null);
-  const seriesRef = useRef<{ series: SkySeries; fetchedAtMs: number } | null>(null);
-  const seriesGenerationRef = useRef<number>(0);
   const scrubModeRef = useRef<boolean>(false);
-  const scrubAtRef = useRef<number | null>(null);
-  const lastEdgeShownRef = useRef<number | null>(null);
   scrubModeRef.current = scrubMode;
-  scrubAtRef.current = scrubAtMs;
   const layerCacheRef = useRef<{
     canvas: HTMLCanvasElement | null;
     lst: number;
@@ -273,60 +255,6 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     void loadSky();
   }, [scrubMode]);
 
-  // One series covers the whole +-24 h scrub range (step 603 s, 288 samples).
-  useEffect(() => {
-    if (!scrubMode) {
-      seriesRef.current = null;
-      lastEdgeShownRef.current = null;
-      cancelSeriesRequest();
-      setScrubStatus('idle');
-      setScrubErrorKind(null);
-      return;
-    }
-    const generation = (seriesGenerationRef.current += 1);
-    // Sub-points do not depend on the observer, so this effect deliberately
-    // does NOT depend on observerLat/observerLng (a place change must not
-    // re-download 213 KB). The anchor keeps a paused instant that has drifted
-    // out of the now-centred range covered.
-    const window = scrubWindow(Date.now(), scrubAtRef.current ?? undefined);
-    let live = true;
-    setScrubStatus('loading');
-    fetchSeries(window.startIso, window.endIso, window.stepSeconds)
-      .then((series) => {
-        if (!live || generation !== seriesGenerationRef.current) return;
-        seriesRef.current = { series, fetchedAtMs: Date.now() };
-        setScrubStatus('ready');
-        setScrubErrorKind(null);
-        setScrubVersion((version) => version + 1);
-      })
-      .catch((error: unknown) => {
-        if (!live || generation !== seriesGenerationRef.current) return;
-        if (error instanceof EarthSeriesError && error.kind === 'stale') return;
-        setScrubStatus('unavailable');
-        setScrubErrorKind(error instanceof EarthSeriesError ? error.kind : 'http');
-        setScrubVersion((version) => version + 1);
-      });
-    return () => {
-      live = false;
-      cancelSeriesRequest();
-    };
-  }, [scrubMode, scrubFetchToken]);
-
-  // Refetch when the shown instant nears an edge or the window ages out.
-  useEffect(() => {
-    if (!scrubMode || scrubAtMs === null || scrubStatus !== 'ready') return;
-    const cached = seriesRef.current;
-    if (cached === null) return;
-    // A window centred on the real now still has the extreme scrub instant at
-    // its edge, so "near an edge" alone would refetch forever. Allow one
-    // edge-refetch per shown instant; the age rule still forces a refresh.
-    const moved = lastEdgeShownRef.current !== scrubAtMs;
-    lastEdgeShownRef.current = scrubAtMs;
-    if (!shouldRefetchSeries(cached.series, cached.fetchedAtMs, scrubAtMs, Date.now())) return;
-    if (!moved && Date.now() - cached.fetchedAtMs < 30 * 60_000) return;
-    setScrubFetchToken((token) => token + 1);
-  }, [scrubMode, scrubAtMs, scrubStatus, scrubVersion]);
-
   // "Fresh enough": two poll periods after the last good answer, mark stale so
   // the catalogue clock stops pretending the sky is current.
   useEffect(() => {
@@ -378,16 +306,25 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   // The scrubbed sky comes from one decoded series; the fallback (series
   // unavailable) still rotates the catalogue with local mean sidereal time.
   const scrubbed: ScrubbedSky | null = useMemo(() => {
-    const cached = seriesRef.current;
-    if (!scrubMode || scrubAtMs === null || cached === null) return null;
+    if (!scrubMode || scrubAtMs === null || series === null) return null;
     try {
-      return skyAtInstant(cached.series, scrubAtMs, observerLat, observerLng, scrubSacredInputs);
+      return skyAtInstant(series, scrubAtMs, observerLat, observerLng, scrubSacredInputs);
     } catch {
-      // The store normally clamps to +-24 h; an out-of-window instant must not
-      // crash the dome — fall back to the local-sidereal star path.
+      // The held window may not cover a brand-new instant yet (the shared store
+      // has already started the re-centred request): fall back to local
+      // sidereal stars and never crash.
       return null;
     }
-  }, [scrubMode, scrubAtMs, observerLat, observerLng, scrubSacredInputs, scrubVersion]);
+  }, [series, scrubMode, scrubAtMs, observerLat, observerLng, scrubSacredInputs]);
+
+  // One banner truth: computed only when both a series and its interpolation exist.
+  const scrubBannerState: 'idle' | 'loading' | 'ready' | 'unavailable' = !scrubMode
+    ? 'idle'
+    : seriesStatus === 'unavailable'
+      ? 'unavailable'
+      : scrubbed !== null
+        ? 'ready'
+        : 'loading';
 
   const scrubFallback = useMemo(() => {
     if (!scrubMode || scrubAtMs === null || scrubbed !== null) return null;
@@ -727,7 +664,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       if (canvas.dataset) {
         canvas.dataset.frameMs = (performance.now() - frameStarted).toFixed(3);
         canvas.dataset.scrub = scrubMode ? 'true' : 'false';
-        canvas.dataset.scrubStatus = scrubMode ? scrubStatus : 'idle';
+        canvas.dataset.scrubStatus = scrubBannerState;
         canvas.dataset.scrubPlanets = String(planetMarks.length);
         canvas.dataset.scrubSacred = String(sacredMarks.length);
       }
@@ -781,7 +718,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     status,
     scrubMode,
     scrubAtMs,
-    scrubStatus,
+    scrubBannerState,
     scrubbed,
     scrubFallback,
     planetMarks,
@@ -859,10 +796,6 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
 
   const staleAgeSeconds =
     lastGoodAt === null ? null : Math.max(0, Math.round((Date.now() - lastGoodAt) / 1000));
-  const scrubOutOfRange =
-    scrubMode &&
-    scrubAtMs !== null &&
-    (scrubAtMs < SERIES_RANGE_START_MS || scrubAtMs > SERIES_RANGE_END_MS);
   const scrubOffset = scrubAtIso === null ? null : formatOffset(offsetMinutes(scrubAtIso, Date.now()));
   const payloadIsOtherPlace =
     !scrubMode &&
@@ -913,30 +846,25 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         >
           <div>
             Scrubbed: {new Date(scrubAtMs).toISOString()} ({scrubOffset} from now).{' '}
-            {scrubbed !== null
+            {scrubBannerState === 'ready'
               ? 'Sun, Moon, planets, stars: computed for that instant.'
-              : scrubStatus === 'loading'
-                ? 'Stars: computed for that instant; loading the series for the Sun, Moon and planets…'
-                : 'Stars: computed for that instant; planets not drawn: no series for this instant.'}{' '}
+              : scrubBannerState === 'unavailable'
+                ? 'Stars: computed for that instant; planets not drawn: no series for this instant.'
+                : 'Stars: computed for that instant; loading the series for the Sun, Moon and planets…'}{' '}
             Moon phase, zodiac signs and sacred-star notes: as of now.
           </div>
-          {scrubStatus === 'loading' && (
+          {scrubBannerState === 'loading' && (
             <div data-testid="sky-scrub-loading" className="mt-1 text-sky-300/80">
               Loading the 48 h time series…
             </div>
           )}
-          {scrubStatus === 'unavailable' && (
-            <div data-testid="sky-scrub-unavailable" data-reason={scrubErrorKind ?? 'http'} className="mt-1 text-amber-300">
-              Time series unavailable ({reasonLabel(scrubErrorKind)}): planets are not drawn; stars
-              use local sidereal time.
+          {scrubBannerState === 'unavailable' && (
+            <div data-testid="sky-scrub-unavailable" data-reason={seriesErrorKind ?? 'http'} className="mt-1 text-amber-300">
+              Time series unavailable ({seriesError ?? reasonLabel(seriesErrorKind)}): planets are
+              not drawn; stars use local sidereal time.
             </div>
           )}
-          {scrubOutOfRange && (
-            <div data-testid="sky-scrub-outside" className="mt-1 text-amber-300">
-              This instant is outside the series range (1800–2200), so the Sun, Moon and planets
-              cannot be drawn. No further series requests are made for it.
-            </div>
-          )}
+
           {sacredMissing && (
             <div data-testid="sky-scrub-sacred-unavailable" className="mt-1 text-amber-300">
               Sacred stars have no J2000 coordinates yet, so they are not drawn while scrubbing.

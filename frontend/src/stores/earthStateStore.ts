@@ -2,10 +2,14 @@
  * Shared earth-state for the globes. One poll of GET /astrology/earth-state
  * per minute while at least one subscriber is mounted and the tab is visible.
  */
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { BodySubPoint, EarthState } from '../lib/earth';
+import { parseInstant } from '../lib/skyClock';
+import { SERIES_RANGE_END_MS, SERIES_RANGE_START_MS } from '../lib/skyScrub';
 import { apiUrl } from '../utils/api';
+import { scrubbedEarthState, useSkySeries, type SkySeriesView } from './skySeriesStore';
+import { useSkyStore } from './skyStore';
 
 export type EarthStateStatus = 'idle' | 'loading' | 'ok' | 'unavailable';
 
@@ -14,6 +18,12 @@ export interface EarthStateSlice {
   state: EarthState | null;
   fetchedAt: number | null;
   error: string | null;
+  /**
+   * True when `state` is the sky at a scrubbed instant (W3-I), not the live poll: it must not be advanced by
+   * wall-clock time. `fetchedAt` is then the shown instant itself; consumers age a state with
+   * `shownNowMs(slice, now)` (lib/earth.ts), which is 0 for a frozen slice. Absent/false when live.
+   */
+  frozen?: boolean;
 }
 
 const POLL_MS = 60_000;
@@ -158,12 +168,47 @@ export const useEarthStateStore: UseBoundStore<StoreApi<EarthStore>> = create<Ea
   },
 }));
 
-/** Subscribe on mount and unsubscribe on unmount. */
+/** The slice for a scrubbed instant: built from the shared series, or loading, or unavailable. Never the live state. */
+function scrubbedSlice(at: string, view: SkySeriesView): EarthStateSlice {
+  const unavailable = (error: string): EarthStateSlice => ({
+    status: 'unavailable',
+    state: null,
+    fetchedAt: null,
+    error,
+    frozen: true,
+  });
+  let shownMs: number;
+  try {
+    shownMs = parseInstant(at);
+  } catch (error) {
+    return unavailable(error instanceof Error ? error.message : 'The shown instant is not valid.');
+  }
+  if (shownMs < SERIES_RANGE_START_MS || shownMs > SERIES_RANGE_END_MS) {
+    return unavailable('The shown instant is outside the supported range (1800-2200).');
+  }
+  const state = view.series === null ? null : scrubbedEarthState(view.series, shownMs);
+  if (state !== null) return { status: 'ok', state, fetchedAt: shownMs, error: null, frozen: true };
+  if (view.status === 'unavailable') return unavailable(view.error ?? 'The time series is unavailable.');
+  return { status: 'loading', state: null, fetchedAt: null, error: null, frozen: true };
+}
+
+/**
+ * The earth state every globe, the strip and the mini globe draw. Live (`skyStore.at === null`): the shared poll,
+ * exactly as before. Scrubbed: a frozen slice for that instant from the shared series store; the live poll is
+ * unsubscribed (so its timer stops) until the sky goes live again.
+ */
 export function useEarthState(): EarthStateSlice {
+  const at = useSkyStore((s) => s.at);
+  const scrubbed = at !== null;
   const status = useEarthStateStore((s) => s.status);
   const state = useEarthStateStore((s) => s.state);
   const fetchedAt = useEarthStateStore((s) => s.fetchedAt);
   const error = useEarthStateStore((s) => s.error);
-  useEffect(() => useEarthStateStore.getState().subscribe(), []);
-  return { status, state, fetchedAt, error };
+  useEffect(() => (scrubbed ? undefined : useEarthStateStore.getState().subscribe()), [scrubbed]);
+  const series = useSkySeries(scrubbed);
+  const { status: seriesStatus, series: seriesWindow, error: seriesError } = series;
+  return useMemo<EarthStateSlice>(() => {
+    if (at === null) return { status, state, fetchedAt, error };
+    return scrubbedSlice(at, { status: seriesStatus, series: seriesWindow, error: seriesError, errorKind: null });
+  }, [at, status, state, fetchedAt, error, seriesStatus, seriesWindow, seriesError]);
 }

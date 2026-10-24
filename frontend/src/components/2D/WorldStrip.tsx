@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   decodeLand,
   extrapolateSubPoint,
+  shownNowMs,
   type EarthState,
   type LandData,
   type SubPoint,
@@ -49,6 +50,9 @@ export function WorldStrip({ onPick, observer, className, sun }: WorldStripProps
   const slice = useEarthState();
   const stateRef = useRef<EarthState | null>(slice.state);
   stateRef.current = slice.state;
+  // A scrubbed (frozen) slice must not drift with the wall clock.
+  const sliceRef = useRef(slice);
+  sliceRef.current = slice;
   const sunPropRef = useRef<SubPoint | null | undefined>(sun);
   sunPropRef.current = sun;
 
@@ -96,7 +100,9 @@ export function WorldStrip({ onPick, observer, className, sun }: WorldStripProps
         const state = stateRef.current;
         if (state) {
           const atMs = Date.parse(state.at);
-          const age = Number.isFinite(atMs) ? Math.max(0, (Date.now() - atMs) / 1000) : 0;
+          const age = Number.isFinite(atMs)
+            ? Math.max(0, (shownNowMs(sliceRef.current, Date.now()) - atMs) / 1000)
+            : 0;
           effective = extrapolateSubPoint({ lat: state.sun.lat, lon: state.sun.lon }, age);
         }
       }

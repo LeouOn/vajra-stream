@@ -37,6 +37,7 @@ vi.mock('../../lib/sky', async (importOriginal) => {
 
 import CelestialSkyDome from '../../components/UI/CelestialSkyDome';
 import { useSkyStore } from '../../stores/skyStore';
+import { resetSkySeriesStore, useSkySeries } from '../../stores/skySeriesStore';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { EarthSeriesError } from '../../lib/earthSeriesClient';
 import { decodeSeries, type SkySeries } from '../../lib/skySeries';
@@ -208,7 +209,22 @@ async function deliverSeries(series: SkySeries): Promise<void> {
   await resolveSeries(resolvers.length - 1, series);
 }
 
+async function rejectSeries(index: number, error: unknown): Promise<void> {
+  await act(async () => {
+    rejecters[index](error);
+    await Promise.resolve();
+  });
+  await flush();
+}
+
+/** A second subscriber proves the store shares one request across consumers. */
+function OtherSeriesConsumer(): null {
+  useSkySeries();
+  return null;
+}
+
 const resolvers: ((series: SkySeries) => void)[] = [];
+const rejecters: ((error: unknown) => void)[] = [];
 
 function canvas(): HTMLCanvasElement {
   const element = container.querySelector('[data-testid="celestial-sky-dome-canvas"]');
@@ -271,11 +287,14 @@ beforeEach(() => {
   }));
   mocks.cancelSeriesRequest.mockClear();
   resolvers.length = 0;
+  rejecters.length = 0;
+  resetSkySeriesStore();
   mocks.fetchSeries.mockReset();
   mocks.fetchSeries.mockImplementation(
     () =>
-      new Promise<SkySeries>((resolve) => {
+      new Promise<SkySeries>((resolve, reject) => {
         resolvers.push(resolve);
+        rejecters.push(reject);
       }),
   );
 });
@@ -422,7 +441,6 @@ describe('CelestialSkyDome scrub mode', () => {
     await flush();
 
     expect(nightRequests).toHaveLength(2); // an immediate live refresh
-    expect(mocks.cancelSeriesRequest).toHaveBeenCalled();
     expect(container.querySelector('[data-testid="sky-scrub-banner"]')).toBeNull();
     expect(dataset('scrub')).toBe('false');
   });
@@ -502,25 +520,65 @@ describe('CelestialSkyDome scrub mode', () => {
     expect(Number(dataset('scrubPlanets'))).toBeGreaterThan(0);
   });
 
-  it('says planets are not drawn for an instant no series can cover, and stops refetching', async () => {
+  it('says planets are not drawn for an instant no series can cover, and makes no request', async () => {
     await mount();
     await deliverLive();
     await enterScrub('2300-06-01T00:00:00Z');
-    const [startIso, endIso] = mocks.fetchSeries.mock.calls[0] as [string, string, number];
-    // The request is clamped to the supported range, end on the 603 s grid.
-    expect(parseInstant(endIso)).toBe(Date.UTC(2200, 11, 31, 23, 59, 59));
-    expect(parseInstant(endIso) - parseInstant(startIso)).toBe(287 * 603 * 1000);
-    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
 
-    // Any answer cannot cover 2300; the dome must say so and not loop.
-    await deliverSeries(fixture());
-    expect(container.querySelector('[data-testid="sky-scrub-outside"]')).not.toBeNull();
+    // The shared store refuses an instant outside 1800-2200 outright.
+    expect(mocks.fetchSeries).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="sky-scrub-unavailable"]')).not.toBeNull();
+    expect(container.textContent).toContain('outside the supported range');
     expect(container.textContent).toContain('planets not drawn: no series for this instant');
+    expect(dataset('scrubStatus')).toBe('unavailable');
     expect(dataset('scrubPlanets')).toBe('0');
     await flush();
-    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchSeries).not.toHaveBeenCalled();
+  });
 
-    void startIso;
+  it('shares ONE series request between the dome and another consumer', async () => {
+    await act(async () => {
+      root.render(
+        <>
+          <CelestialSkyDome />
+          <OtherSeriesConsumer />
+        </>,
+      );
+    });
+    await deliverLive();
+    await enterScrub();
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
+    await deliverSeries(fixture());
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(1);
+    expect(dataset('scrubStatus')).toBe('ready');
+  });
+
+  it('banner: loading, then computed only when the held window covers the instant, then unavailable', async () => {
+    await mount();
+    await deliverLive();
+    await enterScrub();
+    // No series answer yet: loading, never a computed claim.
+    expect(dataset('scrubStatus')).toBe('loading');
+    expect(container.textContent).toContain('loading the series');
+    expect(container.textContent).not.toContain('Sun, Moon, planets, stars: computed');
+
+    await deliverSeries(fixture());
+    expect(dataset('scrubStatus')).toBe('ready');
+    expect(container.textContent).toContain('Sun, Moon, planets, stars: computed for that instant');
+
+    // Move far outside the held window: the store starts a re-centred request,
+    // and the old window must not keep claiming computed.
+    await enterScrub('2026-06-01T00:00:00Z');
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(2);
+    expect(dataset('scrubStatus')).toBe('loading');
+    expect(container.textContent).toContain('loading the series');
+    expect(container.textContent).not.toContain('Sun, Moon, planets, stars: computed');
+
+    await rejectSeries(1, new EarthSeriesError('unavailable', 'The series is unavailable (503).'));
+    expect(dataset('scrubStatus')).toBe('unavailable');
+    expect(container.querySelector('[data-testid="sky-scrub-unavailable"]')).not.toBeNull();
+    expect(container.textContent).toContain('planets not drawn');
+    expect(container.textContent).not.toContain('Sun, Moon, planets, stars: computed');
   });
 
   it('uses only the newest series when entering scrub twice races an older answer', async () => {

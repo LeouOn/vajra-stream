@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
 import { useEarthState } from '../../stores/earthStateStore';
 import ProvenanceTag from '../UI/ProvenanceTag';
-import { loadLand } from '../../lib/earth';
+import { loadLand, shownNowMs } from '../../lib/earth';
 import {
   COUNTRY_COORDS,
   resolveTargetCoords as resolveCoords,
@@ -521,7 +521,7 @@ const GlobeContent: React.FC<GlobeContentProps> = ({
   const nowMs = useNowMs();
   const bodies =
     earth.status === 'ok' && earth.state && earth.fetchedAt !== null
-      ? drawnBodies(earth.state, earth.fetchedAt, nowMs)
+      ? drawnBodies(earth.state, earth.fetchedAt, shownNowMs(earth, nowMs))
       : null;
   const sun = bodies?.find((body) => body.id === 'sun') ?? null;
 

@@ -264,6 +264,17 @@ export function extrapolateSubPoint(p: SubPoint, dtSeconds: number): SubPoint {
 }
 
 /**
+ * The clock a shown earth state should be extrapolated with (W3-I). A live state is advanced by wall-clock
+ * time, so this is the caller's `nowMs`. A frozen one (the sky at a scrubbed instant, `slice.frozen`) must NOT
+ * drift forward at Earth's rotation rate, so its clock stands still at the instant it was built for, which a
+ * frozen slice stores in `fetchedAt`. Wherever a consumer ages a state (`now - fetchedAt`, `now - Date.parse(at)`),
+ * it passes `shownNowMs(slice, now)` instead of `now`: frozen gives an age of exactly 0.
+ */
+export function shownNowMs(slice: { frozen?: boolean; fetchedAt: number | null }, nowMs: number): number {
+  return slice.frozen === true && slice.fetchedAt !== null ? slice.fetchedAt : nowMs;
+}
+
+/**
  * Outer rings of polygons whose longer bounding-box side is under `maxSpanDeg`.
  * Vertex count is every lon/lat pair in those rings, including a repeated closing point.
  * Holes are not outlined. The committed 50 m file yields 913 polygons and 9152 vertices at 0.5°.

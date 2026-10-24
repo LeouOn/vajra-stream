@@ -19,7 +19,7 @@ import { useBroadcastStore, type BroadcastEvent } from '../../stores/broadcastSt
 import { useSkyStore } from '../../stores/skyStore';
 import { useEarthState } from '../../stores/earthStateStore';
 import ProvenanceTag from '../UI/ProvenanceTag';
-import { loadLand, OBSERVER_MARKER_COLOR } from '../../lib/earth';
+import { loadLand, OBSERVER_MARKER_COLOR, shownNowMs } from '../../lib/earth';
 import {
   resolveTargetCoords,
   latLonToVec3,
@@ -501,7 +501,7 @@ const SceneContent: React.FC<SceneContentProps> = ({
   const nowMs = useNowMs();
   const bodies =
     earth.status === 'ok' && earth.state && earth.fetchedAt !== null
-      ? drawnBodies(earth.state, earth.fetchedAt, nowMs)
+      ? drawnBodies(earth.state, earth.fetchedAt, shownNowMs(earth, nowMs))
       : null;
   const sun = bodies?.find((body) => body.id === 'sun') ?? null;
 
