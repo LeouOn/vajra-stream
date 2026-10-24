@@ -258,11 +258,18 @@ export function redactPII(data, piiEnabled = true) {
   if ('timezone' in d) delete d.timezone;
 
   // MEDIUM — nested location objects
-  // Live payload: data.location = { latitude, longitude }
+  // Live payload: data.location = { latitude, longitude, label? }
   if (d.location && typeof d.location === 'object') {
     if (d.location.latitude != null) d.location.latitude = roundLatLon(d.location.latitude);
     if (d.location.longitude != null) d.location.longitude = roundLatLon(d.location.longitude);
+    if ('label' in d.location) delete d.location.label;
   }
+
+  // HIGH — a working folio's sealing place (core/home_location.py
+  // strip_location_pii mirrors this): dropped entirely, with the witness's
+  // observer, its local sidereal time (which encodes longitude) and its
+  // "Sky observer" caption fact.
+  if (typeof d.working_id === 'string') stripFolioLocation(d);
   // Natal-export payload: data.birth_location = { latitude, longitude }
   if (d.birth_location && typeof d.birth_location === 'object') {
     if (d.birth_location.latitude != null) d.birth_location.latitude = roundLatLon(d.birth_location.latitude);
@@ -280,6 +287,28 @@ export function redactPII(data, piiEnabled = true) {
   }
 
   return d;
+}
+
+function stripFolioLocation(folio) {
+  delete folio.location;
+  delete folio.latitude;
+  delete folio.longitude;
+  if (folio.provenance && typeof folio.provenance === 'object') delete folio.provenance.location;
+  for (const key of ['witness', 'manifestation']) {
+    const block = folio[key];
+    if (!block || typeof block !== 'object') continue;
+    if (Array.isArray(block.caption_facts)) {
+      block.caption_facts = block.caption_facts.map((f) =>
+        f && f.label === 'Sky observer' ? { ...f, value: '[location redacted]' } : f,
+      );
+    }
+    if (block.sky && typeof block.sky === 'object') {
+      delete block.sky.local_sidereal_deg;
+      if (block.sky.observer && typeof block.sky.observer === 'object') {
+        block.sky.observer = { source: block.sky.observer.source, redacted: true };
+      }
+    }
+  }
 }
 
 /** Marker line prepended to exports when PII is redacted. */

@@ -77,6 +77,12 @@ def deities() -> list[dict[str, Any]]:
     return list(load_iconography()["deities"])
 
 
+def buddha_families() -> dict[str, dict[str, Any]]:
+    """The five Buddha families keyed by id (``tathagata``, ``vajra``, ``ratna``, ``padma``, ``karma``)."""
+    families: dict[str, dict[str, Any]] = load_iconography()["buddha_families"]["families"]
+    return families
+
+
 def get_deity(deity_id: str) -> dict[str, Any] | None:
     for entry in deities():
         if entry["id"] == deity_id:
@@ -273,13 +279,14 @@ def folio_deity(folio: dict[str, Any]) -> DeityRef | None:
 
 
 def list_deities() -> list[dict[str, Any]]:
-    """A summary per deity (for pickers): id, names, forms, default form, generic flag."""
+    """A summary per deity (for pickers): id, names, forms, default form, generic flag, Buddha family."""
     return [
         {
             "id": entry["id"],
             "name": entry["names"]["english"],
             "names": entry["names"],
             "generic": bool(entry.get("generic")),
+            "buddha_family": entry.get("buddha_family"),
             "default_form": entry["default_form"],
             "forms": [{"id": form["id"], "label": form["label"]} for form in entry["forms"]],
             "sources": source_citations(entry),

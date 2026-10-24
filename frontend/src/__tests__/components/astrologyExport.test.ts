@@ -483,6 +483,38 @@ describe('PII redaction', () => {
       expect(result.location.latitude).toBe(37.8);
       expect(result.location.longitude).toBe(-122.4);
     });
+
+    it('drops a location label when piiEnabled=false', () => {
+      const result = redactPII({ location: { latitude: 27.7172, longitude: 85.324, label: 'Kathmandu' } }, false);
+      expect(result.location).toEqual({ latitude: 27.7, longitude: 85.3 });
+    });
+
+    it('omits a working folio sealing place entirely when piiEnabled=false', () => {
+      const folio = {
+        working_id: 'wrk_abc',
+        intention: 'peace',
+        location: { latitude: 27.7172, longitude: 85.324, label: 'Kathmandu', source: 'browser' },
+        provenance: { location: 'record', sealed_at: 'record' },
+        witness: {
+          caption_facts: [
+            { label: 'Sky observer', value: "Kathmandu (27.7°, 85.3°), the folio's location", provenance: 'record' },
+            { label: 'Moon at sealing', value: '40% illuminated', provenance: 'computed' },
+          ],
+          sky: { observer: { lat: 27.7, lon: 85.3, source: 'folio', label: 'Kathmandu' }, local_sidereal_deg: 123.4 },
+        },
+      };
+      const result = redactPII(folio, false);
+      const text = JSON.stringify(result);
+      expect(result.location).toBeUndefined();
+      expect(result.provenance).toEqual({ sealed_at: 'record' });
+      expect(text).not.toContain('Kathmandu');
+      expect(text).not.toContain('27.7');
+      expect(text).not.toContain('85.3');
+      expect(result.witness.caption_facts[1].value).toBe('40% illuminated');
+      expect(result.witness.sky.observer).toEqual({ source: 'folio', redacted: true });
+      expect(folio.location.label).toBe('Kathmandu');
+      expect(redactPII(folio, true).location.label).toBe('Kathmandu');
+    });
   });
 
   describe('formatNatalChartMarkdown with PII', () => {

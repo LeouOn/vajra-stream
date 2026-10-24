@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useWebSocketStable as useWebSocket } from './hooks/useWebSocketStable';
 import { useAudioStore } from './stores/audioStore';
@@ -8,20 +8,23 @@ import { ConfigProvider, theme, Result } from 'antd';
 
 import MainLayout from './components/Layout/MainLayout';
 import CommandCenter from './components/UI/CommandCenter';
-import AstrologyPanel from './components/UI/AstrologyPanel';
-import OutlookDashboard from './components/UI/OutlookDashboard';
-import GrimoirePanel from './components/UI/GrimoirePanel';
-import PracticePage from './routes/Practice';
-import OperationsPage from './routes/Operations';
-import SettingsPage from './routes/Settings';
-import WorkingsPage from './routes/Workings';
-import PracticeSelector from './components/UI/PracticeSelector';
-import PracticeDetail from './components/UI/PracticeDetail';
 import ErrorBoundary from './components/UI/ErrorBoundary';
 import { audioFeedback } from './utils/audioFeedback';
 import { COLORS } from './lib/colors';
 import { antdTheme } from './theme/antdTheme';
 import { DEFAULT_ROUTE } from './lib/routes';
+
+// Every view but the Command Center (the landing route) loads on first visit,
+// so the initial bundle stays under Vite's chunk warning.
+const AstrologyPanel = lazy(() => import('./components/UI/AstrologyPanel'));
+const OutlookDashboard = lazy(() => import('./components/UI/OutlookDashboard'));
+const GrimoirePanel = lazy(() => import('./components/UI/GrimoirePanel'));
+const PracticePage = lazy(() => import('./routes/Practice'));
+const OperationsPage = lazy(() => import('./routes/Operations'));
+const SettingsPage = lazy(() => import('./routes/Settings'));
+const WorkingsPage = lazy(() => import('./routes/Workings'));
+const PracticeSelector = lazy(() => import('./components/UI/PracticeSelector'));
+const PracticeDetail = lazy(() => import('./components/UI/PracticeDetail'));
 
 function AppContent(): React.ReactElement {
   const location = useLocation();
@@ -83,6 +86,7 @@ function AppContent(): React.ReactElement {
       playAudio={async (): Promise<void> => { await playAudio(); }}
       stopAudio={(): void => { void stopAudio(); }}
     >
+      <Suspense fallback={<div className="flex-1 h-full flex items-center justify-center text-xs font-mono text-purple-300/70">Loading…</div>}>
       <Routes>
         <Route path="/" element={<Navigate to={`/${DEFAULT_ROUTE}`} replace />} />
 
@@ -210,6 +214,7 @@ function AppContent(): React.ReactElement {
           </div>
         } />
       </Routes>
+      </Suspense>
     </MainLayout>
   );
 }

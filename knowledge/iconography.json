@@ -50,6 +50,67 @@
     "thirty_two_marks": {
       "citation": "The thirty-two major marks of a Buddha (dvatrimsad-varalaksana), as listed in Mahayana sutras and the iconographic references above",
       "short": "the thirty-two marks of a Buddha"
+    },
+    "bardo_thodol": {
+      "citation": "The Tibetan Book of the Dead (Bar do thos grol), the peaceful Buddhas of the first five days; tr. Gyurme Dorje, ed. Graham Coleman with Thupten Jinpa (London: Penguin, 2005)",
+      "short": "Bardo Thodol, tr. Gyurme Dorje (2005)"
+    }
+  },
+  "buddha_families": {
+    "description": "The five Buddha families (pancakula) of tantric Buddhism with the correspondences standard in Tibetan sources: the presiding Buddha (lord), his direction in the mandala, the element, the wisdom, the afflictive emotion (poison) that wisdom transforms, and the family emblem. A deity's 'buddha_family' names its family only where the references settle it, and is null otherwise.",
+    "variant_note": "This is the common arrangement (the Vajradhatu mandala; the peaceful Buddhas of the Bardo Thodol). In some tantras, notably the Guhyasamaja, Akshobhya presides at the centre and Vairocana sits in the east, and the Bardo Thodol gives Vairocana a blue body and Vajrasattva-Akshobhya a white one; the correspondences of the two families move with them. Lists of elements and poisons also vary between texts.",
+    "sources": [
+      "beer_encyclopedia",
+      "beer_handbook",
+      "har",
+      "bardo_thodol"
+    ],
+    "families": {
+      "tathagata": {
+        "name": "Buddha (Tathagata) family",
+        "lord": "vairocana",
+        "direction": "centre",
+        "element": "space",
+        "wisdom": "wisdom of the dharmadhatu (the all-encompassing expanse)",
+        "poison": "ignorance",
+        "emblem": "the eight-spoked wheel"
+      },
+      "vajra": {
+        "name": "Vajra family",
+        "lord": "akshobhya",
+        "direction": "east",
+        "element": "water",
+        "wisdom": "mirror-like wisdom",
+        "poison": "anger",
+        "emblem": "the vajra"
+      },
+      "ratna": {
+        "name": "Jewel (Ratna) family",
+        "lord": "ratnasambhava",
+        "direction": "south",
+        "element": "earth",
+        "wisdom": "wisdom of equality",
+        "poison": "pride",
+        "emblem": "the wish-fulfilling jewel"
+      },
+      "padma": {
+        "name": "Lotus (Padma) family",
+        "lord": "amitabha",
+        "direction": "west",
+        "element": "fire",
+        "wisdom": "discriminating wisdom",
+        "poison": "desire",
+        "emblem": "the lotus"
+      },
+      "karma": {
+        "name": "Action (Karma) family",
+        "lord": "amoghasiddhi",
+        "direction": "north",
+        "element": "air",
+        "wisdom": "all-accomplishing wisdom",
+        "poison": "jealousy",
+        "emblem": "the crossed vajra (vishvavajra)"
+      }
     }
   },
   "deities": [
@@ -73,6 +134,7 @@
         "释迦牟尼佛"
       ],
       "practice_ids": [],
+      "buddha_family": null,
       "art_style": "tibetan_thangka",
       "default_form": "earth_touching",
       "forms": [
@@ -143,6 +205,7 @@
       "practice_ids": [
         "88_buddhas"
       ],
+      "buddha_family": null,
       "art_style": "tibetan_thangka",
       "default_form": "generic",
       "individual_iconography": null,
@@ -213,6 +276,7 @@
       "practice_ids": [
         "avalokiteshvara"
       ],
+      "buddha_family": "padma",
       "art_style": "tibetan_thangka",
       "default_form": "four_armed",
       "forms": [
@@ -346,7 +410,7 @@
         "har",
         "sadhana_chenrezig"
       ],
-      "notes": "The avalokiteshvara practice visualises the thousand-armed form; the default form for images is the four-armed Chenrezig."
+      "notes": "The avalokiteshvara practice visualises the thousand-armed form; the default form for images is the four-armed Chenrezig. Of the lotus (padma) family of Amitabha, who is shown at the summit of his head."
     },
     {
       "id": "green_tara",
@@ -372,6 +436,7 @@
       "practice_ids": [
         "green_tara"
       ],
+      "buddha_family": "karma",
       "art_style": "tibetan_thangka",
       "default_form": "standard",
       "forms": [
@@ -414,7 +479,7 @@
         "har",
         "sadhana_tara"
       ],
-      "notes": null
+      "notes": "Of the action (karma) family of Amoghasiddhi, whose consort she is in the five-family system."
     },
     {
       "id": "white_tara",
@@ -438,6 +503,7 @@
       "practice_ids": [
         "white_tara"
       ],
+      "buddha_family": null,
       "art_style": "tibetan_thangka",
       "default_form": "standard",
       "forms": [
@@ -508,6 +574,7 @@
       "practice_ids": [
         "medicine_buddha"
       ],
+      "buddha_family": null,
       "art_style": "tibetan_thangka",
       "default_form": "standard",
       "forms": [
@@ -576,6 +643,7 @@
       "practice_ids": [
         "amitabha"
       ],
+      "buddha_family": "padma",
       "art_style": "tibetan_thangka",
       "default_form": "standard",
       "forms": [
@@ -631,6 +699,7 @@
       "practice_ids": [
         "vajrasattva"
       ],
+      "buddha_family": "vajra",
       "art_style": "tibetan_thangka",
       "default_form": "solitary",
       "forms": [
@@ -670,9 +739,10 @@
       "sources": [
         "beer_encyclopedia",
         "har",
-        "sadhana_vajrasattva"
+        "sadhana_vajrasattva",
+        "bardo_thodol"
       ],
-      "notes": null
+      "notes": "Of the vajra family of Akshobhya; the Bardo Thodol names him Vajrasattva-Akshobhya."
     },
     {
       "id": "manjushri",
@@ -696,6 +766,7 @@
         "文殊菩萨"
       ],
       "practice_ids": [],
+      "buddha_family": null,
       "art_style": "tibetan_thangka",
       "default_form": "sword_and_book",
       "forms": [
@@ -759,6 +830,7 @@
       "practice_ids": [
         "heart_sutra"
       ],
+      "buddha_family": null,
       "art_style": "tibetan_thangka",
       "default_form": "four_armed",
       "forms": [
@@ -841,6 +913,7 @@
       "practice_ids": [
         "zhunti"
       ],
+      "buddha_family": null,
       "art_style": "east_asian_devotional",
       "default_form": "eighteen_armed",
       "forms": [
@@ -972,6 +1045,255 @@
       ],
       "sources": [
         "taisho_1076",
+        "bhattacharyya"
+      ],
+      "notes": null
+    },
+    {
+      "id": "vairocana",
+      "kind": "buddha",
+      "names": {
+        "english": "Vairocana Buddha",
+        "sanskrit": "Vairocana",
+        "tibetan": "Nampar Nangdze (rnam par snang mdzad)",
+        "chinese": "毘盧遮那佛 Pílúzhēnàfó"
+      },
+      "aliases": [
+        "Vairocana",
+        "Vairochana",
+        "Vairocana Buddha",
+        "Nampar Nangdze",
+        "Namnang",
+        "毘盧遮那佛",
+        "毗卢遮那佛"
+      ],
+      "practice_ids": [],
+      "buddha_family": "tathagata",
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "Vairocana Buddha",
+          "aliases": [],
+          "descriptor": "the Buddha",
+          "body_colour": "white",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a lotus and moon disc",
+          "hands": [
+            {
+              "hand": "both",
+              "position": "at the heart",
+              "mudra": "the gesture of turning the wheel of the dharma (dharmachakra mudra)",
+              "holds": null
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "Tibetan form; his throne is traditionally supported by lions. His emblem, the wheel, is shown on the seat or beside him rather than held. The Bardo Thodol gives him a blue body, and the crowned Mahavairocana of the Japanese Vajradhatu mandala makes the wisdom-fist gesture (bodhyagri mudra); neither is curated here. The five Buddhas are also painted crowned and jewelled, in their enjoyment-body (sambhogakaya) aspect, especially in tantric mandalas."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har",
+        "bhattacharyya",
+        "bardo_thodol"
+      ],
+      "notes": null
+    },
+    {
+      "id": "akshobhya",
+      "kind": "buddha",
+      "names": {
+        "english": "Akshobhya Buddha",
+        "sanskrit": "Akṣobhya",
+        "tibetan": "Mikyöpa (mi bskyod pa)",
+        "chinese": "阿閦佛 Āchùfó"
+      },
+      "aliases": [
+        "Akshobhya",
+        "Aksobhya",
+        "Akṣobhya",
+        "Akshobhya Buddha",
+        "Mikyopa",
+        "Mikyöpa",
+        "阿閦佛"
+      ],
+      "practice_ids": [],
+      "buddha_family": "vajra",
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "Akshobhya Buddha",
+          "aliases": [],
+          "descriptor": "the Buddha",
+          "body_colour": "blue",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a lotus and moon disc",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "reaching down over the right knee",
+              "mudra": "the earth-touching gesture (bhumisparsha mudra), fingertips touching the ground",
+              "holds": null
+            },
+            {
+              "hand": "left",
+              "position": "resting in the lap",
+              "mudra": "the meditation gesture (dhyana mudra)",
+              "holds": null
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "Tibetan form; his throne is traditionally supported by elephants. His emblem, the vajra, is held upright in the left hand in some images and stands before him on the seat in others, so no held object is recorded. The Bardo Thodol gives him a white body (as Vajrasattva-Akshobhya), and in the Guhyasamaja he presides at the centre of the mandala. The five Buddhas are also painted crowned and jewelled, in their enjoyment-body (sambhogakaya) aspect, especially in tantric mandalas."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har",
+        "bhattacharyya",
+        "bardo_thodol"
+      ],
+      "notes": null
+    },
+    {
+      "id": "ratnasambhava",
+      "kind": "buddha",
+      "names": {
+        "english": "Ratnasambhava Buddha",
+        "sanskrit": "Ratnasambhava",
+        "tibetan": "Rinchen Jungné (rin chen 'byung gnas)",
+        "chinese": "寶生佛 Bǎoshēngfó"
+      },
+      "aliases": [
+        "Ratnasambhava",
+        "Ratnasambhava Buddha",
+        "Rinchen Jungne",
+        "Rinchen Jungné",
+        "寶生佛",
+        "宝生佛"
+      ],
+      "practice_ids": [],
+      "buddha_family": "ratna",
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "Ratnasambhava Buddha",
+          "aliases": [],
+          "descriptor": "the Buddha",
+          "body_colour": "yellow",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a lotus and moon disc",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "resting over the right knee, palm facing outward",
+              "mudra": "the boon-granting gesture of supreme giving (varada mudra)",
+              "holds": null
+            },
+            {
+              "hand": "left",
+              "position": "resting in the lap",
+              "mudra": "the meditation gesture (dhyana mudra)",
+              "holds": null
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "Tibetan form; his throne is traditionally supported by horses. His emblem, the wish-fulfilling jewel, is held in one hand in some images and set on the seat in others, so no held object is recorded. The five Buddhas are also painted crowned and jewelled, in their enjoyment-body (sambhogakaya) aspect, especially in tantric mandalas."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har",
+        "bhattacharyya"
+      ],
+      "notes": null
+    },
+    {
+      "id": "amoghasiddhi",
+      "kind": "buddha",
+      "names": {
+        "english": "Amoghasiddhi Buddha",
+        "sanskrit": "Amoghasiddhi",
+        "tibetan": "Dönyö Drubpa (don yod grub pa)",
+        "chinese": "不空成就佛 Bùkōng Chéngjiùfó"
+      },
+      "aliases": [
+        "Amoghasiddhi",
+        "Amoghasiddhi Buddha",
+        "Donyo Drubpa",
+        "Dönyö Drubpa",
+        "不空成就佛"
+      ],
+      "practice_ids": [],
+      "buddha_family": "karma",
+      "art_style": "tibetan_thangka",
+      "default_form": "standard",
+      "forms": [
+        {
+          "id": "standard",
+          "label": "Amoghasiddhi Buddha",
+          "aliases": [],
+          "descriptor": "the Buddha",
+          "body_colour": "green",
+          "faces": 1,
+          "arms": 2,
+          "eyes": null,
+          "posture": "seated in the full lotus (vajra) posture",
+          "seat": "a lotus and moon disc",
+          "hands": [
+            {
+              "hand": "right",
+              "position": "raised at the chest, palm facing outward",
+              "mudra": "the gesture of fearlessness (abhaya mudra)",
+              "holds": null
+            },
+            {
+              "hand": "left",
+              "position": "resting in the lap",
+              "mudra": "the meditation gesture (dhyana mudra)",
+              "holds": null
+            }
+          ],
+          "other_hands": null,
+          "features": "the crown protuberance (ushnisha) and elongated earlobes",
+          "ornaments": "nirmanakaya",
+          "ornament_details": null,
+          "halo": "a round halo behind the head and an aureole of light around the body",
+          "notes": "Tibetan form; his throne is traditionally supported by garudas (shang-shang). His emblem, the crossed vajra, is held in the left hand in some images and set on the seat in others, so no held object is recorded. The five Buddhas are also painted crowned and jewelled, in their enjoyment-body (sambhogakaya) aspect, especially in tantric mandalas."
+        }
+      ],
+      "sources": [
+        "beer_encyclopedia",
+        "beer_handbook",
+        "har",
         "bhattacharyya"
       ],
       "notes": null

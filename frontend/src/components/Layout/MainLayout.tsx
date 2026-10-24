@@ -177,15 +177,17 @@ const MainLayoutComponent: React.FC<Props> = ({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '10px 20px',
+        gap: 8,
+        padding: '10px clamp(10px, 3vw, 20px)',
         background: 'rgba(20, 10, 30, 0.7)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderTop: '1px solid rgba(139, 92, 246, 0.2)',
         fontSize: '12px'
       }}>
-        <div>
-          <span style={{ color: COLORS.primary, fontWeight: 'bold', marginRight: '16px' }}>
+        <div className="min-w-0">
+          {/* Phones: the header already names the app; the footer keeps the ledger. */}
+          <span className="hidden md:inline" style={{ color: COLORS.primary, fontWeight: 'bold', marginRight: '16px' }}>
             Vajra.Stream - Sacred Technology Platform
           </span>
           {ledger ? (
@@ -212,7 +214,7 @@ const MainLayoutComponent: React.FC<Props> = ({
             </span>
           )}
         </div>
-        <Space size="large">
+        <div className="flex items-center gap-2 md:gap-6 shrink-0">
           <Space size={6} align="center">
             <Badge
               status={isPlaying ? 'processing' : 'default'}
@@ -232,10 +234,10 @@ const MainLayoutComponent: React.FC<Props> = ({
               </span>
             </Button>
           </Space>
-          <span>Volume: <strong>{Math.round(volume * 100)}%</strong></span>
-          <span>Mode: <strong style={{ color: COLORS.primary }}>{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</strong></span>
+          <span className="hidden md:inline">Volume: <strong>{Math.round(volume * 100)}%</strong></span>
+          <span className="hidden md:inline">Mode: <strong style={{ color: COLORS.primary }}>{prayerBowlMode ? 'Prayer Bowl' : 'Sine Wave'}</strong></span>
           <AudioManager />
-        </Space>
+        </div>
       </Footer>
     </Layout>
   );
