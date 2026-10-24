@@ -154,7 +154,13 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const [status, setStatus] = useState<'loading' | 'ok' | 'stale' | 'unavailable'>('loading');
   const [errorKind, setErrorKind] = useState<NightSkyErrorKind | null>(null);
   const [lastGoodAt, setLastGoodAt] = useState<number | null>(null);
-  const { series, status: seriesStatus, error: seriesError, errorKind: seriesErrorKind } = useSkySeries();
+  const {
+    series,
+    status: seriesStatus,
+    error: seriesError,
+    errorKind: seriesErrorKind,
+    fetchedAtMs: seriesFetchedAtMs,
+  } = useSkySeries();
   const [showStars, setShowStars] = useState<boolean>(true);
   const [showPlanets, setShowPlanets] = useState<boolean>(true);
   const [showCatalogue, setShowCatalogue] = useState<boolean>(true);
@@ -318,13 +324,20 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   }, [series, scrubMode, scrubAtMs, observerLat, observerLng, scrubSacredInputs]);
 
   // One banner truth: computed only when both a series and its interpolation exist.
+  // A retained window that still covers the instant is usable: draw it and
+  // qualify the failed refresh below, rather than claiming nothing is drawn.
   const scrubBannerState: 'idle' | 'loading' | 'ready' | 'unavailable' = !scrubMode
     ? 'idle'
-    : seriesStatus === 'unavailable'
-      ? 'unavailable'
-      : scrubbed !== null
-        ? 'ready'
+    : scrubbed !== null
+      ? 'ready'
+      : seriesStatus === 'unavailable'
+        ? 'unavailable'
         : 'loading';
+  const scrubRetainedFailure = scrubMode && scrubbed !== null && seriesStatus === 'unavailable';
+  const seriesAgeMinutes =
+    seriesFetchedAtMs === null
+      ? null
+      : Math.max(0, Math.round((Date.now() - seriesFetchedAtMs) / 60_000));
 
   const scrubFallback = useMemo(() => {
     if (!scrubMode || scrubAtMs === null || scrubbed !== null) return null;
@@ -853,6 +866,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                 : 'Stars: computed for that instant; loading the series for the Sun, Moon and planets…'}{' '}
             Moon phase, zodiac signs and sacred-star notes: as of now.
           </div>
+          {scrubRetainedFailure && (
+            <div data-testid="sky-scrub-retained" className="mt-1 text-amber-300">
+              Showing the series fetched {seriesAgeMinutes ?? '?'} min ago; refresh failed:{' '}
+              {seriesError ?? reasonLabel(seriesErrorKind)}.
+            </div>
+          )}
           {scrubBannerState === 'loading' && (
             <div data-testid="sky-scrub-loading" className="mt-1 text-sky-300/80">
               Loading the 48 h time series…

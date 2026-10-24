@@ -553,6 +553,31 @@ describe('CelestialSkyDome scrub mode', () => {
     expect(dataset('scrubStatus')).toBe('ready');
   });
 
+  it('keeps drawing a retained series after a failed refresh and labels the failure', async () => {
+    await mount();
+    await deliverLive();
+    await enterScrub();
+    const series = fixture();
+    await deliverSeries(series);
+    expect(dataset('scrubStatus')).toBe('ready');
+
+    // Age the held window past 30 min, then move to another instant it covers:
+    // the store refreshes and the refresh fails, but the window stays usable.
+    const realNow = Date.now();
+    vi.spyOn(Date, 'now').mockReturnValue(realNow + 31 * 60_000);
+    await enterScrub(series.samples[3].at);
+    expect(mocks.fetchSeries).toHaveBeenCalledTimes(2);
+    await rejectSeries(1, new EarthSeriesError('unavailable', 'The series is unavailable (503).'));
+
+    const retained = container.querySelector('[data-testid="sky-scrub-retained"]');
+    expect(retained).not.toBeNull();
+    expect(retained?.textContent).toContain('refresh failed');
+    expect(container.querySelector('[data-testid="sky-scrub-unavailable"]')).toBeNull();
+    expect(dataset('scrubStatus')).toBe('ready');
+    expect(container.textContent).toContain('Sun, Moon, planets, stars: computed for that instant');
+    expect(Number(dataset('scrubPlanets'))).toBeGreaterThan(0);
+  });
+
   it('banner: loading, then computed only when the held window covers the instant, then unavailable', async () => {
     await mount();
     await deliverLive();

@@ -144,6 +144,82 @@ describe('earthStateStore', () => {
     expect(useEarthStateStore.getState().fetchedAt).toBeNull();
   });
 
+  it('times out a hung live request, goes unavailable, and the next refresh can start', async () => {
+    const captured: { signal?: AbortSignal } = {};
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      captured.signal = init?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = useEarthStateStore.getState().refresh();
+    await vi.advanceTimersByTimeAsync(15_000);
+    await pending.catch(() => undefined);
+    expect(captured.signal?.aborted).toBe(true);
+    expect(useEarthStateStore.getState().status).toBe('unavailable');
+    expect(String(useEarthStateStore.getState().error)).toMatch(/timed out/i);
+
+    // The next refresh is not blocked by the settled in-flight slot.
+    fetchMock.mockImplementation(async () => jsonResponse(200, oracleState()));
+    await useEarthStateStore.getState().refresh();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(useEarthStateStore.getState().status).toBe('ok');
+  });
+
+  it('aborts the in-flight live request on the last unsubscribe and can remount', async () => {
+    const captured: { signal?: AbortSignal } = {};
+    const fetchMock = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          captured.signal = init?.signal ?? undefined;
+          init?.signal?.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const unsubscribe = subscribe();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(captured.signal?.aborted).toBe(false);
+    unsubscribe();
+    expect(captured.signal?.aborted).toBe(true);
+
+    fetchMock.mockImplementation(async () => jsonResponse(200, oracleState()));
+    subscribe();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(useEarthStateStore.getState().status).toBe('ok');
+  });
+
+  it('does not write a late answer after cancellation', async () => {
+    let settle: ((response: Response) => void) | null = null;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const unsubscribe = subscribe();
+    await vi.advanceTimersByTimeAsync(0);
+    unsubscribe();
+    (settle as unknown as ((response: Response) => void) | null)?.(jsonResponse(200, oracleState()));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(useEarthStateStore.getState().state).toBeNull();
+    expect(useEarthStateStore.getState().status).not.toBe('ok');
+  });
+
   it('keeps a single in-flight request when refresh overlaps', async () => {
     let release: (response: Response) => void = () => {};
     const gate = new Promise<Response>((resolve) => {

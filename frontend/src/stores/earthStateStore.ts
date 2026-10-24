@@ -25,6 +25,12 @@ export interface EarthStateSlice {
 }
 
 const POLL_MS = 60_000;
+/**
+ * A live request that has not settled in this long is aborted and the slice
+ * becomes `unavailable` (state null). The next poll, at most 60 s later,
+ * retries; a prior success is never extrapolated indefinitely as if current.
+ */
+const REQUEST_TIMEOUT_MS = 15_000;
 
 type EarthStore = EarthStateSlice & {
   refresh(): Promise<void>;
@@ -35,6 +41,8 @@ let subscribers = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 let inflight: Promise<void> | null = null;
 let visibilityBound = false;
+let generation = 0;
+let controller: AbortController | null = null;
 
 function isBody(value: unknown): value is BodySubPoint {
   if (typeof value !== 'object' || value === null) return false;
@@ -52,6 +60,13 @@ function isEarthState(value: unknown): value is EarthState {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
   return isBody(record.sun) && isBody(record.moon) && Array.isArray(record.planets) && record.planets.every(isBody);
+}
+
+function cancelLiveRequest(): void {
+  generation += 1;
+  controller?.abort();
+  controller = null;
+  inflight = null;
 }
 
 function stopTimer(): void {
@@ -97,12 +112,18 @@ export const useEarthStateStore: UseBoundStore<StoreApi<EarthStore>> = create<Ea
   error: null,
   async refresh() {
     if (inflight) return inflight;
+    const myGeneration = (generation += 1);
+    controller?.abort();
+    const myController = new AbortController();
+    controller = myController;
+    const timeout = setTimeout(() => myController.abort(), REQUEST_TIMEOUT_MS);
     const run = (async () => {
       if (get().status !== 'ok') {
         set({ status: 'loading', error: null });
       }
       try {
-        const res = await fetch(apiUrl('/astrology/earth-state'));
+        const res = await fetch(apiUrl('/astrology/earth-state'), { signal: myController.signal });
+        if (myGeneration !== generation) return; // superseded/cancelled: never write
         if (!res.ok) {
           set({
             status: 'unavailable',
@@ -113,6 +134,7 @@ export const useEarthStateStore: UseBoundStore<StoreApi<EarthStore>> = create<Ea
           return;
         }
         const body: unknown = await res.json();
+        if (myGeneration !== generation) return;
         if (!isEarthState(body)) {
           set({
             status: 'unavailable',
@@ -129,12 +151,20 @@ export const useEarthStateStore: UseBoundStore<StoreApi<EarthStore>> = create<Ea
           error: null,
         });
       } catch (err) {
+        if (myGeneration !== generation) return;
+        const timedOut = err instanceof Error && err.name === 'AbortError';
         set({
           status: 'unavailable',
           state: null,
           fetchedAt: null,
-          error: err instanceof Error ? err.message : 'ephemeris unavailable',
+          error: timedOut
+            ? 'live earth-state request timed out after 15 s'
+            : err instanceof Error
+              ? err.message
+              : 'ephemeris unavailable',
         });
+      } finally {
+        clearTimeout(timeout);
       }
     })();
     inflight = run;
@@ -142,6 +172,7 @@ export const useEarthStateStore: UseBoundStore<StoreApi<EarthStore>> = create<Ea
       await run;
     } finally {
       if (inflight === run) inflight = null;
+      if (controller === myController) controller = null;
     }
   },
   subscribe() {
@@ -161,6 +192,7 @@ export const useEarthStateStore: UseBoundStore<StoreApi<EarthStore>> = create<Ea
       if (subscribers === 0) {
         stopTimer();
         unbindVisibility();
+        cancelLiveRequest();
       }
     };
   },

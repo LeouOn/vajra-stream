@@ -255,6 +255,8 @@ export interface SkySeriesView {
   series: SkySeries | null;
   error: string | null;
   errorKind: EarthSeriesErrorKind | null;
+  /** Wall-clock time the held series arrived; null before the first success. */
+  fetchedAtMs: number | null;
 }
 
 /**
@@ -267,7 +269,8 @@ export function useSkySeries(enabled = true): SkySeriesView {
   const series = useSkySeriesStore((s) => s.series);
   const error = useSkySeriesStore((s) => s.error);
   const errorKind = useSkySeriesStore((s) => s.errorKind);
-  return { status, series, error, errorKind };
+  const fetchedAtMs = useSkySeriesStore((s) => s.fetchedAtMs);
+  return { status, series, error, errorKind, fetchedAtMs };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

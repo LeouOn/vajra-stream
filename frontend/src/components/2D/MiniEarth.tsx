@@ -182,7 +182,7 @@ export function MiniEarth({ isActive, size, state }: MiniEarthProps) {
       draw();
     }, TICK_MS);
     return () => window.clearInterval(timer);
-  }, [isActive, land, size]);
+  }, [isActive, land, size, effective, slice.fetchedAt, slice.frozen]);
 
   const px = SIZES[size];
   return (

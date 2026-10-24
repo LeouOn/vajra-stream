@@ -17,7 +17,7 @@ vi.mock('../lib/earthSeriesClient', async () => {
   return { ...actual, fetchSeries: vi.fn(), cancelSeriesRequest: vi.fn() };
 });
 
-import { fetchSeries } from '../lib/earthSeriesClient';
+import { cancelSeriesRequest, fetchSeries } from '../lib/earthSeriesClient';
 import { decodeSeries, type SkySeries } from '../lib/skySeries';
 import {
   resetScrubGateForTest,
@@ -109,6 +109,8 @@ beforeEach(() => {
   vi.stubGlobal('fetch', liveFetch);
   seriesMock = vi.mocked(fetchSeries);
   seriesMock.mockReset();
+  // Default: a request that stays pending (individual tests override it).
+  seriesMock.mockImplementation(() => new Promise<SkySeries>(() => {}));
   resetSkySeriesStore();
   resetScrubGateForTest();
   useSkyStore.setState({ at: null });
@@ -167,6 +169,86 @@ describe('scrubGate', () => {
     expect(latest().slice.frozen).toBe(true);
     expect(latest().slice.fetchedAt).toBe(SCRUB_MS);
     expect(latest().slice.state?.sun.lat).toBeCloseTo(10, 6);
+  });
+
+  it('does not acquire an owner when the chunk resolves after the last unmount', async () => {
+    let resolveModule!: (module: typeof import('../stores/skySeriesStore')) => void;
+    resetScrubGateForTest(
+      () =>
+        new Promise((resolve) => {
+          resolveModule = resolve;
+        }),
+    );
+    act(() => {
+      useSkyStore.getState().setAt(new Date(SCRUB_MS).toISOString());
+    });
+    await flush();
+    expect(seriesMock).not.toHaveBeenCalled();
+
+    // Every reader leaves before the dynamically imported chunk resolves.
+    act(() => {
+      root.unmount();
+    });
+    resolveModule(await import('../stores/skySeriesStore'));
+    await flush();
+    expect(seriesMock).not.toHaveBeenCalled();
+
+    // A later mount acquires ownership normally, and leaving releases it.
+    root = createRoot(container);
+    act(() => {
+      root.render(<Probe log={logs} />);
+    });
+    await flush();
+    expect(seriesMock).toHaveBeenCalledTimes(1);
+    act(() => {
+      root.unmount();
+    });
+    expect(vi.mocked(cancelSeriesRequest)).toHaveBeenCalled();
+    root = createRoot(container);
+  });
+
+  it('handles a StrictMode mount/unmount/mount around the delayed resolution', async () => {
+    let resolveModule!: (module: typeof import('../stores/skySeriesStore')) => void;
+    resetScrubGateForTest(
+      () =>
+        new Promise((resolve) => {
+          resolveModule = resolve;
+        }),
+    );
+    act(() => {
+      root.render(
+        <React.StrictMode>
+          <Probe log={logs} />
+        </React.StrictMode>,
+      );
+    });
+    act(() => {
+      useSkyStore.getState().setAt(new Date(SCRUB_MS).toISOString());
+    });
+    await flush();
+    act(() => {
+      root.unmount();
+    });
+    resolveModule(await import('../stores/skySeriesStore'));
+    await flush();
+    expect(seriesMock).not.toHaveBeenCalled();
+
+    root = createRoot(container);
+    act(() => {
+      root.render(
+        <React.StrictMode>
+          <Probe log={logs} />
+        </React.StrictMode>,
+      );
+    });
+    await flush();
+    // StrictMode double-invokes mount effects; at least one owner is acquired.
+    expect(seriesMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    act(() => {
+      root.unmount();
+    });
+    expect(vi.mocked(cancelSeriesRequest)).toHaveBeenCalled();
+    root = createRoot(container);
   });
 
   it('reports a failed chunk load as unavailable and retries on the next scrub', async () => {

@@ -29,13 +29,14 @@ type Loader = () => Promise<SeriesModule>;
 
 const defaultLoader: Loader = () => import('./skySeriesStore');
 
-const LOADING: SkySeriesView = { status: 'loading', series: null, error: null, errorKind: null };
+const LOADING: SkySeriesView = { status: 'loading', series: null, error: null, errorKind: null, fetchedAtMs: null };
 const FAILED: SkySeriesView = {
   status: 'unavailable',
   series: null,
   error:
     'The time-series module could not be loaded; it will be retried the next time the sky is scrubbed.',
   errorKind: null,
+  fetchedAtMs: null,
 };
 
 export interface ScrubGateSnapshot {
@@ -54,7 +55,13 @@ let storeRefUnsubscribe: (() => void) | null = null;
 function viewFromStore(): SkySeriesView {
   if (loaded === null) return loadState === 'failed' ? FAILED : LOADING;
   const state = loaded.useSkySeriesStore.getState();
-  return { status: state.status, series: state.series, error: state.error, errorKind: state.errorKind };
+  return {
+    status: state.status,
+    series: state.series,
+    error: state.error,
+    errorKind: state.errorKind,
+    fetchedAtMs: state.fetchedAtMs,
+  };
 }
 
 function sameView(a: SkySeriesView, b: SkySeriesView): boolean {
@@ -62,7 +69,8 @@ function sameView(a: SkySeriesView, b: SkySeriesView): boolean {
     a.status === b.status &&
     a.series === b.series &&
     a.error === b.error &&
-    a.errorKind === b.errorKind
+    a.errorKind === b.errorKind &&
+    a.fetchedAtMs === b.fetchedAtMs
   );
 }
 
@@ -83,7 +91,7 @@ function publish(): void {
 }
 
 function ensureStoreSubscription(): void {
-  if (loaded === null || storeRefUnsubscribe !== null) return;
+  if (loaded === null || storeRefUnsubscribe !== null || listeners.size === 0) return;
   // One ref-counted owner so the series store fetches while a consumer is mounted.
   storeRefUnsubscribe = loaded.useSkySeriesStore.getState().subscribe();
   storeChangeUnsubscribe = loaded.useSkySeriesStore.subscribe(publish);
@@ -104,7 +112,9 @@ function ensureLoaded(): void {
     (module) => {
       loaded = module;
       loadState = 'ready';
-      ensureStoreSubscription();
+      // A chunk that resolves after the last consumer unmounted must not leave
+      // an owner (and its fetch) behind; the next mount acquires it normally.
+      if (listeners.size > 0) ensureStoreSubscription();
       publish();
     },
     () => {
