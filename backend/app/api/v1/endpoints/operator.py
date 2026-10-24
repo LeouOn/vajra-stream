@@ -290,7 +290,7 @@ async def get_trends():
 
 
 @router.get("/world-context", summary="Get current world context")
-async def get_world_context():
+def get_world_context():
     """Get real-time world context — active disasters, crises, astrological transits."""
     from core.internet_context import compile_world_context
 
