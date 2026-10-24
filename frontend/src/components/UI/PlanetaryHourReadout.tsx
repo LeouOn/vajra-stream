@@ -244,7 +244,7 @@ export default function PlanetaryHourReadout({ className = '' }: Props): React.R
         </div>
       )}
 
-      <div className="mt-1 text-[10px] text-gray-500" data-testid="planetary-hour-instant">
+      <div className="mt-1 text-[10px] text-gray-400" data-testid="planetary-hour-instant">
         {scrubbed ? 'Scrubbed instant' : 'Live'}: {formatUtc(shownMs)} · {lat.toFixed(2)}, {lng.toFixed(2)}
       </div>
     </div>

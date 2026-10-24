@@ -8,7 +8,7 @@ import {
   type LandData,
   type SubPoint,
 } from '../../lib/earth';
-import { drawWorldStrip, xyToLatLon } from '../../lib/equirect';
+import { drawWorldStrip, nightFactorAt, xyToLatLon } from '../../lib/equirect';
 import { useEarthState } from '../../stores/earthStateStore';
 
 /**
@@ -122,6 +122,46 @@ export function WorldStrip({ onPick, observer, className, sun }: WorldStripProps
     // other inputs redraws on change.
   }, [land, width, observer, sun, slice.fetchedAt]);
 
+  // The label uses the stored Sun; the canvas draw extrapolates that Sun by
+  // the state's age, so right at the day/night threshold the words can lag the
+  // picture until the store refreshes. Deliberate: no extra per-frame work.
+  const sunForLabel = sun !== undefined ? sun : (slice.state?.sun ?? null);
+  const nightAtObserver =
+    sunForLabel !== null && observer !== null && observer !== undefined
+      ? nightFactorAt(sunForLabel, 360, 180, observer.lng + 180, 90 - observer.lat)
+      : null;
+  const observerLabel = observer
+    ? `observer ${Math.abs(observer.lat).toFixed(1)} ${observer.lat >= 0 ? 'N' : 'S'}, ${Math.abs(observer.lng).toFixed(1)} ${observer.lng >= 0 ? 'E' : 'W'}`
+    : null;
+  const skyLabel =
+    nightAtObserver === null ? null : nightAtObserver >= 0.5 ? 'it is night there' : 'it is day there';
+  const ariaLabel = `World strip. Arrow keys move the observer: 1 degree, Shift for 0.1 degree${
+    observerLabel ? `; ${observerLabel}` : ''
+  }${skyLabel ? `; ${skyLabel}` : ''}.`;
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    if (!observer || !onPick) return;
+    // Browser/system shortcuts (Alt+Left is Back) must win: Shift is the only
+    // modifier this control interprets.
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const step = event.shiftKey ? 0.1 : 1;
+    let nextLat = observer.lat;
+    let nextLng = observer.lng;
+    if (event.key === 'ArrowRight') nextLng += step;
+    else if (event.key === 'ArrowLeft') nextLng -= step;
+    else if (event.key === 'ArrowUp') nextLat += step;
+    else if (event.key === 'ArrowDown') nextLat -= step;
+    else return;
+    event.preventDefault();
+    // Only the commanded axis moves; the untouched axis stays bit-identical.
+    // The tiny 1e-9 round removes float noise from +/-0.1 without snapping a
+    // picked place to a tenth-degree grid.
+    const clean = (value: number): number => Math.round(value * 1e9) / 1e9;
+    const lat = nextLat === observer.lat ? observer.lat : Math.max(-90, Math.min(90, clean(nextLat)));
+    const lng = nextLng === observer.lng ? observer.lng : clean(nextLng);
+    onPick(lat, lng);
+  };
+
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas || !onPick) return;
@@ -142,14 +182,16 @@ export function WorldStrip({ onPick, observer, className, sun }: WorldStripProps
         width={width}
         height={height}
         onClick={handleClick}
-        className="block w-full cursor-crosshair"
-        role="img"
-        aria-label="Equirectangular world strip: land, the day-night boundary and the sub-solar point"
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="application"
+        aria-label={ariaLabel}
+        className="block w-full cursor-crosshair focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-400"
         data-testid="world-strip"
       />
       {!sunAvailable && (
         <span
-          className="absolute inset-x-0 bottom-1 text-center text-[9px] leading-none text-white/80 select-none"
+          className="absolute inset-x-0 bottom-1 text-center text-[11px] leading-none text-white/80 select-none"
           data-testid="world-strip-unavailable"
         >
           ephemeris unavailable

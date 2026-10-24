@@ -19,7 +19,7 @@
  * the tab is hidden (silently; resuming is manual)."
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Slider, Space, Tag, Typography } from 'antd';
+import { Button, Card, InputNumber, Slider, Space, Tag, Typography } from 'antd';
 import { FastForward, Pause, Play, Square, Sunrise } from 'lucide-react';
 
 import { useSkyStore } from '../../stores/skyStore';
@@ -96,6 +96,50 @@ function messageOf(error: unknown): string {
   return 'Could not compute the next sunrise.';
 }
 
+/** Decimal only after normalisation: optional sign, digits, at most one '.'; no exponents. */
+const DECIMAL_RE = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+/** A single comma and no '.' is a comma decimal point (coordinates never use thousands separators). */
+const COMMA_DECIMAL_RE = /^[+-]?\d+,\d*$/;
+
+/**
+ * One parser for both fields and every submit path. NFKC first (a CJK IME's
+ * full-width digits and '．' become ASCII); a single comma with no '.' is the
+ * decimal point ('36,1' -> 36.1, '36,1,2' is rejected). Latitude is
+ * range-checked; longitude accepts any finite decimal and the store wraps it
+ * into [-180,180), after which the fields show the wrapped committed value
+ * (never a silent clamp).
+ */
+function parseCoordinate(
+  raw: string,
+  which: 'lat' | 'lng',
+): { ok: true; value: number } | { ok: false; error: string } {
+  let text = raw.normalize('NFKC').trim();
+  if (COMMA_DECIMAL_RE.test(text)) text = text.replace(',', '.');
+  const example = which === 'lat' ? '36.1' : '139.4';
+  if (!DECIMAL_RE.test(text)) {
+    return { ok: false, error: `${which === 'lat' ? 'Latitude' : 'Longitude'} must be a number like ${example}` };
+  }
+  const value = Number(text);
+  if (!Number.isFinite(value)) {
+    return { ok: false, error: `${which === 'lat' ? 'Latitude' : 'Longitude'} must be a finite number` };
+  }
+  if (which === 'lat' && (value < -90 || value > 90)) {
+    return { ok: false, error: 'Latitude must be between -90 and 90 degrees.' };
+  }
+  return { ok: true, value };
+}
+
+/**
+ * Display form without exponent notation (String(1e-7) is '1e-7', which the
+ * parser rightly rejects) and at most 6 decimals. The CLEAN field's commit uses
+ * the store's full number, so this rounding never moves an untouched observer;
+ * a dirty field commits exactly what was typed.
+ */
+function fmtCoordinate(value: number): string {
+  const text = value.toFixed(6).replace(/\.?0+$/, '');
+  return text === '-0' || text === '' ? '0' : text;
+}
+
 export default function SkyTimeControls({ className = '' }: Props): React.ReactElement {
   const at = useSkyStore((s) => s.at);
   const lat = useSkyStore((s) => s.lat);
@@ -111,6 +155,13 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<number>(600);
   const [playNote, setPlayNote] = useState<string | null>(null);
+  const [latRaw, setLatRaw] = useState(() => fmtCoordinate(lat));
+  const [lngRaw, setLngRaw] = useState(() => fmtCoordinate(lng));
+  const [latDirty, setLatDirty] = useState(false);
+  const [lngDirty, setLngDirty] = useState(false);
+  const [placeError, setPlaceError] = useState<string | null>(null);
+  const [placeErrorField, setPlaceErrorField] = useState<'lat' | 'lng' | null>(null);
+  const [resetEpoch, setResetEpoch] = useState(0);
   const reducedMotion = usePrefersReducedMotion();
   const requestId = useRef(0);
 
@@ -198,6 +249,114 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
   const observerText = label
     ? `${label} · ${lat.toFixed(4)}, ${lng.toFixed(4)}`
     : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+
+  // One commit model for both coordinates: raw text is the draft (the
+  // InputNumber's numeric onChange cannot carry '-' or '36,1'), and Enter,
+  // blur and Set place all run commitPlace with the same parse/validation.
+  // Dirty is PER FIELD: the clean field keeps following the store (a map pick
+  // updates it) while the other keeps the draft; commit reads a clean field's
+  // value from the store, never from its rounded display.
+  useEffect(() => {
+    if (!latDirty) setLatRaw(fmtCoordinate(lat));
+    if (!lngDirty) setLngRaw(fmtCoordinate(lng));
+  }, [lat, lng, latDirty, lngDirty]);
+
+  const dirty = latDirty || lngDirty;
+
+  const onDraft = useCallback((which: 'lat' | 'lng', text: string) => {
+    if (which === 'lat') {
+      setLatRaw(text);
+      setLatDirty(true);
+    } else {
+      setLngRaw(text);
+      setLngDirty(true);
+    }
+    setPlaceError(null);
+    setPlaceErrorField(null);
+  }, []);
+
+  // Spinner/step only (antd's onStep): never the lossy onChange that the blur
+  // and Enter flush emits for stripped text. Latitude is clamped here.
+  const onStep = useCallback((which: 'lat' | 'lng', value: string) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return;
+    if (which === 'lat') {
+      setLatRaw(fmtCoordinate(Math.max(-90, Math.min(90, number))));
+      setLatDirty(true);
+    } else {
+      setLngRaw(fmtCoordinate(number));
+      setLngDirty(true);
+    }
+    setPlaceError(null);
+    setPlaceErrorField(null);
+  }, []);
+
+  const commitPlace = useCallback(() => {
+    const parsedLat = latDirty ? parseCoordinate(latRaw, 'lat') : ({ ok: true, value: lat } as const);
+    if (!parsedLat.ok) {
+      setPlaceError(parsedLat.error);
+      setPlaceErrorField('lat');
+      return;
+    }
+    const parsedLng = lngDirty ? parseCoordinate(lngRaw, 'lng') : ({ ok: true, value: lng } as const);
+    if (!parsedLng.ok) {
+      setPlaceError(parsedLng.error);
+      setPlaceErrorField('lng');
+      return;
+    }
+    if (!latDirty && !lngDirty) {
+      // Untouched: apply must be a no-op, not a re-round of the observer.
+      setPlaceError(null);
+      setPlaceErrorField(null);
+      return;
+    }
+    try {
+      useSkyStore.getState().setObserver(parsedLat.value, parsedLng.value);
+    } catch (caught) {
+      setPlaceError(
+        caught instanceof RangeError
+          ? 'Latitude must be between -90 and 90 degrees.'
+          : 'Could not set the observer.',
+      );
+      setPlaceErrorField('lat');
+      return;
+    }
+    const after = useSkyStore.getState();
+    setLatRaw(fmtCoordinate(after.lat));
+    setLngRaw(fmtCoordinate(after.lng));
+    setLatDirty(false);
+    setLngDirty(false);
+    setPlaceError(null);
+    setPlaceErrorField(null);
+  }, [lat, latDirty, latRaw, lng, lngDirty, lngRaw]);
+
+  const cancelDraft = useCallback(() => {
+    setLatRaw(fmtCoordinate(lat));
+    setLngRaw(fmtCoordinate(lng));
+    setLatDirty(false);
+    setLngDirty(false);
+    setPlaceError(null);
+    setPlaceErrorField(null);
+    // Remount the controlled number inputs so a typed value the control is
+    // still holding internally cannot outlive the cancelled draft.
+    setResetEpoch((epoch) => epoch + 1);
+  }, [lat, lng]);
+
+  // The number control can stop the Escape keydown, so listen in the capture
+  // phase while a draft exists. Blur commits before Escape can reach a
+  // keyboard user, so this only cancels an UNBLURRED draft (documented).
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const target = event.target as HTMLElement | null;
+      if (!target || target.closest('[data-testid="sky-place-controls"]') === null) return;
+      event.preventDefault();
+      cancelDraft();
+    };
+    document.addEventListener('keydown', onEscape, true);
+    return () => document.removeEventListener('keydown', onEscape, true);
+  }, [cancelDraft, dirty]);
 
   const onLive = useCallback(() => {
     setPlaying(false);
@@ -400,6 +559,88 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
             +24 h
           </Text>
         </div>
+
+        <div className="flex flex-wrap items-end gap-2" data-testid="sky-place-controls">
+          <label className="flex flex-col gap-0.5 text-[10px] text-gray-400">
+            <span>Latitude</span>
+            <InputNumber
+              key={`lat-${resetEpoch}`}
+              size="small"
+              stringMode
+              aria-label="Latitude, degrees north"
+              step={0.1}
+              value={latRaw}
+              onInput={(text: string) => onDraft('lat', text)}
+              onStep={(value: string) => onStep('lat', value)}
+              parser={(text: string | undefined) => (text ?? '').trim()}
+              formatter={(value: string | undefined, info: { userTyping: boolean; input: string }) =>
+                info.userTyping ? info.input : String(value ?? '')
+              }
+              onPressEnter={commitPlace}
+              onBlur={() => {
+                if (dirty) commitPlace();
+              }}
+              aria-invalid={placeErrorField === 'lat' || undefined}
+              aria-describedby={placeErrorField === 'lat' ? 'sky-place-error-text' : undefined}
+              style={{ width: 96 }}
+            />
+          </label>
+          <label className="flex flex-col gap-0.5 text-[10px] text-gray-400">
+            <span>Longitude</span>
+            <InputNumber
+              key={`lng-${resetEpoch}`}
+              size="small"
+              stringMode
+              aria-label="Longitude, degrees east"
+              step={0.1}
+              value={lngRaw}
+              onInput={(text: string) => onDraft('lng', text)}
+              onStep={(value: string) => onStep('lng', value)}
+              parser={(text: string | undefined) => (text ?? '').trim()}
+              formatter={(value: string | undefined, info: { userTyping: boolean; input: string }) =>
+                info.userTyping ? info.input : String(value ?? '')
+              }
+              onPressEnter={commitPlace}
+              onBlur={() => {
+                if (dirty) commitPlace();
+              }}
+              aria-invalid={placeErrorField === 'lng' || undefined}
+              aria-describedby={placeErrorField === 'lng' ? 'sky-place-error-text' : undefined}
+              style={{ width: 104 }}
+            />
+          </label>
+          <Button
+            size="small"
+            type={dirty ? 'primary' : 'default'}
+            data-testid="sky-place-set"
+            data-pending={dirty ? 'true' : 'false'}
+            onClick={commitPlace}
+            aria-label="Set place from latitude and longitude"
+          >
+            Set place
+          </Button>
+          {dirty && (
+            <Button
+              size="small"
+              type="link"
+              data-testid="sky-place-cancel"
+              aria-label="Use the current place and discard the draft"
+              onMouseDown={(event) => {
+                // Keep the field focused so the cancel is not preceded by a
+                // blur-commit of the very draft it is discarding.
+                event.preventDefault();
+              }}
+              onClick={cancelDraft}
+            >
+              Use current place
+            </Button>
+          )}
+        </div>
+        {placeError !== null && (
+          <Text type="danger" role="alert" data-testid="sky-place-error" id="sky-place-error-text">
+            {placeError}
+          </Text>
+        )}
 
         <Button
           block

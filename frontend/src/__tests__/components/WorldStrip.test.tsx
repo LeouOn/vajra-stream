@@ -103,9 +103,9 @@ describe('WorldStrip (headless: canvas 2d context unavailable)', () => {
     const h = Number(canvas.getAttribute('height'));
     expect(w).toBeGreaterThan(0);
     expect(h * 2).toBe(w);
-    expect(canvas.getAttribute('role')).toBe('img');
+    expect(canvas.getAttribute('role')).toBe('application');
     expect(canvas.getAttribute('aria-label')).toBe(
-      'Equirectangular world strip: land, the day-night boundary and the sub-solar point',
+      'World strip. Arrow keys move the observer: 1 degree, Shift for 0.1 degree.',
     );
   });
 
