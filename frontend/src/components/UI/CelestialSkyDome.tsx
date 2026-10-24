@@ -66,10 +66,16 @@ import {
   type PlacedLabel,
 } from '../../lib/skyLabels';
 import { declutterMarkers, type MarkerPlacement } from '../../lib/skyMarkers';
+import {
+  PICK_MAX_DURATION_MS,
+  PICK_MAX_MOVE_PX,
+} from '../3D/worldEmanationHelpers';
 import { buildSkyLayer } from '../../lib/skyLayer';
 import ProvenanceTag from './ProvenanceTag';
 
 const SEE_THROUGH_KEY = 'vajra.dome.seeThroughDaylight';
+/** How long compatibility mouse events after a touch are ignored. */
+const TOUCH_COMPAT_GUARD_MS = 600;
 
 /** Per-viewer convenience only; anything goes wrong -> default off. */
 function readSeeThroughPreference(): boolean {
@@ -230,16 +236,17 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const [catalogueStatus, setCatalogueStatus] = useState<'pending' | 'ready' | 'unavailable'>('pending');
   const [figuresStatus, setFiguresStatus] = useState<'pending' | 'ready' | 'unavailable'>('pending');
   const reducedMotion = usePrefersReducedMotion();
-  const [hoveredObject, setHoveredObject] = useState<{
-    name: string;
-    sub: string;
-    alt: number;
-    az: number;
-    extra: string;
-    /** The tooltip's own position inside the canvas box (W3-M5). */
-    x: number;
-    y: number;
+  // W6-D2: selection is kept by identity + input mode, never as a snapshot. The
+  // tooltip text and position are derived from the current inspection list on
+  // every render, so a payload change cannot leave a stale body on screen.
+  const [selection, setSelection] = useState<{
+    id: string;
+    mode: 'mouse' | 'tap' | 'keyboard';
   } | null>(null);
+  // Marker layout can change without a React state change (the draw loop caches
+  // placements); bumping this after a rebuild lets the derived tooltip follow
+  // the displayed (decluttered) position.
+  const [geometryVersion, setGeometryVersion] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const hoverTipRef = useRef<HTMLDivElement | null>(null);
@@ -260,6 +267,18 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     key: '',
     canvas: null,
   });
+  const tapStartRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    t: number;
+    invalid: boolean;
+  } | null>(null);
+  // W6-D3/R3: touch browsers may follow a tap with compatibility mouse events
+  // (mousemove/mouseleave at the same point). They must not silently turn a
+  // deliberate tap announcement into a hover or clear it, so hover/mouseleave
+  // are ignored for a short window after a touch contact ends.
+  const touchCompatGuardUntilRef = useRef(0);
   const layerCacheRef = useRef<{
     canvas: HTMLCanvasElement | null;
     lst: number;
@@ -472,6 +491,15 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const starVisibility = (magnitude: number): number =>
     skyStarAlpha(magnitude, sunAltDeg, seeThrough, moonLight);
 
+  const rowToggle = (event: React.MouseEvent, toggle: () => void) => {
+    // W6-D2/F3: plain <div> rows, not native <label>s. A label would forward a
+    // text click to its button after this handler ran, toggling twice in real
+    // browsers. One handler here; the switch keeps its own onChange and native
+    // Space/Enter activation, and a click on it is skipped below.
+    if ((event.target as HTMLElement).closest('.ant-switch')) return;
+    toggle();
+  };
+
   const onSeeThroughChange = (next: boolean) => {
     setSeeThrough(next);
     try {
@@ -524,6 +552,106 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     }
     return marks;
   }, [data, scrubMode, scrubbed, scrubFallback]);
+
+  // W6-D2 F1: the composed name states only what is actually known. Loading or
+  // unavailable series never expose -90/0-planet rendering defaults as facts,
+  // scrub illumination comes from the scrub geometry, the live-only phase NAME
+  // is omitted in scrub mode, and stale/previous-place payloads are qualified.
+  const domeAriaLabel = useMemo(() => {
+    const placeText = (lat: number, lng: number) => `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const horizon = (label: string, altitude: number) =>
+      altitude === 0
+        ? `${label} at the horizon`
+        : `${label} ${formatDeg(Math.abs(altitude))} degrees ${
+            altitude > 0 ? 'above' : 'below'
+          } the horizon`;
+    const planetWord = (count: number) => `${count} planet${count === 1 ? '' : 's'}`;
+
+    if (scrubMode && scrubAtMs !== null) {
+      const instant = new Date(scrubAtMs).toISOString();
+      const place = placeText(observerLat, observerLng);
+      if (scrubbed === null) {
+        const state = scrubBannerState === 'unavailable' ? 'unavailable' : 'loading';
+        return `Night-sky dome for ${place} scrubbed to ${instant}: the sky for that instant is ${state}.`;
+      }
+      const sunAltitude = scrubbed.positions.sun?.alt;
+      const moonPosition = scrubbed.positions.moon;
+      const sunBody = scrubbed.bodies.find((body) => body.id === 'sun');
+      const moonBody = scrubbed.bodies.find((body) => body.id === 'moon');
+      const fraction =
+        sunBody !== undefined && moonBody !== undefined
+          ? moonIlluminatedFraction(sunBody.ra, sunBody.dec, moonBody.ra, moonBody.dec)
+          : Number.NaN;
+      const moonLit = Number.isFinite(fraction)
+        ? `Moon ${Math.round(fraction * 100)} percent lit`
+        : 'Moon illumination unavailable';
+      const above = scrubbed.bodies.filter(
+        (body) =>
+          body.id !== 'sun' &&
+          body.id !== 'moon' &&
+          (scrubbed.positions[body.id]?.alt ?? -90) > 0,
+      );
+      const names =
+        above
+          .map(
+            (body) =>
+              data?.planets.find((planet) => planet.id === body.id)?.name ??
+              body.id.charAt(0).toUpperCase() + body.id.slice(1),
+          )
+          .join(', ') || 'none';
+      const sunPhrase =
+        sunAltitude === undefined ? 'Sun position unavailable' : horizon('Sun', sunAltitude);
+      const moonPhrase =
+        moonPosition === undefined
+          ? `Moon illumination unavailable (position unavailable)`
+          : `${moonLit} ${horizon('', moonPosition.alt).trim()}`;
+      return `Night-sky dome for ${place} scrubbed to ${instant}: ${sunPhrase}, ${moonPhrase}, ${planetWord(
+        above.length,
+      )} above the horizon: ${names}.`;
+    }
+
+    const place = placeText(observerLat, observerLng);
+    if (data === null) {
+      const state = status === 'unavailable' ? 'unavailable' : status === 'stale' ? 'stale' : 'loading';
+      return `Night-sky dome for ${place} at live: the sky is ${state}.`;
+    }
+
+    const otherPlace =
+      Math.abs(data.observer.latitude - observerLat) > 1e-6 ||
+      Math.abs(data.observer.longitude - observerLng) > 1e-6;
+    const shownPlace = otherPlace
+      ? `${placeText(data.observer.latitude, data.observer.longitude)} (showing the previous place while the new one loads)`
+      : place;
+    const sunAltitude = data.planets.find((planet) => planet.id === 'sun')?.altitude;
+    const moon = data.planets.find((planet) => planet.id === 'moon');
+    const phase = data.moon.phase_name;
+    const lit = Math.round(data.moon.illumination);
+    const sunPhrase = sunAltitude === undefined ? 'Sun position unavailable' : horizon('Sun', sunAltitude);
+    const moonPhrase =
+      moon === undefined
+        ? `Moon ${phase} ${lit} percent lit (position unavailable)`
+        : `Moon ${phase} ${lit} percent lit ${horizon('', moon.altitude).trim()}`;
+    const above = planetMarks.filter(
+      (mark) =>
+        mark.planet.id !== 'sun' &&
+        mark.planet.id !== 'moon' &&
+        mark.planet.altitude > 0,
+    );
+    const names = above.map((mark) => mark.planet.name).join(', ') || 'none';
+    return `Night-sky dome for ${shownPlace} at ${data.timestamp_utc}: ${sunPhrase}, ${moonPhrase}, ${planetWord(
+      above.length,
+    )} above the horizon: ${names}.`;
+  }, [
+    observerLat,
+    observerLng,
+    scrubMode,
+    scrubAtMs,
+    scrubBannerState,
+    data,
+    scrubbed,
+    planetMarks,
+    status,
+  ]);
 
   const sacredMissing = scrubbed?.sacredMissing ?? scrubFallback?.sacredMissing ?? false;
 
@@ -901,6 +1029,14 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           labelCacheRef.current.markerKey = markerKey;
           labelCacheRef.current.markers = markers;
           labelCacheRef.current.labelKey = ''; // force labels to rebuild
+          // The derived tooltip reads the cache during render; one extra render
+          // per layout change lets it follow a relocated (decluttered) marker.
+          setGeometryVersion((version) => version + 1);
+          // Expose the DISPLAYED centres for browser checks (and debugging);
+          // a test must tap the ring where it is drawn, not the true sky point.
+          canvas.dataset.skyMarkers = markers
+            .map((marker) => `${marker.id}:${marker.x.toFixed(1)},${marker.y.toFixed(1)}`)
+            .join(';');
         }
         const markerById = new Map(markers.map((marker) => [marker.id, marker]));
         const displayedFor = (id: string): { x: number; y: number } | null => {
@@ -1190,47 +1326,36 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     sacredMarks,
   ]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // The objects a pointer/keyboard can inspect, in azimuth order for the
+  // keyboard. Markers use the DECLUTTERED displayed positions (W5-H).
+  const inspectableObjects = () => {
+    const objects: {
+      id: string;
+      name: string;
+      sub: string;
+      alt: number;
+      az: number;
+      extra: string;
+      px: number;
+      py: number;
+    }[] = [];
     const canvas = canvasRef.current;
-    if (!canvas || !data) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-
-    const size = Math.min(canvas.clientWidth || 500, canvas.clientHeight || 500);
+    const size = canvas === null ? 500 : Math.min(canvas.clientWidth || 500, canvas.clientHeight || 500);
     const cx = size / 2;
     const cy = size / 2;
     const radius = size * 0.42;
-
     const project = (alt: number, az: number): [number, number] => {
       const r = ((90 - Math.max(0, alt)) / 90) * radius;
       const radAz = (az * Math.PI) / 180;
       return [cx - r * Math.sin(radAz), cy - r * Math.cos(radAz)];
     };
-
-    // W3-M5: the tooltip keeps its own width and stays inside the canvas. It
-    // used to be absolutely positioned at the cursor with no width of its own,
-    // so the browser squeezed it into a ~74 px column (one word per line) and
-    // it could hang 26 px outside the card at 420 px. It flips to the other
-    // side of the cursor when it does not fit, then clamps.
-    const tipW = hoverTipRef.current?.offsetWidth ?? 240;
-    const tipH = hoverTipRef.current?.offsetHeight ?? 110;
-    const canvasW = canvas.clientWidth || 0;
-    const canvasH = canvas.clientHeight || 0;
-    let tipX = mx + 10;
-    if (tipX + tipW + 8 > canvasW) tipX = mx - tipW - 10;
-    tipX = Math.max(4, Math.min(tipX, Math.max(4, canvasW - tipW - 4)));
-    const tipY = Math.max(4, Math.min(my - 45, Math.max(4, canvasH - tipH - 4)));
-
-    // Check planets first
-    for (const mark of planetMarks) {
-      const p = mark.planet;
-      const [trueX, trueY] = project(mark.alt, mark.az);
-      const placement = labelCacheRef.current.markers.find((marker) => marker.id === p.id);
-      const px = placement?.x ?? trueX;
-      const py = placement?.y ?? trueY;
-      if (Math.hypot(mx - px, my - py) < 14) {
-        setHoveredObject({
+    if (showPlanets) {
+      for (const mark of planetMarks) {
+        const p = mark.planet;
+        const [trueX, trueY] = project(mark.alt, mark.az);
+        const placement = labelCacheRef.current.markers.find((marker) => marker.id === p.id);
+        objects.push({
+          id: p.id,
           name: scrubMode
             ? `${p.name} ${p.glyph}`
             : `${p.name} ${p.glyph} in ${p.sign} ${p.sign_glyph}`,
@@ -1242,33 +1367,188 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           alt: mark.alt,
           az: mark.az,
           extra: p.esoteric_quality,
-          x: tipX,
-          y: tipY,
+          px: placement?.x ?? trueX,
+          py: placement?.y ?? trueY,
         });
-        return;
       }
     }
-
-    // Check stars
-    for (const mark of sacredMarks) {
-      const s = mark.star;
-      const [sx, sy] = project(mark.alt, mark.az);
-      if (Math.hypot(mx - sx, my - sy) < 12) {
-        setHoveredObject({
+    if (showStars) {
+      for (const mark of sacredMarks) {
+        if (!(starVisibility(mark.star.magnitude) > 0)) continue;
+        const s = mark.star;
+        const [sx, sy] = project(mark.alt, mark.az);
+        objects.push({
+          id: s.id,
           name: `${s.name}`,
           sub: `${s.nakshatra} · Alt: ${formatDeg(mark.alt)}° · Az: ${formatDeg(mark.az)}°`,
           alt: mark.alt,
           az: mark.az,
           extra: s.quality,
-          x: tipX,
-          y: tipY,
+          px: sx,
+          py: sy,
         });
-        return;
       }
     }
-
-    setHoveredObject(null);
+    // Keyboard order: azimuth, then id (deterministic).
+    return objects.sort((a, b) => a.az - b.az || a.id.localeCompare(b.id));
   };
+
+  // Tooltip placement from a canvas point, keeping it inside the canvas (W3-M5).
+  const tipPosition = (pointX: number, pointY: number): { x: number; y: number } => {
+    const canvas = canvasRef.current;
+    const tipW = hoverTipRef.current?.offsetWidth ?? 240;
+    const tipH = hoverTipRef.current?.offsetHeight ?? 110;
+    const canvasW = canvas?.clientWidth || 0;
+    const canvasH = canvas?.clientHeight || 0;
+    let tipX = pointX + 10;
+    if (tipX + tipW + 8 > canvasW) tipX = pointX - tipW - 10;
+    tipX = Math.max(4, Math.min(tipX, Math.max(4, canvasW - tipW - 4)));
+    const tipY = Math.max(4, Math.min(pointY - 45, Math.max(4, canvasH - tipH - 4)));
+    return { x: tipX, y: tipY };
+  };
+
+  // W6-D2: the tooltip is DERIVED from the selected ID and the current
+  // inspection list, never stored. If the object disappears (payload change,
+  // daylight hiding, scrub) the selection is cleared by the effect below and
+  // no stale name can linger.
+  const selectedObject =
+    selection === null
+      ? null
+      : (inspectableObjects().find((object) => object.id === selection.id) ?? null);
+  const selectedTooltip =
+    selectedObject === null
+      ? null
+      : { ...selectedObject, ...tipPosition(selectedObject.px, selectedObject.py) };
+  // Polite announcements fire only for deliberate tap/keyboard selection; a
+  // mouse hover keeps its visual tooltip but does not talk over the user.
+  const announceSelected = selection !== null && selection.mode !== 'mouse';
+
+  const objectAt = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !data) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const my = clientY - rect.top;
+    for (const object of inspectableObjects()) {
+      const reach = object.id === 'sun' || object.id === 'moon' || PLANET_MAGNITUDES[object.id] !== undefined ? 14 : 12;
+      if (Math.hypot(mx - object.px, my - object.py) < reach) {
+        return object;
+      }
+    }
+    return null;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (Date.now() < touchCompatGuardUntilRef.current) return;
+    const hit = objectAt(e.clientX, e.clientY);
+    setSelection(hit === null ? null : { id: hit.id, mode: 'mouse' });
+  };
+
+  // W6-D2 tap recognition: one eligible primary pointer, cancelled by any
+  // excursion beyond the 5 px slop (tracked via pointermove), a second contact,
+  // pointer identity mismatch or cancellation. Page scrolling stays native.
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pending = tapStartRef.current;
+    // W6-D3/R1: a DISTINCT contact invalidates the pending gesture even when it
+    // is a non-primary finger — checked before the new-tap eligibility test, so
+    // a second finger cannot be ignored and let the first finger's release open
+    // a tap while the second is still down.
+    if (pending !== null && pending.pointerId !== e.pointerId) {
+      pending.invalid = true;
+      return;
+    }
+    if (!e.isPrimary || e.button !== 0) return;
+    if (pending !== null) return;
+    tapStartRef.current = {
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      t: e.timeStamp,
+      invalid: false,
+    };
+  };
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pending = tapStartRef.current;
+    if (pending === null || pending.pointerId !== e.pointerId) return;
+    if (Math.hypot(e.clientX - pending.x, e.clientY - pending.y) > PICK_MAX_MOVE_PX) {
+      pending.invalid = true;
+    }
+  };
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pending = tapStartRef.current;
+    tapStartRef.current = null;
+    if (e.pointerType === 'touch') {
+      touchCompatGuardUntilRef.current = Date.now() + TOUCH_COMPAT_GUARD_MS;
+    }
+    if (pending === null) return;
+    if (pending.pointerId !== e.pointerId || pending.invalid) return;
+    if (e.timeStamp - pending.t > PICK_MAX_DURATION_MS) return;
+    if (Math.hypot(e.clientX - pending.x, e.clientY - pending.y) > PICK_MAX_MOVE_PX) return;
+    const hit = objectAt(e.clientX, e.clientY);
+    setSelection(hit === null ? null : { id: hit.id, mode: 'tap' });
+  };
+  const handlePointerCancel = () => {
+    tapStartRef.current = null;
+  };
+  const handleMouseLeave = () => {
+    if (Date.now() < touchCompatGuardUntilRef.current) return;
+    setSelection(null);
+  };
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    if (e.key === 'Escape') {
+      setSelection(null);
+      e.preventDefault();
+      return;
+    }
+    const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+    const backward = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+    if (!forward && !backward) return;
+    const objects = inspectableObjects();
+    if (objects.length === 0) return;
+    e.preventDefault();
+    // Identity-based stepping: after a reorder/shrink the next step is relative
+    // to the selected object's CURRENT index, not a stale numeric index.
+    const direction = forward ? 1 : -1;
+    const currentIndex =
+      selection === null ? -1 : objects.findIndex((object) => object.id === selection.id);
+    const nextIndex =
+      currentIndex === -1
+        ? forward
+          ? 0
+          : objects.length - 1
+        : (currentIndex + direction + objects.length) % objects.length;
+    setSelection({ id: objects[nextIndex].id, mode: 'keyboard' });
+  };
+
+  // W6-D2: clear a selection whose object is no longer inspectable (absent,
+  // below the horizon, dimmed out of the daylight layer, or decluttered away).
+  useEffect(() => {
+    if (selection === null) return;
+    if (!inspectableObjects().some((object) => object.id === selection.id)) {
+      setSelection(null);
+    }
+  }, [
+    selection,
+    data,
+    scrubbed,
+    scrubMode,
+    showPlanets,
+    showStars,
+    sunAltDeg,
+    moonLight,
+    seeThrough,
+    geometryVersion,
+  ]);
+
+  // A pointer anywhere outside the canvas closes the inspection.
+  useEffect(() => {
+    const onOutsidePointer = (event: PointerEvent) => {
+      if (canvasRef.current?.contains(event.target as Node)) return;
+      setSelection(null);
+    };
+    document.addEventListener('pointerdown', onOutsidePointer);
+    return () => document.removeEventListener('pointerdown', onOutsidePointer);
+  }, []);
 
   const failedLayers: string[] = [];
   if (catalogueStatus === 'unavailable') failedLayers.push('stars');
@@ -1468,23 +1748,54 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             ref={canvasRef}
             data-testid="celestial-sky-dome-canvas"
             data-sky-layers={skyLayersToken}
-            className="w-full h-full cursor-crosshair rounded-full"
+            // W6-D2: a genuinely custom, narrowly scoped control. role="application"
+            // is on the canvas ONLY (never the card); the composed aria-label stays
+            // its name and the description gives short keyboard instructions. The
+            // planet cards in the side panel are a normal labelled list of the same
+            // objects, so screen-reader users are never locked into this control.
+            role="application"
+            aria-roledescription="sky dome object inspector"
+            aria-label={domeAriaLabel}
+            aria-describedby="sky-dome-description"
+            tabIndex={0}
+            className="w-full h-full cursor-crosshair rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
             onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHoveredObject(null)}
+            onMouseLeave={handleMouseLeave}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onLostPointerCapture={handlePointerCancel}
+            onKeyDown={handleKeyDown}
+            onBlur={() => setSelection(null)}
           />
+          <p id="sky-dome-description" data-testid="sky-dome-description" className="sr-only">
+            Use the arrow keys to step through the planets and stars above the horizon, Escape to
+            close.
+          </p>
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="sky-dome-live"
+            className="sr-only"
+          >
+            {announceSelected && selectedObject
+              ? `${selectedObject.name}: ${selectedObject.sub} (${selectedObject.extra})`
+              : ''}
+          </div>
 
           {/* Interactive Hover Tooltip */}
-          {hoveredObject && (
+          {selectedTooltip && (
             <div
               ref={hoverTipRef}
               data-testid="sky-hover-tooltip"
               className="pointer-events-none absolute z-20 w-[240px] max-w-full rounded-lg border border-purple-500/30 bg-slate-900/90 p-2.5 shadow-xl text-xs text-slate-200"
-              style={{ left: hoveredObject.x, top: hoveredObject.y }}
+              style={{ left: selectedTooltip.x, top: selectedTooltip.y }}
             >
-              <div className="font-semibold text-purple-300">{hoveredObject.name}</div>
-              <div className="text-slate-400 font-mono text-[11px]">{hoveredObject.sub}</div>
+              <div className="font-semibold text-purple-300">{selectedTooltip.name}</div>
+              <div className="text-slate-400 font-mono text-[11px]">{selectedTooltip.sub}</div>
               <div className="text-amber-200/90 text-[10px] mt-1 border-t border-slate-700/60 pt-1">
-                {hoveredObject.extra}
+                {selectedTooltip.extra}
               </div>
             </div>
           )}
@@ -1500,44 +1811,122 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
               Overhead Visibility
             </span>
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs [@container(max-width:295px)]:gap-x-3">
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <Switch size="small" checked={showPlanets} onChange={setShowPlanets} />
+              <div
+                data-testid="sky-switch-planets"
+                className="flex items-center gap-1.5 cursor-pointer text-slate-300"
+                onClick={(event) => rowToggle(event, () => setShowPlanets(!showPlanets))}
+              >
+                <span
+                  data-testid="sky-switch-target-planets"
+                  className="inline-flex min-h-6 min-w-6 items-center justify-center"
+                >
+                  <Switch
+                    size="small"
+                    checked={showPlanets}
+                    onChange={setShowPlanets}
+                    aria-label="Planets"
+                  />
+                </span>
                 <span>Planets ({scrubMode ? planetMarks.length : data?.visible_planets_count || 0})</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <Switch size="small" checked={showStars} onChange={setShowStars} />
+              </div>
+              <div
+                data-testid="sky-switch-vedic"
+                className="flex items-center gap-1.5 cursor-pointer text-slate-300"
+                onClick={(event) => rowToggle(event, () => setShowStars(!showStars))}
+              >
+                <span
+                  data-testid="sky-switch-target-vedic"
+                  className="inline-flex min-h-6 min-w-6 items-center justify-center"
+                >
+                  <Switch
+                    size="small"
+                    checked={showStars}
+                    onChange={setShowStars}
+                    aria-label="Vedic Stars"
+                  />
+                </span>
                 <span>Vedic Stars ({scrubMode ? sacredMarks.length : data?.visible_stars_count || 0})</span>
-              </label>
-              <label data-testid="sky-switch-catalogue" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <Switch size="small" checked={showCatalogue} onChange={setShowCatalogue} />
+              </div>
+              <div
+                data-testid="sky-switch-catalogue"
+                className="flex items-center gap-1.5 cursor-pointer text-slate-300"
+                onClick={(event) => rowToggle(event, () => setShowCatalogue(!showCatalogue))}
+              >
+                <span
+                  data-testid="sky-switch-target-catalogue"
+                  className="inline-flex min-h-6 min-w-6 items-center justify-center"
+                >
+                  <Switch
+                    size="small"
+                    checked={showCatalogue}
+                    onChange={setShowCatalogue}
+                    aria-label="Catalogue"
+                  />
+                </span>
                 <span>Catalogue</span>
                 {catalogueStatus === 'unavailable' && (
                   <span data-testid="sky-catalogue-unavailable" className="text-[10px] text-amber-300">
                     unavailable
                   </span>
                 )}
-              </label>
-              <label data-testid="sky-switch-figures" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <Switch size="small" checked={showFigures} onChange={setShowFigures} />
+              </div>
+              <div
+                data-testid="sky-switch-figures"
+                className="flex items-center gap-1.5 cursor-pointer text-slate-300"
+                onClick={(event) => rowToggle(event, () => setShowFigures(!showFigures))}
+              >
+                <span
+                  data-testid="sky-switch-target-figures"
+                  className="inline-flex min-h-6 min-w-6 items-center justify-center"
+                >
+                  <Switch
+                    size="small"
+                    checked={showFigures}
+                    onChange={setShowFigures}
+                    aria-label="Figures"
+                  />
+                </span>
                 <span>Figures</span>
                 {figuresStatus === 'unavailable' && (
                   <span data-testid="sky-figures-unavailable" className="text-[10px] text-amber-300">
                     unavailable
                   </span>
                 )}
-              </label>
-              <label data-testid="sky-switch-ecliptic" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <Switch size="small" checked={showEcliptic} onChange={setShowEcliptic} />
+              </div>
+              <div
+                data-testid="sky-switch-ecliptic"
+                className="flex items-center gap-1.5 cursor-pointer text-slate-300"
+                onClick={(event) => rowToggle(event, () => setShowEcliptic(!showEcliptic))}
+              >
+                <span
+                  data-testid="sky-switch-target-ecliptic"
+                  className="inline-flex min-h-6 min-w-6 items-center justify-center"
+                >
+                  <Switch
+                    size="small"
+                    checked={showEcliptic}
+                    onChange={setShowEcliptic}
+                    aria-label="Ecliptic"
+                  />
+                </span>
                 <span>Ecliptic</span>
-              </label>
-              <label data-testid="sky-see-through" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                <Switch
-                  size="small"
-                  checked={seeThrough}
-                  onChange={onSeeThroughChange}
-                  aria-label="See through daylight"
-                  aria-pressed={seeThrough}
-                />
+              </div>
+              <label
+                data-testid="sky-see-through"
+                className="flex items-center gap-1.5 cursor-pointer text-slate-300"
+              >
+                <span
+                  data-testid="sky-switch-target-see-through"
+                  className="inline-flex min-h-6 min-w-6 items-center justify-center"
+                >
+                  <Switch
+                    size="small"
+                    checked={seeThrough}
+                    onChange={onSeeThroughChange}
+                    aria-label="See through daylight"
+                    aria-pressed={seeThrough}
+                  />
+                </span>
                 <span>See through daylight</span>
               </label>
             </div>
@@ -1622,7 +2011,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       </div>
         </>
       )}
-      <div className="mt-4 space-y-1 text-[10px] leading-snug text-slate-500" data-testid="sky-layer-footer">
+      <div className="mt-4 space-y-1 text-[10px] leading-snug text-slate-400" data-testid="sky-layer-footer">
         <div className="flex flex-wrap items-center gap-2">
           <span>Star and planet positions</span>
           <ProvenanceTag kind="computed" />

@@ -253,7 +253,10 @@ describe('planet naked-eye dimming', () => {
         }),
       );
     });
-    expect(noteCount()).toBe(2); // card + hover tooltip
+    // Card + hover tooltip carry the note. W6-D2: mouse hover is deliberately
+    // NOT announced in the polite live region (only tap/keyboard selection is).
+    expect(noteCount()).toBeGreaterThanOrEqual(2);
+    expect(container.querySelector('[data-testid="sky-dome-live"]')?.textContent).toBe('');
   });
 
   it('see-through daylight restores every planet to full strength', async () => {
