@@ -10,6 +10,11 @@
  * Picking on the strip sets the shared observer; the dome takes no props and
  * follows the same store; the controls write the shared instant.
  *
+ * The caption names the selected MODE only (live, or scrubbed to an instant). It makes no claim that anything
+ * was computed: whether the strip, the dome, the readout or the controls have a value, are still loading or are
+ * unavailable is each one's own status, and each carries its own provenance. A card-level "computed" would be
+ * true only while every child happened to succeed (and the card cannot see the dome's own night-sky status).
+ *
  * The planetary-hour readout (W3-J) sits directly under the dome in the same
  * column: beside it, not inside it (the spec words it as "shown on the dome").
  * It follows the same store and takes no props.
@@ -21,7 +26,12 @@ import { WorldStrip } from '../2D/WorldStrip';
 import CelestialSkyDome from './CelestialSkyDome';
 import PlanetaryHourReadout from './PlanetaryHourReadout';
 import SkyTimeControls from './SkyTimeControls';
-import ProvenanceTag from './ProvenanceTag';
+
+/** "2026-10-24 09:00:00 UTC" from the store's normalised `...Z` instant (anything else is shown as given). */
+function formatUtc(at: string): string {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/.exec(at);
+  return match === null ? at : `${match[1]} ${match[2]} UTC`;
+}
 
 interface Props {
   className?: string;
@@ -46,15 +56,8 @@ export default function EarthSkyCard({ className = '' }: Props): React.ReactElem
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 className="text-sm font-bold text-white tracking-wider">EARTH &amp; SKY</h3>
-        {/* Same wording as the dome's own scrub banner: one description, not two. */}
-        <p
-          data-testid="earth-sky-caption"
-          className="text-[11px] leading-snug text-gray-400 flex flex-wrap items-center gap-1.5"
-        >
-          {scrubbed
-            ? 'Scrubbed: Sun, Moon, planets, stars: computed for that instant.'
-            : 'Live: positions computed for the current instant.'}
-          <ProvenanceTag kind="computed" />
+        <p data-testid="earth-sky-caption" className="text-[11px] leading-snug text-gray-400">
+          {scrubbed ? `Scrubbed to ${formatUtc(at)}.` : 'Live: following the current instant.'}
         </p>
       </header>
 

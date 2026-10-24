@@ -45,9 +45,14 @@ vi.mock('../../components/UI/PlanetaryHourReadout', async () => {
   };
 });
 
-// The strip's sun store would poll /earth-state; the strip has its own tests.
+// The strip's sun store would poll /earth-state; the strip has its own tests. The slice is controllable here so a
+// test can put the strip into loading / unavailable and look at the caption next to it.
+const EARTH = vi.hoisted(() => ({
+  idle: { status: 'idle' as const, state: null, fetchedAt: null, error: null },
+  current: null as null | Record<string, unknown>,
+}));
 vi.mock('../../stores/earthStateStore', () => ({
-  useEarthState: () => ({ status: 'idle', state: null, fetchedAt: null, error: null }),
+  useEarthState: () => EARTH.current ?? EARTH.idle,
 }));
 
 // BroadcastPanel's WebSocket hook would open a socket.
@@ -107,6 +112,7 @@ function reset(): void {
   useSkyStore.setState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG, label: undefined, at: null });
   DOME.calls.length = 0;
   READOUT.calls.length = 0;
+  EARTH.current = null;
 }
 
 beforeEach(() => {
@@ -188,15 +194,79 @@ describe('EarthSkyCard', () => {
     expect(container.querySelectorAll('canvas')).toHaveLength(1);
   });
 
-  it('the caption says live or scrubbed using the dome’s wording', () => {
-    const { container } = mount(<EarthSkyCard />);
-    const caption = () => container.querySelector('[data-testid="earth-sky-caption"]')?.textContent ?? '';
-    expect(caption()).toContain('Live: positions computed for the current instant.');
-    act(() => {
-      useSkyStore.getState().setAt('2026-10-24T09:00:00Z');
+  describe('the caption states the selected MODE and makes no claim about the data', () => {
+    const caption = (container: HTMLElement) =>
+      container.querySelector('[data-testid="earth-sky-caption"]') as HTMLElement;
+
+    it('live: says it follows the current instant', () => {
+      const { container } = mount(<EarthSkyCard />);
+      expect(caption(container).textContent).toBe('Live: following the current instant.');
     });
-    expect(caption()).toContain('Scrubbed: Sun, Moon, planets, stars: computed for that instant.');
-    expect(caption()).not.toContain('Live:');
+
+    it('scrubbed: names the instant in UTC', () => {
+      const { container } = mount(<EarthSkyCard />);
+      act(() => {
+        useSkyStore.getState().setAt('2026-10-24T09:00:00Z');
+      });
+      expect(caption(container).textContent).toBe('Scrubbed to 2026-10-24 09:00:00 UTC.');
+      act(() => {
+        useSkyStore.getState().setAt('2026-10-24T09:05:30.250Z');
+      });
+      expect(caption(container).textContent).toBe('Scrubbed to 2026-10-24 09:05:30 UTC.');
+      act(() => {
+        useSkyStore.getState().goLive();
+      });
+      expect(caption(container).textContent).toBe('Live: following the current instant.');
+    });
+
+    it('never says "computed" and carries no provenance tag, live or scrubbed: each child carries its own', () => {
+      const { container } = mount(<EarthSkyCard />);
+      expect(caption(container).textContent).not.toMatch(/computed/i);
+      expect(caption(container).querySelector('[data-provenance]')).toBeNull();
+      act(() => {
+        useSkyStore.getState().setAt('2026-10-24T09:00:00Z');
+      });
+      expect(caption(container).textContent).not.toMatch(/computed/i);
+      expect(caption(container).querySelector('[data-provenance]')).toBeNull();
+    });
+
+    it('live while the first live fetch failed: the strip says unavailable and the caption claims nothing', () => {
+      EARTH.current = { status: 'unavailable', state: null, fetchedAt: null, error: 'HTTP 503' };
+      const { container } = mount(<EarthSkyCard />);
+      expect(container.querySelector('[data-testid="world-strip-unavailable"]')).not.toBeNull();
+      expect(caption(container).textContent).toBe('Live: following the current instant.');
+      expect(caption(container).textContent).not.toMatch(/computed/i);
+      expect(caption(container).querySelector('[data-provenance]')).toBeNull();
+    });
+
+    it('scrubbed while the series is loading: the strip has no sun yet and the caption claims nothing', () => {
+      EARTH.current = { status: 'loading', state: null, fetchedAt: null, error: null, frozen: true };
+      const { container } = mount(<EarthSkyCard />);
+      act(() => {
+        useSkyStore.getState().setAt('2026-10-24T09:00:00Z');
+      });
+      expect(container.querySelector('[data-testid="world-strip-unavailable"]')).not.toBeNull();
+      expect(caption(container).textContent).toBe('Scrubbed to 2026-10-24 09:00:00 UTC.');
+      expect(caption(container).textContent).not.toMatch(/computed/i);
+      expect(caption(container).querySelector('[data-provenance]')).toBeNull();
+    });
+
+    it('scrubbed while the series came back unavailable: the strip says so and the caption claims nothing', () => {
+      EARTH.current = {
+        status: 'unavailable',
+        state: null,
+        fetchedAt: null,
+        error: 'ephemeris unavailable',
+        frozen: true,
+      };
+      const { container } = mount(<EarthSkyCard />);
+      act(() => {
+        useSkyStore.getState().setAt('2026-10-24T09:00:00Z');
+      });
+      expect(container.querySelector('[data-testid="world-strip-unavailable"]')).not.toBeNull();
+      expect(caption(container).textContent).not.toMatch(/computed/i);
+      expect(caption(container).querySelector('[data-provenance]')).toBeNull();
+    });
   });
 });
 
