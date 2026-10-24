@@ -10,64 +10,131 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, Tag, Button, Space, Switch, Tooltip, Spin, Badge } from 'antd';
 import { Compass, Sparkles, Moon, Sun, Eye, RefreshCw } from 'lucide-react';
-import { apiUrl } from '../../utils/api';
-import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
+import {
+  cancelNightSkyRequest,
+  fetchNightSky,
+  NightSkyError,
+  type NightSky as NightSkyPayload,
+  type NightSkyErrorKind,
+  type NightSkyPlanet,
+  type NightSkyStar,
+} from '../../lib/nightSkyClient';
+import { useSkyStore } from '../../stores/skyStore';
+import {
+  cancelSeriesRequest,
+  EarthSeriesError,
+  fetchSeries,
+  type EarthSeriesErrorKind,
+} from '../../lib/earthSeriesClient';
+import {
+  localScrubLst,
+  sacredHorizontal,
+  scrubWindow,
+  shouldRefetchSeries,
+  skyAtInstant,
+  type ScrubbedSky,
+} from '../../lib/skyScrub';
+import type { SkySeries } from '../../lib/skySeries';
+import { offsetMinutes, parseInstant } from '../../lib/skyClock';
+import {
+  julianDay,
+  loadConstellationLines,
+  loadStars,
+  type ConstellationLines,
+  type Star,
+} from '../../lib/sky';
+import { buildSkyLayer } from '../../lib/skyLayer';
+import ProvenanceTag from './ProvenanceTag';
 
-interface ObserverInfo {
-  latitude: number;
-  longitude: number;
-  local_sidereal_time_deg: number;
-  local_sidereal_time_hms: string;
+/** "+2h 05m" style scrub offset. */
+function formatOffset(minutes: number): string {
+  const sign = minutes < 0 ? '-' : '+';
+  const magnitude = Math.abs(Math.round(minutes));
+  const hours = Math.floor(magnitude / 60);
+  const mins = magnitude % 60;
+  return `${sign}${hours}h ${String(mins).padStart(2, '0')}m`;
 }
 
-interface MoonData {
-  altitude: number;
-  azimuth: number;
-  phase_name: string;
-  illumination: number;
-  visible: boolean;
-  sign: string;
+/** A planet drawn on the dome, with the position for the shown instant. */
+interface PlanetMark {
+  planet: NightSkyPlanet;
+  alt: number;
+  az: number;
 }
 
-interface PlanetData {
-  id: string;
-  name: string;
-  glyph: string;
-  altitude: number;
-  azimuth: number;
-  right_ascension: number;
-  declination: number;
-  longitude_ecliptic: number;
-  sign: string;
-  sign_glyph: string;
-  sign_degree: number;
-  visible: boolean;
-  color: string;
-  esoteric_quality: string;
+/** A sacred star drawn on the dome, with the position for the shown instant. */
+interface SacredMark {
+  star: NightSkyStar;
+  alt: number;
+  az: number;
 }
 
-interface StarData {
-  id: string;
-  name: string;
-  sanskrit: string;
-  altitude: number;
-  azimuth: number;
-  magnitude: number;
-  visible: boolean;
-  color: string;
-  nakshatra: string;
-  quality: string;
-  zenith_distance: number;
+/** A response is fresh enough to advance the catalogue clock for two polls. */
+const SKY_FRESH_MS = 2 * 60_000;
+
+/** Visible wording for the failure class shown in the unavailable state. */
+function reasonLabel(kind: string | null): string {
+  switch (kind) {
+    case 'invalid-response':
+      return 'the server answer was malformed';
+    case 'unavailable':
+      return 'the ephemeris is unavailable';
+    case 'network':
+      return 'the server could not be reached';
+    case 'invalid-input':
+      return 'the observer request was rejected';
+    case 'http':
+      return 'the server returned an error';
+    case 'stale':
+      return 'a newer request replaced this one';
+    default:
+      return 'an unknown error';
+  }
 }
 
-interface NightSkyPayload {
-  timestamp_utc: string;
-  observer: ObserverInfo;
-  moon: MoonData;
-  planets: PlanetData[];
-  visible_planets_count: number;
-  sacred_stars: StarData[];
-  visible_stars_count: number;
+/** Mean sidereal rate, degrees per second. The row pins this literal. */
+const SIDEREAL_DEG_PER_SEC = 0.0041781;
+const LAYER_LST_STEP_DEG = 0.02;
+
+/** Mean of the decorative twinkle sine (0.8 + 0.2*sin): the still value. */
+const TWINKLE_REST_ALPHA = 0.8;
+/** Fastest the decorative twinkle may redraw (spec budget: 30 fps). */
+const TWINKLE_FRAME_MS = 33;
+/** A still sky redraws at 1 Hz, and with reduced motion nothing runs faster. */
+const STILL_REDRAW_MS = 1000;
+/** Passed to the layer builder when the constellation figures are unavailable. */
+const EMPTY_LINES: ConstellationLines = { crosswalk: '', tolerance_arcsec: 0, constellations: {} };
+
+/**
+ * True when the user's system asks for reduced motion. Read live: a `change`
+ * listener (removed on unmount) lets the dome calm down without a reload.
+ */
+function usePrefersReducedMotion(): boolean {
+  const query = '(prefers-reduced-motion: reduce)';
+  const [reduced, setReduced] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia(query).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia(query);
+    setReduced(media.matches);
+    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  }, []);
+
+  return reduced;
+}
+
+function wrap360(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
+function angleDelta(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
 }
 
 interface Props {
@@ -76,15 +143,39 @@ interface Props {
   className?: string;
 }
 
-export default function CelestialSkyDome({
-  latitude = DEFAULT_LAT,
-  longitude = DEFAULT_LNG,
-  className = '',
-}: Props): React.ReactElement {
+export default function CelestialSkyDome({ latitude, longitude, className = '' }: Props): React.ReactElement {
+  // Props still win for callers that pin a place (all existing callers);
+  // otherwise the shared observer store (globe/strip pick) moves the dome.
+  const storeLat = useSkyStore((state) => state.lat);
+  const storeLng = useSkyStore((state) => state.lng);
+  const scrubAtIso = useSkyStore((state) => state.at);
+  const observerLat = latitude ?? storeLat;
+  const observerLng = longitude ?? storeLng;
+  const scrubMode = scrubAtIso !== null;
+  const scrubAtMs = useMemo(
+    () => (scrubAtIso === null ? null : parseInstant(scrubAtIso)),
+    [scrubAtIso],
+  );
+
   const [data, setData] = useState<NightSkyPayload | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [status, setStatus] = useState<'loading' | 'ok' | 'stale' | 'unavailable'>('loading');
+  const [errorKind, setErrorKind] = useState<NightSkyErrorKind | null>(null);
+  const [lastGoodAt, setLastGoodAt] = useState<number | null>(null);
+  const [scrubStatus, setScrubStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
+  const [scrubErrorKind, setScrubErrorKind] = useState<EarthSeriesErrorKind | null>(null);
+  const [scrubFetchToken, setScrubFetchToken] = useState<number>(0);
+  const [scrubVersion, setScrubVersion] = useState<number>(0);
   const [showStars, setShowStars] = useState<boolean>(true);
   const [showPlanets, setShowPlanets] = useState<boolean>(true);
+  const [showCatalogue, setShowCatalogue] = useState<boolean>(true);
+  const [showFigures, setShowFigures] = useState<boolean>(true);
+  const [showEcliptic, setShowEcliptic] = useState<boolean>(true);
+  const [catalogue, setCatalogue] = useState<Star[] | null>(null);
+  const [figureLines, setFigureLines] = useState<ConstellationLines | null>(null);
+  const [catalogueStatus, setCatalogueStatus] = useState<'pending' | 'ready' | 'unavailable'>('pending');
+  const [figuresStatus, setFiguresStatus] = useState<'pending' | 'ready' | 'unavailable'>('pending');
+  const reducedMotion = usePrefersReducedMotion();
   const [hoveredObject, setHoveredObject] = useState<{
     name: string;
     sub: string;
@@ -96,27 +187,237 @@ export default function CelestialSkyDome({
   } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const skyClockRef = useRef<{ lst: number; fetchedAt: number } | null>(null);
+  const lastGoodRef = useRef<boolean>(false);
+  const frozenAtRef = useRef<number | null>(null);
+  const seriesRef = useRef<{ series: SkySeries; fetchedAtMs: number } | null>(null);
+  const seriesGenerationRef = useRef<number>(0);
+  const scrubModeRef = useRef<boolean>(false);
+  const lastEdgeShownRef = useRef<number | null>(null);
+  scrubModeRef.current = scrubMode;
+  const layerCacheRef = useRef<{
+    canvas: HTMLCanvasElement | null;
+    lst: number;
+    size: number;
+    flags: string;
+    lat: number;
+    epoch: number;
+    buildMs: number;
+  }>({ canvas: null, lst: Number.NaN, size: -1, flags: '', lat: Number.NaN, epoch: Number.NaN, buildMs: 0 });
 
-  const fetchSky = async () => {
+  const loadSky = async () => {
     setLoading(true);
     try {
-      const res = await fetch(apiUrl(`/astrology/night-sky?latitude=${latitude}&longitude=${longitude}`));
-      if (res.ok) {
-        const json = (await res.json()) as NightSkyPayload;
-        setData(json);
+      const sky = await fetchNightSky(observerLat, observerLng);
+      skyClockRef.current = {
+        lst: sky.observer.local_sidereal_time_deg,
+        fetchedAt: performance.now(),
+      };
+      lastGoodRef.current = true;
+      frozenAtRef.current = null;
+      setData(sky);
+      setLastGoodAt(Date.now());
+      setStatus('ok');
+      setErrorKind(null);
+    } catch (error) {
+      // A superseded answer is not a failure: a newer request owns the dome.
+      if (error instanceof NightSkyError && error.kind === 'stale') return;
+      setErrorKind(error instanceof NightSkyError ? error.kind : 'network');
+      if (lastGoodRef.current) {
+        // Freeze the catalogue clock where it was when the answer failed.
+        frozenAtRef.current = performance.now();
+        setStatus('stale');
+      } else {
+        setStatus('unavailable');
       }
-    } catch {
-      /* best effort fallback */
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSky();
-    const interval = setInterval(fetchSky, 60000);
-    return () => clearInterval(interval);
-  }, [latitude, longitude]);
+    void loadSky();
+    const interval = setInterval(() => {
+      if (!document.hidden && !scrubModeRef.current) void loadSky();
+    }, 60000);
+    const onVisibilityChange = () => {
+      if (!document.hidden && !scrubModeRef.current) void loadSky();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      // A place change or unmount must not leave the old request running.
+      cancelNightSkyRequest();
+    };
+  }, [observerLat, observerLng]);
+
+  // Scrubbing stops the live poll; leaving scrub resumes it immediately.
+  const wasScrubbingRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (scrubMode) {
+      wasScrubbingRef.current = true;
+      return;
+    }
+    if (!wasScrubbingRef.current) return;
+    wasScrubbingRef.current = false;
+    void loadSky();
+  }, [scrubMode]);
+
+  // One series covers the whole +-24 h scrub range (step 603 s, 288 samples).
+  useEffect(() => {
+    if (!scrubMode) {
+      seriesRef.current = null;
+      lastEdgeShownRef.current = null;
+      cancelSeriesRequest();
+      setScrubStatus('idle');
+      setScrubErrorKind(null);
+      return;
+    }
+    const generation = (seriesGenerationRef.current += 1);
+    const window = scrubWindow(Date.now());
+    let live = true;
+    setScrubStatus('loading');
+    fetchSeries(window.startIso, window.endIso, window.stepSeconds)
+      .then((series) => {
+        if (!live || generation !== seriesGenerationRef.current) return;
+        seriesRef.current = { series, fetchedAtMs: Date.now() };
+        setScrubStatus('ready');
+        setScrubErrorKind(null);
+        setScrubVersion((version) => version + 1);
+      })
+      .catch((error: unknown) => {
+        if (!live || generation !== seriesGenerationRef.current) return;
+        if (error instanceof EarthSeriesError && error.kind === 'stale') return;
+        setScrubStatus('unavailable');
+        setScrubErrorKind(error instanceof EarthSeriesError ? error.kind : 'http');
+        setScrubVersion((version) => version + 1);
+      });
+    return () => {
+      live = false;
+      cancelSeriesRequest();
+    };
+  }, [scrubMode, observerLat, observerLng, scrubFetchToken]);
+
+  // Refetch when the shown instant nears an edge or the window ages out.
+  useEffect(() => {
+    if (!scrubMode || scrubAtMs === null || scrubStatus !== 'ready') return;
+    const cached = seriesRef.current;
+    if (cached === null) return;
+    // A window centred on the real now still has the extreme scrub instant at
+    // its edge, so "near an edge" alone would refetch forever. Allow one
+    // edge-refetch per shown instant; the age rule still forces a refresh.
+    const moved = lastEdgeShownRef.current !== scrubAtMs;
+    lastEdgeShownRef.current = scrubAtMs;
+    if (!shouldRefetchSeries(cached.series, cached.fetchedAtMs, scrubAtMs, Date.now())) return;
+    if (!moved && Date.now() - cached.fetchedAtMs < 30 * 60_000) return;
+    setScrubFetchToken((token) => token + 1);
+  }, [scrubMode, scrubAtMs, scrubStatus, scrubVersion]);
+
+  // "Fresh enough": two poll periods after the last good answer, mark stale so
+  // the catalogue clock stops pretending the sky is current.
+  useEffect(() => {
+    if (scrubMode || status !== 'ok' || lastGoodAt === null) return;
+    const remaining = Math.max(0, lastGoodAt + SKY_FRESH_MS - Date.now());
+    const timeout = window.setTimeout(() => setStatus('stale'), remaining);
+    return () => window.clearTimeout(timeout);
+  }, [scrubMode, status, lastGoodAt]);
+
+  useEffect(() => {
+    let live = true;
+    // The two lazy chunks load independently: one failure must not take the
+    // other layer (or the computed ecliptic) down with it.
+    loadStars()
+      .then((stars) => {
+        if (!live) return;
+        setCatalogue(stars);
+        setCatalogueStatus('ready');
+      })
+      .catch(() => {
+        if (!live) return;
+        setCatalogueStatus('unavailable');
+      });
+    loadConstellationLines()
+      .then((lines) => {
+        if (!live) return;
+        setFigureLines(lines);
+        setFiguresStatus('ready');
+      })
+      .catch(() => {
+        if (!live) return;
+        setFiguresStatus('unavailable');
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const scrubSacredInputs = useMemo(
+    () =>
+      (data?.sacred_stars ?? []).map((star) => ({
+        id: star.id,
+        ra_j2000: star.ra_j2000,
+        dec_j2000: star.dec_j2000,
+      })),
+    [data],
+  );
+
+  // The scrubbed sky comes from one decoded series; the fallback (series
+  // unavailable) still rotates the catalogue with local mean sidereal time.
+  const scrubbed: ScrubbedSky | null = useMemo(() => {
+    const cached = seriesRef.current;
+    if (!scrubMode || scrubAtMs === null || cached === null) return null;
+    try {
+      return skyAtInstant(cached.series, scrubAtMs, observerLat, observerLng, scrubSacredInputs);
+    } catch {
+      // The store normally clamps to +-24 h; an out-of-window instant must not
+      // crash the dome — fall back to the local-sidereal star path.
+      return null;
+    }
+  }, [scrubMode, scrubAtMs, observerLat, observerLng, scrubSacredInputs, scrubVersion]);
+
+  const scrubFallback = useMemo(() => {
+    if (!scrubMode || scrubAtMs === null || scrubbed !== null) return null;
+    const jd = julianDay(new Date(scrubAtMs));
+    const lst = localScrubLst(scrubAtMs, observerLng);
+    const sacred = sacredHorizontal(scrubSacredInputs, lst, observerLat, jd);
+    return { jd, lst, sacred: sacred.positions, sacredMissing: sacred.missing };
+  }, [scrubMode, scrubAtMs, scrubbed, observerLng, observerLat, scrubSacredInputs]);
+
+  const planetMarks = useMemo<PlanetMark[]>(() => {
+    if (!data) return [];
+    const marks: PlanetMark[] = [];
+    for (const planet of data.planets) {
+      if (scrubMode) {
+        const position = scrubbed?.positions[planet.id];
+        if (!position || position.alt <= 0) continue;
+        marks.push({ planet, alt: position.alt, az: position.az });
+      } else if (planet.visible) {
+        marks.push({ planet, alt: planet.altitude, az: planet.azimuth });
+      }
+    }
+    return marks;
+  }, [data, scrubMode, scrubbed]);
+
+  const sacredMarks = useMemo<SacredMark[]>(() => {
+    if (!data) return [];
+    const metadata = new Map(data.sacred_stars.map((star) => [star.id, star]));
+    const positions = scrubMode
+      ? (scrubbed?.sacred ?? scrubFallback?.sacred ?? [])
+      : data.sacred_stars
+          .filter((star) => star.visible)
+          .map((star) => ({ id: star.id, alt: star.altitude, az: star.azimuth }));
+    const marks: SacredMark[] = [];
+    for (const position of positions) {
+      if (scrubMode && position.alt <= 0) continue;
+      const star = metadata.get(position.id);
+      if (!star) continue;
+      marks.push({ star, alt: position.alt, az: position.az });
+    }
+    return marks;
+  }, [data, scrubMode, scrubbed, scrubFallback]);
+
+  const sacredMissing = scrubbed?.sacredMissing ?? scrubFallback?.sacredMissing ?? false;
 
   // Canvas drawing loop
   useEffect(() => {
@@ -126,13 +427,18 @@ export default function CelestialSkyDome({
     if (!ctx) return;
 
     let animId = 0;
+    let lastDrawMs = Number.NEGATIVE_INFINITY;
+    const twinkles = !reducedMotion && showStars && sacredMarks.length > 0;
+    const drawIntervalMs = twinkles ? TWINKLE_FRAME_MS : STILL_REDRAW_MS;
 
     const render = (time: number) => {
+      const frameStarted = performance.now();
       const dpr = window.devicePixelRatio || 1;
-      const size = Math.min(canvas.clientWidth || 500, canvas.clientHeight || 500);
-      if (canvas.width !== size * dpr || canvas.height !== size * dpr) {
-        canvas.width = size * dpr;
-        canvas.height = size * dpr;
+      const size = Math.max(1, Math.round(Math.min(canvas.clientWidth || 500, canvas.clientHeight || 500)));
+      const backing = Math.round(size * dpr);
+      if (canvas.width !== backing || canvas.height !== backing) {
+        canvas.width = backing;
+        canvas.height = backing;
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size, size);
@@ -211,12 +517,136 @@ export default function CelestialSkyDome({
         return [px, py];
       };
 
+      // Catalogue, figures, and ecliptic share one offscreen canvas. The
+      // animation loop only blits it. Rebuild when the observer latitude,
+      // the epoch, the size, the layer flags or the sidereal time (>= 0.02°)
+      // changed. The ecliptic is computed independently of the two lazy
+      // chunks, so a failed chunk cannot take it down.
+      const anyLayer = showCatalogue || showFigures || showEcliptic;
+      if (
+        anyLayer &&
+        typeof ctx.drawImage === 'function' &&
+        typeof ctx.putImageData === 'function'
+      ) {
+        const flags = `${showCatalogue ? 1 : 0}${showFigures ? 1 : 0}${showEcliptic ? 1 : 0}`;
+        let lst: number;
+        let jd: number;
+        let epochDay: number;
+        let layerLat: number;
+        if (scrubMode && scrubAtMs !== null) {
+          // No payload in scrub mode: the series is computed for the shown
+          // store/props place.
+          layerLat = observerLat;
+          if (scrubbed !== null) {
+            lst = scrubbed.lst;
+            jd = scrubbed.jd;
+          } else {
+            // The series is loading/unavailable: the catalogue still rotates
+            // from local mean sidereal time (see localScrubLst).
+            lst = localScrubLst(scrubAtMs, observerLng);
+            jd = julianDay(new Date(scrubAtMs));
+          }
+          epochDay = Math.floor(scrubAtMs / 86400000);
+        } else {
+          // Live mode: everything payload-derived uses the payload's own
+          // place. The requested observer may have moved on while the previous
+          // answer is still on screen; drawing the new latitude with the old
+          // LST/planets would be a sky that belongs to no place.
+          layerLat = data.observer.latitude;
+          const clock = skyClockRef.current;
+          const nowMs = performance.now();
+          // Advance with the wall clock only while the answer is fresh and no
+          // later request has failed; otherwise the layer must stop drifting.
+          const capMs = Math.min(
+            nowMs,
+            frozenAtRef.current ?? nowMs,
+            clock === null ? nowMs : clock.fetchedAt + SKY_FRESH_MS,
+          );
+          const elapsedSec = clock === null ? 0 : Math.max(0, capMs - clock.fetchedAt) / 1000;
+          lst = wrap360(
+            (clock === null ? data.observer.local_sidereal_time_deg : clock.lst) +
+              SIDEREAL_DEG_PER_SEC * elapsedSec,
+          );
+          const parsedMs = Date.parse(data.timestamp_utc);
+          const validMs = Number.isFinite(parsedMs);
+          jd = validMs ? julianDay(new Date(parsedMs)) : julianDay(new Date());
+          // Whole-day epoch: precession moves ~50 arcsec/year, finer than the
+          // catalogue, but a date change must still rebuild the layer.
+          epochDay = Math.floor((validMs ? parsedMs : Date.now()) / 86400000);
+        }
+        const cache = layerCacheRef.current;
+        const stale =
+          cache.canvas === null ||
+          cache.size !== size ||
+          cache.flags !== flags ||
+          cache.lat !== layerLat ||
+          cache.epoch !== epochDay ||
+          Number.isNaN(cache.lst) ||
+          angleDelta(lst, cache.lst) >= LAYER_LST_STEP_DEG;
+        if (stale) {
+          const started = performance.now();
+          const built = buildSkyLayer({
+            stars: catalogue ?? [],
+            lines: figureLines ?? EMPTY_LINES,
+            lstDeg: lst,
+            latDeg: layerLat,
+            jd,
+            size,
+            showCatalogue,
+            showFigures,
+            showEcliptic,
+          });
+          if (built.stars.length === size * size * 4 && typeof ImageData === 'function') {
+            if (cache.canvas === null) cache.canvas = document.createElement('canvas');
+            if (cache.canvas.width !== size || cache.canvas.height !== size) {
+              cache.canvas.width = size;
+              cache.canvas.height = size;
+            }
+            const off = cache.canvas.getContext('2d');
+            if (off && typeof off.putImageData === 'function') {
+              off.putImageData(new ImageData(built.stars, size, size), 0, 0);
+              off.beginPath();
+              for (let i = 0; i < built.figures.length; i += 1) {
+                const seg = built.figures[i];
+                off.moveTo(seg.x1, seg.y1);
+                off.lineTo(seg.x2, seg.y2);
+              }
+              off.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+              off.lineWidth = 1;
+              off.setLineDash([]);
+              off.stroke();
+              off.beginPath();
+              for (let i = 0; i < built.ecliptic.length; i += 1) {
+                const seg = built.ecliptic[i];
+                off.moveTo(seg.x1, seg.y1);
+                off.lineTo(seg.x2, seg.y2);
+              }
+              off.strokeStyle = 'rgba(251, 191, 36, 0.75)';
+              off.lineWidth = 1;
+              off.setLineDash([6, 5]);
+              off.stroke();
+              off.setLineDash([]);
+              cache.lst = lst;
+              cache.size = size;
+              cache.flags = flags;
+              cache.lat = layerLat;
+              cache.epoch = epochDay;
+              cache.buildMs = performance.now() - started;
+            }
+          }
+        }
+        if (cache.canvas !== null) ctx.drawImage(cache.canvas, 0, 0);
+        if (canvas.dataset) canvas.dataset.layerMs = cache.buildMs.toFixed(3);
+      }
+
       // Draw Sacred Stars
-      if (showStars && data.sacred_stars) {
-        data.sacred_stars.forEach((s, idx) => {
-          if (!s.visible) return;
-          const [sx, sy] = project(s.altitude, s.azimuth);
-          const twinkle = 0.8 + 0.2 * Math.sin(time * 0.003 + idx * 1.5);
+      if (showStars) {
+        sacredMarks.forEach((mark, idx) => {
+          const s = mark.star;
+          const [sx, sy] = project(mark.alt, mark.az);
+          const twinkle = reducedMotion
+            ? TWINKLE_REST_ALPHA
+            : 0.8 + 0.2 * Math.sin(time * 0.003 + idx * 1.5);
           const dotSize = Math.max(2, 4.5 - s.magnitude * 0.8);
 
           // Star glow
@@ -243,10 +673,10 @@ export default function CelestialSkyDome({
       }
 
       // Draw Planets
-      if (showPlanets && data.planets) {
-        data.planets.forEach((p) => {
-          if (!p.visible) return;
-          const [px, py] = project(p.altitude, p.azimuth);
+      if (showPlanets) {
+        planetMarks.forEach((mark) => {
+          const p = mark.planet;
+          const [px, py] = project(mark.alt, mark.az);
 
           // Planet glow aura
           ctx.beginPath();
@@ -273,20 +703,77 @@ export default function CelestialSkyDome({
           ctx.textBaseline = 'middle';
           ctx.fillText(p.glyph, px, py);
 
-          // Name & Sign tag
+          // Name & Sign tag (the sign is as-of-now, so it is omitted when scrubbed)
           ctx.font = '9px sans-serif';
           ctx.textAlign = 'left';
           ctx.fillStyle = p.color;
-          ctx.fillText(`${p.name} ${p.sign_glyph}`, px + 10, py - 4);
+          ctx.fillText(scrubMode ? p.name : `${p.name} ${p.sign_glyph}`, px + 10, py - 4);
         });
       }
 
-      animId = requestAnimationFrame(render);
+      if (canvas.dataset) {
+        canvas.dataset.frameMs = (performance.now() - frameStarted).toFixed(3);
+        canvas.dataset.scrub = scrubMode ? 'true' : 'false';
+        canvas.dataset.scrubStatus = scrubMode ? scrubStatus : 'idle';
+        canvas.dataset.scrubPlanets = String(planetMarks.length);
+        canvas.dataset.scrubSacred = String(sacredMarks.length);
+      }
     };
 
-    animId = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animId);
-  }, [data, showStars, showPlanets]);
+    // The decorative twinkle runs at <= 30 fps; a still sky redraws at 1 Hz.
+    // rAF is used for the normal path because the browser pauses it while the
+    // tab is hidden; a `visibilitychange` redraw makes the sky current on return.
+    const draw = (time: number) => {
+      render(time);
+      lastDrawMs = time;
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) return;
+      draw(performance.now());
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    if (reducedMotion) {
+      draw(performance.now());
+      const redrawId = window.setInterval(() => {
+        if (!document.hidden) draw(performance.now());
+      }, STILL_REDRAW_MS);
+      return () => {
+        window.clearInterval(redrawId);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+      };
+    }
+
+    draw(0);
+    const frame = (time: number) => {
+      animId = window.requestAnimationFrame(frame);
+      if (document.hidden) return;
+      if (time - lastDrawMs >= drawIntervalMs) draw(time);
+    };
+    animId = window.requestAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(animId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [
+    data,
+    showStars,
+    showPlanets,
+    showCatalogue,
+    showFigures,
+    showEcliptic,
+    catalogue,
+    figureLines,
+    reducedMotion,
+    status,
+    scrubMode,
+    scrubAtMs,
+    scrubStatus,
+    scrubbed,
+    scrubFallback,
+    planetMarks,
+    sacredMarks,
+  ]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -307,15 +794,17 @@ export default function CelestialSkyDome({
     };
 
     // Check planets first
-    for (const p of data.planets) {
-      if (!p.visible) continue;
-      const [px, py] = project(p.altitude, p.azimuth);
+    for (const mark of planetMarks) {
+      const p = mark.planet;
+      const [px, py] = project(mark.alt, mark.az);
       if (Math.hypot(mx - px, my - py) < 14) {
         setHoveredObject({
-          name: `${p.name} ${p.glyph} in ${p.sign} ${p.sign_glyph}`,
-          sub: `Alt: ${p.altitude}° · Az: ${p.azimuth}°`,
-          alt: p.altitude,
-          az: p.azimuth,
+          name: scrubMode
+            ? `${p.name} ${p.glyph}`
+            : `${p.name} ${p.glyph} in ${p.sign} ${p.sign_glyph}`,
+          sub: `Alt: ${mark.alt}° · Az: ${mark.az}°`,
+          alt: mark.alt,
+          az: mark.az,
           extra: p.esoteric_quality,
           x: mx,
           y: my,
@@ -325,15 +814,15 @@ export default function CelestialSkyDome({
     }
 
     // Check stars
-    for (const s of data.sacred_stars) {
-      if (!s.visible) continue;
-      const [sx, sy] = project(s.altitude, s.azimuth);
+    for (const mark of sacredMarks) {
+      const s = mark.star;
+      const [sx, sy] = project(mark.alt, mark.az);
       if (Math.hypot(mx - sx, my - sy) < 12) {
         setHoveredObject({
           name: `${s.name}`,
-          sub: `${s.nakshatra} · Alt: ${s.altitude}° · Az: ${s.azimuth}°`,
-          alt: s.altitude,
-          az: s.azimuth,
+          sub: `${s.nakshatra} · Alt: ${mark.alt}° · Az: ${mark.az}°`,
+          alt: mark.alt,
+          az: mark.az,
           extra: s.quality,
           x: mx,
           y: my,
@@ -344,6 +833,25 @@ export default function CelestialSkyDome({
 
     setHoveredObject(null);
   };
+
+  const failedLayers: string[] = [];
+  if (catalogueStatus === 'unavailable') failedLayers.push('stars');
+  if (figuresStatus === 'unavailable') failedLayers.push('figures');
+  const skyLayersToken =
+    failedLayers.length > 0
+      ? `${failedLayers.join('+')}-unavailable`
+      : catalogueStatus === 'ready' && figuresStatus === 'ready'
+        ? 'ready'
+        : 'pending';
+
+  const staleAgeSeconds =
+    lastGoodAt === null ? null : Math.max(0, Math.round((Date.now() - lastGoodAt) / 1000));
+  const scrubOffset = scrubAtIso === null ? null : formatOffset(offsetMinutes(scrubAtIso, Date.now()));
+  const payloadIsOtherPlace =
+    !scrubMode &&
+    data !== null &&
+    (Math.abs(data.observer.latitude - observerLat) > 1e-6 ||
+      Math.abs(data.observer.longitude - observerLng) > 1e-6);
 
   return (
     <Card
@@ -358,7 +866,7 @@ export default function CelestialSkyDome({
             </span>
             <Tag color="purple">Horizon Alt/Az</Tag>
           </div>
-          {data && (
+          {data && !scrubMode && (
             <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
               <span>LST: {data.observer.local_sidereal_time_hms}</span>
               <span className="flex items-center gap-1 text-amber-300">
@@ -374,19 +882,90 @@ export default function CelestialSkyDome({
           <Button
             size="small"
             icon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
-            onClick={fetchSky}
+            onClick={() => void loadSky()}
           >
             Refresh
           </Button>
         </Space>
       }
     >
-      <div className="flex flex-col lg:flex-row gap-6 items-center">
+      {scrubMode && scrubAtMs !== null && (
+        <div
+          data-testid="sky-scrub-banner"
+          className="mb-4 rounded-lg border border-sky-500/30 bg-sky-950/20 px-3 py-2 text-[11px] leading-snug text-sky-200"
+        >
+          <div>
+            Scrubbed: {new Date(scrubAtMs).toISOString()} ({scrubOffset} from now). Sun, Moon,
+            planets, stars: computed for that instant. Moon phase, zodiac signs and sacred-star
+            notes: as of now.
+          </div>
+          {scrubStatus === 'loading' && (
+            <div data-testid="sky-scrub-loading" className="mt-1 text-sky-300/80">
+              Loading the 48 h time series…
+            </div>
+          )}
+          {scrubStatus === 'unavailable' && (
+            <div data-testid="sky-scrub-unavailable" data-reason={scrubErrorKind ?? 'http'} className="mt-1 text-amber-300">
+              Time series unavailable ({reasonLabel(scrubErrorKind)}): planets are not drawn; stars
+              use local sidereal time.
+            </div>
+          )}
+          {sacredMissing && (
+            <div data-testid="sky-scrub-sacred-unavailable" className="mt-1 text-amber-300">
+              Sacred stars have no J2000 coordinates yet, so they are not drawn while scrubbing.
+            </div>
+          )}
+        </div>
+      )}
+      {!data ? (
+        status === 'unavailable' ? (
+          <div
+            data-testid="sky-unavailable"
+            data-reason={errorKind ?? 'unknown'}
+            className="rounded-xl border border-amber-500/30 bg-amber-950/20 px-4 py-6 text-center"
+          >
+            <div className="text-sm font-medium text-amber-200">Night sky unavailable</div>
+            <div data-testid="sky-unavailable-reason" className="mt-1 text-xs text-amber-200/80">
+              {reasonLabel(errorKind)}
+            </div>
+            <p className="mt-3 text-[11px] text-slate-400">
+              No positions are shown rather than a blank or invented sky. The next refresh will try
+              again.
+            </p>
+          </div>
+        ) : (
+          <div data-testid="sky-loading" className="rounded-xl border border-slate-800 px-4 py-6 text-center text-xs text-slate-400">
+            Loading the night sky…
+          </div>
+        )
+      ) : (
+        <>
+          {payloadIsOtherPlace && (
+            <div
+              data-testid="sky-updating-place"
+              className="mb-4 rounded-lg border border-sky-500/30 bg-sky-950/20 px-3 py-2 text-[11px] text-sky-200"
+            >
+              Updating place… still showing the previous sky until the new answer arrives.
+            </div>
+          )}
+          {status === 'stale' && !scrubMode && (
+            <div
+              data-testid="sky-stale"
+              data-reason={errorKind ?? 'stale'}
+              className="mb-4 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-[11px] text-amber-200"
+            >
+              Planets and sacred stars are stale — last good {staleAgeSeconds ?? '?'} s ago; not
+              current.
+            </div>
+          )}
+
+          <div className="flex flex-col lg:flex-row gap-6 items-center">
         {/* Sky Dome Canvas */}
         <div className="relative w-full max-w-[440px] aspect-square flex items-center justify-center">
           <canvas
             ref={canvasRef}
             data-testid="celestial-sky-dome-canvas"
+            data-sky-layers={skyLayersToken}
             className="w-full h-full cursor-crosshair rounded-full"
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setHoveredObject(null)}
@@ -413,23 +992,45 @@ export default function CelestialSkyDome({
             <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">
               Overhead Visibility
             </span>
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex flex-wrap items-center gap-4 text-xs">
               <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
                 <Switch size="small" checked={showPlanets} onChange={setShowPlanets} />
-                <span>Planets ({data?.visible_planets_count || 0})</span>
+                <span>Planets ({scrubMode ? planetMarks.length : data?.visible_planets_count || 0})</span>
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
                 <Switch size="small" checked={showStars} onChange={setShowStars} />
-                <span>Vedic Stars ({data?.visible_stars_count || 0})</span>
+                <span>Vedic Stars ({scrubMode ? sacredMarks.length : data?.visible_stars_count || 0})</span>
+              </label>
+              <label data-testid="sky-switch-catalogue" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                <Switch size="small" checked={showCatalogue} onChange={setShowCatalogue} />
+                <span>Catalogue</span>
+                {catalogueStatus === 'unavailable' && (
+                  <span data-testid="sky-catalogue-unavailable" className="text-[10px] text-amber-300">
+                    unavailable
+                  </span>
+                )}
+              </label>
+              <label data-testid="sky-switch-figures" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                <Switch size="small" checked={showFigures} onChange={setShowFigures} />
+                <span>Figures</span>
+                {figuresStatus === 'unavailable' && (
+                  <span data-testid="sky-figures-unavailable" className="text-[10px] text-amber-300">
+                    unavailable
+                  </span>
+                )}
+              </label>
+              <label data-testid="sky-switch-ecliptic" className="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                <Switch size="small" checked={showEcliptic} onChange={setShowEcliptic} />
+                <span>Ecliptic</span>
               </label>
             </div>
           </div>
 
           {/* Active Visible Planets Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {data?.planets
-              .filter((p) => p.visible)
-              .map((p) => (
+            {planetMarks.map((mark) => {
+              const p = mark.planet;
+              return (
                 <div
                   key={p.id}
                   className="rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-xs flex flex-col justify-between"
@@ -439,14 +1040,15 @@ export default function CelestialSkyDome({
                       {p.name} {p.glyph}
                     </span>
                     <Tag color="default" className="text-[10px] m-0">
-                      Alt {p.altitude}°
+                      Alt {mark.alt}°
                     </Tag>
                   </div>
                   <div className="text-[10px] text-slate-400 mt-1">
-                    {p.sign} {p.sign_glyph} · Az {p.azimuth}°
+                    {scrubMode ? '' : `${p.sign} ${p.sign_glyph} · `}Az {mark.az}°
                   </div>
                 </div>
-              ))}
+              );
+            })}
           </div>
 
           {/* Sacred Stars & Nakshatras */}
@@ -456,10 +1058,10 @@ export default function CelestialSkyDome({
               <span>Visible Vedic Nakshatras Overhead:</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {data?.sacred_stars
-                .filter((s) => s.visible)
-                .map((s) => (
-                  <Tooltip key={s.id} title={`${s.quality} (Azimuth: ${s.azimuth}°, Alt: ${s.altitude}°)`}>
+              {sacredMarks.map((mark) => {
+                const s = mark.star;
+                return (
+                  <Tooltip key={s.id} title={`${s.quality} (Azimuth: ${mark.az}°, Alt: ${mark.alt}°)`}>
                     <Tag
                       color="purple"
                       className="cursor-help py-0.5 px-2 text-xs border border-purple-500/30"
@@ -468,13 +1070,39 @@ export default function CelestialSkyDome({
                       <span className="font-semibold" style={{ color: s.color }}>
                         {s.name.split(' ')[0]}
                       </span>{' '}
-                      <span className="opacity-75 font-mono text-[10px]">+{s.altitude}°</span>
+                      <span className="opacity-75 font-mono text-[10px]">+{mark.alt}°</span>
                     </Tag>
                   </Tooltip>
-                ))}
+                );
+              })}
             </div>
           </div>
         </div>
+      </div>
+        </>
+      )}
+      <div className="mt-4 space-y-1 text-[10px] leading-snug text-slate-500" data-testid="sky-layer-footer">
+        <div className="flex flex-wrap items-center gap-2">
+          <span>Star and planet positions</span>
+          <ProvenanceTag kind="computed" />
+          <span>Ecliptic line</span>
+          <ProvenanceTag kind="computed" />
+          <span>Constellation figures</span>
+          <ProvenanceTag kind="decorative" />
+          <span>Twinkle</span>
+          <ProvenanceTag kind="decorative" />
+        </div>
+        <p>
+          BSC5 via CDS VizieR · IAU star names CC BY · figures: IAU and Sky & Telescope (Sinnott and Fienberg), CC BY 3.0, via d3-celestial BSD-3
+        </p>
+        <p>precession only; proper motion, nutation and aberration ignored</p>
+        <p>
+          Sun, Moon and planets are geocentric (no parallax; the Moon can differ by up to about 1
+          degree from where it appears at your place).
+        </p>
+        {sacredMissing && (
+          <p data-testid="sky-scrub-sacred-footer">sacred stars unavailable while scrubbing</p>
+        )}
       </div>
     </Card>
   );

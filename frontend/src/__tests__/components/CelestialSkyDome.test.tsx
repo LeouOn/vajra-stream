@@ -84,6 +84,7 @@ const mockNightSkyResponse = {
     },
   ],
   visible_stars_count: 2,
+  provenance: { observer: 'computed' },
 };
 
 let container: HTMLDivElement;
