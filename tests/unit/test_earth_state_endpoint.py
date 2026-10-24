@@ -75,6 +75,13 @@ class TestEarthStateRoute:
             response = client.get("/astrology/earth-state", params={"datetime_str": bad})
             assert response.status_code == 422, bad
 
+    def test_extreme_offsets_are_422_not_an_overflow(self, client: TestClient):
+        # an offset can push the UTC instant past year 1 / 9999, where datetime.astimezone raises OverflowError
+        for extreme in ("0001-01-01T00:00:00+14:00", "9999-12-31T23:59:59-14:00"):
+            response = client.get("/astrology/earth-state", params={"datetime_str": extreme})
+            assert response.status_code == 422, extreme
+            assert isinstance(response.json()["detail"], str), extreme
+
     def test_unavailable_ephemeris_is_503(self, client: TestClient, monkeypatch):
         monkeypatch.setattr(earth_sky, "swe", None)
         response = client.get("/astrology/earth-state", params={"datetime_str": "2026-03-20T14:46:00Z"})

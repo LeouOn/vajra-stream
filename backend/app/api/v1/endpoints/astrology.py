@@ -102,23 +102,38 @@ async def get_night_sky(
     """Calculate the real-time topocentric celestial dome above (latitude, longitude).
 
     Returns altitude/azimuth horizontal coordinates for all planets, Moon phase,
-    and sacred Vedic nakshatra fixed stars.
+    and sacred Vedic nakshatra fixed stars. A malformed ``datetime_str`` is 422
+    (it used to be swallowed and answered with *now*); naive means UTC. Like
+    ``/earth-state`` the supported range is 1800-01-01..2200-12-31 UTC (422
+    outside it, same ``detail``); a ``swisseph.Error`` is 503, never a bare 500.
     """
     from datetime import datetime, timezone
 
-    from core.celestial_sky import calculate_night_sky
+    from core.celestial_sky import calculate_night_sky, swe
+    from core.earth_sky import as_supported_utc
 
     dt = None
     if datetime_str:
-        clean_dt = datetime_str.replace("Z", "+00:00")
+        clean_dt = datetime_str.strip()
+        if clean_dt.endswith("Z"):
+            clean_dt = clean_dt[:-1] + "+00:00"
         try:
             dt = datetime.fromisoformat(clean_dt)
-        except Exception:
-            dt = None
+        except ValueError:
+            raise HTTPException(status_code=422, detail="malformed datetime_str; expected ISO-8601")
     if dt is None:
         dt = datetime.now(timezone.utc)
+    try:
+        dt = as_supported_utc(dt, "time")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
-    sky = calculate_night_sky(latitude=latitude, longitude=longitude, dt=dt)
+    # without swisseph calculate_night_sky has its own approximate path, so there is nothing to catch
+    swe_error = swe.Error if swe is not None else ()
+    try:
+        sky = calculate_night_sky(latitude=latitude, longitude=longitude, dt=dt)
+    except swe_error:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
     return with_provenance(
         sky,
         {
@@ -169,6 +184,141 @@ async def get_earth_state(datetime_str: str | None = None):
             "planets": COMPUTED,
         },
     )
+
+
+def _query_instant(name: str, raw: str | None, *, required: bool) -> datetime.datetime | None:
+    """Parse an ISO-8601 query parameter strictly (422 with a string ``detail``).
+
+    ``None`` is returned only for an absent optional parameter; a blank or
+    malformed one is an error, never "now". Naive means UTC, ``Z`` is accepted.
+    """
+    if raw is None:
+        if required:
+            raise HTTPException(status_code=422, detail=f"{name} is required")
+        return None
+    clean = raw.strip()
+    if clean.endswith("Z"):
+        clean = clean[:-1] + "+00:00"
+    try:
+        return datetime.datetime.fromisoformat(clean)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"malformed {name}; expected ISO-8601")
+
+
+def _query_degrees(name: str, raw: str | None, limit: float) -> float:
+    """A required finite number within [-limit, limit], else 422 with a string ``detail``."""
+    import math
+
+    if raw is None:
+        raise HTTPException(status_code=422, detail=f"{name} is required")
+    try:
+        value = float(raw)
+    except ValueError:
+        value = math.nan
+    if not (-limit <= value <= limit):  # also false for nan and +-inf
+        raise HTTPException(status_code=422, detail=f"{name} must be a number between -{limit:g} and {limit:g}")
+    return value
+
+
+def _query_step_seconds(raw: str | None) -> int:
+    """``step_seconds`` as a whole number of seconds (default 600); bounds are core's to judge."""
+    import re
+
+    if raw is None:
+        return 600
+    if not re.fullmatch(r"[0-9]{1,9}", raw.strip()):
+        raise HTTPException(status_code=422, detail="step_seconds must be a whole number of seconds")
+    return int(raw)
+
+
+@router.get("/earth-state/series")
+async def get_earth_state_series(
+    start: str | None = None,
+    end: str | None = None,
+    step_seconds: str | None = None,
+):
+    """Earth-state sub-points at fixed steps, so a client scrubbing time asks once.
+
+    ``start`` and ``end`` are required ISO-8601 instants (naive means UTC, a
+    trailing ``Z`` is accepted); ``step_seconds`` is an integer in [60, 3600]
+    (default 600). ``end`` must be ``start`` plus a whole number of steps,
+    there are at most 288 samples (both ends included) and both ends lie in
+    1800-01-01..2200-12-31 UTC; anything else is 422 with a plain-string
+    ``detail`` (the cap is named in it). Without swisseph the answer is 503.
+
+    Each sample is ``{at, gast_deg, sun, moon, planets}`` with bodies as
+    ``{id, lat, lon}``, unrounded. Declination is ``lat``; right ascension is
+    ``(lon + gast_deg) mod 360`` with ``gast_deg`` the Greenwich *apparent*
+    sidereal time; the hour angle at east longitude L is ``L - lon``.
+    Interpolate ``lon``, ``gast_deg`` and RA the short way round
+    (``d = wrap180(b - a)``, then ``a + f * d``), never by averaging raw
+    numbers across the +-180 seam. Full contract: ``core.earth_sky.earth_state_series``.
+    """
+    from core.earth_sky import EphemerisUnavailable, earth_state_series
+
+    start_dt = _query_instant("start", start, required=True)
+    end_dt = _query_instant("end", end, required=True)
+    step = _query_step_seconds(step_seconds)
+    try:
+        series = earth_state_series(start_dt, end_dt, step)
+    except EphemerisUnavailable:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return with_provenance(series, {"start": COMPUTED, "end": COMPUTED, "samples": COMPUTED})
+
+
+@router.get("/sun-events")
+async def get_sun_events(
+    latitude: str | None = None,
+    longitude: str | None = None,
+    datetime_str: str | None = None,
+):
+    """Previous and next sunrise and sunset around an instant at a place.
+
+    A thin read-only wrapper of ``AstrologicalCalculator._sun_events_around``,
+    the events the planetary hours are built from; no sun maths lives here.
+
+    ``latitude`` in [-90, 90] and ``longitude`` (east positive) in [-180, 180]
+    are required: there is no default place. ``datetime_str`` is optional
+    (absent means now; blank or malformed is 422; naive means UTC) and must lie
+    in 1800-01-01..2200-12-31 UTC. Errors are 422 with a plain-string
+    ``detail``.
+
+    Returns ``at`` (the instant used), the echoed place and five events,
+    ``previous_sunrise``, ``sunset``, ``next_sunrise``, ``previous_sunset`` and
+    ``next_sunset``, each an instant ending in ``Z`` with milliseconds or
+    ``null``. ``sunset`` is the sunset inside the solar day (previous sunrise
+    to next sunrise) that contains ``at``. ``null`` means the engine found no
+    such event within its +-2.5 day search window (polar day or night): it is
+    never replaced by an estimate. Without the ephemeris the answer is 503, not
+    the 6 AM / 6 PM guess the timing wheel falls back to.
+    """
+    from core.earth_sky import as_supported_utc, format_instant
+
+    lat = _query_degrees("latitude", latitude, 90.0)
+    lon = _query_degrees("longitude", longitude, 180.0)
+    moment = _query_instant("datetime_str", datetime_str, required=False)
+    try:
+        moment = as_supported_utc(moment or datetime.datetime.now(timezone.utc), "time")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    if AstrologicalCalculator is None:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
+    import swisseph as swe  # present whenever AstrologicalCalculator is: core.astrology imports it unguarded
+
+    try:
+        events = AstrologicalCalculator()._sun_events_around(moment, (lat, lon))
+    except swe.Error:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
+    keys = ("previous_sunrise", "sunset", "next_sunrise", "previous_sunset", "next_sunset")
+    payload = {
+        "at": format_instant(moment),
+        "latitude": lat,
+        "longitude": lon,
+        **{key: format_instant(events[key], "milliseconds") if events[key] is not None else None for key in keys},
+    }
+    return with_provenance(payload, {"at": COMPUTED, **{key: COMPUTED for key in keys}})
 
 
 @router.get("/current")

@@ -129,6 +129,12 @@ PLANET_INFO: dict[str, dict[str, Any]] = {
 }
 
 # Sacred Fixed Stars with their Vedic / Sanskrit correspondences
+# The "ra"/"dec" values are J2000 positions (equinox J2000). The single stars
+# are Yale BSC5 catalogue positions; the Pleiades entry is the exception: an
+# approximate cluster-level representative (56.75, 24.11), 0.11 deg from
+# Alcyone (HR 1165, 56.87, 24.105), not a BSC5 position. They are precessed to
+# the equinox of date by _precess_j2000_to_date() at use time - the table
+# itself stays as catalogued.
 SACRED_FIXED_STARS: list[dict[str, Any]] = [
     {
         "id": "sirius",
@@ -260,6 +266,38 @@ def _equatorial_to_horizontal(ra_deg: float, dec_deg: float, lst_deg: float, lat
     return round(alt_deg, 2), round(az_deg, 2)
 
 
+def _precess_j2000_to_date(ra_deg: float, dec_deg: float, jd: float) -> tuple[float, float]:
+    """Precess a J2000 catalogue position to the mean equinox of date.
+
+    IAU 1976 (Lieske et al. 1977) precession angles zeta, z and theta, with
+    T in Julian centuries from J2000. The angles are carried in DEGREES for
+    the RA/Dec arithmetic and converted to radians only inside the
+    trigonometry: adding a radian-valued zeta to a degree-valued RA shrinks
+    the precession by 57x, which is the mistake this helper exists to prevent.
+
+    Nutation and aberration are ignored, each below ~0.006 deg. Proper motion
+    is not modelled either (the catalogue carries none): it is small for most
+    stars, but a few fast ones exceed that - Arcturus moves about 2.3 arcsec/yr,
+    roughly 0.017 deg over 26 years and 0.13 deg at either end of 1800-2200.
+    """
+    t = (jd - 2451545.0) / 36525.0
+    zeta_deg = (2306.2181 * t + 0.30188 * t * t + 0.017998 * t**3) / 3600.0
+    z_deg = (2306.2181 * t + 1.09468 * t * t + 0.018203 * t**3) / 3600.0
+    theta_deg = (2004.3109 * t - 0.42665 * t * t - 0.041833 * t**3) / 3600.0
+
+    a = math.radians(ra_deg + zeta_deg)
+    d = math.radians(dec_deg)
+    theta = math.radians(theta_deg)
+
+    sin_dec = math.sin(d) * math.cos(theta) + math.cos(d) * math.sin(theta) * math.cos(a)
+    dec_of_date = math.degrees(math.asin(max(-1.0, min(1.0, sin_dec))))
+    numerator = math.cos(d) * math.sin(a)
+    denominator = math.cos(theta) * math.cos(d) * math.cos(a) - math.sin(theta) * math.sin(d)
+    ra_of_date = (z_deg + math.degrees(math.atan2(numerator, denominator))) % 360.0
+
+    return ra_of_date, dec_of_date
+
+
 def calculate_night_sky(
     latitude: float = 37.7749,
     longitude: float = -122.4194,
@@ -368,10 +406,12 @@ def calculate_night_sky(
         "sign": moon_entry["sign"] if moon_entry else "Aries",
     }
 
-    # Sacred Stars
+    # Sacred Stars: the table is catalogued at J2000, so precess each star to
+    # the equinox of date before pairing it with the of-date sidereal time.
     stars: list[dict[str, Any]] = []
     for s in SACRED_FIXED_STARS:
-        alt_deg, az_deg = _equatorial_to_horizontal(s["ra"], s["dec"], lst_deg, latitude)
+        ra_deg, dec_deg = _precess_j2000_to_date(s["ra"], s["dec"], tjd_ut)
+        alt_deg, az_deg = _equatorial_to_horizontal(ra_deg, dec_deg, lst_deg, latitude)
         stars.append(
             {
                 "id": s["id"],
@@ -380,6 +420,10 @@ def calculate_night_sky(
                 "altitude": alt_deg,
                 "azimuth": az_deg,
                 "magnitude": s["magnitude"],
+                # The table's J2000 position, no precession applied, so a client can precess it to
+                # another instant itself. The Pleiades value is a cluster-level representative.
+                "ra_j2000": round(s["ra"], 4),
+                "dec_j2000": round(s["dec"], 4),
                 "visible": alt_deg > 0.0,
                 "color": s["color"],
                 "nakshatra": s["nakshatra"],
