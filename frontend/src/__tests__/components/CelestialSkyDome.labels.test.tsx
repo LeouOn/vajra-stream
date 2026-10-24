@@ -107,7 +107,22 @@ interface TextCall {
   y: number;
   align: string;
 }
+interface StrokeCall {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  style: string;
+  alpha: number;
+}
+interface FillCall {
+  style: string;
+  alpha: number;
+}
 let texts: TextCall[];
+let strokes: StrokeCall[];
+let fillCalls: FillCall[];
+let lastMove: { x: number; y: number } | null;
 
 function stubCtx(): CanvasRenderingContext2D {
   const target = {
@@ -120,10 +135,37 @@ function stubCtx(): CanvasRenderingContext2D {
     clearRect: noop,
     beginPath: noop,
     arc: noop,
-    fill: noop,
-    stroke: noop,
-    moveTo: noop,
-    lineTo: noop,
+    fill() {
+      fillCalls.push({ style: String(target.fillStyle), alpha: target.globalAlpha });
+    },
+    stroke() {
+      if (lastMove !== null) {
+        strokes.push({
+          x1: lastMove.x,
+          y1: lastMove.y,
+          x2: lastMove.x,
+          y2: lastMove.y,
+          style: String(target.strokeStyle),
+          alpha: target.globalAlpha,
+        });
+      }
+    },
+    moveTo(x: number, y: number) {
+      lastMove = { x, y };
+    },
+    lineTo(x: number, y: number) {
+      if (lastMove !== null) {
+        strokes.push({
+          x1: lastMove.x,
+          y1: lastMove.y,
+          x2: x,
+          y2: y,
+          style: String(target.strokeStyle),
+          alpha: target.globalAlpha,
+        });
+        lastMove = { x, y };
+      }
+    },
     fillText(text: string, x: number, y: number) {
       texts.push({ text, x, y, align: target.textAlign });
     },
@@ -157,8 +199,7 @@ async function mount(): Promise<void> {
   });
 }
 
-function projection(alt: number, az: number): { x: number; y: number } {
-  const size = 500; // happy-dom has no layout, so the dome falls back to 500
+function projection(alt: number, az: number, size = 500): { x: number; y: number } {
   const radius = size * 0.42;
   const r = ((90 - Math.max(0, alt)) / 90) * radius;
   const rad = (az * Math.PI) / 180;
@@ -177,6 +218,9 @@ beforeEach(async () => {
   document.body.appendChild(container);
   root = createRoot(container);
   texts = [];
+  strokes = [];
+  fillCalls = [];
+  lastMove = null;
   crowded = true;
   rafCallbacks = [];
   try {
@@ -261,6 +305,81 @@ describe('dome label wiring', () => {
     expect(mocks.placeLabels.mock.calls.length).toBe(calls);
   });
 
+  it('declutters overlapping planet rings; hover follows the described ring', async () => {
+    const rim = [
+      planet('sun', 'Sun', '☉', 30, 100),
+      planet('moon', 'Moon', '☽', 12.18, 270.97),
+      planet('saturn', 'Saturn', '♄', 8.74, 265.4),
+      planet('neptune', 'Neptune', '♆', 1.68, 268.29),
+    ];
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            ...payload(false),
+            planets: rim,
+            visible_planets_count: rim.length,
+          }),
+      } as Response),
+    );
+    await act(async () => {
+      root.render(<CelestialSkyDome />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // The card in d1's pictures gives the dome 309 px; make the fallback size
+    // match and run one frame so the cache is rebuilt at that radius.
+    const canvas = container.querySelector('[data-testid="celestial-sky-dome-canvas"]');
+    if (!(canvas instanceof HTMLCanvasElement)) throw new Error('canvas missing');
+    Object.defineProperty(canvas, 'clientWidth', { configurable: true, value: 309 });
+    Object.defineProperty(canvas, 'clientHeight', { configurable: true, value: 309 });
+    const frame = rafCallbacks[rafCallbacks.length - 1];
+    await act(async () => {
+      frame(1000);
+    });
+
+    const { items } = lastPlacement();
+    const displayed = new Map(items.map((item) => [item.id, item]));
+    const trueOf = (id: string) => {
+      const fixture = rim.find((entry) => entry.id === id);
+      if (!fixture) throw new Error(`missing fixture ${id}`);
+      return projection(fixture.altitude, fixture.azimuth, 309);
+    };
+    const displacedId = ['saturn', 'neptune'].find((id) => {
+      const shown = displayed.get(id);
+      const truth = trueOf(id);
+      return shown !== undefined && Math.hypot(shown.x - truth.x, shown.y - truth.y) > 1;
+    });
+    expect(displacedId).toBeDefined();
+    const ids = ['moon', 'saturn', 'neptune'];
+    for (let a = 0; a < ids.length; a += 1) {
+      for (let b = a + 1; b < ids.length; b += 1) {
+        const pa = displayed.get(ids[a]);
+        const pb = displayed.get(ids[b]);
+        expect(Math.hypot((pa?.x ?? 0) - (pb?.x ?? 0), (pa?.y ?? 0) - (pb?.y ?? 0))).toBeGreaterThanOrEqual(16);
+      }
+    }
+    // A leader from the true place to the displayed ring + a dot at the truth.
+    const leader = strokes.find((stroke) => stroke.style === 'rgba(226, 232, 240, 0.4)');
+    expect(leader).toBeDefined();
+    expect(fillCalls.some((fill) => fill.style === '#a855f7' && Math.abs(fill.alpha - 0.6) < 1e-9)).toBe(true);
+
+    const saturnShown = displayed.get(displacedId as string);
+    await act(async () => {
+      canvas.dispatchEvent(
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          clientX: saturnShown?.x ?? 0,
+          clientY: saturnShown?.y ?? 0,
+        }),
+      );
+    });
+    expect(container.textContent).toContain(displacedId === 'saturn' ? 'Saturn ♄ in' : 'Neptune ♆ in');
+  });
+
   it('an uncrowded sky keeps the first (right-up) candidate', async () => {
     crowded = false;
     await mount();
@@ -269,8 +388,9 @@ describe('dome label wiring', () => {
     const marker = projection(40.15, 175.52);
     expect(sun?.hidden).toBe(false);
     expect(sun?.anchor).toBe('left');
-    // First candidate: markerRadius (8 for a planet core) + gap 3, baseline 3 above.
-    expect(sun?.x).toBeCloseTo(marker.x + 8 + 3, 6);
+    // First candidate: the drawn planet footprint (11 glow + 1.5 stroke + 2
+    // clearance = 14.5) + gap 3; the old 8 px core put it 6.5 px further left.
+    expect(sun?.x).toBeCloseTo(marker.x + 14.5 + 3, 6);
     expect(sun?.y).toBeCloseTo(marker.y - 3, 6);
     expect(sun?.leader).toBeNull();
     expect(texts.some((entry) => entry.text === 'Sun ♋' && entry.x === sun?.x && entry.y === sun?.y)).toBe(true);

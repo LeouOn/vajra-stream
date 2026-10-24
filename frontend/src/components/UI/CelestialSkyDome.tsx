@@ -55,9 +55,11 @@ import {
 import { TWILIGHT_GLOW_ENABLED, twilightGlow } from '../../lib/skyGlow';
 import {
   placeLabels,
+  type Box,
   type LabelItem,
   type PlacedLabel,
 } from '../../lib/skyLabels';
+import { declutterMarkers, type MarkerPlacement } from '../../lib/skyMarkers';
 import { buildSkyLayer } from '../../lib/skyLayer';
 import ProvenanceTag from './ProvenanceTag';
 
@@ -241,10 +243,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   const scrubModeRef = useRef<boolean>(false);
   scrubModeRef.current = scrubMode;
   const labelCacheRef = useRef<{
-    key: string;
+    markerKey: string;
+    labelKey: string;
+    markers: MarkerPlacement[];
     entries: { id: string; text: string; color: string; alpha: number; item: LabelItem }[];
     labels: PlacedLabel[];
-  }>({ key: '', entries: [], labels: [] });
+  }>({ markerKey: '', labelKey: '', markers: [], entries: [], labels: [] });
   const labelWidthsRef = useRef<Map<string, number>>(new Map());
   const layerCacheRef = useRef<{
     canvas: HTMLCanvasElement | null;
@@ -819,6 +823,145 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         if (canvas.dataset) canvas.dataset.layerMs = cache.buildMs.toFixed(3);
       }
 
+      // Marker declutter + label placement are computed only when the
+      // rounded geometry changes; the marker loops below use the displayed
+      // positions and every frame just draws the cached labels.
+      {
+        const obstacles: Box[] = [
+          { x1: cx - 7, y1: cy - (radius * 2) / 3 + 2, x2: cx + 7, y2: cy - (radius * 2) / 3 + 11 },
+          { x1: cx - 7, y1: cy - radius / 3 + 2, x2: cx + 7, y2: cy - radius / 3 + 11 },
+        ];
+        for (const az of [0, 90, 180, 270]) {
+          const angle = (az * Math.PI) / 180;
+          const lx = cx - (radius + 14) * Math.sin(angle);
+          const ly = cy - (radius + 14) * Math.cos(angle);
+          obstacles.push({ x1: lx - 5, y1: ly - 5, x2: lx + 5, y2: ly + 5 });
+        }
+
+        const markerItems = showPlanets
+          ? planetMarks.map((mark) => {
+              const p = mark.planet;
+              const [x, y] = project(mark.alt, mark.az);
+              return {
+                id: p.id,
+                x,
+                y,
+                priority: p.id === 'sun' ? 40 : p.id === 'moon' ? 39 : 20,
+                radius: 8,
+              };
+            })
+          : [];
+        const markerKey =
+          markerItems
+            .map((item) => `${item.id}:${Math.round(item.x)},${Math.round(item.y)},${item.priority}`)
+            .join(';') + `|${Math.round(cx)},${Math.round(cy)},${Math.round(radius)}`;
+        let markers = labelCacheRef.current.markers;
+        if (labelCacheRef.current.markerKey !== markerKey) {
+          markers = declutterMarkers(markerItems, { cx, cy, radius });
+          labelCacheRef.current.markerKey = markerKey;
+          labelCacheRef.current.markers = markers;
+          labelCacheRef.current.labelKey = ''; // force labels to rebuild
+        }
+        const markerById = new Map(markers.map((marker) => [marker.id, marker]));
+        const displayedFor = (id: string): { x: number; y: number } | null => {
+          const marker = markerById.get(id);
+          return marker === undefined ? null : { x: marker.x, y: marker.y };
+        };
+
+        const entries: { id: string; text: string; color: string; alpha: number; item: LabelItem }[] = [];
+        const widthOf = (text: string): number => {
+          const known = labelWidthsRef.current.get(text);
+          if (known !== undefined) return known;
+          ctx.font = '9px sans-serif';
+          const measured = ctx.measureText(text).width;
+          labelWidthsRef.current.set(text, measured);
+          return measured;
+        };
+        if (showPlanets) {
+          for (const mark of planetMarks) {
+            const p = mark.planet;
+            const displayed = displayedFor(p.id);
+            const [trueX, trueY] = project(mark.alt, mark.az);
+            const x = displayed?.x ?? trueX;
+            const y = displayed?.y ?? trueY;
+            const text = scrubMode ? p.name : `${p.name} ${p.sign_glyph}`;
+            const priority = p.id === 'sun' ? 40 : p.id === 'moon' ? 39 : 20;
+            const dimmed = isDimmedPlanet(
+              p.id,
+              PLANET_MAGNITUDES[p.id],
+              sunAltDeg,
+              moonLight,
+              seeThrough,
+            );
+            entries.push({
+              id: p.id,
+              text,
+              color: p.color,
+              alpha: dimmed ? 0.5 : 1,
+              item: {
+                id: p.id,
+                x,
+                y,
+                width: widthOf(text),
+                height: 10,
+                priority,
+                // The drawn footprint: 11 px glow + 1.5 px stroke + 2 px clearance.
+                markerRadius: 14.5,
+              },
+            });
+          }
+        }
+        if (showStars) {
+          for (const mark of sacredMarks) {
+            const s = mark.star;
+            // A star the daylight layer hides gets no label and takes no space.
+            if (!(starVisibility(s.magnitude) > 0)) continue;
+            const [x, y] = project(mark.alt, mark.az);
+            const text = s.name.split(' ')[0];
+            const dotSize = Math.max(2, 4.5 - s.magnitude * 0.8);
+            entries.push({
+              id: s.id,
+              text,
+              color: 'rgba(226, 232, 240, 0.7)',
+              alpha: 1,
+              item: {
+                id: s.id,
+                x,
+                y,
+                width: widthOf(text),
+                height: 10,
+                priority: 10,
+                // The drawn star footprint: the glow is twice the core dot.
+                markerRadius: dotSize * 2 + 1,
+              },
+            });
+          }
+        }
+        const labelKey =
+          entries
+            .map(
+              (entry) =>
+                `${entry.id}:${Math.round(entry.item.x)},${Math.round(entry.item.y)},${Math.round(entry.item.width)},${entry.item.priority},${entry.alpha},${entry.item.markerRadius}`,
+            )
+            .join(';') +
+          `|${Math.round(cx)},${Math.round(cy)},${Math.round(radius)}|${scrubMode ? 1 : 0}|${obstacles.length}`;
+        if (labelCacheRef.current.labelKey !== labelKey) {
+          labelCacheRef.current = {
+            ...labelCacheRef.current,
+            labelKey,
+            entries,
+            labels: placeLabels(entries.map((entry) => entry.item), {
+              cx,
+              cy,
+              radius,
+              margin: 4,
+              gap: 3,
+              obstacles,
+            }),
+          };
+        }
+      }
+
       // Draw Sacred Stars
       if (showStars) {
         sacredMarks.forEach((mark, idx) => {
@@ -853,7 +996,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       if (showPlanets) {
         planetMarks.forEach((mark) => {
           const p = mark.planet;
-          const [px, py] = project(mark.alt, mark.az);
+          const [truePx, truePy] = project(mark.alt, mark.az);
+          const placement = labelCacheRef.current.markers.find((marker) => marker.id === p.id);
+          const px = placement?.x ?? truePx;
+          const py = placement?.y ?? truePy;
           const dimmed = isDimmedPlanet(
             p.id,
             PLANET_MAGNITUDES[p.id],
@@ -861,6 +1007,22 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             moonLight,
             seeThrough,
           );
+
+          // A displaced marker keeps its true place on a faint leader + dot.
+          if (placement?.displaced) {
+            ctx.strokeStyle = 'rgba(226, 232, 240, 0.4)';
+            ctx.lineWidth = 0.75;
+            ctx.beginPath();
+            ctx.moveTo(truePx, truePy);
+            ctx.lineTo(px, py);
+            ctx.stroke();
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = 0.6;
+            ctx.beginPath();
+            ctx.arc(truePx, truePy, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
 
           // Planet glow aura (off when the planet is below the naked-eye limit)
           if (!dimmed) {
@@ -891,78 +1053,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
         });
       }
 
-      // Labels are PLACED only when the rounded marker/text geometry changes;
-      // every frame just draws the cached placement. Text widths are cached by
-      // string, so steady frames allocate nothing here.
       {
-        const entries: { id: string; text: string; color: string; alpha: number; item: LabelItem }[] = [];
-        const widthOf = (text: string): number => {
-          const known = labelWidthsRef.current.get(text);
-          if (known !== undefined) return known;
-          ctx.font = '9px sans-serif';
-          const measured = ctx.measureText(text).width;
-          labelWidthsRef.current.set(text, measured);
-          return measured;
-        };
-        if (showPlanets) {
-          for (const mark of planetMarks) {
-            const p = mark.planet;
-            const [x, y] = project(mark.alt, mark.az);
-            const text = scrubMode ? p.name : `${p.name} ${p.sign_glyph}`;
-            const priority = p.id === 'sun' ? 40 : p.id === 'moon' ? 39 : 20;
-            const dimmed = isDimmedPlanet(
-              p.id,
-              PLANET_MAGNITUDES[p.id],
-              sunAltDeg,
-              moonLight,
-              seeThrough,
-            );
-            entries.push({
-              id: p.id,
-              text,
-              color: p.color,
-              alpha: dimmed ? 0.5 : 1,
-              item: { id: p.id, x, y, width: widthOf(text), height: 10, priority, markerRadius: 8 },
-            });
-          }
-        }
-        if (showStars) {
-          for (const mark of sacredMarks) {
-            const s = mark.star;
-            // A star the daylight layer hides gets no label and takes no space.
-            if (!(starVisibility(s.magnitude) > 0)) continue;
-            const [x, y] = project(mark.alt, mark.az);
-            const text = s.name.split(' ')[0];
-            const dotSize = Math.max(2, 4.5 - s.magnitude * 0.8);
-            entries.push({
-              id: s.id,
-              text,
-              color: 'rgba(226, 232, 240, 0.7)',
-              alpha: 1,
-              item: { id: s.id, x, y, width: widthOf(text), height: 10, priority: 10, markerRadius: dotSize },
-            });
-          }
-        }
-        const key =
-          entries
-            .map(
-              (entry) =>
-                `${entry.id}:${Math.round(entry.item.x)},${Math.round(entry.item.y)},${Math.round(entry.item.width)},${entry.item.priority},${entry.alpha}`,
-            )
-            .join(';') + `|${Math.round(cx)},${Math.round(cy)},${Math.round(radius)}|${scrubMode ? 1 : 0}`;
-        if (labelCacheRef.current.key !== key) {
-          labelCacheRef.current = {
-            key,
-            entries,
-            labels: placeLabels(entries.map((entry) => entry.item), {
-              cx,
-              cy,
-              radius,
-              margin: 4,
-              gap: 3,
-            }),
-          };
-        }
         const cache = labelCacheRef.current;
         for (let index = 0; index < cache.labels.length; index += 1) {
           const label = cache.labels[index];
@@ -1094,7 +1185,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     // Check planets first
     for (const mark of planetMarks) {
       const p = mark.planet;
-      const [px, py] = project(mark.alt, mark.az);
+      const [trueX, trueY] = project(mark.alt, mark.az);
+      const placement = labelCacheRef.current.markers.find((marker) => marker.id === p.id);
+      const px = placement?.x ?? trueX;
+      const py = placement?.y ?? trueY;
       if (Math.hypot(mx - px, my - py) < 14) {
         setHoveredObject({
           name: scrubMode

@@ -10,7 +10,22 @@
 import { describe, expect, it } from 'vitest';
 import { placeLabels, type LabelItem, type LabelBounds } from '../skyLabels';
 
-const BOUNDS: LabelBounds = { cx: 220, cy: 220, radius: 440 * 0.42, margin: 4, gap: 3 };
+const BOUNDS: LabelBounds = {
+  cx: 220,
+  cy: 220,
+  radius: 440 * 0.42,
+  margin: 4,
+  gap: 3,
+  // Altitude ticks and compass letters, as the dome draws them (440 px disc).
+  obstacles: [
+    { x1: 213, y1: 98.8, x2: 227, y2: 107.8 }, // 30 deg tick
+    { x1: 213, y1: 160.4, x2: 227, y2: 169.4 }, // 60 deg tick
+    { x1: 215, y1: 16.2, x2: 225, y2: 26.2 }, // N
+    { x1: 16.2, y1: 215, x2: 26.2, y2: 225 }, // E
+    { x1: 215, y1: 393.8, x2: 225, y2: 403.8 }, // S
+    { x1: 393.8, y1: 215, x2: 403.8, y2: 225 }, // W
+  ],
+};
 
 interface FixtureLabel {
   id: string;
@@ -62,6 +77,9 @@ function assertPlacementSuccess(items: LabelItem[]): void {
   }
   for (let a = 0; a < placed.length; a += 1) {
     if (placed[a].hidden) continue;
+    for (const obstacle of BOUNDS.obstacles ?? []) {
+      expect(overlaps(boxOf(byId.get(placed[a].id) as LabelItem, placed[a]), [obstacle.x1, obstacle.y1, obstacle.x2, obstacle.y2])).toBe(false);
+    }
     for (let b = a + 1; b < placed.length; b += 1) {
       if (placed[b].hidden) continue;
       expect(
@@ -82,9 +100,27 @@ describe('placeLabels geometry', () => {
     expect(label.leader).toBeNull();
   });
 
+  it('with the drawn planet footprint the lone label is still the first candidate (6.5 px farther right)', () => {
+    const item: LabelItem = { id: 'mars', x: 200, y: 200, width: 30, height: 10, priority: 20, markerRadius: 14.5 };
+    const [label] = placeLabels([item], BOUNDS);
+    expect(label.hidden).toBe(false);
+    expect(label.anchor).toBe('left');
+    expect(label.x).toBe(200 + 14.5 + 3); // 217.5 (was 211 with the 8 px core)
+    expect(label.y).toBe(197);
+  });
+
+  it('never covers a fixed obstacle (altitude ticks / compass letters)', () => {
+    const item: LabelItem = { id: 'mars', x: 200, y: 200, width: 30, height: 10, priority: 20, markerRadius: 8 };
+    // The first candidate would be [211,187,241,197]; put an obstacle there.
+    const bounds: LabelBounds = { ...BOUNDS, obstacles: [{ x1: 205, y1: 185, x2: 245, y2: 199 }] };
+    const [label] = placeLabels([item], bounds);
+    expect(label.hidden).toBe(false);
+    expect([label.x, label.y]).not.toEqual([211, 197]);
+  });
+
   it('is deterministic and keeps its order', () => {
     const items: LabelItem[] = [
-      { id: 'b', x: 200, y: 200, width: 20, height: 10, priority: 10, markerRadius: 5 },
+      { id: 'b', x: 200, y: 200, width: 20, height: 10, priority: 10, markerRadius: STAR_FOOTPRINT },
       { id: 'a', x: 205, y: 202, width: 20, height: 10, priority: 20, markerRadius: 5 },
     ];
     expect(placeLabels(items, BOUNDS)).toEqual(placeLabels(items, BOUNDS));
@@ -126,33 +162,51 @@ describe('placeLabels geometry', () => {
   });
 });
 
+const PLANET_FOOTPRINT = 14.5;
+const STAR_FOOTPRINT = 12;
+
 const SF_NOON: FixtureLabel[] = [
-  { id: 'sun', text: 'Sun ☉', alt: 40.15, az: 175.52, priority: 40, markerRadius: 8 },
-  { id: 'mercury', text: 'Mercury ☿', alt: 27.85, az: 156.74, priority: 20, markerRadius: 8 },
-  { id: 'venus', text: 'Venus ♀', alt: 34.64, az: 179.85, priority: 20, markerRadius: 8 },
-  { id: 'mars', text: 'Mars ♂', alt: 28.01, az: 271.41, priority: 20, markerRadius: 8 },
-  { id: 'jupiter', text: 'Jupiter ♃', alt: 32.47, az: 263.02, priority: 20, markerRadius: 8 },
-  { id: 'vega', text: 'Vega', alt: 33.83, az: 64.21, priority: 10, markerRadius: 5 },
-  { id: 'arcturus', text: 'Arcturus', alt: 69.88, az: 156.13, priority: 10, markerRadius: 5 },
-  { id: 'spica', text: 'Spica', alt: 40.77, az: 185.32, priority: 10, markerRadius: 5 },
-  { id: 'antares', text: 'Antares', alt: 14.62, az: 141.76, priority: 10, markerRadius: 5 },
-  { id: 'polaris', text: 'Polaris', alt: 37.19, az: 359.72, priority: 10, markerRadius: 5 },
-  { id: 'regulus', text: 'Regulus', alt: 36.01, az: 255.97, priority: 10, markerRadius: 5 },
+  { id: 'sun', text: 'Sun ☉', alt: 40.15, az: 175.52, priority: 40, markerRadius: PLANET_FOOTPRINT },
+  { id: 'mercury', text: 'Mercury ☿', alt: 27.85, az: 156.74, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'venus', text: 'Venus ♀', alt: 34.64, az: 179.85, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'mars', text: 'Mars ♂', alt: 28.01, az: 271.41, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'jupiter', text: 'Jupiter ♃', alt: 32.47, az: 263.02, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'vega', text: 'Vega', alt: 33.83, az: 64.21, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'arcturus', text: 'Arcturus', alt: 69.88, az: 156.13, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'spica', text: 'Spica', alt: 40.77, az: 185.32, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'antares', text: 'Antares', alt: 14.62, az: 141.76, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'polaris', text: 'Polaris', alt: 37.19, az: 359.72, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'regulus', text: 'Regulus', alt: 36.01, az: 255.97, priority: 10, markerRadius: STAR_FOOTPRINT },
 ];
 
 const TOKYO_NIGHT: FixtureLabel[] = [
-  { id: 'moon', text: 'Moon ☽', alt: 20.02, az: 264.87, priority: 39, markerRadius: 8 },
-  { id: 'mars', text: 'Mars ♂', alt: 36.26, az: 93.84, priority: 20, markerRadius: 8 },
-  { id: 'jupiter', text: 'Jupiter ♃', alt: 27.84, az: 92.19, priority: 20, markerRadius: 8 },
-  { id: 'saturn', text: 'Saturn ♄', alt: 16.8, az: 259.11, priority: 20, markerRadius: 8 },
-  { id: 'uranus', text: 'Uranus ♅', alt: 68.71, az: 229.28, priority: 20, markerRadius: 8 },
-  { id: 'neptune', text: 'Neptune ♆', alt: 9.81, az: 262.24, priority: 20, markerRadius: 8 },
-  { id: 'sirius', text: 'Sirius', alt: 33.39, az: 155.22, priority: 10, markerRadius: 5 },
-  { id: 'aldebaran', text: 'Aldebaran', alt: 68.23, az: 208.92, priority: 10, markerRadius: 5 },
-  { id: 'betelgeuse', text: 'Betelgeuse', alt: 60.14, az: 161.83, priority: 10, markerRadius: 5 },
-  { id: 'polaris', text: 'Polaris', alt: 36.63, az: 359.57, priority: 10, markerRadius: 5 },
-  { id: 'regulus', text: 'Regulus', alt: 21.18, az: 90.59, priority: 10, markerRadius: 5 },
-  { id: 'pleiades', text: 'Pleiades', alt: 66.91, az: 245.32, priority: 10, markerRadius: 5 },
+  // Real alt/az at 2026-10-24T18:29:36Z, observer 35.68/139.69.
+  { id: 'moon', text: 'Moon ☽', alt: 12.18, az: 270.97, priority: 39, markerRadius: PLANET_FOOTPRINT },
+  { id: 'mars', text: 'Mars ♂', alt: 44.43, az: 100.26, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'jupiter', text: 'Jupiter ♃', alt: 36.03, az: 98.34, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'saturn', text: 'Saturn ♄', alt: 8.74, az: 265.4, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'uranus', text: 'Uranus ♅', alt: 62.01, az: 245.65, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'neptune', text: 'Neptune ♆', alt: 1.68, az: 268.29, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'sirius', text: 'Sirius', alt: 36.49, az: 166.48, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'aldebaran', text: 'Aldebaran', alt: 63.33, az: 229.63, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'betelgeuse', text: 'Betelgeuse', alt: 61.71, az: 182.32, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'polaris', text: 'Polaris', alt: 36.13, az: 359.47, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'regulus', text: 'Regulus', alt: 29.38, az: 96.57, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'pleiades', text: 'Pleiades', alt: 59.27, az: 257.25, priority: 10, markerRadius: STAR_FOOTPRINT },
+];
+
+const DELHI_MOONLIGHT: FixtureLabel[] = [
+  // Real alt/az at 2026-10-24T18:30:00Z, observer 28.61/77.21.
+  { id: 'moon', text: 'Moon ☽', alt: 63.53, az: 222.46, priority: 39, markerRadius: PLANET_FOOTPRINT },
+  { id: 'saturn', text: 'Saturn ♄', alt: 57.89, az: 215.2, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'uranus', text: 'Uranus ♅', alt: 57.33, az: 95.48, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'neptune', text: 'Neptune ♆', alt: 52.23, az: 224.17, priority: 20, markerRadius: PLANET_FOOTPRINT },
+  { id: 'sirius', text: 'Sirius', alt: 5.62, az: 112.55, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'vega', text: 'Vega', alt: 4.81, az: 312.11, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'aldebaran', text: 'Aldebaran', alt: 50.08, az: 98.39, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'betelgeuse', text: 'Betelgeuse', alt: 28.7, az: 97.53, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'polaris', text: 'Polaris', alt: 29.2, az: 0.23, priority: 10, markerRadius: STAR_FOOTPRINT },
+  { id: 'pleiades', text: 'Pleiades', alt: 63.48, az: 92.73, priority: 10, markerRadius: STAR_FOOTPRINT },
 ];
 
 describe('real crowded payloads', () => {
@@ -170,6 +224,15 @@ describe('real crowded payloads', () => {
     assertPlacementSuccess(items);
     const placed = placeLabels(items, BOUNDS);
     for (const id of ['moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']) {
+      expect(placed.find((label) => label.id === id)?.hidden, id).toBe(false);
+    }
+  });
+
+  it('Delhi moonlight: no overlaps, every planet keeps a label', () => {
+    const items = DELHI_MOONLIGHT.map(item);
+    assertPlacementSuccess(items);
+    const placed = placeLabels(items, BOUNDS);
+    for (const id of ['moon', 'saturn', 'uranus', 'neptune']) {
       expect(placed.find((label) => label.id === id)?.hidden, id).toBe(false);
     }
   });

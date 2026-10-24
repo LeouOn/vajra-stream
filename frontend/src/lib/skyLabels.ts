@@ -29,6 +29,13 @@ export interface LabelItem {
   markerRadius: number;
 }
 
+export interface Box {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 export interface LabelBounds {
   cx: number;
   cy: number;
@@ -37,6 +44,8 @@ export interface LabelBounds {
   margin?: number;
   /** Distance from the marker core to a label box. */
   gap?: number;
+  /** Fixed boxes labels must not cover (altitude ticks, compass letters). */
+  obstacles?: readonly Box[];
 }
 
 export interface LabelLeader {
@@ -54,13 +63,6 @@ export interface PlacedLabel {
   anchor: 'left' | 'right' | 'center';
   leader: LabelLeader | null;
   hidden: boolean;
-}
-
-interface Box {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
 }
 
 interface Direction {
@@ -167,6 +169,9 @@ export function placeLabels(items: readonly LabelItem[], bounds: LabelBounds): P
         const candidateBox = candidate(item, direction, far, gap, ring);
         if (!boxInsideDisc(candidateBox.box, bounds)) continue;
         if (placed.some((entry) => boxesOverlap(entry.box, candidateBox.box))) continue;
+        if ((bounds.obstacles ?? []).some((obstacle) => boxesOverlap(obstacle, candidateBox.box, 0))) {
+          continue;
+        }
         if (items.some((marker) => boxOverlapsCircle(candidateBox.box, marker.x, marker.y, marker.markerRadius))) {
           continue;
         }
