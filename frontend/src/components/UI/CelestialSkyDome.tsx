@@ -182,11 +182,13 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     alt: number;
     az: number;
     extra: string;
+    /** The tooltip's own position inside the canvas box (W3-M5). */
     x: number;
     y: number;
   } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hoverTipRef = useRef<HTMLDivElement | null>(null);
   const skyClockRef = useRef<{ lst: number; fetchedAt: number } | null>(null);
   const lastGoodRef = useRef<boolean>(false);
   const frozenAtRef = useRef<number | null>(null);
@@ -761,6 +763,20 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       return [cx - r * Math.sin(radAz), cy - r * Math.cos(radAz)];
     };
 
+    // W3-M5: the tooltip keeps its own width and stays inside the canvas. It
+    // used to be absolutely positioned at the cursor with no width of its own,
+    // so the browser squeezed it into a ~74 px column (one word per line) and
+    // it could hang 26 px outside the card at 420 px. It flips to the other
+    // side of the cursor when it does not fit, then clamps.
+    const tipW = hoverTipRef.current?.offsetWidth ?? 240;
+    const tipH = hoverTipRef.current?.offsetHeight ?? 110;
+    const canvasW = canvas.clientWidth || 0;
+    const canvasH = canvas.clientHeight || 0;
+    let tipX = mx + 10;
+    if (tipX + tipW + 8 > canvasW) tipX = mx - tipW - 10;
+    tipX = Math.max(4, Math.min(tipX, Math.max(4, canvasW - tipW - 4)));
+    const tipY = Math.max(4, Math.min(my - 45, Math.max(4, canvasH - tipH - 4)));
+
     // Check planets first
     for (const mark of planetMarks) {
       const p = mark.planet;
@@ -774,8 +790,8 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           alt: mark.alt,
           az: mark.az,
           extra: p.esoteric_quality,
-          x: mx,
-          y: my,
+          x: tipX,
+          y: tipY,
         });
         return;
       }
@@ -792,8 +808,8 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           alt: mark.alt,
           az: mark.az,
           extra: s.quality,
-          x: mx,
-          y: my,
+          x: tipX,
+          y: tipY,
         });
         return;
       }
@@ -827,9 +843,16 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       className={`border border-purple-500/20 bg-slate-950/60 backdrop-blur-md rounded-2xl ${className}`}
       title={
         <div className="flex flex-wrap items-center justify-between gap-2">
+          {/*
+            The title wraps instead of being cut (W3-M5): AntD's head title is
+            `white-space: nowrap; overflow: hidden`, so below ~460 px the
+            heading used to be clipped mid-word ("Celestial Night-Sky Do") by
+            the Refresh button. The heading may wrap and the button may drop to
+            the next line, so the whole title is always readable.
+          */}
           <div className="flex flex-wrap items-center gap-2 min-w-0">
-            <Compass className="w-5 h-5 text-purple-400" />
-            <span className="text-purple-200 font-serif text-lg tracking-wide">
+            <Compass className="w-5 h-5 shrink-0 text-purple-400" />
+            <span className="whitespace-normal text-purple-200 font-serif text-lg tracking-wide">
               Celestial Night-Sky Dome
             </span>
             <Tag color="purple">Horizon Alt/Az</Tag>
@@ -962,8 +985,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           {/* Interactive Hover Tooltip */}
           {hoveredObject && (
             <div
-              className="pointer-events-none absolute z-20 max-w-[260px] rounded-lg border border-purple-500/30 bg-slate-900/90 p-2.5 shadow-xl text-xs text-slate-200"
-              style={{ left: Math.min(hoveredObject.x + 10, 260), top: Math.max(hoveredObject.y - 45, 10) }}
+              ref={hoverTipRef}
+              data-testid="sky-hover-tooltip"
+              className="pointer-events-none absolute z-20 w-[240px] max-w-full rounded-lg border border-purple-500/30 bg-slate-900/90 p-2.5 shadow-xl text-xs text-slate-200"
+              style={{ left: hoveredObject.x, top: hoveredObject.y }}
             >
               <div className="font-semibold text-purple-300">{hoveredObject.name}</div>
               <div className="text-slate-400 font-mono text-[11px]">{hoveredObject.sub}</div>

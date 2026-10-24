@@ -19,9 +19,22 @@
  * LEFT = where and when: the flat strip, the planetary-hour readout under it
  * (it is about the place and the instant, like the strip) and the time
  * controls. RIGHT = the sky: the dome, alone. The dome is the tall element
- * (~680 px); strip + readout alone leave ~300 px empty under them at 1440 px,
+ * (~600-790 px); strip + readout alone leave ~300 px empty under them at 1440 px,
  * while the controls (~210 px) belong with the place and time anyway, so the
- * two columns end within ~60 px of each other.
+ * two columns end near each other.
+ *
+ * W3-M5 (measured 2026-10-24 in real Chromium, docs/notes/earthsky/w3-m5/):
+ * how near is a property of the SKY, not of this layout. The dome's side
+ * panel grows with what is overhead - the planet list is 180..352 px and the
+ * nakshatra chip list 76..134 px - and in daylight it also carries the "stars
+ * hidden" banner and an extra switch row. So the difference between the two
+ * column bottoms was 1..98 px over twelve observer longitudes at one instant
+ * (1440 px), 170 px at 1280 px (the dome's 610 px column floor squeezes the
+ * left column there) and 99..163 px with seven visible planets. With a fixed
+ * night sky (the reference fixture in frontend/e2e/fixtures) it is 53 px at
+ * 1440 px. The strict bound is asserted against that
+ * fixed sky in frontend/e2e/earth-sky-layout.spec.ts; the live smoke records
+ * the live number instead of pretending it is a layout invariant.
  *
  * W3-M4 (measured at 1100 / 1280 / 1366 / 1440 / 1920 / 420 px, docs/notes/earthsky/wave3/c1/card-matrix.mjs):
  * - Equal columns below ~1330 px gave the dome a column too narrow to keep its canvas and side panel side by side

@@ -48,12 +48,16 @@
  * frontend/test-results/earth-sky/ (git-ignored). The tests are serial, so the
  * first failure skips the rest by design.
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 test.describe.configure({ mode: 'serial' });
+// The serial smoke drives eight steps in one browser session and the API can
+// be busy; Playwright's default 30 s per test is shorter than these runs need
+// (the end-to-end test took 29 s on a quiet machine and 25 s here).
+test.setTimeout(120_000);
 
 // Repo-portable: default under frontend/test-results/earth-sky (git-ignored),
 // overridable for evidence runs. Playwright loads specs as ESM, hence
@@ -90,12 +94,47 @@ test.beforeAll(async ({ request }) => {
   }
 });
 
-test.beforeEach(() => {
+test.beforeEach(async ({ request }) => {
   test.skip(
     !backendUp,
     'API on localhost:8008 is unreachable — start it from the repo root with `python run.py serve` (AGENTS.md / docs/DEVELOPMENT.md); the tests skip rather than fail on an environment that cannot answer',
   );
+  // The API answers /health while it is busy, so that is not enough: the app's
+  // own background work (the autonomous operator starts a scalar broadcast
+  // every 300 s) blocks the event loop for 4-25 s at a time - measured 13 slow
+  // answers in 180 requests over six minutes on 2026-10-24 - and a request
+  // that lands in that window times out in the client (15 s), which leaves the
+  // dome showing "Night sky unavailable" and the smoke's canvas wait failing.
+  // So wait until an astrology route answers before driving the browser.
+  await waitForAstrologyRoutes(request);
 });
+
+/**
+ * Wait until the API's astrology routes answer (the app's own background work
+ * blocks the event loop for a while; /health answers while that happens).
+ */
+async function waitForAstrologyRoutes(request: APIRequestContext): Promise<void> {
+  const deadline = Date.now() + 90_000;
+  let last = 'no answer';
+  while (Date.now() < deadline) {
+    const started = Date.now();
+    try {
+      const res = await request.get(`${BACKEND}/api/v1/astrology/night-sky`, {
+        params: { latitude: 37.7749, longitude: -122.4194 },
+        timeout: 20_000,
+      });
+      if (res.ok()) {
+        console.log(`ASTROLOGY ROUTES READY after ${Date.now() - started} ms`);
+        return;
+      }
+      last = `http ${res.status()}`;
+    } catch (err) {
+      last = String(err);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(`the API's astrology routes did not answer within 90 s (last: ${last})`);
+}
 
 function attach(page: Page): Capture {
   const capture: Capture = {
@@ -666,7 +705,20 @@ test('Earth & Sky works end to end on the real routes', async ({ page }) => {
   expect(hourBox.x + hourBox.width).toBeLessThanOrEqual(domeCard.x + 1);
   expect(controlsBox.y).toBeGreaterThanOrEqual(hourBox.y + hourBox.height - 1);
   await assertDomePanelNoOverflow(page, 'live-1440');
-  expect(Math.abs(rightBox.y + rightBox.height - (leftBox.y + leftBox.height))).toBeLessThanOrEqual(100);
+  // W3-M5: the difference between the two column bottoms is NOT a property of
+  // the layout - it is a property of the sky. The dome's side panel grows with
+  // what is overhead (the planet list 180..352 px and the nakshatra chips
+  // 76..134 px measured at 1440 px), and in daylight it also carries the
+  // "stars hidden" banner and an extra switch row. Measured in real Chromium at
+  // 1440 px over twelve observer longitudes at one instant: 1..98 px; with
+  // seven visible planets dev-lead measured 99..163 px; at 1280 px, where the
+  // dome's 610 px column floor squeezes the left column, 170 px. So the live
+  // bound here is a gross one, and the strict bound (100 px) is asserted
+  // against a fixed sky in earth-sky-layout.spec.ts.
+  expect(
+    Math.abs(rightBox.y + rightBox.height - (leftBox.y + leftBox.height)),
+    'the two columns are far apart (see the note above)',
+  ).toBeLessThanOrEqual(200);
   const domeCanvasWidthLive = await page
     .getByTestId('celestial-sky-dome-canvas')
     .evaluate((el) => (el as HTMLElement).clientWidth);
@@ -1090,7 +1142,9 @@ test('strip and globe follow the shared scrub (W3-I)', async ({ page }) => {
   const scrubRight = (await page.getByTestId('earth-sky-right').boundingBox())!;
   const scrubDelta = Math.abs(scrubRight.y + scrubRight.height - (scrubLeft.y + scrubLeft.height));
   console.log('CARD COLUMNS SCRUBBED -12h 1440', JSON.stringify({ scrubLeft, scrubRight, bottomDelta: scrubDelta }));
-  expect(scrubDelta).toBeLessThanOrEqual(100);
+  // W3-M5: the same gross bound as the live measurement above; the strict
+  // bound is asserted against a fixed sky in earth-sky-layout.spec.ts.
+  expect(scrubDelta).toBeLessThanOrEqual(200);
 
   console.log('SCRUB FOLLOW', JSON.stringify({ scrubOffsetHours, stripLive, stripScrub, globeLive, globeScrub }));
 
