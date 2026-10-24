@@ -9,7 +9,14 @@
  *
  * `skyBackground` keeps the current night fill exactly at and below -18° and
  * moves through indigo/twilight to a desaturated day blue by +10°.
+ *
+ * W5-B: `limitingMagnitude` and `starAlpha` take an OPTIONAL last argument, the Moon
+ * (`moonlight.ts`). A Moon above the horizon lowers the limit by `moonlightPenaltyMag`,
+ * scaled by how dark the Sun-limited sky still is. Without the argument, or with the
+ * Moon at or below the horizon (or new), every result is byte-identical to before.
  */
+import { moonlightPenaltyMag, type MoonLight } from './moonlight';
+
 
 /** At and below this Sun altitude the sky is astronomical night (today's dome). */
 export const NIGHT_SUN_ALT_DEG = -18;
@@ -34,7 +41,28 @@ const LIMIT_ANCHORS: readonly (readonly [number, number])[] = [
   [10, -4],
 ];
 
-export function limitingMagnitude(sunAltDeg: number): number {
+/** The Sun-limited limit at astronomical night (the whole catalogue), and where moonlight stops adding to the glow. */
+const NIGHT_LIMIT_MAG = 6.5;
+const MOON_FADES_AT_LIMIT_MAG = 2;
+
+/**
+ * The naked-eye limiting magnitude for a Sun altitude and, optionally, the Moon.
+ *
+ * Moonlight adds to the sky's glow, so it matters most in a truly dark sky and not at all once twilight has already
+ * brightened it: the Moon's penalty is multiplied by how dark the Sun-limited sky is, 1 at a limit of 6.5 (Sun at or
+ * below -18°) falling linearly to 0 at a limit of 2 (civil twilight, Sun at -6°, and brighter). The result is never
+ * brighter than the Moonless one, and a Moon at or below the horizon returns the Moonless value unchanged.
+ */
+export function limitingMagnitude(sunAltDeg: number, moon?: MoonLight): number {
+  const sunLimit = sunLimitingMagnitude(sunAltDeg);
+  if (moon === undefined) return sunLimit;
+  const penalty = moonlightPenaltyMag(moon.altDeg, moon.illuminatedFraction);
+  if (penalty <= 0) return sunLimit;
+  const darkness = clamp01((sunLimit - MOON_FADES_AT_LIMIT_MAG) / (NIGHT_LIMIT_MAG - MOON_FADES_AT_LIMIT_MAG));
+  return sunLimit - penalty * darkness;
+}
+
+function sunLimitingMagnitude(sunAltDeg: number): number {
   if (!Number.isFinite(sunAltDeg)) return 6.5;
   if (sunAltDeg <= NIGHT_SUN_ALT_DEG) return 6.5;
   if (sunAltDeg >= DAY_SUN_ALT_DEG) return -4;
@@ -58,11 +86,19 @@ export function limitingMagnitude(sunAltDeg: number): number {
  *
  * "See through daylight" (`seeThrough = true`): at least a faint floor, brighter
  * for brighter stars (0.35 at Sirius-class, 0.12 at the catalogue edge), but
- * never dimmer than the real alpha when the real alpha is higher.
+ * never dimmer than the real alpha when the real alpha is higher. The floor does not
+ * depend on the Moon: the x-ray view shows the stars the glow has hidden.
+ *
+ * `moon` (W5-B, optional): moonlight lowers the limit as `limitingMagnitude` describes.
  */
-export function starAlpha(magnitude: number, sunAltDeg: number, seeThrough = false): number {
+export function starAlpha(
+  magnitude: number,
+  sunAltDeg: number,
+  seeThrough = false,
+  moon?: MoonLight,
+): number {
   if (!Number.isFinite(magnitude)) return 0;
-  const normal = clamp01((limitingMagnitude(sunAltDeg) - magnitude) / FADE_BAND_MAG);
+  const normal = clamp01((limitingMagnitude(sunAltDeg, moon) - magnitude) / FADE_BAND_MAG);
   if (!seeThrough) return normal;
   const floor = 0.12 + 0.23 * clamp01((6.5 - magnitude) / 8);
   return Math.max(normal, floor);
