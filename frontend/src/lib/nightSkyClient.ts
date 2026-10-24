@@ -248,7 +248,8 @@ export function cancelNightSkyRequest(): void {
 }
 
 /**
- * Fetch and validate the geocentric sky for an observer.
+ * Fetch and validate the sky for an observer: the Sun, Moon and planets topocentric (diurnal parallax applied by
+ * the backend since W4-T1; `position_frame` says so), the sacred stars precessed to the date.
  *
  * @param lat latitude in degrees [-90, 90]
  * @param lng longitude in degrees, any finite value: it is wrapped into [-180, 180) before the request

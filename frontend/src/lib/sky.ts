@@ -152,6 +152,52 @@ export function equatorialToHorizontal(
   return { alt, az };
 }
 
+/**
+ * Meeus, Astronomical Algorithms ch. 40: the Earth's equatorial horizontal parallax is 8.794" at 1 AU, so a
+ * body Δ AU away has sin(π) = sin(8.794") / Δ. Keep these two constants in step with
+ * `core/celestial_sky.py` (`_SIN_PARALLAX_AT_1_AU`, `_EARTH_AXIS_RATIO`): the live `/night-sky` Moon and the
+ * scrubbed Moon must agree, and `moonParallax.test.ts` holds both to the same oracles.
+ */
+const SIN_PARALLAX_AT_1_AU = Math.sin((8.794 / 3600) * RAD);
+/** Meeus ch. 11: polar / equatorial radius b/a = 1 - f for the IAU 1976 flattening f = 1/298.257. */
+const EARTH_AXIS_RATIO = 0.99664719;
+
+/**
+ * Meeus ch. 11: ρ·sin(φ') and ρ·cos(φ') for an observer at sea level at geodetic latitude `latDeg` (φ' is the
+ * geocentric latitude, ρ the distance from the Earth's centre in equatorial radii).
+ */
+export function observerTerms(latDeg: number): { rhoSin: number; rhoCos: number } {
+  const lat = latDeg * RAD;
+  const u = Math.atan2(EARTH_AXIS_RATIO * Math.sin(lat), Math.cos(lat));
+  return { rhoSin: EARTH_AXIS_RATIO * Math.sin(u), rhoCos: Math.cos(u) };
+}
+
+/**
+ * Right ascension and declination of a body as seen from the observer's place (diurnal parallax), Meeus ch. 40.
+ * Port of `core/celestial_sky.py::_topocentric_equatorial`: `raDeg`/`decDeg`/`distanceAu` are the geocentric
+ * apparent place and distance, `lstDeg` the local apparent sidereal time, `latDeg` the geodetic latitude
+ * (height 0). `RangeError` for a distance that is not a positive finite number of AU.
+ */
+export function topocentricEquatorial(
+  raDeg: number,
+  decDeg: number,
+  distanceAu: number,
+  lstDeg: number,
+  latDeg: number,
+): { ra: number; dec: number } {
+  if (!(Number.isFinite(distanceAu) && distanceAu > 0)) {
+    throw new RangeError(`distance must be a positive, finite number of AU, got ${distanceAu}`);
+  }
+  const sinParallax = SIN_PARALLAX_AT_1_AU / distanceAu;
+  const { rhoSin, rhoCos } = observerTerms(latDeg);
+  const hourAngle = (lstDeg - raDeg) * RAD;
+  const dec = decDeg * RAD;
+  const denominator = Math.cos(dec) - rhoCos * sinParallax * Math.cos(hourAngle);
+  const deltaRa = Math.atan2(-rhoCos * sinParallax * Math.sin(hourAngle), denominator);
+  const topoDec = Math.atan2((Math.sin(dec) - rhoSin * sinParallax) * Math.cos(deltaRa), denominator);
+  return { ra: (((raDeg + deltaRa * DEG) % 360) + 360) % 360, dec: topoDec * DEG };
+}
+
 /** The dome's existing convention: r=(90-alt)/90*radius, x=cx-r*sin(az), y=cy-r*cos(az). */
 export function domePoint(
   alt: number,

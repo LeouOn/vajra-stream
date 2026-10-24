@@ -116,6 +116,43 @@ describe('fetchSeries: response validation', () => {
   });
 });
 
+describe('fetchSeries: the Moon distance (W4-T2)', () => {
+  function withDistances(values: (number | undefined)[]): Record<string, unknown> {
+    const body = payload();
+    const samples = body.samples as Record<string, unknown>[];
+    values.forEach((value, index) => {
+      if (value !== undefined) samples[index].moon_distance_au = value;
+    });
+    return body;
+  }
+
+  it('hands a series that carries it back as topocentric', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(withDistances([0.00246, 0.002461, 0.002462])));
+    const series = await fetchSeries(START, END, 600);
+    expect(series.moonFrame).toBe('topocentric');
+    expect(series.samples.map((s) => s.moonDistanceAu)).toEqual([0.00246, 0.002461, 0.002462]);
+  });
+
+  it('hands a series without it back as geocentric, as before', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(payload()));
+    expect((await fetchSeries(START, END, 600)).moonFrame).toBe('geocentric');
+  });
+
+  it('rejects a mixed series as an invalid response, naming the sample', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(withDistances([0.00246, undefined, 0.002462])));
+    const error = await fetchSeries(START, END, 600).catch((e: unknown) => e);
+    expect(error).toMatchObject({ kind: 'invalid-response' });
+    expect(String((error as Error).message)).toContain('samples[1].moon_distance_au');
+  });
+
+  it('rejects a distance that is not a Moon distance in AU', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(withDistances([384400, 384400, 384400])));
+    const error = await fetchSeries(START, END, 600).catch((e: unknown) => e);
+    expect(error).toMatchObject({ kind: 'invalid-response' });
+    expect(String((error as Error).message)).toContain('samples[0].moon_distance_au');
+  });
+});
+
 describe('fetchSeries: typed failures', () => {
   it('maps 422 to invalid-input and keeps the server detail', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ detail: 'step_seconds must be 60..3600' }, 422));

@@ -3,14 +3,18 @@
  *
  * The backend ships sub-points, not RA/Dec: for a body at an instant,
  *   Dec = lat,  RA = wrap360(lon + gast_deg)
- * with the GAST apparent. Positions are geocentric (the same convention the
- * live `/night-sky` path uses), so the client only has to interpolate and
- * rotate. Longitudes and GAST wrap at +-180 / 360; interpolation is width-aware
- * (`wrap180(b - a)`), never raw subtraction.
+ * with the GAST apparent. The sub-points are geocentric, so the client only has
+ * to interpolate and rotate. The live `/night-sky` path has been topocentric
+ * since W4-T1 (diurnal parallax, Meeus ch. 40), so the Moon, the one body whose
+ * parallax shows (up to 1 deg; the Sun and planets move at most 0.009 deg), gets
+ * the same correction here from the optional per-sample `moon_distance_au`
+ * (W4-T2); without it the Moon stays geocentric and the series says so
+ * (`moonFrame`). Longitudes and GAST wrap at +-180 / 360; interpolation is
+ * width-aware (`wrap180(b - a)`), never raw subtraction.
  *
  * No React, no network, no timers: `earthSeriesClient.ts` owns the request.
  */
-import { equatorialToHorizontal } from './sky';
+import { equatorialToHorizontal, topocentricEquatorial } from './sky';
 import { wrapLon } from './earth';
 import { parseInstant } from './skyClock';
 
@@ -24,6 +28,10 @@ const EXPECTED_PLANET_IDS = [
   'neptune',
   'pluto',
 ] as const;
+
+/** The Moon's geocentric distance stays inside 356,371-406,720 km = 0.002382-0.002719 AU; this bounds it with margin. */
+const MOON_DISTANCE_AU_MIN = 0.0023;
+const MOON_DISTANCE_AU_MAX = 0.0028;
 
 const MIN_STEP_SECONDS = 60;
 const MAX_STEP_SECONDS = 3600;
@@ -44,7 +52,12 @@ export interface SeriesSample {
   sun: SeriesBody;
   moon: SeriesBody;
   planets: SeriesBody[];
+  /** The Moon's geocentric distance in AU (W4-T2); present on every sample of a series or on none. */
+  moonDistanceAu?: number;
 }
+
+/** Which frame the series lets the Moon be computed in. */
+export type MoonFrame = 'topocentric' | 'geocentric';
 
 export interface SkySeries {
   ephemeris: string;
@@ -54,6 +67,11 @@ export interface SkySeries {
   stepSeconds: number;
   count: number;
   samples: SeriesSample[];
+  /**
+   * `topocentric` when every sample carries `moon_distance_au` (the Moon then gets the same diurnal parallax
+   * the live path applies), `geocentric` when none does (an older backend). A mixture is refused.
+   */
+  moonFrame: MoonFrame;
   provenance: Record<string, unknown>;
 }
 
@@ -63,6 +81,8 @@ export interface InterpolatedBody {
   lon: number;
   ra: number;
   dec: number;
+  /** AU; set only on the Moon, only when the series is topocentric. `horizontalOf` applies the parallax iff it is set. */
+  distanceAu?: number;
 }
 
 function wrap360(deg: number): number {
@@ -112,13 +132,24 @@ function decodeBody(value: unknown, path: string, expectedId?: string): SeriesBo
   return { id, lat, lon };
 }
 
+/** `undefined` when the sample has no distance; otherwise a finite number of AU inside the Moon's real range. */
+function decodeMoonDistance(value: unknown, path: string): number | undefined {
+  if (value === undefined) return undefined;
+  const au = requireFinite(value, path);
+  if (au < MOON_DISTANCE_AU_MIN || au > MOON_DISTANCE_AU_MAX) {
+    fail(path, `must be a Moon distance in AU, between ${MOON_DISTANCE_AU_MIN} and ${MOON_DISTANCE_AU_MAX}`);
+  }
+  return au;
+}
+
 /**
  * Validate an unknown `/astrology/earth-state/series` payload.
  *
  * Throws `TypeError` naming the path of the first bad field; never casts.
  * Requires an apparent-GAST series, 60..3600 s steps, 2..288 samples at exactly
  * that uniform spacing, and the Sun, Moon and the eight planets in every sample
- * (same order throughout).
+ * (same order throughout). `moon_distance_au` is optional but strict when
+ * present (a finite, real Moon distance in AU) and must then be on every sample.
  */
 export function decodeSeries(raw: unknown): SkySeries {
   const record = requireRecord(raw, 'response');
@@ -158,6 +189,7 @@ export function decodeSeries(raw: unknown): SkySeries {
   const samples: SeriesSample[] = [];
   let planetOrder: string[] | null = null;
   let previousMs = Number.NaN;
+  let carriesMoonDistance = false;
 
   for (let index = 0; index < rawSamples.length; index += 1) {
     const path = `samples[${index}]`;
@@ -202,7 +234,17 @@ export function decodeSeries(raw: unknown): SkySeries {
       fail(`${path}.planets`, 'must use the same planet order as samples[0]');
     }
 
-    samples.push({ at, atMs, gast, sun, moon, planets });
+    const moonDistanceAu = decodeMoonDistance(sample.moon_distance_au, `${path}.moon_distance_au`);
+    const hasDistance = moonDistanceAu !== undefined;
+    if (index === 0) carriesMoonDistance = hasDistance;
+    else if (hasDistance !== carriesMoonDistance) {
+      fail(`${path}.moon_distance_au`, 'must be present in every sample or in none (no mixed frames)');
+    }
+    samples.push(
+      moonDistanceAu === undefined
+        ? { at, atMs, gast, sun, moon, planets }
+        : { at, atMs, gast, sun, moon, planets, moonDistanceAu },
+    );
   }
 
   return {
@@ -213,6 +255,7 @@ export function decodeSeries(raw: unknown): SkySeries {
     stepSeconds,
     count,
     samples,
+    moonFrame: carriesMoonDistance ? 'topocentric' : 'geocentric',
     provenance: record.provenance,
   };
 }
@@ -267,6 +310,12 @@ export function bodiesAt(series: SkySeries, instantMs: number): InterpolatedBody
     const lon = interpolateLon(a.lon, b.lon, t);
     bodies.push(reconstruct(a.id, lat, lon, gast));
   }
+  // The Moon's distance changes ~0.1% an hour, so a straight line between two samples 603 s apart is exact for
+  // this purpose (no angle, no seam).
+  if (before.moonDistanceAu !== undefined && after.moonDistanceAu !== undefined) {
+    const moon = bodies.find((body) => body.id === 'moon');
+    if (moon) moon.distanceAu = before.moonDistanceAu + (after.moonDistanceAu - before.moonDistanceAu) * t;
+  }
   return bodies;
 }
 
@@ -274,6 +323,11 @@ export function bodiesAt(series: SkySeries, instantMs: number): InterpolatedBody
  * Alt/az for a body as seen from (observerLat, observerLng), using the same
  * spherical trigonometry as `core/celestial_sky.py` and the live dome path.
  * LST = GAST + observer longitude (east positive); az is North 0, East 90.
+ *
+ * The one conversion point of the scrubbed dome. A body that carries a
+ * `distanceAu` (only the Moon, only from a topocentric series) first gets the
+ * diurnal parallax the live `/night-sky` applies; every other body is the
+ * geocentric reading, exactly as before.
  */
 export function horizontalOf(
   body: InterpolatedBody,
@@ -282,5 +336,9 @@ export function horizontalOf(
   observerLng: number,
 ): { alt: number; az: number } {
   const lst = wrap360(gast + observerLng);
+  if (body.distanceAu !== undefined) {
+    const topocentric = topocentricEquatorial(body.ra, body.dec, body.distanceAu, lst, observerLat);
+    return equatorialToHorizontal(topocentric.ra, topocentric.dec, lst, observerLat);
+  }
   return equatorialToHorizontal(body.ra, body.dec, lst, observerLat);
 }

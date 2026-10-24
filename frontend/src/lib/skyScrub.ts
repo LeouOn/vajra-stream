@@ -16,6 +16,7 @@ import {
   bodiesAt,
   horizontalOf,
   type InterpolatedBody,
+  type MoonFrame,
   type SkySeries,
 } from './skySeries';
 
@@ -122,6 +123,11 @@ export interface ScrubbedSky {
   bodies: InterpolatedBody[];
   /** Alt/az by body id (sun, moon, the eight planets). */
   positions: Record<string, { alt: number; az: number }>;
+  /**
+   * The frame of `positions.moon`: `topocentric` (parallax applied, as the live path) when the series carries the
+   * Moon's distance, else `geocentric`. The Sun and planets are geocentric either way (<= 0.009 deg).
+   */
+  moonFrame: MoonFrame;
   sacred: SacredPosition[];
   sacredMissing: boolean;
 }
@@ -194,6 +200,7 @@ export function skyAtInstant(
     jd,
     bodies,
     positions,
+    moonFrame: series.moonFrame,
     sacred: sacredResult.positions,
     sacredMissing: sacredResult.missing,
   };

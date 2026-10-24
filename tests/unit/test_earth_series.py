@@ -82,6 +82,75 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+# W4-T2: the Moon's distance, so a client can apply the same diurnal parallax the live /night-sky applies.
+# Independent literals: astropy's builtin ERFA lunar theory (moon98), in AU, 9 places
+# (docs/notes/earthsky/wave4/t2/moon_distance_astropy.py). swisseph agrees with them to <= 2.4e-8 AU (3.6 km).
+MOON_DISTANCE_LITERALS = (
+    (datetime(2026, 3, 20, 14, 46, 0, tzinfo=UTC), 0.002465089),
+    (datetime(2026, 1, 1, 13, 30, 0, tzinfo=UTC), 0.002409561),  # near a perigee
+    (datetime(2026, 1, 14, 0, 0, 0, tzinfo=UTC), 0.002709888),  # near an apogee
+    (datetime(2026, 10, 24, 0, 0, 0, tzinfo=UTC), 0.002531260),
+    (datetime(1900, 6, 15, 12, 0, 0, tzinfo=UTC), 0.002497559),
+    (datetime(2150, 2, 2, 18, 0, 0, tzinfo=UTC), 0.002526654),
+)
+
+
+class TestMoonDistance:
+    @pytest.mark.parametrize(("instant", "au"), MOON_DISTANCE_LITERALS)
+    def test_matches_an_independent_lunar_theory_in_au(self, instant, au):
+        sample = earth_state_series(instant, instant, 60)["samples"][0]
+        assert sample["moon_distance_au"] == pytest.approx(au, abs=1e-7)  # 15 km; the two theories differ by <= 3.6 km
+
+    def test_is_the_distance_swisseph_returns_for_the_samples_own_julian_day(self):
+        series = earth_state_series(START, START + timedelta(hours=6), 600)
+        for sample in series["samples"]:
+            want = swe.calc_ut(jd_of(parse_z(sample["at"])), 1, swe.FLG_EQUATORIAL)[0][2]
+            assert sample["moon_distance_au"] == want
+
+    def test_is_a_plausible_moon_distance_over_a_month_of_samples_and_at_the_range_edges(self):
+        # 356,371 km (closest perigee) = 0.002382 AU; 406,720 km (farthest apogee) = 0.002719 AU
+        for start in (START, datetime(1800, 1, 1, tzinfo=UTC), datetime(2200, 12, 1, tzinfo=UTC)):
+            series = earth_state_series(start, start + timedelta(seconds=3600 * 287), 3600)
+            distances = [sample["moon_distance_au"] for sample in series["samples"]]
+            assert all(0.0023 < d < 0.0028 for d in distances), (start, min(distances), max(distances))
+            assert max(distances) - min(distances) > 1e-5  # it moves: not a constant
+
+    def test_only_the_moon_carries_a_distance(self):
+        series = earth_state_series(START, START + timedelta(hours=1), 600)
+        assert set(series) == {"ephemeris", "sidereal_time", "start", "end", "step_seconds", "count", "samples"}
+        for sample in series["samples"]:
+            assert isinstance(sample["moon_distance_au"], float)
+            for body in bodies_of(sample).values():
+                assert set(body) == {"id", "lat", "lon"}
+
+    def test_the_rest_of_the_sample_is_unchanged(self):
+        """Dropping the new key leaves exactly the shape (and the numbers) W3-B pinned."""
+        series = earth_state_series(START, START + timedelta(hours=1), 600)
+        for sample in series["samples"]:
+            jd = jd_of(parse_z(sample["at"]))
+            gast = swe.sidtime(jd) * 15.0
+            assert sample["gast_deg"] == gast
+            (pos, _) = swe.calc_ut(jd, 1, swe.FLG_EQUATORIAL)
+            assert sample["moon"] == {"id": "moon", "lat": pos[1], "lon": wrap180(pos[0] - gast)}
+
+    def test_the_payload_stays_small_at_the_cap(self):
+        """288 samples: the new number must cost well under the ~213 KB the response already is."""
+        end = START + timedelta(seconds=603 * 287)
+        series = earth_state_series(START, end, 603)
+        with_key = len(json.dumps(series))
+        for sample in series["samples"]:
+            del sample["moon_distance_au"]
+        without = len(json.dumps(series))
+        assert (with_key - without) / without < 0.06, (with_key, without)
+
+    def test_the_route_carries_it_unchanged(self, client):
+        params = {"start": "2026-03-20T14:46:00Z", "end": "2026-03-20T15:46:00Z", "step_seconds": "600"}
+        body = client.get("/astrology/earth-state/series", params=params).json()
+        core = earth_state_series(EQUINOX_MAR_2026, EQUINOX_MAR_2026 + timedelta(hours=1), 600)
+        assert [s["moon_distance_au"] for s in body["samples"]] == [s["moon_distance_au"] for s in core["samples"]]
+        assert body["samples"][0]["moon_distance_au"] == pytest.approx(0.002465089, abs=1e-7)
+
+
 class TestStructure:
     def test_top_level_and_sample_key_sets(self):
         series = earth_state_series(START, START + timedelta(hours=1), 600)
@@ -91,7 +160,8 @@ class TestStructure:
         assert series["step_seconds"] == 600
         assert series["count"] == 7 == len(series["samples"])
         for sample in series["samples"]:
-            assert set(sample) == {"at", "gast_deg", "sun", "moon", "planets"}
+            # W4-T2 added exactly one key, ``moon_distance_au``; every body keeps {id, lat, lon}.
+            assert set(sample) == {"at", "gast_deg", "sun", "moon", "planets", "moon_distance_au"}
             assert isinstance(sample["gast_deg"], float)
             assert 0.0 <= sample["gast_deg"] < 360.0
             assert [p["id"] for p in sample["planets"]] == PLANET_ORDER

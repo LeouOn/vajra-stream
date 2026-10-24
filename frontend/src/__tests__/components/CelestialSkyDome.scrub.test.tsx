@@ -5,7 +5,7 @@
  * while scrubbing and resumes on goLive. Series fixtures are literals copied
  * from the independent oracle (equinox-2026 samples 0,2,4,6,8,10; never
  * imported). The live sacred-star values at the scrub instant are literals from
- * `core.celestial_sky.calculate_night_sky` (geocentric/GMST).
+ * `core.celestial_sky.calculate_night_sky` (stars have no parallax: precessed to the date, apparent sidereal time).
  */
 import React, { act } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -353,7 +353,7 @@ describe('CelestialSkyDome scrub mode', () => {
     if (vega && vega.alt > 0) {
       expect(container.textContent).toContain(`+${vega.alt.toFixed(2)}°`);
     }
-    // Parity with the live sacred-star path (geocentric/GMST vs GAST).
+    // Parity with the live sacred-star path (stars have no parallax, so Live and scrub share one frame).
     const rad = Math.PI / 180;
     for (const position of expected.sacred) {
       const live = LIVE_SACRED[position.id as keyof typeof LIVE_SACRED];

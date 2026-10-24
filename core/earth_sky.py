@@ -155,9 +155,10 @@ def _julian_day(at: datetime) -> float:
     )
 
 
-def _series_body(jd: float, gast_deg: float, body_id: str, swe_id: int) -> dict:
+def _series_body(jd: float, gast_deg: float, body_id: str, swe_id: int) -> tuple[dict, float]:
+    """A series body ``{id, lat, lon}`` and its distance in AU, from one ``calc_ut`` call."""
     (pos, _flags) = swe.calc_ut(jd, swe_id, swe.FLG_EQUATORIAL)
-    return {"id": body_id, "lat": pos[1], "lon": _wrap180(pos[0] - gast_deg)}
+    return {"id": body_id, "lat": pos[1], "lon": _wrap180(pos[0] - gast_deg)}, pos[2]
 
 
 def earth_state_series(start: datetime, end: datetime, step_seconds: int) -> dict:
@@ -173,7 +174,8 @@ def earth_state_series(start: datetime, end: datetime, step_seconds: int) -> dic
          "samples": [{"at": "...Z", "gast_deg": 12.3...,
                       "sun": {"id": "sun", "lat": ..., "lon": ...},
                       "moon": {...},
-                      "planets": [{"id": "mercury", ...}, ... "pluto"]}, ...]}
+                      "planets": [{"id": "mercury", ...}, ... "pluto"],
+                      "moon_distance_au": 0.00246...}, ...]}
 
     The route adds ``provenance``. A sample is an ``earth_state`` payload
     without ``name``, ``ra_deg`` and ``dec_deg``, and unrounded (``earth_state``
@@ -189,6 +191,14 @@ def earth_state_series(start: datetime, end: datetime, step_seconds: int) -> dic
       positions are apparent too, so the pair is consistent;
     * hour angle at an observer with east longitude ``L``: ``H = L - lon``.
       No sidereal time is needed for the Sun, Moon and planets.
+
+    **The Moon's distance (W4-T2).** ``moon_distance_au`` is the geocentric distance of the Moon in
+    astronomical units, from the same ``calc_ut`` call as the Moon's place, unrounded. With it a client
+    can apply the diurnal parallax the live ``/night-sky`` applies (``core.celestial_sky``, Meeus ch.
+    40), so the Moon does not step by up to 1 degree when the user leaves live for a scrubbed instant.
+    Only the Moon: the Sun and planets move at most 0.009 degree, below the 0.01 degree display step.
+    It is additive (a client that ignores it keeps the geocentric reading), costs about 12 KB at 288
+    samples, and interpolates linearly (it changes by ~0.1% an hour).
 
     **Interpolating.** ``lon`` runs from +180 to -180 about once a day, so a
     plain average of two neighbours across the seam is ~180 degrees wrong.
@@ -252,7 +262,8 @@ def earth_state_series(start: datetime, end: datetime, step_seconds: int) -> dic
         at = start + timedelta(seconds=step_seconds * k)
         jd = _julian_day(at)
         gast_deg = swe.sidtime(jd) * 15.0
-        bodies = [_series_body(jd, gast_deg, body_id, swe_id) for (body_id, _name, swe_id) in _BODIES]
+        placed = [_series_body(jd, gast_deg, body_id, swe_id) for (body_id, _name, swe_id) in _BODIES]
+        bodies = [body for body, _distance_au in placed]
         samples.append(
             {
                 "at": format_instant(at),
@@ -260,6 +271,7 @@ def earth_state_series(start: datetime, end: datetime, step_seconds: int) -> dic
                 "sun": bodies[0],
                 "moon": bodies[1],
                 "planets": bodies[2:],
+                "moon_distance_au": placed[1][1],
             }
         )
     return {

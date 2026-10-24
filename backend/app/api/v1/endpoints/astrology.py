@@ -258,8 +258,9 @@ async def get_earth_state_series(
     1800-01-01..2200-12-31 UTC; anything else is 422 with a plain-string
     ``detail`` (the cap is named in it). Without swisseph the answer is 503.
 
-    Each sample is ``{at, gast_deg, sun, moon, planets}`` with bodies as
-    ``{id, lat, lon}``, unrounded. Declination is ``lat``; right ascension is
+    Each sample is ``{at, gast_deg, sun, moon, planets, moon_distance_au}`` with bodies as
+    ``{id, lat, lon}``, unrounded; ``moon_distance_au`` is the Moon's geocentric distance in AU,
+    which lets a client apply the same diurnal parallax as ``/night-sky``. Declination is ``lat``; right ascension is
     ``(lon + gast_deg) mod 360`` with ``gast_deg`` the Greenwich *apparent*
     sidereal time; the hour angle at east longitude L is ``L - lon``.
     Interpolate ``lon``, ``gast_deg`` and RA the short way round

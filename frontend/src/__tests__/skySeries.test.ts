@@ -11,6 +11,11 @@
  * with GAST apparent. Tolerances from the oracle report (W3-O,
  * oracle_report.md): RA reconstruction 0.001 deg, Moon 0.002; the route's
  * sub-point lon/GAST tolerance is 0.005; 0.05 deg against the live path.
+ *
+ * W4-T2 note: the `consistency.json` "live" values were captured when the live path was still GEOCENTRIC (before
+ * W4-T1 made it topocentric). These fixtures carry no `moon_distance_au`, so the scrub is geocentric too and the
+ * comparison stays valid as what it is - the geocentric reading. Live/scrub parity for the topocentric Moon is
+ * pinned in `moonParallax.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import { bodiesAt, decodeSeries, horizontalOf } from '../lib/skySeries';
