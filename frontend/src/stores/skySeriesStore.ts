@@ -322,3 +322,42 @@ function buildEarthState(series: SkySeries, shownMs: number): EarthState | null 
     provenance: { at: 'computed', gast_deg: 'computed', sun: 'computed', moon: 'computed', planets: 'computed' },
   };
 }
+
+/**
+ * The scrub-aware `EarthStateSlice` (W3-K moved it here so `earthStateStore.ts`
+ * never imports the scrub machinery at module load). Same rules as before:
+ * a valid shown instant builds a frozen slice from the shared series; an
+ * out-of-range/malformed instant or an unavailable series is `unavailable`;
+ * a series that is still loading (or does not cover the instant yet) is
+ * `loading`. Never the live state.
+ */
+export interface ScrubEarthStateSlice {
+  status: 'loading' | 'ok' | 'unavailable';
+  state: EarthState | null;
+  fetchedAt: number | null;
+  error: string | null;
+  frozen: true;
+}
+
+export function scrubEarthStateSlice(at: string, view: SkySeriesView): ScrubEarthStateSlice {
+  const unavailable = (error: string): ScrubEarthStateSlice => ({
+    status: 'unavailable',
+    state: null,
+    fetchedAt: null,
+    error,
+    frozen: true,
+  });
+  let shownMs: number;
+  try {
+    shownMs = parseInstant(at);
+  } catch (error) {
+    return unavailable(error instanceof Error ? error.message : 'The shown instant is not valid.');
+  }
+  if (shownMs < SERIES_RANGE_START_MS || shownMs > SERIES_RANGE_END_MS) {
+    return unavailable('The shown instant is outside the supported range (1800-2200).');
+  }
+  const state = view.series === null ? null : scrubbedEarthState(view.series, shownMs);
+  if (state !== null) return { status: 'ok', state, fetchedAt: shownMs, error: null, frozen: true };
+  if (view.status === 'unavailable') return unavailable(view.error ?? 'The time series is unavailable.');
+  return { status: 'loading', state: null, fetchedAt: null, error: null, frozen: true };
+}

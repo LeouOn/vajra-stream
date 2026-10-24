@@ -5,10 +5,8 @@
 import { useEffect, useMemo } from 'react';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { BodySubPoint, EarthState } from '../lib/earth';
-import { parseInstant } from '../lib/skyClock';
-import { SERIES_RANGE_END_MS, SERIES_RANGE_START_MS } from '../lib/skyScrub';
 import { apiUrl } from '../utils/api';
-import { scrubbedEarthState, useSkySeries, type SkySeriesView } from './skySeriesStore';
+import { useScrubGate } from './scrubGate';
 import { useSkyStore } from './skyStore';
 
 export type EarthStateStatus = 'idle' | 'loading' | 'ok' | 'unavailable';
@@ -168,30 +166,6 @@ export const useEarthStateStore: UseBoundStore<StoreApi<EarthStore>> = create<Ea
   },
 }));
 
-/** The slice for a scrubbed instant: built from the shared series, or loading, or unavailable. Never the live state. */
-function scrubbedSlice(at: string, view: SkySeriesView): EarthStateSlice {
-  const unavailable = (error: string): EarthStateSlice => ({
-    status: 'unavailable',
-    state: null,
-    fetchedAt: null,
-    error,
-    frozen: true,
-  });
-  let shownMs: number;
-  try {
-    shownMs = parseInstant(at);
-  } catch (error) {
-    return unavailable(error instanceof Error ? error.message : 'The shown instant is not valid.');
-  }
-  if (shownMs < SERIES_RANGE_START_MS || shownMs > SERIES_RANGE_END_MS) {
-    return unavailable('The shown instant is outside the supported range (1800-2200).');
-  }
-  const state = view.series === null ? null : scrubbedEarthState(view.series, shownMs);
-  if (state !== null) return { status: 'ok', state, fetchedAt: shownMs, error: null, frozen: true };
-  if (view.status === 'unavailable') return unavailable(view.error ?? 'The time series is unavailable.');
-  return { status: 'loading', state: null, fetchedAt: null, error: null, frozen: true };
-}
-
 /**
  * The earth state every globe, the strip and the mini globe draw. Live (`skyStore.at === null`): the shared poll,
  * exactly as before. Scrubbed: a frozen slice for that instant from the shared series store; the live poll is
@@ -205,10 +179,20 @@ export function useEarthState(): EarthStateSlice {
   const fetchedAt = useEarthStateStore((s) => s.fetchedAt);
   const error = useEarthStateStore((s) => s.error);
   useEffect(() => (scrubbed ? undefined : useEarthStateStore.getState().subscribe()), [scrubbed]);
-  const series = useSkySeries(scrubbed);
-  const { status: seriesStatus, series: seriesWindow, error: seriesError } = series;
+  // The scrub machinery (series store/client/maths) is a lazy chunk; this gate
+  // watches `at` and loads it only when the sky is first scrubbed.
+  const gate = useScrubGate();
   return useMemo<EarthStateSlice>(() => {
     if (at === null) return { status, state, fetchedAt, error };
-    return scrubbedSlice(at, { status: seriesStatus, series: seriesWindow, error: seriesError, errorKind: null });
-  }, [at, status, state, fetchedAt, error, seriesStatus, seriesWindow, seriesError]);
+    if (gate.module === null) {
+      return {
+        status: gate.view.status === 'unavailable' ? 'unavailable' : 'loading',
+        state: null,
+        fetchedAt: null,
+        error: gate.view.error,
+        frozen: true,
+      };
+    }
+    return gate.module.scrubEarthStateSlice(at, gate.view);
+  }, [at, status, state, fetchedAt, error, gate]);
 }
