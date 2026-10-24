@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { decodeStars, equatorialToHorizontal, type ConstellationLines, type Star } from '../lib/sky';
+import { decodeStars, equatorialToHorizontal, starAlpha, type ConstellationLines, type Star } from '../lib/sky';
 import { buildSkyLayer } from '../lib/skyLayer';
 
 const J2000 = 2451545.0;
@@ -113,6 +113,21 @@ describe('buildSkyLayer', () => {
         expect(mixed[channel]).toBeGreaterThanOrEqual(aloneDim[channel]);
       }
     }
+  });
+
+  it('supports an optional per-star alpha hook; the default equals sky.ts starAlpha', () => {
+    const stars = [zenithStar(4), zenithStar(6.4, null, 2)];
+    const byDefault = layer(stars).stars;
+    const explicit = layer(stars, { starAlphaFor: (star) => starAlpha(star.v) }).stars;
+    expect(Array.from(explicit)).toEqual(Array.from(byDefault));
+
+    const zeroed = layer(stars, { starAlphaFor: () => 0 }).stars;
+    expect(Array.from(zeroed).every((value) => value === 0)).toBe(true);
+
+    const half = layer(stars, { starAlphaFor: () => 0.5 }).stars;
+    let foundHalf = false;
+    for (let i = 3; i < half.length; i += 4) if (half[i] === 128) foundHalf = true;
+    expect(foundHalf).toBe(true);
   });
 
   it('is deterministic for the same input', () => {

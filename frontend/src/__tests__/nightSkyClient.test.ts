@@ -136,6 +136,23 @@ describe('decodeNightSky', () => {
     }
   });
 
+  it('decodes optional planet RA/Dec and validates them with the path', () => {
+    const sky = decodeNightSky(
+      payload({ planets: [{ ...PLANET, right_ascension: 101.287, declination: -16.716 }] }),
+    );
+    expect(sky.planets[0].right_ascension).toBeCloseTo(101.287, 12);
+    expect(sky.planets[0].declination).toBeCloseTo(-16.716, 12);
+    for (const bad of [
+      { right_ascension: 400 },
+      { declination: -91 },
+      { right_ascension: 'x' },
+    ]) {
+      expect(() => decodeNightSky(payload({ planets: [{ ...PLANET, ...bad }] }))).toThrow(
+        /planets\[0\]\.(right_ascension|declination)/,
+      );
+    }
+  });
+
   it('names the first bad path for each field class', () => {
     const mutations: [string, (body: Record<string, unknown>) => void, RegExp][] = [
       ['timestamp without zone', (body) => (body.timestamp_utc = '2026-10-22T02:00:00'), /timestamp_utc/],

@@ -28,6 +28,12 @@ export interface SkySegment {
 
 export interface SkyLayerRequest {
   stars: readonly Star[];
+  /**
+   * Optional per-star alpha override (W5-D moonlight). When absent the layer
+   * uses `sky.ts` `starAlpha(v)` exactly as before, so the no-Moon night is
+   * byte-identical; the dome passes it only when the Moon actually dims stars.
+   */
+  starAlphaFor?: (star: Star) => number;
   lines: ConstellationLines;
   lstDeg: number;
   latDeg: number;
@@ -147,7 +153,8 @@ export function buildSkyLayer(request: SkyLayerRequest): SkyLayerBuffers {
         cy,
       );
       if (placed === null) continue;
-      stamp(stars, grid, placed.x, placed.y, starRadiusPx(star.v), starRgb(star.bv), starAlpha(star.v));
+      const alpha = request.starAlphaFor ? request.starAlphaFor(star) : starAlpha(star.v);
+      stamp(stars, grid, placed.x, placed.y, starRadiusPx(star.v), starRgb(star.bv), alpha);
     }
   }
 

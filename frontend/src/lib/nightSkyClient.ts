@@ -55,6 +55,9 @@ export interface NightSkyPlanet {
   visible: boolean;
   color: string;
   esoteric_quality: string;
+  /** Geocentric apparent RA/Dec (W5-D: moonlight fraction live + scrub). */
+  right_ascension?: number;
+  declination?: number;
 }
 
 export interface NightSkyStar {
@@ -154,7 +157,7 @@ function decodeMoon(raw: unknown): NightSkyMoon {
 function decodePlanet(raw: unknown, index: number): NightSkyPlanet {
   const path = `planets[${index}]`;
   const record = requireObject(raw, path);
-  return {
+  const planet: NightSkyPlanet = {
     id: requireString(record.id, `${path}.id`),
     name: requireString(record.name, `${path}.name`),
     glyph: requireString(record.glyph, `${path}.glyph`),
@@ -166,6 +169,15 @@ function decodePlanet(raw: unknown, index: number): NightSkyPlanet {
     color: requireString(record.color, `${path}.color`),
     esoteric_quality: requireString(record.esoteric_quality, `${path}.esoteric_quality`),
   };
+  // Additive and optional: the /night-sky payload has always carried these; the
+  // dome now uses the Sun/Moon ones for the shared moonlight fraction (W5-D).
+  if (record.right_ascension !== undefined) {
+    planet.right_ascension = requireNumber(record.right_ascension, `${path}.right_ascension`, 0, 360);
+  }
+  if (record.declination !== undefined) {
+    planet.declination = requireNumber(record.declination, `${path}.declination`, -90, 90);
+  }
+  return planet;
 }
 
 function decodeStar(raw: unknown, index: number): NightSkyStar {

@@ -42,9 +42,11 @@ import {
 } from '../../lib/sky';
 import {
   NIGHT_SUN_ALT_DEG,
+  limitingMagnitude,
   skyBackground,
-  starAlpha as daylightStarAlpha,
+  starAlpha as skyStarAlpha,
 } from '../../lib/skyBrightness';
+import { moonIlluminatedFraction, type MoonLight } from '../../lib/moonlight';
 import {
   placeLabels,
   type LabelItem,
@@ -409,6 +411,44 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     ? (scrubbed?.positions.sun?.alt ?? -90)
     : (data?.planets.find((planet) => planet.id === 'sun')?.altitude ?? -90);
   const daylightActive = sunAltDeg > NIGHT_SUN_ALT_DEG;
+
+  // One moonlight feed for live and scrub: the Moon's topocentric altitude and
+  // the illuminated fraction from the same RA/Dec formula in both modes.
+  const moonLight = useMemo<MoonLight | undefined>(() => {
+    if (scrubMode) {
+      const sun = scrubbed?.bodies.find((body) => body.id === 'sun');
+      const moonBody = scrubbed?.bodies.find((body) => body.id === 'moon');
+      const altitude = scrubbed?.positions.moon?.alt;
+      if (!sun || !moonBody || altitude === undefined) return undefined;
+      const fraction = moonIlluminatedFraction(sun.ra, sun.dec, moonBody.ra, moonBody.dec);
+      return Number.isFinite(fraction) ? { altDeg: altitude, illuminatedFraction: fraction } : undefined;
+    }
+    const sun = data?.planets.find((planet) => planet.id === 'sun');
+    const moon = data?.planets.find((planet) => planet.id === 'moon');
+    if (!sun || !moon) return undefined;
+    const { right_ascension: sunRa, declination: sunDec } = sun;
+    const { right_ascension: moonRa, declination: moonDec } = moon;
+    if (
+      sunRa === undefined ||
+      sunDec === undefined ||
+      moonRa === undefined ||
+      moonDec === undefined
+    ) {
+      return undefined;
+    }
+    const fraction = moonIlluminatedFraction(sunRa, sunDec, moonRa, moonDec);
+    return Number.isFinite(fraction) ? { altDeg: moon.altitude, illuminatedFraction: fraction } : undefined;
+  }, [scrubMode, scrubbed, data]);
+
+  // How many magnitudes the Moon actually removes here (0 in daylight or with
+  // the Moon down), and one per-star visibility function for every renderer.
+  const effectiveMoonPenalty = moonLight
+    ? limitingMagnitude(sunAltDeg) - limitingMagnitude(sunAltDeg, moonLight)
+    : 0;
+  const moonPenaltyKey = Math.round(Math.max(0, effectiveMoonPenalty) / 0.05);
+  const starVisibility = (magnitude: number): number =>
+    skyStarAlpha(magnitude, sunAltDeg, seeThrough, moonLight);
+
   const onSeeThroughChange = (next: boolean) => {
     setSeeThrough(next);
     try {
@@ -477,11 +517,11 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       !reducedMotion &&
       showStars &&
       sacredMarks.some(
-        (mark) => daylightStarAlpha(mark.star.magnitude, sunAltDeg, seeThrough) > 0,
+        (mark) => starVisibility(mark.star.magnitude) > 0,
       );
     const drawIntervalMs = twinkles ? TWINKLE_FRAME_MS : STILL_REDRAW_MS;
     const separateStars = daylightActive && showCatalogue && catalogue !== null;
-    const figureAlpha = daylightStarAlpha(2, sunAltDeg, seeThrough);
+    const figureAlpha = starVisibility(2);
     // In daylight the layer never stamps stars (no flash before the catalogue
     // resolves); the per-star loop draws them once the catalogue is here.
     const layerShowCatalogue = showCatalogue && !daylightActive;
@@ -588,7 +628,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       ) {
         const flags = `${layerShowCatalogue ? 1 : 0}${showFigures ? 1 : 0}${showEcliptic ? 1 : 0}|${Math.round(figureAlpha * 20)}|${
           separateStars ? `d${Math.round(sunAltDeg * 4)}${seeThrough ? 'x' : 'n'}` : 'l'
-        }`;
+        }|m${moonPenaltyKey}`;
         let lst: number;
         let jd: number;
         let epochDay: number;
@@ -655,6 +695,9 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             showCatalogue: layerShowCatalogue,
             showFigures,
             showEcliptic,
+            ...(effectiveMoonPenalty > 0
+              ? { starAlphaFor: (star: Star) => starVisibility(star.v) }
+              : {}),
           });
           if (built.stars.length === size * size * 4 && typeof ImageData === 'function') {
             if (cache.canvas === null) cache.canvas = document.createElement('canvas');
@@ -672,7 +715,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
               if (separateStars && catalogue !== null) {
                 for (let i = 0; i < catalogue.length; i += 1) {
                   const star = catalogue[i];
-                  const alpha = daylightStarAlpha(star.v, sunAltDeg, seeThrough);
+                  const alpha = starVisibility(star.v);
                   if (!(alpha > 0)) continue;
                   const ofDate = precessJ2000(star.ra, star.dec, jd);
                   // Same place as the layer/planets (the payload's place in live mode).
@@ -740,7 +783,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       if (showStars) {
         sacredMarks.forEach((mark, idx) => {
           const s = mark.star;
-          const daylight = daylightStarAlpha(s.magnitude, sunAltDeg, seeThrough);
+          const daylight = starVisibility(s.magnitude);
           if (!(daylight > 0)) return;
           const [sx, sy] = project(mark.alt, mark.az);
           const twinkle =
@@ -830,7 +873,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           for (const mark of sacredMarks) {
             const s = mark.star;
             // A star the daylight layer hides gets no label and takes no space.
-            if (!(daylightStarAlpha(s.magnitude, sunAltDeg, seeThrough) > 0)) continue;
+            if (!(starVisibility(s.magnitude) > 0)) continue;
             const [x, y] = project(mark.alt, mark.az);
             const text = s.name.split(' ')[0];
             const dotSize = Math.max(2, 4.5 - s.magnitude * 0.8);
@@ -946,6 +989,9 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
     sunAltDeg,
     seeThrough,
     daylightActive,
+    moonLight,
+    moonPenaltyKey,
+    effectiveMoonPenalty,
     scrubMode,
     scrubAtMs,
     scrubBannerState,
@@ -1180,6 +1226,15 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                 : sunAltDeg >= 0
                   ? `Stars hidden: the Sun is ${formatDeg(sunAltDeg)}° above the horizon.`
                   : `Twilight: fainter stars are hidden (the Sun is ${formatDeg(-sunAltDeg)}° below the horizon).`}
+            </div>
+          )}
+          {!daylightActive && moonLight !== undefined && effectiveMoonPenalty >= 0.3 && (
+            <div
+              data-testid="sky-moonlight-caption"
+              className="mb-4 rounded-lg border border-slate-500/30 bg-slate-900/40 px-3 py-2 text-[11px] text-slate-300"
+            >
+              Moonlight: faint stars dimmed (the Moon is {moonLight.altDeg.toFixed(1)}° up,{' '}
+              {Math.round(moonLight.illuminatedFraction * 100)} % lit).
             </div>
           )}
           {payloadIsOtherPlace && status === 'ok' && (
