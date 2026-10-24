@@ -11,10 +11,16 @@
  * while the tab is hidden) keeps the readout and the offset honest. A scrub is
  * clamped by `clampScrub`; a sunrise beyond now + 24 h is refused rather than
  * clamped, because a clamped answer would not land on the sunrise.
+ *
+ * Time-lapse (W5-C): Play advances the shown instant through the same store at
+ * 60x/600x/3600x, with elapsed-time maths and a cadence cap (15 updates/s, or
+ * 4/s under prefers-reduced-motion, where the two slowest speeds are the only
+ * choices). It stops at the +24 h window edge, on any manual action, and when
+ * the tab is hidden (silently; resuming is manual)."
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Slider, Space, Tag, Typography } from 'antd';
-import { Pause, Play, Sunrise } from 'lucide-react';
+import { FastForward, Pause, Play, Square, Sunrise } from 'lucide-react';
 
 import { useSkyStore } from '../../stores/skyStore';
 import {
@@ -29,6 +35,30 @@ import ProvenanceTag from './ProvenanceTag';
 
 const { Text } = Typography;
 const TICK_MS = 1000;
+const SPEEDS = [60, 600, 3600] as const;
+const REDUCED_SPEEDS = [60, 600] as const;
+/** How often the play loop looks at the clock; the cadence gate does the pacing. */
+const PLAY_TICK_MS = 16;
+/** At most 15 store updates per second (4/s under reduced motion). */
+const PLAY_UPDATE_MS = 1000 / 15;
+const PLAY_REDUCED_UPDATE_MS = 250;
+
+/** Read the reduced-motion preference, live (a change event is honoured). */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReduced(query.matches);
+    query.addEventListener?.('change', onChange);
+    return () => query.removeEventListener?.('change', onChange);
+  }, []);
+  return reduced;
+}
 
 interface Props {
   className?: string;
@@ -78,6 +108,10 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
   const [loading, setLoading] = useState(false);
   const [sunriseNote, setSunriseNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<number>(600);
+  const [playNote, setPlayNote] = useState<string | null>(null);
+  const reducedMotion = usePrefersReducedMotion();
   const requestId = useRef(0);
 
   // Unmount (navigate away): invalidate this component's in-flight request and
@@ -97,7 +131,12 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
     };
     const timer = window.setInterval(tick, TICK_MS);
     const onVisibility = () => {
-      if (!document.hidden) tick();
+      if (document.hidden) {
+        // Hidden tab: stop the time-lapse silently; resuming is manual.
+        setPlaying(false);
+        return;
+      }
+      tick();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
@@ -113,7 +152,44 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
     setLoading(false);
     setSunriseNote(null);
     setError(null);
+    setPlaying(false);
+    setPlayNote(null);
   }, [lat, lng]);
+
+  // Reduced motion: only the two slowest speeds, and a 4 Hz cadence.
+  useEffect(() => {
+    if (reducedMotion && speed > 600) setSpeed(600);
+  }, [reducedMotion, speed]);
+
+  // The time-lapse loop: elapsed-time maths (no drift), a cadence gate, and a
+  // hard stop at the +24 h edge. It never wraps. It does not depend on `at`
+  // (the store is read at tick time), so store updates do not restart it.
+  useEffect(() => {
+    if (!playing) return undefined;
+    let last = Date.now();
+    const minUpdate = reducedMotion ? PLAY_REDUCED_UPDATE_MS : PLAY_UPDATE_MS;
+    const timer = window.setInterval(() => {
+      if (document.hidden) {
+        setPlaying(false);
+        return;
+      }
+      const nowMs = Date.now();
+      const elapsed = nowMs - last;
+      if (elapsed < minUpdate) return;
+      last = nowMs;
+      const shown = effectiveInstant(useSkyStore.getState().at, nowMs).getTime();
+      const limit = nowMs + SCRUB_LIMIT_MS;
+      const target = shown + speed * elapsed;
+      if (target >= limit) {
+        setAt(new Date(limit).toISOString());
+        setPlaying(false);
+        setPlayNote('Reached the end of the +-24 h window');
+        return;
+      }
+      setAt(new Date(target).toISOString());
+    }, PLAY_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [playing, speed, reducedMotion, setAt]);
 
   const isLive = at === null;
   const shownMs = effectiveInstant(at, now).getTime();
@@ -124,6 +200,8 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
     : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
   const onLive = useCallback(() => {
+    setPlaying(false);
+    setPlayNote(null);
     requestId.current += 1;
     setLoading(false);
     setSunriseNote(null);
@@ -134,6 +212,8 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
 
   const onPause = useCallback(() => {
     const nowMs = Date.now();
+    setPlaying(false);
+    setPlayNote(null);
     requestId.current += 1;
     setLoading(false);
     setSunriseNote(null);
@@ -150,6 +230,8 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
       setNow(nowMs);
       setSunriseNote(null);
       setError(null);
+      setPlaying(false);
+      setPlayNote(null);
       requestId.current += 1;
       setLoading(false);
       setAt(new Date(target).toISOString());
@@ -158,6 +240,8 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
   );
 
   const onNextSunrise = useCallback(async () => {
+    setPlaying(false);
+    setPlayNote(null);
     const request = (requestId.current += 1);
     setLoading(true);
     setError(null);
@@ -188,6 +272,33 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
     }
   }, [lat, lng, shownMs, setAt]);
 
+  const onPlay = useCallback(() => {
+    if (playing) {
+      setPlaying(false);
+      return;
+    }
+    const nowMs = Date.now();
+    const currentAt = useSkyStore.getState().at;
+    const shownNow = effectiveInstant(currentAt, nowMs).getTime();
+    if (shownNow >= nowMs + SCRUB_LIMIT_MS - 1000) {
+      setPlaying(false);
+      setPlayNote('Reached the end of the +-24 h window');
+      return;
+    }
+    if (currentAt === null) {
+      // Live: pause at now and start the time-lapse from there.
+      setAt(new Date(nowMs).toISOString());
+    }
+    setNow(nowMs);
+    setSunriseNote(null);
+    setError(null);
+    setPlayNote(null);
+    requestId.current += 1;
+    setLoading(false);
+    setPlaying(true);
+  }, [playing, setAt]);
+
+  const speeds = reducedMotion ? REDUCED_SPEEDS : SPEEDS;
   const offsetText = isLive ? 'Following the real clock' : `${formatOffset(offset)} from now`;
   const shownAt = useMemo(() => formatUtc(shownMs), [shownMs]);
 
@@ -232,6 +343,41 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
           <Text type="secondary" style={{ fontSize: 11 }}>
             {offsetText}
           </Text>
+          {(playing || playNote !== null) && (
+            <div>
+              <Text type="secondary" style={{ fontSize: 11 }} data-testid="sky-play-status">
+                {playing ? `Playing at ${speed}x` : playNote}
+              </Text>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2" data-testid="sky-play-controls">
+          <Button
+            size="small"
+            type={playing ? 'primary' : 'default'}
+            icon={playing ? <Square size={12} aria-hidden="true" /> : <FastForward size={12} aria-hidden="true" />}
+            aria-label={playing ? 'Stop the time-lapse' : 'Play the time-lapse'}
+            aria-pressed={playing}
+            onClick={onPlay}
+          >
+            {playing ? 'Stop' : 'Play'}
+          </Button>
+          <label className="flex items-center gap-1 text-[11px] text-gray-400">
+            <span>Speed</span>
+            <select
+              aria-label="Time-lapse speed"
+              className="rounded border border-white/10 bg-slate-900 px-1 py-0.5 text-[11px] text-gray-100"
+              value={speed}
+              onChange={(event) => setSpeed(Number(event.target.value))}
+            >
+              {speeds.map((value) => (
+                <option key={value} value={value}>
+                  {value}x
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <Slider

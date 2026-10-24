@@ -43,6 +43,7 @@ const EVENTS = {
 let container: HTMLDivElement;
 let root: Root;
 let hidden = false;
+let prefersReduced = false;
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -103,6 +104,17 @@ beforeEach(() => {
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
   useSkyStore.setState({ lat: DEFAULT_LAT, lng: DEFAULT_LNG, label: undefined, at: null });
   clientMock.mockReset();
+  prefersReduced = false;
+  window.matchMedia = vi.fn((query: string) => ({
+    matches: query.includes('prefers-reduced-motion') ? prefersReduced : false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
 });
 
 afterEach(() => {
@@ -385,5 +397,149 @@ describe('Next sunrise here', () => {
       await Promise.resolve();
     });
     expect(byLabel('Next sunrise at this location').hasAttribute('disabled')).toBe(false);
+  });
+});
+
+describe('time-lapse (W5-C)', () => {
+  const NOW_MS = NOW.getTime();
+  const atMs = (): number => Date.parse(useSkyStore.getState().at!);
+  const speedSelect = (): HTMLSelectElement =>
+    container.querySelector<HTMLSelectElement>('[aria-label="Time-lapse speed"]')!;
+
+  function setSpeed(value: string): void {
+    const select = speedSelect();
+    act(() => {
+      select.value = value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+
+  it('Play pauses live at now, advances by speed x elapsed, and Stop freezes', () => {
+    mount();
+    click(byLabel('Play the time-lapse'));
+    expect(byLabel('Stop the time-lapse').getAttribute('aria-pressed')).toBe('true');
+    expect(text()).toContain('Playing at 600x');
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    const advanced = atMs() - NOW_MS;
+    expect(advanced).toBeGreaterThan(400_000);
+    expect(advanced).toBeLessThan(720_000);
+    click(byLabel('Stop the time-lapse'));
+    expect(byLabel('Play the time-lapse').getAttribute('aria-pressed')).toBe('false');
+    const frozen = atMs();
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(atMs()).toBe(frozen);
+  });
+
+  it('3600x advances about an hour per second', () => {
+    mount();
+    setSpeed('3600');
+    click(byLabel('Play the time-lapse'));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    const advanced = atMs() - NOW_MS;
+    expect(advanced).toBeGreaterThan(3_000_000);
+    expect(advanced).toBeLessThan(4_200_000);
+  });
+
+  it('stops at the +24 h edge instead of wrapping, with the status message', () => {
+    useSkyStore.setState({ at: new Date(NOW_MS + 24 * 3600_000 - 30_000).toISOString() });
+    mount();
+    click(byLabel('Play the time-lapse'));
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    // The edge is relative to the real now at the tick that reaches it, so the
+    // final instant is now+24 h (within the elapsed fake time), never beyond.
+    const limitAtStop = atMs() - (NOW_MS + 24 * 3600_000);
+    expect(limitAtStop).toBeGreaterThanOrEqual(0);
+    expect(limitAtStop).toBeLessThanOrEqual(300);
+    expect(byLabel('Play the time-lapse').getAttribute('aria-pressed')).toBe('false');
+    expect(text()).toContain('Reached the end of the +-24 h window');
+  });
+
+  it('every interrupting action stops it', () => {
+    const actions: Array<[string, () => void | Promise<void>]> = [
+      ['Live', () => click(byLabel('Live sky time'))],
+      ['Pause', () => click(byLabel('Pause sky time at the current instant'))],
+      ['slider', () => pressKey(byLabel('Time offset from now in minutes'), 'ArrowRight', 39)],
+      ['place', () => act(() => useSkyStore.getState().setObserver(51.4779, -0.0015))],
+      ['Next sunrise', () => {
+        clientMock.mockResolvedValue({ ...EVENTS });
+        click(byLabel('Next sunrise at this location'));
+      }],
+    ];
+    for (const [name, action] of actions) {
+      act(() => {
+        root.unmount();
+      });
+      container.remove();
+      mount();
+      click(byLabel('Play the time-lapse'));
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      action();
+      expect(byLabel('Play the time-lapse').getAttribute('aria-pressed'), name).toBe('false');
+      const stoppedAt = useSkyStore.getState().at;
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(useSkyStore.getState().at, name).toBe(stoppedAt);
+    }
+  });
+
+  it('caps updates at ~15/s regardless of speed', () => {
+    const spy = vi.spyOn(useSkyStore.getState(), 'setAt');
+    mount();
+    setSpeed('3600');
+    click(byLabel('Play the time-lapse'));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    // One pause-at-now write plus at most 15 cadence-gated updates.
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(16);
+    spy.mockRestore();
+  });
+
+  it('stops silently when the tab is hidden and resumes only manually', () => {
+    mount();
+    click(byLabel('Play the time-lapse'));
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    hidden = true;
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(byLabel('Play the time-lapse').getAttribute('aria-pressed')).toBe('false');
+    const stoppedAt = useSkyStore.getState().at;
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(useSkyStore.getState().at).toBe(stoppedAt);
+    hidden = false;
+    click(byLabel('Play the time-lapse'));
+    expect(byLabel('Stop the time-lapse').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('under reduced motion offers the two slowest speeds and updates at most 4/s', () => {
+    prefersReduced = true;
+    const spy = vi.spyOn(useSkyStore.getState(), 'setAt');
+    mount();
+    const options = Array.from(speedSelect().options).map((option) => option.value);
+    expect(options).toEqual(['60', '600']);
+    expect(speedSelect().value).toBe('600');
+    click(byLabel('Play the time-lapse'));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    // One pause-at-now write plus at most four cadence-gated updates.
+    expect(spy.mock.calls.length).toBeLessThanOrEqual(5);
+    spy.mockRestore();
   });
 });
