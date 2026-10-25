@@ -586,6 +586,41 @@ const SceneContent: React.FC<SceneContentProps> = ({
   );
 };
 
+/**
+ * Pin the globe to `touch-action: pan-y` (W6-D2a, audit F5): the canvas AND every element between it and the globe
+ * container.
+ *
+ * three-stdlib's OrbitControls writes `touch-action: none` onto the element it connects to at connect() and `auto` at
+ * dispose() (three-stdlib@2.36.1 OrbitControls.js:300,309), so whichever library call ran last silently decided the
+ * touch policy. And the element is not the canvas: drei connects to R3F's `events.connected`, the wrapper <div> above
+ * it (measured in Chromium: the canvas was `pan-y` while that wrapper was `none`). touch-action is the INTERSECTION of
+ * the values from the touched element up its ancestors, so a `none` anywhere in the chain made the whole globe `none`
+ * and one finger never scrolled the page. This pin writes the deliberate value on each element once and re-asserts it
+ * on every later style mutation, so neither the lifecycle nor a remount can flip it. One finger scrolls the page;
+ * two fingers reach OrbitControls (see the Canvas props below). Returns the function that releases the pin.
+ */
+export function pinCanvasTouchAction(canvas: HTMLCanvasElement): () => void {
+  const container = canvas.closest('[data-testid="world-emanation"]');
+  const targets: HTMLElement[] = [];
+  if (container === null) {
+    // No known container (a renamed test id, another shell): pin the canvas alone. Walking up "a few ancestors" could
+    // reach <body>, and a `pan-y` there would take pinch-zoom away from the whole page.
+    targets.push(canvas);
+  } else {
+    for (let el: HTMLElement | null = canvas; el !== null && el !== container; el = el.parentElement) targets.push(el);
+  }
+  const observer = new MutationObserver(() => {
+    for (const el of targets) if (el.style.touchAction !== 'pan-y') el.style.touchAction = 'pan-y';
+  });
+  for (const el of targets) {
+    el.style.touchAction = 'pan-y';
+    observer.observe(el, { attributes: true, attributeFilter: ['style'] });
+  }
+  // The caller releases the pin when the canvas goes away (unmount, or a new canvas): a late write on a removed globe
+  // must not be re-pinned, and the observer must not keep the detached nodes alive.
+  return () => observer.disconnect();
+}
+
 // ─── Error Boundary / Canvas Guard ───
 class CanvasErrorBoundary extends React.Component<{ children: React.ReactNode; fallback: React.ReactNode }, { hasError: boolean }> {
   constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
@@ -614,6 +649,17 @@ export default function WorldEmanation({
   const earth = useEarthState();
   const shellRef = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(shellRef);
+  // The canvas R3F created and the function that releases its touch-action pin (W6-D2a-F). The effect re-pins the
+  // remembered canvas after StrictMode's simulated unmount/remount (dev), and releases the pin for real on unmount.
+  const pinnedCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const unpinRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (pinnedCanvasRef.current && !unpinRef.current) unpinRef.current = pinCanvasTouchAction(pinnedCanvasRef.current);
+    return () => {
+      unpinRef.current?.();
+      unpinRef.current = null;
+    };
+  }, []);
   const [practitionerCoords, setPractitionerCoords] = useState<[number, number]>(
     customCoords || [DEFAULT_LAT, DEFAULT_LNG],
   );
@@ -707,10 +753,22 @@ export default function WorldEmanation({
       className={`relative w-full ${containerHeight} rounded-xl overflow-hidden bg-gradient-to-b from-slate-950/80 to-sky-950/30 border border-sky-500/20 shadow-inner ${className}`}
     >
       <CanvasErrorBoundary fallback={fallbackView}>
+        {/* Touch policy (W6-D2a, audit F5): ONE finger scrolls the page
+            (touch-action: pan-y on the container and, pinned, on the canvas
+            itself), TWO fingers rotate/zoom (touches.TWO = DOLLY_ROTATE,
+            touches.ONE omitted -> three-stdlib's default branch sets
+            STATE.NONE, so a single finger never rotates). Mouse behaviour is
+            untouched (no `mouse` prop: left-drag rotates, wheel zooms). */}
         <Canvas
           camera={{ position: [0, 0.4, 5.2], fov: 45 }}
           dpr={[1, 1.5]}
           frameloop={onScreen ? 'always' : 'never'}
+          style={{ touchAction: 'pan-y' }}
+          onCreated={({ gl }) => {
+            unpinRef.current?.(); // a re-created canvas replaces the old pin
+            pinnedCanvasRef.current = gl.domElement;
+            unpinRef.current = pinCanvasTouchAction(gl.domElement);
+          }}
         >
           <Stars radius={40} depth={20} count={variant === 'compact' ? 600 : 1500} factor={2} fade speed={0.3} />
           <SceneContent
@@ -728,6 +786,7 @@ export default function WorldEmanation({
             maxDistance={8}
             autoRotate={true}
             autoRotateSpeed={variant === 'compact' ? 0.4 : 0.2}
+            touches={{ TWO: THREE.TOUCH.DOLLY_ROTATE }}
           />
         </Canvas>
       </CanvasErrorBoundary>
