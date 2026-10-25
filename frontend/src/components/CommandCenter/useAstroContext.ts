@@ -1,11 +1,16 @@
 /**
  * useAstroContext — the current sky for the chat's astrology context:
- * GET /astrology/current at the default coordinates and local wall-clock
- * time, refreshed every 15s (cleared on unmount). Failures are ignored.
+ * GET /astrology/current at the home location (Settings → Home location)
+ * or else the default coordinates, at local wall-clock time, refreshed every
+ * 15s (cleared on unmount). Failures are ignored.
+ *
+ * The home location is rounded to one decimal place (~11 km) first: this
+ * context goes to the chat model, and the sky does not need more.
  */
 import { useState, useEffect } from 'react';
 import { apiUrl } from '../../utils/api';
 import { DEFAULT_LAT, DEFAULT_LNG } from '../../lib/geo';
+import { fetchHomeLocation, roundCoord } from '../../lib/homeLocationApi';
 
 export const ASTRO_REFRESH_MS = 15000;
 
@@ -36,13 +41,27 @@ export function useAstroContext(): Record<string, unknown> | null {
       }
     };
 
+    let coords: [number, number] = [DEFAULT_LAT, DEFAULT_LNG];
+    let cancelled = false;
+
     const fetchAstro = async () => {
-      doFetch(DEFAULT_LAT, DEFAULT_LNG);
+      doFetch(coords[0], coords[1]);
     };
+
+    fetchHomeLocation()
+      .then((res) => {
+        if (cancelled || !res.location) return;
+        coords = [roundCoord(res.location.latitude), roundCoord(res.location.longitude)];
+        void fetchAstro();
+      })
+      .catch(() => undefined);
 
     fetchAstro();
     const interval = setInterval(fetchAstro, ASTRO_REFRESH_MS);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   return astroData;

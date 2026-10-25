@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import type { DeityVisualization, PracticePhase } from '../../lib/deityVisualizations';
+import type { IconographySummary } from '../../lib/curatedIconography';
 
 const PHASE_SPEED: Record<PracticePhase, number> = {
   idle: 0.5, invoking: 0.8, reciting: 1.5, dedicating: 1.2, completed: 0.3,
@@ -130,15 +131,12 @@ export default function SadhanaVisualization({
           );
         })}
 
-        {deity.hasSunDisk && deity.sunDiskPosition === 'below' && (
+        {/* A sun disc only when the curated seat has one (knowledge/iconography.json). */}
+        {deity.iconography.seatHasSunDisc && (
           <ellipse cx={cx} cy={lotusCy + lotusR * 0.8} rx={lotusR * 1.4} ry={sunR} fill="url(#sun-disk-grad)" opacity={0.5} />
         )}
 
         {drawLotus(cx, lotusCy, lotusR, deity.lotusColor)}
-
-        {deity.hasSunDisk && deity.sunDiskPosition === 'above' && (
-          <circle cx={cx} cy={moonCy - moonR * 0.9} r={sunR} fill="url(#sun-disk-grad)" opacity={0.7} />
-        )}
 
         <circle cx={cx} cy={moonCy} r={moonR} fill="url(#moon-disk)" opacity={0.92} />
 
@@ -188,17 +186,54 @@ export default function SadhanaVisualization({
           <div className="text-sm font-bold" style={{ color: deity.bodyColor }}>
             {deity.name}
           </div>
-          <div className="text-[10px] font-mono text-gray-500">
-            {deity.sanskritName}
-          </div>
-          <div className="text-[10px] text-gray-400 max-w-[260px] leading-relaxed mt-1">
-            {deity.bodyColorName} · {deity.mudra}
-          </div>
+          {deity.sanskritName && (
+            <div className="text-[10px] font-mono text-gray-500">
+              {deity.sanskritName}
+            </div>
+          )}
+          <IconographyFacts iconography={deity.iconography} />
           <div className="text-[9px] font-mono text-gray-600 mt-1">
-            {deity.bijaRomaji} · {deity.frequencyHz} Hz · {deity.element}
+            {deity.bijaRomaji} · {deity.frequencyHz} Hz · {capitalize(deity.element)}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * The curated iconography (knowledge/iconography.json): body colour, figure and
+ * the gesture or object of each hand. Null fields are not shown; a hand the
+ * sources leave open reads "varies by lineage".
+ */
+function IconographyFacts({ iconography }: { iconography: IconographySummary }) {
+  if (iconography.generic) {
+    return (
+      <div data-testid="deity-iconography" className="text-[10px] text-gray-400 max-w-[260px] leading-relaxed mt-1">
+        {iconography.genericNote}
+      </div>
+    );
+  }
+  const head = [iconography.bodyColour && `${capitalize(iconography.bodyColour)} body`, iconography.figure]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <div
+      data-testid="deity-iconography"
+      className="text-[10px] text-gray-400 max-w-[260px] leading-relaxed mt-1 space-y-0.5"
+      title={`${iconography.label}. Iconography after ${iconography.sources.join('; ')}`}
+    >
+      {head && <div>{head}</div>}
+      {iconography.hands.map((line) => (
+        <div key={line.label}>
+          <span className="text-gray-500">{line.label}:</span> {line.text}
+        </div>
+      ))}
+      {iconography.otherHands && <div>{capitalize(iconography.otherHands)}</div>}
     </div>
   );
 }

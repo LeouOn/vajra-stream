@@ -34,6 +34,7 @@ from backend.app.api.v1.endpoints import sessions as sessions_endpoint
 from backend.app.api.v1.endpoints import sigils as sigils_endpoint
 from backend.app.api.v1.endpoints import time_cycles as time_cycles_endpoint
 from backend.app.api.v1.endpoints import tts as tts_endpoint
+from backend.app.api.v1.endpoints import user_settings as user_settings_endpoint
 from backend.app.api.v1.endpoints import video_generation as video_generation_endpoint
 from backend.app.api.v1.endpoints import visualization as visualization_endpoint
 
@@ -67,6 +68,7 @@ api_router.include_router(divination_endpoint.router, tags=["divination"])
 api_router.include_router(prayer_wheel_endpoint.router, tags=["prayer-wheel"])
 api_router.include_router(time_cycles_endpoint.router, tags=["time-cycles"])
 api_router.include_router(operator_endpoint.router, prefix="/operator", tags=["operator"])
+api_router.include_router(user_settings_endpoint.router, prefix="/settings", tags=["settings"])
 api_router.include_router(operations_endpoint.router)
 api_router.include_router(render_endpoint.router)
 api_router.include_router(iconography_endpoint.router)

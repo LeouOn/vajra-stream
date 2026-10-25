@@ -41,6 +41,7 @@ from . import (
     sigils,
     time_cycles,
     tts,
+    user_settings,
     video_generation,
     visualization,
 )
@@ -80,6 +81,7 @@ __all__ = [
     "sigils",
     "time_cycles",
     "tts",
+    "user_settings",
     "video_generation",
     "visualization",
 ]

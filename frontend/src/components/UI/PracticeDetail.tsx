@@ -772,7 +772,7 @@ export default function PracticeDetail({
           {deityViz && (
             <div className="flex flex-col items-center gap-4 mb-6">
               <SadhanaVisualization deity={deityViz} size={260} practicePhase={running ? 'reciting' : 'idle'} />
-              <FiveBuddhaMandala activeFamily={deityViz.buddhaFamily} size={360} showLabels />
+              <FiveBuddhaMandala activeFamily={deityViz.buddhaFamily ?? undefined} size={360} showLabels />
             </div>
           )}
 
