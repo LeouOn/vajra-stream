@@ -4,15 +4,21 @@
  * Planet rings are ~15 px across. When several bodies share almost the same
  * sky position (Tokyo: Moon/Saturn/Neptune within 3.5 deg) their rings overlap;
  * no label placement can fix that. The Sun and the Moon always keep their true
- * position, and so does the highest-priority other marker; the rest are moved
- * along a deterministic fan (starting away from the disc centre) to the first
- * place where the ring centres are at least `minDistance` apart and inside the
- * disc. When nothing inside the disc can satisfy the rule (the real Tokyo rim
- * stack did not), the displaced ring may sit up to `EDGE_OVERFLOW_PX` outside the
- * edge; among those candidates the one that MAXIMISES its distance to every
- * already-placed ring wins (deterministic), so the fallback can no longer
- * silently accept a 12 px overlap. The caller draws a faint leader and a dot at
- * the true position.
+ * position. When neither is present, the first marker placed (highest priority,
+ * then id) keeps its true position; every other marker is moved only if it
+ * would come closer than `minDistance` to an already-placed ring.
+ *
+ * BEST EFFORT, not a guarantee: a displaced ring is put at the first candidate
+ * inside the disc that meets `minDistance`. If no such candidate exists, a
+ * candidate may sit up to `EDGE_OVERFLOW_PX` outside the disc edge; among the
+ * valid ones the candidate that MAXIMISES its minimum distance to every
+ * already-placed ring wins (deterministic). Only when even that is impossible is
+ * the least-bad candidate used. Measured on 2,000 seeded crowded-rim sets at
+ * 280 px, 58 still leave a non-fixed pair under 16 px (worst 11.9 px; 51 at
+ * 309 px, worst 11.6); ten bodies at one point on the horizon give 9.0 px. The
+ * common skies (Tokyo/Delhi/SF) reach >= 16 px at every page size.
+ *
+ * The caller draws a faint leader and a dot at the true position.
  */
 
 export interface MarkerItem {

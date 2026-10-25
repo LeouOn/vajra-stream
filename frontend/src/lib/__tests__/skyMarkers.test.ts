@@ -91,6 +91,132 @@ describe('declutterMarkers', () => {
     assertSpread(items, placements);
   });
 
+  it('nine bodies on the 280 px south rim: every non-fixed pair stays >=16 px', () => {
+    // c1's real RED set (KL-c1-evidence/kl-probes.txt): the OLD fallback left a
+    // 2.1 px pair (sun/saturn) here; the new fallback reaches 16.6 px.
+    const bounds = { cx: 140, cy: 140, radius: 280 * 0.42, margin: 2 };
+    const body = (id: string, x: number, y: number, priority: number): MarkerItem => ({
+      id,
+      x,
+      y,
+      priority,
+      radius: 8,
+    });
+    const items: MarkerItem[] = [
+      body('sun', 99.8, 250.5, 40),
+      body('moon', 109.1, 245.9, 39),
+      body('mercury', 105.1, 250.7, 20),
+      body('venus', 125.8, 256.7, 20),
+      body('mars', 96.3, 247.6, 20),
+      body('jupiter', 108.7, 248.1, 20),
+      body('saturn', 100, 248.4, 20),
+      body('uranus', 84.1, 235, 20),
+      body('neptune', 109.4, 253.5, 20),
+    ];
+    const placements = declutterMarkers(items, bounds);
+    const byId = new Map(placements.map((entry) => [entry.id, entry]));
+    expect(byId.get('sun')).toMatchObject({ x: 99.8, y: 250.5, displaced: false });
+    expect(byId.get('moon')).toMatchObject({ x: 109.1, y: 245.9, displaced: false });
+    const all = [...byId.values()];
+    for (let a = 0; a < all.length; a += 1) {
+      for (let b = a + 1; b < all.length; b += 1) {
+        const pa = all[a];
+        const pb = all[b];
+        if (['sun', 'moon'].includes(pa.id) && ['sun', 'moon'].includes(pb.id)) continue;
+        expect(
+          Math.hypot(pa.x - pb.x, pa.y - pb.y),
+          `280px ${pa.id}/${pb.id}`,
+        ).toBeGreaterThanOrEqual(MIN_RING_DISTANCE_PX - 1e-9);
+      }
+    }
+  });
+
+  it('the 309 px five-body stress set keeps every non-fixed pair >=16 px', () => {
+    // The first set where the OLD declutter still overlapped in c1's 309 px
+    // stress run (kl-probes.txt); OLD gave a pair under 16 px here.
+    const bounds = { cx: 154.5, cy: 154.5, radius: 309 * 0.42, margin: 2 };
+    const body = (id: string, x: number, y: number, priority: number): MarkerItem => ({
+      id,
+      x,
+      y,
+      priority,
+      radius: 8,
+    });
+    const items: MarkerItem[] = [
+      body('sun', 54.4, 106.1, 40),
+      body('moon', 66.6, 82.5, 39),
+      body('mercury', 48.1, 100.3, 20),
+      body('venus', 35.7, 112.6, 20),
+      body('mars', 51.8, 103.7, 20),
+    ];
+    const placements = declutterMarkers(items, bounds);
+    const byId = new Map(placements.map((entry) => [entry.id, entry]));
+    expect(byId.get('sun')).toMatchObject({ x: 54.4, y: 106.1, displaced: false });
+    expect(byId.get('moon')).toMatchObject({ x: 66.6, y: 82.5, displaced: false });
+    const all = [...byId.values()];
+    for (let a = 0; a < all.length; a += 1) {
+      for (let b = a + 1; b < all.length; b += 1) {
+        const pa = all[a];
+        const pb = all[b];
+        if (['sun', 'moon'].includes(pa.id) && ['sun', 'moon'].includes(pb.id)) continue;
+        expect(
+          Math.hypot(pa.x - pb.x, pa.y - pb.y),
+          `309px ${pa.id}/${pb.id}`,
+        ).toBeGreaterThanOrEqual(MIN_RING_DISTANCE_PX - 1e-9);
+      }
+    }
+  });
+
+  it('pins the overflow branch: a valid ring may sit just past the disc edge', () => {
+    // A crowded south rim where the only 16 px-separated spot for Venus is past
+    // the normal edge (the OLD inside-only search left a 6.3 px pair here).
+    const bounds = { cx: 140, cy: 140, radius: 280 * 0.42, margin: 2 };
+    const body = (id: string, x: number, y: number, priority: number): MarkerItem => ({
+      id,
+      x,
+      y,
+      priority,
+      radius: 8,
+    });
+    const items: MarkerItem[] = [
+      body('sun', 167.7, 240.2, 40),
+      body('moon', 107.9, 237.5, 39),
+      body('mercury', 97.1, 243.7, 20),
+      body('venus', 105.6, 243.4, 20),
+      body('mars', 234.9, 198.0, 20),
+      body('jupiter', 149.7, 247.3, 20),
+      body('saturn', 169.8, 242.2, 20),
+      body('uranus', 108.0, 238.6, 20),
+      body('neptune', 122.2, 243.0, 20),
+    ];
+    const placements = declutterMarkers(items, bounds);
+    const edge = bounds.radius - 2;
+    const all = placements;
+    for (let a = 0; a < all.length; a += 1) {
+      for (let b = a + 1; b < all.length; b += 1) {
+        const pa = all[a];
+        const pb = all[b];
+        if (['sun', 'moon'].includes(pa.id) && ['sun', 'moon'].includes(pb.id)) continue;
+        expect(
+          Math.hypot(pa.x - pb.x, pa.y - pb.y),
+          `overflow ${pa.id}/${pb.id}`,
+        ).toBeGreaterThanOrEqual(MIN_RING_DISTANCE_PX - 1e-9);
+      }
+    }
+    const overhanging = placements.filter(
+      (entry) =>
+        entry.displaced && Math.hypot(entry.x - bounds.cx, entry.y - bounds.cy) + 8 > edge,
+    );
+    expect(overhanging.length).toBeGreaterThan(0);
+    for (const entry of placements) {
+      if (!entry.displaced) continue;
+      expect(
+        Math.hypot(entry.x - bounds.cx, entry.y - bounds.cy) + 8,
+        `${entry.id} overhang`,
+      ).toBeLessThanOrEqual(edge + EDGE_OVERFLOW_PX + 1e-9);
+    }
+  });
+
   it('Tokyo night rim stack: every ring ends at least 16 px apart at the real page size', () => {
     // Real alt/az at 2026-10-24T18:29:36Z, observer 35.68/139.69. The real page
     // canvas measured 280-309 px (W5-V6): the earlier fixture used only three
