@@ -380,6 +380,124 @@ describe('dome label wiring', () => {
     expect(container.textContent).toContain(displacedId === 'saturn' ? 'Saturn ♄ in' : 'Neptune ♆ in');
   });
 
+  it('Tokyo rim at the real page size: rings >=16 px apart and hover picks the nearest ring', async () => {
+    const tokyo = [
+      planet('sun', 'Sun', '☉', -30, 270),
+      planet('moon', 'Moon', '☽', 12.18, 270.97),
+      planet('mars', 'Mars', '♂', 44.43, 100.26),
+      planet('jupiter', 'Jupiter', '♃', 36.03, 98.34),
+      planet('saturn', 'Saturn', '♄', 8.74, 265.4),
+      planet('uranus', 'Uranus', '♅', 62.01, 245.65),
+      planet('neptune', 'Neptune', '♆', 1.68, 268.29),
+    ];
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            ...payload(false),
+            planets: tokyo,
+            visible_planets_count: tokyo.length,
+          }),
+      } as Response),
+    );
+    await act(async () => {
+      root.render(<CelestialSkyDome />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const canvas = container.querySelector('[data-testid="celestial-sky-dome-canvas"]');
+    if (!(canvas instanceof HTMLCanvasElement)) throw new Error('canvas missing');
+    // W5-V6 measured the card's dome at 280-309 px, not the 500 px fallback.
+    Object.defineProperty(canvas, 'clientWidth', { configurable: true, value: 284 });
+    Object.defineProperty(canvas, 'clientHeight', { configurable: true, value: 284 });
+    await act(async () => {
+      rafCallbacks[rafCallbacks.length - 1](1000);
+    });
+
+    const { items } = lastPlacement();
+    const displayed = new Map(items.map((item) => [item.id, item]));
+    const ids = ['moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
+    for (let a = 0; a < ids.length; a += 1) {
+      for (let b = a + 1; b < ids.length; b += 1) {
+        const pa = displayed.get(ids[a]);
+        const pb = displayed.get(ids[b]);
+        expect(
+          Math.hypot((pa?.x ?? 0) - (pb?.x ?? 0), (pa?.y ?? 0) - (pb?.y ?? 0)),
+          `${ids[a]}/${ids[b]}`,
+        ).toBeGreaterThanOrEqual(16 - 1e-9);
+      }
+    }
+
+    const hoverAt = async (id: string) => {
+      const shown = displayed.get(id);
+      if (shown === undefined) throw new Error(`missing displayed ${id}`);
+      await act(async () => {
+        canvas.dispatchEvent(
+          new MouseEvent('mousemove', { bubbles: true, clientX: shown.x, clientY: shown.y }),
+        );
+      });
+    };
+    // W5-K: the Saturn ring is nearest to its own centre, not the Moon's.
+    await hoverAt('saturn');
+    expect(container.textContent).toContain('Saturn ♄ in');
+    await hoverAt('moon');
+    expect(container.textContent).toContain('Moon ☽ in');
+    // Midway between the two displayed rings picks the nearer one.
+    const saturnShown = displayed.get('saturn');
+    const moonShown = displayed.get('moon');
+    if (saturnShown === undefined || moonShown === undefined) throw new Error('missing rim pair');
+    const mid = { x: (saturnShown.x + moonShown.x) / 2, y: (saturnShown.y + moonShown.y) / 2 };
+    await act(async () => {
+      canvas.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: mid.x, clientY: mid.y }));
+    });
+    expect(container.textContent).toMatch(/Saturn ♄ in|Moon ☽ in/);
+  });
+
+  it('picks the NEAREST displayed marker, even when the Sun is checked first', async () => {
+    // Sun and Moon are both fixed, so the declutter leaves them where they are;
+    // at 2 deg apart their rings are ~5 px apart. Hovering the Moon's own centre
+    // must name the Moon, not the Sun that the old first-match loop returned.
+    const pair = [planet('sun', 'Sun', '☉', 30, 100), planet('moon', 'Moon', '☽', 30, 102)];
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            ...payload(false),
+            planets: pair,
+            visible_planets_count: 2,
+          }),
+      } as Response),
+    );
+    await act(async () => {
+      root.render(<CelestialSkyDome />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const canvas = container.querySelector('[data-testid="celestial-sky-dome-canvas"]');
+    if (!(canvas instanceof HTMLCanvasElement)) throw new Error('canvas missing');
+    const sunAt = projection(30, 100, 500);
+    const moonAt = projection(30, 102, 500);
+    const moonShown = moonAt;
+    await act(async () => {
+      canvas.dispatchEvent(
+        new MouseEvent('mousemove', { bubbles: true, clientX: moonShown.x, clientY: moonShown.y }),
+      );
+    });
+    expect(container.textContent).toContain('Moon ☽ in');
+    await act(async () => {
+      canvas.dispatchEvent(
+        new MouseEvent('mousemove', { bubbles: true, clientX: sunAt.x, clientY: sunAt.y }),
+      );
+    });
+    expect(container.textContent).toContain('Sun ☉ in');
+  });
+
   it('an uncrowded sky keeps the first (right-up) candidate', async () => {
     crowded = false;
     await mount();

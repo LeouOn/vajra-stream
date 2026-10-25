@@ -56,6 +56,12 @@ function boxOf(item: LabelItem, placed: ReturnType<typeof placeLabels>[number]):
   return [left, placed.y - item.height, left + item.width, placed.y];
 }
 
+function circleDistance(box: number[], x: number, y: number): number {
+  const nearestX = Math.max(box[0], Math.min(x, box[2]));
+  const nearestY = Math.max(box[1], Math.min(y, box[3]));
+  return Math.hypot(nearestX - x, nearestY - y);
+}
+
 function overlaps(a: number[], b: number[]): boolean {
   return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 }
@@ -85,6 +91,14 @@ function assertPlacementSuccess(items: LabelItem[]): void {
       expect(
         overlaps(boxOf(byId.get(placed[a].id) as LabelItem, placed[a]), boxOf(byId.get(placed[b].id) as LabelItem, placed[b])),
       ).toBe(false);
+    }
+    // W5-K: a real 1 px margin from EVERY drawn marker footprint, not a
+    // sub-pixel touch. V6 measured 0.06 / 0.55 px intrusions into 14.5 px.
+    for (const marker of items) {
+      expect(
+        circleDistance(boxOf(byId.get(placed[a].id) as LabelItem, placed[a]), marker.x, marker.y),
+        `${placed[a].id}/${marker.id}`,
+      ).toBeGreaterThanOrEqual(marker.markerRadius + 1 - 1e-6);
     }
   }
 }

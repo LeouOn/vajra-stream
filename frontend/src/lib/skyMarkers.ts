@@ -7,7 +7,12 @@
  * position, and so does the highest-priority other marker; the rest are moved
  * along a deterministic fan (starting away from the disc centre) to the first
  * place where the ring centres are at least `minDistance` apart and inside the
- * disc. The caller draws a faint leader and a dot at the true position.
+ * disc. When nothing inside the disc can satisfy the rule (the real Tokyo rim
+ * stack did not), the displaced ring may sit up to `EDGE_OVERFLOW_PX` outside the
+ * edge; among those candidates the one that MAXIMISES its distance to every
+ * already-placed ring wins (deterministic), so the fallback can no longer
+ * silently accept a 12 px overlap. The caller draws a faint leader and a dot at
+ * the true position.
  */
 
 export interface MarkerItem {
@@ -42,7 +47,9 @@ export interface MarkerPlacement {
 /** Rings closer than this (centre to centre) overlap. */
 export const MIN_RING_DISTANCE_PX = 16;
 /** Fan distances tried for a displaced marker. */
-const FAN_RADII = [16, 19, 22];
+const FAN_RADII = [16, 19, 22, 25, 28, 31, 34];
+/** How far a displaced ring may sit past the disc edge when nothing inside fits. */
+export const EDGE_OVERFLOW_PX = 6;
 /** Always keep their true position (the Sun and the Moon). */
 const FIXED_IDS = new Set(['sun', 'moon']);
 
@@ -73,21 +80,45 @@ export function declutterMarkers(
 
     const base = Math.atan2(item.y - bounds.cy, item.x - bounds.cx);
     const angleOffsets = [0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180];
-    let found: MarkerPlacement | null = null;
+    const edge = bounds.radius - (bounds.margin ?? 2);
+    interface Candidate {
+      x: number;
+      y: number;
+      minDistance: number;
+    }
+    const inside: Candidate[] = [];
+    const overflow: Candidate[] = [];
     for (const radiusPx of FAN_RADII) {
       for (const offsetDeg of angleOffsets) {
         const angle = base + (offsetDeg * Math.PI) / 180;
         const x = item.x + Math.cos(angle) * radiusPx;
         const y = item.y + Math.sin(angle) * radiusPx;
-        const edge = bounds.radius - (bounds.margin ?? 2);
-        if (Math.hypot(x - bounds.cx, y - bounds.cy) + item.radius > edge) continue;
-        if (placed.some((other) => Math.hypot(other.x - x, other.y - y) < minDistance)) continue;
-        found = place(item, x, y, true);
-        break;
+        const fromCentre = Math.hypot(x - bounds.cx, y - bounds.cy) + item.radius;
+        if (fromCentre > edge + EDGE_OVERFLOW_PX) continue;
+        const minDistanceToPlaced = placed.reduce(
+          (best, other) => Math.min(best, Math.hypot(other.x - x, other.y - y)),
+          Number.POSITIVE_INFINITY,
+        );
+        (fromCentre <= edge ? inside : overflow).push({ x, y, minDistance: minDistanceToPlaced });
       }
-      if (found) break;
     }
-    placed.push(found ?? place(item, item.x, item.y, false));
+    // Prefer the first inside candidate that satisfies the rule (the old,
+    // cheapest behaviour). Otherwise, if any candidate reaches the rule, take
+    // the best-separated one; if none can, take the least-bad candidate rather
+    // than silently putting the ring back on top of a higher-priority one.
+    let chosen: Candidate | null =
+      inside.find((candidate) => candidate.minDistance >= minDistance) ?? null;
+    if (chosen === null) {
+      const all = [...inside, ...overflow];
+      const valid = all.filter((candidate) => candidate.minDistance >= minDistance);
+      const pool = valid.length > 0 ? valid : all;
+      for (const candidate of pool) {
+        if (chosen === null || candidate.minDistance > chosen.minDistance + 1e-9) {
+          chosen = candidate;
+        }
+      }
+    }
+    placed.push(chosen === null ? place(item, item.x, item.y, false) : place(item, chosen.x, chosen.y, true));
   }
   // Return in input order so callers can map by id predictably.
   const byId = new Map(placed.map((entry) => [entry.id, entry]));

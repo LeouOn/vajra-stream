@@ -109,6 +109,13 @@ function candidate(
   return { x, y, anchor: 'right', box: { x1: x - item.width, y1: y - item.height, x2: x, y2: y } };
 }
 
+/**
+ * W5-K: keep a real 1 px margin between a label box and a drawn marker
+ * footprint. The W5-V6 measurements found boxes 0.06 / 0.55 px inside the
+ * 14.5 px footprint; a strict `<` check made those "no overlap".
+ */
+export const LABEL_MARKER_CLEARANCE_PX = 1;
+
 function boxesOverlap(a: Box, b: Box, padding = 1): boolean {
   return (
     a.x1 < b.x2 + padding &&
@@ -172,7 +179,16 @@ export function placeLabels(items: readonly LabelItem[], bounds: LabelBounds): P
         if ((bounds.obstacles ?? []).some((obstacle) => boxesOverlap(obstacle, candidateBox.box, 0))) {
           continue;
         }
-        if (items.some((marker) => boxOverlapsCircle(candidateBox.box, marker.x, marker.y, marker.markerRadius))) {
+        if (
+          items.some((marker) =>
+            boxOverlapsCircle(
+              candidateBox.box,
+              marker.x,
+              marker.y,
+              marker.markerRadius + LABEL_MARKER_CLEARANCE_PX,
+            ),
+          )
+        ) {
           continue;
         }
         return {

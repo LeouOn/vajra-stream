@@ -1336,6 +1336,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       alt: number;
       az: number;
       extra: string;
+      priority: number;
       px: number;
       py: number;
     }[] = [];
@@ -1367,6 +1368,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           alt: mark.alt,
           az: mark.az,
           extra: p.esoteric_quality,
+          priority: p.id === 'sun' ? 40 : p.id === 'moon' ? 39 : 20,
           px: placement?.x ?? trueX,
           py: placement?.y ?? trueY,
         });
@@ -1384,6 +1386,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
           alt: mark.alt,
           az: mark.az,
           extra: s.quality,
+          priority: 10,
           px: sx,
           py: sy,
         });
@@ -1423,19 +1426,32 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   // mouse hover keeps its visual tooltip but does not talk over the user.
   const announceSelected = selection !== null && selection.mode !== 'mouse';
 
+  // W5-K: pick the NEAREST displayed marker within reach, not the first in
+  // list order. The Tokyo rim places the Saturn ring only ~12 px from the
+  // Moon's, so first-match returned the Moon at Saturn's own ring. Ties go to
+  // the higher-priority object, then the smaller id; used by hover and tap.
   const objectAt = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !data) return null;
     const rect = canvas.getBoundingClientRect();
     const mx = clientX - rect.left;
     const my = clientY - rect.top;
+    let best: { object: ReturnType<typeof inspectableObjects>[number]; distance: number } | null = null;
     for (const object of inspectableObjects()) {
-      const reach = object.id === 'sun' || object.id === 'moon' || PLANET_MAGNITUDES[object.id] !== undefined ? 14 : 12;
-      if (Math.hypot(mx - object.px, my - object.py) < reach) {
-        return object;
+      const reach = object.priority >= 20 ? 14 : 12;
+      const distance = Math.hypot(mx - object.px, my - object.py);
+      if (distance >= reach) continue;
+      if (
+        best === null ||
+        distance < best.distance - 1e-9 ||
+        (Math.abs(distance - best.distance) <= 1e-9 &&
+          (object.priority > best.object.priority ||
+            (object.priority === best.object.priority && object.id < best.object.id)))
+      ) {
+        best = { object, distance };
       }
     }
-    return null;
+    return best?.object ?? null;
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
