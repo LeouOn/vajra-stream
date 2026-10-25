@@ -305,3 +305,116 @@ describe('EarthSkyCard — outside-window note', () => {
     expect(container.querySelector('[data-testid="sky-link-note"]')).toBeNull();
   });
 });
+
+describe('EarthSkyCard — Copy link visible confirmation (W6-A3)', () => {
+  const button = (): HTMLButtonElement =>
+    container.querySelector<HTMLButtonElement>('[data-testid="sky-copy-link"]') as HTMLButtonElement;
+  const status = (): string => container.querySelector('[data-testid="sky-copy-status"]')?.textContent ?? '';
+  const press = async (): Promise<void> => {
+    await act(async () => {
+      button().click();
+    });
+  };
+
+  it('the button label turns to "Copied" for 2 s and then back', async () => {
+    vi.useFakeTimers();
+    setClipboard(vi.fn().mockResolvedValue(undefined));
+    renderCard();
+    expect(button().textContent).toBe('Copy link');
+    await press();
+    expect(button().textContent).toBe('Copied');
+    act(() => {
+      vi.advanceTimersByTime(1900);
+    });
+    expect(button().textContent).toBe('Copied');
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(button().textContent).toBe('Copy link');
+    vi.useRealTimers();
+  });
+
+  it('a second click restarts the 2 s', async () => {
+    vi.useFakeTimers();
+    setClipboard(vi.fn().mockResolvedValue(undefined));
+    renderCard();
+    await press();
+    act(() => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(button().textContent).toBe('Copied');
+    await press(); // 1.5 s into the first window
+    act(() => {
+      vi.advanceTimersByTime(1500); // 3.0 s after the first click: the first window would be over
+    });
+    expect(button().textContent).toBe('Copied');
+    act(() => {
+      vi.advanceTimersByTime(600); // 2.1 s after the second click
+    });
+    expect(button().textContent).toBe('Copy link');
+    vi.useRealTimers();
+  });
+
+  it('nothing changes after unmount and the 2 s timer is cleared (same leftovers as a click whose copy failed)', async () => {
+    // A click leaves one timer of its own behind after unmount (the URL-sync debounce, outside this card's copy code);
+    // the 2 s "Copied" timer must not add to it. A rejected copy never starts that timer: the control.
+    vi.useFakeTimers();
+    setClipboard(vi.fn().mockRejectedValue(new Error('denied')));
+    renderCard();
+    await press();
+    unmountNow();
+    const withoutCopiedTimer = vi.getTimerCount();
+    vi.clearAllTimers(); // the control's leftovers must not count against the real run below
+
+    setClipboard(vi.fn().mockResolvedValue(undefined));
+    renderCard();
+    await press();
+    expect(button().textContent).toBe('Copied');
+    unmountNow();
+    expect(vi.getTimerCount()).toBe(withoutCopiedTimer);
+    act(() => {
+      vi.advanceTimersByTime(3000); // would throw/warn if a live timer touched the unmounted card
+    });
+    vi.useRealTimers();
+  });
+
+  it('keeps its accessible name, is not itself a live region, and the polite status announces once', async () => {
+    setClipboard(vi.fn().mockResolvedValue(undefined));
+    renderCard();
+    await press();
+    expect(button().getAttribute('aria-label')).toBe('Copy link to this sky');
+    expect(button().closest('[aria-live], [role="status"], [role="alert"]')).toBeNull();
+    expect(button().hasAttribute('aria-live')).toBe(false);
+    expect(status()).toBe('Link copied'); // the sr-only status, unchanged (the visible "Copied" is not announced)
+    // exactly one live region says anything about copying: the sr-only status
+    const copyRegions = Array.from(container.querySelectorAll('[aria-live]')).filter((el) => /cop/i.test(el.textContent ?? ''));
+    expect(copyRegions.map((el) => el.getAttribute('data-testid'))).toEqual(['sky-copy-status']);
+  });
+
+  it('reserves the width of the longer label and is at least 24 px tall by padding', () => {
+    renderCard();
+    const classes = button().className;
+    expect(classes).toMatch(/\bmin-w-\[\d+(\.\d+)?rem\]/);
+    expect(classes).toMatch(/\btext-center\b/);
+    expect(classes).toMatch(/\bpy-1\b/); // 11 px * 1.375 line + 2 * 4 px + 2 px border = 25.1 px
+    expect(classes).not.toMatch(/\bpy-0\.5\b/);
+    expect(classes).toMatch(/\btext-\[11px\]/); // the font did not change
+  });
+
+  it('has a success colour only while it says Copied', async () => {
+    setClipboard(vi.fn().mockResolvedValue(undefined));
+    renderCard();
+    expect(button().className).not.toMatch(/emerald/);
+    await press();
+    expect(button().className).toMatch(/text-emerald-300/);
+  });
+
+  it('stays "Copy link" and shows the fallback input when the clipboard rejects', async () => {
+    setClipboard(vi.fn().mockRejectedValue(new Error('denied')));
+    renderCard();
+    await press();
+    expect(button().textContent).toBe('Copy link');
+    expect(status()).toBe('');
+    expect(container.querySelector('input[readonly]')).not.toBeNull();
+  });
+});

@@ -164,14 +164,23 @@ export default function EarthSkyCard({ className = '' }: Props): React.ReactElem
           <p data-testid="earth-sky-caption" className="text-[11px] leading-snug text-gray-400">
             {scrubbed ? `Scrubbed to ${formatUtc(at)}.` : 'Live: following the current instant.'}
           </p>
+          {/* W6-A3: the button's own label says "Copied" for the same 2 s as the
+              polite sr-only status below (the label is NOT a live region, so
+              nothing is announced twice; the accessible name stays the
+              aria-label). min-w reserves the width of the longer label so the
+              header never shifts; py-1 makes the target 25 px tall (it was 21). */}
           <button
             type="button"
             data-testid="sky-copy-link"
             aria-label="Copy link to this sky"
             onClick={onCopyLink}
-            className="text-[11px] leading-snug px-2 py-0.5 rounded border border-white/15 text-gray-300 hover:text-white hover:border-white/40 transition-colors"
+            className={`text-[11px] leading-snug px-2 py-1 min-w-[4rem] text-center rounded border transition-colors ${
+              copied
+                ? 'border-emerald-400/50 text-emerald-300'
+                : 'border-white/15 text-gray-300 hover:text-white hover:border-white/40'
+            }`}
           >
-            Copy link
+            {copied ? 'Copied' : 'Copy link'}
           </button>
         </div>
       </header>
