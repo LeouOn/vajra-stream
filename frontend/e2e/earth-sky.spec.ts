@@ -728,14 +728,17 @@ test('Earth & Sky works end to end on the real routes', async ({ page }) => {
   expect(await caption()).toMatch(/Live/);
   expect(await caption()).not.toMatch(/computed/i);
 
-  await test.step('2. strip pick at 25%/50% -> lat 0, lng -90', async () => {
+  await test.step('2. strip pick at 25%/50% -> the strip\'s own place (lat near 0)', async () => {
     const strip = page.getByTestId('world-strip');
     await strip.scrollIntoViewIfNeeded();
     const box = (await strip.boundingBox())!;
-    // Capture the actual clientX/clientY and the element rect at click time, so
-    // the expected place is the strip's own mapping of the real click.
+    // Capture the actual clientX/clientY and the element rect at click time.
+    // W6-V9: the card layout can put the strip's top on a fractional pixel row,
+    // so a 50%-height click is NOT exactly latitude 0 (it landed at 0.0694).
+    // Record top/height and the canvas backing size too, then derive the
+    // expected place with the SAME mapping as WorldStrip/equirect.xyToLatLon.
     await page.evaluate(() => {
-      const canvas = document.querySelector('[data-testid="world-strip"]')!;
+      const canvas = document.querySelector('[data-testid="world-strip"]') as HTMLCanvasElement;
       canvas.addEventListener(
         'click',
         (event) => {
@@ -745,7 +748,11 @@ test('Earth & Sky works end to end on the real routes', async ({ page }) => {
             x: mouse.clientX,
             y: mouse.clientY,
             left: rect.left,
+            top: rect.top,
             width: rect.width,
+            height: rect.height,
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
           };
         },
         { once: true, capture: true },
@@ -753,17 +760,48 @@ test('Earth & Sky works end to end on the real routes', async ({ page }) => {
     });
     const before = capture.nightSky.length;
     await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.5);
+    interface StripClick {
+      x: number;
+      y: number;
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      canvasWidth: number;
+      canvasHeight: number;
+    }
     const observed = (await page.evaluate(
       () =>
-        (window as unknown as { __lastStripClick?: { x: number; y: number; left: number; width: number } })
-          .__lastStripClick ?? { x: -1, y: -1, left: 0, width: 0 },
+        (window as unknown as { __lastStripClick?: StripClick }).__lastStripClick ?? {
+          x: -1,
+          y: -1,
+          left: 0,
+          top: 0,
+          width: 0,
+          height: 0,
+          canvasWidth: 0,
+          canvasHeight: 0,
+        },
     ))!;
     await expect.poll(() => capture.nightSky.length, { timeout: 20000 }).toBeGreaterThan(before);
     const url = capture.nightSky[capture.nightSky.length - 1];
-    const expectedLng = ((observed.x - observed.left) / observed.width) * 360 - 180;
+    // WorldStrip.handleClick: scale into the canvas backing store, then
+    // xyToLatLon clamps y to [0, height]; lat = 90 - (y/height)*180.
+    const scaleX = observed.width > 0 ? observed.canvasWidth / observed.width : 1;
+    const scaleY = observed.height > 0 ? observed.canvasHeight / observed.height : 1;
+    const stripX = (observed.x - observed.left) * scaleX;
+    const stripY = (observed.y - observed.top) * scaleY;
+    const clampedY = Math.min(observed.canvasHeight, Math.max(0, stripY));
+    const expectedLat = 90 - (clampedY / observed.canvasHeight) * 180;
+    const fx = (((stripX / observed.canvasWidth) % 1) + 1) % 1;
+    const expectedLng = fx * 360 - 180;
     expect(Math.abs(expectedLng - -90), `click was not at 25% of the strip: ${expectedLng}`).toBeLessThan(1.0);
+    expect(Math.abs(expectedLat), `click was not near the middle: ${expectedLat}`).toBeLessThan(1.0);
     expect(Math.abs(numberParam(url, 'longitude') - expectedLng)).toBeLessThan(1e-6);
-    expect(Math.abs(numberParam(url, 'latitude') - 0)).toBeLessThan(1e-6);
+    expect(
+      Math.abs(numberParam(url, 'latitude') - expectedLat),
+      `request lat ${numberParam(url, 'latitude')} vs recorded click ${expectedLat}`,
+    ).toBeLessThan(1e-6);
     console.log('step2 strip pick request:', `${url.pathname}${url.search}`);
     // The dome has answered for that place (a rendered, non-unavailable sky).
     await expect(page.getByTestId('sky-unavailable')).toHaveCount(0);
