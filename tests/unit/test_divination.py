@@ -279,8 +279,8 @@ def test_iching_rich_database():
     assert details["name_chinese"] == "乾"
     assert details["name_pinyin"] == "Qián"
     assert details["name_english"] == "The Creative"
-    assert "sublime success" in details["judgment"]
-    assert "untiring" in details["images"]
+    assert "creative force" in details["judgment"]
+    assert "strong" in details["images"]
     assert len(details["lines"]) == 6
 
 

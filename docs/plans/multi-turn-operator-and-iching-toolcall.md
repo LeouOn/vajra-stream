@@ -109,12 +109,12 @@ Diagram:
   ━━━  line 2 (changing → Yin)
   ━━━  line 1
 
-Judgment: The Power of the Great. Perseverance furthers.
-Image: Thunder in heaven above: the image of the Power of the Great. Thus the superior man does not tread upon paths that do not accord with order.
+Judgment: Great strength. It is favourable to stay steadfast and correct.
+Image: Thunder high in the sky shows great power. So the wise person does not take a single step that goes against propriety.
 
 Changing Lines:
-• Line 1 (9→8): Power in the toes. Continuing brings misfortune.
-• Line 5 (6→7): Loses the goat in easiness. No remorse.
+• Line 1 (9→8): Strength in the toes only. Pushing forward brings misfortune, however sincere one is.
+• Line 5 (6→7): The ram is lost with ease, in the open field. No regret.
 
 RELATING: Guài / Breakthrough (夬)
 Decisive resolution, clearing out of remaining obstacles.

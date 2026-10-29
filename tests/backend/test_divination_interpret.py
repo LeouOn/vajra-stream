@@ -108,7 +108,7 @@ def test_iching_cast_is_accepted_under_either_key(
         "primary": {
             "name": "Qian",
             "name_english": "The Creative",
-            "judgment": "The Creative works through sublime success.",
+            "judgment": "The Creative carries everything through to completion.",
             "image": "The Creative: strong water.",
         },
         "changing": [],

@@ -273,7 +273,7 @@ The frontend `BeadRing` SVG component animates each bead increment; mantras are 
 Three engines share `DivinationService` and `GrimoireService`:
 
 - **Tarot** - 78 cards from `knowledge/tarot_deck.json`. Each card has hand-coded SVG art rendered server-side by `divination_service._render_card_svg` (lemniscate, crescent, lantern, trumpet motifs) so the UI can stream rich cards without external image dependencies. Spread counts: **1 / 3 / 5 / 10 cards**.
-- **I Ching** - 64 hexagrams from `knowledge/iching.json` with Wilhelm translation. Cast via coin (fast) or yarrow (traditional) method.
+- **I Ching** - 64 hexagrams from `knowledge/iching.json` with original English paraphrases of the classical text. Cast via coin (fast) or yarrow (traditional) method.
 - **Geomancy** - 16 figures with elemental balance computation (Fire / Earth / Air / Water / quintessence).
 
 Interpretations are RAG-grounded: the request is embedded against `knowledge/grimoire.json` and the top-k passages are prepended to the LLM prompt, with the model's `<think>` block stripped from the visible response.

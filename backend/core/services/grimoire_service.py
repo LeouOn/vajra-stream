@@ -4,7 +4,7 @@ Grimoire & Correspondence Database — esoteric reference data service.
 Manages a structured, multi-corpus database of esoteric knowledge:
 - 10 Planetary Correspondences (metals, minerals, herbs, radionics rates, frequencies, chakras)
 - 78 Tarot Cards (Rider-Waite-Smith Major and Minor Arcana, symbolism, astrology)
-- 64 I Ching Hexagrams (trigram components, Wilhelm-Baynes judgments and line texts)
+- 64 I Ching Hexagrams (trigram components, original paraphrased judgments and line texts)
 - Sacred Mantras & Dharanis (Bija syllables, deity alignments, healing intents, frequencies)
 - Mahayana Sutras (Heart Sutra, Diamond Sutra, Lotus Sutra, Sanghata passages)
 - Healing Frequencies & Meridians (Solfeggio, planetary, brainwave, chakra tunings)
