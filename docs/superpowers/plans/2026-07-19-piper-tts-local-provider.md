@@ -57,7 +57,7 @@
 - [ ] **Step 1: Install piper-tts into the venv**
 
 ```bash
-cd C:\Users\llama\OneDrive\proj\vajra-stream
+cd <project-root>
 .venv\Scripts\pip.exe install piper-tts>=1.5.0
 ```
 
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 - [ ] **Step 5: Download the default voice model**
 
 ```bash
-cd C:\Users\llama\OneDrive\proj\vajra-stream
+cd <project-root>
 .venv\Scripts\python.exe scripts\download_piper_voices.py
 ```
 
@@ -283,7 +283,7 @@ class TestPiperVoiceCatalog:
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd C:\Users\llama\OneDrive\proj\vajra-stream
+cd <project-root>
 .venv\Scripts\python.exe -m pytest tests/core/test_piper_tts.py -v
 ```
 
@@ -978,14 +978,14 @@ git commit -m "feat(tts): add Piper backend option to TTSSettingsPanel frontend"
 - [ ] **Step 1: Rebuild the frontend**
 
 ```bash
-cd C:\Users\llama\OneDrive\proj\vajra-stream\frontend
+cd <project-root>\frontend
 node_modules\.bin\vite.cmd build
 ```
 
 - [ ] **Step 2: Start the backend**
 
 ```bash
-cd C:\Users\llama\OneDrive\proj\vajra-stream
+cd <project-root>
 .venv\Scripts\python.exe run.py serve
 ```
 

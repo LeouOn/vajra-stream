@@ -1048,7 +1048,7 @@ She sat. And slowly, the tightness loosened. Not because the fear was defeated �
 
 **3. The Offering** — You take everything — the gains and the losses, the wisdom and the mistakes, the selfish hours and the generous ones — and you offer it all. Not to a deity outside yourself, but to the awakened nature within everything. "May all my endeavors — without exception — ripen as happiness for beings." This is the moment wealth transforms into merit.
 
-**4. The Transformation** — The offering changes both the giver and the gift. The $7,000 lost becomes 7,000 prayers. The time spent in confusion becomes time that taught clarity. The whittling-down of debt becomes the whittling-down of ego. What was loss is now practice. What was pain is now the path.
+**4. The Transformation** — The offering changes both the giver and the gift. What was lost becomes an offering of prayers. The time spent in confusion becomes time that taught clarity. The letting-go of what was held becomes the letting-go of ego. What was loss is now practice. What was pain is now the path.
 
 **5. The Abundance** — Not the abundance of bank accounts or portfolios, but the abundance of a heart that has nothing left to protect because it has already offered everything. This is true wealth — the wealth of Dzambhala, the Yellow Wealth Buddha, whose abundance is not measured in dollars but in the capacity to give without grasping.
 

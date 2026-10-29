@@ -404,7 +404,7 @@ async def generate_from_narrative(
     # Server-side completion watcher — polls + downloads even if the browser tab
     # navigates away, so paid MiniMax output always lands on disk at
     # generated/videos/. Same as POST /videos/generate; without it a closed tab
-    # strands a video the learner already paid for.
+    # strands a video the maintainer already paid for.
     asyncio.get_event_loop().create_task(_watch_video_task(service, task_id, model))
 
     try:

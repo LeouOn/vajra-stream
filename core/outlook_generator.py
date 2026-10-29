@@ -635,7 +635,7 @@ class OutlookGenerator:
             # exact arithmetic, not an approximation of a civil clock. A real
             # civil local time needs an IANA zone from the location
             # (geocoding returns one for city names; core/astro/
-            # timezone_policy.py is zoneinfo-based) — the learner decides
+            # timezone_policy.py is zoneinfo-based) — the maintainer decides
             # whether to add a lat/lon->zone source later.
             try:
                 from datetime import timedelta as _td

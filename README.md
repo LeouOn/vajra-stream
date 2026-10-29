@@ -1,6 +1,16 @@
 # Vajra.Stream - Digital Dharma Technology
 
-**Sacred technology for continuous blessing, healing, and purification**
+**A contemplative practice app: a live 3D Earth-and-sky globe, guided mantra practice with synthesized prayer-bowl audio, and Western, Vedic and Chinese astrology, built on FastAPI and React.**
+
+> **Disclaimer:** Vajra.Stream is a spiritual and artistic practice tool. It is
+> not medical advice, diagnosis or treatment, and it makes no health claims.
+> Words such as "healing", "blessing" or "energy work" below describe
+> contemplative intentions, not medical or physical effects. If you have a
+> health concern, see a qualified professional.
+
+| Practice library | A practice session |
+|---|---|
+| ![Practice library](frontend/e2e/screenshots/practice-library-desktop.png) | ![Medicine Buddha practice with mantra and mala counter](frontend/e2e/screenshots/practice-medicine-buddha-desktop.png) |
 
 > "Form is emptiness, emptiness is form" - Heart Sutra
 
@@ -51,7 +61,7 @@ From the Cittamatra perspective, all phenomena arise from mind - the silicon cir
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/vajra-stream.git
+git clone https://github.com/LeouOn/vajra-stream.git
 cd vajra-stream
 
 # Create virtual environment
@@ -307,7 +317,7 @@ This is a sacred technology project. Contributions welcome, but please maintain:
 
 ## License
 
-MIT License - May this benefit all beings
+MIT License (see [LICENSE](LICENSE)) - May this benefit all beings
 
 ## Dedication
 

@@ -1,20 +1,20 @@
 # Star data: stars-v65.json, star-names.json, constellation-lines.json
 
 Byte-for-byte copies of the wave-0 datasets (row W0-2), converted
-deterministically from their sources by
-`docs/notes/earthsky/wave0/stars/convert_stars.py`: `stars-v65.json` and
+deterministically from their sources by a converter script
+(`convert_stars.py`): `stars-v65.json` and
 `star-names.json`. `constellation-lines.json` is the same crosswalk as wave 0,
 regenerated in row W2-A2 so repeated d3-celestial ids append instead of
 overwrite (see the Serpens note below); its bytes therefore differ from the
-wave-0 output. Full provenance,
-licence quotes and the survey behind them: `docs/notes/earthsky/wave0/stars/licences.md`
-and `dataset-record.md`.
+wave-0 output. The licence quotes are reproduced below; the full provenance
+record, the licence survey and the converter scripts are kept in the
+maintainer's working notes, which are not part of this repository.
 
 The d3-celestial source has **89 features for 88 constellations**: `Ser`
 appears twice (Serpens Caput, 9 vertices; Serpens Cauda, 6). The wave-0
 converter keyed a dict by id, so Cauda overwrote Caput and one 9-vertex chain
 was lost (884 of 893 vertices). Row W2-A2 regenerates the same crosswalk with
-`docs/notes/earthsky/wave2/lines-fix/fix_lines.py`, appending repeated ids:
+a follow-up script (`fix_lines.py`), appending repeated ids:
 `Ser` now carries both polylines and all 893 vertices are present.
 
 | file | sha256 | bytes | contents |
@@ -73,16 +73,17 @@ figures. Those figures derive from the IAU / Sky & Telescope constellation
 figures (Sinnott & Fienberg; the underlying IAU chart's Wikimedia Commons
 metadata reports CC BY 3.0). That chain is **third-party evidence**: we could
 not verify a licence grant from Sky & Telescope itself, and the reported
-CC BY 3.0 is metadata about the IAU chart, not a grant we hold. The learner
+CC BY 3.0 is metadata about the IAU chart, not a grant we hold. The maintainer
 chose d3-celestial's BSD-3 redistribution knowing this chain (decision
 2026-10-22). Stellarium's GPL figures were rejected for licensing reasons and
 are not used. The crosswalk from d3-celestial's coordinate vertices to HR ids
-(nearest star within 3 arcminutes; 893/893 resolved) is documented in wave-0's
-`dataset-record.md`.
+(nearest star within 3 arcminutes; 893/893 resolved) is documented in the
+wave-0 provenance record (maintainer's notes, not in this repository).
 
 ## Parse hazard (for anyone re-deriving the star file)
 
 The V/50 declination sign sits in **column 84**, outside the documented I2
 degree field (cols 85–86). Reading only the field mirrors the entire southern
 hemisphere onto positive declinations while every count still looks sane.
-See `convert_stars.py` (`parse_bsc5`) for the correct handling.
+The wave-0 converter (`convert_stars.py`, `parse_bsc5`) reads column 84 for
+the sign; anyone re-deriving the file must do the same.

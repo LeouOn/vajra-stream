@@ -4,7 +4,8 @@
   mirror `nvkelso/natural-earth-vector` (`geojson/ne_110m_land.geojson`,
   branch `master`, retrieved 2026-10-22T01:39:10Z, HTTP 200, 138,160 bytes,
   raw sha256 `9e0729ee253ca7d7a5c4ae9395fb1902264c5377c52e224d13dd85010e2835d9`).
-  Full provenance: `docs/notes/earthsky/wave0/land/dataset-record.md`.
+  The full provenance record is kept in the maintainer's working notes,
+  which are not part of this repository.
 - **Licence: public domain.** Verbatim from
   <https://www.naturalearthdata.com/about/terms-of-use/>:
   > All versions of Natural Earth raster + vector map data found on this
@@ -17,7 +18,7 @@
   >
   > No permission is needed to use Natural Earth. Crediting the authors is
   > unnecessary.
-- **Converter:** `docs/notes/earthsky/wave0/land/convert_land.py` (W0-1,
+- **Converter:** `convert_land.py` from wave-0 row W0-1 (not in this repo;
   deterministic — byte-identical output on re-run), setting `decimals = 3`
   (0.001 deg ≈ 111 m at the equator; finer than the 110 m data's own
   generalization and 1/88 of a 4096-px texture texel).

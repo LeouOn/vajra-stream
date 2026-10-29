@@ -17,7 +17,7 @@ degrees away - and a spring-forward gap was silently replaced. The stored
 DATABASE SAFETY (read twice)
 ----------------------------
 These routes open SQLite through ``get_db_path()``, which can resolve to the
-LEARNER'S LIVE ``vajra_stream.db``. The ``db`` fixture below patches
+MAINTAINER'S LIVE ``vajra_stream.db``. The ``db`` fixture below patches
 ``get_db_path`` to a ``tmp_path`` file BEFORE any route is called, and asserts
 that the path in use is not the repository's database. The fixture also asserts
 the live file was not touched.
@@ -59,13 +59,13 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setattr(ep, "get_db_path", lambda: str(target))
     monkeypatch.setattr(schema_mod, "get_db_path", lambda *a, **k: str(target))
 
-    # The path the routes will actually use must not be the learner's database.
+    # The path the routes will actually use must not be the maintainer's database.
     assert (
         pathlib.Path(ep.get_db_path()).resolve() != LIVE_DB.resolve()
-    ), "the test would write to the learner's live database"
+    ), "the test would write to the maintainer's live database"
     assert (
         pathlib.Path(schema_mod.get_db_path()).resolve() != LIVE_DB.resolve()
-    ), "init_db would create the schema on the learner's live database"
+    ), "init_db would create the schema on the maintainer's live database"
     assert LIVE_DB.name not in pathlib.Path(ep.get_db_path()).name
 
     schema_mod.init_db()
@@ -380,7 +380,7 @@ def test_compare_accepts_a_per_person_opt_in_for_the_second_chart(client, db):
 def test_the_live_database_is_untouched(client, db):
     if not LIVE_DB.exists():
         pytest.skip("the repository has no vajra_stream.db to fingerprint")
-    assert _md5(LIVE_DB) == LIVE_DB_MD5, "the learner's live database changed"
+    assert _md5(LIVE_DB) == LIVE_DB_MD5, "the maintainer's live database changed"
     assert str(db) not in str(LIVE_DB), "the scratch path points at the live database"
     assert db.exists() and db.stat().st_size >= 0
 

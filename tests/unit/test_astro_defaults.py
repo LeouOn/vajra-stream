@@ -1,6 +1,6 @@
 """W1-7: one default location, reported rather than hidden.
 
-The learner confirmed (2026-10-08) that a missing location may default to San
+The maintainer confirmed (2026-10-08) that a missing location may default to San
 Francisco. Before this module existed that default was applied inconsistently
 and silently: some call sites used San Francisco and some fell back to
 ``(0.0, 0.0)`` in the Gulf of Guinea without saying so.
@@ -21,7 +21,7 @@ from core.astro import defaults
 
 
 def test_default_location_is_san_francisco() -> None:
-    """The constant is exactly the two literals the learner confirmed."""
+    """The constant is exactly the two literals the maintainer confirmed."""
     assert defaults.DEFAULT_LOCATION == (37.7749, -122.4194)
     lat, lon = defaults.DEFAULT_LOCATION
     assert lat == 37.7749

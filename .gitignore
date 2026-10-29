@@ -133,3 +133,11 @@ ritual_output.md
 
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
+
+# Local tool state and private working notes (never published)
+.coverage
+.openrig/
+.claude/
+.agents/
+.mcp.json
+docs/notes/

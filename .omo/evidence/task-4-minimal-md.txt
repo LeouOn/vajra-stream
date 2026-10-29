@@ -1,4 +1,0 @@
-﻿### Positions
-  - **sun**:
-    - sign: Capricorn
-    - degree: 12.00

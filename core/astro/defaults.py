@@ -1,7 +1,7 @@
 """Default location for astrology calculations, and where it came from.
 
 WHY THIS MODULE EXISTS
-    The learner confirmed on 2026-10-08 that a missing location may default
+    The maintainer confirmed on 2026-10-08 that a missing location may default
     to San Francisco. That default was applied inconsistently and silently:
     some call sites used San Francisco, and others fell back to ``(0.0, 0.0)``
     - the equator at the prime meridian, in the Gulf of Guinea - without saying
@@ -9,9 +9,9 @@ WHY THIS MODULE EXISTS
     visible: a resolved location always records whether it was given or
     defaulted, and a defaulted one carries a warning.
 
-PROVISIONAL DEFAULTS (learner decisions)
+PROVISIONAL DEFAULTS (maintainer decisions)
     The single default is ``DEFAULT_LOCATION`` = (37.7749, -122.4194),
-    San Francisco, California, USA - the value the learner confirmed on
+    San Francisco, California, USA - the value the maintainer confirmed on
     2026-10-08 and the value the project already used in several places.
     It is PROVISIONAL in the sense that it is a swappable constant, not a
     claim that San Francisco is the right location for any particular user:
@@ -38,7 +38,7 @@ from typing import Literal
 
 #: The single default location: San Francisco, California, USA.
 #:
-#: PROVISIONAL, learner-confirmed on 2026-10-08.
+#: PROVISIONAL, maintainer-confirmed on 2026-10-08.
 #: Latitude 37.7749 N, longitude -122.4194 W.
 DEFAULT_LOCATION: tuple[float, float] = (37.7749, -122.4194)
 

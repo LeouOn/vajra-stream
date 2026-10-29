@@ -5,7 +5,7 @@ cost cap and the hourly call limit, then AWAITED the paid POST to MiniMax, and
 only recorded the spend afterwards. Nothing reserved the budget, so two
 concurrent calls both passed the guard and both paid.
 
-The learner pays per task, so the direction that matters is: never let two
+The maintainer pays per task, so the direction that matters is: never let two
 concurrent submissions both pass the guard.
 
 No network: ``httpx.AsyncClient`` is replaced by a recording fake.

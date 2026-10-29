@@ -92,7 +92,7 @@ It is a floating-point identity test, not a physical one.
 NEEDS-LEARNER-DECISION
 ----------------------
 Everything in :data:`ORB_PROFILES` and :data:`DEFAULT_PROFILE_NAME` is
-PROVISIONAL and needs a learner decision. The values are exposed as swappable
+PROVISIONAL and needs a maintainer decision. The values are exposed as swappable
 data, never hardcoded into the physics, so changing them is a one-line data
 edit and not a logic change.
 
@@ -147,7 +147,7 @@ class AspectError(ValueError):
 
 
 #: The five Ptolemaic angles, in degrees. Classical scope is PROVISIONAL: a
-#: learner decision may add the Quintile (30) or the Semisextile (150).
+#: maintainer decision may add the Quintile (30) or the Semisextile (150).
 ASPECT_ANGLES: Mapping[str, float] = MappingProxyType(
     {
         "Conjunction": 0.0,
@@ -158,7 +158,7 @@ ASPECT_ANGLES: Mapping[str, float] = MappingProxyType(
     }
 )
 
-#: Bodies granted the luminaries bonus. PROVISIONAL, needs a learner decision.
+#: Bodies granted the luminaries bonus. PROVISIONAL, needs a maintainer decision.
 LUMINARIES: frozenset[str] = frozenset({"Sun", "Moon"})
 
 #: Speeds at or below this magnitude (deg/day) are treated as stationary.
@@ -194,7 +194,7 @@ def _profile(name: str, orbs: dict[str, float], bonus: float) -> OrbProfile:
     return OrbProfile(name=name, orbs=MappingProxyType(dict(orbs)), luminary_bonus=bonus)
 
 
-# PROVISIONAL orb tables - every number here needs a learner decision. They are
+# PROVISIONAL orb tables - every number here needs a maintainer decision. They are
 # DATA, deliberately, so that changing them never touches the physics below.
 # Built straight into the proxy: no module-level mutable dict is left behind.
 ORB_PROFILES: Mapping[str, OrbProfile] = MappingProxyType(

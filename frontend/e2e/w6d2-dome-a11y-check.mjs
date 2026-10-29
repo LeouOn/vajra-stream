@@ -5,16 +5,22 @@
 // polite live region; Escape and an outside tap close it; compatibility mouse
 // events do not undo the tap; a two-finger press (release the first) opens
 // nothing.
+// Optional: set PLAYWRIGHT_CHROME to a Chromium binary; otherwise Playwright's
+// own installed browser is used (`npx playwright install chromium`).
 import { createRequire } from 'node:module';
 import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
+// Resolve playwright from frontend/node_modules, relative to this script.
 const require = createRequire(
-  realpathSync('/home/yl/proj/vajra-stream/frontend/node_modules/@playwright/test/package.json'),
+  realpathSync(
+    fileURLToPath(new URL('../node_modules/@playwright/test/package.json', import.meta.url)),
+  ),
 );
 const { chromium } = require('playwright');
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:3024';
-const CHROME = '/home/yl/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome';
+const CHROME = process.env.PLAYWRIGHT_CHROME || undefined;
 
 const NIGHT = {
   timestamp_utc: '2026-10-24T09:00:00Z',

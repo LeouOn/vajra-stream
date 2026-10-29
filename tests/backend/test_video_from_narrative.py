@@ -290,7 +290,7 @@ def test_one_submit_task_call_per_request(monkeypatch):
     """Exactly one paid submission per request.
 
     This does NOT prove retry safety. Two identical requests are two independent paid
-    submissions, by design: deduplicating them is a learner decision, not a fact. See
+    submissions, by design: deduplicating them is a maintainer decision, not a fact. See
     needs-learner-decision in the fix notes.
     """
     service = _FakeService(task_id="task-123")
@@ -391,7 +391,7 @@ def test_guard_fallback_still_carries_the_model(monkeypatch):
 
 # --------------------------------------------------------------------------- #
 # Server-side watcher, like POST /videos/generate: a closed tab must not strand a
-# video the learner already paid for.
+# video the maintainer already paid for.
 # --------------------------------------------------------------------------- #
 @pytest.fixture
 def watcher_calls(monkeypatch):
