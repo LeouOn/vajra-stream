@@ -21,6 +21,11 @@ vi.mock('../../components/UI/CelestialSkyDome', async () => {
   return { default: () => ReactModule.createElement('div', { 'data-testid': 'dome-stub' }) };
 });
 
+vi.mock('../../components/UI/SkyEventsReadout', async () => {
+  const ReactModule = await import('react');
+  return { default: () => ReactModule.createElement('div', { 'data-testid': 'sky-events-stub' }) };
+});
+
 vi.mock('../../components/UI/PlanetaryHourReadout', async () => {
   const ReactModule = await import('react');
   return { default: () => ReactModule.createElement('div', { 'data-testid': 'readout-stub' }) };

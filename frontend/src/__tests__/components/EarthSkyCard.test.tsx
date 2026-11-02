@@ -45,6 +45,18 @@ vi.mock('../../components/UI/PlanetaryHourReadout', async () => {
   };
 });
 
+// The Sun & Moon readout would fetch /sky-events; it has its own tests.
+const SKY_EVENTS = vi.hoisted(() => ({ calls: [] as Array<Record<string, unknown>> }));
+vi.mock('../../components/UI/SkyEventsReadout', async () => {
+  const ReactModule = await import('react');
+  return {
+    default: (props: Record<string, unknown>) => {
+      SKY_EVENTS.calls.push(props);
+      return ReactModule.createElement('div', { 'data-testid': 'sky-events-stub' });
+    },
+  };
+});
+
 // The strip's sun store would poll /earth-state; the strip has its own tests. The slice is controllable here so a
 // test can put the strip into loading / unavailable and look at the caption next to it.
 const EARTH = vi.hoisted(() => ({
@@ -182,6 +194,7 @@ describe('EarthSkyCard', () => {
     const parts = (container: HTMLElement) => ({
       strip: container.querySelector('[data-testid="world-strip-wrap"]') as HTMLElement,
       readout: container.querySelector('[data-testid="planetary-hour-stub"]') as HTMLElement,
+      events: container.querySelector('[data-testid="sky-events-stub"]') as HTMLElement,
       dome: container.querySelector('[data-testid="dome-stub"]') as HTMLElement,
       controls: container.querySelector('[data-testid="sky-time-controls"]') as HTMLElement,
       left: container.querySelector('[data-testid="earth-sky-left"]') as HTMLElement,
@@ -215,26 +228,31 @@ describe('EarthSkyCard', () => {
       expect(container.querySelectorAll('[data-testid="dome-stub"]')).toHaveLength(1);
       expect(container.querySelectorAll('[data-testid="sky-time-controls"]')).toHaveLength(1);
       expect(container.querySelectorAll('[data-testid="planetary-hour-stub"]')).toHaveLength(1);
+      expect(container.querySelectorAll('[data-testid="sky-events-stub"]')).toHaveLength(1);
+      expect(SKY_EVENTS.calls.length).toBeGreaterThan(0);
+      expect(Object.keys(SKY_EVENTS.calls[0])).toEqual([]);
     });
 
     it('the controls are the last block of the LEFT column, so they sit beside the sky they move', () => {
       const { container } = mount(<EarthSkyCard />);
-      const { controls, left, right, strip, readout } = parts(container);
+      const { controls, left, right, strip, readout, events } = parts(container);
       expect(left.parentElement).toBe(right.parentElement); // the two columns share one grid
       expect(left.contains(controls)).toBe(true);
       expect(right.contains(controls)).toBe(false);
       const blocks = Array.from(left.children);
-      expect(blocks).toHaveLength(3); // strip, readout, controls: nothing else in the column
+      expect(blocks).toHaveLength(4); // strip, readout, Sun & Moon, controls
       expect(blocks[0].contains(strip)).toBe(true);
       expect(blocks[1]).toBe(readout);
-      expect(blocks[2].contains(controls)).toBe(true);
+      expect(blocks[2]).toBe(events);
+      expect(blocks[3].contains(controls)).toBe(true);
     });
 
-    it('on a narrow screen it stacks in DOM order: strip, readout, controls, dome (no CSS reordering)', () => {
+    it('on a narrow screen it stacks in DOM order: strip, readout, Sun & Moon, controls, dome (no CSS reordering)', () => {
       const { container } = mount(<EarthSkyCard />);
-      const { strip, readout, dome, controls } = parts(container);
+      const { strip, readout, events, dome, controls } = parts(container);
       expect(before(strip, readout)).toBe(true);
-      expect(before(readout, controls)).toBe(true);
+      expect(before(readout, events)).toBe(true);
+      expect(before(events, controls)).toBe(true);
       expect(before(controls, dome)).toBe(true);
       // one grid column below 1280 px, two from there; nothing is moved with an `order-*` utility, so the stack
       // above is the reading order, the tab order and the narrow visual order at once

@@ -15,6 +15,12 @@
  *     610 px floor there (the dome needs 554 px inside for its canvas and its
  *     side panel) and that squeezes the left column.
  *
+ * W7-3c: the Sun & Moon readout (120 px) now sits in the left column too — it
+ * is about the place and the instant, like the strip and the hour readout. At
+ * the fixed reference sky the bottom difference went from 27 px to 138 px;
+ * live skies already varied by 99..237 px. The bound is a regression guard,
+ * not a whitespace target.
+ *
  * So a live bound on that number is a bound on the clock, not on the layout:
  * the real-routes smoke (earth-sky.spec.ts) prints the live difference and the
  * scrubbed one instead of asserting them. This spec freezes the sky - a real
@@ -25,7 +31,7 @@
  *      Refresh button, at 1440, 480, 420, 356 and 320 px. Before W3-M5 the
  *      title was cut mid-word below ~460 px ("Celestial Night-Sky Do") and the
  *      Refresh button overlapped it by 19 px at 420 px and 83 px at 356 px;
- *   2. the two columns end within 100 px of each other at 1440 px;
+ *   2. the two columns end within 160 px of each other at 1440 px;
  *   3. the card is one column below 1280 px and two columns from 1280 px;
  *   4. the flat strip stays capped at 720 px;
  *   5. the card fits the viewport at every width.
@@ -197,7 +203,7 @@ test('with a fixed sky the two columns end together at 1440 px', async ({ page }
   expect(facts.right, 'no right column').not.toBeNull();
   const delta = Math.abs(facts.right!.bottom - facts.left!.bottom);
   console.log('CARD COLUMNS (fixed sky) 1440', JSON.stringify({ ...facts, bottomDelta: delta }));
-  expect(delta, `the columns end ${delta} px apart`).toBeLessThanOrEqual(100);
+  expect(delta, `the columns end ${delta} px apart`).toBeLessThanOrEqual(160);
   // The strip keeps its cap in the two-column layout.
   expect(facts.strip!.w, `the strip is ${facts.strip!.w} px wide (cap 720)`).toBeLessThanOrEqual(720.5);
 });

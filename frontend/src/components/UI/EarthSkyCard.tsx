@@ -34,7 +34,12 @@
  * night sky (the reference fixture in frontend/e2e/fixtures) it is 27 px at
  * 1440 px. The strict bound is asserted against that
  * fixed sky in frontend/e2e/earth-sky-layout.spec.ts; the live smoke records
- * the live number instead of pretending it is a layout invariant.
+ * the live number instead of pretending it is a layout invariant. *
+ * W7-3c (2026-11-02): the Sun & Moon readout (120 px) now sits in the LEFT
+ * column — it is about the place and the instant, like the strip and the hour
+ * readout — so the fixed-sky difference is 138 px at 1440 px while real skies
+ * already varied by 99..237 px. The strict bound is 160 px: a regression
+ * guard, not a whitespace target.
  *
  * W3-M4 (measured at 1100 / 1280 / 1366 / 1440 / 1920 / 420 px, docs/notes/earthsky/wave3/c1/card-matrix.mjs):
  * - Equal columns below ~1330 px gave the dome a column too narrow to keep its canvas and side panel side by side
@@ -61,6 +66,7 @@ import { useSkyUrlSync } from '../../hooks/useSkyUrlSync';
 import { WorldStrip } from '../2D/WorldStrip';
 import CelestialSkyDome from './CelestialSkyDome';
 import PlanetaryHourReadout from './PlanetaryHourReadout';
+import SkyEventsReadout from './SkyEventsReadout';
 import SkyTimeControls from './SkyTimeControls';
 
 /** "2026-10-24 09:00:00 UTC" from the store's normalised `...Z` instant (anything else is shown as given). */
@@ -225,6 +231,7 @@ export default function EarthSkyCard({ className = '' }: Props): React.ReactElem
         <div data-testid="earth-sky-left" className="min-w-0 space-y-3">
           <WorldStrip className="mx-auto max-w-[720px]" observer={observer} onPick={onPick} />
           <PlanetaryHourReadout />
+          <SkyEventsReadout />
           <SkyTimeControls />
         </div>
         <div data-testid="earth-sky-right" className="min-w-0">
