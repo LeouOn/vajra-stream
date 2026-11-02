@@ -547,3 +547,21 @@ describe('time-lapse (W5-C)', () => {
     spy.mockRestore();
   });
 });
+
+
+describe('W7-1 time-scale midpoint and place label', () => {
+  it('the midpoint of the time scale reads "now", not the coordinates', () => {
+    mount();
+    expect(container.querySelector('[data-testid="sky-time-now"]')?.textContent).toBe('now');
+    expect(container.querySelector('[data-testid="sky-time-observer"]')).toBeNull();
+    expect(text()).not.toContain('-122.4194');
+    expect((byLabel('Latitude, degrees north') as HTMLInputElement).value).not.toBe('');
+    expect((byLabel('Longitude, degrees east') as HTMLInputElement).value).not.toBe('');
+  });
+
+  it('shows the place label above the inputs when the store knows it', () => {
+    useSkyStore.setState({ label: 'Tokyo' });
+    mount();
+    expect(container.querySelector('[data-testid="sky-time-place"]')?.textContent).toContain('Tokyo');
+  });
+});

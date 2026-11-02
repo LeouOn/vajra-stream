@@ -246,9 +246,6 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
   const shownMs = effectiveInstant(at, now).getTime();
   const offset = isLive ? 0 : offsetMinutes(at, now);
   const sliderValue = Math.max(-1440, Math.min(1440, Math.round(offset)));
-  const observerText = label
-    ? `${label} · ${lat.toFixed(4)}, ${lng.toFixed(4)}`
-    : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
   // One commit model for both coordinates: raw text is the draft (the
   // InputNumber's numeric onChange cannot carry '-' or '36,1'), and Enter,
@@ -552,14 +549,19 @@ export default function SkyTimeControls({ className = '' }: Props): React.ReactE
           <Text type="secondary" style={{ fontSize: 11 }}>
             -24 h
           </Text>
-          <Text type="secondary" style={{ fontSize: 11 }} data-testid="sky-time-observer">
-            {observerText}
+          <Text type="secondary" style={{ fontSize: 11 }} data-testid="sky-time-now">
+            now
           </Text>
           <Text type="secondary" style={{ fontSize: 11 }}>
             +24 h
           </Text>
         </div>
 
+        {label !== undefined && label.length > 0 && (
+          <Text type="secondary" style={{ fontSize: 11 }} data-testid="sky-time-place">
+            Observer: {label}
+          </Text>
+        )}
         <div className="flex flex-wrap items-end gap-2" data-testid="sky-place-controls">
           <label className="flex flex-col gap-0.5 text-[10px] text-gray-400">
             <span>Latitude</span>

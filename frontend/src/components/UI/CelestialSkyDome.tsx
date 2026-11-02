@@ -1579,12 +1579,12 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
   // The chip list always shows the sacred stars above the horizon; the heading
   // says honestly whether the daylight layer is hiding/dimming them.
   const vedicHeading = !daylightActive
-    ? 'Visible Vedic Nakshatras Overhead:'
+    ? 'Sacred stars above the horizon:'
     : seeThrough
-      ? 'Vedic stars above the horizon (drawn faintly):'
+      ? 'Sacred stars above the horizon (drawn faintly):'
       : sunAltDeg >= 0
-        ? 'Vedic stars above the horizon (hidden by daylight):'
-        : 'Vedic stars above the horizon (fainter ones hidden by the twilight sky):';
+        ? 'Sacred stars above the horizon (hidden by daylight):'
+        : 'Sacred stars above the horizon (fainter ones hidden by the twilight sky):';
 
   const frameFooter = scrubMode
     ? scrubbed?.moonFrame === 'topocentric'
@@ -1608,7 +1608,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
       data-testid="celestial-sky-dome-card"
       className={`border border-purple-500/20 bg-slate-950/60 backdrop-blur-md rounded-2xl ${className}`}
       title={
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div data-testid="sky-dome-title" className="flex min-w-0 flex-wrap items-center justify-between gap-2 whitespace-normal">
           {/*
             The title wraps instead of being cut (W3-M5): AntD's head title is
             `white-space: nowrap; overflow: hidden`, so below ~460 px the
@@ -1621,14 +1621,16 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
             <span className="whitespace-normal text-purple-200 font-serif text-lg tracking-wide">
               Celestial Night-Sky Dome
             </span>
-            <Tag color="purple">Horizon Alt/Az</Tag>
+            <Tag color="purple" className="whitespace-normal break-words">Horizon Alt/Az</Tag>
           </div>
           {data && !scrubMode && (
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono min-w-0">
-              <span className="whitespace-nowrap">LST: {data.observer.local_sidereal_time_hms}</span>
-              <span className="flex items-center gap-1 text-amber-300 whitespace-nowrap">
-                <Moon className="w-3.5 h-3.5" />
-                {data.moon.phase_name} ({data.moon.illumination}%)
+              <span className="min-w-0 break-words">LST: {data.observer.local_sidereal_time_hms}</span>
+              <span data-testid="sky-moon-phase" className="inline-flex min-w-0 items-start gap-1 text-amber-300">
+                <Moon className="w-3.5 h-3.5 shrink-0" />
+                <span className="min-w-0 break-words">
+                  {data.moon.phase_name} ({data.moon.illumination}%)
+                </span>
               </span>
             </div>
           )}
@@ -1876,10 +1878,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                     size="small"
                     checked={showCatalogue}
                     onChange={setShowCatalogue}
-                    aria-label="Catalogue"
+                    aria-label="All stars"
                   />
                 </span>
-                <span>Catalogue</span>
+                <span>All stars</span>
                 {catalogueStatus === 'unavailable' && (
                   <span data-testid="sky-catalogue-unavailable" className="text-[10px] text-amber-300">
                     unavailable
@@ -1899,10 +1901,10 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                     size="small"
                     checked={showFigures}
                     onChange={setShowFigures}
-                    aria-label="Figures"
+                    aria-label="Constellation lines"
                   />
                 </span>
-                <span>Figures</span>
+                <span>Constellation lines</span>
                 {figuresStatus === 'unavailable' && (
                   <span data-testid="sky-figures-unavailable" className="text-[10px] text-amber-300">
                     unavailable
@@ -1966,7 +1968,7 @@ export default function CelestialSkyDome({ latitude, longitude, className = '' }
                 <div
                   key={p.id}
                   data-testid="sky-planet-card"
-                  className="min-w-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-xs flex flex-col justify-between"
+                  className="min-w-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-900/50 p-2 text-xs flex flex-col"
                 >
                   <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
                     <span className="min-w-0 truncate font-medium" style={{ color: p.color }}>

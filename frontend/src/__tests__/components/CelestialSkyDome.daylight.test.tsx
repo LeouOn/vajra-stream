@@ -356,14 +356,14 @@ describe('daytime stars', () => {
 
   it('the Vedic heading says stars are hidden by daylight when the Sun is up', async () => {
     await mount();
-    expect(vedicHeading()).toBe('Vedic stars above the horizon (hidden by daylight):');
+    expect(vedicHeading()).toBe('Sacred stars above the horizon (hidden by daylight):');
   });
 
   it('the Vedic heading says fainter ones are hidden by the twilight sky', async () => {
     sunAlt = -10;
     await mount();
     expect(vedicHeading()).toBe(
-      'Vedic stars above the horizon (fainter ones hidden by the twilight sky):',
+      'Sacred stars above the horizon (fainter ones hidden by the twilight sky):',
     );
   });
 
@@ -372,7 +372,7 @@ describe('daytime stars', () => {
     await act(async () => {
       toggleButton().click();
     });
-    expect(vedicHeading()).toBe('Vedic stars above the horizon (drawn faintly):');
+    expect(vedicHeading()).toBe('Sacred stars above the horizon (drawn faintly):');
   });
 
   it('at night: today\'s palette and the catalogue layer, no caption, no separate stars', async () => {
@@ -388,7 +388,7 @@ describe('daytime stars', () => {
     expect(fills.some((event) => event.style.startsWith('rgb('))).toBe(false);
     expect(gradientStops).toEqual(['0:#0f172a', '0.7:#090d16', '1:#020617']);
     expect(container.querySelector('[data-testid="sky-daylight-caption"]')).toBeNull();
-    expect(vedicHeading()).toBe('Visible Vedic Nakshatras Overhead:');
+    expect(vedicHeading()).toBe('Sacred stars above the horizon:');
   });
 
   it('remembers the toggle, and survives localStorage throwing', async () => {

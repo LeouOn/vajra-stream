@@ -700,8 +700,8 @@ describe('F3/F4: switch names, single-toggle rows and hit areas', () => {
     expect(switches.map((element) => element.getAttribute('aria-label'))).toEqual([
       'Planets',
       'Vedic Stars',
-      'Catalogue',
-      'Figures',
+      'All stars',
+      'Constellation lines',
       'Ecliptic',
       'See through daylight',
     ]);
@@ -711,6 +711,14 @@ describe('F3/F4: switch names, single-toggle rows and hit areas', () => {
       expect(target.className).toContain('min-h-6');
       expect(target.className).toContain('min-w-6');
     }
+  });
+
+  it('the moon phase in the title may wrap, and the title is marked for overflow checks', async () => {
+    await mount();
+    const moon = container.querySelector('[data-testid="sky-moon-phase"]');
+    expect(moon).not.toBeNull();
+    expect(moon?.className ?? '').not.toContain('whitespace-nowrap');
+    expect(container.querySelector('[data-testid="sky-dome-title"]')).not.toBeNull();
   });
 
   it('a text click toggles exactly once and a switch click toggles exactly once', async () => {

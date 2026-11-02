@@ -170,14 +170,25 @@ function switchButton(testId: string): HTMLButtonElement {
 }
 
 describe('CelestialSkyDome catalogue layers', () => {
+  it('planet cards do not spread Alt and Az apart', async () => {
+    await act(async () => {
+      root.render(<CelestialSkyDome latitude={37.7749} longitude={-122.4194} />);
+    });
+    const cards = Array.from(container.querySelectorAll('[data-testid="sky-planet-card"]'));
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      expect(card.className).not.toContain('justify-between');
+    }
+  });
+
   it('shows the three layer switches on, and they toggle', async () => {
     await act(async () => {
       root.render(<CelestialSkyDome latitude={37.7749} longitude={-122.4194} />);
     });
     expect(container.textContent).toContain('Jupiter');
     expect(container.textContent).toContain('Sirius');
-    expect(container.textContent).toContain('Catalogue');
-    expect(container.textContent).toContain('Figures');
+    expect(container.textContent).toContain('All stars');
+    expect(container.textContent).toContain('Constellation lines');
     expect(container.textContent).toContain('Ecliptic');
     for (const id of ['sky-switch-catalogue', 'sky-switch-figures', 'sky-switch-ecliptic']) {
       const button = switchButton(id);
