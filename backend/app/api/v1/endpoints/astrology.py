@@ -4,6 +4,7 @@ Astrology API endpoints for Vajra.Stream
 
 import asyncio
 import datetime
+import functools
 import json
 import logging
 import sqlite3
@@ -332,6 +333,80 @@ async def get_sun_events(
         **{key: format_instant(events[key], "milliseconds") if events[key] is not None else None for key in keys},
     }
     return with_provenance(payload, {"at": COMPUTED, **{key: COMPUTED for key in keys}})
+
+
+@functools.lru_cache(maxsize=1)
+def _cached_timezonefinder():
+    """Build ONE ``TimezoneFinder`` lazily (older versions load the whole
+    dataset in the constructor; one per request would be costly there)."""
+    from timezonefinder import TimezoneFinder
+
+    return TimezoneFinder()
+
+
+def _timezone_name(lat: float, lon: float) -> str | None:
+    """The IANA zone of a place from the OPTIONAL ``timezonefinder`` package.
+
+    Never raises: a missing package (a MINIMAL install lacks it; CI installs
+    requirements-dev, which includes requirements.txt and with it
+    timezonefinder) or any of its own errors answers ``None`` — the route
+    must work with and without the package.
+    """
+    try:
+        return _cached_timezonefinder().timezone_at(lat=lat, lng=lon)  # type: ignore[no-any-return]
+    except Exception:
+        return None
+
+
+@router.get("/sky-events")
+def get_sky_events(
+    latitude: str | None = None,
+    longitude: str | None = None,
+    datetime_str: str | None = None,
+):
+    """Sun and Moon rise, set, transit and Sun twilight events around an instant.
+
+    Every event of the Sun and the Moon inside the fixed window
+    ``[at - 24 h, at + 48 h]`` at ``(latitude, longitude)``, whole seconds
+    UTC ending in ``Z``, sorted ascending; ``always`` answers ``"up"``/``"down"``
+    for a body with neither rise nor set in the window (polar day or night, a
+    circumpolar Moon) and ``null`` otherwise. Nothing is invented: an event
+    that does not happen is absent. Full contract: ``core/sky_events.py``
+    (``CONVENTION`` documents the rise/set and twilight conventions verbatim).
+
+    Validation is exactly ``/sun-events``': ``latitude`` in [-90, 90] and
+    ``longitude`` (east positive) in [-180, 180] required, ``datetime_str``
+    optional (absent means now; blank or malformed 422; naive means UTC) and
+    inside 1800-01-01..2200-12-31 UTC; without the ephemeris 503. ``timezone``
+    is the IANA name from ``timezonefinder`` when importable, else ``null``
+    (one lazily built finder is shared). Deterministic for an explicit
+    ``datetime_str``; with it absent the window follows "now".
+    """
+    from core.earth_sky import as_supported_utc
+    from core.sky_events import EphemerisUnavailable, compute_sky_events
+
+    lat = _query_degrees("latitude", latitude, 90.0)
+    lon = _query_degrees("longitude", longitude, 180.0)
+    moment = _query_instant("datetime_str", datetime_str, required=False)
+    try:
+        moment = as_supported_utc(moment or datetime.datetime.now(timezone.utc), "time")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    try:
+        payload = compute_sky_events(lat, lon, moment)
+    except EphemerisUnavailable:
+        raise HTTPException(status_code=503, detail="ephemeris unavailable")
+    body = {"status": "success", **payload, "timezone": _timezone_name(lat, lon)}
+    return with_provenance(
+        body,
+        {
+            "window": COMPUTED,
+            "convention": COMPUTED,
+            "events": COMPUTED,
+            "always": COMPUTED,
+            "timezone": COMPUTED,
+        },
+    )
 
 
 def _boundary_ms(instant: datetime.datetime) -> str:

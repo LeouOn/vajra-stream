@@ -335,6 +335,18 @@ def _topocentric_horizontal(
     return _horizontal_unrounded(topo_ra, topo_dec, lst_deg, lat_deg)
 
 
+def topocentric_horizontal(
+    ra_deg: float, dec_deg: float, distance_au: float, lst_deg: float, lat_deg: float
+) -> tuple[float, float]:
+    """Public wrapper of :func:`_topocentric_horizontal` — the `/night-sky` position frame.
+
+    Same Meeus ch. 40 parallax correction, same signature, same result; exposed so
+    other core modules (e.g. ``core.sky_events``) can use the app's one horizon
+    frame without importing a private name. Never touches ``swe.set_topo``.
+    """
+    return _topocentric_horizontal(ra_deg, dec_deg, distance_au, lst_deg, lat_deg)
+
+
 def _precess_j2000_to_date(ra_deg: float, dec_deg: float, jd: float) -> tuple[float, float]:
     """Precess a J2000 catalogue position to the mean equinox of date.
 
