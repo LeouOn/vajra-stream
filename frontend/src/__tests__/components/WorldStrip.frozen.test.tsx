@@ -72,12 +72,43 @@ function lastSun(): { lat: number; lon: number } {
   return (call[1] as { sun: { lat: number; lon: number } }).sun;
 }
 
+/** A cast-free getContext stub: a recorded 2D-overload stand-in with explicit restore. */
+interface GetContextSpy {
+  mockReturnValue(value: unknown): void;
+  mockImplementation(implementation: (...args: unknown[]) => unknown): void;
+  restore(): void;
+}
+function spyGetContext(): GetContextSpy {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
+  if (descriptor === undefined) throw new Error('HTMLCanvasElement.getContext descriptor missing');
+  let impl: (...args: unknown[]) => unknown = () => null;
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+    configurable: true,
+    writable: true,
+    value: (contextId: string, ...rest: unknown[]) => impl(contextId, ...rest),
+  });
+  return {
+    mockReturnValue(value: unknown) {
+      impl = () => value;
+    },
+    mockImplementation(fn: (...args: unknown[]) => unknown) {
+      impl = fn;
+    },
+    restore() {
+      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', descriptor);
+    },
+  };
+}
+
+let ctxSpy: GetContextSpy | null = null;
+
 beforeEach(() => {
   vi.useFakeTimers();
   // the wall clock is 5 minutes after the shown instant
   vi.setSystemTime(new Date(SHOWN_MS + 5 * 60_000));
   drawMock.mockReset();
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({} as unknown as CanvasRenderingContext2D);
+  ctxSpy = spyGetContext();
+  ctxSpy.mockReturnValue({} as unknown as CanvasRenderingContext2D);
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((() => 0) as unknown as typeof window.requestAnimationFrame);
 });
 
@@ -86,6 +117,8 @@ afterEach(() => {
   container?.remove();
   root = null;
   container = null;
+  ctxSpy?.restore();
+  ctxSpy = null;
   vi.restoreAllMocks();
   vi.useRealTimers();
   document.body.innerHTML = '';

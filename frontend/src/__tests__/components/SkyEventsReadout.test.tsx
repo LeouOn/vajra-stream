@@ -137,48 +137,42 @@ describe('local time', () => {
 
 const TROMSO = {"status":"success","window":{"from":"2026-06-20T12:00:00Z","to":"2026-06-23T12:00:00Z"},"observer":{"latitude":69.65,"longitude":18.96},"convention":"Rise and set: upper edge of the disc at the apparent horizon, standard refraction (34 arcmin). Twilight: centre of the Sun at -6, -12 and -18 degrees, no refraction. Transit: highest point.","events":[{"body":"moon","kind":"transit","at":"2026-06-20T15:48:45Z"},{"body":"moon","kind":"set","at":"2026-06-20T22:37:42Z"},{"body":"moon","kind":"rise","at":"2026-06-21T10:17:14Z"},{"body":"sun","kind":"transit","at":"2026-06-21T10:45:58Z"},{"body":"moon","kind":"transit","at":"2026-06-21T16:32:30Z"},{"body":"moon","kind":"set","at":"2026-06-21T22:14:09Z"},{"body":"sun","kind":"transit","at":"2026-06-22T10:46:11Z"},{"body":"moon","kind":"rise","at":"2026-06-22T12:12:40Z"},{"body":"moon","kind":"transit","at":"2026-06-22T17:14:58Z"},{"body":"moon","kind":"set","at":"2026-06-22T21:49:45Z"},{"body":"sun","kind":"transit","at":"2026-06-23T10:46:24Z"}],"always":{"sun":"up","moon":null},"timezone":"Europe/Oslo","provenance":{"window":"computed","convention":"computed","events":"computed","always":"computed","timezone":"computed"}};
 
-const AUCKLAND = { latitude: -36.8485, longitude: 174.7633 };
+const KIRITIMATI = { latitude: 1.8721, longitude: -157.4278 };
 
 describe('W7-3d fixes', () => {
   it('names the day in the observer zone, not the runtime zone', async () => {
-    const previous = process.env.TZ;
-    process.env.TZ = 'America/Los_Angeles';
-    try {
-      expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('America/Los_Angeles');
-      useSkyStore.setState({ ...AUCKLAND_LATLNG(), at: '2026-06-23T13:00:00Z' });
-      const from = Date.parse('2026-06-22T13:00:00Z');
-      const to = Date.parse('2026-06-25T13:00:00Z');
-      FETCH.mock.mockResolvedValue(
-        fixture({
-          timezone: 'Pacific/Auckland',
-          window: { from: new Date(from).toISOString(), to: new Date(to).toISOString(), fromMs: from, toMs: to },
-          events: [
-            event('sun', 'rise', '2026-06-23T19:00:00Z'),
-            event('sun', 'transit', '2026-06-24T01:00:00Z'),
-            event('sun', 'set', '2026-06-25T13:00:00Z'),
-          ],
-        }),
-      );
-      mount();
-      await flush();
-      const sun = byTestId('sky-events-sun-row')?.textContent ?? '';
-      expect(sun).toContain('on Fri');
-      expect(sun).not.toContain('on Thu');
-    } finally {
-      if (previous === undefined) delete process.env.TZ;
-      else process.env.TZ = previous;
-    }
+    useSkyStore.setState({ ...KIRITIMATI_LATLNG(), at: '2026-06-23T10:30:00Z' });
+    const from = Date.parse('2026-06-22T10:30:00Z');
+    const to = Date.parse('2026-06-25T10:30:00Z');
+    FETCH.mock.mockResolvedValue(
+      fixture({
+        timezone: 'Pacific/Kiritimati',
+        window: { from: new Date(from).toISOString(), to: new Date(to).toISOString(), fromMs: from, toMs: to },
+        events: [
+          event('sun', 'transit', '2026-06-24T09:30:00Z'),
+          event('sun', 'rise', '2026-06-24T16:00:00Z'),
+          // 2026-06-25T10:30Z is Friday 00:30 in Kiritimati (UTC+14) and Thursday
+          // in UTC (10:30), Los Angeles (03:30) and Auckland (22:30).
+          event('sun', 'set', '2026-06-25T10:30:00Z'),
+        ],
+      }),
+    );
+    mount();
+    await flush();
+    const sun = byTestId('sky-events-sun-row')?.textContent ?? '';
+    expect(sun).toContain('on Fri');
+    expect(sun).not.toContain('on Thu');
   });
 
   it('decides today/tomorrow at the observer midnight, not the runtime one', async () => {
-    useSkyStore.setState({ ...AUCKLAND_LATLNG(), at: '2026-06-24T11:30:00Z' });
-    const from = Date.parse('2026-06-23T11:30:00Z');
-    const to = Date.parse('2026-06-26T11:30:00Z');
+    useSkyStore.setState({ ...KIRITIMATI_LATLNG(), at: '2026-06-24T09:30:00Z' });
+    const from = Date.parse('2026-06-23T09:30:00Z');
+    const to = Date.parse('2026-06-26T09:30:00Z');
     FETCH.mock.mockResolvedValue(
       fixture({
-        timezone: 'Pacific/Auckland',
+        timezone: 'Pacific/Kiritimati',
         window: { from: new Date(from).toISOString(), to: new Date(to).toISOString(), fromMs: from, toMs: to },
-        events: [event('sun', 'set', '2026-06-24T12:30:00Z')],
+        events: [event('sun', 'set', '2026-06-24T10:30:00Z')],
       }),
     );
     mount();
@@ -210,8 +204,8 @@ describe('W7-3d fixes', () => {
   });
 });
 
-function AUCKLAND_LATLNG() {
-  return { lat: AUCKLAND.latitude, lng: AUCKLAND.longitude };
+function KIRITIMATI_LATLNG() {
+  return { lat: KIRITIMATI.latitude, lng: KIRITIMATI.longitude };
 }
 
 describe('the readout', () => {

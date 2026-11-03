@@ -58,18 +58,50 @@ function stubContext(): { styles: string[]; ctx: CanvasRenderingContext2D } {
   return { styles, ctx: ctx as unknown as CanvasRenderingContext2D };
 }
 
+/** A cast-free getContext stub: a recorded 2D-overload stand-in with explicit restore. */
+interface GetContextSpy {
+  mockReturnValue(value: unknown): void;
+  mockImplementation(implementation: (...args: unknown[]) => unknown): void;
+  restore(): void;
+}
+function spyGetContext(): GetContextSpy {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
+  if (descriptor === undefined) throw new Error('HTMLCanvasElement.getContext descriptor missing');
+  let impl: (...args: unknown[]) => unknown = () => null;
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+    configurable: true,
+    writable: true,
+    value: (contextId: string, ...rest: unknown[]) => impl(contextId, ...rest),
+  });
+  return {
+    mockReturnValue(value: unknown) {
+      impl = () => value;
+    },
+    mockImplementation(fn: (...args: unknown[]) => unknown) {
+      impl = fn;
+    },
+    restore() {
+      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', descriptor);
+    },
+  };
+}
+
 describe('earth texture cache', () => {
   let styles: string[] = [];
+  let ctxSpy: GetContextSpy | null = null;
 
   beforeEach(() => {
     const stub = stubContext();
     styles = stub.styles;
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => stub.ctx);
+    ctxSpy = spyGetContext();
+    ctxSpy.mockImplementation(() => stub.ctx);
     loadLand.mockReset();
     loadLand.mockResolvedValue(TINY_LAND);
   });
 
   afterEach(() => {
+    ctxSpy?.restore();
+    ctxSpy = null;
     releaseEarthTexture();
     releaseEarthTexture();
     releaseEarthTexture();
